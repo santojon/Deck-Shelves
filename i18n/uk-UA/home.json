@@ -20,6 +20,10 @@
   "view_more_store": "Більше\nу магазині",
   "view_more_wishlist": "Більше у\nсписку бажань",
   "view_release": "Переглянути випуск",
+  "download_update": "Завантажити оновлення",
+  "update_downloading": "Завантаження оновлення {{version}}…",
+  "update_downloaded": "Збережено в {{path}} — установіть вручну.",
+  "update_download_failed": "Помилка завантаження — відкривається сторінка випуску.",
   "shelf_type_normal": "Normal",
   "shelf_type_smart": "Smart"
 }

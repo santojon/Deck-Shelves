@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { DialogButton, Focusable } from "../../runtime/host/decky";
 import type { SettingsController } from "../../features/settings/controller";
-import { checkForUpdate, __resetUpdateCheckCache, openReleaseUrl, type UpdateCheckResult } from "../../core/updateNotifier";
+import { checkForUpdate, __resetUpdateCheckCache, type UpdateCheckResult } from "../../core/updateNotifier";
+import { downloadUpdate } from "../../runtime/updateDownload";
 import { isOnline } from "../../core/connectivity";
 import { logInfo } from "../../runtime/logger";
 
@@ -41,7 +42,7 @@ export function UpdateBanner({ controller }: { controller: SettingsController })
   if (!result?.hasUpdate || !result.latestVersion) return null;
   if (dismissed && dismissed === result.latestVersion) return null;
 
-  const open = () => openReleaseUrl(result.releaseUrl);
+  const open = () => { void downloadUpdate(result); };
   const dismiss = () => { if (result.latestVersion) actions.dismissUpdateNotice(result.latestVersion); };
 
   return (
@@ -67,7 +68,7 @@ export function UpdateBanner({ controller }: { controller: SettingsController })
           onClick={open}
           style={{ flex: 1, padding: "4px 8px", fontSize: 12, minWidth: 0 }}
         >
-          {t("view_release")}
+          {t("download_update")}
         </DialogButton>
         <DialogButton
           onClick={dismiss}

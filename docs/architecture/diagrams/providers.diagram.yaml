@@ -1,0 +1,62 @@
+# diagrams-as-code definition — the provider registration flow.
+# Render locally with: diagrams-as-code docs/architecture/diagrams/providers.diagram.yaml
+# (requires Graphviz + `pip install diagrams-as-code`). Adapt `resource` values
+# against https://github.com/dmytrostriletskyi/diagrams-as-code for the exact schema.
+diagram:
+  name: Provider registration flow
+  file_name: providers
+  format: svg
+  direction: left-to-right
+
+  clusters:
+    - id: external
+      name: External plugins
+      nodes:
+        - id: ext_source
+          name: Shelf source
+          resource:
+            provider: generic
+            name: blank
+            type: Blank
+        - id: ext_filter
+          name: Filter type
+          resource:
+            provider: generic
+            name: blank
+            type: Blank
+
+    - id: deckshelves
+      name: Deck Shelves
+      nodes:
+        - id: public_api
+          name: "@deck-shelves/api"
+          resource:
+            provider: generic
+            name: blank
+            type: Blank
+        - id: registry
+          name: internalRegistry
+          resource:
+            provider: generic
+            name: blank
+            type: Blank
+        - id: resolver
+          name: shelf resolver
+          resource:
+            provider: generic
+            name: blank
+            type: Blank
+
+  edges:
+    - from: ext_source
+      to: public_api
+      label: register
+    - from: ext_filter
+      to: public_api
+      label: register
+    - from: public_api
+      to: registry
+      label: record
+    - from: registry
+      to: resolver
+      label: resolve

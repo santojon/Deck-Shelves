@@ -26,7 +26,8 @@ import "./core/internalRegistry";
 import { logDiagnostic } from "./runtime/diagnostics";
 import { prefetchSteamOSVersion } from "./core/steamOSVersion";
 import { prewarmUserPaths } from "./core/userPaths";
-import { checkForUpdate, __resetUpdateCheckCache, openReleaseUrl } from "./core/updateNotifier";
+import { checkForUpdate, __resetUpdateCheckCache } from "./core/updateNotifier";
+import { downloadUpdate } from "./runtime/updateDownload";
 import { invalidateRandomSortCache } from "./steam";
 import { pruneCache as pruneImageCache, hydrateHotCacheFromStorage } from "./core/imageCache";
 import { isOnline } from "./core/connectivity";
@@ -233,7 +234,7 @@ export default definePlugin((serverAPI?: any) => {
         probe({ step: 'firing-toast' });
         notify("update", {
           body: i18next.t("update_available", { version: r.latestVersion }),
-          onClick: () => openReleaseUrl(r.releaseUrl),
+          onClick: () => { void downloadUpdate(r); },
         });
         probe({ step: 'toast-fired' });
       } else {

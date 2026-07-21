@@ -192,13 +192,16 @@ describe("Connectivity helper — TTL cache", () => {
 });
 
 describe("Online sort/filter gating", () => {
-  // Pins the `requiresOnline` flag on price/discount sorts so they can be
-  // hidden from non-online source pickers (EditShelfModal switches the
-  // dropdown contents based on this flag).
-  it("price/discount sorts carry requiresOnline=true", async () => {
+  // Pins the `requiresOnline` flag on the online-only sorts (price/discount +
+  // the friends-signal v3 sorts) so they can be hidden from non-online source
+  // pickers (EditShelfModal switches the dropdown contents based on this flag).
+  it("online-only sorts carry requiresOnline=true", async () => {
     const { SORT_OPTIONS } = await import("../components/qam/modals/editShelf/constants");
     const online = SORT_OPTIONS.filter((o) => (o as any).requiresOnline).map((o) => o.value).sort();
-    expect(online).toEqual(["discount_high", "original_price_high", "price_low"]);
+    expect(online).toEqual([
+      "discount_high", "friends_playing_now", "most_friends_owning",
+      "original_price_high", "price_low", "trending_among_friends",
+    ]);
   });
 
   // Mirror check for the filter side — only `discount` is gated as online.

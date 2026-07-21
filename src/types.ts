@@ -32,6 +32,20 @@ export const FilterItemTypeSchema = z.enum([
   "appStatus",
   "discount",
   "priceRange",
+  "familySharing",
+  // Filter v3 — param-free predicates (evaluators in steam/v3Extensions.ts).
+  "vrSupport",
+  "soundtrackOwned",
+  "neverCompleted",
+  "installedNeverPlayed",
+  "compatDataQuality",
+  "emuDeckSystem",
+  "retroDeckSystem",
+  "heroicLauncher",
+  "lutrisApp",
+  "chiakiApp",
+  "moonlightApp",
+  "hiddenLauncherShortcuts",
 ]);
 export type FilterItemType = z.infer<typeof FilterItemTypeSchema>;
 

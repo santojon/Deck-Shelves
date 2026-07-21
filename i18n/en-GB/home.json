@@ -20,6 +20,10 @@
   "view_more_store": "View more\nin the\nStore",
   "view_more_wishlist": "View more\nin your\nWishlist",
   "view_release": "View release",
+  "download_update": "Download update",
+  "update_downloading": "Downloading update {{version}}…",
+  "update_downloaded": "Saved to {{path}} — install it manually.",
+  "update_download_failed": "Download failed — opening the release page instead.",
   "shelf_type_normal": "Normal",
   "shelf_type_smart": "Smart"
 }

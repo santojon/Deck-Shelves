@@ -20,6 +20,10 @@
   "view_more_store": "Meer in\nde Winkel",
   "view_more_wishlist": "Meer in de\nverlanglijst",
   "view_release": "Release bekijken",
+  "download_update": "Update downloaden",
+  "update_downloading": "Update {{version}} wordt gedownload…",
+  "update_downloaded": "Opgeslagen in {{path}} — installeer het handmatig.",
+  "update_download_failed": "Downloaden mislukt — de release-pagina wordt geopend.",
   "shelf_type_normal": "Normal",
   "shelf_type_smart": "Smart"
 }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import {
   ConfirmModal,
   Field,
@@ -825,7 +825,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
     return getExternalImportTypesForTarget(target).map((d) => ({
       id: d.id,
       label: descriptorName(t, d),
-      icon: d.icon ?? icons.import,
+      icon: (d.icon as ReactNode) ?? icons.import,
       okDescription: descriptorName(t, d),
       onActivate: async () => {
         if (typeof d.runImport === 'function') { try { await d.runImport() } catch {} return }

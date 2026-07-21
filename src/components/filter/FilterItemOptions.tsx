@@ -198,6 +198,7 @@ const RENDERERS: Record<string, (c: OptCtx) => ReactNode> = {
   publisher: ({ p, patchParams }) => <PublisherFilterOptions selected={Array.isArray(p.publishers) ? p.publishers : []} onChange={(pubs) => patchParams({ publishers: pubs })} />,
   friends: ({ t }) => <div>{dimHint(t("filter_friends_info"))}</div>,
   achievements: ({ t }) => <div>{dimHint(t("filter_achievements_info"))}</div>,
+  familySharing: ({ t }) => <div>{dimHint(t("filter_family_sharing_info"))}</div>,
   friendsPlayingNow: ({ t }) => <div>{dimHint(t("filter_friends_playing_now_info"))}</div>,
   friendsPlayedRecently: ({ t, p, patchParams }) => (
     <>

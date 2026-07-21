@@ -20,6 +20,10 @@
   "view_more_store": "查看更多\n在商店",
   "view_more_wishlist": "查看更多\n在願望清單",
   "view_release": "查看發行",
+  "download_update": "下載更新",
+  "update_downloading": "正在下載更新 {{version}}…",
+  "update_downloaded": "已儲存至 {{path}} — 請手動安裝。",
+  "update_download_failed": "下載失敗 — 改為開啟發佈頁面。",
   "shelf_type_normal": "Normal",
   "shelf_type_smart": "Smart"
 }

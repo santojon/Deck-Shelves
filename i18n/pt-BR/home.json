@@ -20,6 +20,10 @@
   "view_more_store": "Ver mais\nna\nLoja",
   "view_more_wishlist": "Ver mais\nna Lista\nde Desejos",
   "view_release": "Ver versão",
+  "download_update": "Baixar atualização",
+  "update_downloading": "Baixando a atualização {{version}}…",
+  "update_downloaded": "Salvo em {{path}} — instale manualmente.",
+  "update_download_failed": "Falha no download — abrindo a página da versão.",
   "shelf_type_normal": "Normal",
   "shelf_type_smart": "Inteligente"
 }

@@ -56,6 +56,47 @@ def _redact_secrets(text: str) -> str:
                   flags=re.IGNORECASE)
 
 
+# Only GitHub release-asset hosts are accepted for the manual-update download —
+# never an arbitrary URL from the frontend. github.com serves the release page /
+# redirect; objects.githubusercontent.com is where the asset bytes actually live.
+_RELEASE_ASSET_HOSTS = ("github.com", "objects.githubusercontent.com", "release-assets.githubusercontent.com")
+
+
+def _is_github_asset_url(url: str) -> bool:
+    try:
+        from urllib.parse import urlsplit
+        p = urlsplit(url)
+        host = (p.hostname or "").lower()
+        return p.scheme == "https" and (host in _RELEASE_ASSET_HOSTS or host.endswith(".githubusercontent.com"))
+    except Exception:
+        return False
+
+
+def _safe_zip_name(name: str) -> str:
+    """Reduce a caller-supplied filename to a bare basename ending in .zip so it
+    can never escape the download dir (path traversal) or write an executable."""
+    base = os.path.basename((name or "").strip())
+    base = re.sub(r"[^A-Za-z0-9._-]", "", base)
+    if not base or not base.lower().endswith(".zip"):
+        return ""
+    return base
+
+
+def _download_to(url: str, dest: str) -> str:
+    """Blocking download (run off the asyncio loop). Streams to a .part file then
+    atomically renames, so a partial download never looks complete."""
+    req = urllib.request.Request(url, headers={"Accept": "application/octet-stream", "User-Agent": "Deck-Shelves"})
+    tmp = dest + ".part"
+    with urllib.request.urlopen(req, timeout=60, context=_SSL_CTX) as resp, open(tmp, "wb") as f:
+        while True:
+            chunk = resp.read(65536)
+            if not chunk:
+                break
+            f.write(chunk)
+    os.replace(tmp, dest)
+    return dest
+
+
 class Plugin:
     settings_dir: str = ""
 
@@ -340,6 +381,41 @@ class Plugin:
             if os.path.exists(candidate):
                 return candidate
         return os.path.expanduser("~")
+
+    async def download_release(self, url: str = "", filename: str = "", *args, **kwargs) -> Dict[str, Any]:
+        # Download a release .zip to the user's Downloads folder for MANUAL
+        # install (no auto-update). The frontend may deliver { url, filename } as
+        # a single positional dict (Decky arg quirk) — recover both fields. Only
+        # GitHub asset hosts are accepted, and the name is reduced to a safe
+        # basename so nothing escapes the download dir. The blocking fetch runs
+        # off the asyncio loop so the plugin process stays responsive.
+        _ = (args, kwargs)
+        if isinstance(url, dict):
+            filename = filename or str(url.get("filename") or "")
+            url = str(url.get("url") or "")
+        if not filename and isinstance(kwargs.get("filename"), str):
+            filename = kwargs.get("filename")
+        if not isinstance(url, str) or not _is_github_asset_url(url):
+            return {"ok": False, "error": "untrusted url"}
+        safe_name = _safe_zip_name(filename)
+        if not safe_name:
+            return {"ok": False, "error": "bad filename"}
+        dest = os.path.join(await self.get_user_desktop(), safe_name)
+        try:
+            loop = asyncio.get_event_loop()
+            saved = await loop.run_in_executor(None, _download_to, url, dest)
+            try:
+                decky.logger.info(f"download_release saved: {saved}")
+            except Exception:
+                pass
+            return {"ok": True, "path": saved}
+        except Exception as e:
+            msg = _redact_secrets(str(e))
+            try:
+                decky.logger.error(f"download_release failed: {msg}")
+            except Exception:
+                pass
+            return {"ok": False, "error": msg}
 
     async def list_launcher_games(self, launcher_id: str = "", *args, **kwargs) -> List[Dict[str, Any]]:
         _ = (args, kwargs)

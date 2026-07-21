@@ -30,10 +30,27 @@ export interface UpdateCheckResult {
   currentVersion: string;
   latestVersion: string | null;
   releaseUrl: string | null;
+  /** Direct download URL for the release .zip asset (manual-install download). */
+  assetUrl: string | null;
+  /** Bare filename of that asset, used as the download destination name. */
+  assetName: string | null;
   checkedAt: number;
 }
 
-interface CachedPayload { ts: number; latestVersion: string | null; releaseUrl: string | null; }
+interface CachedPayload {
+  ts: number;
+  latestVersion: string | null;
+  releaseUrl: string | null;
+  assetUrl: string | null;
+  assetName: string | null;
+}
+
+interface ReleaseInfo {
+  version: string | null;
+  url: string | null;
+  assetUrl: string | null;
+  assetName: string | null;
+}
 
 let inFlight: Promise<UpdateCheckResult> | null = null;
 
@@ -47,6 +64,8 @@ function readCache(key: string): CachedPayload | null {
       ts: parsed.ts,
       latestVersion: typeof parsed.latestVersion === "string" ? parsed.latestVersion : null,
       releaseUrl: typeof parsed.releaseUrl === "string" ? parsed.releaseUrl : null,
+      assetUrl: typeof parsed.assetUrl === "string" ? parsed.assetUrl : null,
+      assetName: typeof parsed.assetName === "string" ? parsed.assetName : null,
     };
   } catch {
     return null;
@@ -109,29 +128,61 @@ function comparePreRelease(a: string, b: string): number {
   return 0;
 }
 
-function buildResult(latestVersion: string | null, releaseUrl: string | null, ts: number): UpdateCheckResult {
+const EMPTY_INFO: ReleaseInfo = { version: null, url: null, assetUrl: null, assetName: null };
+
+function cachedInfo(c: CachedPayload): ReleaseInfo {
+  return { version: c.latestVersion, url: c.releaseUrl, assetUrl: c.assetUrl, assetName: c.assetName };
+}
+
+function buildResult(info: Pick<ReleaseInfo, "version" | "url" | "assetUrl" | "assetName">, ts: number): UpdateCheckResult {
   const current = (pkg as any).version ?? "0.0.0";
-  const hasUpdate = !!(latestVersion && compareSemver(latestVersion, current) > 0);
-  return { hasUpdate, currentVersion: current, latestVersion, releaseUrl, checkedAt: ts };
+  const hasUpdate = !!(info.version && compareSemver(info.version, current) > 0);
+  return {
+    hasUpdate,
+    currentVersion: current,
+    latestVersion: info.version,
+    releaseUrl: info.url,
+    assetUrl: info.assetUrl,
+    assetName: info.assetName,
+    checkedAt: ts,
+  };
+}
+
+/* Pick the first `.zip` asset off a release object's `assets[]` — the plugin
+   package the manual-update download saves to ~/Downloads. */
+function pickZipAsset(release: any): { assetUrl: string | null; assetName: string | null } {
+  const assets = Array.isArray(release?.assets) ? release.assets : [];
+  for (const a of assets) {
+    const name = typeof a?.name === "string" ? a.name : "";
+    if (!name.toLowerCase().endsWith(".zip")) continue;
+    const url = typeof a?.browser_download_url === "string" ? a.browser_download_url : "";
+    if (url) return { assetUrl: url, assetName: name };
+  }
+  return { assetUrl: null, assetName: null };
+}
+
+/* Normalize a single GitHub release object into ReleaseInfo, or null when it
+   is a draft / has no tag. Shared by the beta (array) and stable (single) paths. */
+function releaseInfoOf(r: any): ReleaseInfo | null {
+  if (r?.draft) return null;
+  const tag = typeof r?.tag_name === "string" ? r.tag_name.replace(/^v/, "") : null;
+  if (!tag) return null;
+  return { version: tag, url: typeof r?.html_url === "string" ? r.html_url : null, ...pickZipAsset(r) };
 }
 
 /* Pick the highest-precedence non-draft release from the `/releases` array
    (used by the beta channel, which includes pre-releases). */
-function pickNewestRelease(json: any): { version: string | null; url: string | null } {
-  if (!Array.isArray(json)) return { version: null, url: null };
-  let best: { version: string; url: string | null } | null = null;
+function pickNewestRelease(json: any): ReleaseInfo {
+  if (!Array.isArray(json)) return EMPTY_INFO;
+  let best: ReleaseInfo | null = null;
   for (const r of json) {
-    if (r?.draft) continue;
-    const tag = typeof r?.tag_name === "string" ? r.tag_name.replace(/^v/, "") : null;
-    if (!tag) continue;
-    if (!best || compareSemver(tag, best.version) > 0) {
-      best = { version: tag, url: typeof r?.html_url === "string" ? r.html_url : null };
-    }
+    const info = releaseInfoOf(r);
+    if (info && (!best || compareSemver(info.version as string, best.version as string) > 0)) best = info;
   }
-  return best ?? { version: null, url: null };
+  return best ?? EMPTY_INFO;
 }
 
-async function fetchLatest(beta: boolean): Promise<{ version: string | null; url: string | null }> {
+async function fetchLatest(beta: boolean): Promise<ReleaseInfo> {
   const ctrl = (typeof AbortController !== "undefined") ? new AbortController() : null;
   const timer = ctrl ? setTimeout(() => { try { ctrl.abort(); } catch {} }, FETCH_TIMEOUT_MS) : null;
   try {
@@ -141,16 +192,13 @@ async function fetchLatest(beta: boolean): Promise<{ version: string | null; url
       cache: "no-store",
       signal: ctrl?.signal,
     });
-    if (!res.ok) return { version: null, url: null };
+    if (!res.ok) return EMPTY_INFO;
     const json = await res.json();
     // Beta: `/releases` returns an array (incl. pre-releases) — pick the
-    // highest-precedence non-draft tag.
-    if (beta) return pickNewestRelease(json);
-    const tag = typeof json?.tag_name === "string" ? json.tag_name.replace(/^v/, "") : null;
-    const url = typeof json?.html_url === "string" ? json.html_url : null;
-    return { version: tag, url };
+    // highest-precedence non-draft tag. Stable: a single release object.
+    return (beta ? pickNewestRelease(json) : releaseInfoOf(json)) ?? EMPTY_INFO;
   } catch {
-    return { version: null, url: null };
+    return EMPTY_INFO;
   } finally {
     if (timer) clearTimeout(timer);
   }
@@ -166,7 +214,7 @@ export async function checkForUpdate(): Promise<UpdateCheckResult> {
     try {
       const { qaForcedUpdateResult } = require("../qa/harness");
       const forced = typeof qaForcedUpdateResult === "function" ? qaForcedUpdateResult() : null;
-      if (forced) return buildResult(forced.latestVersion, forced.releaseUrl, now);
+      if (forced) return buildResult({ version: forced.latestVersion, url: forced.releaseUrl, assetUrl: forced.assetUrl ?? null, assetName: forced.assetName ?? null }, now);
     } catch {}
   }
   const beta = readBetaChannel();
@@ -180,20 +228,20 @@ export async function checkForUpdate(): Promise<UpdateCheckResult> {
     try {
       const online = !isOfflineModeOn() && await isOnline();
       if (!online) {
-        if (cached) return buildResult(cached.latestVersion, cached.releaseUrl, cached.ts);
-        return buildResult(null, null, now);
+        if (cached) return buildResult(cachedInfo(cached), cached.ts);
+        return buildResult(EMPTY_INFO, now);
       }
-      const { version, url } = await fetchLatest(beta);
-      if (version) {
-        writeCache(ck, { ts: Date.now(), latestVersion: version, releaseUrl: url });
-        return buildResult(version, url, Date.now());
+      const info = await fetchLatest(beta);
+      if (info.version) {
+        writeCache(ck, { ts: Date.now(), latestVersion: info.version, releaseUrl: info.url, assetUrl: info.assetUrl, assetName: info.assetName });
+        return buildResult(info, Date.now());
       }
-      if (cached) return buildResult(cached.latestVersion, cached.releaseUrl, cached.ts);
-      return buildResult(null, null, now);
+      if (cached) return buildResult(cachedInfo(cached), cached.ts);
+      return buildResult(EMPTY_INFO, now);
     } catch (e) {
       logInfo("UPDATE", "checkForUpdate failed", String(e));
-      if (cached) return buildResult(cached.latestVersion, cached.releaseUrl, cached.ts);
-      return buildResult(null, null, now);
+      if (cached) return buildResult(cachedInfo(cached), cached.ts);
+      return buildResult(EMPTY_INFO, now);
     } finally {
       inFlight = null;
     }

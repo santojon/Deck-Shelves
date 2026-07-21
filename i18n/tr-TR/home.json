@@ -20,6 +20,10 @@
   "view_more_store": "Mağazada\ndaha fazla",
   "view_more_wishlist": "İstek\nlistesinde daha\nfazla",
   "view_release": "Sürümü görüntüle",
+  "download_update": "Güncellemeyi indir",
+  "update_downloading": "{{version}} güncellemesi indiriliyor…",
+  "update_downloaded": "{{path}} konumuna kaydedildi — elle yükleyin.",
+  "update_download_failed": "İndirme başarısız — sürüm sayfası açılıyor.",
   "shelf_type_normal": "Normal",
   "shelf_type_smart": "Smart"
 }

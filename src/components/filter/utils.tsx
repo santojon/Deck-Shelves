@@ -32,6 +32,19 @@ export const ALL_FILTER_TYPES: FilterItemType[] = [
   "appStatus",
   "discount",
   "priceRange",
+  "familySharing",
+  "vrSupport",
+  "soundtrackOwned",
+  "neverCompleted",
+  "installedNeverPlayed",
+  "compatDataQuality",
+  "emuDeckSystem",
+  "retroDeckSystem",
+  "heroicLauncher",
+  "lutrisApp",
+  "chiakiApp",
+  "moonlightApp",
+  "hiddenLauncherShortcuts",
 ];
 
 export const COMPAT_LEVELS = ["verified", "playable", "unsupported", "unknown"] as const;
@@ -147,6 +160,19 @@ export function getTypeLabel(type: FilterItemType): string {
     appStatus: t("filter_type_app_status"),
     discount: t("filter_type_discount"),
     priceRange: t("filter_type_price_range"),
+    familySharing: t("filter_type_family_sharing"),
+    vrSupport: t("filter_type_vr_support"),
+    soundtrackOwned: t("filter_type_soundtrack_owned"),
+    neverCompleted: t("filter_type_never_completed"),
+    installedNeverPlayed: t("filter_type_installed_never_played"),
+    compatDataQuality: t("filter_type_compat_data_quality"),
+    emuDeckSystem: "EmuDeck",
+    retroDeckSystem: "RetroDECK",
+    heroicLauncher: "Heroic",
+    lutrisApp: "Lutris",
+    chiakiApp: "Chiaki",
+    moonlightApp: "Moonlight",
+    hiddenLauncherShortcuts: t("filter_type_hidden_launcher_shortcuts"),
   };
   return map[type] ?? type;
 }
