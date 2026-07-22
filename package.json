@@ -19,6 +19,7 @@
     "lint:js:prune": "eslint --no-warn-ignored --prune-suppressions 'src/**/*.{ts,tsx}'",
     "lint:py": "node scripts/build/py.mjs -m ruff check main.py scripts/ && node scripts/build/py.mjs scripts/build/check-py-file-size.py",
     "lint:py:size": "node scripts/build/py.mjs scripts/build/check-py-file-size.py",
+    "docs:check": "node scripts/ci/docs-check.mjs",
     "lint": "pnpm run lint:js && pnpm run lint:py",
     "upgrade": "node scripts/build/upgrade-pnpm.cjs && pnpm --version",
     "upgrade:api": "cd api && node scripts/upgrade-pnpm.cjs && pnpm --version",

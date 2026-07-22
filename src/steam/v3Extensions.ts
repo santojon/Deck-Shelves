@@ -32,7 +32,10 @@ function parseLaunchOptions(appid: number): string[] {
   return raw.split(/\s+/).filter(Boolean);
 }
 
-export type FilterEvaluator = (item: any, app: AppOverview) => boolean;
+/** Evaluates one child filter item of any type — supplied by the caller so the
+ *  composites can reach the host's full evaluator without a module cycle. */
+export type ChildEvaluator = (item: any, app: AppOverview) => boolean;
+export type FilterEvaluator = (item: any, app: AppOverview, evalChild?: ChildEvaluator) => boolean;
 
 function evalGenres(item: any, app: AppOverview): boolean {
   const want: string[] = Array.isArray(item.params?.genres) ? item.params.genres.map((g: string) => String(g).toLowerCase()) : [];
@@ -235,36 +238,47 @@ function evalHiddenLauncherShortcuts(_item: any, app: AppOverview): boolean {
   return isNonSteamOf(app) && (app as any).is_hidden === true;
 }
 
-function evalWeighted(item: any, app: AppOverview): boolean {
-  // Treat as OR but require sum-of-weights ≥ threshold.
-  const children: any[] = Array.isArray(item.params?.children) ? item.params.children : [];
+/* Composite children can be ANY filter type (base + v3). The caller passes the
+   host's full evaluator in (see `evalDefault` in steam/index.ts) rather than
+   this module importing it back — that would be a cycle. `_compositeDepth`
+   bounds the recursion so a pathological self-referential tree can't spin. */
+let _compositeDepth = 0;
+function runChild(child: any, app: AppOverview, evalChild?: ChildEvaluator): boolean {
+  if (!evalChild || !child || typeof child.type !== "string") return false;
+  if (_compositeDepth >= 6) return false;
+  _compositeDepth++;
+  try {
+    return evalChild(child, app);
+  } catch {
+    return false;
+  } finally {
+    _compositeDepth--;
+  }
+}
+
+function childrenOf(item: any): any[] {
+  return Array.isArray(item.params?.children) ? item.params.children : [];
+}
+
+function evalWeighted(item: any, app: AppOverview, evalChild?: ChildEvaluator): boolean {
+  // Sum the weights of matching children; pass when the sum ≥ threshold. With
+  // the default weight of 1 this reads as "at least N of these conditions".
   const threshold = Number(item.params?.threshold ?? 1);
   let sum = 0;
-  for (const c of children) {
-    const w = Number(c.weight ?? 1);
-    const evaluator = FILTER_V3_EVALUATORS[c.type] ?? null;
-    if (evaluator && evaluator(c, app)) sum += w;
+  for (const c of childrenOf(item)) {
+    if (runChild(c, app, evalChild)) sum += Number(c.weight ?? 1);
   }
   return sum >= threshold;
 }
 
-function evalPriority(item: any, app: AppOverview): boolean {
-  // First child that matches wins (and reports true).
-  const children: any[] = Array.isArray(item.params?.children) ? item.params.children : [];
-  for (const c of children) {
-    const evaluator = FILTER_V3_EVALUATORS[c.type] ?? null;
-    if (evaluator && evaluator(c, app)) return true;
-  }
-  return false;
+function evalPriority(item: any, app: AppOverview, evalChild?: ChildEvaluator): boolean {
+  // First child that matches wins (boolean: matches if ANY child matches).
+  return childrenOf(item).some((c) => runChild(c, app, evalChild));
 }
 
-function evalExclusionGroup(item: any, app: AppOverview): boolean {
+function evalExclusionGroup(item: any, app: AppOverview, evalChild?: ChildEvaluator): boolean {
   // ANY child matches → exclude (returns false).
-  const children: any[] = Array.isArray(item.params?.children) ? item.params.children : [];
-  return !children.some((c) => {
-    const evaluator = FILTER_V3_EVALUATORS[c.type] ?? null;
-    return evaluator ? evaluator(c, app) : false;
-  });
+  return !childrenOf(item).some((c) => runChild(c, app, evalChild));
 }
 
 export const FILTER_V3_EVALUATORS: Record<string, FilterEvaluator> = {

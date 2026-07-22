@@ -7,8 +7,8 @@
 
 [![CI](https://github.com/santojon/Deck-Shelves/actions/workflows/ci.yml/badge.svg)](https://github.com/santojon/Deck-Shelves/actions/workflows/ci.yml)
 [![Release](https://github.com/santojon/Deck-Shelves/actions/workflows/release.yml/badge.svg)](https://github.com/santojon/Deck-Shelves/actions/workflows/release.yml)
-[![Tests](https://img.shields.io/badge/vitest-655%20passed-brightgreen?logo=vitest&logoColor=white)](src/test/)
-[![pytest](https://img.shields.io/badge/pytest-107%20passed-brightgreen?logo=pytest&logoColor=white)](src/test/test_main.py)
+[![Tests](https://img.shields.io/badge/vitest-721%20passed-brightgreen?logo=vitest&logoColor=white)](src/test/)
+[![pytest](https://img.shields.io/badge/pytest-122%20passed-brightgreen?logo=pytest&logoColor=white)](src/test/test_main.py)
 [![TypeCheck](https://img.shields.io/badge/typecheck-clean-brightgreen?logo=typescript&logoColor=white)](tsconfig.json)
 [![Compatibility](https://img.shields.io/badge/checks-39%2F39-brightgreen?logo=steamdeck&logoColor=white)](scripts/build/validate-compat.mjs)
 [![Platform](https://img.shields.io/badge/platform-SteamOS%20%C2%B7%20Linux%20%C2%B7%20Windows-purple?logo=steamdeck&logoColor=white)](https://github.com/ValveSoftware/SteamOS)
@@ -154,16 +154,21 @@ A full visual tour — home, QAM, shelf editor, smart shelves, About docs and mo
 
 ## Documentation
 
+Everything lives in **[docs/](docs/README.md)** — start there for the full index.
+
 - [Screenshots / showcase](docs/showcase.md) — full visual tour of every surface
-- [Architecture](docs/architecture.md) — project structure, data flow, key systems, Home internals
+- [Architecture](docs/architecture.md) — system overview, project structure, data flow, key systems, Home internals
 - [Plugin API](docs/plugin-api.md) — register custom shelf sources from other plugins
-- [Filter System](docs/filters.md) — filter types, groups, sort options
-- [Shelf Templates](docs/shelf-templates.md) — standard shelf template presets
-- [Smart Shelves](docs/smart-shelves.md) — all 15 smart shelf templates, criteria, and reliability
+- [Filter System](docs/filters.md) — filter types, groups, sort keys, built-in sources
+- [Shelf Templates](docs/shelf-templates.md) — standard and online shelf template presets
+- [Smart Shelves](docs/smart-shelves.md) — smart shelf templates, criteria, and reliability
+- [Online shelves](docs/online-shelves.md) — network-backed sources, caching and refresh
+- [Display modes](docs/display-modes.md) — what Normal / Light / Advanced show and hide
 - [Development Guide](docs/development.md) — setup, build commands, testing, conventions
 - [Webpack Classmap](docs/webpack-classmap.md) — runtime CSS class discovery
 - [Performance audit](docs/performance.md) — measurement methodology, hot paths, applied wins
 - [QA manual](docs/qa-manual.md) — manual regression checklist + QA harness flag reference
+- [Device inspection](docs/cdp.md) — inspecting the running plugin on a device
 
 ## Development
 

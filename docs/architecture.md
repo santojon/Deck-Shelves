@@ -1,10 +1,175 @@
 # Architecture
 
-Deck Shelves is a [Decky Loader](https://decky.xyz) plugin that injects custom game shelves into the Steam Deck home screen. This document describes the project structure and how the main systems connect.
+Deck Shelves is a plugin that injects custom game shelves into the Steam Deck home screen. This document describes the project structure and how the main systems connect.
 
 <p align="center">
   <img src="../assets/screenshots/home.png" alt="Deck Shelves shelves injected into the Steam Deck home" width="640">
 </p>
+
+## System overview
+
+### The plugin in its environment
+
+Deck Shelves runs inside Decky Loader, renders into Steam's Gaming Mode home
+screen, and reads from the local library plus a few optional external sources.
+
+```mermaid
+flowchart TB
+    user(["Steam Deck user<br/>Gaming Mode"])
+
+    subgraph deckshelves["Deck Shelves"]
+        plugin["Deck Shelves plugin<br/>custom Home-screen shelves"]
+    end
+
+    subgraph host["Host platform"]
+        decky["Decky Loader<br/>plugin runtime"]
+        steam["Steam client<br/>GamepadUI + app library"]
+    end
+
+    subgraph external["External data sources"]
+        launchers["Game launchers<br/>Heroic / EmuDeck / non-Steam"]
+        online["Online metadata<br/>store, wishlist, artwork"]
+        gh["GitHub Releases<br/>update check + download"]
+    end
+
+    subgraph optional["Optional companion plugins"]
+        css["CSS Loader themes"]
+        tabmaster["TabMaster / UnifiDeck / Non-Steam Badges"]
+    end
+
+    user -->|"browses shelves"| steam
+    steam -->|"Home screen"| plugin
+    decky -->|"loads, sandboxes"| plugin
+    plugin -->|"reads library, collections, artwork"| steam
+    plugin -->|"shortcuts + installed games"| launchers
+    plugin -->|"fetches metadata / prices"| online
+    plugin -->|"checks + downloads updates"| gh
+    plugin -.->|"adapts layout to"| css
+    plugin -.->|"reads tabs / filters from"| tabmaster
+
+    classDef ds fill:#dbeafe,stroke:#2563eb,stroke-width:2px,color:#12315e
+    classDef platform fill:#ede9fe,stroke:#7c3aed,color:#3b2a63
+    classDef ext fill:#fef3c7,stroke:#d97706,color:#5c3d0a
+    classDef opt fill:#f1f5f9,stroke:#94a3b8,color:#334155
+    classDef actor fill:#e0f2fe,stroke:#0284c7,color:#0c4a6e
+    class plugin ds
+    class decky,steam platform
+    class launchers,online,gh ext
+    class css,tabmaster opt
+    class user actor
+```
+
+### Runtime pieces
+
+The frontend runs in Steam's GamepadUI process (`SharedJSContext`); a small
+Python backend owns filesystem and outbound network access. Steam and Decky are
+reached only through the host adapter; external plugins register through the
+public API.
+
+```mermaid
+flowchart TB
+    subgraph gamepadui["Steam GamepadUI process — SharedJSContext"]
+        frontend["Frontend<br/>React UI + runtime patches"]
+        publicapi["Public plugin API<br/>@deck-shelves/api contract"]
+        hostadapter["Host adapter<br/>@deck-shelves/host contract"]
+    end
+
+    subgraph deckyproc["Decky Loader"]
+        backend["Python backend<br/>main.py RPC methods"]
+    end
+
+    subgraph disk["Local storage"]
+        settings[("Settings JSON<br/>shelves, profiles, filters")]
+        downloads[("~/Downloads<br/>update .zip")]
+    end
+
+    steam["Steam client APIs"]
+    net["GitHub / online sources"]
+
+    frontend -->|"register / read"| publicapi
+    frontend -->|"call capabilities"| hostadapter
+    hostadapter -->|"@decky/ui + @decky/api"| steam
+    frontend -->|"RPC call()"| backend
+    backend -->|"read / write"| settings
+    backend -->|"download release"| downloads
+    backend -->|"fetch metadata / releases"| net
+    frontend -->|"read library, collections, artwork"| steam
+
+    classDef ds fill:#dbeafe,stroke:#2563eb,stroke-width:2px,color:#12315e
+    classDef contract fill:#e0e7ff,stroke:#4f46e5,color:#26235c
+    classDef platform fill:#ede9fe,stroke:#7c3aed,color:#3b2a63
+    classDef data fill:#dcfce7,stroke:#16a34a,color:#14532d
+    classDef ext fill:#fef3c7,stroke:#d97706,color:#5c3d0a
+    class frontend,backend ds
+    class publicapi,hostadapter contract
+    class steam platform
+    class settings,downloads data
+    class net ext
+```
+
+### Frontend modules
+
+Work flows from a home render down to resolved shelf contents. Modules outlined
+in **red** are the sensitive ones — shelf resolution, refresh and the public API
+surface — where changes carry the most risk. `src/domain` (green) is pure logic
+with no side effects, and the state modules are event-driven with no polling.
+
+```mermaid
+flowchart TB
+    subgraph runtime["src/runtime"]
+        homepatch["homePatch<br/>injects shelves into Home"]
+        adapter["host/decky<br/>Steam + Decky adapter"]
+        state["deviceState / sessionState<br/>event-driven signals"]
+    end
+
+    subgraph components["src/components"]
+        shelf["shelf/*<br/>GameCard, rows"]
+        filter["filter/*<br/>filter editor"]
+        qam["qam/*<br/>Quick Access panel"]
+        about["about + settings pages"]
+    end
+
+    subgraph core["src/core"]
+        pluginapi["pluginApi<br/>public API surface"]
+        refresh["shelfRefresh<br/>debounced refresh"]
+        updates["updateNotifier + updateDownload"]
+    end
+
+    subgraph steamdir["src/steam"]
+        resolver["index<br/>shelf source resolvers"]
+        smart["smartShelves<br/>smart-shelf + visibility"]
+    end
+
+    domain["src/domain<br/>pure rules: filters, templates, triggers"]
+    store["src/store<br/>settingsStore global state"]
+    integrations["src/integrations<br/>TabMaster / UnifiDeck / ..."]
+
+    homepatch --> shelf
+    shelf --> refresh
+    refresh --> resolver
+    resolver --> smart
+    resolver --> domain
+    filter --> domain
+    qam --> store
+    about --> updates
+    pluginapi --> resolver
+    pluginapi --> store
+    integrations --> resolver
+    store -->|"reads/writes via"| adapter
+    resolver -->|"library data via"| adapter
+    smart --> state
+
+    classDef ui fill:#dbeafe,stroke:#2563eb,color:#12315e
+    classDef sensitive fill:#fee2e2,stroke:#dc2626,stroke-width:2px,color:#7f1d1d
+    classDef pure fill:#dcfce7,stroke:#16a34a,color:#14532d
+    classDef rt fill:#ede9fe,stroke:#7c3aed,color:#3b2a63
+    classDef ext fill:#fef3c7,stroke:#d97706,color:#5c3d0a
+    class shelf,filter,qam,about ui
+    class pluginapi,refresh,updates,resolver,smart sensitive
+    class domain pure
+    class homepatch,adapter,state,store rt
+    class integrations ext
+```
 
 ## Directory Structure
 

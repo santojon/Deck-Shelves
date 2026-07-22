@@ -94,6 +94,31 @@ pnpm run validate:compat
 
 Validates against 23 compatibility targets: Decky Loader versions, SteamOS versions, CSS Loader themes, and coexisting plugins.
 
+## Docs Check
+
+```bash
+pnpm run docs:check              # coverage + index + badges
+pnpm run docs:check --no-badges  # skip the test-count collectors
+```
+
+Runs in CI and fails the build when the docs drift from the code:
+
+- **Coverage** — every entry the UI exposes is documented: filter types
+  (`ALL_FILTER_TYPES` → [`filters.md`](./filters.md)), sort keys and built-in
+  sources (`SORT_OPTIONS` / `V3_SOURCE_OPTIONS` → `filters.md`), smart-shelf
+  modes (`SmartShelfModeSchema` → [`smart-shelves.md`](./smart-shelves.md)) and
+  shelf templates (`templates.ts` → [`shelf-templates.md`](./shelf-templates.md)).
+- **Index** — every file in `docs/` is listed in [`docs/README.md`](./README.md)
+  and all of its links resolve.
+- **Diagrams** — no HTML entities in diagram labels, fences balanced.
+- **Badges** — the hard-coded `vitest` / `pytest` counts in the root README match
+  the suites, collected with `vitest list` and `pytest --collect-only`.
+
+So when you expose a new filter, sort, source, smart mode or template, add it to
+the matching doc in the same change. If an extractor ever reports `0 ids`, the
+source moved — update the regex in `scripts/ci/docs-check.mjs` rather than
+letting the check pass hollow.
+
 ## Debug Flag
 
 > **Note:** the `debug` flag makes Decky reload the plugin automatically on each deploy — it must be absent from the final `plugin.json` submitted to the store. The deploy script handles this injection automatically; do not add the flag manually to the committed file.
@@ -255,3 +280,32 @@ edit. First-party integrations add `i18n/<locale>/integration-<name>.json`.
 - `camelCase` for variables, `PascalCase` for components/types
 - Changelog entries go under `## [Unreleased]` (never manually version)
 - PR titles must start with `[FIX]`, `[ENHANCEMENT]`, `[REFACTOR]`, `[CLEANUP]`, or `[FEATURE]`
+
+### Diagrams in docs
+
+Diagrams are written inline in the Markdown so they render on the repository
+page with no build step. Keep them consistent:
+
+- **Quote every label** — `id["Text"]`. Quoting is what lets a label hold `@`,
+  `()`, `/` or `·` safely.
+- **Never use HTML entities** (`&#64;`, `&amp;`). They render literally wherever
+  HTML labels are disabled, which is how the label ends up showing
+  `&#64;deck-shelves/api`. Write the real character inside quotes instead.
+  `docs:check` fails on this.
+- `<br/>` for line breaks is fine; keep node text to two short lines.
+- **Colour carries meaning**, and every class pairs a light fill with dark text
+  so it stays legible in both light and dark page themes:
+
+  | Class | Meaning | Fill / stroke |
+  |---|---|---|
+  | `ds` | Deck Shelves' own code | `#dbeafe` / `#2563eb` |
+  | `contract` | Published contracts (`api` / `host`) | `#e0e7ff` / `#4f46e5` |
+  | `platform` | Steam / Decky host | `#ede9fe` / `#7c3aed` |
+  | `data` | Local storage / caches | `#dcfce7` / `#16a34a` |
+  | `ext` | Network or third-party | `#fef3c7` / `#d97706` |
+  | `sensitive` | High-risk modules (thicker stroke) | `#fee2e2` / `#dc2626` |
+  | `opt` | Optional / inert | `#f1f5f9` / `#94a3b8` |
+
+- Say what a colour means in prose when it is load-bearing (as the
+  [architecture](./architecture.md) module diagram does for the red group) —
+  colour alone should never be the only signal.

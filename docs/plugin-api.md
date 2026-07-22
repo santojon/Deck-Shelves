@@ -7,12 +7,13 @@ separate **`@deck-shelves/api`** package and its repository:
 - npm: **`@deck-shelves/api`**
 - Full docs / source: **<https://github.com/santojon/Deck-Shelves-API>**
 
-That package is the single source of truth for the contract; the runtime in
-[`src/core/pluginApi.ts`](../src/core/pluginApi.ts) imports its canonical types
-and re-declares the interface against them. **This page only documents what is
-specific to the Deck Shelves runtime** — the globals it exposes, the providers
-it ships built-in, how the UI surfaces registrations, and the first-party ids
-third-party plugins may collide with.
+That package is the single source of truth for the contract: the runtime in
+[`src/core/pluginApi.ts`](../src/core/pluginApi.ts) declares no public types of
+its own — it imports and **re-exports** them from `@deck-shelves/api`, so the
+published contract and the running code cannot drift. **This page only documents
+what is specific to the Deck Shelves runtime** — the globals it exposes, the
+providers it ships built-in, how the UI surfaces registrations, and the
+first-party ids third-party plugins may collide with.
 
 ## Runtime globals
 
@@ -122,7 +123,12 @@ plugin targeting the same id overwrites the built-in implementation
 | Temporal | `newest_installed` · `oldest_installed` · `oldest_unplayed` · `newest_purchased` |
 | Storage | `largest_install` · `smallest_install` · `ssd_priority` · `sd_priority` |
 | Social | `friends_playing_now` · `most_friends_owning` · `trending_among_friends` |
-| Randomisation | `weighted_random` · `smart_random` · `seeded_random` · `rotating_daily_random` · `avoid_recently_shown` |
+| Randomisation _(reserved)_ | `weighted_random` · `smart_random` · `seeded_random` · `rotating_daily_random` · `avoid_recently_shown` |
+
+The **Randomisation** ids are reserved placeholders: their comparators are
+no-ops, so they are not offered in the shelf editor. Use `random` for a stable
+shuffle. Every other id above is selectable in the UI — see
+[`filters.md`](./filters.md) for what each one does and its parameters.
 
 ### Shelf Source Ecosystem v3
 

@@ -61,6 +61,9 @@ export const ALL_FILTER_TYPES: FilterItemType[] = [
   "launchOptionTags",
   "customTags",
   "parserCategories",
+  "weightedFilter",
+  "priorityFilter",
+  "exclusionGroup",
 ];
 
 export const COMPAT_LEVELS = ["verified", "playable", "unsupported", "unknown"] as const;
@@ -117,6 +120,9 @@ const DEFAULT_PARAMS: Partial<Record<FilterItemType, () => Record<string, any>>>
   launchOptionTags: () => ({ tags: [] }),
   customTags: () => ({ tags: [] }),
   parserCategories: () => ({ tags: [] }),
+  weightedFilter: () => ({ children: [], threshold: 1 }),
+  priorityFilter: () => ({ children: [] }),
+  exclusionGroup: () => ({ children: [] }),
 };
 
 export function defaultParams(type: FilterItemType): Record<string, any> {
@@ -221,6 +227,9 @@ export function getTypeLabel(type: FilterItemType): string {
     launchOptionTags: t("filter_type_launch_option_tags"),
     customTags: t("filter_type_custom_tags"),
     parserCategories: t("filter_type_parser_categories"),
+    weightedFilter: t("filter_type_weighted"),
+    priorityFilter: t("filter_type_priority"),
+    exclusionGroup: t("filter_type_exclusion"),
   };
   return map[type] ?? type;
 }

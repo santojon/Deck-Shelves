@@ -63,6 +63,10 @@ export const FilterItemTypeSchema = z.enum([
   "launchOptionTags",
   "customTags",
   "parserCategories",
+  // Filter v3 — composites: combine other filter items (nested editor).
+  "weightedFilter",
+  "priorityFilter",
+  "exclusionGroup",
 ]);
 export type FilterItemType = z.infer<typeof FilterItemTypeSchema>;
 

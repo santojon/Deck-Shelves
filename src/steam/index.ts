@@ -2439,7 +2439,9 @@ function evalDefault(item: FilterItem, app: AppOverview): boolean {
   try {
     const { FILTER_V3_EVALUATORS } = require("./v3Extensions") as typeof import("./v3Extensions");
     const v3 = FILTER_V3_EVALUATORS[item.type as string];
-    if (v3) return v3(item, app);
+    // Pass the full evaluator so composite v3 filters can evaluate children of
+    // ANY type (base + v3) without importing this module back.
+    if (v3) return v3(item, app, (child, childApp) => evaluateFilterItem(child, childApp));
   } catch { /* fall through */ }
   // External plugin filter or unknown type. Unknown + unregistered →
   // pass-through (true) so an unregistered plugin filter doesn't hide
@@ -2452,7 +2454,7 @@ function evalDefault(item: FilterItem, app: AppOverview): boolean {
   return true;
 }
 
-function evaluateFilterItem(item: FilterItem, app: AppOverview, ctx?: FilterEvalContext): boolean {
+export function evaluateFilterItem(item: FilterItem, app: AppOverview, ctx?: FilterEvalContext): boolean {
   const evaluator = FILTER_EVALUATORS[item.type] ?? evalDefault;
   const result = evaluator(item, app, ctx);
   return item.inverted ? !result : result;
