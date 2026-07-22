@@ -175,7 +175,7 @@ flowchart TB
 
 ```
 src/
-├── index.tsx Plugin entry point (Decky lifecycle)
+├── index.tsx Plugin entry point
 ├── types.ts Zod schemas: Shelf, Settings, FilterGroup
 ├── i18n.ts i18next initialization
 │
@@ -333,7 +333,7 @@ main.py Python entry: DEFAULT_SETTINGS, _SSL_CTX, Plugin class
 paths.py _steam_install_candidates, _normalize_path
  (path discovery + home-confined validation)
 storage.py _settings_dir, _primary_file, _safe_read_json
- (settings.json read helpers, Decky env-var aware)
+ (settings.json read helpers, env-var aware)
 sanitizer.py _sanitize_settings (settings-shape normaliser,
  mirrors the Zod schemas in src/types.ts)
 launchers.py External launcher discovery probe :
@@ -342,7 +342,7 @@ launchers.py External launcher discovery probe :
  every helper degrades to [] on missing dir / parse
  error. Exposed via Plugin RPCs
  list_available_launchers + list_launcher_games.
-plugin.json Decky plugin manifest
+plugin.json Plugin manifest
 ```
 
 ## Data Flow

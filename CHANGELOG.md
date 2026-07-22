@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Every filter, sort and built-in source is now selectable.** The Filter v3, Sort v3 and Source Ecosystem v3 families shipped as registered implementations that no picker ever offered. All of them are reachable: **62 filter types** — each with a parameter editor where it needs one and **every one invertible** — **36 sort keys**, and **19 built-in sources** offered through a new **Built-in source** entry in the shelf editor ([`utils.tsx`](src/components/filter/utils.tsx), [`FilterItemOptions.tsx`](src/components/filter/FilterItemOptions.tsx), [`constants.ts`](src/components/qam/modals/editShelf/constants.ts)). This covers library and metadata filters (genres, categories, franchise, VR, multiplayer type, family sharing, DLC and soundtrack ownership), usage and progress (launch count, average session, achievement percentage, never completed, installed-but-never-played, played once, recently abandoned), storage (device, installed size) and non-Steam shortcuts (EmuDeck, RetroDECK, Heroic, Lutris, Chiaki, Moonlight, hidden shortcuts, executable type, launch-option and custom tags). Built-in sources include dynamic collections, followed and ignored games, DLC, soundtracks, pinned games, play history, session and temporary queues, recently updated, entries with events or workshop updates, full-controller-support titles, and each launcher's library.
+- **Composite filters combine any condition.** `weightedFilter`, `priorityFilter` and `exclusionGroup` now evaluate children of **any** filter type — previously only the v3 families were recognised and a child such as "installed" was silently ignored ([`v3Extensions.ts`](src/steam/v3Extensions.ts), [`CompositeFilterOptions.tsx`](src/components/filter/CompositeFilterOptions.tsx)). `weightedFilter` reads as "match when at least N of these conditions hold" and supports a per-child weight; nesting is depth-capped.
+- **Release notes for the version you are running** are linked from the About page, alongside the existing community links ([`SupportPage.tsx`](src/components/about/SupportPage.tsx)).
+
+### Changed
+
+- **Update notifications download the package.** The update banner, the header icon and the update toast now fetch the release `.zip` into your Downloads folder (or the closest equivalent for your system) instead of only opening the release page — the download icon previously just navigated. Installing stays manual and there is still no auto-update ([`updateNotifier.ts`](src/core/updateNotifier.ts), [`updateDownload.ts`](src/runtime/updateDownload.ts), [`main.py`](main.py) `download_release`). The transfer accepts only GitHub release hosts over `https`, writes a sanitised `.zip` filename, streams to a temporary file and renames it atomically, and runs off the main loop.
+- **The public API package is the single definition of the contract.** [`pluginApi.ts`](src/core/pluginApi.ts) no longer declares any public type of its own — it re-exports all of them from `@deck-shelves/api`, so the published contract and the running code cannot drift. Two published shapes were corrected to match what the plugin has always emitted and called: a shelf's collection source is `{ type: "collection", collectionId }`, and a smart-source resolver is `resolve(limit, params?)`. Runtime behaviour is unchanged and `api.version` stays `4`.
+
+### Fixed
+
+- **The architecture diagram rendered as raw markup.** Diagram labels used HTML entities, which appear literally (`&#64;deck-shelves/api`) wherever the renderer has HTML labels disabled ([`architecture.md`](docs/architecture.md)).
+- **Documentation gaps.** Five smart-shelf modes and six shelf templates were undocumented, the filter reference was missing types that already shipped, and the README test-count badges were 66 runs behind. A `docs:check` gate now fails the build when a newly exposed filter, sort, source, smart mode or template goes undocumented, when the documentation index misses a page or breaks a link, or when the badges drift ([`docs-check.mjs`](scripts/ci/docs-check.mjs)).
+
 ## [3.1.0] - 2026-07-20
 
 ### Added
