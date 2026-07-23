@@ -111,22 +111,26 @@ for (const file of docFiles) {
 if (!failures.some((f) => f.startsWith("Diagrams:"))) ok.push(`Diagrams: ${diagrams} block(s) clean (no HTML entities, fences balanced)`);
 
 // ------------------------------------------------------------------ 4. icon sync
-/* The DeckShelvesLogo mark is inlined as JSX in icons.tsx (not imported from the
-   .svg, to avoid raw-HTML injection), so it can drift from assets/icon.svg.
-   Guard that every book/shelf rect and the fit transform match across the two. */
+/* The plugin marks are inlined as JSX (not imported from their .svg, to avoid
+   raw-HTML injection), so each can drift from its source file. Guard that every
+   rect and a distinctive marker match across each source/component pair. */
 const rectSet = (src) =>
-  new Set([...src.matchAll(/x="(-?\d+)"\s+y="(-?\d+)"\s+width="(\d+)"\s+height="(\d+)"/g)]
+  new Set([...src.matchAll(/x="(-?[\d.]+)"\s+y="(-?[\d.]+)"\s+width="([\d.]+)"\s+height="([\d.]+)"/g)]
     .map((m) => `${m[1]},${m[2]},${m[3]},${m[4]}`));
-const iconSvg = read("assets/icon.svg");
-const iconsTsx = read("src/components/icons.tsx");
-const iconRects = rectSet(iconSvg);
-const tsxRects = rectSet(iconsTsx);
-const FIT = "translate(-340.6,-224.7) scale(0.76)";
-const missingRects = [...iconRects].filter((r) => !tsxRects.has(r));
-if (iconRects.size < 10) failures.push("Icon: extracted <10 rects from assets/icon.svg — the extractor needs updating");
-else if (missingRects.length) failures.push(`Icon: DeckShelvesLogo is out of sync with assets/icon.svg (missing rects: ${missingRects.join("  ")})`);
-else if (!iconSvg.includes(FIT) || !iconsTsx.includes(FIT)) failures.push("Icon: the fit transform differs between assets/icon.svg and DeckShelvesLogo");
-else ok.push(`Icon: DeckShelvesLogo matches assets/icon.svg (${iconRects.size} rects + fit transform)`);
+const ICON_PAIRS = [
+  { svg: "assets/icon.svg", tsx: "src/components/icons.tsx", marker: "translate(-340.6,-224.7) scale(0.76)", name: "DeckShelvesLogo", min: 10 },
+  { svg: "assets/tab-icon.svg", tsx: "src/index.tsx", marker: "rotate(-13 15.95 19)", name: "DeckShelvesIcon", min: 3 },
+];
+for (const { svg, tsx, marker, name, min } of ICON_PAIRS) {
+  const svgSrc = read(svg);
+  const tsxSrc = read(tsx);
+  const svgRects = rectSet(svgSrc);
+  const missing = [...svgRects].filter((r) => !rectSet(tsxSrc).has(r));
+  if (svgRects.size < min) failures.push(`Icon: extracted <${min} rects from ${svg} — the extractor needs updating`);
+  else if (missing.length) failures.push(`Icon: ${name} is out of sync with ${svg} (missing rects: ${missing.join("  ")})`);
+  else if (!svgSrc.includes(marker) || !tsxSrc.includes(marker)) failures.push(`Icon: the shared marker "${marker}" differs between ${svg} and ${name}`);
+  else ok.push(`Icon: ${name} matches ${svg} (${svgRects.size} rects)`);
+}
 
 // ------------------------------------------------------------------ 5. badges
 if (!process.argv.includes("--no-badges")) {

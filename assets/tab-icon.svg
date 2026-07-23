@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" role="img" aria-label="Deck Shelves">
+  <!-- Blocky, single-colour (tintable) variant of assets/icon.svg for the Decky
+       plugin tab / QAM: fewer, bolder books that read at ~18px, keeping the
+       icon's varied heights and its inward-leaning last book. -->
+  <rect x="3.8" y="7.5" width="3.9" height="11.5" rx="0.8"/>
+  <rect x="8.7" y="5" width="3.9" height="14" rx="0.8"/>
+  <rect x="14" y="8" width="3.9" height="11" rx="0.8" transform="rotate(-13 15.95 19)"/>
+  <rect x="2.4" y="19" width="19.2" height="2.5" rx="0.9"/>
+</svg>

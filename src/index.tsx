@@ -59,18 +59,16 @@ const EDIT_ROUTE = "/deck-shelves/edit/:shelfId";
 const DELETE_ROUTE = "/deck-shelves/delete/:shelfId";
 const MANAGE_ROUTE = "/deck-shelves/manage/:shelfId";
 
+// Decky plugin-tab / QAM icon. Simplified single-colour (tintable) glyph — the
+// same mark shipped as assets/tab-icon.svg (the designated plugin icon); keep
+// the two in sync. Filled books read far better than thin outlines at ~18px.
 function DeckShelvesIcon() {
   return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" style={{ width: 18, height: 18 }}>
-      <line x1="0.75" y1="20.75" x2="23.25" y2="20.75" strokeWidth="1.6" />
-      <rect x="1" y="6.5" width="4.5" height="14.25" rx="0.5" strokeWidth="1.5" />
-      <line x1="1" y1="9.5" x2="5.5" y2="9.5" strokeWidth="1.1" />
-      <rect x="6.5" y="3.5" width="4" height="17.25" rx="0.5" strokeWidth="1.5" />
-      <line x1="6.5" y1="6.75" x2="10.5" y2="6.75" strokeWidth="1.1" />
-      <rect x="11.5" y="8.5" width="3.5" height="12.25" rx="0.5" strokeWidth="1.5" />
-      <line x1="11.5" y1="11.25" x2="15" y2="11.25" strokeWidth="1.1" />
-      <rect x="16" y="5" width="6.5" height="15.75" rx="0.5" strokeWidth="1.5" />
-      <line x1="16" y1="8.5" x2="22.5" y2="8.5" strokeWidth="1.1" />
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style={{ width: 18, height: 18 }}>
+      <rect x="3.8" y="7.5" width="3.9" height="11.5" rx="0.8" />
+      <rect x="8.7" y="5" width="3.9" height="14" rx="0.8" />
+      <rect x="14" y="8" width="3.9" height="11" rx="0.8" transform="rotate(-13 15.95 19)" />
+      <rect x="2.4" y="19" width="19.2" height="2.5" rx="0.9" />
     </svg>
   );
 }

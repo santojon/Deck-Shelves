@@ -18,7 +18,7 @@ REQUIRED = [
     "plugin.json", "package.json", "main.py",
     "paths.py", "storage.py", "sanitizer.py", "launchers.py",
     "dist/index.js", "i18n/en-US/settings.json",
-    "assets/icon.svg",
+    "assets/tab-icon.svg",
 ]
 
 

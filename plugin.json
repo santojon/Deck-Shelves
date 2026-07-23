@@ -2,7 +2,7 @@
   "name": "Deck Shelves",
   "author": "Jonathan Santos",
   "api_version": 1,
-  "icon": "assets/icon.svg",
+  "icon": "assets/tab-icon.svg",
   "flags": [],
   "publish": {
     "tags": [
