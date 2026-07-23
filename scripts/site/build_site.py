@@ -20,6 +20,7 @@ from __future__ import annotations
 import html
 import os
 import re
+import shutil
 import sys
 from pathlib import Path
 
@@ -283,6 +284,24 @@ _FEATURES_TEMPLATE = """<!DOCTYPE html>
 
 # ── Main ─────────────────────────────────────────────────────────────────────
 
+def _copy_shared_assets(root: Path, site: Path) -> None:
+    """Materialise the images the site shares with the plugin. They live once,
+    in `assets/` (source of truth), and are copied into the Pages tree here so
+    the served paths resolve with the right content type — a raw GitHub SVG URL
+    is delivered as text/plain and would not render as a favicon. Generated, so
+    both copies are gitignored (like features.html)."""
+    for src_rel, dest_rel in (("assets/icon.svg", "favicon.svg"),
+                              ("assets/steam-deck.png", "img/steam-deck.png")):
+        src = root / src_rel
+        if not src.is_file():
+            print(f"[build_site] WARN: {src_rel} missing — {dest_rel} not refreshed", file=sys.stderr)
+            continue
+        dest = site / dest_rel
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy(src, dest)
+        print(f"[build_site] copied {src_rel} → site/{dest_rel}")
+
+
 def main() -> int:
     root = _root()
     site = root / "site"
@@ -290,6 +309,8 @@ def main() -> int:
     if not index.is_file():
         print(f"[build_site] site/index.html not found under {root}", file=sys.stderr)
         return 0
+
+    _copy_shared_assets(root, site)
 
     page = index.read_text(encoding="utf-8")
 

@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 /* Keeps the user-facing docs honest against the code.
-   Four families of check:
+   Five families of check:
      1. Coverage  — every filter type, sort key, built-in source, smart-shelf
         mode and shelf template that the UI exposes is documented.
      2. Index     — docs/README.md lists every doc and all its links resolve.
      3. Diagrams  — no HTML entities in diagram labels, fences balanced.
-     4. Badges    — the hard-coded test counts in README.md match reality.
+     4. Icon      — the inlined DeckShelvesLogo matches assets/icon.svg.
+     5. Badges    — the hard-coded test counts in README.md match reality.
    Badge checks collect the suites (fast: `vitest list` + `pytest --collect-only`);
    pass `--no-badges` to skip them. Exits non-zero on any failure. */
 import { readFileSync, existsSync, readdirSync } from "node:fs";
@@ -109,7 +110,25 @@ for (const file of docFiles) {
 }
 if (!failures.some((f) => f.startsWith("Diagrams:"))) ok.push(`Diagrams: ${diagrams} block(s) clean (no HTML entities, fences balanced)`);
 
-// ------------------------------------------------------------------ 4. badges
+// ------------------------------------------------------------------ 4. icon sync
+/* The DeckShelvesLogo mark is inlined as JSX in icons.tsx (not imported from the
+   .svg, to avoid raw-HTML injection), so it can drift from assets/icon.svg.
+   Guard that every book/shelf rect and the fit transform match across the two. */
+const rectSet = (src) =>
+  new Set([...src.matchAll(/x="(-?\d+)"\s+y="(-?\d+)"\s+width="(\d+)"\s+height="(\d+)"/g)]
+    .map((m) => `${m[1]},${m[2]},${m[3]},${m[4]}`));
+const iconSvg = read("assets/icon.svg");
+const iconsTsx = read("src/components/icons.tsx");
+const iconRects = rectSet(iconSvg);
+const tsxRects = rectSet(iconsTsx);
+const FIT = "translate(-340.6,-224.7) scale(0.76)";
+const missingRects = [...iconRects].filter((r) => !tsxRects.has(r));
+if (iconRects.size < 10) failures.push("Icon: extracted <10 rects from assets/icon.svg — the extractor needs updating");
+else if (missingRects.length) failures.push(`Icon: DeckShelvesLogo is out of sync with assets/icon.svg (missing rects: ${missingRects.join("  ")})`);
+else if (!iconSvg.includes(FIT) || !iconsTsx.includes(FIT)) failures.push("Icon: the fit transform differs between assets/icon.svg and DeckShelvesLogo");
+else ok.push(`Icon: DeckShelvesLogo matches assets/icon.svg (${iconRects.size} rects + fit transform)`);
+
+// ------------------------------------------------------------------ 5. badges
 if (!process.argv.includes("--no-badges")) {
   const readme = read("README.md");
   const badge = (tool) => {
@@ -137,7 +156,7 @@ if (!process.argv.includes("--no-badges")) {
   }
 }
 
-// ------------------------------------------------------------------- 5. report
+// ------------------------------------------------------------------- 6. report
 for (const line of ok) console.log(`  ✅ ${line}`);
 for (const line of failures) console.error(`  ❌ ${line}`);
 if (failures.length) {

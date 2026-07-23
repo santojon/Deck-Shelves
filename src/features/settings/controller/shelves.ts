@@ -64,7 +64,7 @@ export function createShelfActions(deps: ShelvesDeps) {
       await persist(addShelfToSettings(s, shelf));
       setSelectedId(shelf.id);
       try { trackFeature("shelf_create"); } catch {}
-      notify("success", { body: t("toast_created"), area: "shelves" });
+      notify("success", { body: t("toast_shelf_created"), area: "shelves" });
       return shelf;
     },
     async exportShelves(destPath: string): Promise<boolean> {
@@ -167,7 +167,7 @@ export function createShelfActions(deps: ShelvesDeps) {
       await persist(addShelfToSettings(s, shelf));
       setSelectedId(shelf.id);
       try { trackFeature("shelf_create"); } catch {}
-      notify("success", { body: t("toast_created"), area: "shelves" });
+      notify("success", { body: t("toast_shelf_created"), area: "shelves" });
       return shelf;
     },
     patchShelf: patchShelfFn,

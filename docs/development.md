@@ -111,6 +111,8 @@ Runs in CI and fails the build when the docs drift from the code:
 - **Index** — every file in `docs/` is listed in [`docs/README.md`](./README.md)
   and all of its links resolve.
 - **Diagrams** — no HTML entities in diagram labels, fences balanced.
+- **Icon** — the `DeckShelvesLogo` mark inlined in `icons.tsx` matches
+  `assets/icon.svg` (same rects + fit transform), so the two never drift.
 - **Badges** — the hard-coded `vitest` / `pytest` counts in the root README match
   the suites, collected with `vitest list` and `pytest --collect-only`.
 

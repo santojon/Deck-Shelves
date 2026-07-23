@@ -18,7 +18,31 @@ REQUIRED = [
     "plugin.json", "package.json", "main.py",
     "paths.py", "storage.py", "sanitizer.py", "launchers.py",
     "dist/index.js", "i18n/en-US/settings.json",
+    "assets/icon.svg",
 ]
+
+
+def check_plugin_manifest(plugin: dict, top: str, names: set) -> int:
+    """Validate the bundled plugin.json: flags array without 'debug', and an
+    icon path that resolves to a packaged file. Returns the failure count."""
+    fail = 0
+    flags = plugin.get("flags")
+    if not isinstance(flags, list):
+        print("[verify] plugin.json.flags missing or not an array", file=sys.stderr)
+        fail += 1
+    elif "debug" in flags:
+        print('[verify] plugin.json.flags must not include "debug"', file=sys.stderr)
+        fail += 1
+    else:
+        print("[verify] plugin.json flags OK (no debug)")
+    # The icon path must resolve to a bundled file so loaders can read it.
+    icon_ref = plugin.get("icon")
+    if icon_ref and f"{top}/{icon_ref}" in names:
+        print(f"[verify] plugin.json icon resolves ({icon_ref})")
+    else:
+        print(f"[verify] plugin.json icon '{icon_ref}' is missing from the package", file=sys.stderr)
+        fail += 1
+    return fail
 
 
 def resolve_zip() -> Path | None:
@@ -57,15 +81,7 @@ def main() -> int:
 
         try:
             plugin = json.loads(zf.read(f"{top}/plugin.json"))
-            flags = plugin.get("flags")
-            if not isinstance(flags, list):
-                print("[verify] plugin.json.flags missing or not an array", file=sys.stderr)
-                fail += 1
-            elif "debug" in flags:
-                print('[verify] plugin.json.flags must not include "debug"', file=sys.stderr)
-                fail += 1
-            else:
-                print("[verify] plugin.json flags OK (no debug)")
+            fail += check_plugin_manifest(plugin, top, names)
         except Exception as e:  # noqa: BLE001 - report any malformed json
             print(f"[verify] plugin.json parse error: {e}", file=sys.stderr)
             fail += 1

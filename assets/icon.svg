@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Deck Shelves">
+  <!-- Transparent background, like assets/logo.svg. -->
+  <!-- Exact shelves geometry from assets/logo.svg — every parameter (colours,
+       heights, widths, gaps, corner radius, spine stripes, the leaning book and
+       the stroke width) kept as in the logo; only a single uniform transform
+       scales and centres the whole group, so all proportions are preserved. -->
+  <g transform="translate(-340.6,-224.7) scale(0.76)" stroke="#000000" stroke-width="2" stroke-linejoin="round">
+    <rect x="550" y="460" width="80" height="285" rx="8" ry="8" fill="#0080FF"/>
+    <rect x="551" y="500" width="79" height="25" fill="#0044B0" stroke="none"/>
+    <rect x="645" y="500" width="75" height="245" rx="8" ry="8" fill="#0080FF"/>
+    <rect x="646" y="535" width="73" height="25" fill="#0044B0" stroke="none"/>
+    <rect x="740" y="530" width="75" height="215" rx="8" ry="8" fill="#FFFFFF"/>
+    <rect x="741" y="570" width="73" height="25" fill="#D2D2D2" stroke="none"/>
+    <rect x="840" y="470" width="75" height="275" rx="8" ry="8" fill="#FFFFFF"/>
+    <rect x="841" y="505" width="73" height="25" fill="#D2D2D2" stroke="none"/>
+    <g transform="rotate(-15)">
+      <rect x="750" y="750" width="60" height="225" rx="8" ry="8" fill="#0080FF"/>
+      <rect x="751" y="785" width="58" height="25" fill="#0044B0" stroke="none"/>
+    </g>
+    <rect x="500" y="750" width="570" height="25" rx="8" ry="8" fill="#FFFFFF"/>
+    <rect x="530" y="780" width="25" height="25" rx="8" ry="8" fill="#FFFFFF"/>
+    <rect x="1020" y="780" width="25" height="25" rx="8" ry="8" fill="#FFFFFF"/>
+  </g>
+</svg>

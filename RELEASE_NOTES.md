@@ -12,6 +12,7 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 - **Ready-made shelf sources.** A new **Built-in source** option in the shelf editor fills a shelf from your dynamic collections, followed or ignored games, DLC, soundtracks, pinned games, play history, recently updated games, games with events or workshop updates, full-controller-support titles, or a specific launcher's library — no filters to configure.
 - **Combine conditions in more powerful ways.** "At least N of these conditions", "any of these" and "none of these" now work with **any** filter you can pick, so you can express things like "installed, and at least two of: Deck Verified, never finished, under 20 GB".
 - **Read the release notes for the version you are running**, straight from the About page.
+- **A fresh app icon** — a clean shelf-of-books mark that now shows on notifications and in the browser tab.
 
 ### Changed
 
