@@ -1213,5 +1213,13 @@
   "visibility_rule_bluetoothConnected": "블루투스 기기 연결됨",
   "visibility_rule_bluetoothConnected_not": "블루투스 기기 연결 안 됨",
   "visibility_bt_device": "기기",
-  "visibility_bt_none": "페어링된 기기 없음"
+  "visibility_bt_none": "페어링된 기기 없음",
+  "diag_integrations": "통합",
+  "hw_title": "하드웨어",
+  "hw_model": "모델",
+  "hw_cpu": "CPU",
+  "hw_ram": "메모리",
+  "hw_gpu": "GPU",
+  "hw_storage": "저장 공간",
+  "diag_software": "소프트웨어"
 }

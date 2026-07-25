@@ -1213,5 +1213,13 @@
   "visibility_rule_bluetoothConnected": "Bluetooth cihazı bağlı",
   "visibility_rule_bluetoothConnected_not": "Bluetooth cihazı bağlı değil",
   "visibility_bt_device": "Cihaz",
-  "visibility_bt_none": "Eşleşmiş cihaz yok"
+  "visibility_bt_none": "Eşleşmiş cihaz yok",
+  "diag_integrations": "Entegrasyonlar",
+  "hw_title": "Donanım",
+  "hw_model": "Model",
+  "hw_cpu": "CPU",
+  "hw_ram": "Bellek",
+  "hw_gpu": "GPU",
+  "hw_storage": "Depolama",
+  "diag_software": "Yazılım"
 }

@@ -61,5 +61,10 @@
   "toast_profile_renamed": "Profiel hernoemd",
   "toast_filter_saved": "Filter opgeslagen",
   "toast_filter_deleted": "Filter verwijderd",
-  "toast_filter_renamed": "Filter hernoemd"
+  "toast_filter_renamed": "Filter hernoemd",
+  "mount_crash_report": "Probleem melden",
+  "report_issue_title": "Een probleem melden",
+  "report_issue_desc": "Opent een vooraf ingevuld rapport in je browser. Er wordt niets verzonden totdat je het controleert en indient.",
+  "report_issue_hardware": "Hardware-informatie toevoegen",
+  "report_issue_hardware_desc": "Model, CPU, geheugen, GPU en opslag — helpt bij het vaststellen van apparaatspecifieke problemen."
 }

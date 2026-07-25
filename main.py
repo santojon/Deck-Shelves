@@ -29,7 +29,7 @@ _PLUGIN_DIR = os.path.dirname(os.path.abspath(__file__))
 if _PLUGIN_DIR not in sys.path:
     sys.path.insert(0, _PLUGIN_DIR)
 
-import decky
+from plugin_host import logger
 
 # Settings-shape normaliser, path discovery + validation, and
 # settings.json read helpers — extracted into sibling modules. Re-exported
@@ -42,6 +42,7 @@ from css_themes import read_css_loader_themes
 from display_state import read_display_state
 from perf_probe import read_perf_snapshot
 from host_os import get_host_os as _host_os
+from hardware_info import get_hardware_info as _hardware_info
 from peripherals import get_bluetooth_state as _bt_state, get_audio_state as _audio_state
 from launchers import list_launcher_games as _list_launcher_games, list_available_launchers as _list_available_launchers
 
@@ -142,7 +143,7 @@ class Plugin:
             os.replace(tmp_path, path)
         except Exception as e:
             try:
-                decky.logger.error(f"Failed writing settings to {path}: {e}")
+                logger.error(f"Failed writing settings to {path}: {e}")
             except Exception:
                 pass
             # Clean up orphaned .tmp on failure
@@ -192,6 +193,12 @@ class Plugin:
         # System information and the bug report name the real OS on every platform.
         return await asyncio.to_thread(_host_os)
 
+    async def get_hardware_info(self, *args, **kwargs) -> Dict[str, Any]:
+        # Static machine specs (Deck model, CPU, RAM, GPU, storage) from sysfs /
+        # /proc / platform (read-only, off-thread, fail-soft cross-OS). On-demand —
+        # no background poll; feeds System information + the opt-in bug-report block.
+        return await asyncio.to_thread(_hardware_info)
+
     async def get_perf_snapshot(self, *args, **kwargs) -> Dict[str, Any]:
         # On-demand CPU / memory snapshot from /proc (read-only). Off-thread (the
         # CPU read sleeps ~100 ms between /proc/stat samples). No background poll.
@@ -226,7 +233,7 @@ class Plugin:
         data = self._extract_settings(settings, *args, **kwargs)
         if not isinstance(data, dict):
             try:
-                decky.logger.error("Deck Shelves set_settings: received non-dict data")
+                logger.error("Deck Shelves set_settings: received non-dict data")
             except Exception:
                 pass
             return False
@@ -234,7 +241,7 @@ class Plugin:
             return await asyncio.to_thread(self._save_pipeline, data)
         except Exception as e:
             try:
-                decky.logger.error(f"Failed saving settings: {e}")
+                logger.error(f"Failed saving settings: {e}")
             except Exception:
                 pass
             return False
@@ -313,7 +320,7 @@ class Plugin:
         Returns { tabs: [{ id, title, position, filters, filtersMode }] }
         """
         try:
-            decky.logger.info("get_tabmaster_tabs: invoked")
+            logger.info("get_tabmaster_tabs: invoked")
         except Exception:
             pass
         decky_home = os.environ.get("DECKY_HOME") or os.path.expanduser("~/homebrew")
@@ -321,7 +328,7 @@ class Plugin:
         try:
             if not os.path.exists(settings_path):
                 try:
-                    decky.logger.info(f"get_tabmaster_tabs: file not found at {settings_path}")
+                    logger.info(f"get_tabmaster_tabs: file not found at {settings_path}")
                 except Exception:
                     pass
                 return {"tabs": [], "error": "file_not_found"}
@@ -329,7 +336,7 @@ class Plugin:
             users_dict = data.get("usersDict", {})
             if not users_dict:
                 try:
-                    decky.logger.info("get_tabmaster_tabs: usersDict empty")
+                    logger.info("get_tabmaster_tabs: usersDict empty")
                 except Exception:
                     pass
                 return {"tabs": [], "error": "no_users"}
@@ -351,13 +358,13 @@ class Plugin:
             tabs.sort(key=lambda t: (t["position"] < 0, t["position"]))
             try:
                 visible = sum(1 for t in tabs if t["position"] >= 0)
-                decky.logger.info(f"get_tabmaster_tabs: returning {len(tabs)} tabs ({visible} visible)")
+                logger.info(f"get_tabmaster_tabs: returning {len(tabs)} tabs ({visible} visible)")
             except Exception:
                 pass
             return {"tabs": tabs}
         except Exception as e:
             try:
-                decky.logger.error(f"get_tabmaster_tabs failed: {e}")
+                logger.error(f"get_tabmaster_tabs failed: {e}")
             except Exception:
                 pass
             return {"tabs": [], "error": str(e)}
@@ -405,14 +412,14 @@ class Plugin:
             loop = asyncio.get_event_loop()
             saved = await loop.run_in_executor(None, _download_to, url, dest)
             try:
-                decky.logger.info(f"download_release saved: {saved}")
+                logger.info(f"download_release saved: {saved}")
             except Exception:
                 pass
             return {"ok": True, "path": saved}
         except Exception as e:
             msg = _redact_secrets(str(e))
             try:
-                decky.logger.error(f"download_release failed: {msg}")
+                logger.error(f"download_release failed: {msg}")
             except Exception:
                 pass
             return {"ok": False, "error": msg}
@@ -445,7 +452,7 @@ class Plugin:
             return True
         except Exception as e:
             try:
-                decky.logger.error(f"Failed exporting settings to {path}: {e}")
+                logger.error(f"Failed exporting settings to {path}: {e}")
             except Exception:
                 pass
             return False
@@ -461,7 +468,7 @@ class Plugin:
             return imported
         except Exception as e:
             try:
-                decky.logger.error(f"Failed importing settings from {path}: {e}")
+                logger.error(f"Failed importing settings from {path}: {e}")
             except Exception:
                 pass
             return self._read_state()
@@ -491,7 +498,7 @@ class Plugin:
             return True
         except Exception as e:
             try:
-                decky.logger.error(f"Failed writing json to {path}: {e}")
+                logger.error(f"Failed writing json to {path}: {e}")
             except Exception:
                 pass
             return False
@@ -505,7 +512,7 @@ class Plugin:
                 return {"ok": True, "content": f.read()}
         except Exception as e:
             try:
-                decky.logger.error(f"Failed reading json from {path}: {e}")
+                logger.error(f"Failed reading json from {path}: {e}")
             except Exception:
                 pass
             return {"ok": False}
@@ -545,7 +552,7 @@ class Plugin:
             return {"ok": True, "dataUrl": data_url}
         except Exception as e:
             try:
-                decky.logger.error(f"Failed reading image from {path}: {e}")
+                logger.error(f"Failed reading image from {path}: {e}")
             except Exception:
                 pass
             return {"ok": False}
@@ -856,7 +863,7 @@ class Plugin:
         except Exception as e:
             msg = _redact_secrets(str(e))
             try:
-                decky.logger.error(f"get_wishlist failed: {msg}")
+                logger.error(f"get_wishlist failed: {msg}")
             except Exception:
                 pass
             return {"ok": False, "error": msg}
@@ -866,19 +873,19 @@ class Plugin:
         if not os.path.exists(_primary_file()):
             self._write_state(self._read_state())
         try:
-            decky.logger.info(f"Deck Shelves backend loaded. Settings dir: {Plugin.settings_dir}")
+            logger.info(f"Deck Shelves backend loaded. Settings dir: {Plugin.settings_dir}")
         except Exception:
             pass
 
     async def _unload(self):
         try:
-            decky.logger.info("Deck Shelves backend unloaded")
+            logger.info("Deck Shelves backend unloaded")
         except Exception:
             pass
 
     async def _uninstall(self):
         try:
-            decky.logger.info("Deck Shelves backend uninstalled")
+            logger.info("Deck Shelves backend uninstalled")
         except Exception:
             pass
 

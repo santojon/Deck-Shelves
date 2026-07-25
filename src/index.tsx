@@ -36,8 +36,8 @@ import { setPendingSettingsTab } from "./runtime/settingsNav";
 import { pickNewSuggestions } from "./runtime/suggestionNotifier";
 import { notify } from "./components/notify";
 import { logError, logInfo } from "./runtime/logger";
-import { Navigation, Focusable, DialogButton, quickAccessMenuClasses, createDeckyHostApi } from "./runtime/host/decky";
-import { createStandaloneHostApi, isStandaloneHost } from "./runtime/host/standalone";
+import { Navigation, Focusable, DialogButton, quickAccessMenuClasses } from "./runtime/host/decky";
+import { resolveHost } from "./runtime/host/resolve";
 import { AboutPage } from "./components/AboutPage";
 import { SettingsPage } from "./components/SettingsPage";
 import { ShelfEditRoute, ShelfDeleteRoute } from "./components/ShelfModalRoute";
@@ -136,9 +136,9 @@ export default definePlugin((serverAPI?: any) => {
   const routerHook = serverAPI?.routerHook
     ?? (globalThis as any).window?.DFL?.routerHook
     ?? (globalThis as any).DFL?.routerHook;
-  // Host selection: use the standalone runtime (Shelves Loader) when its global
-  // is present, otherwise the Decky adapter. Same HostApi contract either way.
-  _hostApi = isStandaloneHost() ? createStandaloneHostApi() : createDeckyHostApi(routerHook);
+  // Host selection lives entirely in resolveHost() — loader vs injected host,
+  // by launch signal, producing the same HostApi contract either way.
+  _hostApi = resolveHost(serverAPI, routerHook);
   const patch = enableHomePatch ? installHomePatch(routerHook) : null;
   const recentsReplacePatch = installRecentsReplace(routerHook);
   const uninstallRefresh = installShelfRefreshEmitter();

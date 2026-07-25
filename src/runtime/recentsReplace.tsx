@@ -19,6 +19,18 @@ let lastResolveKey = "";
 let silentPatchFailures = 0;
 let overlayFocusedAppId = 0;
 let patchedTypes: WeakSet<object> = new WeakSet();
+// Focus/remount pacing: app-overview changes fire constantly while an app is
+// running/updating; without pacing they re-resolve + popstate-remount the shelf
+// mid-navigation, which resets gamepad focus to the first card.
+let lastItemFocusAt = 0;
+let overviewDebounce: ReturnType<typeof setTimeout> | null = null;
+let remountTimer: ReturnType<typeof setTimeout> | null = null;
+const FOCUS_GUARD_MS = 2000;
+const OVERVIEW_DEBOUNCE_MS = 1500;
+function clearPacingTimers(): void {
+  if (overviewDebounce) { clearTimeout(overviewDebounce); overviewDebounce = null; }
+  if (remountTimer) { clearTimeout(remountTimer); remountTimer = null; }
+}
 
 const CRASH_WINDOW_MS = 10000;
 const CRASH_THRESHOLD = 5;
@@ -60,6 +72,7 @@ export function resetRecentsReplaceFailed(): void {
   cachedShelfId = null;
   lastResolveKey = "";
   patchedTypes = new WeakSet();
+  clearPacingTimers();
   resetCrashCounter();
   notifyFailedChange();
   notifyInjectingChange();
@@ -113,21 +126,36 @@ function validAppIds(ids: number[]): number[] {
 function filterKnownAppIds(ids: number[]): number[] {
   const store: any = (globalThis as any).appStore;
   if (!store || typeof store.GetAppOverviewByAppID !== "function") return [];
-  /* Owned-set check is the real safety net against issue #60: only ids
-     that collectionStore knows about can be safely rendered. Null means
-     collectionStore isn't ready yet — bail out (return []) so the caller
-     waits for the retry tick rather than injecting prematurely. */
-  const owned = getOwnedAppIdSet();
-  if (!owned) return [];
+  /* `getOwnedAppIdSet()` non-null is the issue-#60 readiness gate (collectionStore
+     has hydrated) — keep it. We DON'T require per-id owned-set membership: a valid
+     renderable overview from appStore is what's actually safe to inject, and the
+     membership check wrongly dropped running/update-pending Proton/runtime apps
+     that live outside allAppsCollection, promoting a mismatched shelf instead. */
+  if (!getOwnedAppIdSet()) return [];
   const out: number[] = [];
   for (const id of ids) {
-    if (!owned.has(id)) continue;
     try {
       const ov = store.GetAppOverviewByAppID(id);
       if (ov && typeof ov.app_type === "number" && RENDERABLE_STEAM_APP_TYPES.has(ov.app_type)) {
         out.push(id);
       }
     } catch { /* skip invalid lookups */ }
+  }
+  return out;
+}
+
+/* Fallback for when the strict renderable filter empties: ids appStore actually
+   knows (a non-null overview), of ANY app_type — pending-update Proton / Steam
+   Linux Runtime apps have a non-renderable app_type and land here, so we show
+   THIS shelf's real items rather than promote a different shelf. Readiness-gated
+   like the strict path; the error trap stands down if Steam can't render one. */
+function appStoreKnownIds(ids: number[]): number[] {
+  const store: any = (globalThis as any).appStore;
+  if (!store || typeof store.GetAppOverviewByAppID !== "function") return [];
+  if (!getOwnedAppIdSet()) return [];
+  const out: number[] = [];
+  for (const id of ids) {
+    try { if (store.GetAppOverviewByAppID(id)) out.push(id); } catch { /* skip */ }
   }
   return out;
 }
@@ -238,8 +266,8 @@ function scheduleResolve(shelf: any) {
     .then((ids: number[]) => {
       const prev = cachedAppIds;
       const valid = validAppIds(ids);
-      const known = filterKnownAppIds(valid);
-      if (known.length === 0) {
+      let finalIds = filterKnownAppIds(valid);
+      if (finalIds.length === 0) {
         if (valid.length > 0 && !getOwnedAppIdSet()) {
           // Fresh-boot window: collectionStore hasn't built
           // allAppsCollection yet. Injecting ids before that's ready
@@ -251,31 +279,20 @@ function scheduleResolve(shelf: any) {
           lastResolveKey = "";
           return;
         }
-        // Strict filter rejected every id. This is either an online shelf
-        // (wishlist/store) returning non-owned games, or a shelf whose
-        /* contents are all unrenderable types (Tool, DLC, etc.). Promote
-           to the next candidate — never fall back to unfiltered ids, even
-           partially, because Steam's recents component cannot safely
-           render anything outside the strict whitelist (Game / Application
-           / Non-Steam Shortcut). */
-        const candidates = visibleCandidateShelves();
-        const currentIdx = candidates.findIndex((sh: any) => sh.id === shelf.id);
-        const next = candidates[currentIdx + 1];
-        if (next) {
-          lastResolveKey = "";
-          setTimeout(() => scheduleResolve(next), 0);
-        } else {
-          cachedAppIds = [];
-        }
-        return;
+        /* Strict renderable filter emptied it. Try appStore-known ids of ANY
+           type (pending-update Proton/runtime) so we show THIS shelf's items
+           instead of PROMOTING a different shelf; still-empty → native recents
+           (empty cachedAppIds → mutate no-ops). Error trap guards a bad type. */
+        finalIds = appStoreKnownIds(valid);
+        if (finalIds.length === 0) { cachedAppIds = []; return; }
       }
-      cachedAppIds = known;
+      cachedAppIds = finalIds;
       cachedShelfId = shelf.id;
       cachedTitle = shelf.title ?? cachedTitle;
       const changed = prev?.length !== cachedAppIds.length || prev?.some((v, i) => v !== cachedAppIds![i]);
       if (changed) {
         notifyInjectingChange();
-        forceRemountRecents();
+        requestRemount();
       }
     })
     .catch((err) => {
@@ -306,6 +323,16 @@ function forceRemountRecents() {
   } catch (e) { logInfo("RUNTIME", "force-remount failed", String(e)); }
 }
 
+/* Remount the native recents shelf to reflect new content, but never while the
+   user is actively navigating it — the popstate remount would reset focus to the
+   first card. If a card was focused within FOCUS_GUARD_MS, defer and re-check
+   once the window elapses (re-arming until navigation pauses). */
+function requestRemount() {
+  if (Date.now() - lastItemFocusAt > FOCUS_GUARD_MS) { forceRemountRecents(); return; }
+  if (remountTimer) return;
+  remountTimer = setTimeout(() => { remountTimer = null; requestRemount(); }, FOCUS_GUARD_MS);
+}
+
 function safeCall(fn: any): void {
   try { fn?.(); } catch {}
 }
@@ -330,6 +357,7 @@ function mutateRecentsElement(ret3: any, shelf: any, appIds: number[]): boolean 
     holder.props.showFeaturedItem = shouldShowFeatured(shelf, getCurrentSettings());
     const origOnItemFocus = holder.props.onItemFocus;
     holder.props.onItemFocus = (overview: any, ...args: any[]) => {
+      lastItemFocusAt = Date.now();
       try { overlayFocusedAppId = overview?.appid ?? overview?.nAppID ?? 0; } catch {}
       return origOnItemFocus?.(overview, ...args);
     };
@@ -347,6 +375,10 @@ function mutateRecentsElement(ret3: any, shelf: any, appIds: number[]): boolean 
 function isOurCrashFingerprint(msg: string): boolean {
   if (!msg) return false;
   if (msg.includes("Cannot read properties of undefined") && msg.includes("values")) return true;
+  // issue #113 — reading a system-collection getter before collectionStore has
+  // hydrated throws inside Steam's SystemCollectionIdToName (undefined `.get`).
+  // Match on the stack (below) so we don't over-catch generic `.get` errors.
+  if (msg.includes("SystemCollectionIdToName") || msg.includes("recentAppsCollection")) return true;
   // React error #301 (Maximum update depth) — a state update cascade caused
   // by our mutation firing a Steam callback during render.
   if (msg.includes("Minified React error #301")) return true;
@@ -356,8 +388,10 @@ function isOurCrashFingerprint(msg: string): boolean {
 
 function extractErrorMessage(evt: any): string {
   const e = evt || {};
+  // Include the stack: issue #113's message is a generic "reading 'get'"; only
+  // the stack names the collection getter that identifies it as our crash.
   const cands = [e.error?.message, e.message, e.reason?.message, e.reason];
-  for (const c of cands) if (c) return String(c);
+  for (const c of cands) if (c) return `${String(c)}\n${String(e.error?.stack ?? e.reason?.stack ?? "")}`;
   return "";
 }
 
@@ -487,9 +521,15 @@ export function installRecentsReplace(routerHook: any): PatchHandle {
   let unsubApp: (() => void) | null = null;
   try {
     const client: any = (globalThis as any).SteamClient;
+    // Debounced: an app running/updating fires overview changes continuously;
+    // coalesce them into one re-resolve so we don't churn the shelf mid-use.
     const reg = client?.Apps?.RegisterForAppOverviewChanges?.(() => {
-      const shelf = activeFirstShelf();
-      if (shelf) { lastResolveKey = ""; scheduleResolve(shelf); }
+      if (overviewDebounce) clearTimeout(overviewDebounce);
+      overviewDebounce = setTimeout(() => {
+        overviewDebounce = null;
+        const shelf = activeFirstShelf();
+        if (shelf) { lastResolveKey = ""; scheduleResolve(shelf); }
+      }, OVERVIEW_DEBOUNCE_MS);
     });
     unsubApp = reg?.unregister ? () => reg.unregister() : null;
   } catch {}
@@ -557,6 +597,7 @@ export function installRecentsReplace(routerHook: any): PatchHandle {
       safeCall(resumeUnsub);
       clearInterval(periodicTimer);
       for (const t of bootstrapTimers) { try { clearTimeout(t); } catch {} }
+      clearPacingTimers();
       cachedAppIds = null; cachedShelfId = null; cachedTitle = null;
       lastResolveKey = ""; overlayFocusedAppId = 0;
       notifyInjectingChange();

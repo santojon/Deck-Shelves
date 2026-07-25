@@ -6,10 +6,15 @@
 import {
   collectRuntimeInfo,
   collectSystemInfo,
+  collectHardwareInfo,
   listCoLoadedPlugins,
   summarizeConfig,
+  formatSize,
+  hwCpuText,
+  hwDiskText,
   type RuntimeInfo,
   type SystemInfo,
+  type HardwareInfo,
 } from "../runtime/diagnosticsInfo";
 import { getDiagnostics } from "../runtime/diagnostics";
 import { getCurrentSettings } from "../store/settingsStore";
@@ -29,7 +34,20 @@ function osLine(sys: SystemInfo | null, steamOS: string | null): string {
   return sys?.machine ? `${base} (${sys.machine})` : base;
 }
 
-function diagnosticsText(runtime: RuntimeInfo, sys: SystemInfo | null): string {
+// Hardware block — English labels, only when the user opted in. Text-only.
+function hardwareText(hw: HardwareInfo): string[] {
+  const lines = [
+    "Hardware:",
+    `  Model: ${hw.model ?? DASH}`,
+    `  CPU: ${hwCpuText(hw)}`,
+    `  RAM: ${formatSize(hw.memTotalBytes)}`,
+  ];
+  if (hw.gpu) lines.push(`  GPU: ${hw.gpu}`);
+  if (hw.diskTotalBytes) lines.push(`  Storage: ${hwDiskText(hw)}`);
+  return lines;
+}
+
+function diagnosticsText(runtime: RuntimeInfo, sys: SystemInfo | null, hw: HardwareInfo | null): string {
   const yn = (b: boolean) => (b ? "yes" : "no");
   const plugins = listCoLoadedPlugins();
   return [
@@ -37,6 +55,7 @@ function diagnosticsText(runtime: RuntimeInfo, sys: SystemInfo | null): string {
     `OS: ${osLine(sys, runtime.steamOS)}`,
     `Steam: ${sys?.steamVersion ?? DASH}`,
     `Theme: ${runtime.theme ?? DASH}`,
+    ...(hw ? hardwareText(hw) : []),
     `Decky: ${yn(runtime.decky)}`,
     `CSS Loader: ${yn(runtime.cssLoader)}`,
     `TabMaster: ${yn(runtime.tabMaster)}`,
@@ -107,14 +126,17 @@ function fillEnvironment(p: URLSearchParams, runtime: RuntimeInfo, sys: SystemIn
   p.set("steam_mode", isSteamOs(runtime, sys) ? "Game Mode (Steam Deck home / GamepadUI)" : "Big Picture Mode");
 }
 
-export async function openBugReport(): Promise<void> {
+export async function openBugReport(opts: { includeHardware?: boolean; error?: string | null } = {}): Promise<void> {
   const runtime = collectRuntimeInfo();
   let sys: SystemInfo | null = null;
   try { sys = await collectSystemInfo(); } catch { /* fail-soft — report without OS/Steam */ }
+  let hw: HardwareInfo | null = null;
+  if (opts.includeHardware) { try { hw = await collectHardwareInfo(); } catch { /* fail-soft — report without hardware */ } }
 
-  const diag = diagnosticsText(runtime, sys);
+  const diag = diagnosticsText(runtime, sys, hw);
   const logs = logsText(Math.max(500, CONTEXT_BUDGET - diag.length));
   const context = [
+    ...(opts.error ? ["### Error", "```", opts.error.slice(0, 400), "```", ""] : []),
     "### Diagnostics",
     "```", diag, "```",
     "",

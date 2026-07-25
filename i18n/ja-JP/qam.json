@@ -61,5 +61,10 @@
   "toast_profile_renamed": "プロファイルの名前を変更しました",
   "toast_filter_saved": "フィルターを保存しました",
   "toast_filter_deleted": "フィルターを削除しました",
-  "toast_filter_renamed": "フィルターの名前を変更しました"
+  "toast_filter_renamed": "フィルターの名前を変更しました",
+  "mount_crash_report": "問題を報告",
+  "report_issue_title": "問題を報告",
+  "report_issue_desc": "事前入力されたレポートをブラウザで開きます。確認して送信するまで、何も送信されません。",
+  "report_issue_hardware": "ハードウェア情報を含める",
+  "report_issue_hardware_desc": "モデル、CPU、メモリ、GPU、ストレージ — デバイス固有の問題の診断に役立ちます。"
 }

@@ -1,16 +1,16 @@
-/* StandaloneHostApi — fulfils the HostApi contract using the runtime the
-   Shelves Loader injects as `window.__SHELVES_HOST__`, so the bundle runs
-   unchanged without Decky. Sibling of `decky.ts`; contains NO `@decky/*`
-   imports (Steam UI/RPC/routing/notifications come from the injected runtime).
-   Host selection: `index.tsx` via `isStandaloneHost()`. */
+/* ShelvesHubHostApi — fulfils the HostApi contract using the runtime ShelvesHub
+   injects as `window.__SHELVES_HOST__`, so the bundle runs unchanged without the
+   plugin loader. Sibling of `decky.ts`; contains NO `@decky/*` imports. Interim
+   bridge only: `resolveHost` uses a conforming injected runtime as-is, falling
+   back here for the older runtime shape until the runtime conforms directly. */
 import { HOST_API_VERSION, type Disposable, type HostApi, type PluginDescriptor, type ToastOptions } from "./contract";
 import { getPlatform } from "../platformContext";
 import type { PlatformApi } from "../platform";
 import { logInfo } from "../logger";
 
-/* Shape of the runtime the Shelves Loader injects before the bundle. Only the
-   members this adapter consumes are typed; `ui` is the contract's own `ui`, so
-   the Steam-native components the runtime locates flow straight through. */
+/* Shape of the runtime ShelvesHub injects before the bundle. Only the members
+   this adapter consumes are typed; `ui` is the contract's own `ui`, so the
+   Steam-native components the runtime locates flow straight through. */
 interface ShelvesHostRuntime {
   readonly version?: string;
   readonly ui: HostApi["ui"];
@@ -25,22 +25,16 @@ function getRuntime(): ShelvesHostRuntime | null {
   return (g.__SHELVES_HOST__ ?? g.window?.__SHELVES_HOST__ ?? null) as ShelvesHostRuntime | null;
 }
 
-/** True when the standalone host runtime is present — i.e. the bundle is running
- *  under the Shelves Loader rather than Decky. Drives host selection at boot. */
-export function isStandaloneHost(): boolean {
-  return !!getRuntime();
-}
-
-export function createStandaloneHostApi(): HostApi {
+export function createShelvesHubHostApi(): HostApi {
   const rt = getRuntime();
   if (!rt) {
-    throw new Error("Deck Shelves: window.__SHELVES_HOST__ is not present — the standalone host runtime was not injected.");
+    throw new Error("Deck Shelves: window.__SHELVES_HOST__ is not present — the ShelvesHub host runtime was not injected.");
   }
 
   const mountCbs = new Set<() => void>();
   const unmountCbs = new Set<() => void>();
   let registeredPlugin: PluginDescriptor | null = null;
-  logInfo("RUNTIME", "HostApi source: standalone (window.__SHELVES_HOST__)");
+  logInfo("RUNTIME", "HostApi source: shelveshub (window.__SHELVES_HOST__)");
 
   return {
     version: HOST_API_VERSION,
@@ -79,7 +73,7 @@ export function createStandaloneHostApi(): HostApi {
       },
     },
     // Platform is renderer-side (SteamClient / collectionStore), identical under
-    // both hosts — reuse the same provider Decky does.
+    // both hosts — reuse the same provider the plugin loader adapter does.
     platform: getPlatform() as PlatformApi,
     // Internal hooks index.tsx fires at the matching lifecycle moments (not part
     // of the HostApi contract — exposed via an `as any` cast at the call site).

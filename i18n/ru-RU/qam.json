@@ -61,5 +61,10 @@
   "toast_profile_renamed": "Профиль переименован",
   "toast_filter_saved": "Фильтр сохранён",
   "toast_filter_deleted": "Фильтр удалён",
-  "toast_filter_renamed": "Фильтр переименован"
+  "toast_filter_renamed": "Фильтр переименован",
+  "mount_crash_report": "Сообщить о проблеме",
+  "report_issue_title": "Сообщить о проблеме",
+  "report_issue_desc": "Открывает предзаполненный отчёт в браузере. Ничего не отправляется, пока вы не проверите и не отправите его.",
+  "report_issue_hardware": "Включить сведения об оборудовании",
+  "report_issue_hardware_desc": "Модель, CPU, память, GPU и хранилище — помогает диагностировать проблемы конкретного устройства."
 }

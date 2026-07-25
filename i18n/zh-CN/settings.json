@@ -1213,5 +1213,13 @@
   "visibility_rule_bluetoothConnected": "蓝牙设备已连接",
   "visibility_rule_bluetoothConnected_not": "蓝牙设备已断开",
   "visibility_bt_device": "设备",
-  "visibility_bt_none": "无已配对设备"
+  "visibility_bt_none": "无已配对设备",
+  "diag_integrations": "集成",
+  "hw_title": "硬件",
+  "hw_model": "型号",
+  "hw_cpu": "CPU",
+  "hw_ram": "内存",
+  "hw_gpu": "GPU",
+  "hw_storage": "存储",
+  "diag_software": "软件"
 }

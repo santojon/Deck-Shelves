@@ -11,15 +11,14 @@ import shutil
 import time
 from typing import Any, Dict, List
 
-# `decky` is the runtime-injected module from Decky Loader. It exists in
-# both prod + dev contexts and exposes `DECKY_PLUGIN_SETTINGS_DIR` plus
-# `logger`. Importing here keeps the storage helpers usable from main.py
-# without requiring the Plugin class to forward the module reference.
-import decky
+# Host abstraction — `plugin_host` try-imports the loader module (when present)
+# and otherwise falls back to a stderr logger + env-based settings dir, so these
+# helpers run unchanged under the plugin loader and under a neutral runner.
+from plugin_host import logger, settings_dir
 
 
 def _settings_dir() -> str:
-    return os.environ.get("DECKY_PLUGIN_SETTINGS_DIR") or getattr(decky, "DECKY_PLUGIN_SETTINGS_DIR", "") or os.path.expanduser("~/.config/decky-loader/settings/deck-shelves")
+    return settings_dir()
 
 
 def _primary_file() -> str:
@@ -35,7 +34,7 @@ def _safe_read_json(path: str) -> Dict[str, Any]:
         return {}
     except Exception as e:
         try:
-            decky.logger.error(f"Failed reading json '{path}': {e}")
+            logger.error(f"Failed reading json '{path}': {e}")
         except Exception:
             pass
         return {}
@@ -152,7 +151,7 @@ def _write_versioned_backup(src_path: str, throttle_seconds: int = 0, tag: str =
         _prune_auto_backups(bdir)
     except Exception:
         try:
-            decky.logger.error("Deck Shelves: backup rotation failed")
+            logger.error("Deck Shelves: backup rotation failed")
         except Exception:
             pass
 

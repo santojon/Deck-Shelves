@@ -61,5 +61,10 @@
   "toast_profile_renamed": "Profilo rinominato",
   "toast_filter_saved": "Filtro salvato",
   "toast_filter_deleted": "Filtro eliminato",
-  "toast_filter_renamed": "Filtro rinominato"
+  "toast_filter_renamed": "Filtro rinominato",
+  "mount_crash_report": "Segnala un problema",
+  "report_issue_title": "Segnala un problema",
+  "report_issue_desc": "Apre una segnalazione precompilata nel browser. Non viene inviato nulla finché non la controlli e la invii.",
+  "report_issue_hardware": "Includi informazioni hardware",
+  "report_issue_hardware_desc": "Modello, CPU, memoria, GPU e archiviazione: aiuta a diagnosticare problemi specifici del dispositivo."
 }

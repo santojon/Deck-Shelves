@@ -1213,5 +1213,13 @@
   "visibility_rule_bluetoothConnected": "Dispositivo Bluetooth conectado",
   "visibility_rule_bluetoothConnected_not": "Dispositivo Bluetooth desconectado",
   "visibility_bt_device": "Dispositivo",
-  "visibility_bt_none": "Nenhum dispositivo pareado"
+  "visibility_bt_none": "Nenhum dispositivo pareado",
+  "diag_integrations": "Integrações",
+  "hw_title": "Hardware",
+  "hw_model": "Modelo",
+  "hw_cpu": "CPU",
+  "hw_ram": "Memória",
+  "hw_gpu": "GPU",
+  "hw_storage": "Armazenamento",
+  "diag_software": "Software"
 }

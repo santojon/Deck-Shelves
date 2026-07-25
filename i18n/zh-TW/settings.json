@@ -1213,5 +1213,13 @@
   "visibility_rule_bluetoothConnected": "藍牙裝置已連接",
   "visibility_rule_bluetoothConnected_not": "藍牙裝置已中斷",
   "visibility_bt_device": "裝置",
-  "visibility_bt_none": "無已配對裝置"
+  "visibility_bt_none": "無已配對裝置",
+  "diag_integrations": "整合",
+  "hw_title": "硬體",
+  "hw_model": "型號",
+  "hw_cpu": "CPU",
+  "hw_ram": "記憶體",
+  "hw_gpu": "GPU",
+  "hw_storage": "儲存空間",
+  "diag_software": "軟體"
 }

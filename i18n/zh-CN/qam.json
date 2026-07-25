@@ -61,5 +61,10 @@
   "toast_profile_renamed": "配置已重命名",
   "toast_filter_saved": "筛选器已保存",
   "toast_filter_deleted": "筛选器已删除",
-  "toast_filter_renamed": "筛选器已重命名"
+  "toast_filter_renamed": "筛选器已重命名",
+  "mount_crash_report": "报告问题",
+  "report_issue_title": "报告问题",
+  "report_issue_desc": "在浏览器中打开预填写的报告。在你查看并提交之前，不会发送任何内容。",
+  "report_issue_hardware": "包含硬件信息",
+  "report_issue_hardware_desc": "型号、CPU、内存、GPU 和存储 — 有助于诊断设备特有的问题。"
 }

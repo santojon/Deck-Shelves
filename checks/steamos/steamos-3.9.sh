@@ -62,7 +62,7 @@ run_checks() {
     ((pass++))
   fi
 
-  if grep -qrI "DECKY_PLUGIN_SETTINGS_DIR" "$root"/main.py "$root"/storage.py 2>/dev/null; then
+  if grep -qrI "DECKY_PLUGIN_SETTINGS_DIR" "$root"/main.py "$root"/storage.py "$root"/plugin_host.py 2>/dev/null; then
     echo "  ✅ Settings use DECKY_PLUGIN_SETTINGS_DIR"
     ((pass++))
   else

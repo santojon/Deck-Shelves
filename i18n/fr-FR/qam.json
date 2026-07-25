@@ -61,5 +61,10 @@
   "toast_profile_renamed": "Profil renommé",
   "toast_filter_saved": "Filtre enregistré",
   "toast_filter_deleted": "Filtre supprimé",
-  "toast_filter_renamed": "Filtre renommé"
+  "toast_filter_renamed": "Filtre renommé",
+  "mount_crash_report": "Signaler un problème",
+  "report_issue_title": "Signaler un problème",
+  "report_issue_desc": "Ouvre un rapport prérempli dans votre navigateur. Rien n'est envoyé tant que vous ne l'avez pas vérifié et soumis.",
+  "report_issue_hardware": "Inclure les informations matérielles",
+  "report_issue_hardware_desc": "Modèle, CPU, mémoire, GPU et stockage — aide à diagnostiquer les problèmes propres à l'appareil."
 }

@@ -532,8 +532,18 @@ const RECENT_COLLECTION_NAME_KEYS = ["displayName", "m_strName"];
 const USER_COLLECTION_ID_KEYS = ["id", "m_strId", "key"];
 const USER_COLLECTION_NAME_KEYS = ["displayName", "m_strName"];
 
+/* Steam builds collectionStore's system collections asynchronously after boot.
+   Reading a system-collection MobX getter (recentAppsCollection, …) before that
+   throws inside Steam's own SystemCollectionIdToName (undefined `.get`, issue
+   #113), so gate every such read on the store having its core collection built. */
+function collectionStoreReady(cs: any): boolean {
+  try { return !!(cs?.allAppsCollection ?? cs?.allGamesCollection)?.apps; } catch { return false; }
+}
+
 function addRecentCollectionTab(cs: any, seen: Set<string>, out: PlatformTab[]): void {
-  const recentCol = cs?.recentAppsCollection ?? cs?.allRecentAppsCollection;
+  if (!collectionStoreReady(cs)) return;
+  let recentCol: any;
+  try { recentCol = cs?.recentAppsCollection ?? cs?.allRecentAppsCollection; } catch { return; }
   if (!recentCol) return;
   const id = firstStringFromKeys(recentCol, RECENT_COLLECTION_ID_KEYS, 'recent');
   if (!id) return;

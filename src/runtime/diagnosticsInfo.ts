@@ -120,6 +120,58 @@ export async function collectSystemInfo(): Promise<SystemInfo> {
   return out;
 }
 
+export interface HardwareInfo {
+  model: string | null;
+  product: string | null;
+  vendor: string | null;
+  board: string | null;
+  cpu: string | null;
+  cpuCores: number | null;
+  arch: string | null;
+  memTotalBytes: number | null;
+  gpu: string | null;
+  diskTotalBytes: number | null;
+  diskFreeBytes: number | null;
+}
+
+const numOrNull = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);
+
+/** Static machine specs from the backend probe (Deck model, CPU, RAM, GPU,
+    storage). Fail-soft: null when the backend is unavailable or unsupported. */
+export async function collectHardwareInfo(): Promise<HardwareInfo | null> {
+  try {
+    const h: any = await call("get_hardware_info");
+    if (!h || h.supported === false) return null;
+    return {
+      model: strOrNull(h.model), product: strOrNull(h.product), vendor: strOrNull(h.vendor),
+      board: strOrNull(h.board), cpu: strOrNull(h.cpu), cpuCores: numOrNull(h.cpuCores),
+      arch: strOrNull(h.arch), memTotalBytes: numOrNull(h.memTotalBytes), gpu: strOrNull(h.gpu),
+      diskTotalBytes: numOrNull(h.diskTotalBytes), diskFreeBytes: numOrNull(h.diskFreeBytes),
+    };
+  } catch { return null; }
+}
+
+/** Human byte size up to TB, for RAM/disk specs (cacheRegistry's formatBytes
+    caps at MB). Whole GB for RAM-scale sizes, one decimal below 8 GB / for TB. */
+export function formatSize(bytes: number | null): string {
+  if (!bytes || bytes <= 0) return "—";
+  const gb = bytes / 1024 ** 3;
+  if (gb >= 1024) return `${(gb / 1024).toFixed(1)} TB`;
+  if (gb >= 8) return `${Math.round(gb)} GB`;
+  if (gb >= 1) return `${gb.toFixed(1)} GB`;
+  return `${Math.round(bytes / 1024 ** 2)} MB`;
+}
+
+export function hwCpuText(hw: HardwareInfo): string {
+  if (!hw.cpu) return "—";
+  return hw.cpuCores ? `${hw.cpu} (${hw.cpuCores})` : hw.cpu;
+}
+
+export function hwDiskText(hw: HardwareInfo): string {
+  if (!hw.diskTotalBytes) return "—";
+  return `${formatSize(hw.diskTotalBytes)} (${formatSize(hw.diskFreeBytes)} free)`;
+}
+
 export function collectRuntimeInfo(): RuntimeInfo {
   return {
     version: (pkg as any).version ?? "0.0.0",
