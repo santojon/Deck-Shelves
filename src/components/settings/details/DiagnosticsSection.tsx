@@ -122,7 +122,7 @@ function SoftwareBlock({ rows, plugins, t }: { rows: Array<[string, string]>; pl
 function IntegrationsBlock({ items, t }: { items: Integration[]; t: Tr }) {
   return (
     <SectionCard title={t("diag_integrations")} icon={<PuzzleIcon size={13} />}>
-      <Focusable flow-children="horizontal" style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(0, 1fr))", gap: 4 }}>
+      <Focusable flow-children="horizontal" style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: 4 }}>
         {items.map((it) => <IntegrationCard key={it.key} name={t(it.key)} icon={it.icon} active={it.active} />)}
       </Focusable>
     </SectionCard>
