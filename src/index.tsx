@@ -38,6 +38,7 @@ import { notify } from "./components/notify";
 import { logError, logInfo } from "./runtime/logger";
 import { Navigation, Focusable, DialogButton, quickAccessMenuClasses } from "./runtime/host/decky";
 import { resolveHost } from "./runtime/host/resolve";
+import { claimHomeOwnership } from "./runtime/host/ownerGuard";
 import { AboutPage } from "./components/AboutPage";
 import { SettingsPage } from "./components/SettingsPage";
 import { ShelfEditRoute, ShelfDeleteRoute } from "./components/ShelfModalRoute";
@@ -139,8 +140,13 @@ export default definePlugin((serverAPI?: any) => {
   // Host selection lives entirely in resolveHost() — loader vs injected host,
   // by launch signal, producing the same HostApi contract either way.
   _hostApi = resolveHost(serverAPI, routerHook);
-  const patch = enableHomePatch ? installHomePatch(routerHook) : null;
-  const recentsReplacePatch = installRecentsReplace(routerHook);
+  // Single-owner guard (§5): in a Decky + ShelvesHub dual-install the first
+  // instance claims the renderer; the other stands down — no home patch and no
+  // settings writes — so there's one injector and one writer.
+  const isOwner = claimHomeOwnership((serverAPI || routerHook) ? "decky" : "shelveshub");
+  if (!isOwner) logInfo("RUNTIME", "another Deck Shelves instance owns the renderer — standing down (no home patch / no settings writes)");
+  const patch = (enableHomePatch && isOwner) ? installHomePatch(routerHook) : null;
+  const recentsReplacePatch = isOwner ? installRecentsReplace(routerHook) : null;
   const uninstallRefresh = installShelfRefreshEmitter();
   const uninstallSystemEvents = installSystemEvents();
   const uninstallBatteryState = installBatteryState();

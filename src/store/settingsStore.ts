@@ -1,4 +1,5 @@
 import { call } from "../runtime/host/decky";
+import { isHomeOwner } from "../runtime/host/ownerGuard";
 import { SettingsSchema, type Settings } from "../types";
 import { defaultSettings } from "../domain/defaults";
 import { logError, logInfo, logWarn, setVerboseLogging } from "../runtime/logger";
@@ -107,7 +108,15 @@ function notify(raw: Settings) {
    the cached snapshot and freshly-fetched backend payloads, so users carry
    the fix forward regardless of where the stale data sits. Each migration
    MUST be idempotent. */
-function migrate(s: Settings): Settings {
+/* Current settings-document schema version (§4B). Bump when a migration below is
+   added; older versions read a higher number and leave the doc untouched. */
+export const SCHEMA_VERSION = 1;
+
+export function migrate(s: Settings): Settings {
+  const stored = s.schemaVersion ?? 0;
+  // A NEWER version wrote this document — never migrate or downgrade it; its
+  // higher-schema fields already survive via the preserve-unknown sanitizer.
+  if (stored > SCHEMA_VERSION) return s;
   let mutated = false;
   const shelves = s.shelves.map((sh) => {
     /* "Recently Played" template used to emit { type: "tab", tab: "recent" },
@@ -122,7 +131,9 @@ function migrate(s: Settings): Settings {
     }
     return sh;
   });
-  return mutated ? { ...s, shelves } : s;
+  const base = mutated ? { ...s, shelves } : s;
+  // Stamp the current version — only ever bumps up (never downgrades).
+  return stored === SCHEMA_VERSION ? base : { ...base, schemaVersion: SCHEMA_VERSION };
 }
 
 /* A single invalid field must NEVER nuke the whole config to defaults: that
@@ -237,6 +248,13 @@ export function saveSettings(next: Settings): Promise<boolean> {
 }
 
 async function runSave(next: Settings): Promise<boolean> {
+  // Single-writer (§5): a stood-down instance (Decky+ShelvesHub dual-install)
+  // never writes settings — the owning instance is authoritative. The local
+  // notify() already ran, so this instance's UI stays responsive.
+  if (!isHomeOwner()) {
+    logInfo("STORAGE", "saveSettings skipped — not the renderer owner (single-writer)");
+    return true;
+  }
   logInfo("STORAGE", "saveSettings start", { enabled: next.enabled, shelfCount: next.shelves.length });
 
   /* Single attempt with a single RPC. Previously this was 3 retries +

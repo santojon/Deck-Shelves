@@ -92,8 +92,9 @@ export async function getTabsFromSettingsFile(): Promise<TabMasterTabEntry[]> {
   // is absent; works on both SteamOS 3.7 and 3.9.
   try {
     const response = await call<[], { tabs: TabMasterTabEntry[]; error?: string }>('get_tabmaster_tabs');
-    // Diagnostic: shows whether the IPC round-trip reached the backend.
-    logInfo('STEAM', 'getTabsFromSettingsFile response', {
+    // Diagnostic (dev only): TabMaster is optional, so a missing file is normal —
+    // don't log it on every poll in production.
+    if (__DEV__) logInfo('STEAM', 'getTabsFromSettingsFile response', {
       hasResponse: !!response,
       tabsCount: response?.tabs?.length ?? 0,
       error: response?.error,

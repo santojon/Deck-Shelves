@@ -319,26 +319,17 @@ class Plugin:
         reliable source is its settings file on disk.
         Returns { tabs: [{ id, title, position, filters, filtersMode }] }
         """
-        try:
-            logger.info("get_tabmaster_tabs: invoked")
-        except Exception:
-            pass
         decky_home = os.environ.get("DECKY_HOME") or os.path.expanduser("~/homebrew")
         settings_path = os.path.join(decky_home, "settings", "TabMaster", "settings.json")
         try:
+            # TabMaster is an OPTIONAL, purely additive integration. Its absence
+            # (no settings file / no users) is a normal case, not an error — return
+            # empty SILENTLY so it never looks like a dependency in the logs.
             if not os.path.exists(settings_path):
-                try:
-                    logger.info(f"get_tabmaster_tabs: file not found at {settings_path}")
-                except Exception:
-                    pass
                 return {"tabs": [], "error": "file_not_found"}
             data = _safe_read_json(settings_path)
             users_dict = data.get("usersDict", {})
             if not users_dict:
-                try:
-                    logger.info("get_tabmaster_tabs: usersDict empty")
-                except Exception:
-                    pass
                 return {"tabs": [], "error": "no_users"}
             # Use the first (and usually only) user entry
             user_data = next(iter(users_dict.values()))

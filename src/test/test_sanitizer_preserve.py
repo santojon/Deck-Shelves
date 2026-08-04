@@ -42,6 +42,13 @@ def test_unknown_key_cap():
     assert len(kept) == 64
 
 
+def test_schema_version_round_trips():
+    # §4B: schemaVersion isn't a whitelisted field, but must survive (preserved)
+    # so an older version can't strip a newer document's version stamp.
+    out = sanitizer._sanitize_settings({"enabled": True, "schemaVersion": 3})
+    assert out["schemaVersion"] == 3
+
+
 def test_known_invalid_field_not_resurrected_as_unknown():
     # A known field with an invalid value is validated to a default in the
     # whitelist; _preserve_unknown must not copy the raw (invalid) value back.

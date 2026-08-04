@@ -107,8 +107,21 @@ export function useSettingsController() {
     };
     refreshCollections();
     refreshTabs();
-    const tabTimer = window.setInterval(refreshTabs, 30000);
-    const colTimer = window.setInterval(refreshCollections, 30000);
+    /* Bounded poll (NOT perpetual): the pickers only need to catch Steam's
+       collectionStore hydrating on cold boot (up to ~80s). Cap the probing at a
+       few ticks, then stop — integrations are optional/additive, so we never keep
+       hammering get_tabmaster_tabs / listCollections in the background. */
+    let tabPolls = 0;
+    let colPolls = 0;
+    const MAX_POLLS = 6;
+    const tabTimer = window.setInterval(() => {
+      refreshTabs();
+      if (++tabPolls >= MAX_POLLS) window.clearInterval(tabTimer);
+    }, 30000);
+    const colTimer = window.setInterval(() => {
+      refreshCollections();
+      if (++colPolls >= MAX_POLLS) window.clearInterval(colTimer);
+    }, 30000);
     return () => {
       window.clearInterval(tabTimer);
       window.clearInterval(colTimer);

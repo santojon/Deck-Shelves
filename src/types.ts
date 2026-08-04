@@ -546,6 +546,9 @@ export const ShelfSchema = z.object({
 export type Shelf = z.infer<typeof ShelfSchema>;
 
 export const SettingsSchema = z.object({
+  // Document schema version (§4B). Stamped by migrate(); older versions never
+  // downgrade it, so a newer version's higher-schema fields are preserved.
+  schemaVersion: z.number().int().nonnegative().nullish(),
   enabled: z.boolean().default(true),
   hideRecents: z.boolean().default(false),
   recentsReplaceSource: z.boolean().default(false),
