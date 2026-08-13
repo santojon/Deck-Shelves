@@ -142,7 +142,12 @@ function findAnchorByChipRow(doc: Document): { parent: HTMLElement; before: Chil
 }
 
 function findAnchorByContainer(doc: Document): { parent: HTMLElement; before: ChildNode | null } | null {
-  const containers = Array.from(doc.querySelectorAll('[class*="gamepadlibrary"],[class*="libraryhome"],[class*="BasicHomeView"],main,[role="main"]'));
+  try {
+    const token = getRuntimeClassMap(doc)?.shelfSection || FALLBACK_SHELF_SECTION;
+    const known = doc.querySelector(`div.${token}, [class*="${token}"]`) as HTMLElement | null;
+    if (known?.parentElement) return { parent: known.parentElement, before: known.nextSibling };
+  } catch (e) { logInfo("HOME", "findAnchorByContainer: known-token lookup failed", String(e)); }
+  const containers = Array.from(doc.querySelectorAll('[class*="gamepadlibrary"],[class*="libraryhome"],[class*="LibraryHome"],[class*="BasicHomeView"],[class*="AppGridFilterContainer"],[class*="AllPagesContainer"],main,[role="main"]'));
   for (const node of containers) {
     if (node instanceof HTMLElement) return { parent: node, before: node.firstChild };
   }

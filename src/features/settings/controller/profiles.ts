@@ -36,8 +36,11 @@ function randomProfileId(): string {
   return `prof_${Math.random().toString(36).slice(2, 10)}`;
 }
 
+// `showcaseSeen` is an installation-level flag, not a per-profile one — a
+// profile saved before the tour was completed would otherwise re-trigger it
+// on every later switch to that profile.
 function takeSnapshot(s: Settings): Record<string, unknown> {
-  const { profiles: _p, activeProfileName: _n, ...rest } = s as any;
+  const { profiles: _p, activeProfileName: _n, showcaseSeen: _s, ...rest } = s as any;
   return rest as Record<string, unknown>;
 }
 
@@ -121,6 +124,9 @@ export function createProfileActions(deps: ProfilesDeps) {
         ...(profile.snapshot as any),
         profiles,
         activeProfileName: profile.name,
+        // Never let a profile switch touch the first-run tour flag — older
+        // profiles saved before the tour was completed carry `false` here.
+        showcaseSeen: (s as any).showcaseSeen,
       };
       // Shelf-link opt-in: unlinked profiles change everything BUT the shelves.
       if (!profile.linkShelves) keepShelfFields(next, s);

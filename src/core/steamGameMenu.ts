@@ -924,6 +924,28 @@ function findLegacyMenuFn(doc: Document): ((e: any) => void) | null {
   return null;
 }
 
+/* `menuFn` is Steam's own onMenuButton handler — calling it for real opens
+   a real menu overlay as a side effect of letting Steam render it (that's
+   how the createElement hook gets a chance to see it). Dispatch a synthetic
+   Escape right after, the same "cancel" signal GamepadUI's own B-button
+   sends, so the capture never leaves a menu visibly open on screen. */
+function dismissSyntheticMenu(): void {
+  /* Dispatch on every known Steam document (not just the one getSPDocument()
+     guesses) — the menu can render in a different window than the one this
+     resolver picks, and a dismiss aimed at the wrong window silently does
+     nothing, leaving the menu stuck on screen. */
+  const docs = new Set<Document>([getSPDocument(), ...getAllSteamDocuments()].filter(Boolean) as Document[]);
+  for (const doc of docs) {
+    try {
+      for (const type of ["keydown", "keyup"] as const) {
+        const evt = new KeyboardEvent(type, { key: "Escape", code: "Escape", keyCode: 27, which: 27, bubbles: true, cancelable: true });
+        doc.dispatchEvent(evt);
+        doc.defaultView?.dispatchEvent(evt);
+      }
+    } catch {}
+  }
+}
+
 function runLegacyMenuCapture(menuFn: (e: any) => void): { component: any; templateProps: Record<string, any> } | null {
   const hooks = installCaptureHooks();
   try {
@@ -935,7 +957,19 @@ function runLegacyMenuCapture(menuFn: (e: any) => void): { component: any; templ
   } finally {
     hooks.restore();
   }
-  return hooks.getCaptured();
+  const captured = hooks.getCaptured();
+  if (captured) {
+    /* The capture happens synchronously inside menuFn(), but the menu
+       manager's actual open (via a ref/context, not a plain synchronous
+       DOM write) can commit on a later tick — dismissing only once, right
+       here, can fire before that commit and leave the menu stuck visible.
+       Repeat over the next couple of ticks/frames to catch it either way. */
+    dismissSyntheticMenu();
+    setTimeout(dismissSyntheticMenu, 0);
+    setTimeout(dismissSyntheticMenu, 50);
+    setTimeout(dismissSyntheticMenu, 200);
+  }
+  return captured;
 }
 
 function extractAppContextMenuLegacy(): boolean {
@@ -1011,7 +1045,12 @@ function showGameMenuLegacy(appid: number, shelfId?: string): boolean {
 function isModernPanelCandidate(panel: Element): boolean {
   if (!isLegacyPanelCandidate(panel)) return false;
   const rect = (panel as HTMLElement).getBoundingClientRect();
-  return rect.width !== 0 && rect.height !== 0;
+  if (rect.width !== 0 && rect.height !== 0) return true;
+  /* Zero rect normally means "not really rendered" — except inside the
+     native recents row we collapse via display:none (homePatch.tsx). Those
+     cards are real, just visually hidden, and the only native menu source
+     available on the home once hidden. */
+  return !!panel.closest('[data-ds-hidden-collapse="1"]');
 }
 
 function findModernMenuFn(doc: Document): ((e: any) => void) | null {

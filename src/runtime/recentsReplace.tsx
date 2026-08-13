@@ -5,6 +5,7 @@ import { evalVisibility } from "../steam/smartShelves";
 import { applyManualOrder } from "../steam";
 import { isOnlineSource } from "../domain/sourceUtils";
 import { getPlatform } from "./platformContext";
+import { subscribeShelfRefresh } from "../core/shelfRefresh";
 import { logError, logInfo, logWarn } from "./logger";
 import { notify } from "../components/notify";
 import i18next from "i18next";
@@ -16,6 +17,14 @@ let cachedShelfId: string | null = null;
 let cachedTitle: string | null = null;
 let resolvePromise: Promise<void> | null = null;
 let lastResolveKey = "";
+/* A thrown resolve (vs. a clean empty result) is usually a transient
+   cold-boot race (e.g. collectionStore not built yet) rather than a
+   genuinely broken shelf — retry the SAME shelf a couple of times before
+   giving up and promoting the next candidate. */
+let lastFailedShelfId: string | null = null;
+let sameShelfRetryCount = 0;
+const SAME_SHELF_MAX_RETRIES = 2;
+const SAME_SHELF_RETRY_MS = 1200;
 let silentPatchFailures = 0;
 let overlayFocusedAppId = 0;
 let patchedTypes: WeakSet<object> = new WeakSet();
@@ -286,6 +295,8 @@ function scheduleResolve(shelf: any) {
         finalIds = appStoreKnownIds(valid);
         if (finalIds.length === 0) { cachedAppIds = []; return; }
       }
+      sameShelfRetryCount = 0;
+      lastFailedShelfId = null;
       cachedAppIds = finalIds;
       cachedShelfId = shelf.id;
       cachedTitle = shelf.title ?? cachedTitle;
@@ -297,9 +308,18 @@ function scheduleResolve(shelf: any) {
     })
     .catch((err) => {
       logWarn("RUNTIME", "resolveShelfAppIds failed", String(err));
-      // Resolve failure (typical for online shelves when the network is
-      // down or the user has online features off) — promote to the next
-      // candidate so a failed first shelf doesn't leave recents empty.
+      sameShelfRetryCount = lastFailedShelfId === shelf.id ? sameShelfRetryCount + 1 : 1;
+      lastFailedShelfId = shelf.id;
+      if (sameShelfRetryCount <= SAME_SHELF_MAX_RETRIES) {
+        lastResolveKey = "";
+        setTimeout(() => scheduleResolve(shelf), SAME_SHELF_RETRY_MS);
+        return;
+      }
+      // Retries exhausted — promote to the next candidate (typical for
+      // online shelves when the network is down or online features are off)
+      // so a persistently-failing first shelf doesn't leave recents empty.
+      sameShelfRetryCount = 0;
+      lastFailedShelfId = null;
       const candidates = visibleCandidateShelves();
       const currentIdx = candidates.findIndex((sh: any) => sh.id === shelf.id);
       const next = candidates[currentIdx + 1];
@@ -534,6 +554,16 @@ export function installRecentsReplace(routerHook: any): PatchHandle {
     unsubApp = reg?.unregister ? () => reg.unregister() : null;
   } catch {}
 
+  /* The promoted shelf is "the first visible regular shelf" drawn a second
+     time, so it needs the same central shelfRefresh signal the regular
+     shelves already react to — without it, a change only shelfRefresh
+     catches (e.g. a visibility-rule flip) left the replaced row stale until
+     the next 90s tick or an unrelated settings edit re-primed the cache. */
+  const unsubShelfRefresh = subscribeShelfRefresh(() => {
+    const shelf = activeFirstShelf();
+    if (shelf) { lastResolveKey = ""; scheduleResolve(shelf); }
+  });
+
   // Bootstrap: patchFn only fires when Steam renders /library/home.
   // If already on home at install time, we trigger resolve ourselves.
   /* Timers only call scheduleResolve — forceRemountRecents is called by
@@ -593,6 +623,7 @@ export function installRecentsReplace(routerHook: any): PatchHandle {
       safeCall(unsubSettings);
       safeCall(unsubApp);
       safeCall(unsubColl);
+      safeCall(unsubShelfRefresh);
       safeCall(uninstallErrorTrap);
       safeCall(resumeUnsub);
       clearInterval(periodicTimer);
@@ -600,6 +631,7 @@ export function installRecentsReplace(routerHook: any): PatchHandle {
       clearPacingTimers();
       cachedAppIds = null; cachedShelfId = null; cachedTitle = null;
       lastResolveKey = ""; overlayFocusedAppId = 0;
+      sameShelfRetryCount = 0; lastFailedShelfId = null;
       notifyInjectingChange();
     },
   };

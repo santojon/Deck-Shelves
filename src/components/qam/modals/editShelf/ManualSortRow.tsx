@@ -379,9 +379,10 @@ export function ManualSortRow({
       data-ds-preview-row='1'
       style={{
         display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 8,
-        padding: '12px 0 28px',
+        padding: '12px 6px 28px',
         // overflow-y hidden + 28 px bottom padding reserves room for the
-        // Focusable glow ring that extends past the card edge.
+        // Focusable glow ring that extends past the card edge; 6px left/right
+        // does the same for the first/last card against overflow-x: auto.
         overflowX: 'auto', overflowY: 'hidden', boxSizing: 'border-box',
         touchAction: 'pan-x',
         overscrollBehaviorX: 'contain',

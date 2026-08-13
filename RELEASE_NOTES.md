@@ -22,6 +22,13 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 - **The architecture diagram in the documentation showed raw markup** instead of the diagram.
 - **Documentation caught up with the plugin** — the filter, smart-shelf and template references were missing entries that already shipped, and a new automated check keeps them from falling behind again.
+- **The next shelf's title could end up overlapping the Recents row** when "Use shelf as Recents" was turned on.
+- **Shelves could stay missing from the home screen** after returning from a game or a game's details page, until you happened to change a setting.
+- **Buttons in the shelf editor's sort section could get cut off at the edge of the panel**, most noticeable on ultrawide displays — the dropdown now shrinks to make room instead.
+- **The highlight ring around the first card in the shelf editor preview could look cut off.**
+- **"Use shelf as Recents" could take a moment to catch up** after a change, sometimes needing a trip away from and back to the home screen.
+- **The card menu could show the wrong options (missing "Update", for example)** when "Hide native Recents" was on.
+- **Switching profiles could unexpectedly bring back the first-run feature tour.**
 
 ## [3.1.0] - 2026-07-20
 

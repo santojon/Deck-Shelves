@@ -8,7 +8,7 @@ import { ShelfSideNav } from "../features/sidenav/ShelfSideNav";
 try { (globalThis as any).__ds_homepatch_loaded = Date.now(); (globalThis as any).__ds_overlays_imported = typeof SearchOverlay === 'function' && typeof ShelfSideNav === 'function'; } catch {}
 import { logDiagnostic } from "./diagnostics";
 import { logError, logInfo, logWarn } from "./logger";
-import { setPreferredSteamWindow } from "./steamHost";
+import { setPreferredSteamWindow, getAllSteamDocuments } from "./steamHost";
 import { getRuntimeClassMap } from "../core/webpackCompat";
 import { notify } from "../components/notify";
 
@@ -58,15 +58,25 @@ let pendingHideHomeTabs: boolean = false;
  *  (esp. under CSS Loader themes like SLH that extend recents visually). */
 export function applyReplaceActiveMargin(active: boolean): void {
   try {
-    const { doc } = getHostContext();
-    const mount = doc.getElementById(ROOT_ID) as HTMLElement | null;
-    if (!mount) return;
-    if (active) {
-      mount.style.setProperty("margin-top", "0px", "important");
-    } else {
+    /* Apply to the mount in EVERY known doc rather than trusting
+       getHostContext()'s single guessed window — HomeInject creates the
+       mount via its own, separately-scored preferred-document resolver, so
+       the two can disagree about which doc is "current" and silently no-op
+       on the wrong (mount-less) one. */
+    const docs = new Set<Document>([getHostContext().doc, ...getAllSteamDocuments()]);
+    let found = 0;
+    for (const doc of docs) {
+      const mount = doc?.getElementById?.(ROOT_ID) as HTMLElement | null;
+      if (!mount) continue;
+      found++;
+      if (active) mount.style.setProperty("margin-top", "0px", "important");
       // Leave applyHideRecents in control when replace is not active.
-      mount.style.removeProperty("margin-top");
+      else mount.style.removeProperty("margin-top");
     }
+    // The mount can be mid-(re)creation when settings finish loading —
+    // retry once shortly after instead of leaving the wrong margin in
+    // place until some unrelated dep change re-fires this effect.
+    if (found === 0) setTimeout(() => applyReplaceActiveMargin(active), 400);
   } catch (e) { logInfo("HOME", "applyReplaceActiveMargin failed", String(e)); }
 }
 
@@ -115,15 +125,40 @@ function applyRecentsFocusSuppression(hidden: boolean): void {
    which beats a plain inline `height:0` — leaving a full-viewport invisible
    block that reads as a black screen when dpad-up scrolls into it. Inline
    !important wins the cascade; clear every prop on restore. */
+/* display:none also stops Steam from fully mounting the row's cards (not
+   just measuring them at zero size), so the one-time native-menu capture
+   (prewarmMenuExtraction) has nothing real to work with. Grace window on
+   visibility:hidden alone (the pre-a2143ba collapse) first, so capture gets
+   a real card at least once per session before locking to display:none. */
+const RECENTS_HARD_COLLAPSE_GRACE_MS = 2500;
+let recentsHardCollapseArmed = false;
+let recentsHardCollapseTimer: ReturnType<typeof setTimeout> | null = null;
+
+function armRecentsHardCollapse(): void {
+  if (recentsHardCollapseArmed || recentsHardCollapseTimer) return;
+  recentsHardCollapseTimer = setTimeout(() => {
+    recentsHardCollapseTimer = null;
+    recentsHardCollapseArmed = true;
+    if (pendingHideRecents) applyRecentsCollapse(true);
+  }, RECENTS_HARD_COLLAPSE_GRACE_MS);
+}
+
 function setRecentsCollapsedStyle(el: HTMLElement, hidden: boolean): void {
   const s = el.style;
   if (hidden) {
     /* display:none is the only collapse GamepadUI's nav tree honours (it ignores
        visibility/height/tabindex) — required so dpad-up can't get trapped on the
        invisible recents row. Skip it only while recents-replace repurposes the
-       element (DS content injected there), keeping the visibility collapse. */
+       element (DS content injected there), keeping the visibility collapse, or
+       during the grace window above. */
     const repurposed = !!el.querySelector('.ds-shelf, .deck-shelves-root, #' + ROOT_ID);
-    if (!repurposed) s.setProperty("display", "none", "important");
+    if (!repurposed && recentsHardCollapseArmed) {
+      s.setProperty("display", "none", "important");
+      el.setAttribute("data-ds-hidden-collapse", "1");
+    } else {
+      s.removeProperty("display");
+      el.removeAttribute("data-ds-hidden-collapse");
+    }
     s.setProperty("visibility", "hidden", "important");
     s.setProperty("height", "0px", "important");
     s.setProperty("min-height", "0px", "important");
@@ -131,12 +166,14 @@ function setRecentsCollapsedStyle(el: HTMLElement, hidden: boolean): void {
     s.setProperty("overflow", "hidden", "important");
   } else {
     for (const p of ["display", "visibility", "height", "min-height", "max-height", "overflow"]) s.removeProperty(p);
+    el.removeAttribute("data-ds-hidden-collapse");
   }
 }
 
 function applyRecentsCollapse(hidden: boolean): void {
   if (!cachedRecentsEl) return;
   try {
+    if (hidden) armRecentsHardCollapse();
     setRecentsCollapsedStyle(cachedRecentsEl, hidden);
     applyRecentsFocusSuppression(hidden);
   } catch (e) { logInfo("HOME", "applyHideRecents: style set failed", String(e)); }

@@ -127,7 +127,7 @@ export function SortField({
         bottomSeparator={isMulti ? 'none' : bottomSeparator}
       >
         <Focusable style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <Focusable style={{ minWidth: 200 }}>
+          <Focusable style={{ minWidth: 0, maxWidth: 200, flex: '1 1 auto' }}>
             <Dropdown rgOptions={options} selectedOption={primary} onChange={(opt: unknown) => setPrimary(String(optionData(opt) ?? ''))} focusable />
           </Focusable>
           <SortDirectionButton sort={primary} reverse={primaryReverse} onChange={setPrimaryReverse} />
@@ -145,7 +145,7 @@ export function SortField({
             bottomSeparator={idx === sortArr.length - 1 ? bottomSeparator : 'none'}
           >
             <Focusable style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Focusable style={{ minWidth: 200 }}>
+              <Focusable style={{ minWidth: 0, maxWidth: 200, flex: '1 1 auto' }}>
                 <Dropdown rgOptions={secondaryOptions} selectedOption={key} onChange={(opt: unknown) => setSecondary(idx, String(optionData(opt) ?? ''))} focusable />
               </Focusable>
               <SortDirectionButton sort={key} reverse={reverseArr[idx] ?? false} onChange={(next: boolean) => setSecondaryReverse(idx, next)} />
