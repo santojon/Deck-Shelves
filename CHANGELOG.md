@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.2.0] - 2026-08-14
+
 ### Added
 
 - **Every filter, sort and built-in source is now selectable.** The Filter v3, Sort v3 and Source Ecosystem v3 families shipped as registered implementations that no picker ever offered. All of them are reachable: **62 filter types** — each with a parameter editor where it needs one and **every one invertible** — **36 sort keys**, and **19 built-in sources** offered through a new **Built-in source** entry in the shelf editor ([`utils.tsx`](src/components/filter/utils.tsx), [`FilterItemOptions.tsx`](src/components/filter/FilterItemOptions.tsx), [`constants.ts`](src/components/qam/modals/editShelf/constants.ts)). This covers library and metadata filters (genres, categories, franchise, VR, multiplayer type, family sharing, DLC and soundtrack ownership), usage and progress (launch count, average session, achievement percentage, never completed, installed-but-never-played, played once, recently abandoned), storage (device, installed size) and non-Steam shortcuts (EmuDeck, RetroDECK, Heroic, Lutris, Chiaki, Moonlight, hidden shortcuts, executable type, launch-option and custom tags). Built-in sources include dynamic collections, followed and ignored games, DLC, soundtracks, pinned games, play history, session and temporary queues, recently updated, entries with events or workshop updates, full-controller-support titles, and each launcher's library.

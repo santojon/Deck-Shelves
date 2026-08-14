@@ -5,6 +5,8 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+## [3.2.0] - 2026-08-14
+
 ### Added
 
 - **A much bigger toolbox for building shelves.** Dozens of filters, sorts and ready-made sources that the plugin already understood were never offered anywhere in the interface — now they all are. Filter by genre, category, franchise, VR support, multiplayer type, family sharing, DLC or soundtrack ownership; by how you actually play (launch count, average session length, achievement progress, never finished, installed but never touched, played once, recently abandoned); by where a game is installed and how much space it takes; or by which launcher a non-Steam shortcut belongs to (EmuDeck, RetroDECK, Heroic, Lutris, Chiaki, Moonlight). **Every filter can be inverted**, so any of them also works as "everything except this".
