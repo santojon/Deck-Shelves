@@ -52,12 +52,7 @@
   "about_learn_more_description": "Посетите проект на GitHub или сообщите о проблеме / предложите функцию.",
   "about_learn_more_github": "GitHub",
   "about_learn_more_title": "Подробнее",
-  "about_limitation_deck_only": "Этот плагин предназначен только для Steam Deck в игровом режиме.",
-  "about_limitation_decky": "Требуется установленный Decky Loader.",
-  "about_limitation_home": "Полки встраиваются в главный экран и могут быть затронуты обновлениями клиента Steam.",
-  "about_limitations_title": "Ограничения",
   "about_other_versions": "Другие версии",
-  "about_report_issue": "Сообщить о проблеме / предложить функцию",
   "about_support_description": "Если вам нравится этот плагин, рассмотрите поддержку дальнейшей разработки:",
   "about_support_title": "Поддержите разработчика",
   "about_version": "Версия",
@@ -77,5 +72,9 @@
   "about_feature_source_v3": "19 new built-in shelf sources — dynamic Steam collections, followed, ignored, DLC, soundtrack, pinned, history, session queue, temporary queue, recently updated (last 14 days), with events, with workshop updates, controller-specific, and six external-launcher collections.",
   "about_feature_grip_buttons": "Назначьте задние кнопки / клики стиков (L3, R3, L4, L5, R4, R5) на ярлыки карточек через сырой поток контроллера",
   "about_feature_composite_shelves": "Объединяйте несколько источников в одну составную полку в режимах Объединение или Пересечение",
-  "about_feature_asset_refresh": "Пользовательские арты (капсула, логотип, hero, иконка) обновляются при возврате на главную — без перезагрузки плагина"
+  "about_feature_asset_refresh": "Пользовательские арты (капсула, логотип, hero, иконка) обновляются при возврате на главную — без перезагрузки плагина",
+  "about_report_bug": "Сообщить об ошибке",
+  "about_report_enhancement": "Предложить улучшение",
+  "about_report_feature": "Предложить функцию",
+  "about_report_copied": "Диагностика скопирована — вставьте её в отчёт"
 }

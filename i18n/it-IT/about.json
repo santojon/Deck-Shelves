@@ -52,12 +52,7 @@
   "about_learn_more_description": "Visita il progetto su GitHub o segnala un problema / richiedi una funzionalità.",
   "about_learn_more_github": "GitHub",
   "about_learn_more_title": "Scopri di più",
-  "about_limitation_deck_only": "Questo plugin è progettato solo per Steam Deck in Modalità Gioco.",
-  "about_limitation_decky": "Richiede l'installazione di Decky Loader.",
-  "about_limitation_home": "Gli scaffali vengono iniettati nella schermata iniziale e possono essere influenzati dagli aggiornamenti del client Steam.",
-  "about_limitations_title": "Limitazioni",
   "about_other_versions": "Altre versioni",
-  "about_report_issue": "Segnala problema / richiedi funzionalità",
   "about_support_description": "Se ti piace questo plugin, considera di supportare lo sviluppo continuo:",
   "about_support_title": "Supporta lo sviluppatore",
   "about_version": "Versione",
@@ -77,5 +72,9 @@
   "about_feature_source_v3": "19 new built-in shelf sources — dynamic Steam collections, followed, ignored, DLC, soundtrack, pinned, history, session queue, temporary queue, recently updated (last 14 days), with events, with workshop updates, controller-specific, and six external-launcher collections.",
   "about_feature_grip_buttons": "Mappa i pulsanti grip / clic stick (L3, R3, L4, L5, R4, R5) sulle scorciatoie delle carte tramite stream raw del controller",
   "about_feature_composite_shelves": "Combina più fonti in uno scaffale composto con modalità Unione (qualsiasi) o Intersezione (in tutte)",
-  "about_feature_asset_refresh": "L'artwork personalizzato (capsule, logo, hero, icona) si aggiorna appena torni alla home — senza ricaricare il plugin"
+  "about_feature_asset_refresh": "L'artwork personalizzato (capsule, logo, hero, icona) si aggiorna appena torni alla home — senza ricaricare il plugin",
+  "about_report_bug": "Segnala un bug",
+  "about_report_enhancement": "Suggerisci un miglioramento",
+  "about_report_feature": "Richiedi una funzionalità",
+  "about_report_copied": "Diagnostica copiata — incollala nel report"
 }

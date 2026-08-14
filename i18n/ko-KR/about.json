@@ -52,12 +52,7 @@
   "about_learn_more_description": "GitHub에서 프로젝트를 방문하거나 문제를 보고 / 기능을 요청하세요.",
   "about_learn_more_github": "GitHub",
   "about_learn_more_title": "더 알아보기",
-  "about_limitation_deck_only": "이 플러그인은 Steam Deck 게이밍 모드 전용입니다.",
-  "about_limitation_decky": "Decky Loader가 설치되어 있어야 합니다.",
-  "about_limitation_home": "선반은 홈 화면에 삽입되며 Steam 클라이언트 업데이트의 영향을 받을 수 있습니다.",
-  "about_limitations_title": "제한 사항",
   "about_other_versions": "다른 버전",
-  "about_report_issue": "문제 보고 / 기능 요청",
   "about_support_description": "이 플러그인이 마음에 드셨다면 지속적인 개발을 지원해 주세요:",
   "about_support_title": "개발자 지원",
   "about_version": "버전",
@@ -77,5 +72,9 @@
   "about_feature_source_v3": "19 new built-in shelf sources — dynamic Steam collections, followed, ignored, DLC, soundtrack, pinned, history, session queue, temporary queue, recently updated (last 14 days), with events, with workshop updates, controller-specific, and six external-launcher collections.",
   "about_feature_grip_buttons": "L3, R3, L4, L5, R4, R5 등 후면 그립/스틱 클릭을 카드 단축키에 매핑",
   "about_feature_composite_shelves": "여러 소스를 합집합(모두) 또는 교집합(전부에) 모드로 하나의 복합 선반에 결합",
-  "about_feature_asset_refresh": "맞춤형 아트워크(캡슐, 로고, 히어로, 아이콘)는 홈으로 돌아간 즉시 갱신 — 플러그인 재로드 불필요"
+  "about_feature_asset_refresh": "맞춤형 아트워크(캡슐, 로고, 히어로, 아이콘)는 홈으로 돌아간 즉시 갱신 — 플러그인 재로드 불필요",
+  "about_report_bug": "버그 신고",
+  "about_report_enhancement": "개선 제안",
+  "about_report_feature": "기능 요청",
+  "about_report_copied": "진단 정보가 복사되었습니다 — 보고서에 붙여넣으세요"
 }

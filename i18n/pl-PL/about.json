@@ -52,12 +52,7 @@
   "about_learn_more_description": "Odwiedź projekt na GitHub lub zgłoś problem / zaproponuj funkcję.",
   "about_learn_more_github": "GitHub",
   "about_learn_more_title": "Dowiedz się więcej",
-  "about_limitation_deck_only": "Ten plugin jest przeznaczony wyłącznie dla Steam Deck w trybie gry.",
-  "about_limitation_decky": "Wymaga zainstalowanego Decky Loader.",
-  "about_limitation_home": "Półki są wstrzykiwane na ekran główny i mogą być dotknięte przez aktualizacje klienta Steam.",
-  "about_limitations_title": "Ograniczenia",
   "about_other_versions": "Inne wersje",
-  "about_report_issue": "Zgłoś problem / zaproponuj funkcję",
   "about_support_description": "Jeśli podoba Ci się ten plugin, rozważ wsparcie dalszego rozwoju:",
   "about_support_title": "Wesprzyj twórcę",
   "about_version": "Wersja",
@@ -77,5 +72,9 @@
   "about_feature_source_v3": "19 new built-in shelf sources — dynamic Steam collections, followed, ignored, DLC, soundtrack, pinned, history, session queue, temporary queue, recently updated (last 14 days), with events, with workshop updates, controller-specific, and six external-launcher collections.",
   "about_feature_grip_buttons": "Przypisz tylne przyciski / kliknięcia drążków (L3, R3, L4, L5, R4, R5) do skrótów kart przez surowy strumień kontrolera",
   "about_feature_composite_shelves": "Łącz wiele źródeł w jedną złożoną półkę z trybami Unia (dowolne) lub Przecięcie (w każdym)",
-  "about_feature_asset_refresh": "Niestandardowa grafika (kapsuła, logo, hero, ikona) odświeża się natychmiast po powrocie do strony domowej — bez przeładowywania pluginu"
+  "about_feature_asset_refresh": "Niestandardowa grafika (kapsuła, logo, hero, ikona) odświeża się natychmiast po powrocie do strony domowej — bez przeładowywania pluginu",
+  "about_report_bug": "Zgłoś błąd",
+  "about_report_enhancement": "Zaproponuj usprawnienie",
+  "about_report_feature": "Zaproponuj funkcję",
+  "about_report_copied": "Dane diagnostyczne skopiowane — wklej je w zgłoszeniu"
 }

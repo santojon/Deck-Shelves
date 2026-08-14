@@ -671,6 +671,18 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
     return base;
   }, [appIds, items, storeNames, ownedNames, ownedAppIds, shouldHideOwned, shelf.id, shelf.limit, shelf.source, shelf.sort, shelf.title, platform, t, globalHideSeeMore, globalHideRefreshCard, (shelf as any).hideSeeMore, (shelf as any).hideRefreshCard, JSON.stringify((shelf as any).syntheticCards ?? null), priceVersion]);
 
+  /* Menu-added games (in manualOrder, not in resolved source) — DeckRow uses
+     this to bind X=Remove on those cards (vs X=Hide on the rest). Kept above
+     the early returns below (Rules of Hooks): manualOrder/sourceIds are both
+     available before shelf/appIds/rowItems are known. */
+  const manualOrder: number[] = (shelf as any).manualOrder ?? [];
+  const removableSet = useMemo(() => {
+    if (!manualOrder.length || !sourceIds) return undefined;
+    const inSrc = new Set(sourceIds);
+    const tail = manualOrder.filter((id) => !inSrc.has(id));
+    return tail.length ? new Set(tail) : undefined;
+  }, [manualOrder, sourceIds]);
+
   if (!shelf.enabled || shelf.hidden) return null;
   if (appIds === null) return <div style={{ padding: 10 }}><Spinner /></div>;
   if (!appIds.length) return null;
@@ -702,15 +714,6 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
      overview presence) so owned cards in the same composite keep their
      indicator and only the wishlist / store items lose it. */
   const effectiveHideInstallIndicator = globalHideInstallIndicator === true ? true : ((shelf as any).hideInstallIndicator === true) || isOnlineShelf;
-  // Menu-added games (in manualOrder, not in resolved source) — DeckRow
-  // uses this to bind X=Remove on those cards (vs X=Hide on the rest).
-  const removableSet = (() => {
-    const manual: number[] = (shelf as any).manualOrder ?? [];
-    if (!manual.length || !sourceIds) return undefined;
-    const inSrc = new Set(sourceIds);
-    const tail = manual.filter((id) => !inSrc.has(id));
-    return tail.length ? new Set(tail) : undefined;
-  })();
   // Random-featured rule: stable per shelf id, ~25 % of cards. Implementation
   // pulled out to `computeRandomHighlightSet` to keep render complexity under
   // the lint cap.

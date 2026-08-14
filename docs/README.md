@@ -28,5 +28,6 @@ for what the plugin does and how to install it.
 | [development.md](development.md) | Setup, build and test commands, conventions, translations |
 | [performance.md](performance.md) | Performance budget and the rules that protect frame rate and battery |
 | [qa-manual.md](qa-manual.md) | Manual test checklist before a release |
+| [release-announcements.md](release-announcements.md) | Reddit/Discord release-announcement copy — template and the archive of past posts |
 | [cdp.md](cdp.md) | Inspecting the running plugin on a device |
 | [webpack-classmap.md](webpack-classmap.md) | How Steam's bundled class names are discovered and kept working across updates |

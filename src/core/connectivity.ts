@@ -10,7 +10,7 @@ export function isOnline(): Promise<boolean> {
   // QA harness: short-circuit to false when `qa:update-offline` is active
   // so the rest of the offline flow runs without unplugging the Deck. Lazy
   // require avoids pulling the harness module into production builds.
-  if ((globalThis as any).__DEV__) {
+  if (__DEV__) {
     try {
       const { isQAUpdateOffline } = require("../qa/harness");
       if (typeof isQAUpdateOffline === "function" && isQAUpdateOffline()) return Promise.resolve(false);

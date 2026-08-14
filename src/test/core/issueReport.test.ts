@@ -16,12 +16,16 @@ vi.mock('../../runtime/diagnostics', () => ({
   getDiagnostics: () => [{ id: '1', time: '2026-07-17T00:00:00Z', level: 'error', scope: 'HOME', message: 'render crashed', context: 'boom' }],
 }))
 vi.mock('../../store/settingsStore', () => ({ getCurrentSettings: () => ({ betaChannelEnabled: false }) }))
+const copied: string[] = []
+vi.mock('../../components/ui/clipboard', () => ({ copyToClipboard: async (text: string) => { copied.push(text); return true } }))
+vi.mock('../../components/notify', () => ({ notify: vi.fn() }))
 
-import { openBugReport } from '../../core/issueReport'
+import { openBugReport, openIssueReport } from '../../core/issueReport'
 
 describe('openBugReport', () => {
   beforeEach(() => {
     opened.length = 0
+    copied.length = 0
     h.runtime = { version: '3.0.2', steamOS: '3.9', decky: true, cssLoader: true, theme: 'Default', tabMaster: false, unifiDeck: false, nonSteamBadges: false }
     h.sys = { steamVersion: '1782861641', osName: 'SteamOS', osVersion: '3.9' }
   })
@@ -49,7 +53,7 @@ describe('openBugReport', () => {
     expect((await envOf()).get('os')).toBe('Bazzite')
   })
 
-  it('opens the bug Issue Form pre-filled with diagnostics + logs', async () => {
+  it('opens the bug Issue Form pre-filled with diagnostics; logs go to the clipboard', async () => {
     await openBugReport()
     expect(opened.length).toBe(1)
     const q = new URL(opened[0]).searchParams
@@ -65,12 +69,29 @@ describe('openBugReport', () => {
     expect(ctx).toContain('### Diagnostics')
     expect(ctx).toContain('Version: 3.0.2')
     expect(ctx).toContain('Plugins: DeckShelves, CSSLoader')
-    expect(ctx).toContain('### Logs')
-    expect(ctx).toContain('render crashed')
+    expect(ctx).not.toContain('### Logs')
+    expect(copied.length).toBe(1)
+    expect(copied[0]).toContain('### Logs')
+    expect(copied[0]).toContain('render crashed')
   })
 
-  it('stays well under the GitHub URL length limit', async () => {
+  it('stays well under the observed OpenInSystemBrowser length ceiling', async () => {
     await openBugReport()
-    expect(opened[0].length).toBeLessThan(8000)
+    expect(opened[0].length).toBeLessThan(2500)
+  })
+
+  it('routes enhancement and feature types to their own template without env fields', async () => {
+    await openIssueReport('enhancement')
+    let q = new URL(opened[0]).searchParams
+    expect(q.get('template')).toBe('enhancement.yml')
+    expect(q.get('title')).toBe('[ENHANCEMENT] ')
+    expect(q.get('os')).toBeNull()
+
+    opened.length = 0
+    await openIssueReport('feature')
+    q = new URL(opened[0]).searchParams
+    expect(q.get('template')).toBe('feature_request.yml')
+    expect(q.get('title')).toBe('[FEATURE] ')
+    expect(q.get('os')).toBeNull()
   })
 })

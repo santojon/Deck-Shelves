@@ -139,9 +139,13 @@ function SidecarPanel({ controller, onCollapse }: { controller: SettingsControll
      sidecar simply doesn't appear at all in that state; the caller's
      qamExpanded flag stays in sync and the user gets either "closed" or
      "open with content" — never the bug-state of "open with no content". */
-  if (!controller?.settings) return null;
+  // Hooks below must run unconditionally (Rules of Hooks), so the bail-out
+  // above moves after them; `ready` in the deps re-arms both effects once
+  // settings land, instead of each firing its one run too early.
+  const ready = !!controller?.settings;
   const innerRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
+    if (!ready) return;
     /* Take focus on the first focusable INSIDE the sidecar. We avoid
        giving the wrapper itself an `onActivate` so the wrapper is a
        pure container (layout-only) and Steam's nav can move between
@@ -153,12 +157,13 @@ function SidecarPanel({ controller, onCollapse }: { controller: SettingsControll
       if (first) takeNavTreeFocus(first);
     }, 90);
     return () => window.clearTimeout(id);
-  }, []);
+  }, [ready]);
   /* Size the sidecar from the live QAM panel + plugin tab dimensions so the
      panel fits whatever screen size Steam is rendering at (handheld,
      docked TV, Big Picture on 4K, custom window sizes). Fallbacks keep the
      legacy 503×440 values whenever measurements aren't available yet. */
   useEffect(() => {
+    if (!ready) return;
     const innerEl = innerRef.current;
     if (!innerEl) return;
     const doc = innerEl.ownerDocument;
@@ -201,7 +206,8 @@ function SidecarPanel({ controller, onCollapse }: { controller: SettingsControll
       win.clearTimeout(t1);
       win.clearTimeout(t2);
     };
-  }, []);
+  }, [ready]);
+  if (!ready) return null;
   return (
     <Focusable
       className='deck-shelves-qam-sidecar'
@@ -798,7 +804,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
         if (alive) setDisableHideRecents(false);
       }
     };
-    compute();
+    void compute();
     const onEvent = (e: Event) => { const d = (e as CustomEvent)?.detail; setDisableHideRecents(Boolean(d?.disabled)); };
     globalThis.addEventListener('deck-shelves-hideRecents-disabled', onEvent);
     return () => { alive = false; globalThis.removeEventListener('deck-shelves-hideRecents-disabled', onEvent); };

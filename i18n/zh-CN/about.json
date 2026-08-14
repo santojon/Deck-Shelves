@@ -52,12 +52,7 @@
   "about_learn_more_description": "在 GitHub 上访问项目或报告问题 / 请求功能。",
   "about_learn_more_github": "GitHub",
   "about_learn_more_title": "了解更多",
-  "about_limitation_deck_only": "此插件仅适用于Steam Deck的游戏模式。",
-  "about_limitation_decky": "需要安装Decky Loader。",
-  "about_limitation_home": "书架被注入到主页中，可能会受到Steam客户端更新的影响。",
-  "about_limitations_title": "限制",
   "about_other_versions": "其他版本",
-  "about_report_issue": "报告问题 / 请求功能",
   "about_support_description": "如果您喜欢这个插件，请考虑支持持续开发：",
   "about_support_title": "支持开发者",
   "about_version": "版本",
@@ -77,5 +72,9 @@
   "about_feature_source_v3": "19 new built-in shelf sources — dynamic Steam collections, followed, ignored, DLC, soundtrack, pinned, history, session queue, temporary queue, recently updated (last 14 days), with events, with workshop updates, controller-specific, and six external-launcher collections.",
   "about_feature_grip_buttons": "通过原始控制器流将后握/摇杆点击（L3、R3、L4、L5、R4、R5）映射到卡片快捷键",
   "about_feature_composite_shelves": "通过并集（任一）或交集（全部）模式将多个来源合并到一个复合书架",
-  "about_feature_asset_refresh": "自定义美术（胶囊、徽标、Hero、图标）在返回主页的瞬间刷新 — 无需重载插件"
+  "about_feature_asset_refresh": "自定义美术（胶囊、徽标、Hero、图标）在返回主页的瞬间刷新 — 无需重载插件",
+  "about_report_bug": "报告错误",
+  "about_report_enhancement": "建议改进",
+  "about_report_feature": "请求功能",
+  "about_report_copied": "诊断信息已复制 — 请粘贴到报告中"
 }

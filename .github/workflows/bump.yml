@@ -136,6 +136,19 @@ jobs:
             fi
           fi
 
+          # Promote the Reddit announcement draft the same way, if present.
+          # Also not fatal when missing/empty — post-release.yml's Reddit job
+          # falls back to the raw release body for a version with no entry.
+          if [[ -f "docs/release-announcements.md" ]] && grep -q "^## \[Unreleased\]" docs/release-announcements.md; then
+            ANNOUNCE_CONTENT=$(awk '/^## \[Unreleased\]/{found=1; next} /^## \[/{exit} found{print}' docs/release-announcements.md)
+            ANNOUNCE_TRIMMED=$(echo "$ANNOUNCE_CONTENT" | sed '/^[[:space:]]*$/d')
+            if [[ -n "$ANNOUNCE_TRIMMED" ]]; then
+              sed -i "s/^## \[Unreleased\]/## [Unreleased]\n\n## [${VERSION}] - ${DATE}/" docs/release-announcements.md
+            else
+              echo "⚠️ docs/release-announcements.md [Unreleased] is empty — skipping promote (Reddit post will fall back to the raw release body)"
+            fi
+          fi
+
       - name: TypeScript check
         run: pnpm run typecheck
 

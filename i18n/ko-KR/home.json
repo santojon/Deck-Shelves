@@ -19,7 +19,6 @@
   "view_more": "라이브러리에서\n더 보기",
   "view_more_store": "스토어에서\n더 보기",
   "view_more_wishlist": "위시리스트\n더 보기",
-  "view_release": "릴리스 보기",
   "download_update": "업데이트 다운로드",
   "update_downloading": "업데이트 {{version}} 다운로드 중…",
   "update_downloaded": "{{path}}에 저장됨 — 수동으로 설치하세요.",

@@ -2,6 +2,9 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 vi.mock("i18next", () => ({ default: { t: (k: string) => k } }));
 
+const settingsState = vi.hoisted(() => ({ current: null as any }));
+vi.mock("../../store/settingsStore", () => ({ getCurrentSettings: () => settingsState.current }));
+
 import {
   buildNotification,
   notify,
@@ -52,6 +55,7 @@ describe("notify — dispatch", () => {
     const decky = await import("../../shims/decky-api");
     toastSpy = vi.fn();
     vi.spyOn(decky.toaster, "toast").mockImplementation(toastSpy as any);
+    settingsState.current = null;
   });
   afterEach(() => vi.restoreAllMocks());
 
@@ -63,5 +67,41 @@ describe("notify — dispatch", () => {
     expect((arg.icon as any).type).toBe(RefreshIcon);
     expect((arg.logo as any).type).toBe(DeckShelvesLogo);
     expect(typeof arg.title).toBe("string"); // plugin-name fallback
+  });
+});
+
+describe("notify — area suppression", () => {
+  let toastSpy: ReturnType<typeof vi.fn>;
+  beforeEach(async () => {
+    const decky = await import("../../shims/decky-api");
+    toastSpy = vi.fn();
+    vi.spyOn(decky.toaster, "toast").mockImplementation(toastSpy as any);
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  it("never suppresses when the master toggle is off", () => {
+    settingsState.current = { notificationsDisabled: false, notificationsDisabledAreas: ["shelves"] };
+    notify("success", { body: "b", area: "shelves" });
+    expect(toastSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("suppresses an untagged notification once the master toggle is on", () => {
+    settingsState.current = { notificationsDisabled: true, notificationsDisabledAreas: [] };
+    notify("success", { body: "b" });
+    expect(toastSpy).not.toHaveBeenCalled();
+  });
+
+  it("suppresses only the areas listed as exceptions", () => {
+    settingsState.current = { notificationsDisabled: true, notificationsDisabledAreas: ["shelves", "filters"] };
+    notify("success", { body: "silenced", area: "shelves" });
+    notify("success", { body: "allowed", area: "profiles" });
+    expect(toastSpy).toHaveBeenCalledTimes(1);
+    expect(toastSpy.mock.calls[0][0].body).toBe("allowed");
+  });
+
+  it("fails open (never suppresses) when settings are unavailable", () => {
+    settingsState.current = null;
+    notify("success", { body: "b", area: "shelves" });
+    expect(toastSpy).toHaveBeenCalledTimes(1);
   });
 });

@@ -57,6 +57,27 @@ describe('installProfileTriggers', () => {
     un()
   })
 
+  it('does not reset showcaseSeen when a named profile is auto-triggered', () => {
+    // The profile's snapshot never carries showcaseSeen (excluded at save
+    // time) — a naive spread would wipe the live true back to undefined.
+    store.current = { profileTriggersEnabled: true, profiles: [profile], activeProfileName: null, showcaseSeen: true }
+    resolved.current = 'Docked'
+    const un = installProfileTriggers()
+    expect(saved.list.length).toBe(1)
+    expect(saved.list[0].showcaseSeen).toBe(true)
+    un()
+  })
+
+  it('does not reset showcaseSeen when the factory profile is auto-triggered', () => {
+    const ft = { rules: [{ kind: 'charging' }] }
+    store.current = { profileTriggersEnabled: true, profiles: [], activeProfileName: null, showcaseSeen: true, factoryProfileTrigger: ft }
+    resolved.current = 'Padrão' // FACTORY_PROFILE_NAME
+    const un = installProfileTriggers()
+    expect(saved.list.length).toBe(1)
+    expect(saved.list[0].showcaseSeen).toBe(true)
+    un()
+  })
+
   it('reverts to the pre-trigger profile when the trigger is denied', () => {
     const home = { id: 'p0', name: 'Home', snapshot: { enabled: true, shelves: [] } }
     store.current = { profileTriggersEnabled: true, profiles: [home, profile], activeProfileName: 'Home' }

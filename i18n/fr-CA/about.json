@@ -52,12 +52,7 @@
   "about_learn_more_description": "Visitez le projet sur GitHub ou signalez un problème / demandez une fonctionnalité.",
   "about_learn_more_github": "GitHub",
   "about_learn_more_title": "En savoir plus",
-  "about_limitation_deck_only": "Ce plugin est conçu uniquement pour Steam Deck en Mode Jeu.",
-  "about_limitation_decky": "Nécessite l'installation de Decky Loader.",
-  "about_limitation_home": "Les étagères sont injectées dans l'écran d'accueil et peuvent être affectées par les mises à jour du client Steam.",
-  "about_limitations_title": "Limitations",
   "about_other_versions": "Autres versions",
-  "about_report_issue": "Signaler un problème / demander une fonctionnalité",
   "about_support_description": "Si vous appréciez ce plugin, pensez à soutenir le développement continu :",
   "about_support_title": "Soutenir le développeur",
   "about_version": "Version",
@@ -77,5 +72,9 @@
   "about_feature_source_v3": "19 new built-in shelf sources — dynamic Steam collections, followed, ignored, DLC, soundtrack, pinned, history, session queue, temporary queue, recently updated (last 14 days), with events, with workshop updates, controller-specific, and six external-launcher collections.",
   "about_feature_grip_buttons": "Mappez les boutons de grip arrière / clic de stick (L3, R3, L4, L5, R4, R5) aux raccourcis de carte via le flux brut de la manette",
   "about_feature_composite_shelves": "Empilez plusieurs sources dans une tablette composite avec les modes Union (toutes) ou Intersection (dans toutes)",
-  "about_feature_asset_refresh": "Les visuels personnalisés (capsule, logo, hero, icône) se rafraîchissent dès le retour à l'accueil — sans recharger le plugin"
+  "about_feature_asset_refresh": "Les visuels personnalisés (capsule, logo, hero, icône) se rafraîchissent dès le retour à l'accueil — sans recharger le plugin",
+  "about_report_bug": "Signaler un bug",
+  "about_report_enhancement": "Proposer une amélioration",
+  "about_report_feature": "Demander une fonctionnalité",
+  "about_report_copied": "Diagnostics copiés — collez-les dans le rapport"
 }
