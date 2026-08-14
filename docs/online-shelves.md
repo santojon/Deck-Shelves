@@ -72,6 +72,37 @@ in [src/core/shelfRefresh.ts](../src/core/shelfRefresh.ts) — the single
 in-memory emitter every mounted `ShelfView` is subscribed to via
 `subscribeShelfRefresh(resolve)`. The four entry points share that path:
 
+```mermaid
+flowchart LR
+    subgraph entry["Entry points"]
+        card["In-row<br/>Refresh cache card"]
+        cardmenu["Per-card menu"]
+        qammenu["Per-shelf QAM menu"]
+        manage["Shelf Manage page"]
+    end
+
+    clear["Clear the matching cache<br/>online / smart / random"]
+    emit["triggerShelfRefresh()<br/>single in-memory emitter"]
+    subs["Every mounted ShelfView<br/>subscribed via subscribeShelfRefresh"]
+    repaint(["resolve() re-runs<br/>row re-paints"])
+
+    card --> clear
+    cardmenu --> clear
+    qammenu --> clear
+    manage --> clear
+    clear --> emit
+    emit --> subs
+    subs --> repaint
+
+    classDef ui fill:#dbeafe,stroke:#2563eb,color:#12315e
+    classDef step fill:#dcfce7,stroke:#16a34a,color:#14532d
+    classDef hot fill:#fee2e2,stroke:#dc2626,stroke-width:2px,color:#7f1d1d
+    class card,cardmenu,qammenu,manage ui
+    class clear,subs step
+    class emit hot
+    class repaint step
+```
+
 | Entry point | Cache cleared | Emitter |
 |---|---|---|
 | In-row "Refresh cache" card | `clearOnlineShelfCache()` | `triggerShelfRefresh()` |

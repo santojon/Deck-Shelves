@@ -61,7 +61,7 @@ export function createSmartShelfActions(deps: SmartShelfDeps) {
       const s = liveSettings();
       if (!s) return;
       await persist({ ...s, smartShelves: [shelf, ...(s.smartShelves ?? [])] });
-      notify("success", { body: t("toast_created"), area: "shelves" });
+      notify("success", { body: t("toast_shelf_created"), area: "shelves" });
       return shelf;
     },
     async removeSmartShelf(id: string) {

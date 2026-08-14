@@ -240,11 +240,6 @@
       "count": 1
     }
   },
-  "src/core/updateNotifier.ts": {
-    "complexity": {
-      "count": 2
-    }
-  },
   "src/features/search/SearchOverlay.tsx": {
     "complexity": {
       "count": 2

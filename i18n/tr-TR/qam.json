@@ -61,5 +61,10 @@
   "toast_profile_renamed": "Profil yeniden adlandırıldı",
   "toast_filter_saved": "Filtre kaydedildi",
   "toast_filter_deleted": "Filtre silindi",
-  "toast_filter_renamed": "Filtre yeniden adlandırıldı"
+  "toast_filter_renamed": "Filtre yeniden adlandırıldı",
+  "mount_crash_report": "Sorun bildir",
+  "report_issue_title": "Sorun bildir",
+  "report_issue_desc": "Tarayıcınızda önceden doldurulmuş bir rapor açar. Siz gözden geçirip göndermeden hiçbir şey gönderilmez.",
+  "report_issue_hardware": "Donanım bilgilerini ekle",
+  "report_issue_hardware_desc": "Model, CPU, bellek, GPU ve depolama — cihaza özgü sorunların teşhisine yardımcı olur."
 }

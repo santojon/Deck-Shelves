@@ -705,9 +705,12 @@ export function ShelfPreview({
           overflowX: 'auto',
           overflowY: 'visible',
           scrollbarWidth: 'none',
-          // Extra padding-bottom so labels (which sit absolutely below each
-          // 110px-tall wrapper at top:100%) aren't clipped by the modal.
-          padding: '8px 0 56px',
+          /* Extra padding-bottom so labels (which sit absolutely below each
+             110px-tall wrapper at top:100%) aren't clipped by the modal.
+             Left/right padding matches the selection-mark ring's widest
+             outset (grabbed: 5px, GameCard.tsx) so the first/last card's
+             ring isn't clipped by this row's own overflow-x: auto. */
+          padding: '8px 6px 56px',
           alignItems: 'flex-start',
         }}
       >

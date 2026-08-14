@@ -13,10 +13,10 @@ import { logInfo, logWarn } from "../runtime/logger";
 import { logDiagnostic } from "../runtime/diagnostics";
 import { getPreferredSteamDocument, getPreferredSteamWindow, getAllSteamDocuments } from "../runtime/steamHost";
 import { ROOT_ID, seededShuffle, isHomeRoute, hasHomeDomSignals, detectNavTreeApi, findOrCreateMount } from "./home/mountUtils";
-import { applyHideRecents, reapplyHomeHides, applyHideHomeTabs, getMountFailed } from "../runtime/homePatch";
+import { applyHideRecents, reapplyHomeHides, applyHideHomeTabs, applyReplaceActiveMargin, getMountFailed } from "../runtime/homePatch";
 import { getRecentsReplaceFailed, subscribeRecentsReplaceFailed, isRecentsReplaceInjecting, subscribeRecentsReplaceInjecting, getRecentsReplaceActiveShelfId } from "../runtime/recentsReplace";
 import { Focusable } from "../runtime/host/decky";
-import { installPassiveMenuHook, installPassiveShowContextMenuHook, installLibraryContextMenuPatch, installCreateContextMenuPatch } from "../core/steamGameMenu";
+import { installPassiveMenuHook, installPassiveShowContextMenuHook, installLibraryContextMenuPatch, installCreateContextMenuPatch, prewarmMenuExtraction } from "../core/steamGameMenu";
 import { tryRestoreFocus, hasPendingFocus, beginFocusRestoreLoop, focusElement } from "../core/focusRestore";
 import { focusNativeRecentsFirstCard, findNativeRecentsEl } from "../features/sidenav/ShelfSideNav";
 import { patchShelfEdgeNavigation, patchMenuButton, installVerticalFocusBridge, reparentNavTreeNodes } from "./home/navPatches";
@@ -301,6 +301,12 @@ export function HomeShelves() {
     const canHide = settings?.enabled && settings?.hideRecents === true
       && hasAnyVisible && !replaceActive;
     applyHideRecents(canHide === true);
+    /* Margin correction is about the native row being kept VISIBLE
+       (canHide false whenever replaceActive is true), not about injection
+       having actually populated it — an empty promoted shelf falls back to
+       genuine native content that's just as visible and needs the same
+       offset. */
+    applyReplaceActiveMargin(replaceActive === true);
     // When recents are hidden, remove them from the gamepad navigation tree so
     // the D-pad skips straight to our shelves.  We keep the DOM intact (visibility:
     // hidden) so we can still read native classes, hero images, etc.
@@ -321,7 +327,7 @@ export function HomeShelves() {
         else recentsEl.removeAttribute('aria-hidden');
       }
     }
-  }, [settings?.hideRecents, settings?.enabled, settings?.shelves, settings?.smartShelvesEnabled, settings?.smartShelves, settings?.recentsReplaceSource, mountEl, replaceKillSwitch]);
+  }, [settings?.hideRecents, settings?.enabled, settings?.shelves, settings?.smartShelvesEnabled, settings?.smartShelves, settings?.recentsReplaceSource, mountEl, replaceKillSwitch, replaceInjecting]);
 
   // Apply hideHomeTabs — no suppression criteria, simple toggle. If no sibling
   // elements are found around the mount, the helper is a no-op.
@@ -643,8 +649,12 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
     for (const d of menuPatchRetries) {
       menuRetryTimers.push(setTimeout(tryInstall, d));
     }
-    // prewarmMenuExtraction was removed (opened a real menu on boot).
-    // Extraction now happens lazily on the first user MENU press.
+    /* Capture the native card menu while recents is still visible — once
+       hideRecents collapses it (display:none), Steam stops mounting real
+       cards inside it, so a later on-press attempt has nothing left to
+       capture. The synthetic native-menu open this triggers is dismissed
+       immediately (steamGameMenu.ts's dismissSyntheticMenu). */
+    const disposePrewarm = prewarmMenuExtraction();
 
     // Observer 1: mutations inside our mount (shelf render, collapse/expand)
     const obs = new MutationObserver(scheduleApplyPatches);
@@ -691,6 +701,7 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
       parentObs?.disconnect();
       window.clearInterval(poll);
       for (const t of menuRetryTimers) { try { clearTimeout(t); } catch {} }
+      disposePrewarm();
       doc?.removeEventListener("focusin", onFocusIn, true);
       win.removeEventListener("popstate", onNavEvent);
       win.removeEventListener("hashchange", onNavEvent);

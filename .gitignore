@@ -57,6 +57,12 @@ site/reports/dashboard.html
 # (release notes/version are injected into site/index.html in place).
 site/features.html
 
+# Shared images copied from assets/ into the Pages tree by build_site.py.
+# Source of truth is assets/icon.svg + assets/steam-deck.png; these are
+# generated so the repo holds each image once.
+site/favicon.svg
+site/img/steam-deck.png
+
 # Hidden folders
 /.*/
 !.github/

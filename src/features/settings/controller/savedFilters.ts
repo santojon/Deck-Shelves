@@ -50,7 +50,7 @@ export function createSavedFilterActions(deps: SavedFilterDeps) {
       const entry: SavedSmartFilter = { id, name: trimmed, ...payload };
       const existing = s.savedSmartFilters ?? [];
       await persist({ ...s, savedSmartFilters: [...existing, entry] });
-      notify("success", { body: i18next.t("toast_saved"), area: "filters" });
+      notify("success", { body: i18next.t("toast_filter_saved"), area: "filters" });
       return entry;
     },
     async deleteSavedSmartFilter(id: string) {
@@ -58,7 +58,7 @@ export function createSavedFilterActions(deps: SavedFilterDeps) {
       if (!s) return;
       const next = (s.savedSmartFilters ?? []).filter((f) => f.id !== id);
       await persist({ ...s, savedSmartFilters: next });
-      notify("reset", { body: i18next.t("toast_deleted"), area: "filters" });
+      notify("reset", { body: i18next.t("toast_filter_deleted"), area: "filters" });
     },
     async renameSavedSmartFilter(id: string, name: string) {
       const s = liveSettings();
@@ -67,7 +67,7 @@ export function createSavedFilterActions(deps: SavedFilterDeps) {
       if (!trimmed) return;
       const next = (s.savedSmartFilters ?? []).map((f) => (f.id === id ? { ...f, name: trimmed } : f));
       await persist({ ...s, savedSmartFilters: next });
-      notify("success", { body: i18next.t("toast_renamed"), area: "filters" });
+      notify("success", { body: i18next.t("toast_filter_renamed"), area: "filters" });
     },
   };
 }

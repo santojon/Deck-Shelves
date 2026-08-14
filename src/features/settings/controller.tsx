@@ -8,6 +8,7 @@ import { logDiagnostic } from "../../runtime/diagnostics";
 import { logError, logInfo } from "../../runtime/logger";
 import { __resetUpdateCheckCache } from "../../core/updateNotifier";
 import { notify } from "../../components/notify";
+import { NOTIFICATION_AREAS } from "../../components/qam/NotificationAreaToggles";
 import { createSavedFilterActions } from "./controller/savedFilters";
 import { createSmartShelfActions } from "./controller/smartShelves";
 import { createOnlineActions } from "./controller/online";
@@ -107,8 +108,21 @@ export function useSettingsController() {
     };
     refreshCollections();
     refreshTabs();
-    const tabTimer = window.setInterval(refreshTabs, 30000);
-    const colTimer = window.setInterval(refreshCollections, 30000);
+    /* Bounded poll (NOT perpetual): the pickers only need to catch Steam's
+       collectionStore hydrating on cold boot (up to ~80s). Cap the probing at a
+       few ticks, then stop — integrations are optional/additive, so we never keep
+       hammering get_tabmaster_tabs / listCollections in the background. */
+    let tabPolls = 0;
+    let colPolls = 0;
+    const MAX_POLLS = 6;
+    const tabTimer = window.setInterval(() => {
+      refreshTabs();
+      if (++tabPolls >= MAX_POLLS) window.clearInterval(tabTimer);
+    }, 30000);
+    const colTimer = window.setInterval(() => {
+      refreshCollections();
+      if (++colPolls >= MAX_POLLS) window.clearInterval(colTimer);
+    }, 30000);
     return () => {
       window.clearInterval(tabTimer);
       window.clearInterval(colTimer);
@@ -181,7 +195,14 @@ export function useSettingsController() {
     async setNotificationsDisabled(notificationsDisabled: boolean) {
       const s = liveSettings();
       if (!s || ((s as any).notificationsDisabled ?? false) === notificationsDisabled) return;
-      await persist({ ...s, notificationsDisabled } as any);
+      const next: any = { ...s, notificationsDisabled };
+      // Areas come checked ("don't notify this flow") the first time the
+      // master is switched on, so the per-area toggles start consistent
+      // with it — an existing customization is left alone.
+      if (notificationsDisabled && !(s as any).notificationsDisabledAreas?.length) {
+        next.notificationsDisabledAreas = [...NOTIFICATION_AREAS];
+      }
+      await persist(next);
     },
     async setShowcaseSeen(showcaseSeen: boolean) {
       const s = liveSettings();

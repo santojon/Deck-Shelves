@@ -106,6 +106,33 @@ Shows games rated Deck Verified by Valve — confirmed to work great on Steam De
 
 Shows installed games with the highest user review scores on Steam.
 
+### Never Played — `never_played`
+
+**Source:** filter — `maxPlaytimeMinutes: 0`, sort alphabetically
+
+Your backlog: games you own but have never launched.
+
+### Deck Playable — `deck_playable`
+
+**Source:** filter — `deckCompatibility: ["playable"]`, sort alphabetically
+
+Pairs with Deck Verified, covering the *Playable* compatibility tier.
+
+---
+
+## Online templates
+
+These appear in the picker only while online features are enabled, and resolve
+over the network. See [online-shelves.md](./online-shelves.md) for the caching
+and refresh mechanics.
+
+| Template | Id | Source | Default sort |
+|---|---|---|---|
+| Wishlist | `wishlist` | Your account's wishlist | — |
+| Wishlist on Sale | `wishlist_on_sale` | Wishlist, discounted entries | `discount_high` |
+| Free on Wishlist | `free_wishlist` | Wishlist entries that are free | `original_price_high` |
+| Free Now | `free_now` | Currently free entries | `original_price_high` |
+
 ---
 
 ## Notes

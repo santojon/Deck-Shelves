@@ -474,20 +474,60 @@ export function SteamIcon({ size = 14, style }: IconProps) {
   );
 }
 
-// Branded logo for notifications — the same shelf glyph as the QAM plugin icon
-// (no box), just rendered larger so it fills the toast/notification logo slot.
+/* Branded logo for notifications / showcase. This is the same mark shipped as
+   `assets/icon.svg` (the packaged plugin icon + site favicon), kept in sync by
+   hand: the geometry is inlined as JSX rather than importing the .svg so it
+   renders as real React elements (no raw-HTML injection). Transparent,
+   like the logo; every parameter mirrors the logo's shelves (see icon.svg). */
 export function DeckShelvesLogo({ size = 40 }: { size?: number }) {
   return (
-    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0 }}>
-      <line x1="0.75" y1="20.75" x2="23.25" y2="20.75" strokeWidth="1.6" />
-      <rect x="1" y="6.5" width="4.5" height="14.25" rx="0.5" strokeWidth="1.5" />
-      <line x1="1" y1="9.5" x2="5.5" y2="9.5" strokeWidth="1.1" />
-      <rect x="6.5" y="3.5" width="4" height="17.25" rx="0.5" strokeWidth="1.5" />
-      <line x1="6.5" y1="6.75" x2="10.5" y2="6.75" strokeWidth="1.1" />
-      <rect x="11.5" y="8.5" width="3.5" height="12.25" rx="0.5" strokeWidth="1.5" />
-      <line x1="11.5" y1="11.25" x2="15" y2="11.25" strokeWidth="1.1" />
-      <rect x="16" y="5" width="6.5" height="15.75" rx="0.5" strokeWidth="1.5" />
-      <line x1="16" y1="8.5" x2="22.5" y2="8.5" strokeWidth="1.1" />
+    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 512 512" aria-hidden="true" style={{ flexShrink: 0 }}>
+      <g transform="translate(-340.6,-224.7) scale(0.76)" stroke="#000000" strokeWidth="2" strokeLinejoin="round">
+        <rect x="550" y="460" width="80" height="285" rx="8" ry="8" fill="#0080FF" />
+        <rect x="551" y="500" width="79" height="25" fill="#0044B0" stroke="none" />
+        <rect x="645" y="500" width="75" height="245" rx="8" ry="8" fill="#0080FF" />
+        <rect x="646" y="535" width="73" height="25" fill="#0044B0" stroke="none" />
+        <rect x="740" y="530" width="75" height="215" rx="8" ry="8" fill="#FFFFFF" />
+        <rect x="741" y="570" width="73" height="25" fill="#D2D2D2" stroke="none" />
+        <rect x="840" y="470" width="75" height="275" rx="8" ry="8" fill="#FFFFFF" />
+        <rect x="841" y="505" width="73" height="25" fill="#D2D2D2" stroke="none" />
+        <g transform="rotate(-15)">
+          <rect x="750" y="750" width="60" height="225" rx="8" ry="8" fill="#0080FF" />
+          <rect x="751" y="785" width="58" height="25" fill="#0044B0" stroke="none" />
+        </g>
+        <rect x="500" y="750" width="570" height="25" rx="8" ry="8" fill="#FFFFFF" />
+        <rect x="530" y="780" width="25" height="25" rx="8" ry="8" fill="#FFFFFF" />
+        <rect x="1020" y="780" width="25" height="25" rx="8" ry="8" fill="#FFFFFF" />
+      </g>
+    </svg>
+  );
+}
+
+/** Full brand wordmark (the Deck "D" symbol + the shelf of books), matching
+    assets/logo.svg. Width-based (aspect ~854:378); used where the whole logo is
+    wanted rather than the square shelf-icon glyph (e.g. the feature tour). */
+export function DeckShelvesWordmark({ width = 240 }: { width?: number }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width={width} height={Math.round((width * 378) / 854)} viewBox="217 444 854 378" aria-hidden="true" style={{ flexShrink: 0 }}>
+      <g stroke="#000000" strokeWidth="2" strokeLinejoin="round">
+        <path d="M 312.5,461.5 C 373.539,463.763 419.039,491.43 449,544.5 C 475.648,600.403 473.314,655.069 442,708.5 C 411.013,754.246 367.846,777.913 312.5,779.5 C 312.333,760.497 312.5,741.497 313,722.5 C 361.661,715.155 391.661,687.488 403,639.5 C 408.643,596.312 394.143,561.812 359.5,536 C 344.981,527.105 329.315,521.938 312.5,520.5 C 312.5,500.833 312.5,481.167 312.5,461.5 Z" fill="#FFFFFF" />
+        <circle cx="300" cy="620" r="80" fill="#0080FF" />
+        <rect x="550" y="460" width="80" height="285" rx="8" ry="8" fill="#0080FF" />
+        <rect x="551" y="500" width="79" height="25" fill="#0044B0" stroke="none" />
+        <rect x="645" y="500" width="75" height="245" rx="8" ry="8" fill="#0080FF" />
+        <rect x="646" y="535" width="73" height="25" fill="#0044B0" stroke="none" />
+        <rect x="740" y="530" width="75" height="215" rx="8" ry="8" fill="#FFFFFF" />
+        <rect x="741" y="570" width="73" height="25" fill="#D2D2D2" stroke="none" />
+        <rect x="840" y="470" width="75" height="275" rx="8" ry="8" fill="#FFFFFF" />
+        <rect x="841" y="505" width="73" height="25" fill="#D2D2D2" stroke="none" />
+        <g transform="rotate(-15)">
+          <rect x="750" y="750" width="60" height="225" rx="8" ry="8" fill="#0080FF" />
+          <rect x="751" y="785" width="58" height="25" fill="#0044B0" stroke="none" />
+        </g>
+        <rect x="500" y="750" width="570" height="25" rx="8" ry="8" fill="#FFFFFF" />
+        <rect x="530" y="780" width="25" height="25" rx="8" ry="8" fill="#FFFFFF" />
+        <rect x="1020" y="780" width="25" height="25" rx="8" ry="8" fill="#FFFFFF" />
+      </g>
     </svg>
   );
 }

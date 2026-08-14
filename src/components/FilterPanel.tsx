@@ -34,9 +34,13 @@ export type FilterPanelProps = {
   onChange: (group: FilterGroup) => void;
   controller?: import("../features/settings/controller").SettingsController;
   allowOnlineFilters?: boolean;
+  /** Hide the AND/OR mode selector — used by composites that carry their own
+   *  combining semantics (weighted / priority / exclusion), where a group mode
+   *  is meaningless. */
+  hideMode?: boolean;
 };
 
-export function FilterPanel({ group, onChange, controller, allowOnlineFilters = false }: FilterPanelProps) {
+export function FilterPanel({ group, onChange, controller, allowOnlineFilters = false, hideMode = false }: FilterPanelProps) {
   const t = i18n.t.bind(i18n);
   const items = group.items ?? [];
   const mode = group.mode ?? "and";
@@ -80,23 +84,25 @@ export function FilterPanel({ group, onChange, controller, allowOnlineFilters = 
   return (
     <div style={{ marginTop: 8 }}>
       <div>
-        <div>
-          <Field
-            label={t("filter_group_mode_label")}
-            childrenLayout="inline"
-            childrenContainerWidth="min"
-            inlineWrap="keep-inline"
-          >
-            <div style={{ minWidth: 150 }}>
-              <Dropdown
-                rgOptions={modeOptions}
-                selectedOption={mode}
-                onChange={(opt: any) => onChange({ ...group, mode: (opt?.data ?? opt) as "and" | "or" })}
-                focusable
-              />
-            </div>
-          </Field>
-        </div>
+        {!hideMode && (
+          <div>
+            <Field
+              label={t("filter_group_mode_label")}
+              childrenLayout="inline"
+              childrenContainerWidth="min"
+              inlineWrap="keep-inline"
+            >
+              <div style={{ minWidth: 150 }}>
+                <Dropdown
+                  rgOptions={modeOptions}
+                  selectedOption={mode}
+                  onChange={(opt: any) => onChange({ ...group, mode: (opt?.data ?? opt) as "and" | "or" })}
+                  focusable
+                />
+              </div>
+            </Field>
+          </div>
+        )}
 
         <div>
           {items.map((item, index) => {

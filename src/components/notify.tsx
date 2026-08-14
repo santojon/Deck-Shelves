@@ -53,15 +53,17 @@ export interface NotifyOptions {
   area?: string;
 }
 
-/* Suppressed when the master "disable notifications" toggle is on, or when the
-   notification's area is in the per-area disabled list. Fail-open on any error. */
+/* With the master "disable notifications" toggle off, nothing is suppressed —
+   `notificationsDisabledAreas` only has meaning once the master is on, where
+   it's the set of areas STILL silenced (an untagged notification has no area
+   to except, so it's always suppressed there). Fail-open on any error. */
 function isSuppressed(area?: string): boolean {
   try {
     const s = getCurrentSettings() as any;
     if (!s) return false;
-    if (s.notificationsDisabled === true) return true;
-    if (area && Array.isArray(s.notificationsDisabledAreas) && s.notificationsDisabledAreas.includes(area)) return true;
-    return false;
+    if (s.notificationsDisabled !== true) return false;
+    if (!area) return true;
+    return Array.isArray(s.notificationsDisabledAreas) && s.notificationsDisabledAreas.includes(area);
   } catch { return false; }
 }
 

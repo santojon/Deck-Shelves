@@ -532,8 +532,18 @@ const RECENT_COLLECTION_NAME_KEYS = ["displayName", "m_strName"];
 const USER_COLLECTION_ID_KEYS = ["id", "m_strId", "key"];
 const USER_COLLECTION_NAME_KEYS = ["displayName", "m_strName"];
 
+/* Steam builds collectionStore's system collections asynchronously after boot.
+   Reading a system-collection MobX getter (recentAppsCollection, …) before that
+   throws inside Steam's own SystemCollectionIdToName (undefined `.get`, issue
+   #113), so gate every such read on the store having its core collection built. */
+function collectionStoreReady(cs: any): boolean {
+  try { return !!(cs?.allAppsCollection ?? cs?.allGamesCollection)?.apps; } catch { return false; }
+}
+
 function addRecentCollectionTab(cs: any, seen: Set<string>, out: PlatformTab[]): void {
-  const recentCol = cs?.recentAppsCollection ?? cs?.allRecentAppsCollection;
+  if (!collectionStoreReady(cs)) return;
+  let recentCol: any;
+  try { recentCol = cs?.recentAppsCollection ?? cs?.allRecentAppsCollection; } catch { return; }
   if (!recentCol) return;
   const id = firstStringFromKeys(recentCol, RECENT_COLLECTION_ID_KEYS, 'recent');
   if (!id) return;
@@ -2439,7 +2449,9 @@ function evalDefault(item: FilterItem, app: AppOverview): boolean {
   try {
     const { FILTER_V3_EVALUATORS } = require("./v3Extensions") as typeof import("./v3Extensions");
     const v3 = FILTER_V3_EVALUATORS[item.type as string];
-    if (v3) return v3(item, app);
+    // Pass the full evaluator so composite v3 filters can evaluate children of
+    // ANY type (base + v3) without importing this module back.
+    if (v3) return v3(item, app, (child, childApp) => evaluateFilterItem(child, childApp));
   } catch { /* fall through */ }
   // External plugin filter or unknown type. Unknown + unregistered →
   // pass-through (true) so an unregistered plugin filter doesn't hide
@@ -2452,7 +2464,7 @@ function evalDefault(item: FilterItem, app: AppOverview): boolean {
   return true;
 }
 
-function evaluateFilterItem(item: FilterItem, app: AppOverview, ctx?: FilterEvalContext): boolean {
+export function evaluateFilterItem(item: FilterItem, app: AppOverview, ctx?: FilterEvalContext): boolean {
   const evaluator = FILTER_EVALUATORS[item.type] ?? evalDefault;
   const result = evaluator(item, app, ctx);
   return item.inverted ? !result : result;
@@ -3687,7 +3699,10 @@ export async function resolveShelfAppIds(
      to ids + apply sort + finish overshoot trimming. */
   try {
     const { SOURCE_V3_RESOLVERS } = require("./v3Extensions") as typeof import("./v3Extensions");
-    const v3 = SOURCE_V3_RESOLVERS[source.type];
+    // `builtin` wraps a v3 source id (the picker's shape); a bare v3 `type`
+    // is also honoured for power-users editing JSON directly.
+    const v3id = source.type === "builtin" ? String((source as any).sourceId ?? "") : source.type;
+    const v3 = SOURCE_V3_RESOLVERS[v3id];
     if (v3) {
       const filtered = v3(all);
       const ids = filtered.map((a) => appIdOf(a)).filter(Number.isFinite);

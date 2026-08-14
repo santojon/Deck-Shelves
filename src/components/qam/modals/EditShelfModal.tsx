@@ -23,7 +23,7 @@ import { getExternalSources } from '../../../core/pluginApi'
 import { descriptorName } from '../../../core/descriptorName'
 import { isNonSteamBadgesAvailable } from '../../../integrations'
 import { usePlatform } from '../../../runtime/platformContext'
-import { BASE_SOURCE_TYPES, SORT_OPTIONS, type SourceType, type EditTab } from './editShelf/constants'
+import { BASE_SOURCE_TYPES, SORT_OPTIONS, V3_SOURCE_OPTIONS, type SourceType, type EditTab } from './editShelf/constants'
 import type { EditableShelfState } from './editShelf/types'
 import { optionData } from './editShelf/utils'
 import { SavedFiltersBar } from './editShelf/SavedFiltersBar'
@@ -142,6 +142,10 @@ function computeSourceTypeState(
   }
   if (type === 'store') {
     return { ...prev, sourceType: type, ...wipeExtras } as EditableShelfState
+  }
+  if (type === 'builtin') {
+    const first = V3_SOURCE_OPTIONS[0]?.value ?? ''
+    return { ...prev, sourceType: type, builtinSourceId: prev.builtinSourceId || first, ...wipeExtras } as EditableShelfState
   }
   return { ...prev, sourceType: type, filter: normalizeFilter({ type: 'filter', filter: prev.filter }), ...wipeExtras } as EditableShelfState
 }
@@ -276,6 +280,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
   const allSourceTypes: SourceType[] = [
     ...BASE_SOURCE_TYPES,
     ...(externalSources.length > 0 ? ['external' as SourceType] : []),
+    'builtin' as SourceType,
     ...(settings?.onlineFeaturesEnabled ? ['wishlist' as SourceType, 'store' as SourceType] : []),
   ]
   const sourceTypeOptions: SingleDropdownOption[] = allSourceTypes.map((value) => ({
@@ -285,6 +290,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
            value === 'external' ? t('source_external') :
            value === 'wishlist' ? <span style={{ display:'inline-flex',alignItems:'center',gap:4 }}><OnlineIcon size={14} style={{ opacity:0.7 }} />{t('source_wishlist')}</span> as any :
            value === 'store' ? <span style={{ display:'inline-flex',alignItems:'center',gap:4 }}><OnlineIcon size={14} style={{ opacity:0.7 }} />{t('source_store')}</span> as any :
+           value === 'builtin' ? t('source_builtin') :
            t('source_filter'),
   }))
   /* Native library tabs get a localized label + a small library-grid icon.
@@ -467,6 +473,15 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
                     )}
                     {state.sourceType === 'external' && externalOptions.length > 0 && (
                       <DropdownItem label={t('source_external')} rgOptions={externalOptionsFinal} selectedOption={externalSelected} onChange={(opt: unknown) => setState((prev) => ({ ...prev, externalSourceId: String(optionData(opt)) }))} bottomSeparator='thick' />
+                    )}
+                    {state.sourceType === 'builtin' && (
+                      <DropdownItem
+                        label={t('source_builtin')}
+                        rgOptions={V3_SOURCE_OPTIONS.map((o) => ({ data: o.value, label: o.label ?? t(o.labelKey as string) }))}
+                        selectedOption={state.builtinSourceId}
+                        onChange={(opt: unknown) => setState((prev) => ({ ...prev, builtinSourceId: String(optionData(opt)) }))}
+                        bottomSeparator='thick'
+                      />
                     )}
                     {state.sourceType === 'wishlist' && (
                       <div style={{ padding: '8px 2px 4px', fontSize: 12, opacity: 0.75, lineHeight: 1.5 }}>

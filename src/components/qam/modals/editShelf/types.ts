@@ -7,6 +7,7 @@ export type EditableShelfState = {
   collectionId: string
   tab: string
   externalSourceId: string
+  builtinSourceId: string
   filter: ShelfFilter
   filterGroup: FilterGroup
   // Multi-key sort: single-key shelves keep `string`, multi-key shelves

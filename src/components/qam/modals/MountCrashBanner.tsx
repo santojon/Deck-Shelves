@@ -3,6 +3,8 @@ import type { SettingsController } from '../../../features/settings/controller'
 import { resetMountFailed } from '../../../runtime/homePatch'
 import { getUserDownloadsDir } from '../../../core/userPaths'
 import { ExportAndClearModal } from './ExportAndClearModal'
+import { confirmAction } from './ConfirmActionModal'
+import { openBugReport } from '../../../core/issueReport'
 
 export function MountCrashBanner({ controller, error, onDismiss }: { controller: SettingsController; error: string | null; onDismiss: () => void }) {
   const { t } = controller
@@ -17,6 +19,16 @@ export function MountCrashBanner({ controller, error, onDismiss }: { controller:
     }
     handle = showModal(<ExportAndClearModal closeModal={close} controller={controller} folderPath={getUserDownloadsDir()} />)
   }
+  const reportIssue = () => confirmAction({
+    title: t('report_issue_title'),
+    body: t('report_issue_desc'),
+    okText: t('confirm_continue'),
+    cancelText: t('cancel'),
+    toggleLabel: t('report_issue_hardware'),
+    toggleDesc: t('report_issue_hardware_desc'),
+    toggleDefault: false,
+    onConfirm: (includeHardware) => { void openBugReport({ includeHardware, error }) },
+  })
   return (
     <div style={{ margin: '8px 16px', padding: '12px 14px', background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.35)', borderRadius: 6 }}>
       <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 6, color: 'var(--ds-danger, #f87171)' }}>{t('mount_crash_title')}</div>
@@ -33,6 +45,11 @@ export function MountCrashBanner({ controller, error, onDismiss }: { controller:
           onOKButton={openExportAndClear}
           style={{ width: '100%', minWidth: 0 }}
         >{t('mount_crash_export_and_reset')}</DialogButton>
+        <DialogButton
+          onClick={reportIssue}
+          onOKButton={reportIssue}
+          style={{ width: '100%', minWidth: 0 }}
+        >{t('mount_crash_report')}</DialogButton>
       </Focusable>
     </div>
   )

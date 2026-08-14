@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { ConfirmModal, DialogButton, Focusable } from '../../../runtime/host/decky'
 import { useTranslation } from 'react-i18next'
 import { ModalShell } from '../../ui'
-import { DeckShelvesLogo, StackIcon, SparkleIcon, FunnelIcon, WandIcon, SearchIcon, SideNavIcon, TargetIcon, OnlineIcon, ToolsIcon } from '../../icons'
+import { DeckShelvesLogo, DeckShelvesWordmark, StackIcon, SparkleIcon, FunnelIcon, WandIcon, SearchIcon, SideNavIcon, TargetIcon, OnlineIcon, ToolsIcon } from '../../icons'
 
 type Glyph = (p: { size?: number }) => any
 type Step = { Icon: Glyph; title: string; body: string }
@@ -43,7 +43,11 @@ export function ShowcaseModal({ closeModal, onComplete }: { closeModal?: () => v
       >
         <Focusable onMenuButton={next} onMenuActionDescription={last ? t('showcase_finish') : t('showcase_next')}>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 10, padding: '10px 6px 4px' }}>
-            <div style={{ color: 'var(--ds-accent, #4a9eff)', display: 'flex' }}><Icon size={44} /></div>
+            {/* Welcome step shows the full brand wordmark (D-symbol + shelf, its
+                own fills); the other steps use monochrome accent glyphs. */}
+            {step === 0
+              ? <div style={{ display: 'flex', padding: '4px 0' }}><DeckShelvesWordmark width={240} /></div>
+              : <div style={{ color: 'var(--ds-accent, #4a9eff)', display: 'flex' }}><Icon size={44} /></div>}
             <div style={{ fontSize: 17, fontWeight: 700, textAlign: 'center', width: '100%' }}>{t(cur.title)}</div>
             <div style={{ fontSize: 13, lineHeight: 1.5, opacity: 0.85, maxWidth: 460 }}>{t(cur.body)}</div>
             <div style={{ display: 'flex', gap: 6, padding: '4px 0 2px' }}>

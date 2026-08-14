@@ -46,7 +46,10 @@ run_checks() {
     ((fail++))
   fi
 
-  if grep -q "import decky" "$root/main.py" 2>/dev/null; then
+  # The loader module is imported (try/except) in the host-abstraction module
+  # `plugin_host.py`, not main.py — so the same backend also runs on a neutral
+  # host. Scan the backend .py files rather than main.py alone.
+  if grep -q "import decky" "$root"/*.py 2>/dev/null; then
     echo "  ✅ Uses 'import decky' (v3 style)"
     ((pass++))
   else
@@ -54,7 +57,7 @@ run_checks() {
     ((fail++))
   fi
 
-  if ! grep -q "from decky_plugin" "$root/main.py" 2>/dev/null; then
+  if ! grep -q "from decky_plugin" "$root"/*.py 2>/dev/null; then
     echo "  ✅ No legacy decky_plugin imports"
     ((pass++))
   else

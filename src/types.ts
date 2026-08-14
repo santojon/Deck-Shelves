@@ -32,6 +32,41 @@ export const FilterItemTypeSchema = z.enum([
   "appStatus",
   "discount",
   "priceRange",
+  "familySharing",
+  // Filter v3 — param-free predicates (evaluators in steam/v3Extensions.ts).
+  "vrSupport",
+  "soundtrackOwned",
+  "neverCompleted",
+  "installedNeverPlayed",
+  "compatDataQuality",
+  "emuDeckSystem",
+  "retroDeckSystem",
+  "heroicLauncher",
+  "lutrisApp",
+  "chiakiApp",
+  "moonlightApp",
+  "hiddenLauncherShortcuts",
+  // Filter v3 — parameterized predicates (editors in FilterItemOptions.tsx).
+  "genres",
+  "categories",
+  "franchise",
+  "multiplayerType",
+  "dlcOwned",
+  "launchCount",
+  "avgSessionMinutes",
+  "recentlyAbandoned",
+  "playedOnce",
+  "achievementPercentRange",
+  "storageDevice",
+  "installedSizeRange",
+  "executableType",
+  "launchOptionTags",
+  "customTags",
+  "parserCategories",
+  // Filter v3 — composites: combine other filter items (nested editor).
+  "weightedFilter",
+  "priorityFilter",
+  "exclusionGroup",
 ]);
 export type FilterItemType = z.infer<typeof FilterItemTypeSchema>;
 
@@ -337,6 +372,7 @@ export type ShelfSource =
   | { type: "tab"; tab: string; childFilter?: FilterGroup }
   | { type: "filter"; filter: ShelfFilter }
   | { type: "external"; sourceId: string }
+  | { type: "builtin"; sourceId: string }
   | { type: "smart"; mode: SmartShelfMode }
   | { type: "wishlist"; childFilter?: FilterGroup; excludeOwned?: boolean; excludeOwnedNonSteam?: boolean; hideOwnedNonSteamCloud?: boolean }
   | { type: "store"; childFilter?: FilterGroup; excludeOwned?: boolean; excludeOwnedNonSteam?: boolean; hideOwnedNonSteamCloud?: boolean }
@@ -347,6 +383,7 @@ export const ShelfSourceSchema: z.ZodType<ShelfSource> = z.lazy(() => z.union([
   z.object({ type: z.literal("tab"), tab: z.string().min(1), childFilter: FilterGroupSchema.optional() }),
   z.object({ type: z.literal("filter"), filter: FilterSchema.default({}) }),
   z.object({ type: z.literal("external"), sourceId: z.string().min(1) }),
+  z.object({ type: z.literal("builtin"), sourceId: z.string().min(1) }),
   z.object({ type: z.literal("smart"), mode: SmartShelfModeSchema }),
   z.object({ type: z.literal("wishlist"), childFilter: FilterGroupSchema.optional(), excludeOwned: z.boolean().optional(), excludeOwnedNonSteam: z.boolean().optional(), hideOwnedNonSteamCloud: z.boolean().optional() }),
   z.object({ type: z.literal("store"), childFilter: FilterGroupSchema.optional(), excludeOwned: z.boolean().optional(), excludeOwnedNonSteam: z.boolean().optional(), hideOwnedNonSteamCloud: z.boolean().optional() }),
@@ -509,6 +546,9 @@ export const ShelfSchema = z.object({
 export type Shelf = z.infer<typeof ShelfSchema>;
 
 export const SettingsSchema = z.object({
+  // Document schema version (§4B). Stamped by migrate(); older versions never
+  // downgrade it, so a newer version's higher-schema fields are preserved.
+  schemaVersion: z.number().int().nonnegative().nullish(),
   enabled: z.boolean().default(true),
   hideRecents: z.boolean().default(false),
   recentsReplaceSource: z.boolean().default(false),

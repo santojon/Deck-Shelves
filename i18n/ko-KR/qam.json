@@ -61,5 +61,10 @@
   "toast_profile_renamed": "프로필 이름 변경됨",
   "toast_filter_saved": "필터 저장됨",
   "toast_filter_deleted": "필터 삭제됨",
-  "toast_filter_renamed": "필터 이름 변경됨"
+  "toast_filter_renamed": "필터 이름 변경됨",
+  "mount_crash_report": "문제 신고",
+  "report_issue_title": "문제 신고",
+  "report_issue_desc": "미리 채워진 보고서를 브라우저에서 엽니다. 검토 후 제출하기 전까지는 아무것도 전송되지 않습니다.",
+  "report_issue_hardware": "하드웨어 정보 포함",
+  "report_issue_hardware_desc": "모델, CPU, 메모리, GPU, 저장 공간 — 기기별 문제 진단에 도움이 됩니다."
 }

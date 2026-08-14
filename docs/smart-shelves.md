@@ -340,6 +340,31 @@ By default, smart shelves appear **before** normal shelves. The `smartShelvesAtB
 
 ---
 
+## Media and non-game templates
+
+The game-focused templates above deliberately exclude non-game entries. These
+carve a shelf for them instead, each matching one Steam app type:
+
+| Template | Mode | Contents | Order |
+|---|---|---|---|
+| Soundtracks | `soundtracks` | Steam soundtracks you own | Alphabetical |
+| Videos | `videos` | Steam videos | Alphabetical |
+| Demos | `demos` | Demo entries | Most recently played first |
+| Cloud games | `cloud_games` | Non-Steam shortcuts tagged as cloud-play | Alphabetical |
+
+`cloud_games` reuses the same cloud detection as the "hide owned non-Steam
+cloud" toggle (the appid lives in a `[Unifideck] …`-style collection). With no
+cloud collection present it returns an empty shelf rather than falling back to
+"any non-Steam", which would mis-label the row.
+
+## Custom smart shelves — `custom`
+
+`custom` is a blank smart shelf: instead of a heuristic it carries your own
+filter group and sort, so you get the smart-shelf behaviours (null-render when
+empty, visibility window, refresh card) with hand-picked criteria. It is
+resolved through the normal shelf resolver rather than the heuristic dispatcher,
+since it needs the filter group and sort keys.
+
 ## Appearance Reliability Summary
 
 | Template | Disappears when… | Reliability |

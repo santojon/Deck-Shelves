@@ -20,6 +20,10 @@
   "view_more_store": "查看更多\n在商店",
   "view_more_wishlist": "查看更多\n在愿望单",
   "view_release": "查看发布",
+  "download_update": "下载更新",
+  "update_downloading": "正在下载更新 {{version}}…",
+  "update_downloaded": "已保存到 {{path}} — 请手动安装。",
+  "update_download_failed": "下载失败 — 改为打开发布页面。",
   "shelf_type_normal": "Normal",
   "shelf_type_smart": "Smart"
 }

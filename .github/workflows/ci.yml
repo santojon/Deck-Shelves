@@ -72,6 +72,12 @@ jobs:
       - name: Static validation
         run: node scripts/build/validate.mjs
 
+      # Fails when a newly exposed filter / sort / built-in source / smart-shelf
+      # mode / shelf template isn't documented, when docs/README.md misses a doc
+      # or has a broken link, or when README's test-count badges drift.
+      - name: Docs check
+        run: pnpm run docs:check
+
       - name: Run TypeScript unit tests
         run: pnpm run test
 

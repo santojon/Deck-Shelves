@@ -41,6 +41,13 @@ def stage() -> None:
     shutil.copytree(ROOT / "dist", STAGE / "dist", dirs_exist_ok=True)
     if (ROOT / "i18n").is_dir():
         shutil.copytree(ROOT / "i18n", STAGE / "i18n", dirs_exist_ok=True)
+    # Plugin icon referenced by plugin.json ("icon": "assets/tab-icon.svg"). Only
+    # the designated icon is bundled — the store screenshots stay GitHub-hosted
+    # (via publish.image) and the colourful assets/icon.svg is site-only.
+    icon = ROOT / "assets" / "tab-icon.svg"
+    if icon.is_file():
+        (STAGE / "assets").mkdir(exist_ok=True)
+        shutil.copy(icon, STAGE / "assets" / "tab-icon.svg")
 
 
 def make_zip() -> None:

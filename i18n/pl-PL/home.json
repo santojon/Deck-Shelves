@@ -20,6 +20,10 @@
   "view_more_store": "Więcej\nw sklepie",
   "view_more_wishlist": "Więcej na\nliście życzeń",
   "view_release": "Zobacz wydanie",
+  "download_update": "Pobierz aktualizację",
+  "update_downloading": "Pobieranie aktualizacji {{version}}…",
+  "update_downloaded": "Zapisano w {{path}} — zainstaluj ręcznie.",
+  "update_download_failed": "Pobieranie nie powiodło się — otwieranie strony wydania.",
   "shelf_type_normal": "Normal",
   "shelf_type_smart": "Smart"
 }

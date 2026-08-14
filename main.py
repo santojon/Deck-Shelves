@@ -29,7 +29,7 @@ _PLUGIN_DIR = os.path.dirname(os.path.abspath(__file__))
 if _PLUGIN_DIR not in sys.path:
     sys.path.insert(0, _PLUGIN_DIR)
 
-import decky
+from plugin_host import logger
 
 # Settings-shape normaliser, path discovery + validation, and
 # settings.json read helpers — extracted into sibling modules. Re-exported
@@ -42,6 +42,7 @@ from css_themes import read_css_loader_themes
 from display_state import read_display_state
 from perf_probe import read_perf_snapshot
 from host_os import get_host_os as _host_os
+from hardware_info import get_hardware_info as _hardware_info
 from peripherals import get_bluetooth_state as _bt_state, get_audio_state as _audio_state
 from launchers import list_launcher_games as _list_launcher_games, list_available_launchers as _list_available_launchers
 
@@ -54,6 +55,47 @@ def _redact_secrets(text: str) -> str:
     wishlist `access_token`; that must never reach the logs a bug report bundles."""
     return re.sub(r"(access_token|token|jwt)=[^&\s\"'}]+", r"\1=REDACTED", text,
                   flags=re.IGNORECASE)
+
+
+# Only GitHub release-asset hosts are accepted for the manual-update download —
+# never an arbitrary URL from the frontend. github.com serves the release page /
+# redirect; objects.githubusercontent.com is where the asset bytes actually live.
+_RELEASE_ASSET_HOSTS = ("github.com", "objects.githubusercontent.com", "release-assets.githubusercontent.com")
+
+
+def _is_github_asset_url(url: str) -> bool:
+    try:
+        from urllib.parse import urlsplit
+        p = urlsplit(url)
+        host = (p.hostname or "").lower()
+        return p.scheme == "https" and (host in _RELEASE_ASSET_HOSTS or host.endswith(".githubusercontent.com"))
+    except Exception:
+        return False
+
+
+def _safe_zip_name(name: str) -> str:
+    """Reduce a caller-supplied filename to a bare basename ending in .zip so it
+    can never escape the download dir (path traversal) or write an executable."""
+    base = os.path.basename((name or "").strip())
+    base = re.sub(r"[^A-Za-z0-9._-]", "", base)
+    if not base or not base.lower().endswith(".zip"):
+        return ""
+    return base
+
+
+def _download_to(url: str, dest: str) -> str:
+    """Blocking download (run off the asyncio loop). Streams to a .part file then
+    atomically renames, so a partial download never looks complete."""
+    req = urllib.request.Request(url, headers={"Accept": "application/octet-stream", "User-Agent": "Deck-Shelves"})
+    tmp = dest + ".part"
+    with urllib.request.urlopen(req, timeout=60, context=_SSL_CTX) as resp, open(tmp, "wb") as f:
+        while True:
+            chunk = resp.read(65536)
+            if not chunk:
+                break
+            f.write(chunk)
+    os.replace(tmp, dest)
+    return dest
 
 
 class Plugin:
@@ -101,7 +143,7 @@ class Plugin:
             os.replace(tmp_path, path)
         except Exception as e:
             try:
-                decky.logger.error(f"Failed writing settings to {path}: {e}")
+                logger.error(f"Failed writing settings to {path}: {e}")
             except Exception:
                 pass
             # Clean up orphaned .tmp on failure
@@ -151,6 +193,12 @@ class Plugin:
         # System information and the bug report name the real OS on every platform.
         return await asyncio.to_thread(_host_os)
 
+    async def get_hardware_info(self, *args, **kwargs) -> Dict[str, Any]:
+        # Static machine specs (Deck model, CPU, RAM, GPU, storage) from sysfs /
+        # /proc / platform (read-only, off-thread, fail-soft cross-OS). On-demand —
+        # no background poll; feeds System information + the opt-in bug-report block.
+        return await asyncio.to_thread(_hardware_info)
+
     async def get_perf_snapshot(self, *args, **kwargs) -> Dict[str, Any]:
         # On-demand CPU / memory snapshot from /proc (read-only). Off-thread (the
         # CPU read sleeps ~100 ms between /proc/stat samples). No background poll.
@@ -185,7 +233,7 @@ class Plugin:
         data = self._extract_settings(settings, *args, **kwargs)
         if not isinstance(data, dict):
             try:
-                decky.logger.error("Deck Shelves set_settings: received non-dict data")
+                logger.error("Deck Shelves set_settings: received non-dict data")
             except Exception:
                 pass
             return False
@@ -193,7 +241,7 @@ class Plugin:
             return await asyncio.to_thread(self._save_pipeline, data)
         except Exception as e:
             try:
-                decky.logger.error(f"Failed saving settings: {e}")
+                logger.error(f"Failed saving settings: {e}")
             except Exception:
                 pass
             return False
@@ -271,26 +319,17 @@ class Plugin:
         reliable source is its settings file on disk.
         Returns { tabs: [{ id, title, position, filters, filtersMode }] }
         """
-        try:
-            decky.logger.info("get_tabmaster_tabs: invoked")
-        except Exception:
-            pass
         decky_home = os.environ.get("DECKY_HOME") or os.path.expanduser("~/homebrew")
         settings_path = os.path.join(decky_home, "settings", "TabMaster", "settings.json")
         try:
+            # TabMaster is an OPTIONAL, purely additive integration. Its absence
+            # (no settings file / no users) is a normal case, not an error — return
+            # empty SILENTLY so it never looks like a dependency in the logs.
             if not os.path.exists(settings_path):
-                try:
-                    decky.logger.info(f"get_tabmaster_tabs: file not found at {settings_path}")
-                except Exception:
-                    pass
                 return {"tabs": [], "error": "file_not_found"}
             data = _safe_read_json(settings_path)
             users_dict = data.get("usersDict", {})
             if not users_dict:
-                try:
-                    decky.logger.info("get_tabmaster_tabs: usersDict empty")
-                except Exception:
-                    pass
                 return {"tabs": [], "error": "no_users"}
             # Use the first (and usually only) user entry
             user_data = next(iter(users_dict.values()))
@@ -310,13 +349,13 @@ class Plugin:
             tabs.sort(key=lambda t: (t["position"] < 0, t["position"]))
             try:
                 visible = sum(1 for t in tabs if t["position"] >= 0)
-                decky.logger.info(f"get_tabmaster_tabs: returning {len(tabs)} tabs ({visible} visible)")
+                logger.info(f"get_tabmaster_tabs: returning {len(tabs)} tabs ({visible} visible)")
             except Exception:
                 pass
             return {"tabs": tabs}
         except Exception as e:
             try:
-                decky.logger.error(f"get_tabmaster_tabs failed: {e}")
+                logger.error(f"get_tabmaster_tabs failed: {e}")
             except Exception:
                 pass
             return {"tabs": [], "error": str(e)}
@@ -340,6 +379,41 @@ class Plugin:
             if os.path.exists(candidate):
                 return candidate
         return os.path.expanduser("~")
+
+    async def download_release(self, url: str = "", filename: str = "", *args, **kwargs) -> Dict[str, Any]:
+        # Download a release .zip to the user's Downloads folder for MANUAL
+        # install (no auto-update). The frontend may deliver { url, filename } as
+        # a single positional dict (Decky arg quirk) — recover both fields. Only
+        # GitHub asset hosts are accepted, and the name is reduced to a safe
+        # basename so nothing escapes the download dir. The blocking fetch runs
+        # off the asyncio loop so the plugin process stays responsive.
+        _ = (args, kwargs)
+        if isinstance(url, dict):
+            filename = filename or str(url.get("filename") or "")
+            url = str(url.get("url") or "")
+        if not filename and isinstance(kwargs.get("filename"), str):
+            filename = kwargs.get("filename")
+        if not isinstance(url, str) or not _is_github_asset_url(url):
+            return {"ok": False, "error": "untrusted url"}
+        safe_name = _safe_zip_name(filename)
+        if not safe_name:
+            return {"ok": False, "error": "bad filename"}
+        dest = os.path.join(await self.get_user_desktop(), safe_name)
+        try:
+            loop = asyncio.get_event_loop()
+            saved = await loop.run_in_executor(None, _download_to, url, dest)
+            try:
+                logger.info(f"download_release saved: {saved}")
+            except Exception:
+                pass
+            return {"ok": True, "path": saved}
+        except Exception as e:
+            msg = _redact_secrets(str(e))
+            try:
+                logger.error(f"download_release failed: {msg}")
+            except Exception:
+                pass
+            return {"ok": False, "error": msg}
 
     async def list_launcher_games(self, launcher_id: str = "", *args, **kwargs) -> List[Dict[str, Any]]:
         _ = (args, kwargs)
@@ -369,7 +443,7 @@ class Plugin:
             return True
         except Exception as e:
             try:
-                decky.logger.error(f"Failed exporting settings to {path}: {e}")
+                logger.error(f"Failed exporting settings to {path}: {e}")
             except Exception:
                 pass
             return False
@@ -385,7 +459,7 @@ class Plugin:
             return imported
         except Exception as e:
             try:
-                decky.logger.error(f"Failed importing settings from {path}: {e}")
+                logger.error(f"Failed importing settings from {path}: {e}")
             except Exception:
                 pass
             return self._read_state()
@@ -415,7 +489,7 @@ class Plugin:
             return True
         except Exception as e:
             try:
-                decky.logger.error(f"Failed writing json to {path}: {e}")
+                logger.error(f"Failed writing json to {path}: {e}")
             except Exception:
                 pass
             return False
@@ -429,7 +503,7 @@ class Plugin:
                 return {"ok": True, "content": f.read()}
         except Exception as e:
             try:
-                decky.logger.error(f"Failed reading json from {path}: {e}")
+                logger.error(f"Failed reading json from {path}: {e}")
             except Exception:
                 pass
             return {"ok": False}
@@ -469,7 +543,7 @@ class Plugin:
             return {"ok": True, "dataUrl": data_url}
         except Exception as e:
             try:
-                decky.logger.error(f"Failed reading image from {path}: {e}")
+                logger.error(f"Failed reading image from {path}: {e}")
             except Exception:
                 pass
             return {"ok": False}
@@ -780,7 +854,7 @@ class Plugin:
         except Exception as e:
             msg = _redact_secrets(str(e))
             try:
-                decky.logger.error(f"get_wishlist failed: {msg}")
+                logger.error(f"get_wishlist failed: {msg}")
             except Exception:
                 pass
             return {"ok": False, "error": msg}
@@ -790,19 +864,19 @@ class Plugin:
         if not os.path.exists(_primary_file()):
             self._write_state(self._read_state())
         try:
-            decky.logger.info(f"Deck Shelves backend loaded. Settings dir: {Plugin.settings_dir}")
+            logger.info(f"Deck Shelves backend loaded. Settings dir: {Plugin.settings_dir}")
         except Exception:
             pass
 
     async def _unload(self):
         try:
-            decky.logger.info("Deck Shelves backend unloaded")
+            logger.info("Deck Shelves backend unloaded")
         except Exception:
             pass
 
     async def _uninstall(self):
         try:
-            decky.logger.info("Deck Shelves backend uninstalled")
+            logger.info("Deck Shelves backend uninstalled")
         except Exception:
             pass
 

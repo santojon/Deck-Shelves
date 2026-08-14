@@ -5,6 +5,34 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+### Added
+
+- **A much bigger toolbox for building shelves.** Dozens of filters, sorts and ready-made sources that the plugin already understood were never offered anywhere in the interface — now they all are. Filter by genre, category, franchise, VR support, multiplayer type, family sharing, DLC or soundtrack ownership; by how you actually play (launch count, average session length, achievement progress, never finished, installed but never touched, played once, recently abandoned); by where a game is installed and how much space it takes; or by which launcher a non-Steam shortcut belongs to (EmuDeck, RetroDECK, Heroic, Lutris, Chiaki, Moonlight). **Every filter can be inverted**, so any of them also works as "everything except this".
+- **New ways to sort** — most or least launched, longest or shortest sessions, closest to completion, rarest achievements, newest or oldest installed, oldest unplayed, biggest or smallest install, internal storage or SD card first, and what your friends are playing or own. Each one flips direction with the existing arrow.
+- **Ready-made shelf sources.** A new **Built-in source** option in the shelf editor fills a shelf from your dynamic collections, followed or ignored games, DLC, soundtracks, pinned games, play history, recently updated games, games with events or workshop updates, full-controller-support titles, or a specific launcher's library — no filters to configure.
+- **Combine conditions in more powerful ways.** "At least N of these conditions", "any of these" and "none of these" now work with **any** filter you can pick, so you can express things like "installed, and at least two of: Deck Verified, never finished, under 20 GB".
+- **Read the release notes for the version you are running**, straight from the About page.
+- **A fresh, clearer icon.** The plugin's icon in the Decky menu is now a simpler shelf-of-books mark that's easier to spot, and a matching full-colour version shows on notifications and in the browser tab.
+
+### Changed
+
+- **Update notifications now download the update for you.** Tapping the update banner, the header icon or the notification saves the release package to your Downloads folder instead of just opening a web page — you install it yourself from there, as before. Nothing installs or updates automatically.
+
+### Fixed
+
+- **The architecture diagram in the documentation showed raw markup** instead of the diagram.
+- **Documentation caught up with the plugin** — the filter, smart-shelf and template references were missing entries that already shipped, and a new automated check keeps them from falling behind again.
+- **The next shelf's title could end up overlapping the Recents row** when "Use shelf as Recents" was turned on.
+- **Shelves could stay missing from the home screen** after returning from a game or a game's details page, until you happened to change a setting.
+- **Buttons in the shelf editor's sort section could get cut off at the edge of the panel**, most noticeable on ultrawide displays — the dropdown now shrinks to make room instead.
+- **The highlight ring around the first card in the shelf editor preview could look cut off.**
+- **"Use shelf as Recents" could take a moment to catch up** after a change, sometimes needing a trip away from and back to the home screen.
+- **The card menu could show the wrong options (missing "Update", for example)** when "Hide native Recents" was on.
+- **Switching profiles could unexpectedly bring back the first-run feature tour** — even between two profiles that had both already completed it. Once seen, it stays seen.
+- **The per-area notification toggles now only show up when they can actually do something** — while the master "disable notifications" toggle is on.
+- **Enabling the plugin with no shelves set up, or opening a game's details, could leave the native home unable to scroll to the highlighted card**, and disabling shelves while focus was on one left you navigating blindly. Both are fixed.
+- **The description text size slider, a shelf-title position option, and background dimming for legibility** are already in the shelf editor for anyone who asked for more readable text.
+
 ## [3.1.0] - 2026-07-20
 
 ### Added

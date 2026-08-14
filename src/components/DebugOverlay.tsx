@@ -36,9 +36,11 @@ function panelStyle(corner: string, vertical: boolean, transparent: boolean): Re
     gap: vertical ? 2 : 16,
     alignItems: vertical ? "flex-start" : "center",
     flexWrap: "wrap",
-    maxWidth: vertical ? 260 : "94vw",
-    maxHeight: "46vh",
-    overflow: "hidden",
+    // Cap the width so lines wrap inside the box (no right-edge clipping), but
+    // let height grow with content — pointerEvents:none means we can't scroll, so
+    // clipping would hide the lower rows (perf/session/focus) entirely.
+    maxWidth: vertical ? 300 : "94vw",
+    overflow: "visible",
   };
 }
 

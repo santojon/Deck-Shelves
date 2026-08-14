@@ -40,6 +40,7 @@ export function AdvancedDetail({ controller, t }: AdvancedDetailProps) {
 
   return (
     <Focusable flow-children="vertical" style={{ display: "flex", flexDirection: "column" }}>
+      <DiagnosticsSection t={t} />
       <SettingsSection title={t("settings_advanced_reset_title")} description={t("settings_advanced_reset_desc")} icon={<TrashIcon size={14} />}>
         <Focusable
           flow-children="horizontal"
@@ -59,6 +60,7 @@ export function AdvancedDetail({ controller, t }: AdvancedDetailProps) {
           </DialogButton>
         </Focusable>
       </SettingsSection>
+      <SnapshotsSection t={t} />
       <CollapsibleSection
         id="adv-cache"
         title={t("cache_management_title")}
@@ -89,8 +91,6 @@ export function AdvancedDetail({ controller, t }: AdvancedDetailProps) {
           ))}
         </Focusable>
       </CollapsibleSection>
-      <SnapshotsSection t={t} />
-      <DiagnosticsSection t={t} />
       <ToggleField
         label={t("dev_mode_title")}
         checked={devMode}

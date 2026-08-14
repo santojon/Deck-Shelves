@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { Focusable, Navigation } from "../../runtime/host/decky";
 import { ChevronLeftIcon, DocsIcon, GearIcon, DownloadIcon } from "../icons";
-import { checkForUpdate, openReleaseUrl, type UpdateCheckResult } from "../../core/updateNotifier";
+import { checkForUpdate, type UpdateCheckResult } from "../../core/updateNotifier";
+import { downloadUpdate } from "../../runtime/updateDownload";
 
 const ABOUT_ROUTE = "/deck-shelves/about";
 const SETTINGS_ROUTE = "/deck-shelves/settings";
@@ -37,8 +38,8 @@ function goSettings() {
 
 export function PageHeader({ title, onBack, trailing, active }: PageHeaderProps) {
   // Update affordance next to the page-switch icons — same flow as the QAM
-  // banner button + the update toast (open the release notes). Cached check,
-  // so no network hit on a recent probe.
+  // banner button + the update toast: download the release .zip to ~/Downloads
+  // for manual install. Cached check, so no network hit on a recent probe.
   const [update, setUpdate] = useState<UpdateCheckResult | null>(null);
   useEffect(() => {
     let cancelled = false;
@@ -46,7 +47,7 @@ export function PageHeader({ title, onBack, trailing, active }: PageHeaderProps)
     return () => { cancelled = true; };
   }, []);
   const hasUpdate = !!(update?.hasUpdate && update.releaseUrl);
-  const viewRelease = () => openReleaseUrl(update?.releaseUrl);
+  const viewRelease = () => { void downloadUpdate(update); };
   return (
     <Focusable
       flow-children="row"

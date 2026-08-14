@@ -36,9 +36,21 @@ function randomProfileId(): string {
   return `prof_${Math.random().toString(36).slice(2, 10)}`;
 }
 
+// `showcaseSeen` is an installation-level flag, not a per-profile one — a
+// profile saved before the tour was completed would otherwise re-trigger it
+// on every later switch to that profile.
 function takeSnapshot(s: Settings): Record<string, unknown> {
-  const { profiles: _p, activeProfileName: _n, ...rest } = s as any;
+  const { profiles: _p, activeProfileName: _n, showcaseSeen: _s, ...rest } = s as any;
   return rest as Record<string, unknown>;
+}
+
+// Sticky true: once the tour has been seen anywhere (current live state or
+// the profile being applied), no switch — including to the factory profile
+// — un-sees it. Only a genuinely fresh install has neither source set.
+function stickyShowcaseSeen(live: Settings, incoming?: Record<string, unknown>): boolean | undefined {
+  if ((live as any)?.showcaseSeen === true) return true;
+  if ((incoming as any)?.showcaseSeen === true) return true;
+  return (live as any)?.showcaseSeen;
 }
 
 function isNameTaken(profiles: ProfileRecord[], name: string): boolean {
@@ -121,6 +133,10 @@ export function createProfileActions(deps: ProfilesDeps) {
         ...(profile.snapshot as any),
         profiles,
         activeProfileName: profile.name,
+        // Sticky: once seen, no profile switch un-sees it — a profile saved
+        // before the tour was completed (or a factory reset just before
+        // this switch) must not resurface it via either source.
+        showcaseSeen: stickyShowcaseSeen(s, profile.snapshot),
       };
       // Shelf-link opt-in: unlinked profiles change everything BUT the shelves.
       if (!profile.linkShelves) keepShelfFields(next, s);
@@ -360,6 +376,9 @@ export function createProfileActions(deps: ProfilesDeps) {
         enabled: true,
         profiles: (s as any).profiles ?? [],
         activeProfileName: null,
+        // Sticky — see stickyShowcaseSeen: a factory reset must not
+        // resurface the first-run tour once it's already been seen.
+        showcaseSeen: stickyShowcaseSeen(s, defaults as any),
       } as Settings;
       if (!resetShelves) keepShelfFields(next, s);
       await persist(next);

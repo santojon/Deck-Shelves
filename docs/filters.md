@@ -6,6 +6,38 @@ Deck Shelves supports advanced game filtering with AND/OR logic using filter gro
   <img src="../assets/screenshots/shelf-edit-filters.png" alt="Edit shelf — Filters tab (saved filters + AND/OR groups)" width="640">
 </p>
 
+## How a shelf resolves
+
+Filters are one stage of the pipeline that turns a shelf's configuration into
+the cards on screen. Each stage below is optional except the source:
+
+```mermaid
+flowchart LR
+    source["Source<br/>collection · tab · filter ·<br/>built-in · wishlist · store"]
+    extra["Additional sources<br/>combined as union or intersection"]
+    child["Child filter<br/>optional, narrows the pool"]
+    group["Filter group<br/>AND / OR over filter items"]
+    sort["Sort keys<br/>plus sortReverse"]
+    limit["Limit"]
+    out(["Shelf contents"])
+
+    source --> extra
+    extra --> child
+    child --> group
+    group --> sort
+    sort --> limit
+    limit --> out
+
+    classDef src fill:#ede9fe,stroke:#7c3aed,color:#3b2a63
+    classDef filt fill:#dbeafe,stroke:#2563eb,color:#12315e
+    classDef ord fill:#fef3c7,stroke:#d97706,color:#5c3d0a
+    classDef result fill:#dcfce7,stroke:#16a34a,stroke-width:2px,color:#14532d
+    class source,extra src
+    class child,group filt
+    class sort,limit ord
+    class out result
+```
+
 ## Filter Types
 
 | Type | Description | Parameters |
@@ -33,7 +65,76 @@ Deck Shelves supports advanced game filtering with AND/OR logic using filter gro
 | `achievements` | Achievement count range _(pass-through, not yet evaluated)_ | `min`, `max`: number |
 | `friends` | Minimum friends who own _(pass-through, not yet evaluated)_ | `min`: number |
 
+| `recentlyActive` | Played in the current session window | `minMinutes`: number |
+| `neglected` | Not played for N days | `days`: number |
+| `systemCompatibility` | Runs natively / via compatibility layer | — |
+| `remotePlayLocation` | Remote Play availability | `mode`: `"local"` \| `"remote"` \| `"remote-only"` \| `"both"` |
+| `appStatus` | Download / update activity | `groups`: `("downloading" \| "queued" \| …)[]` |
+| `friendsPlayingNow` | Friends currently in-game _(online)_ | — |
+| `friendsPlayedRecently` | Friends played within N days _(online)_ | `days`: number |
+| `discount` | Discount percentage range _(online)_ | `minDiscount`, `maxDiscount`: number |
+| `priceRange` | Price range _(online)_ | `minPrice`, `maxPrice`: number (either optional) |
+
 > **Note:** `storeTag`, `achievements`, and `friends` are stored and exported correctly but are not yet evaluated at runtime — shelves using only these filters will return all library games.
+
+### Library and metadata
+
+| Type | Description | Parameters |
+|------|-------------|------------|
+| `genres` | Any of the listed genres | `genres`: string[] |
+| `categories` | Any of the listed store categories | `categories`: string[] |
+| `franchise` | Franchise name contains | `franchise`: string |
+| `vrSupport` | Marked as VR-supported | — |
+| `multiplayerType` | Multiplayer capability | `kind`: `"any"` \| `"single"` \| `"multi"` \| `"coop"` \| `"online"` |
+| `familySharing` | Flagged for Steam Family Sharing | — |
+| `dlcOwned` | Owns at least N DLC | `minCount`: number |
+| `soundtrackOwned` | Owns the soundtrack | — |
+| `compatDataQuality` | Has any Deck compatibility rating | — |
+
+### Usage and progress
+
+| Type | Description | Parameters |
+|------|-------------|------------|
+| `launchCount` | Number of launches in a range | `min`, `max`: number (`max` omitted = no upper bound) |
+| `avgSessionMinutes` | Average session length in a range | `min`, `max`: number (minutes) |
+| `playedOnce` | Played, but no more than N minutes | `maxMinutes`: number |
+| `installedNeverPlayed` | Installed with zero playtime | — |
+| `neverCompleted` | Achievement completion below 100% | — |
+| `achievementPercentRange` | Achievement completion in a range | `min`, `max`: number (0–100) |
+| `recentlyAbandoned` | Last played between N and M days ago | `minDaysAgo`, `maxDaysAgo`: number |
+
+### Storage
+
+| Type | Description | Parameters |
+|------|-------------|------------|
+| `storageDevice` | Installed on internal storage or SD card | `device`: `"ssd"` \| `"sd"` |
+| `installedSizeRange` | Installed size in a range | `minMB`, `maxMB`: number (the editor shows GB) |
+
+### Non-Steam shortcuts
+
+| Type | Description | Parameters |
+|------|-------------|------------|
+| `emuDeckSystem` / `retroDeckSystem` | Shortcut belongs to EmuDeck / RetroDECK | — |
+| `heroicLauncher` / `lutrisApp` | Shortcut belongs to Heroic / Lutris | — |
+| `chiakiApp` / `moonlightApp` | Remote-play shortcut (Chiaki / Moonlight) | — |
+| `hiddenLauncherShortcuts` | Hidden non-Steam shortcut | — |
+| `executableType` | Target executable extension | `ext`: string (e.g. `exe`, `sh`) |
+| `launchOptionTags` | Launch options contain any tag | `tags`: string[] |
+| `customTags` / `parserCategories` | Matches user/parser tags | `tags`: string[] |
+
+### Composite filters
+
+These carry a list of **child filter items** in `children` — any filter type is
+allowed, and each child is evaluated through the normal filter evaluator, so you
+can nest ranges, name matches and the types above freely.
+
+| Type | Description | Parameters |
+|------|-------------|------------|
+| `weightedFilter` | Matches when the summed weight of matching children reaches `threshold`. With the default weight of 1 this reads as "at least N of these conditions" | `children`: FilterItem[] (each may carry `weight`: number), `threshold`: number |
+| `priorityFilter` | Matches when any child matches (children are checked in order) | `children`: FilterItem[] |
+| `exclusionGroup` | Excludes the game when any child matches | `children`: FilterItem[] |
+
+Nesting is depth-capped at runtime, so a self-referential tree cannot loop.
 
 ## Filter Groups
 
@@ -111,8 +212,36 @@ match by name.
 | `metacritic` | Metacritic score (highest first) |
 | `review_score` | Steam review score (highest first) |
 | `added` | Library acquisition date (newest first) |
+| `app_status` | Download / update activity |
+| `deck_compat` | Steam Deck compatibility rating |
+| `controller_support` | Controller support level |
+| `price_low` | Price, lowest first _(online)_ |
+| `discount_high` | Discount, highest first _(online)_ |
+| `original_price_high` | Original price, highest first _(online)_ |
 | `random` | Stable random shuffle, refreshes every 24 h |
 | `manual` | User-defined order (`manualOrder`); ids not in the list fall through to `manualBaseSort` |
+
+Usage, progress and storage keys:
+
+| Value | Description |
+|-------|-------------|
+| `most_launched` / `least_launched` | Number of launches |
+| `longest_session` / `shortest_session` | Average session length |
+| `most_ignored` | Longest since last played |
+| `rediscovered_recently` | Most recently returned to |
+| `completion_percent` | Achievement completion (highest first) |
+| `closest_to_completion` | Nearest to 100% completion |
+| `rarest_achievements` | Rarest achievements owned |
+| `newest_installed` / `oldest_installed` | Install date |
+| `oldest_unplayed` | Longest-installed with zero playtime |
+| `newest_purchased` | Purchase date (newest first) |
+| `largest_install` / `smallest_install` | Installed size |
+| `ssd_priority` / `sd_priority` | Internal storage or SD card first |
+| `friends_playing_now` | Friends currently playing _(online)_ |
+| `most_friends_owning` | Most friends who own it _(online)_ |
+| `trending_among_friends` | Combined friend activity _(online)_ |
+
+Every key can be inverted with `sortReverse`.
 
 ### Multi-key sort
 
@@ -127,6 +256,19 @@ The first entry is primary; subsequent entries break ties. Internally a single c
 `manual` and `random` cannot appear in a multi-key chain (non-deterministic — they wouldn't behave as tiebreakers). The editor only exposes them as the single-key primary choice; the resolver drops them from chained arrays.
 
 Per-key `sortReverse` works for any key the multi-key path supports. When `sort` is an array and `sortReverse` is a boolean, the boolean applies to every key.
+
+## Built-in sources
+
+Besides a collection, library tab or filter, a shelf can draw from a ready-made
+source. Pick **Built-in source** in the shelf editor and choose one; it is stored
+as `{ "type": "builtin", "sourceId": "<id>" }` and takes no further parameters.
+
+| Group | Sources |
+|-------|---------|
+| Steam | `dynamic_collections`, `followed_games`, `ignored_games`, `dlc_source`, `soundtrack_source` |
+| Manual | `pinned_games`, `history_source`, `session_queue_source`, `temporary_queue_source` |
+| Contextual | `recently_updated`, `with_events`, `with_workshop_updates`, `controller_specific_source` |
+| Launchers | `emudeck_collections`, `retrodeck_collections`, `heroic_library`, `lutris_library`, `moonlight_sessions`, `chiaki_sessions` |
 
 ## Multi-source shelves
 

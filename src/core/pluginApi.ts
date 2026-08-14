@@ -4,7 +4,6 @@
    api submodule source in vite + tsconfig `paths`) so a single shape governs
    both the runtime registry and the published consumer contract. */
 
-import type { ReactNode } from "react";
 import type { Settings } from "../types";
 import { registerTranslations } from "../i18n";
 import { getCurrentSettings, saveSettings, subscribeSettings } from "../store/settingsStore";
@@ -25,6 +24,48 @@ import type {
   IntegrationInfo as ApiIntegrationInfo,
   PublicSettingsSnapshot as ApiPublicSettingsSnapshot,
   EnvironmentInfo as ApiEnvironmentInfo,
+  // Provider/leaf descriptors whose shapes are identical in the public
+  // contract — imported (so they stay in local scope for the API interface
+  // below) and re-exported so `@deck-shelves/api` is their single source.
+  SearchProviderDescriptor,
+  SearchHit,
+  SideMenuProviderDescriptor,
+  SideMenuContext,
+  SideMenuEntry,
+  ContextProviderDescriptor,
+  WidgetProviderDescriptor,
+  ShelfRendererDescriptor,
+  MetadataProviderDescriptor,
+  StatisticsEntry,
+  StatisticsProviderDescriptor,
+  RecommendationEntry,
+  RecommendationProviderDescriptor,
+  FocusedCardInfo,
+  AssetType,
+  PublicTriggerKind,
+  PublicShortcut,
+  ParsedImport,
+  PublicFilterGroup,
+  PublicFilterItem,
+  // Registry descriptors + public shelf/filter projections — the api is now
+  // the canonical shape (a superset of what the runtime emits/consumes), so
+  // there are no plugin-specific copies.
+  ExternalShelfSourceDescriptor,
+  SmartShelfSourceDescriptor,
+  ExternalFilterTypeDescriptor,
+  ExternalSortOptionDescriptor,
+  ExternalImportTypeDescriptor,
+  ExternalSavedFilterDescriptor,
+  ExportHandlerDescriptor,
+  ImportHandlerDescriptor,
+  PublicShelf,
+  PublicShelfSource,
+  PublicShelfTemplate,
+  PublicSmartShelf,
+  PublicSavedFilter,
+  PublicSavedSmartFilter,
+  DeckShelvesIntegration,
+  DeckShelvesPublicAPI,
 } from "@deck-shelves/api";
 
 export type Unsubscribe = ApiUnsubscribe;
@@ -34,6 +75,45 @@ export type PublicProfile = ApiPublicProfile;
 export type IntegrationInfo = ApiIntegrationInfo;
 export type PublicSettingsSnapshot = ApiPublicSettingsSnapshot;
 export type EnvironmentInfo = ApiEnvironmentInfo;
+
+export type {
+  SearchProviderDescriptor,
+  SearchHit,
+  SideMenuProviderDescriptor,
+  SideMenuContext,
+  SideMenuEntry,
+  ContextProviderDescriptor,
+  WidgetProviderDescriptor,
+  ShelfRendererDescriptor,
+  MetadataProviderDescriptor,
+  StatisticsEntry,
+  StatisticsProviderDescriptor,
+  RecommendationEntry,
+  RecommendationProviderDescriptor,
+  FocusedCardInfo,
+  AssetType,
+  PublicTriggerKind,
+  PublicShortcut,
+  ParsedImport,
+  PublicFilterGroup,
+  PublicFilterItem,
+  ExternalShelfSourceDescriptor,
+  SmartShelfSourceDescriptor,
+  ExternalFilterTypeDescriptor,
+  ExternalSortOptionDescriptor,
+  ExternalImportTypeDescriptor,
+  ExternalSavedFilterDescriptor,
+  ExportHandlerDescriptor,
+  ImportHandlerDescriptor,
+  PublicShelf,
+  PublicShelfSource,
+  PublicShelfTemplate,
+  PublicSmartShelf,
+  PublicSavedFilter,
+  PublicSavedSmartFilter,
+  DeckShelvesIntegration,
+  DeckShelvesPublicAPI,
+};
 
 // Translates Steam's raw AppOverview into the canonical PublicAppMeta shape.
 // External descriptors registered via @deck-shelves/api receive THIS — the
@@ -69,392 +149,13 @@ export function toPublicAppMeta(raw: any): PublicAppMeta {
   };
 }
 
-export interface ExternalShelfSourceDescriptor {
-  id: string;
-  displayName: string;
-  resolve: (limit: number) => Promise<number[]>;
-  version?: number;
-}
-
-export interface SmartShelfSourceDescriptor {
-  id: string;
-  displayName: string;
-  version?: number;
-  category?: string;
-  defaultParams?: Readonly<Record<string, number>>;
-  paramMeta?: Readonly<Record<string, {
-    label: string;
-    min: number;
-    max: number;
-    step: number;
-    unit?: string;
-  }>>;
-  resolve: (limit: number, params: Readonly<Record<string, number>>) => Promise<number[]>;
-}
-
-export interface ExternalFilterTypeDescriptor {
-  id: string;
-  displayName: string;
-  version?: number;
-  defaultParams?: Readonly<Record<string, unknown>>;
-  invertible?: boolean;
-  evaluate: (app: PublicAppMeta, params: Readonly<Record<string, unknown>>) => boolean;
-  renderEditor?: (props: {
-    params: Readonly<Record<string, unknown>>;
-    onChange: (next: Record<string, unknown>) => void;
-  }) => ReactNode;
-}
-
-export interface ExternalSortOptionDescriptor {
-  id: string;
-  displayName: string;
-  version?: number;
-  sort: (appIds: ReadonlyArray<number>, apps: ReadonlyArray<PublicAppMeta>) => number[];
-}
-
-export interface ExternalImportTypeDescriptor {
-  id: string;
-  displayName: string;
-  version?: number;
-  fileExtension?: string;
-  target?: ImportTarget;
-  icon?: ReactNode;
-  parse?: (raw: string) => Promise<ParsedImport>;
-  runImport?: () => void | Promise<void>;
-}
-
-export interface ParsedImport {
-  shelves?: Array<{
-    title: string;
-    source: { type: "external"; sourceId: string };
-    limit?: number;
-  }>;
-  smartShelves?: Array<{
-    title: string;
-    mode: string;
-    limit?: number;
-  }>;
-}
-
-// ---- 1d-bis. Portable export / import handlers ----------------------------
-/* Plugin-to-plugin transfer. A handler converts between Deck Shelves' snapshot
-   JSON (shelves / smart shelves / saved filters / saved smart filters) and its
-   own format, so a plugin can offer "Export to format X" / "Import from format
-   Y". Format-agnostic — both sides exchange the snapshot as a JSON string, so
-   no internal type leaks and the round-trip stays lossless. */
-
-export interface ExportHandlerDescriptor {
-  id: string;
-  displayName: string;
-  version?: number;
-  /** File extension the export produces (default `json`). */
-  fileExtension?: string;
-  icon?: ReactNode;
-  /** Serialize the Deck Shelves snapshot JSON into this handler's format. */
-  export: (snapshotJson: string) => string | Promise<string>;
-}
-
-export interface ImportHandlerDescriptor {
-  id: string;
-  displayName: string;
-  version?: number;
-  fileExtension?: string;
-  icon?: ReactNode;
-  /** Parse this handler's format back into a Deck Shelves snapshot JSON. */
-  import: (raw: string) => string | Promise<string>;
-}
-
-// ---- 1e. Saved filter registration ----------------------------------------
-
-export interface ExternalSavedFilterDescriptor {
-  id: string;
-  name: string;
-  version?: number;
-  group: PublicFilterGroup;
-}
-
-export interface PublicFilterGroup {
-  mode: "and" | "or";
-  items: ReadonlyArray<PublicFilterItem>;
-}
-
-export interface PublicFilterItem {
-  type: string;
-  inverted?: boolean;
-  params?: Readonly<Record<string, unknown>>;
-}
-
-export interface PublicShelf {
-  readonly id: string;
-  readonly title: string;
-  readonly enabled: boolean;
-  readonly hidden: boolean;
-  readonly limit: number;
-  readonly sort?: string;
-  readonly source: PublicShelfSource;
-}
-
-export type PublicShelfSource =
-  | { type: "collection"; collectionId: string }
-  | { type: "tab"; tab: string }
-  | { type: "filter"; filter: { sort?: string; group?: PublicFilterGroup } }
-  | { type: "external"; sourceId: string }
-  | { type: "smart"; mode: string };
-
-export interface PublicSmartShelf {
-  readonly id: string;
-  readonly title: string;
-  readonly mode: string;
-  readonly enabled: boolean;
-  readonly hidden: boolean;
-  readonly limit?: number;
-  readonly sort?: string;
-}
-
-export interface PublicSavedFilter {
-  readonly id: string;
-  readonly name: string;
-  readonly group: PublicFilterGroup;
-}
-
-export interface PublicSavedSmartFilter {
-  readonly id: string;
-  readonly name: string;
-  readonly mode: string;
-  readonly smartParams?: Readonly<Record<string, number>>;
-  readonly filterGroup?: PublicFilterGroup;
-  readonly sort?: string | ReadonlyArray<string>;
-  readonly sortReverse?: boolean | ReadonlyArray<boolean>;
-  readonly limit?: number;
-  readonly visibleHours?: ReadonlyArray<number>;
-  readonly visibleDaysOfWeek?: ReadonlyArray<number>;
-}
-
-export interface SearchProviderDescriptor {
-  id: string;
-  displayName: string;
-  version?: number;
-  priority?: number;
-  search: (query: string, limit: number) => Promise<SearchHit[]>;
-}
-
-export interface SearchHit {
-  id: string;
-  appid?: number;
-  title?: string;
-  subtitle?: string;
-  score?: number;
-  onActivate?: () => void;
-}
-
-export interface SideMenuProviderDescriptor {
-  id: string;
-  displayName: string;
-  version?: number;
-  resolve: (context: SideMenuContext) => Promise<SideMenuEntry[]> | SideMenuEntry[];
-}
-
-export interface SideMenuContext {
-  shelfId: string | null;
-  focusedAppid: number | null;
-}
-
-export interface SideMenuEntry {
-  id: string;
-  label: string;
-  category?: string;
-  icon?: ReactNode;
-  disabled?: boolean;
-  onActivate: () => void | Promise<void>;
-}
-
-export interface ContextProviderDescriptor {
-  id: string;
-  displayName: string;
-  version?: string | number;
-  snapshot: () => unknown;
-  subscribe: (cb: (value: unknown) => void) => () => void;
-}
-
-export interface WidgetProviderDescriptor {
-  id: string;
-  displayName: string;
-  version?: string | number;
-  render: (size: { width: number; height: number }) => unknown;
-  refreshPolicy?: number | "focus" | null;
-  skeleton?: () => unknown;
-}
-
-export interface ShelfRendererDescriptor {
-  id: string;
-  displayName: string;
-  version?: string | number;
-  layout: (params: {
-    items: ReadonlyArray<{ appid: number; name?: string }>;
-    focusedAppid: number | null;
-    cardWidth: number;
-    cardHeight: number;
-    featured: boolean;
-  }) => unknown;
-  cardMode?: "normal" | "featured" | "compact";
-  virtualiseAfter?: number;
-}
-
-export interface MetadataProviderDescriptor {
-  id: string;
-  displayName: string;
-  version?: string | number;
-  fields: ReadonlyArray<string>;
-  resolve: (appids: ReadonlyArray<number>, signal?: AbortSignal) => Promise<Record<number, Record<string, unknown>>>;
-}
-
-export interface StatisticsEntry {
-  id: string;
-  label: string;
-  value: string | number;
-  unit?: string;
-  category?: string;
-}
-
-export interface StatisticsProviderDescriptor {
-  id: string;
-  displayName: string;
-  version?: string | number;
-  category?: string;
-  resolve: () => Promise<ReadonlyArray<StatisticsEntry>> | ReadonlyArray<StatisticsEntry>;
-}
-
-export interface RecommendationEntry {
-  appid: number;
-  score?: number;
-  reason?: string;
-}
-
-export interface RecommendationProviderDescriptor {
-  id: string;
-  displayName: string;
-  version?: string | number;
-  category?: string;
-  resolve: (limit: number, signal?: AbortSignal) => Promise<ReadonlyArray<RecommendationEntry>> | ReadonlyArray<RecommendationEntry>;
-}
-
-export interface FocusedCardInfo {
-  appid: number;
-  shelfId: string | null;
-}
-
-export type AssetType = "hero" | "heroBlur" | "portrait" | "landscape" | "logo" | "icon" | "storeBackground";
-
-/* ---- Built-in catalogues (read-only discovery of what DS ships) ---------- */
-export interface PublicTriggerKind {
-  /** Rule kind id, e.g. "battery", "weekend", "gameRunning". */
-  kind: string;
-  /** Category id: "time" | "session" | "power" | "connectivity" | "display" | "perf". */
-  category: string;
-  /** i18n key for the category label. */
-  categoryTitleKey: string;
-  /** Default params seeded when the rule is added. */
-  defaults?: Readonly<Record<string, unknown>>;
-  /** True when the kind can be inverted (kind ⇄ its negation). */
-  invertible: boolean;
-}
-export interface PublicShelfTemplate {
-  id: string;
-  titleKey: string;
-  category: string;
-  requiresOnline: boolean;
-  defaultSort?: string;
-  source: PublicShelfSource;
-}
-export interface PublicShortcut {
-  /** Action id, e.g. "navSearch", "cardQuickLaunch". */
-  action: string;
-  /** Default gamepad combo, e.g. "L1+R1", "DPAD_RIGHT+DPAD_RIGHT"; null if unbound. */
-  defaultCombo: string | null;
-  /** Current user-configured combo (falls back to the default). */
-  combo: string | null;
-}
-
-export interface DeckShelvesIntegration {
-  name: string;
-  version?: string;
-  onMount(api: DeckShelvesPublicAPI): void | Promise<void>;
-  onUnmount?(): void | Promise<void>;
-}
-
-export interface DeckShelvesPublicAPI {
-  readonly version: 4;
-
-  registerShelfSource(d: ExternalShelfSourceDescriptor): Unsubscribe;
-  registerSmartShelfSource(d: SmartShelfSourceDescriptor): Unsubscribe;
-  registerFilterType(d: ExternalFilterTypeDescriptor): Unsubscribe;
-  registerSortOption(d: ExternalSortOptionDescriptor): Unsubscribe;
-  registerImportType(d: ExternalImportTypeDescriptor): Unsubscribe;
-  registerSavedFilter(d: ExternalSavedFilterDescriptor): Unsubscribe;
-  // Portable export / import handlers (additive — no version bump).
-  registerExportHandler(d: ExportHandlerDescriptor): Unsubscribe;
-  registerImportHandler(d: ImportHandlerDescriptor): Unsubscribe;
-  getRegisteredExportHandlers(): ReadonlyArray<ExportHandlerDescriptor>;
-  getRegisteredImportHandlers(): ReadonlyArray<ImportHandlerDescriptor>;
-
-  getRegisteredSources(): ReadonlyArray<ExternalShelfSourceDescriptor>;
-  getRegisteredSmartSources(): ReadonlyArray<SmartShelfSourceDescriptor>;
-  getRegisteredFilterTypes(): ReadonlyArray<ExternalFilterTypeDescriptor>;
-  getRegisteredSortOptions(): ReadonlyArray<ExternalSortOptionDescriptor>;
-  getRegisteredImportTypes(): ReadonlyArray<ExternalImportTypeDescriptor>;
-  getRegisteredImportTypesForTarget(target: ImportTarget): ReadonlyArray<ExternalImportTypeDescriptor>;
-
-  // Built-in catalogues — discover the trigger kinds, shelf templates and
-  // gamepad shortcuts DS ships, so integrations can build on them.
-  listTriggerCatalog(): ReadonlyArray<PublicTriggerKind>;
-  listShelfTemplates(): ReadonlyArray<PublicShelfTemplate>;
-  listShortcuts(): ReadonlyArray<PublicShortcut>;
-
-  getShelves(): ReadonlyArray<PublicShelf>;
-  getSmartShelves(): ReadonlyArray<PublicSmartShelf>;
-  getSavedFilters(): ReadonlyArray<PublicSavedFilter>;
-  getSavedSmartFilters(): ReadonlyArray<PublicSavedSmartFilter>;
-  subscribeShelves(cb: (shelves: ReadonlyArray<PublicShelf>) => void): Unsubscribe;
-  subscribeSmartShelves(cb: (shelves: ReadonlyArray<PublicSmartShelf>) => void): Unsubscribe;
-  subscribeSavedFilters(cb: (filters: ReadonlyArray<PublicSavedFilter>) => void): Unsubscribe;
-
-  getFocusedCard(): FocusedCardInfo | null;
-  subscribeFocusedCard(cb: (info: FocusedCardInfo | null) => void): Unsubscribe;
-
-  getAssetUrls(appid: number, type: AssetType): string[];
-
-  getProfiles(): ReadonlyArray<PublicProfile>;
-  getActiveProfile(): PublicProfile | null;
-  subscribeProfiles(cb: (profiles: ReadonlyArray<PublicProfile>) => void): Unsubscribe;
-  getIntegrations(): ReadonlyArray<IntegrationInfo>;
-  subscribeIntegrations(cb: (integrations: ReadonlyArray<IntegrationInfo>) => void): Unsubscribe;
-
-  getSettingsSnapshot(): PublicSettingsSnapshot;
-  subscribeSettingsSnapshot(cb: (snapshot: PublicSettingsSnapshot) => void): Unsubscribe;
-  getEnvironment(): EnvironmentInfo;
-
-  hasTabMaster(): boolean;
-
-  registerSearchProvider(d: SearchProviderDescriptor): Unsubscribe;
-  getRegisteredSearchProviders(): ReadonlyArray<SearchProviderDescriptor>;
-  registerSideMenuProvider(d: SideMenuProviderDescriptor): Unsubscribe;
-  registerContextProvider(d: ContextProviderDescriptor): Unsubscribe;
-  getRegisteredContextProviders(): ReadonlyArray<ContextProviderDescriptor>;
-  registerWidgetProvider(d: WidgetProviderDescriptor): Unsubscribe;
-  getRegisteredWidgetProviders(): ReadonlyArray<WidgetProviderDescriptor>;
-  registerShelfRenderer(d: ShelfRendererDescriptor): Unsubscribe;
-  getRegisteredShelfRenderers(): ReadonlyArray<ShelfRendererDescriptor>;
-  registerMetadataProvider(d: MetadataProviderDescriptor): Unsubscribe;
-  getRegisteredMetadataProviders(): ReadonlyArray<MetadataProviderDescriptor>;
-  getRegisteredSideMenuProviders(): ReadonlyArray<SideMenuProviderDescriptor>;
-
-  registerStatisticsProvider(d: StatisticsProviderDescriptor): Unsubscribe;
-  getRegisteredStatisticsProviders(): ReadonlyArray<StatisticsProviderDescriptor>;
-  registerRecommendationProvider(d: RecommendationProviderDescriptor): Unsubscribe;
-  getRegisteredRecommendationProviders(): ReadonlyArray<RecommendationProviderDescriptor>;
-
-  registerTranslations(locale: string, dict: Record<string, string>): void;
-}
+/* Registry descriptors, shelf/filter projections and the built-in catalogue
+   types (ExternalShelfSource/Sort/Filter/Import/SavedFilter descriptors,
+   Export/Import handlers, PublicShelf/ShelfSource/SmartShelf/SavedFilter/
+   SavedSmartFilter, PublicShelfTemplate) are re-exported from
+   `@deck-shelves/api` near the top of this file — no plugin-local copies. */
+/* DeckShelvesIntegration + DeckShelvesPublicAPI (the umbrella API surface)
+   are re-exported from `@deck-shelves/api` at the top of this file. */
 
 const shelfSources = new Map<string, ExternalShelfSourceDescriptor>();
 const smartSources = new Map<string, SmartShelfSourceDescriptor>();
@@ -475,7 +176,8 @@ const importHandlers = new Map<string, ImportHandlerDescriptor>();
 export function resolveExternalSource(sourceId: string, limit: number): Promise<number[]> {
   const src = shelfSources.get(sourceId);
   if (!src) return Promise.resolve([]);
-  return src.resolve(limit).catch(() => []);
+  // resolve() may be sync or async in the public contract — normalize.
+  return Promise.resolve(src.resolve(limit)).catch(() => []);
 }
 
 export function getExternalSources(): ExternalShelfSourceDescriptor[] {
@@ -494,7 +196,7 @@ export function resolveExternalSmartSource(
   const src = smartSources.get(id);
   if (!src) return Promise.resolve([]);
   const merged = { ...(src.defaultParams ?? {}), ...params };
-  return src.resolve(limit, merged).catch(() => []);
+  return Promise.resolve(src.resolve(limit, merged)).catch(() => []);
 }
 
 export function getExternalSmartSourceMeta(id: string): SmartShelfSourceDescriptor | undefined {
@@ -701,7 +403,7 @@ async function persistRegisteredSavedFilter(d: ExternalSavedFilterDescriptor): P
   if (!s) return;
   const fullId = `${SAVED_FILTER_PREFIX}${d.id}`;
   const existing = (s.savedFilters ?? []).filter((f: any) => f.id !== fullId);
-  const next = [...existing, { id: fullId, name: d.name, group: { ...d.group } as any }];
+  const next = [...existing, { id: fullId, name: d.name, group: { ...(d.group as object) } as any }];
   await saveSettings({ ...s, savedFilters: next as any });
 }
 

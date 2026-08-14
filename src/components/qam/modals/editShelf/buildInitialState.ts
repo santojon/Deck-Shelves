@@ -4,7 +4,7 @@
 import type { Shelf, FilterGroup } from '../../../../types';
 import { normalizeFilter, getEffectiveFilterGroup } from '../../../../domain/settings';
 import type { EditableShelfState } from './types';
-import type { SourceType } from './constants';
+import { V3_SOURCE_OPTIONS, type SourceType } from './constants';
 
 type Ctx = {
   shelf: Shelf;
@@ -176,6 +176,12 @@ function deriveExternalSourceId(primarySource: any, externalSources: ReadonlyArr
   return externalSources[0]?.id ?? '';
 }
 
+function deriveBuiltinSourceId(primarySource: any): string {
+  const fallback = String(V3_SOURCE_OPTIONS[0]?.value ?? '');
+  if (primarySource?.type === 'builtin') return String(primarySource.sourceId ?? fallback);
+  return fallback;
+}
+
 function readCompositeCombine(shelf: Shelf): 'union' | 'intersection' {
   if (shelf.source.type !== 'composite') return 'union';
   return (shelf.source as any).combine === 'intersection' ? 'intersection' : 'union';
@@ -199,6 +205,7 @@ export function buildInitialShelfState(ctx: Ctx): EditableShelfState {
     collectionId: deriveCollectionId(primarySource, collections),
     tab: deriveInitialTab(shelf, mode, primarySource, platformTabs),
     externalSourceId: deriveExternalSourceId(primarySource, externalSources),
+    builtinSourceId: deriveBuiltinSourceId(primarySource),
     filter: initialFilter,
     filterGroup: getEffectiveFilterGroup(initialFilter),
     ...readSortFields(shelf),
