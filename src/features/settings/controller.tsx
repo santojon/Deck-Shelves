@@ -8,6 +8,7 @@ import { logDiagnostic } from "../../runtime/diagnostics";
 import { logError, logInfo } from "../../runtime/logger";
 import { __resetUpdateCheckCache } from "../../core/updateNotifier";
 import { notify } from "../../components/notify";
+import { NOTIFICATION_AREAS } from "../../components/qam/NotificationAreaToggles";
 import { createSavedFilterActions } from "./controller/savedFilters";
 import { createSmartShelfActions } from "./controller/smartShelves";
 import { createOnlineActions } from "./controller/online";
@@ -194,7 +195,14 @@ export function useSettingsController() {
     async setNotificationsDisabled(notificationsDisabled: boolean) {
       const s = liveSettings();
       if (!s || ((s as any).notificationsDisabled ?? false) === notificationsDisabled) return;
-      await persist({ ...s, notificationsDisabled } as any);
+      const next: any = { ...s, notificationsDisabled };
+      // Areas come checked ("don't notify this flow") the first time the
+      // master is switched on, so the per-area toggles start consistent
+      // with it — an existing customization is left alone.
+      if (notificationsDisabled && !(s as any).notificationsDisabledAreas?.length) {
+        next.notificationsDisabledAreas = [...NOTIFICATION_AREAS];
+      }
+      await persist(next);
     },
     async setShowcaseSeen(showcaseSeen: boolean) {
       const s = liveSettings();
