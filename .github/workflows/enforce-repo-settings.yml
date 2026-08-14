@@ -131,7 +131,7 @@ jobs:
                 branch,
                 required_status_checks: {
                   strict: true,
-                  contexts: ['validate', 'PR Checklist / validate']
+                  contexts: ['validate', 'PR · Checklist / pr-checklist']
                 },
                 enforce_admins: false,
                 required_pull_request_reviews: null,
