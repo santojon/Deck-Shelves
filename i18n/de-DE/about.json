@@ -52,12 +52,7 @@
   "about_learn_more_description": "Besuchen Sie das Projekt auf GitHub oder melden Sie ein Problem / fordern Sie eine Funktion an.",
   "about_learn_more_github": "GitHub",
   "about_learn_more_title": "Mehr erfahren",
-  "about_limitation_deck_only": "Dieses Plugin ist nur für Steam Deck im Spielmodus konzipiert.",
-  "about_limitation_decky": "Erfordert die Installation von Decky Loader.",
-  "about_limitation_home": "Regale werden in den Startbildschirm eingefügt und können durch Steam-Client-Updates beeinflusst werden.",
-  "about_limitations_title": "Einschränkungen",
   "about_other_versions": "Andere Versionen",
-  "about_report_issue": "Problem melden / Funktion anfordern",
   "about_support_description": "Wenn Ihnen dieses Plugin gefällt, unterstützen Sie die weitere Entwicklung:",
   "about_support_title": "Entwickler unterstützen",
   "about_version": "Version",
@@ -77,5 +72,9 @@
   "about_feature_source_v3": "19 new built-in shelf sources — dynamic Steam collections, followed, ignored, DLC, soundtrack, pinned, history, session queue, temporary queue, recently updated (last 14 days), with events, with workshop updates, controller-specific, and six external-launcher collections.",
   "about_feature_grip_buttons": "Mappen Sie Grip-Tasten / Stick-Klicks (L3, R3, L4, L5, R4, R5) auf Karten-Shortcuts über den rohen Controller-Stream",
   "about_feature_composite_shelves": "Kombinieren Sie mehrere Quellen in einem zusammengesetzten Regal mit Union- oder Schnittmenge-Modi",
-  "about_feature_asset_refresh": "Benutzerdefinierte Grafiken (Kapsel, Logo, Hero, Icon) werden beim Zurückkehren zum Home sofort aktualisiert — kein Plugin-Reload"
+  "about_feature_asset_refresh": "Benutzerdefinierte Grafiken (Kapsel, Logo, Hero, Icon) werden beim Zurückkehren zum Home sofort aktualisiert — kein Plugin-Reload",
+  "about_report_bug": "Fehler melden",
+  "about_report_enhancement": "Verbesserung vorschlagen",
+  "about_report_feature": "Funktion anfordern",
+  "about_report_copied": "Diagnosedaten kopiert — in den Bericht einfügen"
 }

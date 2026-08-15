@@ -5,6 +5,12 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+### Fixed
+
+- **The first-run tour could get stuck reopening every time you closed it, with no way to reach the toggle that turns the plugin on.** A backend bug threw away the saved "tour seen" flag whenever you hadn't enabled the plugin or added a shelf yet — exactly the state right after seeing the tour for the first time. Fixed.
+- **The "Report an issue" button on the About page could quietly do nothing.** It now works reliably, and asks what kind of report you're filing — **bug**, **enhancement** or **feature request** — before opening the matching GitHub form pre-filled with your details.
+- **The About page now leads with "Support the developer"**, with the community links below it.
+
 ## [3.2.0] - 2026-08-14
 
 ### Added

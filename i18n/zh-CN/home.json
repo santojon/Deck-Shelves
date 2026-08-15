@@ -19,7 +19,6 @@
   "view_more": "在库中\n查看更多",
   "view_more_store": "查看更多\n在商店",
   "view_more_wishlist": "查看更多\n在愿望单",
-  "view_release": "查看发布",
   "download_update": "下载更新",
   "update_downloading": "正在下载更新 {{version}}…",
   "update_downloaded": "已保存到 {{path}} — 请手动安装。",

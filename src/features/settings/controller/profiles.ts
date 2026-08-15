@@ -44,10 +44,12 @@ function takeSnapshot(s: Settings): Record<string, unknown> {
   return rest as Record<string, unknown>;
 }
 
-// Sticky true: once the tour has been seen anywhere (current live state or
-// the profile being applied), no switch — including to the factory profile
-// — un-sees it. Only a genuinely fresh install has neither source set.
-function stickyShowcaseSeen(live: Settings, incoming?: Record<string, unknown>): boolean | undefined {
+/* Sticky true: once the tour has been seen anywhere (current live state or
+   the profile being applied), no switch — including to the factory profile
+   — un-sees it. Only a genuinely fresh install has neither source set.
+   Exported so runtime/profileTriggers (auto-switch, outside the controller)
+   applies the same rule instead of a snapshot's missing key wiping it. */
+export function stickyShowcaseSeen(live: Settings, incoming?: Record<string, unknown>): boolean | undefined {
   if ((live as any)?.showcaseSeen === true) return true;
   if ((incoming as any)?.showcaseSeen === true) return true;
   return (live as any)?.showcaseSeen;

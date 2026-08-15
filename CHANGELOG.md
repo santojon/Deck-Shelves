@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **A maintainer-facing release-announcement archive.** [`docs/release-announcements.md`](docs/release-announcements.md) holds the community-post copy for each release (Reddit first, reusable for Discord) plus a template so future posts follow the same voice instead of being written from scratch or reusing the changelog's technical wording.
+
+### Removed
+
+- **56 orphaned translation keys**, in every locale: an About-page "Limitations" section and a Focus tree tool that no longer exist, a batch of `filter_type_*` keys superseded by a snake_case naming pass, six `smart_template_*` entries for templates that were never wired up, and assorted one-off leftovers from earlier UI iterations (statistics chart/trend labels, toast text, visibility copy). Found by cross-referencing every key against its literal use across the source tree; none of them were reachable from any current UI path.
+
+### Security
+
+- **`brace-expansion` bumped again, to 1.1.18 / 5.0.9** (GHSA-rgw5-rvv9-x895, a high-severity bypass of an earlier mitigation: the fix capped expansion length but left the intermediate arrays unbounded, so a crafted pattern could still exhaust memory). Same transitive path (through `minimatch` under ESLint), same **development tooling only** scope.
+- **`postcss` bumped to 8.5.26** (resolves GHSA-fxqj-rqcc-2cmp / CVE-2026-69153, a medium-severity incomplete fix of an earlier advisory: an attacker-controlled `sourceMappingURL` could read an arbitrary `.map` file off disk when the source `from` option is unset). Pulled in transitively through `vite`/`vitest` — **development tooling only**, not part of the shipped plugin.
+- **`js-yaml` bumped to 4.3.1** (resolves GHSA-5p4m-2wfm-xmqj, a high-severity quadratic-CPU denial of service in `!!omap` resolution that CVE-2026-59870's fix hadn't been backported to on the 4.x line). Pulled in transitively through ESLint's `@eslint/eslintrc` — **development tooling only**, not part of the shipped plugin.
+
+### Fixed
+
+- **The first-run feature tour could reopen every time it was closed, permanently, with no way to reach the toggle that turns the plugin on.** The backend discarded a whole persisted settings file — including a saved "tour seen" flag — and silently substituted defaults whenever a profile had no shelves and the master toggle was still off, which is the exact, valid state of a fresh install right after the tour closes for the first time. That fallback existed as a guard against an unrelated, already-fixed corruption bug and is gone now — a loaded settings file is trusted as-is (`_sanitize_settings` already fails safe on genuinely malformed input) ([`main.py`](main.py) `_read_state`, #114).
+- **An auto-triggered profile switch (or auto-triggered factory reset) could bring back the first-run feature tour** — the sticky `showcaseSeen` fix from the 3.2.0 release only covered switching profiles manually from the QAM; the background auto-switch trigger built its next settings from a profile snapshot that never carries `showcaseSeen`, silently clearing it. Both paths now apply the same sticky rule ([`profileTriggers.ts`](src/runtime/profileTriggers.ts), [`profiles.ts`](src/features/settings/controller/profiles.ts), #114).
+- **The About page's "Report an issue" button could silently do nothing.** The embedded system browser Steam uses for these overlays doesn't error on a too-long URL, it just doesn't navigate — and the pre-filled diagnostics + recent log lines pushed the link well past that point. The link now carries only a short diagnostics summary; the fuller log excerpt goes to the clipboard instead, with a toast prompting you to paste it into the report. The single button is now three — **Report a bug**, **Suggest an enhancement**, **Request a feature** — each opening the matching GitHub issue template pre-filled ([`issueReport.ts`](src/core/issueReport.ts), [`SupportPage.tsx`](src/components/about/SupportPage.tsx)).
+- **The About page led with community links before the support section.** "Support the developer" (Ko-fi) now renders above "Learn more", matching how the page is meant to be read ([`SupportPage.tsx`](src/components/about/SupportPage.tsx)).
+- **A latent Rules-of-Hooks violation in the QAM settings sidecar.** `SidecarPanel` returned early — before its hooks — while settings were still unhydrated; if the panel ever stayed mounted across that transition (the Steam-menu-over-QAM re-mount race described in a neighboring comment) its hook call order could shift between renders. The early return now sits after the hooks, which are internally gated on readiness instead ([`DeckQAMSettings.tsx`](src/components/DeckQAMSettings.tsx)).
+- **Smart shelves and a shelf's menu-added-card set got a new object identity on every render**, regardless of whether the underlying data had changed — defeating `memo()` on the shelf/card tree below and forcing needless re-renders of every card on the home screen. Both are now memoized on their actual inputs ([`HomeInject.tsx`](src/components/HomeInject.tsx), [`Shelf.tsx`](src/components/Shelf.tsx)), and `GameCard` itself is now wrapped in `memo()` so an unrelated re-render of its row no longer re-renders every card in it ([`GameCard.tsx`](src/components/shelf/GameCard.tsx)).
+- **Two dev-only code paths stayed in the release bundle** because they gated on `(globalThis as any).__DEV__` (a property read) instead of the bare `__DEV__` build-time constant — the form the bundler can actually prove false and strip ([`steamGameMenu.ts`](src/core/steamGameMenu.ts), [`connectivity.ts`](src/core/connectivity.ts)).
+
 ## [3.2.0] - 2026-08-14
 
 ### Added

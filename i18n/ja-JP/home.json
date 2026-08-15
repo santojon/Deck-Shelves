@@ -19,7 +19,6 @@
   "view_more": "ライブラリで\nもっと見る",
   "view_more_store": "Storeで\nもっと\n見る",
   "view_more_wishlist": "ウィッシュ\nリストを\n見る",
-  "view_release": "リリースを見る",
   "download_update": "アップデートをダウンロード",
   "update_downloading": "アップデート {{version}} をダウンロード中…",
   "update_downloaded": "{{path}} に保存しました。手動でインストールしてください。",

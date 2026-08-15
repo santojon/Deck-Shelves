@@ -52,12 +52,7 @@
   "about_learn_more_description": "Відвідайте проєкт на GitHub або повідомте про проблему / запропонуйте функцію.",
   "about_learn_more_github": "GitHub",
   "about_learn_more_title": "Дізнатися більше",
-  "about_limitation_deck_only": "Цей плагін призначений лише для Steam Deck у Ігровому режимі.",
-  "about_limitation_decky": "Потрібно встановити Decky Loader.",
-  "about_limitation_home": "Полиці вбудовуються в Головний екран і можуть бути зачеплені оновленнями клієнта Steam.",
-  "about_limitations_title": "Обмеження",
   "about_other_versions": "Інші версії",
-  "about_report_issue": "Повідомити про проблему / запропонувати функцію",
   "about_support_description": "Якщо вам подобається цей плагін, розгляньте можливість підтримки подальшої розробки:",
   "about_support_title": "Підтримати розробника",
   "about_version": "Версія",
@@ -77,5 +72,9 @@
   "about_feature_source_v3": "19 new built-in shelf sources — dynamic Steam collections, followed, ignored, DLC, soundtrack, pinned, history, session queue, temporary queue, recently updated (last 14 days), with events, with workshop updates, controller-specific, and six external-launcher collections.",
   "about_feature_grip_buttons": "Призначте задні кнопки / кліки стіків (L3, R3, L4, L5, R4, R5) на ярлики карток через сирий потік контролера",
   "about_feature_composite_shelves": "Об’єднуйте кілька джерел в одну складену полицю в режимах Об’єднання або Перетин",
-  "about_feature_asset_refresh": "Користувацька графіка (капсула, логотип, hero, іконка) оновлюється відразу при поверненні на головну — без перезавантаження плагіна"
+  "about_feature_asset_refresh": "Користувацька графіка (капсула, логотип, hero, іконка) оновлюється відразу при поверненні на головну — без перезавантаження плагіна",
+  "about_report_bug": "Повідомити про помилку",
+  "about_report_enhancement": "Запропонувати покращення",
+  "about_report_feature": "Запропонувати функцію",
+  "about_report_copied": "Діагностику скопійовано — вставте її у звіт"
 }

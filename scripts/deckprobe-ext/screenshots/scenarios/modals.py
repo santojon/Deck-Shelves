@@ -25,7 +25,7 @@ from deckprobe.screenshots.lib.cdp import Session
 from deckprobe.screenshots.lib.nav import (
     navigate_to_ds_qam, close_qam, _qam_eval, _bp_eval,
     expand_qam_sections, dismiss_bp_modals,
-    click_context_menu_edit, click_context_menu_delete,
+    click_context_menu_edit, click_context_menu_delete, click_context_menu_hide_toggle,
 )
 from deckprobe.screenshots.lib.capture import capture_bigpicture, capture_qam
 from deckprobe.screenshots.lib.registry import register
@@ -45,7 +45,8 @@ def _click_action(host: str, port: int, ok_description: str) -> bool:
 
     ActionButton uses onOKActionDescription (gamepad hint), not aria-label,
     so we identify buttons by the SVG path of their icon instead.
-    Icons: add=M12 5v14, import=M12 18v-6, export=M12 12v6, reset=M3 12a9.
+    Icons (src/components/qam/icons.tsx): add=M12 5v14, import=M12 3v12,
+    export=M12 21V9, reset=M3 12a9. Keep in sync if those change.
     """
     desc = ok_description.lower()
 
@@ -85,13 +86,13 @@ def _click_action(host: str, port: int, ok_description: str) -> bool:
 
     svg_map = {
         "addshelf":             "M12 5v14",
-        "import_shelves":       "M12 18v-6",
-        "export_shelves":       "M12 12v6",
+        "import_shelves":       "M12 3v12",
+        "export_shelves":       "M12 21V9",
         "reset_shelves":        "M3 12a9",
         "reset_all":            "M3 12a9",
         "reset_all_button":     "M3 12a9",
-        "import_smart_shelves": "M12 18v-6",
-        "export_smart_shelves": "M12 12v6",
+        "import_smart_shelves": "M12 3v12",
+        "export_smart_shelves": "M12 21V9",
     }
     svg = svg_map.get(desc, "")
     if svg:
@@ -392,19 +393,49 @@ def shelf_actions(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str
 
 @register("shelf_hidden")
 def shelf_hidden(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Path]:
-    """QAM showing a hidden shelf row. Stays on the QAM popup (portrait)."""
+    """QAM showing a hidden shelf row. Stays on the QAM popup (portrait).
+
+    Hidden state is the `deck-shelves-hidden` CSS class on the row label
+    (there is no data attribute for it). If nothing is currently hidden, the
+    first shelf is toggled hidden for the capture via the same ellipsis →
+    Hide/Show menu item a user would click, then toggled back right after —
+    guaranteed by `finally` even if the capture step itself fails, so a run
+    never leaves a real shelf hidden behind.
+    """
     _open_qam(sjc, host, port)
     expand_qam_sections(host, port)
-    _qam_eval(host, port, """
+    already_hidden = _qam_eval(host, port, """
 (function(){
-  const row = document.querySelector('[data-ds-shelf-row][data-ds-shelf-hidden="true"], .deck-shelves-shelf-list [data-ds-shelf-row]');
+  return !!document.querySelector('.deck-shelves-label-cont.deck-shelves-hidden');
+})()
+""") is True
+
+    toggled = False
+    p = None
+    try:
+        if not already_hidden:
+            _click_first_shelf_actions(host, port)
+            time.sleep(1.0)
+            click_context_menu_hide_toggle(host, port, "hide")
+            time.sleep(1.0)
+            toggled = True
+
+        _qam_eval(host, port, """
+(function(){
+  const row = document.querySelector('.deck-shelves-label-cont.deck-shelves-hidden');
   if (row) row.scrollIntoView({block:'center'});
   return 'ok';
 })()
 """)
-    time.sleep(0.5)
-    out = out_dir / "shelf-hidden.png"
-    p = capture_qam(host, port, out)
+        time.sleep(0.5)
+        out = out_dir / "shelf-hidden.png"
+        p = capture_qam(host, port, out)
+    finally:
+        if toggled:
+            _click_first_shelf_actions(host, port)
+            time.sleep(1.0)
+            click_context_menu_hide_toggle(host, port, "show")
+            time.sleep(0.5)
     close_qam(sjc)
     return {"shelf-hidden.png": p} if p else {}
 

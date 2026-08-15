@@ -52,12 +52,7 @@
   "about_learn_more_description": "前往 GitHub 專案頁面，或回報問題 / 提出功能需求。",
   "about_learn_more_github": "GitHub",
   "about_learn_more_title": "了解更多",
-  "about_limitation_deck_only": "此外掛僅適用於 Steam Deck 遊戲模式。",
-  "about_limitation_decky": "需要安裝 Decky Loader。",
-  "about_limitation_home": "書架會注入到首頁中，因此可能受到 Steam 用戶端更新影響。",
-  "about_limitations_title": "限制",
   "about_other_versions": "其他版本",
-  "about_report_issue": "回報問題 / 提出功能需求",
   "about_support_description": "如果你喜歡這個外掛，請考慮支持後續開發：",
   "about_support_title": "支持開發者",
   "about_version": "版本",
@@ -77,5 +72,9 @@
   "about_feature_source_v3": "19 new built-in shelf sources — dynamic Steam collections, followed, ignored, DLC, soundtrack, pinned, history, session queue, temporary queue, recently updated (last 14 days), with events, with workshop updates, controller-specific, and six external-launcher collections.",
   "about_feature_grip_buttons": "透過原始控制器串流將後握/搖桿點擊（L3、R3、L4、L5、R4、R5）對應到卡片快捷鍵",
   "about_feature_composite_shelves": "透過聯集（任一）或交集（全部）模式將多個來源合併到一個複合書架",
-  "about_feature_asset_refresh": "自訂美術（膠囊、徽標、Hero、圖示）在返回主頁的瞬間刷新 — 無需重新載入外掛"
+  "about_feature_asset_refresh": "自訂美術（膠囊、徽標、Hero、圖示）在返回主頁的瞬間刷新 — 無需重新載入外掛",
+  "about_report_bug": "回報錯誤",
+  "about_report_enhancement": "建議改進",
+  "about_report_feature": "提出功能需求",
+  "about_report_copied": "診斷資訊已複製 — 請貼到回報內容中"
 }

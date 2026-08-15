@@ -19,7 +19,6 @@
   "view_more": "Voir plus\ndans votre\nbibliothèque",
   "view_more_store": "Voir plus\ndans la\nBoutique",
   "view_more_wishlist": "Voir plus\ndans la\nliste de souhaits",
-  "view_release": "Voir la version",
   "download_update": "Télécharger la mise à jour",
   "update_downloading": "Téléchargement de la mise à jour {{version}}…",
   "update_downloaded": "Enregistré dans {{path}} — installez-le manuellement.",

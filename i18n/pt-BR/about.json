@@ -52,12 +52,7 @@
   "about_learn_more_description": "Visite o projeto no GitHub ou relate um problema / solicite uma funcionalidade.",
   "about_learn_more_github": "GitHub",
   "about_learn_more_title": "Saiba mais",
-  "about_limitation_deck_only": "Este plugin foi projetado apenas para o Steam Deck no Modo Jogo.",
-  "about_limitation_decky": "Requer que o Decky Loader esteja instalado.",
-  "about_limitation_home": "As prateleiras são injetadas na tela inicial e podem ser afetadas por atualizações do cliente Steam.",
-  "about_limitations_title": "Limitações",
   "about_other_versions": "Outras versões",
-  "about_report_issue": "Reportar problema / solicitar funcionalidade",
   "about_support_description": "Se você gosta deste plugin, considere apoiar o desenvolvimento contínuo:",
   "about_support_title": "Apoie o desenvolvedor",
   "about_version": "Versão",
@@ -77,5 +72,9 @@
   "about_feature_source_v3": "19 novas fontes de prateleira internas — coleções dinâmicas do Steam, seguidos, ignorados, DLCs, trilhas sonoras, fixados, histórico, fila de sessão, fila temporária, atualizados recentemente (últimos 14 dias), com eventos, com updates de workshop, específicos por controle, e seis coleções de launchers externos.",
   "about_feature_grip_buttons": "Mapeie botões de grip traseiro / clique do analógico (L3, R3, L4, L5, R4, R5) em atalhos de carta via stream raw do controle",
   "about_feature_composite_shelves": "Combine várias fontes em uma prateleira composta com modos União (qualquer) ou Interseção (em todas)",
-  "about_feature_asset_refresh": "Arte customizada (cápsula, logo, hero, ícone) é atualizada assim que você volta para a home — sem recarregar o plugin"
+  "about_feature_asset_refresh": "Arte customizada (cápsula, logo, hero, ícone) é atualizada assim que você volta para a home — sem recarregar o plugin",
+  "about_report_bug": "Reportar um erro",
+  "about_report_enhancement": "Sugerir uma melhoria",
+  "about_report_feature": "Solicitar uma funcionalidade",
+  "about_report_copied": "Diagnóstico copiado — cole no relatório"
 }

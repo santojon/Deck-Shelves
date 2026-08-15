@@ -19,12 +19,31 @@ import {
 import { getDiagnostics } from "../runtime/diagnostics";
 import { getCurrentSettings } from "../store/settingsStore";
 import { openExternalUrl } from "./updateNotifier";
+import { copyToClipboard } from "../components/ui/clipboard";
+import { notify } from "../components/notify";
+import i18next from "i18next";
 
 const ISSUE_URL = "https://github.com/santojon/Deck-Shelves/issues/new";
 const DASH = "—";
-// Keep the whole pre-filled body well under GitHub's URL length limit (~8 KB
-// once percent-encoded); diagnostics are small, so the rest is the log budget.
-const CONTEXT_BUDGET = 3000;
+// Steam's embedded overlay browser (OpenInSystemBrowser) silently no-ops on
+// long URLs instead of erroring. Only the short diagnostics summary rides
+// in the URL; the full log buffer goes to the clipboard instead.
+const MAX_CONTEXT_URL_CHARS = 1800;
+const CLIPBOARD_LOG_BUDGET = 6000;
+
+export type IssueType = "bug" | "enhancement" | "feature";
+
+const TEMPLATE_BY_TYPE: Record<IssueType, string> = {
+  bug: "bug_report.yml",
+  enhancement: "enhancement.yml",
+  feature: "feature_request.yml",
+};
+
+const TITLE_PREFIX_BY_TYPE: Record<IssueType, string> = {
+  bug: "[BUG] ",
+  enhancement: "[ENHANCEMENT] ",
+  feature: "[FEATURE] ",
+};
 
 function osLine(sys: SystemInfo | null, steamOS: string | null): string {
   const base = sys?.osName
@@ -126,7 +145,10 @@ function fillEnvironment(p: URLSearchParams, runtime: RuntimeInfo, sys: SystemIn
   p.set("steam_mode", isSteamOs(runtime, sys) ? "Game Mode (Steam Deck home / GamepadUI)" : "Big Picture Mode");
 }
 
-export async function openBugReport(opts: { includeHardware?: boolean; error?: string | null } = {}): Promise<void> {
+export async function openIssueReport(
+  type: IssueType,
+  opts: { includeHardware?: boolean; error?: string | null } = {},
+): Promise<void> {
   const runtime = collectRuntimeInfo();
   let sys: SystemInfo | null = null;
   try { sys = await collectSystemInfo(); } catch { /* fail-soft — report without OS/Steam */ }
@@ -134,20 +156,24 @@ export async function openBugReport(opts: { includeHardware?: boolean; error?: s
   if (opts.includeHardware) { try { hw = await collectHardwareInfo(); } catch { /* fail-soft — report without hardware */ } }
 
   const diag = diagnosticsText(runtime, sys, hw);
-  const logs = logsText(Math.max(500, CONTEXT_BUDGET - diag.length));
   const context = [
     ...(opts.error ? ["### Error", "```", opts.error.slice(0, 400), "```", ""] : []),
     "### Diagnostics",
     "```", diag, "```",
-    "",
-    "### Logs (most recent first)",
-    "```", logs, "```",
-  ].join("\n");
+  ].join("\n").slice(0, MAX_CONTEXT_URL_CHARS);
+
+  const logs = logsText(CLIPBOARD_LOG_BUDGET);
+  void copyToClipboard([context, "", "### Logs (most recent first)", "```", logs, "```"].join("\n"))
+    .then((ok) => { if (ok) notify("copy", { body: i18next.t("about_report_copied") }); });
 
   const p = new URLSearchParams();
-  p.set("template", "bug_report.yml");
-  p.set("title", "[BUG] ");
+  p.set("template", TEMPLATE_BY_TYPE[type]);
+  p.set("title", TITLE_PREFIX_BY_TYPE[type]);
   p.set("context", context);
-  fillEnvironment(p, runtime, sys);
+  if (type === "bug") fillEnvironment(p, runtime, sys);
   openExternalUrl(`${ISSUE_URL}?${p.toString()}`);
+}
+
+export async function openBugReport(opts: { includeHardware?: boolean; error?: string | null } = {}): Promise<void> {
+  return openIssueReport("bug", opts);
 }

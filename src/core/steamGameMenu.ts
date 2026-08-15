@@ -507,12 +507,12 @@ export function installCreateContextMenuPatch(): void {
 }
 
 function devInfo(msg: string, extra?: any): void {
-  if (!(globalThis as any).__DEV__) return;
+  if (!__DEV__) return;
   try { (globalThis as any).console?.info?.(msg, extra); } catch {}
 }
 
 function devWarn(msg: string, extra?: any): void {
-  if (!(globalThis as any).__DEV__) return;
+  if (!__DEV__) return;
   try { (globalThis as any).console?.warn?.(msg, extra); } catch {}
 }
 

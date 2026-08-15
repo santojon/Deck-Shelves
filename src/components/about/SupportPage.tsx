@@ -7,7 +7,7 @@ import { flowChildrenProps } from '../../core/steamOSVersion'
 import { logInfo } from '../../runtime/logger'
 import { openManagedModal } from '../qam/common/openManagedModal'
 import { ShowcaseModal } from '../qam/modals/ShowcaseModal'
-import { openBugReport } from '../../core/issueReport'
+import { openIssueReport } from '../../core/issueReport'
 
 const KOFI_URL = 'https://ko-fi.com/F2F61WE76V'
 const GITHUB_URL = 'https://github.com/santojon/Deck-Shelves'
@@ -37,7 +37,9 @@ export function SupportPage() {
   // Opens directly (no modal): this is a routerHook full-page route, where a
   // showModal ConfirmModal doesn't overlay. The hardware opt-in dialog lives on
   // the QAM crash-report banner instead; here we report without hardware.
-  const reportIssue = () => { void openBugReport() }
+  const reportBug = () => { void openIssueReport('bug') }
+  const reportEnhancement = () => { void openIssueReport('enhancement') }
+  const reportFeature = () => { void openIssueReport('feature') }
   const openReleases = () => openInBrowser(RELEASES_URL)
   const openReleaseNotes = () => openInBrowser(RELEASE_NOTES_URL)
   const openDiscord = () => openInBrowser(DISCORD_URL)
@@ -45,61 +47,6 @@ export function SupportPage() {
   const openShowcase = () => openManagedModal((close) => <ShowcaseModal closeModal={close} />)
   return (
     <DocSection>
-      <Field focusable={true} bottomSeparator="none" label={<span style={headingStyle}>{t('about_learn_more_title')}</span>} />
-      <Field focusable={true} bottomSeparator="none" description={<span style={labelStyle}>{t('about_learn_more_description')}</span>} />
-      <Field bottomSeparator="none" childrenLayout="below">
-        {/* `flow-children="horizontal"` tells the Decky/Steam gamepad nav
-            tree to move L/R between these buttons instead of U/D — without
-            it the buttons render side-by-side visually but D-pad navigates
-            top-to-bottom (the default Focusable flow). */}
-        <Focusable
-          {...flowChildrenProps("horizontal")}
-          style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}
-        >
-          <DialogButton
-            onClick={openGitHub}
-            onOKButton={openGitHub}
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px 14px', width: 'auto' }}
-          >
-            {t('about_learn_more_github')}
-          </DialogButton>
-          <DialogButton
-            onClick={reportIssue}
-            onOKButton={reportIssue}
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px 14px', width: 'auto' }}
-          >
-            {t('about_report_issue')}
-          </DialogButton>
-          <DialogButton
-            onClick={openShowcase}
-            onOKButton={openShowcase}
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px 14px', width: 'auto' }}
-          >
-            {t('showcase_replay')}
-          </DialogButton>
-          <DialogButton
-            onClick={openDiscord}
-            onOKButton={openDiscord}
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px 14px', width: 'auto' }}
-          >
-            {t('about_discord')}
-          </DialogButton>
-          <DialogButton
-            onClick={openReddit}
-            onOKButton={openReddit}
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px 14px', width: 'auto' }}
-          >
-            {t('about_reddit')}
-          </DialogButton>
-          <DialogButton
-            onClick={openReleaseNotes}
-            onOKButton={openReleaseNotes}
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px 14px', width: 'auto' }}
-          >
-            {t('about_release_notes')}
-          </DialogButton>
-        </Focusable>
-      </Field>
       <Field focusable={true} bottomSeparator="none" label={<span style={headingStyle}>{t('about_support_title')}</span>} />
       <Field focusable={true} bottomSeparator="none" description={<span style={labelStyle}>{t('about_support_description')}</span>} />
       {/* — Ko-fi card with scannable QR.
@@ -164,6 +111,75 @@ export function SupportPage() {
           </div>
         </div>
       </div>
+      <Field focusable={true} bottomSeparator="none" label={<span style={headingStyle}>{t('about_learn_more_title')}</span>} />
+      <Field focusable={true} bottomSeparator="none" description={<span style={labelStyle}>{t('about_learn_more_description')}</span>} />
+      <Field bottomSeparator="none" childrenLayout="below">
+        {/* `flow-children="horizontal"` tells the Decky/Steam gamepad nav
+            tree to move L/R between these buttons instead of U/D — without
+            it the buttons render side-by-side visually but D-pad navigates
+            top-to-bottom (the default Focusable flow). */}
+        <Focusable
+          {...flowChildrenProps("horizontal")}
+          style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}
+        >
+          <DialogButton
+            onClick={openGitHub}
+            onOKButton={openGitHub}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px 14px', width: 'auto' }}
+          >
+            {t('about_learn_more_github')}
+          </DialogButton>
+          <DialogButton
+            onClick={reportBug}
+            onOKButton={reportBug}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px 14px', width: 'auto' }}
+          >
+            {t('about_report_bug')}
+          </DialogButton>
+          <DialogButton
+            onClick={reportEnhancement}
+            onOKButton={reportEnhancement}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px 14px', width: 'auto' }}
+          >
+            {t('about_report_enhancement')}
+          </DialogButton>
+          <DialogButton
+            onClick={reportFeature}
+            onOKButton={reportFeature}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px 14px', width: 'auto' }}
+          >
+            {t('about_report_feature')}
+          </DialogButton>
+          <DialogButton
+            onClick={openShowcase}
+            onOKButton={openShowcase}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px 14px', width: 'auto' }}
+          >
+            {t('showcase_replay')}
+          </DialogButton>
+          <DialogButton
+            onClick={openDiscord}
+            onOKButton={openDiscord}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px 14px', width: 'auto' }}
+          >
+            {t('about_discord')}
+          </DialogButton>
+          <DialogButton
+            onClick={openReddit}
+            onOKButton={openReddit}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px 14px', width: 'auto' }}
+          >
+            {t('about_reddit')}
+          </DialogButton>
+          <DialogButton
+            onClick={openReleaseNotes}
+            onOKButton={openReleaseNotes}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px 14px', width: 'auto' }}
+          >
+            {t('about_release_notes')}
+          </DialogButton>
+        </Focusable>
+      </Field>
       <Field
         focusable={true}
         bottomSeparator="none"

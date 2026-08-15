@@ -52,12 +52,7 @@
   "about_learn_more_description": "Visit the project on GitHub or report an issue / request a feature.",
   "about_learn_more_github": "GitHub",
   "about_learn_more_title": "Learn more",
-  "about_limitation_deck_only": "This plugin is designed for Steam Deck in Gaming Mode only.",
-  "about_limitation_decky": "Requires Decky Loader to be installed.",
-  "about_limitation_home": "Shelves are injected into the Home screen and may be affected by Steam client updates.",
-  "about_limitations_title": "Limitations",
   "about_other_versions": "Other versions",
-  "about_report_issue": "Report an issue / request a feature",
   "about_support_description": "If you enjoy this plugin, consider supporting continued development:",
   "about_support_title": "Support the developer",
   "about_version": "Version",
@@ -77,5 +72,9 @@
   "about_feature_source_v3": "19 new built-in shelf sources — dynamic Steam collections, followed, ignored, DLC, soundtrack, pinned, history, session queue, temporary queue, recently updated (last 14 days), with events, with workshop updates, controller-specific, and six external-launcher collections.",
   "about_feature_grip_buttons": "Map back-grip / stick-click buttons (L3, R3, L4, L5, R4, R5) to card shortcuts via the raw controller stream",
   "about_feature_composite_shelves": "Stack multiple sources into one composite shelf with Union (any) or Intersection (in all) modes",
-  "about_feature_asset_refresh": "Custom artwork (capsule, logo, hero, icon) refreshes the moment you return to home — no plugin reload"
+  "about_feature_asset_refresh": "Custom artwork (capsule, logo, hero, icon) refreshes the moment you return to home — no plugin reload",
+  "about_report_bug": "Report a bug",
+  "about_report_enhancement": "Suggest an enhancement",
+  "about_report_feature": "Request a feature",
+  "about_report_copied": "Diagnostics copied — paste them into the report"
 }

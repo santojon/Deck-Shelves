@@ -6,6 +6,8 @@ import {
   hasExternalSortOption, applyExternalSort,
   hasExternalFilterType, evaluateExternalFilter,
   toPublicAppMeta,
+  resolveExternalSource,
+  hasExternalSmartSource, resolveExternalSmartSource,
 } from "../core/pluginApi";
 import type { PlatformAppMeta, PlatformTab } from "../runtime/platform";
 import { logInfo, logWarn } from "../runtime/logger";
@@ -3329,7 +3331,6 @@ async function _resolveFilter(ctx: ResolverContext): Promise<number[]> {
 async function _resolveExternal(ctx: ResolverContext): Promise<number[]> {
   const { source, all, sort, shelfId, sortReverse, finish, overShootLimit, limit } = ctx;
     try {
-      const { resolveExternalSource } = await import("../core/pluginApi");
       let ids = await resolveExternalSource(String(source.sourceId ?? ""), limit);
       logInfo("STEAM", "resolveShelfAppIds(external) resolved", { sourceId: source.sourceId, count: ids.length });
       if (sort) ids = applySortToIds(ids, sort, all, shelfId, sortReverse);
@@ -3526,7 +3527,6 @@ async function _resolveSmart(ctx: ResolverContext): Promise<number[]> {
   const { source, sort, shelfId, sortReverse, finish, overShootLimit, limit } = ctx;
   try {
     const { resolveSmartShelf, INTERNAL_SMART_MODES } = await import("./smartShelves");
-    const { hasExternalSmartSource, resolveExternalSmartSource } = await import("../core/pluginApi");
     const apps = await getAllAppOverviews();
     const smartFilterGroup = source.filterGroup;
     const smartParams = source.smartParams as Record<string, number> | undefined;

@@ -4,7 +4,7 @@ import { subscribeSessionState } from './sessionState';
 import { resolveTriggeredProfile, nextProfileTriggerFlip } from '../steam/smartShelves';
 import { notifyUser } from './notify';
 import { defaultSettings } from '../domain/defaults';
-import { keepShelfFields, FACTORY_PROFILE_ID, FACTORY_PROFILE_NAME } from '../features/settings/controller/profiles';
+import { keepShelfFields, stickyShowcaseSeen, FACTORY_PROFILE_ID, FACTORY_PROFILE_NAME } from '../features/settings/controller/profiles';
 import i18n from '../i18n';
 import type { Settings } from '../types';
 
@@ -65,7 +65,8 @@ function saveIfChanged(next: Settings, onChanged: () => void): void {
 function applyFactory(): void {
   const s = getCurrentSettings() as any;
   if (!s) return;
-  const next = { ...defaultSettings(), enabled: true, profiles: s.profiles ?? [], activeProfileName: FACTORY_PROFILE_NAME } as Settings;
+  const defaults = defaultSettings();
+  const next = { ...defaults, enabled: true, profiles: s.profiles ?? [], activeProfileName: FACTORY_PROFILE_NAME, showcaseSeen: stickyShowcaseSeen(s, defaults as any) } as Settings;
   keepShelfFields(next, s);
   saveIfChanged(next, () => triggerToast(FACTORY_PROFILE_NAME));
 }
@@ -84,7 +85,8 @@ function applyByName(name: string): void {
   const profiles = Array.isArray(s?.profiles) ? s.profiles : [];
   const target = profiles.find((p: any) => p && p.name === name);
   if (target && target.id && target.snapshot) {
-    saveIfChanged({ ...(target.snapshot as any), profiles, activeProfileName: target.name } as Settings, () => triggerToast(name));
+    const showcaseSeen = stickyShowcaseSeen(s, target.snapshot as any);
+    saveIfChanged({ ...(target.snapshot as any), profiles, activeProfileName: target.name, showcaseSeen } as Settings, () => triggerToast(name));
   }
 }
 

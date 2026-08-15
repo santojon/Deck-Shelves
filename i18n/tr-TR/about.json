@@ -52,12 +52,7 @@
   "about_learn_more_description": "GitHub'da projeyi ziyaret edin veya bir sorun bildirin / özellik isteyin.",
   "about_learn_more_github": "GitHub",
   "about_learn_more_title": "Daha fazla bilgi",
-  "about_limitation_deck_only": "Bu eklenti yalnızca Oyun Modundaki Steam Deck için tasarlanmıştır.",
-  "about_limitation_decky": "Decky Loader’ın yüklü olması gerekir.",
-  "about_limitation_home": "Raflar Ana Sayfaya enjekte edilir ve Steam istemci güncellemelerinden etkilenebilir.",
-  "about_limitations_title": "Sınırlamalar",
   "about_other_versions": "Diğer sürümler",
-  "about_report_issue": "Sorun bildir / özellik iste",
   "about_support_description": "Bu eklentiyi beğeniyorsanız, geliştirmenin devamını desteklemeyi düşünün:",
   "about_support_title": "Geliştiriciyi destekleyin",
   "about_version": "Sürüm",
@@ -77,5 +72,9 @@
   "about_feature_source_v3": "19 new built-in shelf sources — dynamic Steam collections, followed, ignored, DLC, soundtrack, pinned, history, session queue, temporary queue, recently updated (last 14 days), with events, with workshop updates, controller-specific, and six external-launcher collections.",
   "about_feature_grip_buttons": "Arka grip / çubuk tıklama düğmelerini (L3, R3, L4, L5, R4, R5) ham kontrolcü akışı üzerinden kart kısayollarına eşleyin",
   "about_feature_composite_shelves": "Birden çok kaynağı Birleşim (herhangi biri) veya Kesişim (hepsi) modlarıyla bir bileşik rafta birleştirin",
-  "about_feature_asset_refresh": "Özel grafikler (kapsül, logo, hero, simge) ana sayfaya döndüğünüz an yenilenir — eklenti yeniden yüklenmeden"
+  "about_feature_asset_refresh": "Özel grafikler (kapsül, logo, hero, simge) ana sayfaya döndüğünüz an yenilenir — eklenti yeniden yüklenmeden",
+  "about_report_bug": "Hata bildir",
+  "about_report_enhancement": "İyileştirme öner",
+  "about_report_feature": "Özellik iste",
+  "about_report_copied": "Tanılama verileri kopyalandı — rapora yapıştırın"
 }

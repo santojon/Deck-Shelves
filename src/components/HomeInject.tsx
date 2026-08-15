@@ -372,6 +372,96 @@ export function HomeShelves() {
     return () => { unDevice(); unSession(); unPerf(); unPeripherals(); stopFrameSampler(); };
   }, []);
 
+  /* Convert enabled smart shelves to Shelf-compatible objects for ShelfView.
+     Memoized (and kept above the mountEl/settings early returns below, per
+     Rules of Hooks) so unrelated re-renders don't hand every smart shelf a
+     new object identity each time — that would defeat memo() on the shelf
+     tree. `settings` may still be unhydrated here, hence the `?.`s. */
+  const smartShelves: Shelf[] = useMemo(() => {
+    if (!settings?.smartShelvesEnabled) return [];
+    if (settings.smartSurpriseMe) {
+      const _now = new Date();
+      const dayIndex = _now.getFullYear() * 10000 + (_now.getMonth() + 1) * 100 + _now.getDate();
+      const rawCount = settings.smartSurpriseMeCount ?? 0;
+      const count = rawCount > 0 ? rawCount : (1 + (dayIndex % 3));
+      const selected = seededShuffle(SURPRISE_MODES, dayIndex).slice(0, count);
+      return selected.map((mode): Shelf => ({
+        id: `surprise_${mode}`,
+        title: t(`smart_template_${mode}` as any),
+        enabled: true,
+        hidden: false,
+        limit: 20,
+        matchNativeSize: false,
+        highlightFirst: false,
+        highlightAll: false,
+        hideStatusLine: false,
+        hideNewBadge: false,
+        hideDiscountBadge: false,
+        hideCompatIcons: false,
+        hideNonSteamBadge: false,
+        hideShelfTitle: false,
+        hideGameNames: false,
+        hideInstallIndicator: false,
+        hideSeeMore: false,
+        hideRefreshCard: false,
+        source: { type: "smart", mode },
+      }));
+    }
+    return (settings.smartShelves ?? [])
+      .filter((s: SmartShelf) => s.enabled && !s.hidden)
+      .filter((s: SmartShelf) =>
+        evalVisibility({
+          visibility: (s as any).visibility,
+          visibleHours: (s as any).visibleHours ?? getModeVisibilityWindows((s as any).mode),
+          visibleDaysOfWeek: (s as any).visibleDaysOfWeek,
+        } as any)
+      )
+      .map((s: SmartShelf): Shelf => ({
+        id: s.id,
+        title: s.title,
+        enabled: true,
+        hidden: false,
+        limit: s.limit ?? 20,
+        matchNativeSize: (s as any).matchNativeSize ?? false,
+        highlightFirst: (s as any).highlightFirst ?? false,
+        highlightAll: (s as any).highlightAll ?? false,
+        highlightedAppIds: (s as any).highlightedAppIds,
+        hideStatusLine: (s as any).hideStatusLine ?? false,
+        hideNewBadge: (s as any).hideNewBadge ?? false,
+        hideDiscountBadge: (s as any).hideDiscountBadge ?? false,
+        hideCompatIcons: (s as any).hideCompatIcons ?? false,
+        hideNonSteamBadge: (s as any).hideNonSteamBadge ?? false,
+        hideShelfTitle: (s as any).hideShelfTitle ?? false,
+        friendsPlayingOverlay: (s as any).friendsPlayingOverlay ?? false,
+        friendsPlayingOverlayRecent: (s as any).friendsPlayingOverlayRecent ?? false,
+        ...((s as any).heroEnabled ? { heroEnabled: true } : {}) as any,
+        source: {
+          type: "smart",
+          mode: s.mode,
+          filterGroup: (s as any).filterGroup,
+          smartParams: (s as any).smartParams,
+          refreshIntervalMinutes: (s as any).refreshIntervalMinutes,
+          // Composite source mixing — forwarded so the resolver can union /
+          // intersect multiple smart-mode candidate sets when the user has
+          // configured a composite shelf.
+          compositeModes: (s as any).compositeModes,
+          compositeCombine: (s as any).compositeCombine,
+          // friends_playing may surface games the user doesn't own (friends
+          /* currently playing OR seen playing in last 14 days). This flag
+             tells Shelf.tsx to fall back to the Steam Store API for names +
+             covers on non-owned appids (same path wishlist / store shelves
+             already use). Owned appids continue to render from local
+             appStore metadata as usual. */
+          includesNonOwned: s.mode === 'friends_playing' || Array.isArray((s as any).compositeModes) && (s as any).compositeModes.includes('friends_playing'),
+        } as any,
+        // Surface user-configured overrides so resolveShelfAppIds +
+        // Shelf.tsx can apply them on top of the mode's candidates.
+        sort: (s as any).sort,
+        manualOrder: (s as any).manualOrder,
+        manualBaseSort: (s as any).manualBaseSort,
+      } as any));
+  }, [settings?.smartShelvesEnabled, settings?.smartSurpriseMe, settings?.smartSurpriseMeCount, settings?.smartShelves, t, visibilityTick]);
+
   if (!mountEl) return null;
   if (!settings) return null;
 
@@ -395,93 +485,6 @@ export function HomeShelves() {
           : visibleShelves.slice(1);
       })()
     : visibleShelves;
-
-  // Convert enabled smart shelves to Shelf-compatible objects for ShelfView.
-  let smartShelves: Shelf[] = [];
-  if (settings.smartShelvesEnabled) {
-    if (settings.smartSurpriseMe) {
-      const _now = new Date();
-      const dayIndex = _now.getFullYear() * 10000 + (_now.getMonth() + 1) * 100 + _now.getDate();
-      const rawCount = settings.smartSurpriseMeCount ?? 0;
-      const count = rawCount > 0 ? rawCount : (1 + (dayIndex % 3));
-      const selected = seededShuffle(SURPRISE_MODES, dayIndex).slice(0, count);
-      smartShelves = selected.map((mode): Shelf => ({
-        id: `surprise_${mode}`,
-        title: t(`smart_template_${mode}` as any),
-        enabled: true,
-        hidden: false,
-        limit: 20,
-        matchNativeSize: false,
-        highlightFirst: false,
-        highlightAll: false,
-        hideStatusLine: false,
-        hideNewBadge: false,
-        hideDiscountBadge: false,
-        hideCompatIcons: false,
-        hideNonSteamBadge: false,
-        hideShelfTitle: false,
-        hideGameNames: false,
-        hideInstallIndicator: false,
-        hideSeeMore: false,
-        hideRefreshCard: false,
-        source: { type: "smart", mode },
-      }));
-    } else {
-      smartShelves = (settings.smartShelves ?? [])
-        .filter((s: SmartShelf) => s.enabled && !s.hidden)
-        .filter((s: SmartShelf) =>
-          evalVisibility({
-            visibility: (s as any).visibility,
-            visibleHours: (s as any).visibleHours ?? getModeVisibilityWindows((s as any).mode),
-            visibleDaysOfWeek: (s as any).visibleDaysOfWeek,
-          } as any)
-        )
-        .map((s: SmartShelf): Shelf => ({
-          id: s.id,
-          title: s.title,
-          enabled: true,
-          hidden: false,
-          limit: s.limit ?? 20,
-          matchNativeSize: (s as any).matchNativeSize ?? false,
-          highlightFirst: (s as any).highlightFirst ?? false,
-          highlightAll: (s as any).highlightAll ?? false,
-          highlightedAppIds: (s as any).highlightedAppIds,
-          hideStatusLine: (s as any).hideStatusLine ?? false,
-          hideNewBadge: (s as any).hideNewBadge ?? false,
-          hideDiscountBadge: (s as any).hideDiscountBadge ?? false,
-          hideCompatIcons: (s as any).hideCompatIcons ?? false,
-          hideNonSteamBadge: (s as any).hideNonSteamBadge ?? false,
-          hideShelfTitle: (s as any).hideShelfTitle ?? false,
-          friendsPlayingOverlay: (s as any).friendsPlayingOverlay ?? false,
-          friendsPlayingOverlayRecent: (s as any).friendsPlayingOverlayRecent ?? false,
-          ...((s as any).heroEnabled ? { heroEnabled: true } : {}) as any,
-          source: {
-            type: "smart",
-            mode: s.mode,
-            filterGroup: (s as any).filterGroup,
-            smartParams: (s as any).smartParams,
-            refreshIntervalMinutes: (s as any).refreshIntervalMinutes,
-            // Composite source mixing — forwarded so the resolver can union /
-            // intersect multiple smart-mode candidate sets when the user has
-            // configured a composite shelf.
-            compositeModes: (s as any).compositeModes,
-            compositeCombine: (s as any).compositeCombine,
-            // friends_playing may surface games the user doesn't own (friends
-            /* currently playing OR seen playing in last 14 days). This flag
-               tells Shelf.tsx to fall back to the Steam Store API for names +
-               covers on non-owned appids (same path wishlist / store shelves
-               already use). Owned appids continue to render from local
-               appStore metadata as usual. */
-            includesNonOwned: s.mode === 'friends_playing' || Array.isArray((s as any).compositeModes) && (s as any).compositeModes.includes('friends_playing'),
-          } as any,
-          // Surface user-configured overrides so resolveShelfAppIds +
-          // Shelf.tsx can apply them on top of the mode's candidates.
-          sort: (s as any).sort,
-          manualOrder: (s as any).manualOrder,
-          manualBaseSort: (s as any).manualBaseSort,
-        } as any));
-    }
-  }
 
   /* Placement:
      - unifiedListEnabled: emit shelves in explicit `allShelvesOrder` (user's

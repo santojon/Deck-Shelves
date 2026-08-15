@@ -146,12 +146,12 @@
       "glob": "^13.0.0",
       "rimraf": "^6.0.1",
       "globby": "^14.1.0",
-      "postcss": "^8.5.10",
+      "postcss": "^8.5.23",
       "esbuild": "^0.28.1",
       "undici": "^7.29.0",
-      "brace-expansion@1": "^1.1.16",
-      "brace-expansion@5": "^5.0.7",
-      "js-yaml": "^4.3.0"
+      "brace-expansion@1": "^1.1.18",
+      "brace-expansion@5": "^5.0.9",
+      "js-yaml": "^4.3.1"
     }
   },
   "packageManager": "pnpm@10.33.0"

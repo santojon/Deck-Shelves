@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback, useMemo, useState } from "react";
+import { useEffect, useRef, useCallback, useMemo, useState, memo } from "react";
 import { Focusable } from "../../runtime/host/decky";
 import { dispatchHomeButtonDown } from "../../runtime/homeInputBus";
 import { getPreferredSteamDocument } from "../../runtime/steamHost";
@@ -169,7 +169,7 @@ function trackCardActivation(ref: { previewMode: boolean; appid: number; shelfId
   } catch { /* best-effort */ }
 }
 
-export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHProp, featured = false, cardIndex, hideStatusLine = false, hideNewBadge = false, hideDiscountBadge = false, hideCompatIcons = false, hideNonSteamBadge = false, hideGameName = false, hideInstallIndicator = false, friendsOverlay = false, friendsOverlayRecent = false, enableLogo = false, enableIcon = false, enableDescription = false, descriptionBelowLogo = false, descriptionPosition = 'left', iconVerticalAlign = 'top', gameNamePosition = 'left', playtimePosition = 'left', previewMode = false, removableSet, onRemoveCard, hiddenSet, onHideCard }: { item: DeckRowItem; cardW?: number; cardH?: number; artH?: number; featured?: boolean; cardIndex?: number; hideStatusLine?: boolean; hideNewBadge?: boolean; hideDiscountBadge?: boolean; hideCompatIcons?: boolean; hideNonSteamBadge?: boolean; hideGameName?: boolean; hideInstallIndicator?: boolean; friendsOverlay?: boolean; friendsOverlayRecent?: boolean; enableLogo?: boolean; enableIcon?: boolean; enableDescription?: boolean; descriptionBelowLogo?: boolean; logoPosition?: 'left' | 'center' | 'right'; descriptionPosition?: 'left' | 'center' | 'right'; iconVerticalAlign?: 'top' | 'center' | 'bottom'; gameNamePosition?: 'left' | 'center' | 'right'; playtimePosition?: 'left' | 'center' | 'right'; inlineBadges?: boolean; previewMode?: boolean; removableSet?: Set<number>; onRemoveCard?: (appid: number) => void; hiddenSet?: Set<number>; onHideCard?: (appid: number) => void }) {
+function GameCardImpl({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHProp, featured = false, cardIndex, hideStatusLine = false, hideNewBadge = false, hideDiscountBadge = false, hideCompatIcons = false, hideNonSteamBadge = false, hideGameName = false, hideInstallIndicator = false, friendsOverlay = false, friendsOverlayRecent = false, enableLogo = false, enableIcon = false, enableDescription = false, descriptionBelowLogo = false, descriptionPosition = 'left', iconVerticalAlign = 'top', gameNamePosition = 'left', playtimePosition = 'left', previewMode = false, removableSet, onRemoveCard, hiddenSet, onHideCard }: { item: DeckRowItem; cardW?: number; cardH?: number; artH?: number; featured?: boolean; cardIndex?: number; hideStatusLine?: boolean; hideNewBadge?: boolean; hideDiscountBadge?: boolean; hideCompatIcons?: boolean; hideNonSteamBadge?: boolean; hideGameName?: boolean; hideInstallIndicator?: boolean; friendsOverlay?: boolean; friendsOverlayRecent?: boolean; enableLogo?: boolean; enableIcon?: boolean; enableDescription?: boolean; descriptionBelowLogo?: boolean; logoPosition?: 'left' | 'center' | 'right'; descriptionPosition?: 'left' | 'center' | 'right'; iconVerticalAlign?: 'top' | 'center' | 'bottom'; gameNamePosition?: 'left' | 'center' | 'right'; playtimePosition?: 'left' | 'center' | 'right'; inlineBadges?: boolean; previewMode?: boolean; removableSet?: Set<number>; onRemoveCard?: (appid: number) => void; hiddenSet?: Set<number>; onHideCard?: (appid: number) => void }) {
   const t = i18n.t.bind(i18n);
   const cardRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
@@ -924,3 +924,5 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
     </Focusable>
   );
 }
+
+export const GameCard = memo(GameCardImpl);

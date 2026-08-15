@@ -52,12 +52,7 @@
   "about_learn_more_description": "Visita el proyecto en GitHub o reporta un problema / solicita una función.",
   "about_learn_more_github": "GitHub",
   "about_learn_more_title": "Más información",
-  "about_limitation_deck_only": "Este plugin está diseñado solo para Steam Deck en Modo Juego.",
-  "about_limitation_decky": "Requiere que Decky Loader esté instalado.",
-  "about_limitation_home": "Las estanterías se inyectan en la pantalla de inicio y pueden verse afectadas por actualizaciones del cliente de Steam.",
-  "about_limitations_title": "Limitaciones",
   "about_other_versions": "Otras versiones",
-  "about_report_issue": "Reportar problema / solicitar función",
   "about_support_description": "Si disfrutas de este plugin, considera apoyar el desarrollo continuo:",
   "about_support_title": "Apoya al desarrollador",
   "about_version": "Versión",
@@ -77,5 +72,9 @@
   "about_feature_source_v3": "19 new built-in shelf sources — dynamic Steam collections, followed, ignored, DLC, soundtrack, pinned, history, session queue, temporary queue, recently updated (last 14 days), with events, with workshop updates, controller-specific, and six external-launcher collections.",
   "about_feature_grip_buttons": "Asigna botones de grip trasero / clic de stick (L3, R3, L4, L5, R4, R5) a atajos de carta vía stream raw del mando",
   "about_feature_composite_shelves": "Combina varias fuentes en una estantería compuesta con modos Unión (cualquiera) o Intersección (en todas)",
-  "about_feature_asset_refresh": "El arte personalizado (cápsula, logo, hero, ícono) se actualiza al volver al inicio — sin recargar el plugin"
+  "about_feature_asset_refresh": "El arte personalizado (cápsula, logo, hero, ícono) se actualiza al volver al inicio — sin recargar el plugin",
+  "about_report_bug": "Reportar un error",
+  "about_report_enhancement": "Sugerir una mejora",
+  "about_report_feature": "Solicitar una función",
+  "about_report_copied": "Diagnóstico copiado — pégalo en el informe"
 }
