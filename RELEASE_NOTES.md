@@ -5,6 +5,8 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+## [3.2.1] - 2026-08-15
+
 ### Fixed
 
 - **The first-run tour could get stuck reopening every time you closed it, with no way to reach the toggle that turns the plugin on.** A backend bug threw away the saved "tour seen" flag whenever you hadn't enabled the plugin or added a shelf yet — exactly the state right after seeing the tour for the first time. Fixed.

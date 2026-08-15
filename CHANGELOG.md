@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.2.1] - 2026-08-15
+
 ### Added
 
 - **A maintainer-facing release-announcement archive.** [`docs/release-announcements.md`](docs/release-announcements.md) holds the community-post copy for each release (Reddit first, reusable for Discord) plus a template so future posts follow the same voice instead of being written from scratch or reusing the changelog's technical wording.
