@@ -4,6 +4,7 @@ Unit tests for main.py — covers _sanitize_settings and _normalize_path.
 The `decky` module is mocked before importing main, since it is only
 available in the Decky Loader runtime environment.
 """
+import json
 import sys
 import types as pytypes
 
@@ -17,7 +18,7 @@ decky_mock.logger = pytypes.SimpleNamespace(
 decky_mock.DECKY_PLUGIN_SETTINGS_DIR = "/tmp/test-deck-shelves-settings"
 sys.modules["decky"] = decky_mock
 
-from main import _sanitize_settings, _normalize_path  # noqa: E402
+from main import _sanitize_settings, _normalize_path, Plugin, DEFAULT_SETTINGS  # noqa: E402
 
 
 # ─── _sanitize_settings ────────────────────────────────────────────────────────
@@ -896,3 +897,45 @@ def test_perf_snapshot_linux_proc_absent_is_unsupported(tmp_path, monkeypatch):
     monkeypatch.setattr(perf_probe.platform, "system", lambda: "Linux")
     out = perf_probe.read_perf_snapshot(str(tmp_path / "nostat"), str(tmp_path / "nomem"))
     assert out == {"cpuPercent": None, "memAvailablePercent": None, "supported": False}
+
+
+# ─── Plugin._read_state (issue #114) ───────────────────────────────────────────
+# A persisted state with no shelves and the master toggle off is the normal
+# state of a fresh install before the user enables the plugin — not a sign of
+# corruption. `_read_state` used to discard it wholesale in favor of
+# DEFAULT_SETTINGS whenever both were falsy, silently dropping any other
+# field set in the meantime (showcaseSeen in particular) and locking users
+# out behind a first-run tour that could never be marked seen.
+
+def _write_raw_state(settings_dir, state):
+    settings_dir.mkdir(parents=True, exist_ok=True)
+    (settings_dir / "settings.json").write_text(json.dumps({"state": state}), encoding="utf-8")
+
+
+def test_read_state_preserves_showcase_seen_when_not_yet_enabled(tmp_path, monkeypatch):
+    monkeypatch.setenv("DECK_SHELVES_SETTINGS_DIR", str(tmp_path))
+    _write_raw_state(tmp_path, {"enabled": False, "shelves": [], "showcaseSeen": True})
+    result = Plugin()._read_state()
+    assert result["showcaseSeen"] is True
+    assert result["enabled"] is False
+
+
+def test_read_state_preserves_other_fields_when_empty(tmp_path, monkeypatch):
+    monkeypatch.setenv("DECK_SHELVES_SETTINGS_DIR", str(tmp_path))
+    _write_raw_state(tmp_path, {"enabled": False, "shelves": [], "verboseLoggingEnabled": True})
+    result = Plugin()._read_state()
+    assert result["verboseLoggingEnabled"] is True
+
+
+def test_read_state_returns_defaults_when_file_missing(tmp_path, monkeypatch):
+    monkeypatch.setenv("DECK_SHELVES_SETTINGS_DIR", str(tmp_path))
+    result = Plugin()._read_state()
+    assert result == dict(DEFAULT_SETTINGS)
+
+
+def test_read_state_trusts_a_populated_state_too(tmp_path, monkeypatch):
+    monkeypatch.setenv("DECK_SHELVES_SETTINGS_DIR", str(tmp_path))
+    _write_raw_state(tmp_path, {"enabled": True, "shelves": [{"id": "s1", "title": "Shelf"}]})
+    result = Plugin()._read_state()
+    assert result["enabled"] is True
+    assert len(result["shelves"]) == 1

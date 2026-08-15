@@ -112,10 +112,16 @@ class Plugin:
             return dict(DEFAULT_SETTINGS)
         data = _safe_read_json(path)
         state = data.get("state") if isinstance(data.get("state"), dict) else data
-        clean = _sanitize_settings(state)
-        if clean.get("shelves") or clean.get("enabled"):
-            return clean
-        return dict(DEFAULT_SETTINGS)
+        # `_sanitize_settings` already fail-safes malformed input to sane
+        # defaults (issue #114) — a persisted state with no shelves and the
+        # master toggle off is not a sign of corruption, it's the normal
+        # state of a fresh install before the user enables the plugin. An
+        # earlier version discarded that state wholesale in favor of
+        # DEFAULT_SETTINGS whenever both were falsy, silently dropping any
+        # other field set in the meantime (showcaseSeen in particular) and
+        # locking users out behind a first-run tour that could never be
+        # marked seen.
+        return _sanitize_settings(state)
 
     def _write_state(self, state: Dict[str, Any]) -> None:
         self._ensure_dirs()
