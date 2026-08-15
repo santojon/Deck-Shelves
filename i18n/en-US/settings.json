@@ -1175,5 +1175,6 @@
   "visibility_rule_bluetoothConnected": "Bluetooth device connected",
   "visibility_rule_bluetoothConnected_not": "Bluetooth device disconnected",
   "visibility_bt_device": "Device",
-  "visibility_bt_none": "No paired devices"
+  "visibility_bt_none": "No paired devices",
+  "first_run_desc_maybe_wiped": "No shelves here right now — if that doesn't look right, you may have a backup to restore below. Otherwise, start fresh with the defaults."
 }

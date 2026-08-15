@@ -46,7 +46,7 @@ export function ExportModal({ closeModal, controller, folderPath, scope = 'all',
         onEscKeypress={closeModal}
         onOK={() => {
           setSaveBusy(true);
-          (async () => {
+          void (async () => {
             const target = handlerId ? `${folder}/${name}.${fileExt || 'json'}` : `${folder}/${filenameWithJson(name)}`;
             try {
               let ok = false

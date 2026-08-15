@@ -1175,5 +1175,6 @@
   "hw_ram": "Pamięć",
   "hw_gpu": "GPU",
   "hw_storage": "Pamięć masowa",
-  "diag_software": "Oprogramowanie"
+  "diag_software": "Oprogramowanie",
+  "first_run_desc_maybe_wiped": "Nie ma tu teraz żadnych półek — jeśli to wygląda nie tak, poniżej może być kopia zapasowa do przywrócenia. W przeciwnym razie zacznij od nowa z ustawieniami domyślnymi."
 }

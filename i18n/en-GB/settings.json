@@ -1175,5 +1175,6 @@
   "hw_ram": "Memory",
   "hw_gpu": "GPU",
   "hw_storage": "Storage",
-  "diag_software": "Software"
+  "diag_software": "Software",
+  "first_run_desc_maybe_wiped": "No shelves here right now — if that doesn't look right, you may have a backup to restore below. Otherwise, start fresh with the defaults."
 }

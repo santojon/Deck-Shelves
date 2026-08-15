@@ -13,7 +13,7 @@ run_checks() {
   # multi-line comments (prose continuation lines that don't start with
   # `/` or `*`) don't false-positive.
   local code_hits
-  code_hits=$(grep -Riln "outrun" "$src" 2>/dev/null | while IFS= read -r f; do
+  code_hits=$(grep -Riln "outrun" "$src" --exclude-dir=__pycache__ 2>/dev/null | while IFS= read -r f; do
     if python3 -c "import sys,re; t=open(sys.argv[1],encoding='utf-8',errors='ignore').read(); t=re.sub(r'/\*.*?\*/','',t,flags=re.S); t=re.sub(r'//[^\n]*','',t); sys.exit(0 if re.search('outrun',t,re.I) else 1)" "$f" 2>/dev/null; then echo "$f"; fi
   done)
   if [ -n "$code_hits" ]; then

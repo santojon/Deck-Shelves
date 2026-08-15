@@ -17,7 +17,7 @@
     "lint:complexity": "eslint --no-warn-ignored --pass-on-unpruned-suppressions 'src/**/*.{ts,tsx}'",
     "lint:js": "eslint --no-warn-ignored --pass-on-unpruned-suppressions 'src/**/*.{ts,tsx}'",
     "lint:js:prune": "eslint --no-warn-ignored --prune-suppressions 'src/**/*.{ts,tsx}'",
-    "lint:py": "node scripts/build/py.mjs -m ruff check main.py scripts/ && node scripts/build/py.mjs scripts/build/check-py-file-size.py",
+    "lint:py": "node scripts/build/py.mjs -m ruff check main.py src/backend/ scripts/ && node scripts/build/py.mjs scripts/build/check-py-file-size.py",
     "lint:py:size": "node scripts/build/py.mjs scripts/build/check-py-file-size.py",
     "docs:check": "node scripts/ci/docs-check.mjs",
     "lint": "pnpm run lint:js && pnpm run lint:py",

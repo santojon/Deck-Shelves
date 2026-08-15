@@ -52,7 +52,7 @@ export function initI18n() {
   const target = pickLocale(lang);
 
   // Initialise synchronously with en-US so the first render has labels.
-  i18n.use(initReactI18next).init({
+  void i18n.use(initReactI18next).init({
     resources: { "en-US": { translation: enUS } },
     lng: "en-US",
     fallbackLng: "en-US",
@@ -66,7 +66,7 @@ export function initI18n() {
     loadLocaleDict(target).then((dict) => {
       if (!dict || Object.keys(dict).length === 0) return;
       i18n.addResourceBundle(target, "translation", dict, true, true);
-      i18n.changeLanguage(target);
+      void i18n.changeLanguage(target);
     }).catch(() => {});
   }
 
@@ -76,7 +76,7 @@ export function initI18n() {
   try {
     (globalThis as any).__dsSetLocale = (loc?: string) => {
       const l = loc || "en-US";
-      const apply = () => { try { i18n.changeLanguage(l); } catch {} };
+      const apply = () => { try { void i18n.changeLanguage(l); } catch {} };
       if (l !== "en-US" && !i18n.hasResourceBundle(l, "translation")) {
         loadLocaleDict(l).then((dict) => {
           if (dict && Object.keys(dict).length) i18n.addResourceBundle(l, "translation", dict, true, true);

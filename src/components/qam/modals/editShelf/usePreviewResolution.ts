@@ -189,7 +189,7 @@ export function usePreviewResolution(props: Props): Result {
     let cancelled = false;
     if (!resolvedIds.length) { setResolvedMeta(new Map()); return; }
     const isOnline = isOnlineSourceShelf(state);
-    (async () => {
+    void (async () => {
       const rawResults = await fetchMetaForIds(platform, resolvedIds);
       if (cancelled) return;
       if (!isOnline) { setResolvedMeta(new Map(rawResults)); return; }
@@ -222,7 +222,7 @@ export function usePreviewResolution(props: Props): Result {
     const tail = state.manualOrder.filter((id) => !resolvedSet.has(id) && id > 0);
     if (!tail.length) return;
     let cancelled = false;
-    (async () => {
+    void (async () => {
       const results = await fetchMetaForIds(platform, tail);
       if (cancelled) return;
       setResolvedMeta((prev) => {

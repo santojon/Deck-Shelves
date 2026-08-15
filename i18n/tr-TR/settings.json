@@ -1175,5 +1175,6 @@
   "hw_ram": "Bellek",
   "hw_gpu": "GPU",
   "hw_storage": "Depolama",
-  "diag_software": "Yazılım"
+  "diag_software": "Yazılım",
+  "first_run_desc_maybe_wiped": "Şu anda burada raf yok — bu doğru görünmüyorsa aşağıdan geri yükleyebileceğiniz bir yedeğiniz olabilir. Aksi hâlde varsayılanlarla baştan başlayın."
 }

@@ -4,7 +4,7 @@ import type { SmartShelf } from '../../../types'
 
 export function DeleteConfirmSmartModal({ closeModal, controller, shelf }: { closeModal?: () => void; controller: SettingsController; shelf: SmartShelf }) {
   const { t, actions } = controller
-  const confirm = () => { closeModal?.(); actions.removeSmartShelf(shelf.id) }
+  const confirm = () => { closeModal?.(); void actions.removeSmartShelf(shelf.id) }
   return (
     <ConfirmModal
       strTitle={t('delete_shelf')}

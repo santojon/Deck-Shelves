@@ -7,7 +7,7 @@ run_checks() {
   local fail=0
   local src="$root/src"
 
-  if grep -Riq "top[-_ ]bar.*transparent\|topbar.*transpar" "$src" 2>/dev/null; then
+  if grep -Riq "top[-_ ]bar.*transparent\|topbar.*transpar" "$src" --exclude-dir=__pycache__ 2>/dev/null; then
     echo "  ❌ Source references 'top bar transparency' (may indicate theme-specific coupling)"
     ((fail++))
   else

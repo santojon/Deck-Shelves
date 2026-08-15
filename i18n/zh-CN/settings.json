@@ -1175,5 +1175,6 @@
   "hw_ram": "内存",
   "hw_gpu": "GPU",
   "hw_storage": "存储",
-  "diag_software": "软件"
+  "diag_software": "软件",
+  "first_run_desc_maybe_wiped": "目前这里没有书架——如果感觉不太对，下面可能有可恢复的备份。否则可以使用默认设置重新开始。"
 }

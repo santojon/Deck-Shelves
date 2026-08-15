@@ -11,7 +11,7 @@ run_checks() {
   # own feature flag names (hide_compat_icons / hideCompatIcons / HideCompatIcons
   # are the user-facing toggle keys, not theme-specific coupling).
   local matches
-  matches=$(grep -RInE "compatibility\\s*icon|compat[-_]icon|colored[-_ ]compat" "$src" 2>/dev/null \
+  matches=$(grep -RInE "compatibility\\s*icon|compat[-_]icon|colored[-_ ]compat" "$src" --exclude-dir=__pycache__ 2>/dev/null \
     | grep -v 'ds-compat' \
     | grep -vE 'hide_compat_icons|hideCompatIcons|HideCompatIcons' \
     || true)

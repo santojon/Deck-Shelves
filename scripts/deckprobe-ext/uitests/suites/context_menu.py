@@ -66,13 +66,23 @@ def _(ctx) -> None:
     result = ctx.eval("""
 (function(){
     const settings = JSON.parse(localStorage.getItem('deck-shelves-settings-cache-v3') || '{}');
-    const anyHighlight = settings.globalHighlightFirst || settings.globalHighlightAll
-        || (settings.shelves||[]).some(s => s.highlightFirst || s.highlightAll || (s.highlightedAppIds||[]).length > 0);
-    if (!anyHighlight) return 'skipped';
+    // Regular shelves only — a shelf's highlight config is moot if the shelf
+    // itself has nothing to render right now (e.g. a dynamic filter source
+    // like "running / update pending" with no current matches never mounts,
+    // per Shelf.tsx's `if (!appIds.length) return null`). Only shelves that
+    // both configure a highlight AND actually have cards on screen count.
+    const globallyHighlighted = settings.globalHighlightFirst || settings.globalHighlightAll;
+    const highlightedShelfIds = (settings.shelves||[])
+        .filter(s => s.highlightFirst || s.highlightAll || (s.highlightedAppIds||[]).length > 0)
+        .map(s => s.id);
+    const anyRenderedHighlightedShelf = globallyHighlighted
+        ? document.querySelector('.ds-shelf [data-shelfid]') != null
+        : highlightedShelfIds.some(id => document.querySelector(`[data-shelfid="${id}"]`) != null);
+    if (!anyRenderedHighlightedShelf) return 'skipped';
     const featured = document.querySelector('.ds-card--featured');
     return featured ? 'found' : 'missing';
 })()
 """)
     if result == "skipped":
-        return  # no highlight configured
-    assert result == "found", "highlight configured but no .ds-card--featured found"
+        return  # no highlighted shelf currently has any resolved cards
+    assert result == "found", "highlight configured on a rendered shelf but no .ds-card--featured found"

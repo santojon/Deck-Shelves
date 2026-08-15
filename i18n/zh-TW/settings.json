@@ -1175,5 +1175,6 @@
   "hw_ram": "記憶體",
   "hw_gpu": "GPU",
   "hw_storage": "儲存空間",
-  "diag_software": "軟體"
+  "diag_software": "軟體",
+  "first_run_desc_maybe_wiped": "目前這裡沒有書架——如果感覺不太對，下面可能有可還原的備份。否則可以用預設值重新開始。"
 }

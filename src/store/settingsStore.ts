@@ -223,7 +223,7 @@ async function flushPendingSave(): Promise<void> {
     for (const r of job.resolvers) r(ok);
   } finally {
     saveInFlight = false;
-    if (pendingSave) flushPendingSave();
+    if (pendingSave) void flushPendingSave();
   }
 }
 
@@ -243,7 +243,7 @@ export function saveSettings(next: Settings): Promise<boolean> {
     } else {
       pendingSave = { next, resolvers: [resolve] };
     }
-    flushPendingSave();
+    void flushPendingSave();
   });
 }
 

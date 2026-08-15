@@ -31,11 +31,17 @@ def stage() -> None:
     flags = plugin.get("flags")
     plugin["flags"] = [f for f in flags if f != "debug"] if isinstance(flags, list) else []
     (STAGE / "plugin.json").write_text(json.dumps(plugin, indent=2), encoding="utf-8")
-    # Backend: every root-level .py module (main.py + paths/storage/sanitizer/
-    # launchers/…) plus metadata. The old package.sh shipped only main.py,
-    # which crashed on import for installs from the store package.
+    # Backend: main.py at the plugin root, plus every sibling module it
+    # imports (paths/storage/sanitizer/launchers/…) staged at src/backend/ —
+    # matching main.py's own sys.path splice — plus metadata. The old
+    # package.sh shipped only main.py, which crashed on import for installs
+    # from the store package.
     for f in ROOT.glob("*.py"):
         shutil.copy(f, STAGE / f.name)
+    backend_dir = STAGE / "src" / "backend"
+    backend_dir.mkdir(parents=True, exist_ok=True)
+    for f in (ROOT / "src" / "backend").glob("*.py"):
+        shutil.copy(f, backend_dir / f.name)
     for f in ("package.json", "LICENSE"):
         shutil.copy(ROOT / f, STAGE / f)
     shutil.copytree(ROOT / "dist", STAGE / "dist", dirs_exist_ok=True)

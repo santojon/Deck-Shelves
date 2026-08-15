@@ -54,7 +54,7 @@ export function ImportModal({ closeModal, controller, initialPath, scope = 'all'
         onOK={() => {
           closeModal?.();
           setImportBusy(true);
-          (async () => {
+          void (async () => {
             const path = joinPath(folder, name);
             try {
               const ok = await performImport(controller, path, scope, handlerId);

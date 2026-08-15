@@ -19,7 +19,7 @@ export function SetProfileTriggerModal({ closeModal, controller, profileId, curr
 
   const handleOK = () => {
     closeModal?.()
-    ;(async () => { await (controller.actions as any).setProfileTrigger?.(profileId, trigger) })()
+    void (async () => { await (controller.actions as any).setProfileTrigger?.(profileId, trigger) })()
   }
 
   return (

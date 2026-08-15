@@ -66,7 +66,7 @@ export function warmCacheBackground(url: string): void {
   if (!cacheable(url) || !supported()) return;
   if (hot.has(url) || inflight.has(url)) return;
   inflight.add(url);
-  (async () => {
+  void (async () => {
     try {
       const cache = await caches.open(STORAGE_NAME);
       const cached = await cache.match(url);
@@ -108,7 +108,7 @@ async function fetchAndStore(url: string, cacheArg?: Cache): Promise<void> {
 function revalidate(url: string): void {
   if (inflight.has(url)) return;
   inflight.add(url);
-  (async () => {
+  void (async () => {
     try { await fetchAndStore(url); }
     finally { inflight.delete(url); }
   })();

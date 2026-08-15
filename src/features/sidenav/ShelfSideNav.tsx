@@ -28,6 +28,75 @@ function sideNavGate(settings: Settings | null): { lightMode: boolean; enabled: 
   return { lightMode, enabled: s?.enabled === true && !lightMode && s?.sideNavEnabled === true };
 }
 
+// Dev-hook anchor resolution: prefer the explicit args, fall back to the
+// last-focused card, then (for the shelf) the first DS shelf in the DOM.
+function resolveDevSidenavAnchor(
+  shelfId: string | undefined,
+  appid: number | undefined,
+  lastFirstCard: { shelfId: string; appid: number | null } | null,
+): Anchor | null {
+  const sid = shelfId ?? lastFirstCard?.shelfId ?? firstDomShelfId();
+  if (!sid) return null;
+  const aidRaw = appid ?? lastFirstCard?.appid ?? null;
+  return { shelfId: sid, focusedAppid: Number.isFinite(aidRaw as number) ? (aidRaw as number) : null };
+}
+
+function firstDomShelfId(): string | undefined {
+  const doc = getPreferredSteamDocument() ?? document;
+  return doc.querySelector<HTMLElement>(".ds-shelf[data-shelfid]")?.getAttribute("data-shelfid") ?? undefined;
+}
+
+function readGamepadButton(evt: any): number | null {
+  try { return evt?.detail?.button ?? null; } catch { return null; }
+}
+
+function safeInvoke(obj: any, method: string): void {
+  try { obj?.[method]?.(); } catch {}
+}
+
+/* Absorb the event so Steam's NavTree doesn't ALSO process it and scroll
+   the background mount. preventDefault alone isn't enough — Steam's
+   listener runs in capture; stopImmediate blocks the rest of the chain. */
+function absorbGamepadEvent(evt: any): void {
+  safeInvoke(evt, "preventDefault");
+  safeInvoke(evt, "stopPropagation");
+  safeInvoke(evt, "stopImmediatePropagation");
+  const inner = evt?.detail?.event;
+  safeInvoke(inner, "preventDefault");
+  safeInvoke(inner, "stopPropagation");
+}
+
+function currentSidenavFocusedElement(panelDoc: Document | null | undefined): HTMLElement | null {
+  return panelDoc?.querySelector<HTMLElement>(".ds-sidenav-overlay .gpfocus") ?? (panelDoc?.activeElement as HTMLElement | null) ?? null;
+}
+
+// Which row (by index in `keys`) currently holds focus, or -1.
+function findFocusedRowIndex(keys: string[], rowRefs: Map<string, HTMLDivElement>, focused: HTMLElement | null): number {
+  for (let i = 0; i < keys.length; i++) {
+    const el = rowRefs.get(keys[i]);
+    if (el && focused && (el === focused || el.contains(focused))) return i;
+  }
+  return -1;
+}
+
+function wrapFocusToRow(rowRefs: Map<string, HTMLDivElement>, keys: string[], targetIdx: number, absorb: () => void): void {
+  const el = rowRefs.get(keys[targetIdx]);
+  if (el) { focusElement(el); absorb(); }
+}
+
+/* DPAD up/down at the panel's boundaries naturally tries to escape into the
+   home tree, stranding the user — wrap focus back to the other end instead.
+   Interior presses still absorb so the home mount doesn't auto-scroll. */
+function handleVerticalBoundaryWrap(dir: number | null, rowRefs: Map<string, HTMLDivElement>, panelDoc: Document | null | undefined, absorb: () => void): void {
+  if (dir !== GamepadButton.DIR_DOWN && dir !== GamepadButton.DIR_UP) return;
+  const keys = Array.from(rowRefs.keys());
+  if (keys.length === 0) return;
+  const curIdx = findFocusedRowIndex(keys, rowRefs, currentSidenavFocusedElement(panelDoc));
+  if (dir === GamepadButton.DIR_UP && curIdx === 0) return wrapFocusToRow(rowRefs, keys, keys.length - 1, absorb);
+  if (dir === GamepadButton.DIR_DOWN && curIdx === keys.length - 1) return wrapFocusToRow(rowRefs, keys, 0, absorb);
+  absorb();
+}
+
 export function ShelfSideNav() {
   try { (globalThis as any).__ds_sidenav_mounted = (((globalThis as any).__ds_sidenav_mounted ?? 0) + 1); } catch {}
   const [anchor, setAnchor] = useState<Anchor | null>(null);
@@ -88,14 +157,9 @@ export function ShelfSideNav() {
     if (!__DEV__) return;
     const g = globalThis as any;
     g.__ds_dev_open_sidenav = (shelfId?: string, appid?: number) => {
-      let sid = shelfId ?? lastFirstCardRef.current?.shelfId;
-      if (!sid) {
-        const doc = getPreferredSteamDocument() ?? document;
-        sid = doc.querySelector<HTMLElement>(".ds-shelf[data-shelfid]")?.getAttribute("data-shelfid") ?? undefined;
-      }
-      if (!sid) return false;
-      const aid = appid ?? lastFirstCardRef.current?.appid ?? null;
-      setAnchor({ shelfId: sid, focusedAppid: Number.isFinite(aid as number) ? (aid as number) : null });
+      const next = resolveDevSidenavAnchor(shelfId, appid, lastFirstCardRef.current);
+      if (!next) return false;
+      setAnchor(next);
       return true;
     };
     g.__ds_dev_close_sidenav = () => setAnchor(null);
@@ -322,7 +386,7 @@ function SideNavShell({ anchor, settings, onClose }: { anchor: Anchor; settings:
   useEffect(() => {
     let alive = true;
     const providers = getExternalSideMenuProviders();
-    Promise.all(providers.map((p) => Promise.resolve(p.resolve(ctx)).catch(() => [] as SideMenuEntry[])))
+    void Promise.all(providers.map((p) => Promise.resolve(p.resolve(ctx)).catch(() => [] as SideMenuEntry[])))
       .then((lists) => {
         if (!alive) return;
         setPluginEntries(lists.flat());
@@ -402,51 +466,14 @@ function SideNavShell({ anchor, settings, onClose }: { anchor: Anchor; settings:
         }}
         onGamepadDirection={(evt: any) => {
           resetIdleTimer();
-          /* Absorb the event so Steam's NavTree doesn't ALSO process it
-             and scroll the background mount. preventDefault alone isn't
-             enough — Steam's listener runs in capture; stopImmediate
-             blocks the rest of the chain so the home doesn't scroll
-             behind the sidenav. */
-          const absorb = () => {
-            try { evt?.preventDefault?.(); } catch {}
-            try { evt?.stopPropagation?.(); } catch {}
-            try { evt?.stopImmediatePropagation?.(); } catch {}
-            try { evt?.detail?.event?.preventDefault?.(); } catch {}
-            try { evt?.detail?.event?.stopPropagation?.(); } catch {}
-          };
+          const absorb = () => absorbGamepadEvent(evt);
+          const dir = readGamepadButton(evt);
           // Right exits the panel — close so the overlay doesn't linger.
           try {
-            if (evt?.detail?.button === GamepadButton.DIR_RIGHT) { absorb(); onClose(); return; }
+            if (dir === GamepadButton.DIR_RIGHT) { absorb(); onClose(); return; }
           } catch {}
-          // DPAD up/down at the boundaries naturally tries to escape the
-          // panel into the home tree, which strands the user. Block
-          // vertical escape by wrapping focus inside the panel.
           try {
-            const dir = evt?.detail?.button;
-            if (dir !== GamepadButton.DIR_DOWN && dir !== GamepadButton.DIR_UP) return;
-            const keys = Array.from(rowRefs.current.keys());
-            if (keys.length === 0) return;
-            const doc = panelRef.current?.ownerDocument;
-            const focused = doc?.querySelector<HTMLElement>(".ds-sidenav-overlay .gpfocus")
-              ?? doc?.activeElement as HTMLElement | null;
-            let curIdx = -1;
-            for (let i = 0; i < keys.length; i++) {
-              const el = rowRefs.current.get(keys[i]);
-              if (el && focused && (el === focused || el.contains(focused))) { curIdx = i; break; }
-            }
-            const isFirst = curIdx === 0;
-            const isLast = curIdx === keys.length - 1;
-            if (dir === GamepadButton.DIR_UP && isFirst) {
-              const el = rowRefs.current.get(keys[keys.length - 1]);
-              if (el) { focusElement(el); absorb(); }
-            } else if (dir === GamepadButton.DIR_DOWN && isLast) {
-              const el = rowRefs.current.get(keys[0]);
-              if (el) { focusElement(el); absorb(); }
-            } else {
-              // Interior navigation — absorb anyway so the underlying
-              // home mount doesn't auto-scroll on each DPAD press.
-              absorb();
-            }
+            handleVerticalBoundaryWrap(dir, rowRefs.current, panelRef.current?.ownerDocument, absorb);
           } catch {}
         }}
         onSecondaryActionDescription={t("close" as any) || "Close"}
@@ -509,7 +536,7 @@ function SideNavShell({ anchor, settings, onClose }: { anchor: Anchor; settings:
                 disabled={entry.disabled}
                 icon={entry.icon}
                 onActivate={() => {
-                  try { entry.onActivate(); } catch {}
+                  try { void Promise.resolve(entry.onActivate()).catch(() => {}); } catch {}
                   onClose();
                 }}
                 onFocusChange={(f) => {
@@ -524,6 +551,42 @@ function SideNavShell({ anchor, settings, onClose }: { anchor: Anchor; settings:
       </Focusable>
     </div>
   );
+}
+
+// Dark-tinted focus palette: black gradient + a theme-coloured edge bar
+// (Steam's --gpSystemLighter; falls back to a muted neutral so it still
+// works on themes that don't define the var).
+function buttonRowStyle(focused: boolean, disabled: boolean): React.CSSProperties {
+  return {
+    display: "flex",
+    alignItems: "center",
+    gap: "0.5em",
+    padding: "0.55em 0.9em 0.55em 1em",
+    borderRadius: 6,
+    background: focused
+      ? "linear-gradient(to right, rgba(0,0,0,0.70) 0%, rgba(0,0,0,0.35) 55%, rgba(0,0,0,0) 100%)"
+      : "transparent",
+    boxShadow: focused
+      ? "inset 4px 0 0 0 var(--gpSystemLighter, rgba(180,190,210,0.55)), -10px 0 24px -4px rgba(0,0,0,0.55)"
+      : undefined,
+    transform: focused ? "translateX(0) scale(1.04)" : "translateX(0) scale(1)",
+    transformOrigin: "left center",
+    transition: "transform 180ms cubic-bezier(0.2,0.85,0.3,1.2), background 180ms ease, box-shadow 180ms ease",
+    opacity: disabled ? 0.45 : 1,
+    cursor: disabled ? "default" : "pointer",
+  };
+}
+
+function buttonLabelStyle(focused: boolean, active: boolean): React.CSSProperties {
+  return {
+    fontWeight: focused ? 700 : (active ? 600 : 500),
+    fontSize: "clamp(15px, 1.9vw, 19px)",
+    color: focused ? "white" : (active ? "white" : "rgba(255,255,255,0.88)"),
+    textShadow: focused ? "0 1px 4px rgba(0,0,0,0.7)" : undefined,
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+  };
 }
 
 const ShelfButton = forwardRef<HTMLDivElement, {
@@ -554,27 +617,6 @@ const ShelfButton = forwardRef<HTMLDivElement, {
   };
   // All focus visuals inline so they render with the overlay — DeckQAMStyles
   // is only mounted in the QAM Settings tree, never on the home.
-  const rowStyle: React.CSSProperties = {
-    display: "flex",
-    alignItems: "center",
-    gap: "0.5em",
-    padding: "0.55em 0.9em 0.55em 1em",
-    borderRadius: 6,
-    // Dark-tinted focus palette: black gradient + a theme-coloured edge
-    // bar (Steam's --gpSystemLighter; falls back to a muted neutral so
-    // it still works on themes that don't define the var).
-    background: focused
-      ? "linear-gradient(to right, rgba(0,0,0,0.70) 0%, rgba(0,0,0,0.35) 55%, rgba(0,0,0,0) 100%)"
-      : "transparent",
-    boxShadow: focused
-      ? "inset 4px 0 0 0 var(--gpSystemLighter, rgba(180,190,210,0.55)), -10px 0 24px -4px rgba(0,0,0,0.55)"
-      : undefined,
-    transform: focused ? "translateX(0) scale(1.04)" : "translateX(0) scale(1)",
-    transformOrigin: "left center",
-    transition: "transform 180ms cubic-bezier(0.2,0.85,0.3,1.2), background 180ms ease, box-shadow 180ms ease",
-    opacity: disabled ? 0.45 : 1,
-    cursor: disabled ? "default" : "pointer",
-  };
   return (
     <Focusable
       ref={ref}
@@ -585,20 +627,10 @@ const ShelfButton = forwardRef<HTMLDivElement, {
       onActivate={handle}
       onGamepadFocus={armTimer}
       onGamepadBlur={clearTimer}
-      style={rowStyle}
+      style={buttonRowStyle(!!focused, !!disabled)}
     >
       {icon ? <span style={{ display: "inline-flex" }}>{icon as React.ReactNode}</span> : null}
-      <span
-        style={{
-          fontWeight: focused ? 700 : (active ? 600 : 500),
-          fontSize: "clamp(15px, 1.9vw, 19px)",
-          color: focused ? "white" : (active ? "white" : "rgba(255,255,255,0.88)"),
-          textShadow: focused ? "0 1px 4px rgba(0,0,0,0.7)" : undefined,
-          whiteSpace: "nowrap",
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-        }}
-      >{label}</span>
+      <span style={buttonLabelStyle(!!focused, active)}>{label}</span>
     </Focusable>
   );
 });

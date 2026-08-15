@@ -5,6 +5,10 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+### Fixed
+
+- **If your shelves ever look wiped after a settings reset or restore, the first-run screen now offers to bring them back.** Previously it only offered to create new default shelves; now, if the plugin can tell this isn't actually a fresh install, it also shows your saved snapshots to restore from.
+
 ## [3.2.1] - 2026-08-15
 
 ### Fixed

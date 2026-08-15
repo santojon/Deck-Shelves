@@ -26,7 +26,7 @@ export function UpdateBanner({ controller }: { controller: SettingsController })
     const wasOff = !prevEnabledRef.current;
     prevEnabledRef.current = true;
     let cancelled = false;
-    (async () => {
+    void (async () => {
       if (wasOff) {
         try { if (await isOnline()) __resetUpdateCheckCache(); } catch {}
       }
@@ -43,7 +43,7 @@ export function UpdateBanner({ controller }: { controller: SettingsController })
   if (dismissed && dismissed === result.latestVersion) return null;
 
   const open = () => { void downloadUpdate(result); };
-  const dismiss = () => { if (result.latestVersion) actions.dismissUpdateNotice(result.latestVersion); };
+  const dismiss = () => { if (result.latestVersion) void actions.dismissUpdateNotice(result.latestVersion); };
 
   return (
     <div

@@ -39,7 +39,7 @@ export function ResetAllModal({ closeModal, controller, scope = 'all' }: { close
       onEscKeypress={closeModal}
       onOK={() => {
         closeModal?.();
-        (async () => {
+        void (async () => {
           const cur = getCurrentSettings();
           if (!cur) return;
           const next = resetCategoriesInSettings(cur, categoryIdsForScope(scope), defaultSettings());

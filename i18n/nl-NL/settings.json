@@ -1175,5 +1175,6 @@
   "hw_ram": "Geheugen",
   "hw_gpu": "GPU",
   "hw_storage": "Opslag",
-  "diag_software": "Software"
+  "diag_software": "Software",
+  "first_run_desc_maybe_wiped": "Er zijn nu geen planken — als dat niet klopt, staat hieronder mogelijk een back-up die je kunt herstellen. Anders begin je gewoon opnieuw met de standaardinstellingen."
 }

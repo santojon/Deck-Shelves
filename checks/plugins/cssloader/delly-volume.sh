@@ -7,7 +7,7 @@ run_checks() {
   local fail=0
   local src="$root/src"
 
-  if grep -Riq "delly\s*volume\|dellyvolume" "$src" 2>/dev/null; then
+  if grep -Riq "delly\s*volume\|dellyvolume" "$src" --exclude-dir=__pycache__ 2>/dev/null; then
     echo "  ❌ Source references 'Delly Volume' (may indicate theme-specific coupling)"
     ((fail++))
   else

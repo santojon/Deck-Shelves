@@ -742,7 +742,7 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
         if (alive) globalThis.dispatchEvent(new CustomEvent('deck-shelves-hideRecents-disabled', { detail: { disabled: false } }));
       }
     };
-    check();
+    void check();
     return () => { alive = false; };
   }, [shelves, hideRecentsSetting, mountEl]);
 
@@ -1033,7 +1033,7 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
       const map = new Map(s.shelves.map((sh: any) => [sh.id, sh]));
       const next = newIds.map((id) => map.get(id)).filter(Boolean) as any[];
       for (const sh of s.shelves) if (!newIds.includes(sh.id)) next.push(sh);
-      saveSettings({ ...s, shelves: next });
+      void saveSettings({ ...s, shelves: next });
     },
     axis: 'vertical',
     allowedPointerTypes: ['mouse', 'touch'],

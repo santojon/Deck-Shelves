@@ -1175,5 +1175,6 @@
   "hw_ram": "메모리",
   "hw_gpu": "GPU",
   "hw_storage": "저장 공간",
-  "diag_software": "소프트웨어"
+  "diag_software": "소프트웨어",
+  "first_run_desc_maybe_wiped": "지금 여기에 선반이 없습니다 — 이상하다고 느껴진다면 아래에서 복원할 수 있는 백업이 있을 수 있습니다. 아니라면 기본값으로 새로 시작하세요."
 }

@@ -21,9 +21,9 @@ run_checks() {
 
   # 2. Card backgrounds are explicit (not inherited from theme).
   # Accept explicit rgba/# values OR use of our shell CSS variable (--ds-shell-bg / var(--ds-shell-bg)).
-  if grep -RInE "background\s*[:=][^\n]*rgba|background\s*[:=][^\n]*#|background-color" "$src" 2>/dev/null >/dev/null || \
-     grep -RIn "--ds-shell-bg" "$src" 2>/dev/null >/dev/null || \
-     grep -RIn "var(--ds-shell-bg" "$src" 2>/dev/null >/dev/null; then
+  if grep -RInE "background\s*[:=][^\n]*rgba|background\s*[:=][^\n]*#|background-color" "$src" --exclude-dir=__pycache__ 2>/dev/null >/dev/null || \
+     grep -RIn "--ds-shell-bg" "$src" --exclude-dir=__pycache__ 2>/dev/null >/dev/null || \
+     grep -RIn "var(--ds-shell-bg" "$src" --exclude-dir=__pycache__ 2>/dev/null >/dev/null; then
     echo "  ✅ Card backgrounds are explicitly set or use the --ds-shell-bg variable"
     ((pass++))
   else
@@ -33,7 +33,7 @@ run_checks() {
 
   # 3. No reliance on Steam's native card hover/focus classes that CGV strips
   local steam_hover
-  steam_hover=$(grep -rn 'appportrait.*hover\|GameCard.*hover\|appportrait.*focus' "$src" 2>/dev/null | grep -v 'detect\|query\|Selector' | head -3)
+  steam_hover=$(grep -rn 'appportrait.*hover\|GameCard.*hover\|appportrait.*focus' "$src" --exclude-dir=__pycache__ 2>/dev/null | grep -v 'detect\|query\|Selector' | head -3)
   if [[ -z "$steam_hover" ]]; then
     echo "  ✅ No reliance on native Steam card hover/focus classes"
     ((pass++))
@@ -43,7 +43,7 @@ run_checks() {
   fi
 
   # 4. Custom focus indicator uses own classes (ds-card, gpfocus)
-  if grep -rq '\.ds-card\.gpfocus\|\.ds-card:focus' "$src" 2>/dev/null; then
+  if grep -rq '\.ds-card\.gpfocus\|\.ds-card:focus' "$src" --exclude-dir=__pycache__ 2>/dev/null; then
     echo "  ✅ Focus indicator uses scoped .ds-card classes"
     ((pass++))
   else
@@ -52,7 +52,7 @@ run_checks() {
   fi
 
   # 5. Card border-radius uses CSS variable with fallback
-  if grep -rq '\-\-ds-card-radius' "$src" 2>/dev/null; then
+  if grep -rq '\-\-ds-card-radius' "$src" --exclude-dir=__pycache__ 2>/dev/null; then
     echo "  ✅ Border-radius uses --ds-card-radius custom property with fallback"
     ((pass++))
   else
@@ -61,7 +61,7 @@ run_checks() {
   fi
 
   # 6. Card shadow is self-defined (not inherited from Steam)
-  if grep -rq 'box-shadow.*ds-card\|ds-card.*box-shadow\|\.ds-card-art' "$src" 2>/dev/null; then
+  if grep -rq 'box-shadow.*ds-card\|ds-card.*box-shadow\|\.ds-card-art' "$src" --exclude-dir=__pycache__ 2>/dev/null; then
     echo "  ✅ Card shadow defined on own .ds-card-art class"
     ((pass++))
   else

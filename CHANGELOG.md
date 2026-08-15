@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **A profile whose settings were reset or restored from an older backup could look like a fresh install with no way back.** The first-run banner shown for an empty, disabled profile now checks whether this install has actually seen the tour before (`showcaseSeen`); if so, it also offers the existing snapshot-recovery picker (previously reachable only from a crash) instead of just "create default shelves" ([`FirstRunBanner.tsx`](src/components/qam/modals/FirstRunBanner.tsx)).
+
+### Changed
+
+- **The Python backend's sibling modules moved from the repo root into `src/backend/`.** `main.py` has to stay at the plugin root (Decky's loader expects it there), but the ten modules it imports (`paths.py`, `storage.py`, `sanitizer.py`, `launchers.py`, etc.) no longer need to live beside it — `main.py`'s existing `sys.path` splice now adds `src/backend` alongside its own directory. No behaviour change; packaging, deploy scripts, the Python lint/size checks and the compatibility-check scripts that referenced the old flat paths were all updated to match, and `lint:py` now actually covers these modules (it previously only linted `main.py` and `scripts/`, missing a genuine pre-existing complexity overage caught and suppressed the same way as its neighbor).
+- **CSS Loader compatibility checks now exclude `__pycache__` when scanning `src/`.** Only possible as a side effect of the backend move above (compiled `.pyc` bytecode can incidentally contain byte sequences a check's text regex matches), but excluded everywhere those checks scan source, not just under `src/backend/`.
+- **Reduced the ESLint suppression backlog by 30 entries, no behaviour change.** All 26 remaining `@typescript-eslint/no-floating-promises` instances are resolved — fire-and-forget calls (background refreshes, best-effort cache writes) now say so explicitly with `void`, and the two spots calling into a third-party integration's callback (`ShelfSideNav.tsx`, `pluginApi.ts`) now also catch an async rejection, not just a sync throw, since the plugin API allows either. The four queued `complexity` entries are cleared too — `EditShelfModal.tsx` (49 → ≤10 across its worst four functions), `ShelfPreview.tsx` (46 → ≤10 across four), and `ShelfSideNav.tsx` (26 → ≤10 across four) were all restructured via table-driven dispatch and small pure helpers (owned-hide filtering, card-flag/selection-mark resolution, composite-source row helpers, gamepad-event absorption), with no JSX or handler behaviour changed — verified against the full test suite and live on-device.
+
 ## [3.2.1] - 2026-08-15
 
 ### Added

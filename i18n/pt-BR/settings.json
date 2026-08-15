@@ -1175,5 +1175,6 @@
   "hw_ram": "Memória",
   "hw_gpu": "GPU",
   "hw_storage": "Armazenamento",
-  "diag_software": "Software"
+  "diag_software": "Software",
+  "first_run_desc_maybe_wiped": "Não há prateleiras aqui agora — se isso não parecer certo, pode haver um backup para restaurar abaixo. Caso contrário, comece do zero com os padrões."
 }

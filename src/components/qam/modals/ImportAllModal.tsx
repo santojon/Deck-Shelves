@@ -35,7 +35,7 @@ export function ImportAllModal({ closeModal, controller, initialPath }: { closeM
   useEffect(() => {
     let cancelled = false;
     setLoadError(null);
-    (async () => {
+    void (async () => {
       try {
         const raw = await readJsonFile(path);
         if (cancelled) return;

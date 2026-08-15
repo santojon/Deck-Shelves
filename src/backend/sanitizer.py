@@ -43,7 +43,7 @@ def _preserve_unknown(raw: Dict[str, Any], known: Dict[str, Any]) -> Dict[str, A
     return known
 
 
-def _sanitize_visibility(raw: Any) -> Optional[Dict[str, Any]]:
+def _sanitize_visibility(raw: Any) -> Optional[Dict[str, Any]]:  # noqa: C901
     """Visibility Rules v2 tree: { mode: 'any'|'all', rules: [{ kind, ... }] }.
     Whitelist-clean but forward-compatible — each rule keeps its `kind` plus
     scalar / scalar-list params, so device-state kinds added later round-trip

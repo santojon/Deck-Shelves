@@ -7,7 +7,7 @@ run_checks() {
   local fail=0
   local src="$root/src"
 
-  if grep -Riq "fullscreen[-_ ]menu\|fullscreenmenu" "$src" 2>/dev/null; then
+  if grep -Riq "fullscreen[-_ ]menu\|fullscreenmenu" "$src" --exclude-dir=__pycache__ 2>/dev/null; then
     echo "  ❌ Source references 'Fullscreen Menus' (may indicate theme-specific coupling)"
     ((fail++))
   else

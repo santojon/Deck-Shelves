@@ -31,6 +31,27 @@ function grabbedKeyAction(key: string): 'left' | 'right' | 'refocus' | null {
   return null
 }
 
+// Pointer-drag: which card (by index) the pointer's X currently sits over.
+function findCardIndexAtX(cards: HTMLElement[], clientX: number): number {
+  for (let i = 0; i < cards.length; i++) {
+    const r = cards[i].getBoundingClientRect()
+    if (clientX >= r.left && clientX <= r.right) return i
+  }
+  return -1
+}
+
+// Move `fromId` to where `toId` currently sits; null when either id is
+// missing or they're already in place (nothing to reorder).
+function reorderIds(order: number[], fromId: number, toId: number): number[] | null {
+  const base = order.slice()
+  const from = base.indexOf(fromId)
+  const to = base.indexOf(toId)
+  if (from === -1 || to === -1 || from === to) return null
+  const [picked] = base.splice(from, 1)
+  base.splice(to, 0, picked)
+  return base
+}
+
 // Patch the gamepad dispatch so directional presses shift the grabbed
 // card instead of moving row focus. Returns a restore fn (or null).
 function patchGrabbedDispatch(
@@ -68,6 +89,227 @@ function lookupOwnedName(id: number): string | null {
     if (n) return n
   }
   return null
+}
+
+// Owned-hide (excludeOwned) reads its toggles off whichever source actually
+// carries them: the shelf itself when it's a direct wishlist/store, or the
+// first online child when it's a composite. Null means no toggle applies.
+function findOnlineToggleSource(s: any): any {
+  if (s.type === 'wishlist' || s.type === 'store') return s
+  if (s.type === 'composite' && Array.isArray(s.sources)) {
+    return s.sources.find((c: any) => c?.type === 'wishlist' || c?.type === 'store') ?? null
+  }
+  return null
+}
+
+function readGlobalHideFlags(cur: any): { hideOwned: boolean; hideOwnedNonSteam: boolean; hideOwnedCloud: boolean } {
+  return {
+    hideOwned: cur?.onlineHideOwnedGames === true,
+    hideOwnedNonSteam: cur?.onlineHideOwnedNonSteam === true,
+    hideOwnedCloud: cur?.onlineHideOwnedNonSteamCloud === true,
+  }
+}
+
+// A non-Steam hide can come from either the global setting or this shelf's
+// own toggle (per-shelf ON always applies regardless of the global flag).
+function resolveEffectiveNonSteamHide(excludeOwned: boolean, tgls: any, global: ReturnType<typeof readGlobalHideFlags>): boolean {
+  const shelfNonSteam = excludeOwned && tgls?.excludeOwnedNonSteam === true
+  return (global.hideOwned && global.hideOwnedNonSteam) || shelfNonSteam
+}
+
+// Cloud-save hiding only makes sense once non-Steam hiding is already on;
+// the per-shelf flag wins when set, otherwise it falls back to the global.
+function resolveEffectiveCloudHide(effectiveNonSteam: boolean, tgls: any, globalHideOwnedCloud: boolean): boolean {
+  if (!effectiveNonSteam) return false
+  const perShelf = tgls?.hideOwnedNonSteamCloud
+  return perShelf === true || (perShelf === undefined && globalHideOwnedCloud)
+}
+
+function namesFromOwnedSet(ownedSet: Set<number>): Set<string> {
+  const names = new Set<string>()
+  for (const id of ownedSet) {
+    const n = lookupOwnedName(id)
+    if (!n) continue
+    const k = normalizeTitleForMatch(n)
+    if (k) names.add(k)
+  }
+  return names
+}
+
+function appOverviewIdAndName(a: unknown): { id: number; name: string } {
+  const rec = a as { appid?: unknown; display_name?: unknown; name?: unknown } | null
+  const n = rec?.display_name ?? rec?.name
+  return { id: Number(rec?.appid), name: typeof n === 'string' ? n : '' }
+}
+
+// Backstop: still merge whatever `getAllAppOverviews()` returns for the
+// rare case where the raw per-id appStore lookup missed an entry (mutates
+// `names` in place so the caller can keep using the same Set instance).
+async function mergeAppOverviewNames(names: Set<string>, ownedSet: Set<number>): Promise<void> {
+  try {
+    const apps = await getAllAppOverviews()
+    for (const a of apps) {
+      const { id, name } = appOverviewIdAndName(a)
+      if (!ownedSet.has(id) || !name) continue
+      const k = normalizeTitleForMatch(name)
+      if (k) names.add(k)
+    }
+  } catch {}
+}
+
+type OwnedHideState = { isCompositeShelf: boolean; effectiveNonSteam: boolean; effectiveCloud: boolean } | null
+
+/* Mirror Shelf.tsx render-time owned-hide: when an online source has the
+   "exclude owned" toggle on (per-shelf or global), drop ids that match the
+   local library by appid or by normalized name — see the two resolvers
+   above for the non-Steam / cloud-save nuance. */
+function computeOwnedHideState(shelfSource: unknown): OwnedHideState {
+  const s: any = shelfSource
+  if (!s || typeof s !== 'object') return null
+  const tgls = findOnlineToggleSource(s)
+  if (!tgls) return null
+  const excludeOwned = tgls?.excludeOwned === true
+  const cur = (() => { try { return getCurrentSettings() } catch { return null } })()
+  const global = readGlobalHideFlags(cur)
+  if (!global.hideOwned && !excludeOwned) return null
+  const effectiveNonSteam = resolveEffectiveNonSteamHide(excludeOwned, tgls, global)
+  const effectiveCloud = resolveEffectiveCloudHide(effectiveNonSteam, tgls, global.hideOwnedCloud)
+  return { isCompositeShelf: s.type === 'composite', effectiveNonSteam, effectiveCloud }
+}
+
+// ── rowItems builder helpers ────────────────────────────────────────────────
+
+function readPriceCache(isOnlineShelfSource: boolean): any {
+  if (!isOnlineShelfSource) return null
+  try {
+    const raw = (globalThis as any).localStorage?.getItem?.('ds-price-cache-v1')
+    return raw ? JSON.parse(raw) : null
+  } catch { return null }
+}
+
+function buildHiddenSet(hiddenAppIds: number[] | undefined): Set<number> | null {
+  return hiddenAppIds && hiddenAppIds.length ? new Set(hiddenAppIds) : null
+}
+
+/* Owned-hide gate: skip ids matching the local library by appid or by
+   normalized name. Composite shelves restrict the gate to online-origin
+   cards (no local overview); direct online shelves apply it to every card
+   (they're all online by definition). */
+function shouldHideOwnedCard(
+  id: number,
+  ctx: {
+    ownedHideState: OwnedHideState
+    ownedAppIds: Set<number> | null
+    ownedNames: Set<string> | null
+    meta: Map<number, PlatformAppMeta>
+    hasLocalOverview: (id: number) => boolean
+  },
+): boolean {
+  const { ownedHideState, ownedAppIds, ownedNames, meta, hasLocalOverview } = ctx
+  if (!ownedHideState || !(ownedAppIds || ownedNames)) return false
+  const eligible = ownedHideState.isCompositeShelf ? !hasLocalOverview(id) : true
+  if (!eligible) return false
+  if (ownedAppIds?.has(id)) return true
+  return matchesOwnedName(meta, id, ownedNames)
+}
+
+// A real (non-fallback) display name for `id` that normalizes to a key
+// already present in `ownedNames` — the wishlist/store dedup path.
+function matchesOwnedName(meta: Map<number, PlatformAppMeta>, id: number, ownedNames: Set<string> | null): boolean {
+  if (!ownedNames) return false
+  const name = meta.get(id)?.name
+  const isFallback = !name || /^App \d+$/.test(name) || /^#\d+$/.test(name)
+  if (isFallback) return false
+  const key = normalizeTitleForMatch(name)
+  return !!key && ownedNames.has(key)
+}
+
+/* Always-on intrinsic marks. Precedence (top → bottom): grabbed beats
+   everything (active interaction); hidden beats highlight/added (the dark
+   overlay signals "off"); highlight beats added (the user explicitly
+   featured this card); added is the baseline marker for menu-added games. */
+function resolveCardFlags(ctx: {
+  m: PlatformAppMeta
+  id: number
+  cardIdx: number
+  manualSortMode: boolean
+  grabbedAppid: number | null
+  hiddenSet: Set<number> | null
+  removableSet: Set<number> | null | undefined
+  highlightAll: boolean
+  highlightFirst: boolean
+  highlightedSet: Set<number>
+}): { isNew: boolean; mark: DeckRowItem['selectionMark'] } {
+  const { m, id, cardIdx, manualSortMode, grabbedAppid, hiddenSet, removableSet, highlightAll, highlightFirst, highlightedSet } = ctx
+  const isNew = m.addedTimestamp ? (Date.now() - m.addedTimestamp * 1000) < NEW_GAME_WINDOW_MS : false
+  const isGrabbed = manualSortMode && grabbedAppid === id
+  const isHidden = !!hiddenSet?.has(id)
+  const isAdded = !!removableSet?.has(id)
+  const isHighlighted = highlightAll || (highlightFirst && cardIdx === 0) || highlightedSet.has(id)
+  return { isNew, mark: resolveSelectionMark({ isGrabbed, isHidden, isHighlighted, isAdded }) }
+}
+
+function resolveSelectionMark(flags: { isGrabbed: boolean; isHidden: boolean; isHighlighted: boolean; isAdded: boolean }): DeckRowItem['selectionMark'] {
+  if (flags.isGrabbed) return 'grabbed'
+  if (flags.isHidden) return 'hidden'
+  if (flags.isHighlighted) return 'highlight'
+  if (flags.isAdded) return 'added'
+  return undefined
+}
+
+/* Picker mode: paint the overlay when this id is currently selected. The
+   toggle handler always fires (lets the user both ADD and REMOVE selection
+   by clicking the same card). In manualSortMode, clicking toggles grab
+   instead. */
+function makeToggleHandler(
+  id: number,
+  manualSortMode: boolean,
+  selectionMode: unknown,
+  setGrabbedAppid: (fn: (g: number | null) => number | null) => void,
+  onToggleSelection: ((id: number) => void) | undefined,
+): (() => void) | undefined {
+  if (manualSortMode) return () => setGrabbedAppid((g) => (g === id ? null : id))
+  return selectionMode ? () => onToggleSelection?.(id) : undefined
+}
+
+/* Splice synthetic decoration cards at their persisted `position` slots,
+   sorted asc so earlier slots splice before later ones (later positions
+   stay valid as the array grows) — mutates `out` in place. Synth `id` is
+   the sentinel `-(origIdx + 1)` so the manual-sort drag flow can reorder
+   them as first-class citizens. */
+type SyntheticCardInput = {
+  position: number
+  image?: string
+  text?: string
+  link?: { type: 'app' | 'url'; value: string }
+  size: 'normal' | 'featured'
+  alpha?: number
+  placeholder?: boolean
+  heroImage?: string
+  shadowMode?: 'never' | 'onFocus' | 'always'
+}
+
+function spliceSyntheticCards(out: DeckRowItem[], syntheticCards: SyntheticCardInput[] | undefined): void {
+  if (!syntheticCards?.length) return
+  const indexed = syntheticCards.map((c, origIdx) => ({ c, origIdx }))
+  indexed.sort((a, b) => (a.c.position ?? 0) - (b.c.position ?? 0))
+  for (const { c, origIdx } of indexed) {
+    const pos = Math.max(0, Math.min(out.length, Number(c.position) || 0))
+    out.splice(pos, 0, {
+      id: -origIdx - 1,
+      name: c.text ?? '',
+      synthetic: {
+        image: c.image,
+        text: c.text,
+        link: c.link,
+        size: c.size === 'featured' ? 'featured' : 'normal',
+        alpha: c.alpha,
+        placeholder: c.placeholder === true,
+        heroImage: (c as any).heroImage,
+        shadowMode: (c as any).shadowMode,
+      },
+    })
+  }
 }
 
 /* Scoped overrides — keep the modal preview visually flat (no native scale,
@@ -275,37 +517,7 @@ export function ShelfPreview({
     }
     return false
   })()
-  /* Mirror Shelf.tsx render-time owned-hide: when an online source has
-     the "exclude owned" toggle on (per-shelf or global), drop ids that
-     match the local library by appid OR by normalized name. For composite
-     shelves the toggle lives on the first online child (editor propagates */
-  /* it uniformly), so read from there. For direct online shelves read
-     from the source itself. Owned-locally cards (overview present in
-     appStore) only get dropped when they came from an online child —
-     detected here via the same `appStore.GetAppOverviewByAppID` lookup
-     Shelf.tsx uses (offline-origin cards have a local overview → kept). */
-  const ownedHideState = useMemo(() => {
-    const s: any = shelfSource
-    if (!s || typeof s !== 'object') return null
-    const directOnline = s.type === 'wishlist' || s.type === 'store'
-    const compositeOnlineChild = s.type === 'composite' && Array.isArray(s.sources)
-      ? s.sources.find((c: any) => c?.type === 'wishlist' || c?.type === 'store')
-      : null
-    if (!directOnline && !compositeOnlineChild) return null
-    const tgls = directOnline ? s : compositeOnlineChild
-    const excludeOwned = !!tgls?.excludeOwned
-    const excludeOwnedNonSteam = excludeOwned && !!tgls?.excludeOwnedNonSteam
-    const perShelfCloud = tgls?.hideOwnedNonSteamCloud
-    const cur = (() => { try { return getCurrentSettings() } catch { return null } })()
-    const globalHideOwned = cur?.onlineHideOwnedGames === true
-    const globalHideOwnedNonSteam = cur?.onlineHideOwnedNonSteam === true
-    const globalHideOwnedCloud = cur?.onlineHideOwnedNonSteamCloud === true
-    const shouldHide = globalHideOwned || excludeOwned
-    if (!shouldHide) return null
-    const effectiveNonSteam = (globalHideOwned && globalHideOwnedNonSteam) || (excludeOwned && excludeOwnedNonSteam)
-    const effectiveCloud = effectiveNonSteam && (perShelfCloud === true || (perShelfCloud === undefined && globalHideOwnedCloud))
-    return { isCompositeShelf: s.type === 'composite', effectiveNonSteam, effectiveCloud }
-  }, [shelfSource])
+  const ownedHideState = useMemo(() => computeOwnedHideState(shelfSource), [shelfSource])
   const [ownedAppIds, setOwnedAppIds] = useState<Set<number> | null>(null)
   const [ownedNames, setOwnedNames] = useState<Set<string> | null>(null)
   useEffect(() => {
@@ -323,49 +535,22 @@ export function ShelfPreview({
        Deliverance II". Iterating `ownedSet` directly + a raw per-id
        lookup guarantees every owned entry contributes its name. */
     let cancelled = false
-    ;(async () => {
-      const names = new Set<string>()
-      for (const id of ownedSet) {
-        const n = lookupOwnedName(id)
-        if (!n) continue
-        const k = normalizeTitleForMatch(n)
-        if (k) names.add(k)
-      }
-      // Backstop: still merge whatever `getAllAppOverviews()` returns
-      // for the rare case where the raw appStore lookup misses an entry
-      // a fallback path captured.
-      try {
-        const apps = await getAllAppOverviews()
-        if (cancelled) return
-        for (const a of apps) {
-          const id = Number((a as any)?.appid)
-          if (!ownedSet.has(id)) continue
-          const n = (a as any)?.display_name ?? (a as any)?.name
-          if (typeof n === 'string' && n) {
-            const k = normalizeTitleForMatch(n)
-            if (k) names.add(k)
-          }
-        }
-      } catch {}
+    void (async () => {
+      const names = namesFromOwnedSet(ownedSet)
+      await mergeAppOverviewNames(names, ownedSet)
       if (cancelled) return
       setOwnedNames(names)
     })()
     return () => { cancelled = true }
   }, [ownedHideState])
   const rowItems = useMemo<DeckRowItem[]>(() => {
-    let priceCache: any = null
-    if (isOnlineShelfSource) {
-      try {
-        const raw = (globalThis as any).localStorage?.getItem?.('ds-price-cache-v1')
-        if (raw) priceCache = JSON.parse(raw)
-      } catch {}
-    }
+    const priceCache = readPriceCache(isOnlineShelfSource)
     const readDiscount = (id: number): number | undefined => {
       if (!isOnlineShelfSource) return undefined
       const d = priceCache?.[id]?.data?.discount
       return typeof d === 'number' && d > 0 ? d : undefined
     }
-    const hiddenSet = hiddenAppIds && hiddenAppIds.length ? new Set(hiddenAppIds) : null
+    const hiddenSet = buildHiddenSet(hiddenAppIds)
     const out: DeckRowItem[] = []
     let cardIdx = -1
     /* Per-id owned-overview lookup used to mirror Shelf.tsx's
@@ -378,44 +563,13 @@ export function ShelfPreview({
       catch { return false }
     }
     for (const id of cappedIds) {
-      /* Owned-hide gate: skip ids matching the local library by appid
-         OR by normalized name. Composite shelves restrict the gate to
-         online-origin cards (no local overview); direct online shelves
-         apply it to every card (they're all online by definition). */
-      if (ownedHideState && (ownedAppIds || ownedNames)) {
-        const eligible = ownedHideState.isCompositeShelf ? !hasLocalOverview(id) : true
-        if (eligible) {
-          if (ownedAppIds?.has(id)) continue
-          if (ownedNames) {
-            const m0 = meta.get(id)
-            const nm = m0?.name && !/^App \d+$/.test(m0.name) && !/^#\d+$/.test(m0.name) ? m0.name : ''
-            const key = nm ? normalizeTitleForMatch(nm) : ''
-            if (key && ownedNames.has(key)) continue
-          }
-        }
-      }
+      if (shouldHideOwnedCard(id, { ownedHideState, ownedAppIds, ownedNames, meta, hasLocalOverview })) continue
       // Don't skip on missing meta — render a placeholder so menu-added
       // games appear immediately, even before their meta fetch lands
       // (the home shelf does this too via the `App {id}` fallback).
       const m = meta.get(id) ?? { appid: id, name: `#${id}` } as PlatformAppMeta
       cardIdx++
-      const isNew = m.addedTimestamp ? (Date.now() - m.addedTimestamp * 1000) < NEW_GAME_WINDOW_MS : false
-      // Always-on intrinsic marks. Precedence (top → bottom): grabbed
-      /* beats everything (active interaction); hidden beats highlight/
-         added (the dark overlay signals "off"); highlight beats added
-         (the user explicitly featured this card); added is the
-         baseline marker for menu-added games. Pickers don't override
-         these — they just enable click-to-toggle via `selectionMode`. */
-      const isGrabbed = manualSortMode && grabbedAppid === id
-      const isHidden = !!hiddenSet?.has(id)
-      const isAdded = !!removableSet?.has(id)
-      const isHighlighted = highlightAll || (highlightFirst && cardIdx === 0) || highlightedSet.has(id)
-      let mark: DeckRowItem['selectionMark']
-      if (isGrabbed) mark = 'grabbed'
-      else if (isHidden) mark = 'hidden'
-      else if (isHighlighted) mark = 'highlight'
-      else if (isAdded) mark = 'added'
-      else mark = undefined
+      const { isNew, mark } = resolveCardFlags({ m, id, cardIdx, manualSortMode, grabbedAppid, hiddenSet, removableSet, highlightAll, highlightFirst, highlightedSet })
       out.push({
         id,
         appid: id,
@@ -429,48 +583,15 @@ export function ShelfPreview({
         updatePending: m.updatePending,
         isNew,
         discountPercent: readDiscount(id),
-        /* Picker mode: paint the overlay when this id is currently
-           selected. The toggle handler always fires (lets the user
-           both ADD and REMOVE selection by clicking the same card).
-           In manualSortMode, clicking toggles grab instead. */
         selectionMark: mark,
-        onToggleSelection: manualSortMode
-          ? () => setGrabbedAppid((g) => (g === id ? null : id))
-          : (selectionMode ? () => onToggleSelection?.(id) : undefined),
+        onToggleSelection: makeToggleHandler(id, manualSortMode, selectionMode, setGrabbedAppid, onToggleSelection),
       })
     }
     if (showRefresh) out.push({ id: '__refresh', name: t('refresh'), isRefresh: true, onActivate: onRefresh })
     if (showMore) out.push({ id: '__more', name: t('view_more'), isMoreLink: true })
-    /* Splice synthetic decoration cards at their persisted `position` slots,
-       sorted asc so earlier slots splice before later ones (later positions stay
-       valid as the array grows). Same logic as Shelf.tsx's home rowItems builder
-       — keeps the preview 1:1 with the home shelf. */
-    /* Synth `id` is the sentinel `-(origIdx + 1)` so the manual-sort
-       drag flow can reorder them as first-class citizens (same encoding
-       the modal's `reorderManual` already understands). Even in
-       non-drag mode this is harmless — ShelfRow keys on item.id and
-       routes to SyntheticCard via item.synthetic. */
-    if (syntheticCards && syntheticCards.length) {
-      const indexed = syntheticCards.map((c, origIdx) => ({ c, origIdx }))
-      indexed.sort((a, b) => (a.c.position ?? 0) - (b.c.position ?? 0))
-      for (const { c, origIdx } of indexed) {
-        const pos = Math.max(0, Math.min(out.length, Number(c.position) || 0))
-        out.splice(pos, 0, {
-          id: -origIdx - 1,
-          name: c.text ?? '',
-          synthetic: {
-            image: c.image,
-            text: c.text,
-            link: c.link,
-            size: c.size === 'featured' ? 'featured' : 'normal',
-            alpha: c.alpha,
-            placeholder: c.placeholder === true,
-            heroImage: (c as any).heroImage,
-            shadowMode: (c as any).shadowMode,
-          },
-        })
-      }
-    }
+    // Same logic as Shelf.tsx's home rowItems builder — keeps the preview
+    // 1:1 with the home shelf.
+    spliceSyntheticCards(out, syntheticCards)
     return out
   }, [cappedIds.join(','), meta, showRefresh, showMore, onRefresh, t, JSON.stringify(syntheticCards ?? null), selectionMode, selectionSet, onToggleSelection, isOnlineShelfSource, manualSortMode, grabbedAppid, hiddenAppIds?.join(','), removableSet, highlightedSet, highlightAll, highlightFirst, ownedHideState, ownedAppIds, ownedNames])
 
@@ -649,23 +770,15 @@ export function ShelfPreview({
       const rowEl = rowRef.current
       if (!rowEl) return
       const cards = Array.from(rowEl.querySelectorAll<HTMLElement>('.ds-card[data-appid]'))
-      for (let i = 0; i < cards.length; i++) {
-        const r = cards[i].getBoundingClientRect()
-        if (ev.clientX >= r.left && ev.clientX <= r.right) {
-          const current = grabbedRef.current
-          if (current === null) return
-          const cardId = Number(cards[i].getAttribute('data-appid')) || 0
-          const base = cappedOrderRef.current.slice()
-          const from = base.indexOf(current)
-          const to = base.indexOf(cardId)
-          if (from === -1 || to === -1 || from === to) return
-          const [picked] = base.splice(from, 1)
-          base.splice(to, 0, picked)
-          cappedOrderRef.current = base
-          onReorder(base)
-          return
-        }
-      }
+      const idx = findCardIndexAtX(cards, ev.clientX)
+      if (idx === -1) return
+      const current = grabbedRef.current
+      if (current === null) return
+      const cardId = Number(cards[idx].getAttribute('data-appid')) || 0
+      const next = reorderIds(cappedOrderRef.current, current, cardId)
+      if (!next) return
+      cappedOrderRef.current = next
+      onReorder(next)
     }
     const up = () => {
       doc.removeEventListener('pointermove', move)

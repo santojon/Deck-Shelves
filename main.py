@@ -24,10 +24,14 @@ import sys
 # "Route does not exist" because the plugin process never finished
 # initialising. Splice the plugin directory in front of `sys.path` here
 # so `from paths import ...` (and any future sibling extractions) keep
-# working under both the test harness and the deck.
+# working under both the test harness and the deck. The backend modules
+# themselves live in src/backend/ (not next to main.py, which must stay at
+# the plugin root) — same reasoning, same fix, one directory further in.
 _PLUGIN_DIR = os.path.dirname(os.path.abspath(__file__))
-if _PLUGIN_DIR not in sys.path:
-    sys.path.insert(0, _PLUGIN_DIR)
+_BACKEND_DIR = os.path.join(_PLUGIN_DIR, "src", "backend")
+for _p in (_PLUGIN_DIR, _BACKEND_DIR):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
 
 from plugin_host import logger
 

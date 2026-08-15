@@ -70,9 +70,11 @@ try {
   if (Test-Path (Join-Path $ProjectRoot '.deploy')) { Remove-Item -Recurse -Force (Join-Path $ProjectRoot '.deploy') }
   New-Item -ItemType Directory -Force -Path (Join-Path $StageDir 'dist') | Out-Null
   Copy-Item 'plugin.json', 'package.json', 'main.py' $StageDir
-  # Ship every top-level Python module main.py depends on (paths/storage/...).
-  Get-ChildItem -Path $ProjectRoot -Filter '*.py' -File | Where-Object { $_.Name -ne 'main.py' } |
-    ForEach-Object { Copy-Item $_.FullName $StageDir }
+  # Ship every Python module main.py depends on, staged at src/backend/ to
+  # match main.py's own sys.path splice (paths/storage/...).
+  New-Item -ItemType Directory -Force -Path (Join-Path $StageDir 'src\backend') | Out-Null
+  Get-ChildItem -Path (Join-Path $ProjectRoot 'src\backend') -Filter '*.py' -File |
+    ForEach-Object { Copy-Item $_.FullName (Join-Path $StageDir 'src\backend') }
   # Inject the dev `debug` flag into the staged plugin.json (node = cross-platform).
   & node -e 'const fs=require("fs"),p=JSON.parse(fs.readFileSync(process.argv[1]));if(!p.flags.includes("debug"))p.flags.push("debug");fs.writeFileSync(process.argv[1],JSON.stringify(p,null,2)+"\n")' (Join-Path $StageDir 'plugin.json')
   Copy-Item -Recurse -Force (Join-Path $ProjectRoot 'dist\*') (Join-Path $StageDir 'dist')

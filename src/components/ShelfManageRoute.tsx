@@ -42,7 +42,7 @@ function ShelfManageRouteImpl({ shelfId: shelfIdProp }: { shelfId: string }) {
 
   const closeRoute = () => { try { (Navigation as any).NavigateBack?.(); } catch {} };
   const onEdit = () => { showEditShelfModal(controller, shelf); closeRoute(); };
-  const onDuplicate = () => { actions.duplicateShelf(shelf.id); closeRoute(); };
+  const onDuplicate = () => { void actions.duplicateShelf(shelf.id); closeRoute(); };
   const onToggleCollapse = () => {
     try {
       if (isCollapsed) (globalThis as any).localStorage?.removeItem?.(`ds-collapsed-${shelfId}`);
@@ -51,9 +51,9 @@ function ShelfManageRouteImpl({ shelfId: shelfIdProp }: { shelfId: string }) {
     } catch {}
     setCollapsedTick(n => n + 1);
   };
-  const onToggleHide = () => { actions.toggleShelfHidden(shelf.id); closeRoute(); };
-  const onMoveUp = () => { actions.moveShelf(shelf.id, -1); closeRoute(); };
-  const onMoveDown = () => { actions.moveShelf(shelf.id, 1); closeRoute(); };
+  const onToggleHide = () => { void actions.toggleShelfHidden(shelf.id); closeRoute(); };
+  const onMoveUp = () => { void actions.moveShelf(shelf.id, -1); closeRoute(); };
+  const onMoveDown = () => { void actions.moveShelf(shelf.id, 1); closeRoute(); };
   const onDelete = () => { showDeleteConfirm(controller, shelf); closeRoute(); };
 
   const isOnlineSource = shelf.source.type === 'wishlist' || shelf.source.type === 'store';

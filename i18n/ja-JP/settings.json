@@ -1175,5 +1175,6 @@
   "hw_ram": "メモリ",
   "hw_gpu": "GPU",
   "hw_storage": "ストレージ",
-  "diag_software": "ソフトウェア"
+  "diag_software": "ソフトウェア",
+  "first_run_desc_maybe_wiped": "現在シェルフがありません — おかしいと感じたら、下に復元できるバックアップがあるかもしれません。なければデフォルトで最初から始めてください。"
 }

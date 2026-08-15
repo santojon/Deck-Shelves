@@ -330,13 +330,19 @@ src/
 
 main.py Python entry: DEFAULT_SETTINGS, _SSL_CTX, Plugin class
  (lifecycle + RPC). Re-exports helpers from below.
-paths.py _steam_install_candidates, _normalize_path
+src/backend/ Every sibling module main.py imports (paths, storage,
+ sanitizer, launchers, css_themes, display_state,
+ hardware_info, host_os, peripherals, perf_probe,
+ plugin_host). Kept out of the plugin root — which
+ Decky requires main.py itself to stay at — via a
+ sys.path splice at the top of main.py.
+src/backend/paths.py _steam_install_candidates, _normalize_path
  (path discovery + home-confined validation)
-storage.py _settings_dir, _primary_file, _safe_read_json
+src/backend/storage.py _settings_dir, _primary_file, _safe_read_json
  (settings.json read helpers, env-var aware)
-sanitizer.py _sanitize_settings (settings-shape normaliser,
+src/backend/sanitizer.py _sanitize_settings (settings-shape normaliser,
  mirrors the Zod schemas in src/types.ts)
-launchers.py External launcher discovery probe :
+src/backend/launchers.py External launcher discovery probe :
  EmuDeck / RetroDECK / Heroic / Lutris / Moonlight /
  Chiaki. stdlib-only (configparser, sqlite3, json),
  every helper degrades to [] on missing dir / parse
@@ -353,7 +359,7 @@ Settings (backend JSON) → settingsStore → controller → HomeInject → Shel
  homePatch (fallback DOM renderer)
 ```
 
-1. **Settings** are persisted by the Python backend (`main.py` → atomic write via `paths.py` + `storage.py`; shape-checked through `sanitizer.py` on every read AND write) and cached in `localStorage`
+1. **Settings** are persisted by the Python backend (`main.py` → atomic write via `src/backend/paths.py` + `src/backend/storage.py`; shape-checked through `src/backend/sanitizer.py` on every read AND write) and cached in `localStorage`
 2. **`settingsStore`** manages the cache, backend RPC calls, and subscriber notifications
 3. **`controller`** (React hook) provides actions and state to QAM components
 4. **`HomeInject`** creates a portal into the Steam home screen DOM

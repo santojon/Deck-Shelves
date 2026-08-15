@@ -845,7 +845,10 @@ export function installPluginApi(): () => void {
     return () => {
       if (unmountFired) return;
       unmountFired = true;
-      try { integration.onUnmount?.(); } catch {}
+      try {
+        const r = integration.onUnmount?.();
+        if (r) void Promise.resolve(r).catch(() => {});
+      } catch {}
     };
   };
 

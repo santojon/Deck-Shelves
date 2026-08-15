@@ -55,14 +55,15 @@ fi
 rm -rf .deploy
 mkdir -p "${STAGE_DIR}/dist"
 cp plugin.json package.json main.py "${STAGE_DIR}/"
-# Ship every top-level Python module main.py depends on. Auto-include
-# anything new dropped at the repo root so future extractions don't get
-# silently dropped from the deploy — that's how paths / storage /
-# sanitizer / launchers stopped reaching the deck when they were split
-# out of main.py, breaking every RPC with "Route does not exist".
-for pyf in *.py; do
-  [[ "$pyf" == "main.py" ]] && continue
-  cp "$pyf" "${STAGE_DIR}/"
+# Ship every Python module main.py depends on, staged at src/backend/ to
+# match main.py's own sys.path splice. Auto-include anything new dropped
+# there so future extractions don't get silently dropped from the deploy —
+# that's how paths / storage / sanitizer / launchers stopped reaching the
+# deck when they were split out of main.py, breaking every RPC with
+# "Route does not exist".
+mkdir -p "${STAGE_DIR}/src/backend"
+for pyf in src/backend/*.py; do
+  cp "$pyf" "${STAGE_DIR}/src/backend/"
 done
 # Inject debug flag for dev deploy (not present in source plugin.json for store
 # submission). Skipped for --release so the deployed plugin matches a store build.

@@ -1175,5 +1175,6 @@
   "hw_ram": "Arbeitsspeicher",
   "hw_gpu": "GPU",
   "hw_storage": "Speicher",
-  "diag_software": "Software"
+  "diag_software": "Software",
+  "first_run_desc_maybe_wiped": "Hier sind gerade keine Regale — falls das nicht richtig aussieht, gibt es unten vielleicht eine Sicherung zum Wiederherstellen. Andernfalls starte einfach neu mit den Standardregalen."
 }

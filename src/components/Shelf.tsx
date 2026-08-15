@@ -288,7 +288,7 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
        `preloadAppDescriptions(appid)` on-demand (e.g. on focus, on
        tooltip open) so the cost is paid only for the cards the user
        actually interacts with. */
-    (async () => {
+    void (async () => {
       // Batched meta lookup: ONE catalog walk for every appid instead
       // of N per-id calls. Collapses ~1 s of cold-mount blocking work
       // into ~50 ms on a 1k-game library.
@@ -421,7 +421,7 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
     });
     if (!toFetch.length) return;
     let cancelled = false;
-    (async () => {
+    void (async () => {
       try {
         const names = await fetchGameNames(toFetch);
         if (!cancelled && names.size) {
@@ -439,7 +439,7 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
        Wishlist/store sources already do this during resolve; smart shelves
        don't, so without this the discount data is never fetched. */
     if (sourceIncludesNonOwned) {
-      (async () => {
+      void (async () => {
         try {
           const { getPriceMap } = await import("../core/onlineStore");
           await getPriceMap(toFetch);

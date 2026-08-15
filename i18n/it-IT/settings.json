@@ -1175,5 +1175,6 @@
   "hw_ram": "Memoria",
   "hw_gpu": "GPU",
   "hw_storage": "Archiviazione",
-  "diag_software": "Software"
+  "diag_software": "Software",
+  "first_run_desc_maybe_wiped": "Al momento non ci sono scaffali qui — se non ti sembra corretto, potresti avere un backup da ripristinare qui sotto. Altrimenti, ricomincia da zero con quelli predefiniti."
 }

@@ -105,7 +105,7 @@ export function SuggestionsDetail({ controller, t }: SuggestionsDetailProps) {
        opening the tab paints immediately instead of freezing; suggestions
        populate a moment later. */
     const timer = setTimeout(() => {
-      Promise.all(
+      void Promise.all(
         getExternalStatisticsProviders().map(async (p) => {
           const entries = await Promise.resolve().then(() => p.resolve()).catch(() => [] as StatisticsEntry[]);
           return { id: p.id, displayName: p.displayName, entries: [...entries] };
