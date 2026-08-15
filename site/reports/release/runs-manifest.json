@@ -1,5 +1,136 @@
 [
   {
+    "ts": "2026-08-15_13-13-15",
+    "stress": false,
+    "subdir": "release",
+    "version": "3.2.1",
+    "overall": "PASS",
+    "passed": 6,
+    "failed": 0,
+    "skipped": 0,
+    "total": 6,
+    "per_suite": {},
+    "unit": {
+      "passed": 749,
+      "failed": 0,
+      "skipped": 0,
+      "total": 749
+    },
+    "pytest": {},
+    "ruff": {},
+    "lint": {},
+    "suppressions": 137,
+    "complexity": {
+      "level": 2450,
+      "count": 96,
+      "max": 141,
+      "avg": 25.5,
+      "top": [
+        {
+          "file": "src/components/Shelf.tsx",
+          "line": 99,
+          "fn": "ShelfViewImpl",
+          "score": 141
+        },
+        {
+          "file": "src/components/shelf/GameCard.tsx",
+          "line": 172,
+          "fn": "GameCardImpl",
+          "score": 104
+        },
+        {
+          "file": "src/components/DeckRow.tsx",
+          "line": 74,
+          "fn": "DeckRowImpl",
+          "score": 94
+        },
+        {
+          "file": "src/components/shelf/PerShelfHero.tsx",
+          "line": 275,
+          "fn": "PerShelfHero",
+          "score": 84
+        },
+        {
+          "file": "src/components/HomeInject.tsx",
+          "line": 46,
+          "fn": "HomeShelves",
+          "score": 51
+        },
+        {
+          "file": "src/components/home/navPatches/reparent.ts",
+          "line": 3,
+          "fn": "reparentNavTreeNodes",
+          "score": 50
+        },
+        {
+          "file": "src/components/shelf/PlaceholderCard.tsx",
+          "line": 11,
+          "fn": "PlaceholderCard",
+          "score": 50
+        },
+        {
+          "file": "src/components/qam/modals/EditShelfModal.tsx",
+          "line": 153,
+          "fn": "EditShelfModal",
+          "score": 49
+        },
+        {
+          "file": "src/components/qam/modals/editShelf/ShelfPreview.tsx",
+          "line": 355,
+          "fn": "(anonymous)",
+          "score": 46
+        },
+        {
+          "file": "src/components/shelf/GameCard.tsx",
+          "line": 354,
+          "fn": "injectNativeClasses",
+          "score": 45
+        }
+      ]
+    },
+    "decoupling": {
+      "leaks": 0,
+      "adapter": 124,
+      "ratio": 0,
+      "top": []
+    },
+    "portability": {
+      "coupled": 86,
+      "guarded": 84,
+      "unguarded": 2,
+      "top": [
+        {
+          "file": "hardware_info.py",
+          "line": 30,
+          "spec": "return _read(\"/sys/devices/virtual/dmi/id/\" + field)"
+        },
+        {
+          "file": "hardware_info.py",
+          "line": 104,
+          "spec": "label = _read(\"/sys/class/drm/\" + card + \"/device/label\")"
+        }
+      ]
+    },
+    "step_names": [
+      "TypeScript typecheck",
+      "Build (production)",
+      "Unit tests (vitest)",
+      "Package (.zip)",
+      "Verify package",
+      "Compat validation"
+    ],
+    "step_durations_ms": [
+      10969,
+      1671,
+      8366,
+      2055,
+      71,
+      6634
+    ],
+    "total_duration_ms": 29766,
+    "_scope": "release"
+  },
+  {
     "ts": "2026-08-14_14-52-39",
     "stress": false,
     "subdir": "release",
