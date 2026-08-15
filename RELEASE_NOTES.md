@@ -5,6 +5,12 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+### Fixed
+
+- **The first-run tour could get stuck reopening every time you closed it, with no way to reach the toggle that turns the plugin on.** A backend bug threw away the saved "tour seen" flag whenever you hadn't enabled the plugin or added a shelf yet — exactly the state right after seeing the tour for the first time. Fixed.
+- **The "Report an issue" button on the About page could quietly do nothing.** It now works reliably, and asks what kind of report you're filing — **bug**, **enhancement** or **feature request** — before opening the matching GitHub form pre-filled with your details.
+- **The About page now leads with "Support the developer"**, with the community links below it.
+
 ## [3.2.0] - 2026-08-14
 
 ### Added
@@ -30,13 +36,10 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 - **The highlight ring around the first card in the shelf editor preview could look cut off.**
 - **"Use shelf as Recents" could take a moment to catch up** after a change, sometimes needing a trip away from and back to the home screen.
 - **The card menu could show the wrong options (missing "Update", for example)** when "Hide native Recents" was on.
-- **Switching profiles — manually or via an auto-switch trigger — could unexpectedly bring back the first-run feature tour**, even between two profiles that had both already completed it. Once seen, it stays seen.
-- **The first-run tour could get stuck reopening every time you closed it, with no way to reach the toggle that turns the plugin on.** A backend bug threw away the saved "tour seen" flag whenever you hadn't enabled the plugin or added a shelf yet — exactly the state right after seeing the tour for the first time. Fixed.
+- **Switching profiles could unexpectedly bring back the first-run feature tour** — even between two profiles that had both already completed it. Once seen, it stays seen.
 - **The per-area notification toggles now only show up when they can actually do something** — while the master "disable notifications" toggle is on.
 - **Enabling the plugin with no shelves set up, or opening a game's details, could leave the native home unable to scroll to the highlighted card**, and disabling shelves while focus was on one left you navigating blindly. Both are fixed.
 - **The description text size slider, a shelf-title position option, and background dimming for legibility** are already in the shelf editor for anyone who asked for more readable text.
-- **The "Report an issue" button on the About page could quietly do nothing.** It now works reliably, and asks what kind of report you're filing — **bug**, **enhancement** or **feature request** — before opening the matching GitHub form pre-filled with your details.
-- **The About page now leads with "Support the developer"**, with the community links below it.
 
 ## [3.1.0] - 2026-07-20
 
