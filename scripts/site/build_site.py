@@ -139,11 +139,22 @@ def _inject_download(page: str, version: str) -> str:
 
     GitHub serves `releases/latest/download/<asset>` as a redirect to the
     matching asset on the newest release, so the link stays current without
-    hardcoding a tag. Idempotent — the marker href only exists pre-injection.
+    hardcoding a release tag — but the *filename* in that URL still has to
+    match the real asset name exactly, so it must be re-derived from the
+    current version on every run. A plain string `.replace()` on the
+    pre-injection marker (`releases/latest` with no `/download/...` suffix)
+    is only idempotent for a single run: the marker is consumed by the first
+    injection, so every later run silently no-ops and the button is stuck on
+    whatever version first generated the file. Matched by regex instead, so
+    it finds and rewrites the link whether it's still the bare marker or
+    already points at an older version's asset.
     """
     direct = f'{REPO}/releases/latest/download/deck-shelves-v{version}.zip'
-    return page.replace(f'href="{REPO}/releases/latest"',
-                        f'href="{direct}" download')
+    pattern = re.compile(
+        re.escape(f'href="{REPO}/releases/latest') +
+        r'(?:/download/deck-shelves-v[^"]+)?"(?:\s+download)?'
+    )
+    return pattern.sub(f'href="{direct}" download', page)
 
 
 # ── Features page ────────────────────────────────────────────────────────────
