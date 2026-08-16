@@ -35,40 +35,50 @@ export function getUnifiDeckTabs(): PlatformTab[] {
   }
 }
 
+// 1) Try Steam store APIs (more reliable) — installed-state check per id.
+async function resolveInstalledIdsFromStoreApi(tabId: string): Promise<number[]> {
+  try {
+    const ids = await getTabAppIdsFromStore(tabId);
+    if (!ids?.length) return [];
+    const out: number[] = [];
+    for (const id of ids) {
+      try {
+        const state = await resolveAppInstalledState(Number(id));
+        if (state === true) out.push(Number(id));
+      } catch {}
+    }
+    return out;
+  } catch { return []; }
+}
+
+function appIdFromDatasetCandidate(c: Element): number {
+  const aid = c.getAttribute('data-appid') || c.getAttribute('data-app-id') || (c as any).dataset?.appid || (c as any).dataset?.appId;
+  return Number(aid);
+}
+
+// 2) Fallback: DOM scan for data-appid attributes within the tab panel.
+function resolveInstalledIdsFromDom(tabId: string, doc: Document): number[] {
+  const sel = `[data-tab-id="${tabId}"], [data-tab-id^="${tabId}"]`;
+  const tabEl = doc.querySelector(sel) as HTMLElement | null;
+  if (!tabEl) return [];
+  const panel = tabEl.closest('.Panel') || tabEl;
+  const candidates = panel.querySelectorAll('[data-appid], [data-app-id]');
+  const ids: number[] = [];
+  for (const c of Array.from(candidates)) {
+    const n = appIdFromDatasetCandidate(c);
+    if (Number.isFinite(n) && n > 0) ids.push(n);
+  }
+  return Array.from(new Set(ids));
+}
+
 export async function getUnifiDeckInstalledAppIds(tabId: string): Promise<number[]> {
   if (!isExternalTabsProviderInstalled()) return [];
   try {
-    // 1) Try Steam store APIs (more reliable)
-    try {
-      const ids = await getTabAppIdsFromStore(tabId);
-      if (ids && ids.length) {
-        const out: number[] = [];
-        for (const id of ids) {
-          try {
-            const state = await resolveAppInstalledState(Number(id));
-            if (state === true) out.push(Number(id));
-          } catch {}
-        }
-        if (out.length) return out;
-      }
-    } catch {}
-
-    // 2) Fallback: DOM scan for data-appid attributes within the tab panel
+    const storeIds = await resolveInstalledIdsFromStoreApi(tabId);
+    if (storeIds.length) return storeIds;
     const doc = getPreferredSteamDocument();
     if (!doc) return [];
-    const sel = `[data-tab-id="${tabId}"], [data-tab-id^="${tabId}"]`;
-    const tabEl = doc.querySelector(sel) as HTMLElement | null;
-    const ids: number[] = [];
-    if (tabEl) {
-      const panel = tabEl.closest('.Panel') || tabEl;
-      const candidates = panel ? panel.querySelectorAll('[data-appid], [data-app-id]') : doc.querySelectorAll('[data-appid], [data-app-id]');
-      for (const c of Array.from(candidates)) {
-        const aid = c.getAttribute('data-appid') || c.getAttribute('data-app-id') || (c as any).dataset?.appid || (c as any).dataset?.appId;
-        const n = Number(aid);
-        if (Number.isFinite(n) && n > 0) ids.push(n);
-      }
-    }
-    return Array.from(new Set(ids));
+    return resolveInstalledIdsFromDom(tabId, doc);
   } catch {
     return [];
   }

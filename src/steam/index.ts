@@ -3653,6 +3653,42 @@ const SOURCE_RESOLVERS: Record<string, (ctx: ResolverContext) => Promise<number[
   composite: _resolveComposite,
 };
 
+function computeOvershootLimit(source: { type: string }, limit: number, hiddenSet: Set<number> | undefined): number {
+  // Overshoot for render-time filters: hidden*2 for the picker, plus
+  // max(10, 50% of limit) for online owned/name matches. Capped at 3x.
+  const isOnlineShelf = source.type === "wishlist" || source.type === "store";
+  const ownedOvershoot = isOnlineShelf ? Math.max(10, Math.ceil(limit * 0.5)) : 0;
+  const hiddenOvershoot = hiddenSet ? hiddenSet.size * 2 : 0;
+  return Math.min(limit + hiddenOvershoot + ownedOvershoot, limit * 3);
+}
+
+/* first-party Shelf Source Ecosystem v3 lives in a sibling module. Each
+   resolver synchronously projects from the already-loaded `all` AppOverview
+   list. The resolver receives `all` and returns the filtered AppOverview[],
+   which we then map to ids + apply sort + finish overshoot trimming. */
+async function resolveViaV3Extension(
+  source: { type: string; [k: string]: any },
+  all: AppOverview[],
+  sort: string | string[] | undefined,
+  shelfId: string | undefined,
+  sortReverse: boolean | boolean[] | undefined,
+  finish: (ids: number[]) => number[],
+): Promise<number[]> {
+  try {
+    const { SOURCE_V3_RESOLVERS } = require("./v3Extensions") as typeof import("./v3Extensions");
+    // `builtin` wraps a v3 source id (the picker's shape); a bare v3 `type`
+    // is also honoured for power-users editing JSON directly.
+    const v3id = source.type === "builtin" ? String((source as any).sourceId ?? "") : source.type;
+    const v3 = SOURCE_V3_RESOLVERS[v3id];
+    if (!v3) return [];
+    const filtered = v3(all);
+    const ids = filtered.map((a) => appIdOf(a)).filter(Number.isFinite);
+    if (sort) await enrichForSort(sort, ids, all);
+    const sorted = sort ? applySortToIds(ids, sort, all, shelfId, sortReverse) : ids;
+    return finish(sorted);
+  } catch { return []; /* fall through to empty */ }
+}
+
 export async function resolveShelfAppIds(
   source: { type: string; [k: string]: any },
   limit: number,
@@ -3664,12 +3700,7 @@ export async function resolveShelfAppIds(
 ): Promise<number[]> {
   const { hiddenAppIds, dedupeByName, onResolveTotal } = options ?? {};
   const hiddenSet = hiddenAppIds?.length ? new Set(hiddenAppIds) : undefined;
-  // Overshoot for render-time filters: hidden*2 for the picker, plus
-  // max(10, 50% of limit) for online owned/name matches. Capped at 3x.
-  const isOnlineShelf = source.type === "wishlist" || source.type === "store";
-  const ownedOvershoot = isOnlineShelf ? Math.max(10, Math.ceil(limit * 0.5)) : 0;
-  const hiddenOvershoot = hiddenSet ? hiddenSet.size * 2 : 0;
-  const overShootLimit = Math.min(limit + hiddenOvershoot + ownedOvershoot, limit * 3);
+  const overShootLimit = computeOvershootLimit(source, limit, hiddenSet);
 
   let all = await getAllAppOverviews();
   // Startup readiness: if Steam hasn't loaded app data yet, retry once after a short delay
@@ -3692,26 +3723,7 @@ export async function resolveShelfAppIds(
   };
   const handler = SOURCE_RESOLVERS[source.type];
   if (handler) return handler(ctx);
-  /* first-party Shelf Source Ecosystem v3 lives
-     in a sibling module. Each resolver synchronously projects from
-     the already-loaded `all` AppOverview list. The resolver receives
-     `all` and returns the filtered AppOverview[], which we then map
-     to ids + apply sort + finish overshoot trimming. */
-  try {
-    const { SOURCE_V3_RESOLVERS } = require("./v3Extensions") as typeof import("./v3Extensions");
-    // `builtin` wraps a v3 source id (the picker's shape); a bare v3 `type`
-    // is also honoured for power-users editing JSON directly.
-    const v3id = source.type === "builtin" ? String((source as any).sourceId ?? "") : source.type;
-    const v3 = SOURCE_V3_RESOLVERS[v3id];
-    if (v3) {
-      const filtered = v3(all);
-      const ids = filtered.map((a) => appIdOf(a)).filter(Number.isFinite);
-      if (sort) await enrichForSort(sort, ids, all);
-      const sorted = sort ? applySortToIds(ids, sort, all, shelfId, sortReverse) : ids;
-      return finish(sorted);
-    }
-  } catch { /* fall through to empty */ }
-  return [];
+  return resolveViaV3Extension(source, all, sort, shelfId, sortReverse, finish);
 }
 
 // Per-client display_status + byte counters covering Steam's "update in

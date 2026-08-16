@@ -38,6 +38,69 @@ function getFriendStore(): any {
   return (globalThis as any).friendStore ?? (window as any).friendStore;
 }
 
+function friendBriefOf(f: any): FriendBrief {
+  return { name: String(f?.m_persona?.m_strPlayerName ?? ""), avatar: avatarUrl(f?.m_persona?.m_strAvatarHash) };
+}
+
+// Live "in game now": m_persona.m_unGamePlayedAppID is non-zero while the
+// friend is actively in a game on Steam.
+function liveAppIdOf(f: any): number {
+  return Number(f?.m_persona?.m_unGamePlayedAppID ?? f?.m_persona?.m_gameid ?? 0);
+}
+
+function recordLiveFriend(
+  live: number,
+  brief: FriendBrief,
+  playing: Set<number>,
+  recent: Set<number>,
+  playingByApp: Map<number, FriendBrief[]>,
+  recentByApp: Map<number, FriendBrief[]>,
+): void {
+  if (live <= 0) return;
+  playing.add(live);
+  recent.add(live);
+  pushFriend(playingByApp, live, brief);
+  pushFriend(recentByApp, live, brief);
+}
+
+// Historical "last seen playing": friend was observed in this app at some
+// point. Steam includes a coarse timestamp via m_dtLastSeenPlaying; include
+// only when the timestamp is recent (or absent — treat as unknown-but-ok).
+function recordHistoricalFriend(
+  f: any,
+  live: number,
+  recentCutoff: number,
+  brief: FriendBrief,
+  recent: Set<number>,
+  recentByApp: Map<number, FriendBrief[]>,
+): void {
+  const lastApp = Number(f?.m_nAppIDLastSeenPlaying ?? 0);
+  if (lastApp <= 0 || lastApp === live) return;
+  const lastTs = Number(f?.m_dtLastSeenPlaying ?? 0);
+  if (lastTs && lastTs < recentCutoff) return;
+  recent.add(lastApp);
+  pushFriend(recentByApp, lastApp, brief);
+}
+
+// Folds one friend's live/recent app into the running sets + overlay maps.
+// Isolated per-friend so a single malformed entry (missing m_persona etc.)
+// can't drop the rest of the poll.
+function processFriendIntoSets(
+  f: any,
+  recentCutoff: number,
+  playing: Set<number>,
+  recent: Set<number>,
+  playingByApp: Map<number, FriendBrief[]>,
+  recentByApp: Map<number, FriendBrief[]>,
+): void {
+  try {
+    const brief = friendBriefOf(f);
+    const live = liveAppIdOf(f);
+    recordLiveFriend(live, brief, playing, recent, playingByApp, recentByApp);
+    recordHistoricalFriend(f, live, recentCutoff, brief, recent, recentByApp);
+  } catch {}
+}
+
 function refresh(): void {
   const fs = getFriendStore();
   if (!fs) return;
@@ -51,31 +114,7 @@ function refresh(): void {
   const recent = new Set<number>();
   const playingByApp = new Map<number, FriendBrief[]>();
   const recentByApp = new Map<number, FriendBrief[]>();
-  for (const f of all) {
-    try {
-      const brief: FriendBrief = { name: String(f?.m_persona?.m_strPlayerName ?? ""), avatar: avatarUrl(f?.m_persona?.m_strAvatarHash) };
-      // Live "in game now": m_persona.m_unGamePlayedAppID is non-zero
-      // while the friend is actively in a game on Steam.
-      const live = Number(f?.m_persona?.m_unGamePlayedAppID ?? f?.m_persona?.m_gameid ?? 0);
-      if (live > 0) {
-        playing.add(live);
-        recent.add(live);
-        pushFriend(playingByApp, live, brief);
-        pushFriend(recentByApp, live, brief);
-      }
-      // Historical "last seen playing": friend was observed in this app at
-      // some point. Steam includes a coarse timestamp via m_dtLastSeenPlaying;
-      // include only when the timestamp is recent.
-      const lastApp = Number(f?.m_nAppIDLastSeenPlaying ?? 0);
-      if (lastApp > 0 && lastApp !== live) {
-        const lastTs = Number(f?.m_dtLastSeenPlaying ?? 0);
-        if (!lastTs || lastTs >= recentCutoff) {
-          recent.add(lastApp);
-          pushFriend(recentByApp, lastApp, brief);
-        }
-      }
-    } catch {}
-  }
+  for (const f of all) processFriendIntoSets(f, recentCutoff, playing, recent, playingByApp, recentByApp);
   // Re-resolve friends-playing shelves + the card overlay only when the set
   // actually changed (polled ~every 90s, so this fires rarely — no debounce
   // needed). This is what makes the shelf appear once the first poll lands.

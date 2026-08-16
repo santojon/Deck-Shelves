@@ -51,6 +51,12 @@ function pickAllApps(best: any): any {
   return best?.collection?.allApps ?? best?.allApps;
 }
 
+// 2 = exact id/name match, 1 = substring match either direction, 0 = none.
+function tabMatchScore(id: string, name: string, needle: string): number {
+  if (id === needle || name === needle) return 2;
+  return (id.includes(needle) || needle.includes(id)) ? 1 : 0;
+}
+
 export function getTabAppsFromContext(ctx: any, tabId: string): number[] {
   if (!ctx?.tabsMap) return [];
   const needle = normalizeText(tabId);
@@ -61,7 +67,7 @@ export function getTabAppsFromContext(ctx: any, tabId: string): number[] {
     ctx.tabsMap.forEach((c: any, key: string) => {
       const id = normalizeText(String(c?.id ?? key ?? ''));
       const name = normalizeText(String(c?.title ?? c?.name ?? ''));
-      const score = (id === needle || name === needle) ? 2 : ((id.includes(needle) || needle.includes(id)) ? 1 : 0);
+      const score = tabMatchScore(id, name, needle);
       if (score > bestScore) { bestScore = score; best = c; }
     });
   }

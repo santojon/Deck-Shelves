@@ -80,9 +80,18 @@ if (!deviceOk) {
   // over HTTP needs a resolvable address, so prefer DECK_CDP_HOST when set.
   const cdpHost = process.env.DECK_CDP_HOST || host;
   const outDir = q(join(tmp, "uitest-screenshots"));
-  const only = stress
-    ? ""
-    : ` --only ${q("perf,home,qam_shelves,qam_smart,qam_global_toggles,crash_protection,context_menu")}`;
+  // Every suite except `stress` — that one needs the dedicated 30+17-shelf
+  // fixture (`pnpm qa:stress-fixture`) deployed first, so it only runs under
+  // `--stress`, which passes no `--only` filter at all (runs everything,
+  // stress included). Listed explicitly (not discovered) so a suite file
+  // that fails to import still counts as a real "missing" coverage gap
+  // instead of quietly narrowing the filter to whatever loaded.
+  const nonStressSuites = [
+    "about", "context_menu", "context_menu_24", "crash_protection", "decoration",
+    "features_24", "home", "perf", "qam_global_toggles", "qam_shelves", "qam_smart",
+    "search", "settings", "sidecar", "sidenav", "update", "usage_stats",
+  ];
+  const only = stress ? "" : ` --only ${q(nonStressSuites.join(","))}`;
   h.step("uitests", stress ? "UI tests (all suites + stress)" : "UI tests (all suites)",
     py(`-m deckprobe.uitests.run --host ${q(cdpHost)} --port ${port} --out ${outDir}${only}`), { device: true });
 

@@ -89,20 +89,28 @@ export function parseRawCombo(raw: string | null | undefined): Combo | null {
   return parseComboWith(raw, TOKEN_TO_RAW);
 }
 
+function tokenizeCombo(raw: string): string[] {
+  return raw.split("+").map((t) => t.trim().toUpperCase()).filter(Boolean);
+}
+
+function comboTokenIssue(tokens: string[]): "reserved" | "unknown" | null {
+  for (const t of tokens) {
+    if (RESERVED.has(t)) return "reserved";
+    if (!(t in TOKEN_TO_BTN)) return "unknown";
+  }
+  return null;
+}
+
 export function validateCombo(raw: string | null | undefined, opts?: { allowNull?: boolean }): {
   ok: boolean; reason?: "reserved" | "unknown" | "empty" | "duplicate";
 } {
-  if (raw === null || raw === undefined || raw === "") {
-    return opts?.allowNull ? { ok: true } : { ok: false, reason: "empty" };
-  }
-  const tokens = String(raw).split("+").map((t) => t.trim().toUpperCase()).filter(Boolean);
+  if (!raw) return opts?.allowNull ? { ok: true } : { ok: false, reason: "empty" };
+  const tokens = tokenizeCombo(String(raw));
   if (!tokens.length) return { ok: false, reason: "empty" };
-  for (const t of tokens) {
-    if (RESERVED.has(t)) return { ok: false, reason: "reserved" };
-    if (!(t in TOKEN_TO_BTN)) return { ok: false, reason: "unknown" };
-  }
-  if (tokens.length === 2 && tokens[0] !== tokens[1]) {
-    if (new Set(tokens).size !== tokens.length) return { ok: false, reason: "duplicate" };
+  const issue = comboTokenIssue(tokens);
+  if (issue) return { ok: false, reason: issue };
+  if (tokens.length === 2 && tokens[0] !== tokens[1] && new Set(tokens).size !== tokens.length) {
+    return { ok: false, reason: "duplicate" };
   }
   return { ok: true };
 }
@@ -118,6 +126,12 @@ export function createMatcherState(): MatcherState {
   return { lastPress: new Map(), held: new Set() };
 }
 
+function extractButtonId(evt: any): number | null {
+  if (typeof evt?.detail?.button === "number") return evt.detail.button;
+  if (typeof evt?.button === "number") return evt.button;
+  return null;
+}
+
 // Call on every button-down event. Returns true when the combo fires.
 export function matchEvent(
   evt: { detail?: { button?: number } } | { button?: number } | any,
@@ -126,9 +140,7 @@ export function matchEvent(
   now: number = Date.now(),
 ): boolean {
   if (!combo) return false;
-  const btn = typeof evt?.detail?.button === "number"
-    ? evt.detail.button
-    : typeof evt?.button === "number" ? evt.button : null;
+  const btn = extractButtonId(evt);
   if (btn === null) return false;
   if (combo.kind === "single") {
     state.lastPress.set(btn, now);

@@ -5,6 +5,7 @@ import { ShelfRow } from '../../../shelf/ShelfRow'
 import type { DeckRowItem } from '../../../shelf/types'
 import type { PlatformAppMeta } from '../../../../runtime/platform'
 import { DIR_LEFT, DIR_RIGHT, HOLD_MS } from './constants'
+import { findCardIndexAtX, reorderIds, readPriceCache } from './dragReorder'
 
 // Card sizes used by the preview row. Matches ShelfPreview so the
 // manual-sort grid renders at the exact same scale as every other tab.
@@ -21,6 +22,35 @@ type SyntheticCardSpec = {
   size: 'normal' | 'featured';
   alpha?: number;
   placeholder?: boolean;
+}
+
+// Synthetic sentinel — decode index back from `-(synthIdx + 1)` (same
+// encoding EditShelfModal uses to interleave decoration cards into the
+// manual order). Null when the sentinel has no matching synthetic card.
+function buildSyntheticManualItem(id: number, idx: number, syntheticCards: SyntheticCardSpec[] | undefined): DeckRowItem | null {
+  const synthIdx = -id - 1
+  const c = syntheticCards?.[synthIdx]
+  if (!c) return null
+  return {
+    id: `__synth_manual_${synthIdx}_${idx}`,
+    name: c.text ?? '',
+    synthetic: {
+      image: c.image,
+      text: c.text,
+      link: c.link,
+      size: c.size === 'featured' ? 'featured' : 'normal',
+      alpha: c.alpha,
+      placeholder: c.placeholder === true,
+    },
+  }
+}
+
+// Selection-mark precedence: grab wins (active drag intent); highlight-
+// picker selection second; otherwise none.
+function resolveManualSelectionMark(grabbed: boolean, highlightPickerOpen: boolean, inHighlighted: boolean): DeckRowItem['selectionMark'] {
+  if (grabbed) return 'grabbed'
+  if (highlightPickerOpen && inHighlighted) return 'highlight'
+  return undefined
 }
 
 export function ManualSortRow({
@@ -258,23 +288,15 @@ export function ManualSortRow({
       const rowEl = rowRef.current
       if (!rowEl) return
       const cards = Array.from(rowEl.querySelectorAll<HTMLElement>('.ds-card[data-appid]'))
-      for (let i = 0; i < cards.length; i++) {
-        const r = cards[i].getBoundingClientRect()
-        if (ev.clientX >= r.left && ev.clientX <= r.right) {
-          const current = grabbedRef.current
-          if (current === null) return
-          const cardId = Number(cards[i].getAttribute('data-appid')) || 0
-          const base = orderRef.current.slice()
-          const from = base.indexOf(current)
-          const to = base.indexOf(cardId)
-          if (from === -1 || to === -1 || from === to) return
-          const [picked] = base.splice(from, 1)
-          base.splice(to, 0, picked)
-          orderRef.current = base
-          onReorder(base)
-          return
-        }
-      }
+      const idx = findCardIndexAtX(cards, ev.clientX)
+      if (idx === -1) return
+      const current = grabbedRef.current
+      if (current === null) return
+      const cardId = Number(cards[idx].getAttribute('data-appid')) || 0
+      const next = reorderIds(orderRef.current, current, cardId)
+      if (!next) return
+      orderRef.current = next
+      onReorder(next)
     }
     const up = () => {
       doc.removeEventListener('pointermove', move)
@@ -298,13 +320,7 @@ export function ManualSortRow({
        - Synthetic sentinels in `order` (negative ids) translate to
          synthetic DeckRowItems using state.syntheticCards data */
   const rowItems = useMemo<DeckRowItem[]>(() => {
-    let priceCache: any = null
-    if (isOnlineShelfSource) {
-      try {
-        const raw = (globalThis as any).localStorage?.getItem?.('ds-price-cache-v1')
-        if (raw) priceCache = JSON.parse(raw)
-      } catch {}
-    }
+    const priceCache = readPriceCache(isOnlineShelfSource)
     const readDiscount = (id: number): number | undefined => {
       if (!isOnlineShelfSource) return undefined
       const d = priceCache?.[id]?.data?.discount
@@ -314,24 +330,8 @@ export function ManualSortRow({
     for (let idx = 0; idx < order.length; idx++) {
       const id = order[idx]
       if (id < 0) {
-        // Synthetic sentinel — decode index back from `-(synthIdx + 1)`
-        // (same encoding EditShelfModal uses to interleave decoration
-        // cards into the manual order).
-        const synthIdx = -id - 1
-        const c = syntheticCards?.[synthIdx]
-        if (!c) continue
-        out.push({
-          id: `__synth_manual_${synthIdx}_${idx}`,
-          name: c.text ?? '',
-          synthetic: {
-            image: c.image,
-            text: c.text,
-            link: c.link,
-            size: c.size === 'featured' ? 'featured' : 'normal',
-            alpha: c.alpha,
-            placeholder: c.placeholder === true,
-          },
-        })
+        const item = buildSyntheticManualItem(id, idx, syntheticCards)
+        if (item) out.push(item)
         continue
       }
       const m = meta.get(id) as any
@@ -339,14 +339,7 @@ export function ManualSortRow({
       const grabbed = grabbedAppid === id
       const inHighlighted = highlightedAppIds.includes(id)
       const isNew = m.addedTimestamp ? (Date.now() - m.addedTimestamp * 1000) < NEW_GAME_WINDOW_MS : false
-      /* Selection-mark precedence: grab wins (active drag intent);
-         highlight-picker selection second; otherwise none. Matches the
-         prior ManualSortRow logic so the visual overlay rules don't
-         change across the refactor. */
-      const mark: DeckRowItem['selectionMark'] =
-        grabbed ? 'grabbed'
-          : (highlightPickerOpen && inHighlighted) ? 'highlight'
-          : undefined
+      const mark = resolveManualSelectionMark(grabbed, highlightPickerOpen, inHighlighted)
       out.push({
         id,
         appid: id,

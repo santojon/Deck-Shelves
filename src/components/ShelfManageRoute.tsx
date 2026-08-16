@@ -15,6 +15,34 @@ import { clearOnlineShelfCache } from "../core/shelfActions";
 import { invalidateRandomSortCache } from "../steam";
 import { subscribeShelfRefresh, triggerShelfRefresh } from "../core/shelfRefresh";
 
+function tr(t: (k: string) => string | undefined, key: string, fallback: string): string {
+  return t(key) ?? fallback;
+}
+
+function trBy(cond: boolean, t: (k: string) => string | undefined, keyTrue: string, fbTrue: string, keyFalse: string, fbFalse: string): string {
+  return cond ? tr(t, keyTrue, fbTrue) : tr(t, keyFalse, fbFalse);
+}
+
+function isRandomSourceShelf(shelf: { sort?: unknown; source: { type: string; [k: string]: any } }): boolean {
+  if (shelf.sort === 'random') return true;
+  if (shelf.source.type === 'smart') return true;
+  return shelf.source.type === 'filter' && shelf.source.filter?.sort === 'random';
+}
+
+function navigateBack(): void {
+  try { (Navigation as any).NavigateBack?.(); } catch {}
+}
+
+function resolveManagedShelf(shelves: any[], shelfIdProp: string): { shelfId: string; idx: number; shelf: any | null } {
+  const shelfId = shelfIdProp || getShelfIdFromLocation();
+  const idx = shelves.findIndex((s) => s.id === shelfId);
+  return { shelfId, idx, shelf: idx >= 0 ? shelves[idx] : null };
+}
+
+function isOnlineSourceShelf(shelf: { source: { type: string } }): boolean {
+  return shelf.source.type === 'wishlist' || shelf.source.type === 'store';
+}
+
 function getShelfIdFromLocation(): string {
   try {
     const p = (globalThis as any).window?.location?.pathname ?? "";
@@ -26,13 +54,11 @@ function getShelfIdFromLocation(): string {
 function ShelfManageRouteImpl({ shelfId: shelfIdProp }: { shelfId: string }) {
   const controller = useSettingsController();
   const { t, shelves, actions } = controller;
-  const shelfId = shelfIdProp || getShelfIdFromLocation();
-  const idx = shelves.findIndex((s) => s.id === shelfId);
-  const shelf = idx >= 0 ? shelves[idx] : null;
+  const { shelfId, idx, shelf } = resolveManagedShelf(shelves, shelfIdProp);
   const [collapsedTick, setCollapsedTick] = useState(0);
 
   if (!shelf) {
-    try { setTimeout(() => { try { (Navigation as any).NavigateBack?.(); } catch {} }, 0); } catch {}
+    try { setTimeout(navigateBack, 0); } catch {}
     return null;
   }
 
@@ -40,7 +66,7 @@ function ShelfManageRouteImpl({ shelfId: shelfIdProp }: { shelfId: string }) {
   let isCollapsed = false;
   try { isCollapsed = (globalThis as any).localStorage?.getItem?.(`ds-collapsed-${shelfId}`) === "1"; } catch {}
 
-  const closeRoute = () => { try { (Navigation as any).NavigateBack?.(); } catch {} };
+  const closeRoute = navigateBack;
   const onEdit = () => { showEditShelfModal(controller, shelf); closeRoute(); };
   const onDuplicate = () => { void actions.duplicateShelf(shelf.id); closeRoute(); };
   const onToggleCollapse = () => {
@@ -56,11 +82,8 @@ function ShelfManageRouteImpl({ shelfId: shelfIdProp }: { shelfId: string }) {
   const onMoveDown = () => { void actions.moveShelf(shelf.id, 1); closeRoute(); };
   const onDelete = () => { showDeleteConfirm(controller, shelf); closeRoute(); };
 
-  const isOnlineSource = shelf.source.type === 'wishlist' || shelf.source.type === 'store';
-  const isRandomSource = shelf.sort === 'random' ||
-    (shelf.source.type === 'filter' && (shelf.source as any).filter?.sort === 'random') ||
-    shelf.source.type === 'smart';
-  const showRefreshOption = isOnlineSource || isRandomSource;
+  const isOnlineSource = isOnlineSourceShelf(shelf);
+  const showRefreshOption = isOnlineSource || isRandomSourceShelf(shelf);
   const onRefreshCache = () => {
     if (isOnlineSource) {
       clearOnlineShelfCache();
@@ -82,44 +105,44 @@ function ShelfManageRouteImpl({ shelfId: shelfIdProp }: { shelfId: string }) {
       <div style={{ padding: 24, overflowY: 'auto' }}>
         <DialogBody>
           <DialogControlsSection>
-            <h1 style={{ marginTop: 0, marginBottom: 4 }}>{t("menu_deck_shelves") ?? "Deck Shelves"}</h1>
+            <h1 style={{ marginTop: 0, marginBottom: 4 }}>{tr(t, "menu_deck_shelves", "Deck Shelves")}</h1>
             <p style={{ opacity: 0.7, marginBottom: 16 }}>{shelf.title}</p>
             <PanelSection>
               <PanelSectionRow>
-                <DialogButton onClick={onEdit} onOKButton={onEdit}>{t("edit_shelf") ?? "Edit"}</DialogButton>
+                <DialogButton onClick={onEdit} onOKButton={onEdit}>{tr(t, "edit_shelf", "Edit")}</DialogButton>
               </PanelSectionRow>
               <PanelSectionRow>
-                <DialogButton onClick={onDuplicate} onOKButton={onDuplicate}>{t("duplicate_shelf") ?? "Duplicate"}</DialogButton>
+                <DialogButton onClick={onDuplicate} onOKButton={onDuplicate}>{tr(t, "duplicate_shelf", "Duplicate")}</DialogButton>
               </PanelSectionRow>
               <PanelSectionRow>
                 <DialogButton onClick={onToggleCollapse} onOKButton={onToggleCollapse}>
-                  {isCollapsed ? (t("expand_shelf") ?? "Expand shelf") : (t("collapse_shelf") ?? "Collapse shelf")}
+                  {trBy(isCollapsed, t, "expand_shelf", "Expand shelf", "collapse_shelf", "Collapse shelf")}
                 </DialogButton>
               </PanelSectionRow>
               <PanelSectionRow>
                 <DialogButton onClick={onToggleHide} onOKButton={onToggleHide}>
-                  {isHidden ? (t("show_shelf") ?? "Show shelf") : (t("hide_shelf") ?? "Hide shelf")}
+                  {trBy(isHidden, t, "show_shelf", "Show shelf", "hide_shelf", "Hide shelf")}
                 </DialogButton>
               </PanelSectionRow>
               <PanelSectionRow>
                 <DialogButton onClick={onMoveUp} onOKButton={onMoveUp} disabled={idx <= 0}>
-                  {t("move_up") ?? "Move up"}
+                  {tr(t, "move_up", "Move up")}
                 </DialogButton>
               </PanelSectionRow>
               <PanelSectionRow>
                 <DialogButton onClick={onMoveDown} onOKButton={onMoveDown} disabled={idx >= shelves.length - 1}>
-                  {t("move_down") ?? "Move down"}
+                  {tr(t, "move_down", "Move down")}
                 </DialogButton>
               </PanelSectionRow>
               {showRefreshOption && (
                 <PanelSectionRow>
                   <DialogButton onClick={onRefreshCache} onOKButton={onRefreshCache}>
-                    {isOnlineSource ? (t("refresh_cache") ?? "Refresh cache") : (t("refresh") ?? "Refresh")}
+                    {trBy(isOnlineSource, t, "refresh_cache", "Refresh cache", "refresh", "Refresh")}
                   </DialogButton>
                 </PanelSectionRow>
               )}
               <PanelSectionRow>
-                <DialogButton onClick={onDelete} onOKButton={onDelete}>{t("delete_shelf") ?? "Delete"}</DialogButton>
+                <DialogButton onClick={onDelete} onOKButton={onDelete}>{tr(t, "delete_shelf", "Delete")}</DialogButton>
               </PanelSectionRow>
             </PanelSection>
           </DialogControlsSection>

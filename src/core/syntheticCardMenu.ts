@@ -17,10 +17,18 @@ const lbl = (key: string, fallback: string): string => {
   try { const v = i18n.t(key as any); return (typeof v === "string" && v && v !== key) ? v : fallback; } catch { return fallback; }
 };
 
+function hasMenuApis(d: any, R: any): boolean {
+  return !!d?.showContextMenu && !!d?.Menu && !!R?.createElement;
+}
+
+function synthCardMenuTitle(cardText: string | undefined): string {
+  return (typeof cardText === "string" && cardText.trim()) || lbl("card_options", "Options");
+}
+
 export function showSyntheticCardMenu(shelfId: string, anchor: HTMLElement | null, cardText?: string): void {
   const d = dfl();
   const R = react();
-  if (!d?.showContextMenu || !d?.Menu || !R?.createElement) return;
+  if (!hasMenuApis(d, R)) return;
   const settings = getCurrentSettings();
   if (!settings) return;
   const shelves = (settings.shelves ?? []) as any[];
@@ -37,7 +45,7 @@ export function showSyntheticCardMenu(shelfId: string, anchor: HTMLElement | nul
      decoration card), otherwise the generic "Options" — matches the
      on-card menu-button hint, since neither the shelf name nor "Shelf"
      is the natural identity for a focused decoration card. */
-  const titleText = (typeof cardText === "string" && cardText.trim()) || lbl("card_options", "Options");
+  const titleText = synthCardMenuTitle(cardText);
   const menu = R.createElement(
     d.Menu,
     { label: titleText, cancelText: lbl("cancel", "Cancel") },
