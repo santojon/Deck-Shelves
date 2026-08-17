@@ -3,7 +3,7 @@ import { isHomeOwner } from "../runtime/host/ownerGuard";
 import { SettingsSchema, type Settings } from "../types";
 import { defaultSettings } from "../domain/defaults";
 import { logError, logInfo, logWarn, setVerboseLogging } from "../runtime/logger";
-import { applyQASettingsOverride } from "../qa/harness";
+import { applyQASettingsOverride, qaOverrideActive } from "../qa/harness";
 
 /* Bumping the cache key invalidates persisted localStorage entries from
    previous plugin versions in one shot. v3 forces a backend refetch on
@@ -13,6 +13,14 @@ import { applyQASettingsOverride } from "../qa/harness";
 const CACHE_KEY = 'deck-shelves-settings-cache-v3';
 const SHARED_STATE_KEY = '__DECK_SHELVES_SHARED_SETTINGS__';
 
+/* A QA-overridden payload (tagged `__dsQaOverride` by `applyQASettingsOverride`)
+   must never be trusted as real data once its QA session ends — see
+   `qaOverrideActive`'s doc comment for the incident this prevents: fixture
+   data written to the cache can survive in localStorage past its QA build. */
+function isUntrustedQaPayload(raw: unknown): boolean {
+  return !qaOverrideActive && !!raw && typeof raw === "object" && (raw as any).__dsQaOverride === true;
+}
+
 function readCache(): Settings | null {
   try {
     // One-shot cleanup of pre-v3 cache entries so users upgrading from
@@ -20,7 +28,9 @@ function readCache(): Settings | null {
     try { globalThis.localStorage?.removeItem('deck-shelves-settings-cache-v2'); } catch {}
     const raw = globalThis.localStorage?.getItem(CACHE_KEY);
     if (!raw) return null;
-    const parsed = SettingsSchema.safeParse(JSON.parse(raw));
+    const rawParsed = JSON.parse(raw);
+    if (isUntrustedQaPayload(rawParsed)) return null;
+    const parsed = SettingsSchema.safeParse(rawParsed);
     // Apply migrations to cached payload too — same pre-v3 payload could
     // also be sitting at v3 if the user wrote it after the cache bump
     // before the migration shipped.
@@ -37,6 +47,7 @@ function writeCache(s: Settings) {
 function readSharedState(): Settings | null {
   try {
     const raw = (globalThis as any)[SHARED_STATE_KEY];
+    if (isUntrustedQaPayload(raw)) return null;
     const parsed = SettingsSchema.safeParse(raw);
     return parsed.success ? parsed.data : null;
   } catch {
@@ -231,8 +242,11 @@ async function flushPendingSave(): Promise<void> {
 }
 
 export function saveSettings(next: Settings): Promise<boolean> {
-  if (__DEV__ && ((typeof __QA_ALL_SHELVES_HIDE_RECENTS__ !== "undefined" && __QA_ALL_SHELVES_HIDE_RECENTS__) || (typeof __QA_ALL_SHELVES_SHOW_RECENTS__ !== "undefined" && __QA_ALL_SHELVES_SHOW_RECENTS__))) {
-    logInfo("STORAGE", "saveSettings skipped (QA all-shelves override active)");
+  // Never let a QA-overridden session reach the real backend — see
+  // `qaOverrideActive`'s doc comment for the incident this guards against.
+  // Replaces a narrower, two-flag version of this same check.
+  if (qaOverrideActive) {
+    logInfo("STORAGE", "saveSettings skipped (QA override active)");
     notify(next);
     return Promise.resolve(true);
   }
