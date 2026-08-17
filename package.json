@@ -47,6 +47,7 @@
     "qa:collection-inverted": "DS_QA_COLLECTION_INVERTED=1 pnpm run deploy:deck:hard",
     "qa:sources-fixture": "DS_QA_SOURCES_FIXTURE=1 pnpm run deploy:deck:hard",
     "qa:templates-fixture": "DS_QA_TEMPLATES_FIXTURE=1 pnpm run deploy:deck:hard",
+    "qa:decoration-fixture": "DS_QA_DECORATION_FIXTURE=1 pnpm run deploy:deck:hard",
     "qa:stress-fixture": "DS_QA_STRESS_FIXTURE=1 pnpm run deploy:deck:hard",
     "uitests": "pnpm --filter deckprobe uitests",
     "uitests:list": "pnpm --filter deckprobe uitests:list",

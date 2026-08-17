@@ -52,10 +52,13 @@ function writeSharedState(s: Settings) {
 
 const _init = readCache() ?? readSharedState();
 let current: Settings | null = _init ? applyQASettingsOverride(_init) : null;
-// Sync verbose-logging from the cached settings at module load — `current` is
-// seeded here without going through `notify()`, so without this the logger
-// flag stays false after a Steam restart until a setting actually changes.
+/* Seeded here without going through notify(), so its side effects need
+   repeating: sync verbose-logging, and write cache/shared-state so an
+   active QA override is reflected immediately — otherwise notify()'s
+   same-settings short-circuit (the override is deterministic) would leave
+   both permanently stale for the whole session. */
 setVerboseLogging((current as any)?.verboseLoggingEnabled === true);
+if (current) { writeCache(current); writeSharedState(current); }
 const listeners = new Set<(s: Settings) => void>();
 
 /* Tracks whether the most recent saveSettings attempt actually reached the

@@ -8,7 +8,7 @@ that the DS module marked itself loaded in the QAM context.
 from __future__ import annotations
 
 from deckprobe.uitests.lib.runner import suite, SkipTest
-from _qam_shared import _require_qam, _ds_in_plugin_list
+from _qam_shared import _require_qam, _ds_in_plugin_list, _open_ds_panel
 
 s = suite("sidecar")
 
@@ -24,12 +24,15 @@ def _(ctx) -> None:
 @s.test("sidecar module marks itself loaded")
 def _(ctx) -> None:
     _require_qam(ctx)
-    marker = ctx.eval_qam(
+    opened = _open_ds_panel(ctx)
+    # See _open_ds_panel's docstring: the marker lives on sjc's document,
+    # not qam's, since that's the realm DS's own module code runs in.
+    marker = ctx.eval_sjc(
         "document.documentElement.getAttribute('data-ds-module-loaded')"
     )
     ctx.close_qam()
-    if not marker:
-        raise SkipTest("DS QAM content not mounted (sidecar not opened yet)")
+    if not opened:
+        raise SkipTest("DS QAM content did not mount after opening its panel")
     assert isinstance(marker, str) and marker.startswith("yes@"), \
         f"unexpected module-loaded marker: {marker!r}"
 
@@ -37,6 +40,7 @@ def _(ctx) -> None:
 @s.test("sidecar element absent until tab expanded")
 def _(ctx) -> None:
     _require_qam(ctx)
+    _open_ds_panel(ctx)
     count = ctx.eval_qam("document.querySelectorAll('.deck-shelves-qam-sidecar').length")
     ctx.close_qam()
     assert count in (0, 1), f"unexpected sidecar element count: {count}"

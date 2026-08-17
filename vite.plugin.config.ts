@@ -38,6 +38,7 @@ export default defineConfig(({ mode }) => {
       __QA_COLLECTION_INVERTED__: JSON.stringify(!isProd && process.env.DS_QA_COLLECTION_INVERTED === "1"),
       __QA_SOURCES_FIXTURE__: JSON.stringify(!isProd && process.env.DS_QA_SOURCES_FIXTURE === "1"),
       __QA_TEMPLATES_FIXTURE__: JSON.stringify(!isProd && process.env.DS_QA_TEMPLATES_FIXTURE === "1"),
+      __QA_DECORATION_FIXTURE__: JSON.stringify(!isProd && process.env.DS_QA_DECORATION_FIXTURE === "1"),
       __QA_STRESS_FIXTURE__: JSON.stringify(!isProd && process.env.DS_QA_STRESS_FIXTURE === "1"),
     },
     resolve: {

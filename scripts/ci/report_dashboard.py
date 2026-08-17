@@ -49,6 +49,31 @@ _DASH_JS = r"""
   const SCOPES=['local','ci','release'];
   const PASS='#4ade80',FAIL='#f87171',SKIP='#94a3b8';
   const $=id=>document.getElementById(id);
+  // Shared floating tooltip for every SVG chart point — one delegated
+  // listener replaces native <title> (slow, unstyled, no styling control)
+  // on every point across every chart type, including points added by
+  // later render() re-generations (delegation needs no re-binding).
+  (function initChartTooltips(){
+    const tip=$('chart-tip');
+    if(!tip)return;
+    document.addEventListener('mouseover',e=>{
+      const t=e.target.closest('[data-tip]');
+      if(t){tip.textContent=t.getAttribute('data-tip');tip.classList.add('show');}
+    });
+    document.addEventListener('mousemove',e=>{
+      if(!tip.classList.contains('show'))return;
+      const pad=14;
+      let x=e.clientX+pad,y=e.clientY+pad;
+      const r=tip.getBoundingClientRect();
+      if(x+r.width>window.innerWidth-4)x=e.clientX-r.width-pad;
+      if(y+r.height>window.innerHeight-4)y=e.clientY-r.height-pad;
+      tip.style.left=x+'px';tip.style.top=y+'px';
+    });
+    document.addEventListener('mouseout',e=>{
+      const t=e.target.closest('[data-tip]');
+      if(t&&!t.contains(e.relatedTarget))tip.classList.remove('show');
+    });
+  })();
   let runs=Array.isArray(window.__BAKED_RUNS__)?window.__BAKED_RUNS__:[];
   // Scope is multi-select: an empty set means "all". Deck/stress stay tri-state.
   let currentScopes=new Set(), currentDeck='all', currentStress='all';
@@ -199,7 +224,7 @@ _DASH_JS = r"""
     const vmarks=verDateMarkers(items,X,pt,ch);
     const line='M'+pts.map(p=>`${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' L');
     const area=`M${pts[0].x.toFixed(1)},${pt+ch} L`+pts.map(p=>`${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' L')+` L${pts[pts.length-1].x.toFixed(1)},${pt+ch} Z`;
-    const dots=pts.map(p=>`<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3" fill="${(p.m.failed||0)===0?PASS:FAIL}"><title>${esc(p.m.ts||'?')} · ${esc(p.m.version||'?')} [${esc(scopeOf(p.m)||'?')}] · ${Math.round(p.rate)}% (${p.m.passed||0}/${p.m.total||0})</title></circle>`).join('');
+    const dots=pts.map(p=>`<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3" fill="${(p.m.failed||0)===0?PASS:FAIL}" data-tip="${esc(p.m.ts||'?')} · ${esc(p.m.version||'?')} [${esc(scopeOf(p.m)||'?')}] · ${Math.round(p.rate)}% (${p.m.passed||0}/${p.m.total||0})"/>`).join('');
     return `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}">${grid}${vmarks}<path d="${area}" fill="#3d8bff22"/><path d="${line}" fill="none" stroke="#6ea8ff" stroke-width="2"/>${dots}</svg>`;
   }
   // Generic metric-over-time trend: one point per run for which valueFn returns
@@ -228,7 +253,7 @@ _DASH_JS = r"""
     const line='M'+pts.map(p=>`${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' L');
     const area=`M${pts[0].x.toFixed(1)},${pt+ch} L`+pts.map(p=>`${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' L')+` L${pts[pts.length-1].x.toFixed(1)},${pt+ch} Z`;
     const dots=pts.map(p=>{const est=opts.estFn&&opts.estFn(p.m);
-      return `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3" ${est?`fill="#0e1626" stroke="${color}" stroke-width="1.5"`:`fill="${color}"`}><title>${esc(p.m.ts||'?')} · ${esc(p.m.version||'?')} · ${fmt(p.v)}${est?' (est.)':''}</title></circle>`;}).join('');
+      return `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3" ${est?`fill="#0e1626" stroke="${color}" stroke-width="1.5"`:`fill="${color}"`} data-tip="${esc(p.m.ts||'?')} · ${esc(p.m.version||'?')} · ${fmt(p.v)}${est?' (est.)':''}"/>`;}).join('');
     let lastLX=-99;const labels=pts.map((p,i)=>{
       const chg=i===0||Math.abs(p.v-pts[i-1].v)>1e-9;
       const last=i===pts.length-1;
@@ -268,7 +293,7 @@ _DASH_JS = r"""
     const line='M'+pts.map(p=>`${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' L');
     const area=`M${pts[0].x.toFixed(1)},${pt+ch} L`+pts.map(p=>`${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' L')+` L${pts[pts.length-1].x.toFixed(1)},${pt+ch} Z`;
     const dots=pts.map(p=>{const est=opts.estFn&&opts.estFn(p.m);
-      return `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="2.5" ${est?'fill="#0e1626" stroke="#38bdf8" stroke-width="1.5"':'fill="#38bdf8"'}><title>${esc(p.m.ts||'?')} · ${esc(p.m.version||'?')} [${esc(scopeOf(p.m)||'?')}] · ${fmt(p.v)}${est?' (est.)':''}</title></circle>`;}).join('');
+      return `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="2.5" ${est?'fill="#0e1626" stroke="#38bdf8" stroke-width="1.5"':'fill="#38bdf8"'} data-tip="${esc(p.m.ts||'?')} · ${esc(p.m.version||'?')} [${esc(scopeOf(p.m)||'?')}] · ${fmt(p.v)}${est?' (est.)':''}"/>`;}).join('');
     const idxOf=new Map(items.map((m,i)=>[m,i]));
     let avgLines='';const legend=[],placedY=[];
     for(const [name,color,ws] of verWindows(items)){
@@ -278,7 +303,7 @@ _DASH_JS = r"""
       let gy=Y(avg);while(placedY.some(py=>Math.abs(py-gy)<5))gy+=5;placedY.push(gy);
       const idxs=ws.map(m=>idxOf.get(m)).filter(i=>i!=null);
       const x1=X(Math.min(...idxs)),x2=X(Math.max(...idxs));
-      avgLines+=`<line x1="${x1.toFixed(1)}" y1="${gy.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${gy.toFixed(1)}" stroke="${color}" stroke-width="1.75" stroke-dasharray="5 3"><title>${esc(name)}: avg ${fmt(Math.round(avg))} over ${ds.length} run(s)</title></line>`;
+      avgLines+=`<line x1="${x1.toFixed(1)}" y1="${gy.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${gy.toFixed(1)}" stroke="${color}" stroke-width="1.75" stroke-dasharray="5 3" data-tip="${esc(name)}: avg ${fmt(Math.round(avg))} over ${ds.length} run(s)"/>`;
       const sw=ws.slice().sort((a,b)=>String(a.ts||'').localeCompare(String(b.ts||'')));
       const fv=valMap.get(sw[0]),lv=valMap.get(sw[sw.length-1]),delta=lv-fv;
       const dtxt=pct?((delta>=0?'+':'')+Math.round(delta)+'pp'):((delta>=0?'+':'')+(fv?Math.round(100*delta/fv):0)+'%');
@@ -309,7 +334,7 @@ _DASH_JS = r"""
       const vals=pts.map(p=>p.v),mx=Math.max(...vals)||1,sw=170,sh=42;
       const X=i=>5+(sw-10)*i/Math.max(1,pts.length-1),Y=v=>4+(sh-8)*(1-v/mx);
       const line='M'+pts.map((p,i)=>`${X(i).toFixed(1)},${Y(p.v).toFixed(1)}`).join(' L');
-      const dots=pts.map((p,i)=>`<circle cx="${X(i).toFixed(1)}" cy="${Y(p.v).toFixed(1)}" r="1.6" fill="#6ea8ff"><title>${esc(p.m.version||'?')} · ${fmtDur(p.v)}</title></circle>`).join('');
+      const dots=pts.map((p,i)=>`<circle cx="${X(i).toFixed(1)}" cy="${Y(p.v).toFixed(1)}" r="1.6" fill="#6ea8ff" data-tip="${esc(p.m.version||'?')} · ${fmtDur(p.v)}"/>`).join('');
       const f=pts[0].v,l=pts[pts.length-1].v,delta=l-f,dp=f?Math.round(100*delta/f):0;
       const tr=pts.length<2?'—':(delta>0?`▲ +${dp}%`:(delta<0?`▼ ${dp}%`:'• flat'));
       const trc=delta>0?FAIL:(delta<0?PASS:'#94a3b8');
@@ -758,6 +783,7 @@ def _rebuild_dashboard(reports_root: Path) -> None:
   {panels}
 </main>
 {_site_footer('../')}
+<div id="chart-tip" class="chart-tip"></div>
 <script>window.__BAKED_RUNS__={baked_json};window.__VER_WINDOWS__={ver_windows_json};</script>
 <script>{_DASH_JS}</script>
 </body>

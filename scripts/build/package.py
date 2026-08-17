@@ -57,7 +57,7 @@ def stage() -> None:
 
 
 def make_zip() -> None:
-    with zipfile.ZipFile(ZIP, "w", zipfile.ZIP_DEFLATED) as zf:
+    with zipfile.ZipFile(ZIP, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as zf:
         for p in sorted(STAGE.rglob("*")):
             if p.is_dir():
                 continue

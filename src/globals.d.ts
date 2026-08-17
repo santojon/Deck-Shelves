@@ -29,6 +29,7 @@ declare const __QA_COLLECTION_EMPTY__: boolean;
 declare const __QA_COLLECTION_INVERTED__: boolean;
 declare const __QA_SOURCES_FIXTURE__: boolean;
 declare const __QA_TEMPLATES_FIXTURE__: boolean;
+declare const __QA_DECORATION_FIXTURE__: boolean;
 declare const __QA_STRESS_FIXTURE__: boolean;
 
 interface Window {
