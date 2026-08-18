@@ -1,6 +1,6 @@
 {
   "context_search_toggle": "快速搜尋",
-  "context_search_combo": "{{combo}} on a card to open/close.",
+  "context_search_combo": "在卡片上{{combo}}以開啟/關閉。",
   "context_search_keyboard": "開啟虛擬鍵盤",
   "context_search_on_enter": "僅按 Enter 時搜尋",
   "sidenav_plugins": "外掛",
@@ -22,7 +22,7 @@
   "menu_update": "更新",
   "menu_verify_integrity": "驗證遊戲檔案完整性",
   "menu_view_details": "檢視詳細資料",
-  "menu_visual": "視覺",
+  "menu_visual": "外觀",
   "mount_crash_banner_desc": "偵測到書架渲染錯誤。你的書架已暫時從首頁隱藏，但仍可建立與編輯；重設後會再次顯示。",
   "mount_crash_export_and_reset": "匯出書架並清除資料",
   "mount_crash_reset": "重試",

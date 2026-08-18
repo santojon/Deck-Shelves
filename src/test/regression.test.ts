@@ -192,22 +192,29 @@ describe("Connectivity helper — TTL cache", () => {
 });
 
 describe("Online sort/filter gating", () => {
-  // Pins the `requiresOnline` flag on the online-only sorts (price/discount +
-  // the friends-signal v3 sorts) so they can be hidden from non-online source
-  // pickers (EditShelfModal switches the dropdown contents based on this flag).
+  // Pins the `requiresOnline` flag on the TRUE online-only sorts —
+  // price/discount need DS's online-store fetch. The friends-signal v3
+  // sorts were pinned here too until they were found to gate friend-based
+  // sorting off of every non-online (library/filter/collection) shelf,
+  // even though they read Steam's local friend list, not DS's online
+  // features — same source the "friends playing" home overlay already
+  // uses without requiring online features. Un-pinned so they're always
+  // offered.
   it("online-only sorts carry requiresOnline=true", async () => {
     const { SORT_OPTIONS } = await import("../components/qam/modals/editShelf/constants");
     const online = SORT_OPTIONS.filter((o) => (o as any).requiresOnline).map((o) => o.value).sort();
-    expect(online).toEqual([
-      "discount_high", "friends_playing_now", "most_friends_owning",
-      "original_price_high", "price_low", "trending_among_friends",
-    ]);
+    expect(online).toEqual(["discount_high", "original_price_high", "price_low"]);
   });
 
-  // Mirror check for the filter side — only `discount` is gated as online.
-  it("isOnlineFilterType returns true only for discount", async () => {
+  // Mirror check for the filter side — only price/discount are gated as
+  // online; friendsPlayingNow/friendsPlayedRecently read the local friend
+  // list and are always offered (see the sort-side note above).
+  it("isOnlineFilterType returns true only for discount/priceRange", async () => {
     const { isOnlineFilterType } = await import("../components/filter/utils");
     expect(isOnlineFilterType("discount" as any)).toBe(true);
+    expect(isOnlineFilterType("priceRange" as any)).toBe(true);
+    expect(isOnlineFilterType("friendsPlayingNow" as any)).toBe(false);
+    expect(isOnlineFilterType("friendsPlayedRecently" as any)).toBe(false);
     expect(isOnlineFilterType("installed" as any)).toBe(false);
     expect(isOnlineFilterType("favorites" as any)).toBe(false);
     expect(isOnlineFilterType("playtimeRange" as any)).toBe(false);

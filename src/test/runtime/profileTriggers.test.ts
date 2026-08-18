@@ -93,4 +93,31 @@ describe('installProfileTriggers', () => {
     expect(saved.list[saved.list.length - 1].activeProfileName).toBe('Home')
     un()
   })
+
+  it('restores hideRecents (and enabled) to their pre-trigger value on revert — master toggle off, no named profile active', () => {
+    // Reproduces the reported scenario: plugin disabled (no DS shelves on
+    // home), hideRecents false; an external-display trigger applies a
+    // "Docked" profile with enabled+hideRecents true; on disconnect the
+    // revert must restore both to their exact pre-trigger values, not just
+    // the profile name.
+    const docked = { id: 'p1', name: 'Docked', snapshot: { enabled: true, hideRecents: true, shelves: [{ id: 's1' }] } }
+    store.current = { profileTriggersEnabled: true, profiles: [docked], activeProfileName: null, enabled: false, hideRecents: false }
+    resolved.current = null
+    const un = installProfileTriggers() // initial: no trigger, no baseline captured
+    expect(saved.list.length).toBe(0)
+
+    resolved.current = 'Docked'
+    cb.settings!(store.current) // external display connects → apply Docked
+    const applied = saved.list[saved.list.length - 1]
+    expect(applied.enabled).toBe(true)
+    expect(applied.hideRecents).toBe(true)
+    store.current = { ...store.current, ...applied } // reflect the applied state, like the real app's notify()
+
+    resolved.current = null
+    cb.settings!(store.current) // external display disconnects → trigger denied, revert
+    const reverted = saved.list[saved.list.length - 1]
+    expect(reverted.enabled).toBe(false)
+    expect(reverted.hideRecents).toBe(false)
+    un()
+  })
 })

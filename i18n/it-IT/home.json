@@ -1,7 +1,7 @@
 {
   "card_hide": "Nascondi",
   "card_highlight_toggle": "Alterna",
-  "card_options": "Options",
+  "card_options": "Opzioni",
   "card_remove": "Rimuovi",
   "card_show": "Mostra",
   "card_synth_toggle_size": "Alterna",
@@ -23,6 +23,6 @@
   "update_downloading": "Download dell'aggiornamento {{version}} in corso…",
   "update_downloaded": "Salvato in {{path}} — installalo manualmente.",
   "update_download_failed": "Download non riuscito — apertura della pagina della versione.",
-  "shelf_type_normal": "Normal",
-  "shelf_type_smart": "Smart"
+  "shelf_type_normal": "Normale",
+  "shelf_type_smart": "Intelligente"
 }

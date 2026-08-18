@@ -13,7 +13,7 @@ import { logInfo, logWarn } from "../runtime/logger";
 import { logDiagnostic } from "../runtime/diagnostics";
 import { getPreferredSteamDocument, getPreferredSteamWindow, getAllSteamDocuments } from "../runtime/steamHost";
 import { ROOT_ID, seededShuffle, isHomeRoute, hasHomeDomSignals, detectNavTreeApi, findOrCreateMount } from "./home/mountUtils";
-import { applyHideRecents, reapplyHomeHides, applyHideHomeTabs, applyReplaceActiveMargin, getMountFailed } from "../runtime/homePatch";
+import { applyHideRecents, reapplyHomeHides, applyHideHomeTabs, applyReplaceActiveMargin, getMountFailed, getPendingHideRecents, getPendingHideHomeTabs } from "../runtime/homePatch";
 import { getRecentsReplaceFailed, subscribeRecentsReplaceFailed, isRecentsReplaceInjecting, subscribeRecentsReplaceInjecting, getRecentsReplaceActiveShelfId } from "../runtime/recentsReplace";
 import { Focusable } from "../runtime/host/decky";
 import { installPassiveMenuHook, installPassiveShowContextMenuHook, installLibraryContextMenuPatch, installCreateContextMenuPatch, prewarmMenuExtraction } from "../core/steamGameMenu";
@@ -97,13 +97,11 @@ export function HomeShelves() {
     observeDoc(doc);
     for (const d of getAllSteamDocuments()) observeDoc(d);
 
-    // State-divergence poll (2 s): when Steam re-renders the home DOM (B from
-    // library, route swap via SteamClient APIs that bypass history events,
-    /* etc.), the fresh native recents / home tabs arrive WITHOUT our hides.
-       History-event listeners miss those swaps. A MutationObserver on the
-       mount's parent fires on every D-pad mutation and cascades. This poll
-       is the smallest middle ground: cheap state read, only re-applies when
-       the actual DOM contradicts the desired hide state. */
+    /* State-divergence poll (2 s): Steam re-renders the home DOM without our
+       hides (B from library, route swap, etc.). Checked in BOTH directions —
+       a mount/DOM churn event (e.g. an external display connecting) can
+       skip the un-hide call a profile-trigger revert relies on, otherwise
+       leaving recents stuck hidden with nothing to self-correct it. */
     const checkHidden = () => {
       try {
         const m = doc.getElementById(ROOT_ID) ?? getAllSteamDocuments().map((dd) => dd.getElementById(ROOT_ID)).find(Boolean);
@@ -111,7 +109,9 @@ export function HomeShelves() {
         const parent = (m as HTMLElement).parentElement;
         if (!parent) return;
         const { recentsVisible, tabsVisible } = scanHomeChildren(parent, m as HTMLElement);
-        if (recentsVisible || tabsVisible) reapplyHomeHides();
+        const recentsMismatch = recentsVisible === getPendingHideRecents();
+        const tabsMismatch = tabsVisible === getPendingHideHomeTabs();
+        if (recentsMismatch || tabsMismatch) reapplyHomeHides();
       } catch {}
     };
     /* Tight poll (250 ms) cures the flicker the user sees when dpad-up

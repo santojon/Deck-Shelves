@@ -234,8 +234,12 @@ export function getTypeLabel(type: FilterItemType): string {
   return map[type] ?? type;
 }
 
+/* Only true store/wishlist-data filters — price and discount need the
+   online-store fetch. Friend-activity filters (playing now / played
+   recently) read Steam's local friend list instead, so they're always
+   offered rather than gated here. */
 export function isOnlineFilterType(type: FilterItemType): boolean {
-  return type === "discount" || type === "priceRange" || type === "friendsPlayingNow" || type === "friendsPlayedRecently";
+  return type === "discount" || type === "priceRange";
 }
 
 export function capitalizeFirst(s: string): string {

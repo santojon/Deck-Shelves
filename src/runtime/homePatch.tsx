@@ -297,6 +297,11 @@ export function reapplyHomeHides(): void {
   applyHideHomeTabs(pendingHideHomeTabs);
 }
 
+/* The currently-desired hide state — lets HomeInject.tsx's poll tell
+   "should be hidden but isn't" apart from "should be visible but isn't". */
+export function getPendingHideRecents(): boolean { return pendingHideRecents; }
+export function getPendingHideHomeTabs(): boolean { return pendingHideHomeTabs; }
+
 function isDsOwn(el: HTMLElement | null, mountEl: HTMLElement): boolean {
   if (!el) return false;
   if (el === mountEl || el.id === ROOT_ID) return true;

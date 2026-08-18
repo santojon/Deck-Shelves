@@ -1,6 +1,6 @@
 {
   "context_search_toggle": "Hızlı arama",
-  "context_search_combo": "{{combo}} on a card to open/close.",
+  "context_search_combo": "Kartta {{combo}}, açmak/kapatmak için.",
   "context_search_keyboard": "Sanal klavyeyi aç",
   "context_search_on_enter": "Yalnızca Enter ile ara",
   "sidenav_plugins": "Eklentiler",
@@ -22,7 +22,7 @@
   "menu_update": "Güncelle",
   "menu_verify_integrity": "Oyun dosyalarının bütünlüğünü doğrula",
   "menu_view_details": "Ayrıntıları gör",
-  "menu_visual": "Görsel",
+  "menu_visual": "Görünüm",
   "mount_crash_banner_desc": "Raflar çizilirken bir hata algılandı. Ana ekranda geçici olarak gizlendiler, ancak oluşturmaya ve düzenlemeye devam edebilirsin — sıfırladıktan sonra tekrar görünecekler.",
   "mount_crash_export_and_reset": "Rafları dışa aktar ve verileri temizle",
   "mount_crash_reset": "Yeniden dene",

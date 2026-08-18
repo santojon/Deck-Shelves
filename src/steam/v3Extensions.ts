@@ -361,10 +361,12 @@ function storageBitOf(app: AppOverview): 0 | 1 {
   return /\/run\/media\/mmcblk|\/mmcblk/i.test(folder) ? 1 : 0; // 1 = SD card
 }
 
+// Real per-app friend count (not just a 0/1 presence check) so "most
+// friends playing" actually ranks by how many, not just whether any do.
 function friendsPlayingCountOf(app: AppOverview): number {
   try {
-    const { getFriendsPlayingAppIds } = require("../runtime/friendsState");
-    return getFriendsPlayingAppIds().has(appIdOf(app)) ? 1 : 0;
+    const { getFriendsInApp } = require("../runtime/friendsState");
+    return getFriendsInApp(appIdOf(app), false).length;
   } catch { return 0; }
 }
 

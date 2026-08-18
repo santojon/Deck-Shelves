@@ -1,6 +1,6 @@
 {
   "context_search_toggle": "クイック検索",
-  "context_search_combo": "{{combo}} on a card to open/close.",
+  "context_search_combo": "カードで{{combo}}すると開閉します。",
   "context_search_keyboard": "仮想キーボードを開く",
   "context_search_on_enter": "Enterキー押下時のみ検索",
   "sidenav_plugins": "プラグイン",
@@ -22,7 +22,7 @@
   "menu_update": "アップデート",
   "menu_verify_integrity": "ゲームファイルの整合性を確認",
   "menu_view_details": "詳細を表示",
-  "menu_visual": "ビジュアル",
+  "menu_visual": "表示",
   "mount_crash_banner_desc": "棚の描画エラーを検出しました。ホームでは一時的に非表示ですが、作成・編集は続けられます — リセット後に再表示されます。",
   "mount_crash_export_and_reset": "シェルフをエクスポートしてデータを消去",
   "mount_crash_reset": "再試行",

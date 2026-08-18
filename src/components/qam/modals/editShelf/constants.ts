@@ -65,9 +65,12 @@ export const SORT_OPTIONS = [
   { value: 'smallest_install', labelKey: 'sort_smallest_install' },
   { value: 'ssd_priority', labelKey: 'sort_ssd_priority' },
   { value: 'sd_priority', labelKey: 'sort_sd_priority' },
-  { value: 'friends_playing_now', labelKey: 'sort_friends_playing_now', requiresOnline: true },
-  { value: 'most_friends_owning', labelKey: 'sort_most_friends_owning', requiresOnline: true },
-  { value: 'trending_among_friends', labelKey: 'sort_trending_among_friends', requiresOnline: true },
+  // Not `requiresOnline` — these read Steam's local friend list (same
+  // source as the "friends playing" home overlay), not DS's online-store
+  // features, so they're valid on any shelf source, not just wishlist/store.
+  { value: 'friends_playing_now', labelKey: 'sort_friends_playing_now' },
+  { value: 'most_friends_owning', labelKey: 'sort_most_friends_owning' },
+  { value: 'trending_among_friends', labelKey: 'sort_trending_among_friends' },
   { value: 'manual', labelKey: 'sort_manual' },
 ] as const
 

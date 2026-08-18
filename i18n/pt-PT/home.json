@@ -24,5 +24,5 @@
   "update_downloaded": "Guardado em {{path}} — instale manualmente.",
   "update_download_failed": "Falha na transferência — a abrir a página da versão.",
   "shelf_type_normal": "Normal",
-  "shelf_type_smart": "Smart"
+  "shelf_type_smart": "Inteligente"
 }

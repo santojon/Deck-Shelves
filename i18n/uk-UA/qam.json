@@ -1,6 +1,6 @@
 {
   "context_search_toggle": "Швидкий пошук",
-  "context_search_combo": "{{combo}} on a card to open/close.",
+  "context_search_combo": "{{combo}} на картці, щоб відкрити/закрити.",
   "context_search_keyboard": "Відкрити віртуальну клавіатуру",
   "context_search_on_enter": "Шукати лише за Enter",
   "sidenav_plugins": "Плагіни",
@@ -22,7 +22,7 @@
   "menu_update": "Оновити",
   "menu_verify_integrity": "Перевірити цілісність файлів гри",
   "menu_view_details": "Докладніше",
-  "menu_visual": "Візуальне",
+  "menu_visual": "Вигляд",
   "mount_crash_banner_desc": "Виявлено помилку рендерингу полиць. Їх тимчасово приховано з головного екрана, але ви можете продовжувати створювати та редагувати їх — після скидання вони з'являться знову.",
   "mount_crash_export_and_reset": "Експортувати полиці та очистити дані",
   "mount_crash_reset": "Повторити",

@@ -1,7 +1,7 @@
 {
   "card_hide": "非表示",
   "card_highlight_toggle": "切り替え",
-  "card_options": "Options",
+  "card_options": "オプション",
   "card_remove": "削除",
   "card_show": "表示",
   "card_synth_toggle_size": "切り替え",
@@ -23,6 +23,6 @@
   "update_downloading": "アップデート {{version}} をダウンロード中…",
   "update_downloaded": "{{path}} に保存しました。手動でインストールしてください。",
   "update_download_failed": "ダウンロードに失敗しました。リリースページを開きます。",
-  "shelf_type_normal": "Normal",
-  "shelf_type_smart": "Smart"
+  "shelf_type_normal": "通常",
+  "shelf_type_smart": "スマート"
 }

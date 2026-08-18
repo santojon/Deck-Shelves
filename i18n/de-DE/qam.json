@@ -1,9 +1,9 @@
 {
   "context_search_toggle": "Schnellsuche",
-  "context_search_combo": "{{combo}} on a card to open/close.",
+  "context_search_combo": "{{combo}} auf einer Karte zum Öffnen/Schließen.",
   "context_search_keyboard": "Virtuelle Tastatur öffnen",
   "context_search_on_enter": "Nur mit Eingabe suchen",
-  "sidenav_plugins": "Plugins",
+  "sidenav_plugins": "Erweiterungen",
   "sidenav_no_shelves": "Keine sichtbaren Regale.",
   "menu_add_to_shelf": "Zum Regal hinzufügen",
   "menu_browse_screenshots": "Screenshots durchsuchen",
