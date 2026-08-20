@@ -78,6 +78,8 @@ argument takes precedence.
 | `pnpm run package` | Create distributable `.zip` |
 | `pnpm run upload:deckzip` | Upload the zip to the Deck Downloads folder |
 
+> **Caution — `--hard` right after a live save:** `killall steam` can land mid-round-trip of a `saveSettings` call the user just made in the UI. The write itself already landed on disk (confirmed via a reproduction: the backend's pre-save backup snapshot had it), but the frontend's `lastSaveSucceeded` flag can be left `false` if the ack never arrives — and `refreshSettings`'s boot-time "retry unsynced save" then re-pushes whatever `localStorage` cache was current *when the save call started*, which can be older than what's now on disk. If you're deploying `--hard` shortly after the user (or you, live-testing) added/edited something, verify the settings file on disk afterward before assuming it's still there.
+
 ## Testing
 
 ```bash
