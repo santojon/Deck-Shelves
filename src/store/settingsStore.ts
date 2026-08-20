@@ -265,9 +265,9 @@ export function saveSettings(next: Settings): Promise<boolean> {
 }
 
 async function runSave(next: Settings): Promise<boolean> {
-  // Single-writer (§5): a stood-down instance (Decky+ShelvesHub dual-install)
-  // never writes settings — the owning instance is authoritative. The local
-  // notify() already ran, so this instance's UI stays responsive.
+  // Single-writer: a stood-down instance (dual-host install) never writes
+  // settings — the owning instance is authoritative. The local notify()
+  // already ran, so this instance's UI stays responsive.
   if (!isHomeOwner()) {
     logInfo("STORAGE", "saveSettings skipped — not the renderer owner (single-writer)");
     return true;

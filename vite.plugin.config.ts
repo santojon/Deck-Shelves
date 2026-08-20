@@ -63,28 +63,48 @@ export default defineConfig(({ mode }) => {
       minify: isProd ? "esbuild" : false,
       lib: {
         entry: path.resolve(__dirname, "src/index.tsx"),
-        formats: ["es"],
-        fileName: () => "index.js",
+        // `formats` / `fileName` are superseded by the explicit
+        // rollupOptions.output array below — one build, two output
+        // flavours from the same entry, not two separate build commands.
       },
       rollupOptions: {
-        output: {
-          entryFileNames: "index.js",
-          chunkFileNames: "chunks/[name]-[hash].js",
-          assetFileNames: "assets/[name]-[hash][extname]",
-          // Force `onlineStore` into its own chunk. Without this, Rollup
-          // co-locates it with the steam chunk (because the resolver does
-          // `await import("../core/onlineStore")`) but rewrites the dynamic
-          // import target to `../index.js` (the main bundle), which has no
-          // onlineStore exports — so `getWishlistIds`, `getPriceMap`,
-          // `getStoreGameIds` all come back undefined at runtime and the
-          // wishlist / store branches throw "X is not a function". A
-          // dedicated chunk makes the dynamic import resolve to its real
-          // location.
-          manualChunks(id: string) {
-            if (id.includes("/src/core/onlineStore")) return "onlineStore";
-            return undefined;
+        output: [
+          {
+            // ES: what a plugin loader `import()`s. Real code-split chunks
+            // (see manualChunks below) — a loader loads them as needed.
+            format: "es",
+            entryFileNames: "index.js",
+            chunkFileNames: "chunks/[name]-[hash].js",
+            assetFileNames: "assets/[name]-[hash][extname]",
+            // Force `onlineStore` into its own chunk. Without this, Rollup
+            // co-locates it with the steam chunk (because the resolver does
+            // `await import("../core/onlineStore")`) but rewrites the dynamic
+            // import target to `../index.js` (the main bundle), which has no
+            // onlineStore exports — so `getWishlistIds`, `getPriceMap`,
+            // `getStoreGameIds` all come back undefined at runtime and the
+            // wishlist / store branches throw "X is not a function". A
+            // dedicated chunk makes the dynamic import resolve to its real
+            // location.
+            manualChunks(id: string) {
+              if (id.includes("/src/core/onlineStore")) return "onlineStore";
+              return undefined;
+            },
           },
-        },
+          {
+            // IIFE: one self-contained script, no `export`/`import` at the
+            // top level — the only shape a raw `Runtime.evaluate` (no module
+            // loader involved) can run directly. Chunking isn't possible for
+            // a single script, so every dynamic import is inlined instead of
+            // split automatically for this format; the self-invoke bootstrap
+            // in src/index.tsx is what actually boots the plugin body once
+            // this runs, since nothing calls the default export for it.
+            format: "iife",
+            name: "DeckShelvesBundle",
+            entryFileNames: "index.iife.js",
+            assetFileNames: "assets/[name]-[hash][extname]",
+            exports: "named",
+          },
+        ],
       },
     },
   };

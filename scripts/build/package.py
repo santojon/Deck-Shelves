@@ -44,7 +44,14 @@ def stage() -> None:
         shutil.copy(f, backend_dir / f.name)
     for f in ("package.json", "LICENSE"):
         shutil.copy(ROOT / f, STAGE / f)
-    shutil.copytree(ROOT / "dist", STAGE / "dist", dirs_exist_ok=True)
+    # `dist/index.iife.js` is the same build's alternate output for a raw
+    # `Runtime.evaluate` host with no module loader — Decky always imports
+    # `index.js` (ES) and never touches it, so it's excluded here to keep
+    # the store package from carrying an extra multi-MB file nobody loads.
+    shutil.copytree(
+        ROOT / "dist", STAGE / "dist", dirs_exist_ok=True,
+        ignore=shutil.ignore_patterns("index.iife.js", "index.iife.js.map"),
+    )
     if (ROOT / "i18n").is_dir():
         shutil.copytree(ROOT / "i18n", STAGE / "i18n", dirs_exist_ok=True)
     # Plugin icon referenced by plugin.json ("icon": "assets/tab-icon.svg"). Only

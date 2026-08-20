@@ -113,7 +113,7 @@ function TitleView() {
   );
 }
 
-export default definePlugin((serverAPI?: any) => {
+const __ds_entry = definePlugin((serverAPI?: any) => {
   logInfo("RUNTIME", "plugin bootstrap start");
   const platform = createDeckyPlatform();
   setPlatform(platform);
@@ -140,9 +140,9 @@ export default definePlugin((serverAPI?: any) => {
   // Host selection lives entirely in resolveHost() — loader vs injected host,
   // by launch signal, producing the same HostApi contract either way.
   _hostApi = resolveHost(serverAPI, routerHook);
-  // Single-owner guard (§5): in a Decky + ShelvesHub dual-install the first
-  // instance claims the renderer; the other stands down — no home patch and no
-  // settings writes — so there's one injector and one writer.
+  // Single-owner guard: in a dual-host install the first instance claims the
+  // renderer; the other stands down — no home patch and no settings writes —
+  // so there's one injector and one writer.
   const isOwner = claimHomeOwnership((serverAPI || routerHook) ? "decky" : "shelveshub");
   if (!isOwner) logInfo("RUNTIME", "another Deck Shelves instance owns the renderer — standing down (no home patch / no settings writes)");
   const patch = (enableHomePatch && isOwner) ? installHomePatch(routerHook) : null;
@@ -344,3 +344,28 @@ export default definePlugin((serverAPI?: any) => {
     },
   };
 });
+
+/* Self-invoke bootstrap: a loader imports this module and calls the default
+   export itself with a serverAPI/routerHook. A neutral host has no loader —
+   it injects `window.__SHELVES_HOST__` first and never calls the export, so
+   nothing would boot. `__ds_ran` guards both directions so a self-invoke plus
+   an unexpected loader call can never run the plugin body twice. */
+let __ds_ran = false;
+function __ds_entry_guarded(serverAPI?: any) {
+  if (__ds_ran) return undefined;
+  __ds_ran = true;
+  /* @decky/api's own DefinePluginFn type is a zero-arg () => Plugin, but the
+     real loader calls this with a serverAPI (see definePlugin() above) — cast
+     past that known mismatch, same as the shim's own `serverAPI?: any`. */
+  return (__ds_entry as (serverAPI?: any) => unknown)(serverAPI);
+}
+export default __ds_entry_guarded;
+
+// A loader always wins on a dual-install (see resolveHost()) — only
+// self-invoke when the injected-host signal is present with no loader global.
+try {
+  const g = globalThis as any;
+  const hasInjectedHost = !!(g.window?.__SHELVES_HOST__ ?? g.__SHELVES_HOST__);
+  const hasLoaderGlobal = !!(g.window?.DFL ?? g.DFL ?? g.window?.deckyFrontendLib ?? g.deckyFrontendLib);
+  if (hasInjectedHost && !hasLoaderGlobal) __ds_entry_guarded();
+} catch {}

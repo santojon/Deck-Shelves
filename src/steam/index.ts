@@ -2654,6 +2654,14 @@ function buildBaseComparator(key: string, priceMap?: PriceMap): Cmp {
   if (key === "price_low" || key === "discount_high" || key === "original_price_high") {
     return priceMap ? priceComparator(key, priceMap) : alphaCmp;
   }
+  /* first-party Sort v3 comparators (v3Extensions.ts) aren't in
+     KEY_COMPARATOR_BUILDERS above — without this, any multi-key chain using a
+     v3-only id (most_friends_owning, owned_games, ...) silently degrades to alphabetical. */
+  try {
+    const { SORT_V3_COMPARATORS } = require("./v3Extensions") as typeof import("./v3Extensions");
+    const v3 = SORT_V3_COMPARATORS[key];
+    if (v3) return v3;
+  } catch { /* fall through */ }
   // alphabetical OR unknown external key — degrade to alphabetical.
   return alphaCmp;
 }
@@ -3240,6 +3248,34 @@ function applyLegacyFlatFilter(all: AppOverview[], f: CustomFilter): AppOverview
   return filtered;
 }
 
+function applyFilterGroupSort(
+  filtered: AppOverview[],
+  fSort: string | string[] | undefined,
+  f: CustomFilter,
+  all: AppOverview[],
+  shelfId: string | undefined,
+  sortReverse: boolean | boolean[] | undefined,
+): AppOverview[] {
+  if (Array.isArray(fSort)) {
+    /* Multi-key chain — sortAppsByFilterKey only understands a single string id
+       (an array would silently miss FILTER_SORT_DISPATCH and fall back to
+       alphabetical for every key). applySortToIds already handles per-key
+       reverse via applyMultiKeySort, so no separate reverse pass is needed. */
+    const preIds = filtered.map((a) => appIdOf(a)).filter(Number.isFinite);
+    const sortedIds = applySortToIds(preIds, fSort, all, shelfId, (f as any).sortReverse ?? sortReverse);
+    const byId = new Map(filtered.map((a) => [appIdOf(a), a] as const));
+    return sortedIds.map((id) => byId.get(id)).filter((a): a is AppOverview => !!a);
+  }
+  let sorted = sortAppsByFilterKey(filtered, fSort, shelfId);
+  /* Asc/desc inversion. Prefer the filter's own `sortReverse` (the editor writes
+     there on filter shelves; shelf-level `sortReverse` is never populated for
+     filter sources). Skipped for `manual` / `random`. */
+  if (resolveFilterReverse(f, sortReverse) && fSort !== "manual" && fSort !== "random") {
+    sorted = sorted.slice().reverse();
+  }
+  return sorted;
+}
+
 async function _resolveFilterGroupPath(
   ctx: ResolverContext,
   f: CustomFilter,
@@ -3274,15 +3310,9 @@ async function _resolveFilterGroupPath(
   const byIdAll = new Map(all.map((a) => [appIdOf(a), a] as const));
   await prefetchCatalogFilterData(flatItems, allAppIds, byIdAll).catch(() => {});
   let filtered = evaluateFilterGroup(filterGroup, all, evalCtx);
-  const fSort = (ctx.source.filter as any)?.sort as string | undefined;
+  const fSort = (ctx.source.filter as any)?.sort as string | string[] | undefined;
   await enrichAppsForMetaSort(fSort, filtered);
-  filtered = sortAppsByFilterKey(filtered, fSort, shelfId);
-  // Asc/desc inversion. Prefer the filter's own `sortReverse` (the editor
-  // writes there on filter shelves; shelf-level `sortReverse` is never
-  // populated for filter sources). Skipped for `manual` / `random`.
-  if (resolveFilterReverse(f, sortReverse) && fSort !== "manual" && fSort !== "random") {
-    filtered = filtered.slice().reverse();
-  }
+  filtered = applyFilterGroupSort(filtered, fSort, f, all, shelfId, sortReverse);
   const ids = deduplicateNonSteam(filtered.map((a) => appIdOf(a)).filter(Number.isFinite), all);
   if (!ids.length) logWarn("STEAM", "resolveShelfAppIds(filterGroup) empty", { filter: f, allCount: all.length });
   else logInfo("STEAM", "resolveShelfAppIds(filterGroup) resolved", { count: ids.length, allCount: all.length });

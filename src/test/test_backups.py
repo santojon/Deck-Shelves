@@ -21,6 +21,10 @@ from main import Plugin  # noqa: E402
 
 def _use_dir(monkeypatch, tmp_path):
     monkeypatch.setenv("DECKY_PLUGIN_SETTINGS_DIR", str(tmp_path))
+    # Also pin the canonical-store mirror to the same dir — otherwise
+    # Plugin._write_state's mirror sync (storage.sync_mirror) would write a
+    # copy onto this machine's real per-OS app-data path.
+    monkeypatch.setenv("DECK_SHELVES_SETTINGS_DIR", str(tmp_path))
     return str(tmp_path)
 
 

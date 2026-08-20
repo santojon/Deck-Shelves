@@ -35,10 +35,19 @@ function pickManualSortKey(base: string | string[]): string | string[] {
 function computePreviewSort(state: EditableShelfState): { sort: string | string[] | undefined; reverse: boolean | boolean[] } {
   const isManualSort = state.sort === 'manual' || state.filter.sort === 'manual';
   const reverse = pickPreviewReverse(state, isManualSort);
-  if (state.sourceType === 'filter') return { sort: undefined, reverse };
+  /* A pure filter shelf carries its sort on the source itself, so the shelf-level
+     sort is redundant. Once a filter primary composes with additionalSources
+     (composite), the merged result needs it to reorder the union — dropping it
+     unconditionally left the preview showing the raw round-robin merge order
+     while the saved shelf (via shelfSortForPatch, which already has this guard) sorted correctly. */
+  if (state.sourceType === 'filter' && state.additionalSources.length === 0) return { sort: undefined, reverse };
   if (isManualSort) return { sort: pickManualSortKey(state.manualBaseSort), reverse };
-  const hasUserSort = state.sort && (Array.isArray(state.sort) ? state.sort.length : true);
-  return { sort: hasUserSort ? state.sort : (reverse ? 'alphabetical' : undefined), reverse };
+  // Mirrors shelfSortForPatch's `eff` selection: a filter primary keeps its
+  // chosen sort under state.filter.sort even once composed with
+  // additionalSources, not state.sort.
+  const eff = state.sourceType === 'filter' ? state.filter.sort : state.sort;
+  const hasUserSort = eff && (Array.isArray(eff) ? eff.length : true);
+  return { sort: hasUserSort ? eff : (reverse ? 'alphabetical' : undefined), reverse };
 }
 
 function readNameCache(): Record<number, string> {

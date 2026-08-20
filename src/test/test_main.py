@@ -914,6 +914,11 @@ def _write_raw_state(settings_dir, state):
 
 def test_read_state_preserves_showcase_seen_when_not_yet_enabled(tmp_path, monkeypatch):
     monkeypatch.setenv("DECK_SHELVES_SETTINGS_DIR", str(tmp_path))
+    # Also isolate the loader mirror path to the same dir — otherwise the
+    # canonical-store reconcile (storage.reconcile_settings) would pull in
+    # whatever's sitting in the shared /tmp/test-deck-shelves-settings
+    # loader path from an earlier test in this session.
+    monkeypatch.setenv("DECKY_PLUGIN_SETTINGS_DIR", str(tmp_path))
     _write_raw_state(tmp_path, {"enabled": False, "shelves": [], "showcaseSeen": True})
     result = Plugin()._read_state()
     assert result["showcaseSeen"] is True
@@ -922,6 +927,11 @@ def test_read_state_preserves_showcase_seen_when_not_yet_enabled(tmp_path, monke
 
 def test_read_state_preserves_other_fields_when_empty(tmp_path, monkeypatch):
     monkeypatch.setenv("DECK_SHELVES_SETTINGS_DIR", str(tmp_path))
+    # Also isolate the loader mirror path to the same dir — otherwise the
+    # canonical-store reconcile (storage.reconcile_settings) would pull in
+    # whatever's sitting in the shared /tmp/test-deck-shelves-settings
+    # loader path from an earlier test in this session.
+    monkeypatch.setenv("DECKY_PLUGIN_SETTINGS_DIR", str(tmp_path))
     _write_raw_state(tmp_path, {"enabled": False, "shelves": [], "verboseLoggingEnabled": True})
     result = Plugin()._read_state()
     assert result["verboseLoggingEnabled"] is True
@@ -929,12 +939,22 @@ def test_read_state_preserves_other_fields_when_empty(tmp_path, monkeypatch):
 
 def test_read_state_returns_defaults_when_file_missing(tmp_path, monkeypatch):
     monkeypatch.setenv("DECK_SHELVES_SETTINGS_DIR", str(tmp_path))
+    # Also isolate the loader mirror path to the same dir — otherwise the
+    # canonical-store reconcile (storage.reconcile_settings) would pull in
+    # whatever's sitting in the shared /tmp/test-deck-shelves-settings
+    # loader path from an earlier test in this session.
+    monkeypatch.setenv("DECKY_PLUGIN_SETTINGS_DIR", str(tmp_path))
     result = Plugin()._read_state()
     assert result == dict(DEFAULT_SETTINGS)
 
 
 def test_read_state_trusts_a_populated_state_too(tmp_path, monkeypatch):
     monkeypatch.setenv("DECK_SHELVES_SETTINGS_DIR", str(tmp_path))
+    # Also isolate the loader mirror path to the same dir — otherwise the
+    # canonical-store reconcile (storage.reconcile_settings) would pull in
+    # whatever's sitting in the shared /tmp/test-deck-shelves-settings
+    # loader path from an earlier test in this session.
+    monkeypatch.setenv("DECKY_PLUGIN_SETTINGS_DIR", str(tmp_path))
     _write_raw_state(tmp_path, {"enabled": True, "shelves": [{"id": "s1", "title": "Shelf"}]})
     result = Plugin()._read_state()
     assert result["enabled"] is True
