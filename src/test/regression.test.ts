@@ -219,6 +219,20 @@ describe("Online sort/filter gating", () => {
     expect(isOnlineFilterType("favorites" as any)).toBe(false);
     expect(isOnlineFilterType("playtimeRange" as any)).toBe(false);
   });
+
+  // genres/categories/franchise need Online Features on any source (no
+  // usable local data at all — see v3Extensions.ts) — a different gate than
+  // isOnlineFilterType's source-type check above, so it's a separate flag.
+  it("isOnlineFeatureFilterType returns true only for genres/categories/franchise", async () => {
+    const { isOnlineFeatureFilterType } = await import("../components/filter/utils");
+    expect(isOnlineFeatureFilterType("genres" as any)).toBe(true);
+    expect(isOnlineFeatureFilterType("categories" as any)).toBe(true);
+    expect(isOnlineFeatureFilterType("franchise" as any)).toBe(true);
+    expect(isOnlineFeatureFilterType("multiplayerType" as any)).toBe(false);
+    expect(isOnlineFeatureFilterType("vrSupport" as any)).toBe(false);
+    expect(isOnlineFeatureFilterType("discount" as any)).toBe(false);
+    expect(isOnlineFeatureFilterType("installed" as any)).toBe(false);
+  });
 });
 
 describe("ShelfSourceSchema — online sources accept excludeOwned", () => {

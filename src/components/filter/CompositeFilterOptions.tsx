@@ -4,6 +4,12 @@ import type { SettingsController } from "../../features/settings/controller";
 import i18n from "../../i18n";
 import { DSSliderField } from "../ui";
 
+function compositeHint(type: FilterItem["type"], t: (k: any) => string): string {
+  if (type === "weightedFilter") return t("filter_weighted_hint");
+  if (type === "priorityFilter") return t("filter_priority_hint");
+  return t("filter_exclusion_hint");
+}
+
 /* Editor for the composite filter types (weighted / priority / exclusion). Each
    holds child filter items in `params.children` — any filter type, evaluated
    through the host's full evaluator. `weightedFilter` adds a `threshold`: match
@@ -14,11 +20,13 @@ export default function CompositeFilterOptions({
   onChange,
   controller,
   allowOnlineFilters = false,
+  onlineFeaturesOn = false,
 }: {
   item: FilterItem;
   onChange: (patch: Partial<FilterItem>) => void;
   controller?: SettingsController;
   allowOnlineFilters?: boolean;
+  onlineFeaturesOn?: boolean;
 }) {
   const t = i18n.t.bind(i18n);
   const p = item.params ?? {};
@@ -29,10 +37,7 @@ export default function CompositeFilterOptions({
   const group: FilterGroup = { mode: "or", items: children };
   const setChildren = (g: FilterGroup) => onChange({ params: { ...p, children: g.items } });
 
-  const hint =
-    item.type === "weightedFilter" ? t("filter_weighted_hint")
-    : item.type === "priorityFilter" ? t("filter_priority_hint")
-    : t("filter_exclusion_hint");
+  const hint = compositeHint(item.type, t);
 
   return (
     <div style={{ marginTop: 4, marginLeft: 8, paddingLeft: 8, borderLeft: "2px solid rgba(255,255,255,0.08)" }}>
@@ -48,7 +53,7 @@ export default function CompositeFilterOptions({
           onChange={(v: number) => onChange({ params: { ...p, threshold: v } })}
         />
       )}
-      <FilterPanel group={group} onChange={setChildren} controller={controller} allowOnlineFilters={allowOnlineFilters} hideMode />
+      <FilterPanel group={group} onChange={setChildren} controller={controller} allowOnlineFilters={allowOnlineFilters} onlineFeaturesOn={onlineFeaturesOn} hideMode />
     </div>
   );
 }

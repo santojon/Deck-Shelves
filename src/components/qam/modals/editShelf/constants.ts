@@ -71,6 +71,10 @@ export const SORT_OPTIONS = [
   { value: 'friends_playing_now', labelKey: 'sort_friends_playing_now' },
   { value: 'most_friends_owning', labelKey: 'sort_most_friends_owning' },
   { value: 'trending_among_friends', labelKey: 'sort_trending_among_friends' },
+  // Also local-only data, not `requiresOnline` — see v3Extensions.ts for
+  // what each one reads.
+  { value: 'owned_games', labelKey: 'sort_owned_games' },
+  { value: 'family_shared_games', labelKey: 'sort_family_shared_games' },
   { value: 'manual', labelKey: 'sort_manual' },
 ] as const
 

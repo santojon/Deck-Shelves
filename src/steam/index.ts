@@ -2166,6 +2166,23 @@ function filterGroupNeedsDevPubPreload(group: FilterGroup): { needsDev: boolean;
   return { needsDev, needsPub };
 }
 
+// Flattens a filter group's items (walking `merge` nesting, same as the
+// dev/pub preload above) — used to pre-warm genre/category/franchise data
+// before evaluation, the same reason dev/pub caches are warmed here.
+function collectFilterGroupItemsFlat(group: FilterGroup): any[] {
+  const out: any[] = [];
+  const walk = (g: FilterGroup) => {
+    for (const item of g.items ?? []) {
+      out.push(item);
+      if (item.type === "merge" && Array.isArray((item as any).params?.items)) {
+        walk({ mode: ((item as any).params.mode ?? "and") as "and" | "or", items: (item as any).params.items as FilterItem[] });
+      }
+    }
+  };
+  walk(group);
+  return out;
+}
+
 // Per-type filter evaluators (dispatch table).
 type FilterEvaluator = (item: FilterItem, app: AppOverview, ctx?: FilterEvalContext) => boolean;
 
@@ -2930,12 +2947,13 @@ async function resolveCollectionFallback(rawCollectionId: string, all: AppOvervi
   } catch { return []; }
 }
 
-function applyCollectionChildFilter(ids: number[], source: any, all: AppOverview[]): number[] {
+async function applyCollectionChildFilter(ids: number[], source: any, all: AppOverview[]): Promise<number[]> {
   const cf = source.childFilter as FilterGroup | undefined;
   if (!cf || !Array.isArray(cf.items) || cf.items.length === 0) return ids;
   const byId = new Map<number, AppOverview>();
   for (const a of all) { const aid = appIdOf(a); if (Number.isFinite(aid)) byId.set(aid, a); }
   const candidates = ids.map((id) => byId.get(id)).filter(Boolean) as AppOverview[];
+  await prefetchCatalogFilterData(collectFilterGroupItemsFlat(cf), ids, byId).catch(() => {});
   return evaluateFilterGroup(cf, candidates).map((a) => appIdOf(a)).filter(Number.isFinite);
 }
 
@@ -2977,7 +2995,7 @@ async function _resolveCollection(ctx: ResolverContext): Promise<number[]> {
   } else {
     logInfo("STEAM", "resolveShelfAppIds(collection) resolved", { collectionId: rawCollectionId, count: ids.length });
   }
-  ids = applyCollectionChildFilter(ids, source, all);
+  ids = await applyCollectionChildFilter(ids, source, all);
   if (sort) { await enrichForSort(sort, ids, all); ids = applySortToIds(ids, sort, all, shelfId, sortReverse); }
   ids = deduplicateNonSteam(ids, all);
   emitResolvedTotal(ctx, ids.length);
@@ -3242,13 +3260,19 @@ async function _resolveFilterGroupPath(
   // make those filter items match zero apps on the home (the editor
   // warms via its filter pickers; the home doesn't go through them).
   const needs = filterGroupNeedsDevPubPreload(filterGroup);
+  const allAppIds = all.map((a) => appIdOf(a)).filter(Number.isFinite);
   if (needs.needsDev || needs.needsPub) {
-    const allAppIds = all.map((a) => appIdOf(a)).filter(Number.isFinite);
     await Promise.all([
       needs.needsDev ? preloadDeveloperData(allAppIds).catch(() => {}) : Promise.resolve(),
       needs.needsPub ? preloadPublisherData(allAppIds).catch(() => {}) : Promise.resolve(),
     ]);
   }
+  // Same reasoning as dev/pub above: genres/categories/franchise have no
+  // usable local data even for games you own, so a genre/category/franchise
+  // filter on a plain library shelf needs this warmed first too.
+  const flatItems = collectFilterGroupItemsFlat(filterGroup);
+  const byIdAll = new Map(all.map((a) => [appIdOf(a), a] as const));
+  await prefetchCatalogFilterData(flatItems, allAppIds, byIdAll).catch(() => {});
   let filtered = evaluateFilterGroup(filterGroup, all, evalCtx);
   const fSort = (ctx.source.filter as any)?.sort as string | undefined;
   await enrichAppsForMetaSort(fSort, filtered);
@@ -3364,6 +3388,35 @@ function computeWishlistHideFlags(source: any, s: any): WishlistHideFlags {
 
 const PRICE_SORT_KEYS = new Set(["price_low", "discount_high", "original_price_high"]);
 
+// Pure catalog/store metadata (not personal play-history) — meaningful for
+// any appid, owned or not, once fetched via getCatalogMetaMap.
+const CATALOG_FILTER_TYPES = new Set(["genres", "categories", "franchise", "vrSupport", "multiplayerType"]);
+/* genres/categories: the local client never carries these as name strings,
+   even for owned games — always needs the fetch. vrSupport/multiplayerType
+   have a fast local path for owned games (see v3Extensions.ts) and only
+   need the fetch for ids the client has never seen. */
+const WEB_CATALOG_FILTER_TYPES = new Set(["genres", "categories"]);
+const LOCAL_FIRST_CATALOG_FILTER_TYPES = new Set(["vrSupport", "multiplayerType"]);
+
+async function prefetchCatalogFilterData(items: any[], ids: number[], byId: Map<number, AppOverview>): Promise<void> {
+  const needsWebCatalog = items.some((item) => WEB_CATALOG_FILTER_TYPES.has(item.type));
+  const needsLocalFirstCatalog = items.some((item) => LOCAL_FIRST_CATALOG_FILTER_TYPES.has(item.type));
+  const needsFranchise = items.some((item) => item.type === "franchise");
+  if (needsWebCatalog || needsLocalFirstCatalog) {
+    // genres/categories need every id (local never has the data); vrSupport/
+    // multiplayerType only need ids the client has never seen.
+    const targetIds = needsWebCatalog ? ids : ids.filter((id) => !byId.has(id));
+    if (targetIds.length) {
+      const { getCatalogMetaMap } = await import("../core/onlineStore");
+      await getCatalogMetaMap(targetIds);
+    }
+  }
+  if (needsFranchise) {
+    const { prefetchFranchise } = await import("./v3Extensions");
+    await prefetchFranchise(ids);
+  }
+}
+
 async function applyWishlistChildFilter(ids: number[], childFilter: any, all: AppOverview[]): Promise<number[]> {
   if (!childFilter || !Array.isArray(childFilter.items) || childFilter.items.length === 0) return ids;
   const hasPriceFilter = childFilter.items.some((item: any) => item.type === "discount" || item.type === "priceRange");
@@ -3372,6 +3425,7 @@ async function applyWishlistChildFilter(ids: number[], childFilter: any, all: Ap
     await getPriceMap(ids);
   }
   const byId = new Map(all.map((a) => [appIdOf(a), a] as const));
+  await prefetchCatalogFilterData(childFilter.items, ids, byId);
   return ids.filter((id) => {
     const app = byId.get(id);
     return childFilter.items.every((item: any) => evaluateWishlistChildItem(item, id, app));
@@ -3383,7 +3437,10 @@ function evaluateWishlistChildItem(item: any, id: number, app: AppOverview | und
   // game absent from the local library must still be checked against the cache —
   // never waved through, or unowned/free titles leak past a price bound.
   if (item.type === "discount" || item.type === "priceRange") return evaluateFilterItem(item, { appid: id } as any, undefined);
-  if (!app) return true;
+  // Catalog filters read v3Extensions' rawField, which falls back to fetched
+  // Store metadata for ids not in `all` — a bare `{ appid }` is enough.
+  if (CATALOG_FILTER_TYPES.has(item.type)) return evaluateFilterItem(item, (app ?? { appid: id }) as any, undefined);
+  if (!app) return true; // personal/play-history filters don't apply to unowned items
   return evaluateFilterItem(item, app, undefined);
 }
 
@@ -3516,10 +3573,11 @@ async function resolveSmartCompositeIds(
   return mergeCompositeResults(childResults, combine);
 }
 
-function applySmartFilterGroup(ids: number[], filterGroup: any, apps: AppOverview[]): number[] {
+async function applySmartFilterGroup(ids: number[], filterGroup: any, apps: AppOverview[]): Promise<number[]> {
   if (!filterGroup || !Array.isArray(filterGroup.items) || filterGroup.items.length === 0) return ids;
   const byId = new Map(apps.map((a) => [appIdOf(a), a] as const));
   const candidates = ids.map((id) => byId.get(id)).filter(Boolean) as AppOverview[];
+  await prefetchCatalogFilterData(collectFilterGroupItemsFlat(filterGroup), ids, byId).catch(() => {});
   return evaluateFilterGroup(filterGroup, candidates).map((a) => appIdOf(a)).filter(Number.isFinite);
 }
 
@@ -3546,7 +3604,7 @@ async function _resolveSmart(ctx: ResolverContext): Promise<number[]> {
     const rawIds = compositeModes.length > 0
       ? await resolveSmartCompositeIds(source, smartFetchLimit, smartParams, ttlMs, shelfId, deps)
       : await resolveSmartModeIds(source.mode, smartFetchLimit, smartParams, ttlMs, shelfId, deps);
-    let ids = applySmartFilterGroup(rawIds, smartFilterGroup, apps);
+    let ids = await applySmartFilterGroup(rawIds, smartFilterGroup, apps);
     if (sort && sort !== "manual") ids = applySortToIds(ids, sort, apps, shelfId, sortReverse);
     logInfo("STEAM", "resolveShelfAppIds(smart) resolved", { mode: source.mode, count: ids.length, hasFilter: !!smartFilterGroup, sort });
     return finish(ids.slice(0, overShootLimit));

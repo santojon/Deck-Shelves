@@ -21,6 +21,7 @@ interface OptCtx {
   onChange: (patch: Partial<FilterItem>) => void;
   controller?: SettingsController;
   allowOnlineFilters: boolean;
+  onlineFeaturesOn: boolean;
 }
 
 // Mirror Steam's EAppType — see the resolver's `shortcutType` branch. Ordered
@@ -279,17 +280,17 @@ const RENDERERS: Record<string, (c: OptCtx) => ReactNode> = {
   launchOptionTags: ({ t, p, patchParams }) => textRow(t("filter_type_launch_option_tags"), t("filter_comma_hint"), (Array.isArray(p.tags) ? p.tags : []).join(", "), (raw) => patchParams({ tags: splitList(raw) })),
   customTags: ({ t, p, patchParams }) => textRow(t("filter_type_custom_tags"), t("filter_comma_hint"), (Array.isArray(p.tags) ? p.tags : []).join(", "), (raw) => patchParams({ tags: splitList(raw) })),
   parserCategories: ({ t, p, patchParams }) => textRow(t("filter_type_parser_categories"), t("filter_comma_hint"), (Array.isArray(p.tags) ? p.tags : []).join(", "), (raw) => patchParams({ tags: splitList(raw) })),
-  merge: ({ item, onChange, controller, allowOnlineFilters }) => <MergeFilterOptions item={item} onChange={onChange} controller={controller} allowOnlineFilters={allowOnlineFilters} />,
-  weightedFilter: ({ item, onChange, controller, allowOnlineFilters }) => <CompositeFilterOptions item={item} onChange={onChange} controller={controller} allowOnlineFilters={allowOnlineFilters} />,
-  priorityFilter: ({ item, onChange, controller, allowOnlineFilters }) => <CompositeFilterOptions item={item} onChange={onChange} controller={controller} allowOnlineFilters={allowOnlineFilters} />,
-  exclusionGroup: ({ item, onChange, controller, allowOnlineFilters }) => <CompositeFilterOptions item={item} onChange={onChange} controller={controller} allowOnlineFilters={allowOnlineFilters} />,
+  merge: ({ item, onChange, controller, allowOnlineFilters, onlineFeaturesOn }) => <MergeFilterOptions item={item} onChange={onChange} controller={controller} allowOnlineFilters={allowOnlineFilters} onlineFeaturesOn={onlineFeaturesOn} />,
+  weightedFilter: ({ item, onChange, controller, allowOnlineFilters, onlineFeaturesOn }) => <CompositeFilterOptions item={item} onChange={onChange} controller={controller} allowOnlineFilters={allowOnlineFilters} onlineFeaturesOn={onlineFeaturesOn} />,
+  priorityFilter: ({ item, onChange, controller, allowOnlineFilters, onlineFeaturesOn }) => <CompositeFilterOptions item={item} onChange={onChange} controller={controller} allowOnlineFilters={allowOnlineFilters} onlineFeaturesOn={onlineFeaturesOn} />,
+  exclusionGroup: ({ item, onChange, controller, allowOnlineFilters, onlineFeaturesOn }) => <CompositeFilterOptions item={item} onChange={onChange} controller={controller} allowOnlineFilters={allowOnlineFilters} onlineFeaturesOn={onlineFeaturesOn} />,
 };
 
-export default function FilterItemOptions({ item, onChange, controller, allowOnlineFilters = false }: { item: FilterItem; onChange: (patch: Partial<FilterItem>) => void; controller?: SettingsController; allowOnlineFilters?: boolean }) {
+export default function FilterItemOptions({ item, onChange, controller, allowOnlineFilters = false, onlineFeaturesOn = false }: { item: FilterItem; onChange: (patch: Partial<FilterItem>) => void; controller?: SettingsController; allowOnlineFilters?: boolean; onlineFeaturesOn?: boolean }) {
   const t = i18n.t.bind(i18n) as Tfn;
   const p = item.params ?? {};
   const patchParams = (patch: Record<string, any>) => onChange({ params: { ...p, ...patch } });
   const render = RENDERERS[item.type];
   if (!render) return null;
-  return <>{render({ item, p, t, patchParams, onChange, controller, allowOnlineFilters })}</>;
+  return <>{render({ item, p, t, patchParams, onChange, controller, allowOnlineFilters, onlineFeaturesOn })}</>;
 }

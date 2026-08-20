@@ -5,8 +5,16 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+### Added
+
+- **Two new sort options: "Games I own" and "Family-shared games."** Handy for shelves that mix your library with a wishlist or store source — sort by what's already yours, or by what's shared through Family Sharing.
+- **Filters like genre, category, franchise, VR support and multiplayer type now actually work on wishlist/store cards you don't own yet**, not just on your own library. Build a shelf that mixes your library with the store, filter both sides for multiplayer games, and it now filters correctly on both — the plugin fetches and caches the needed Store data automatically the first time you use one of these filters (Online features must be on).
+- **Genre, category and franchise now show the same online badge as other online-only filters, and only appear once Online Features is on** — they need it now, wherever you use them, since they never had usable local data to fall back on.
+
 ### Fixed
 
+- **A profile switched on by a display, controller or charging trigger could stay stuck active after your Deck slept and woke up in a different state.** The trigger now checks display, controller and battery again as soon as the Deck wakes, instead of waiting for the next real change to notice.
+- **The multiplayer filter never matched a single game already in your library — only games from the store you don't own.** It was reading data your Steam client simply doesn't provide that way for games you own; now it reads the right thing, so multiplayer filtering finally works on your own library too.
 - **"Friends playing now", "most friends own" and "trending among friends" now show up as sort options on any shelf, not just wishlist/store ones.** They only ever needed your Steam friends list, the same thing the home screen's own "friends playing" overlay already uses — nothing online-only about them. The matching friend-activity filters are no longer hidden outside online shelves either.
 - **Translations touched up across all 17 non-English languages**, including a couple of sections — the in-app feature tour and the About page's online-features guide — that had never been translated at all in some of them.
 - **If your shelves ever look wiped after a settings reset or restore, the first-run screen now offers to bring them back.** Previously it only offered to create new default shelves; now, if the plugin can tell this isn't actually a fresh install, it also shows your saved snapshots to restore from.

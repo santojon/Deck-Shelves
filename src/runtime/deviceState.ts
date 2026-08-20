@@ -59,7 +59,11 @@ function screenChanged(a: { w: number; h: number } | null, b: { w: number; h: nu
   return aw !== bw || ah !== bh;
 }
 
-async function refreshDisplay(): Promise<void> {
+/* Exported so a system-resume handler can force a fresh read: display-change
+   events don't fire for anything that happened while suspended (nothing runs
+   during sleep), so a dock/undock while asleep leaves `_external` stale until
+   something else re-checks it. */
+export async function refreshDisplay(): Promise<void> {
   const nextScreen = readBpScreen();
   const nextExternal = await fetchExternal();
   const changed = nextExternal !== _external || screenChanged(nextScreen, _screen);
@@ -111,6 +115,13 @@ function readExternalController(): boolean {
 function refreshController(): void {
   const next = readExternalController();
   if (next !== _externalController) { _externalController = next; notify(); }
+}
+
+/* Exported for the same reason as refreshDisplay: a controller connecting or
+   disconnecting while suspended fires no event (nothing runs during sleep),
+   so a resume handler needs to force this live, synchronous read itself. */
+export function refreshControllerState(): void {
+  refreshController();
 }
 
 function subscribeControllers(): void {

@@ -8,11 +8,13 @@ export default function MergeFilterOptions({
   onChange,
   controller,
   allowOnlineFilters = false,
+  onlineFeaturesOn = false,
 }: {
   item: FilterItem;
   onChange: (patch: Partial<FilterItem>) => void;
   controller?: SettingsController;
   allowOnlineFilters?: boolean;
+  onlineFeaturesOn?: boolean;
 }) {
   const p = item.params ?? {};
   const items: FilterItem[] = Array.isArray(p.items) ? (p.items as FilterItem[]) : [];
@@ -35,7 +37,7 @@ export default function MergeFilterOptions({
           onApply={(applied) => setGroup({ mode: applied.mode, items: applied.items.slice() })}
         />
       )}
-      <FilterPanel group={group} onChange={setGroup} controller={controller} allowOnlineFilters={allowOnlineFilters} />
+      <FilterPanel group={group} onChange={setGroup} controller={controller} allowOnlineFilters={allowOnlineFilters} onlineFeaturesOn={onlineFeaturesOn} />
     </div>
   );
 }

@@ -237,9 +237,18 @@ export function getTypeLabel(type: FilterItemType): string {
 /* Only true store/wishlist-data filters — price and discount need the
    online-store fetch. Friend-activity filters (playing now / played
    recently) read Steam's local friend list instead, so they're always
-   offered rather than gated here. */
+   offered rather than gated here. Gated by `allowOnlineFilters` (is the
+   current source itself online), not by the Online Features toggle. */
 export function isOnlineFilterType(type: FilterItemType): boolean {
   return type === "discount" || type === "priceRange";
+}
+
+/* genres/categories/franchise have no usable local data — even on a library
+   shelf they need Online Features on to fetch and cache Store/client
+   details. Gated by the toggle itself, not source type: unlike discount/
+   priceRange these are meaningful on any source (v3Extensions.ts). */
+export function isOnlineFeatureFilterType(type: FilterItemType): boolean {
+  return type === "genres" || type === "categories" || type === "franchise";
 }
 
 export function capitalizeFirst(s: string): string {

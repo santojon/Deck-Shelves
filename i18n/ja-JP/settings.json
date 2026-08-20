@@ -584,6 +584,8 @@
   "sort_friends_playing_now": "フレンドがプレイ中",
   "sort_most_friends_owning": "所有フレンドが多い順",
   "sort_trending_among_friends": "フレンドで話題",
+  "sort_owned_games": "所有しているゲーム",
+  "sort_family_shared_games": "ファミリー共有ゲーム",
   "sort_recent": "最後にプレイした順",
   "sort_release_date": "リリース日",
   "sort_remove_key": "キーを削除",

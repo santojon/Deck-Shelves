@@ -317,7 +317,8 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
     return { ...prev, manualOrder: nextManualOrder, syntheticCards: nextSynth }
   })
   const { settings } = controller
-  const allSourceTypes: SourceType[] = buildAllSourceTypes(externalSources, onlineFeaturesEnabled(settings))
+  const onlineOn = onlineFeaturesEnabled(settings)
+  const allSourceTypes: SourceType[] = buildAllSourceTypes(externalSources, onlineOn)
   const sourceTypeOptions: SingleDropdownOption[] = allSourceTypes.map((value) => ({
     data: value,
     label: value === 'collection' ? t('source_collection') :
@@ -410,7 +411,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
     collectionOptions,
     tabOptions,
     externalOptions,
-    onlineEnabled: onlineFeaturesEnabled(settings),
+    onlineEnabled: onlineOn,
     labels: {
       collection: t('source_collection'),
       tab: t('source_tab'),
@@ -862,7 +863,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
                             <div style={{ fontSize: 13, opacity: 0.85, padding: '4px 0', fontWeight: 600 }}>{`${t('source_filter')} ${i + 1}`}</div>
                           )}
                           <SavedFiltersBar controller={controller} currentGroup={slot.group} onApply={slot.onChange} />
-                          <FilterPanel group={slot.group} onChange={slot.onChange} controller={controller} allowOnlineFilters={false} />
+                          <FilterPanel group={slot.group} onChange={slot.onChange} controller={controller} allowOnlineFilters={false} onlineFeaturesOn={onlineOn} />
                         </div>
                       ))}
                     </FieldContainer>
@@ -935,7 +936,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
                             currentGroup={slot.group}
                             onApply={slot.onChange}
                           />
-                          <FilterPanel group={slot.group} onChange={slot.onChange} controller={controller} allowOnlineFilters={slot.allowOnline} />
+                          <FilterPanel group={slot.group} onChange={slot.onChange} controller={controller} allowOnlineFilters={slot.allowOnline} onlineFeaturesOn={onlineOn} />
                         </div>
                       ))}
                     </FieldContainer>

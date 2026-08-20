@@ -84,6 +84,14 @@ export function getBatteryState(): BatteryState | null {
   return _state;
 }
 
+/* There's no one-shot "get current battery state" call — only the
+   subscription. Re-registering fires the callback immediately with the
+   current state (confirmed live), so this is how a resume handler forces a
+   fresh read after a stale-during-sleep event. */
+export function forceBatteryRefresh(): void {
+  installBatteryState();
+}
+
 export function isLowBattery(thresholdFraction = 0.3): boolean {
   const s = _state;
   if (!s || !s.hasBattery) return false;

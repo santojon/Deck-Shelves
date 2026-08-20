@@ -408,6 +408,133 @@ export async function getPriceMap(appids: number[]): Promise<Map<number, PriceDa
   return result;
 }
 
+// ── Catalog metadata (genres/categories/VR) ─────────────────────────────────
+
+/* Powers v3 filters (genres, categories, vrSupport, multiplayerType) for
+   Store/wishlist items not in the local library — the client only exposes
+   this for owned apps. Read via getCachedCatalogMeta() as a fallback inside
+   v3Extensions' rawField, once pre-fetched here. */
+export interface CatalogMeta {
+  genres: string[];
+  categories: string[];
+  vrSupported: boolean;
+}
+
+const CATALOG_KEY = "ds-catalog-meta-cache-v1";
+const CATALOG_TTL = 7 * 24 * 60 * 60 * 1000; // genre/category rarely changes
+
+type CatalogCache = Record<number, { ts: number; data: CatalogMeta }>;
+
+let _catalogCacheRaw: string | null = null;
+let _catalogCacheParsed: CatalogCache | null = null;
+
+function getCatalogCache(): CatalogCache {
+  const raw = localStorage.getItem(CATALOG_KEY);
+  if (raw === _catalogCacheRaw && _catalogCacheParsed) return _catalogCacheParsed;
+  try { _catalogCacheParsed = raw ? JSON.parse(raw) : {}; } catch { _catalogCacheParsed = {}; }
+  _catalogCacheRaw = raw;
+  return _catalogCacheParsed as CatalogCache;
+}
+
+function readCatalogCache(appid: number): CatalogMeta | null {
+  const entry = getCatalogCache()[appid];
+  if (entry && Date.now() - entry.ts < CATALOG_TTL) return entry.data;
+  return null;
+}
+
+function writeCatalogCacheEntry(appid: number, data: CatalogMeta): void {
+  try {
+    const raw = localStorage.getItem(CATALOG_KEY);
+    const cache: CatalogCache = raw ? JSON.parse(raw) : {};
+    cache[appid] = { ts: Date.now(), data };
+    const cutoff = Date.now() - CATALOG_TTL * 2;
+    for (const k of Object.keys(cache)) {
+      if ((cache[Number(k)]?.ts ?? 0) < cutoff) delete cache[Number(k)];
+    }
+    const next = JSON.stringify(cache);
+    localStorage.setItem(CATALOG_KEY, next);
+    _catalogCacheRaw = next;
+    _catalogCacheParsed = cache;
+  } catch {}
+}
+
+/** Synchronous — reads whatever `getCatalogMetaMap` has already cached for
+ *  this appid. Never fetches; callers that need fresh data must await
+ *  `getCatalogMetaMap` first (see `applyWishlistChildFilter`). */
+export function getCachedCatalogMeta(appid: number): CatalogMeta | null {
+  return readCatalogCache(appid);
+}
+
+// Steam's own taxonomy: category id 31 is "VR Support" — matched by
+// description too, since a `success: false` response still deserves a
+// cached (empty) negative entry, not a permanent re-fetch.
+function parseCatalogEntry(entry: any): CatalogMeta {
+  const rawCategories: any[] = Array.isArray(entry?.data?.categories) ? entry.data.categories : [];
+  const rawGenres: any[] = Array.isArray(entry?.data?.genres) ? entry.data.genres : [];
+  return {
+    genres: rawGenres.map((g) => String(g?.description ?? "")).filter(Boolean),
+    categories: rawCategories.map((c) => String(c?.description ?? "")).filter(Boolean),
+    vrSupported: rawCategories.some((c) => Number(c?.id) === 31 || /\bvr\b/i.test(String(c?.description ?? ""))),
+  };
+}
+
+/** false = fetch-level failure (network/429/non-ok/non-json) — never cached,
+ *  so it's retried later. Anything else (including `undefined`, Steam simply
+ *  having no entry for this appid) is a real response, safe to cache empty. */
+async function fetchCatalogEntry(appid: number): Promise<any | false> {
+  const url = `https://store.steampowered.com/api/appdetails?appids=${appid}&filters=genres,categories&l=english`;
+  const ac = new AbortController();
+  const tid = setTimeout(() => ac.abort(), 5000);
+  let resp: Response;
+  try { resp = await fetch(url, { credentials: "include", signal: ac.signal }); }
+  catch { return false; }
+  finally { clearTimeout(tid); }
+  if (resp.status === 429) { backoffUntil[CATALOG_KEY] = Date.now() + 60 * 60 * 1000; return false; }
+  if (!resp.ok) return false;
+  const ct = resp.headers.get("content-type") ?? "";
+  if (!ct.includes("json")) return false;
+  const json = await resp.json();
+  return json?.[appid];
+}
+
+const CATALOG_CONCURRENCY = 4;
+
+async function fetchCatalogWorker(queue: number[], result: Map<number, CatalogMeta>, deadline: number): Promise<void> {
+  while (queue.length) {
+    if (Date.now() > deadline || Date.now() < (backoffUntil[CATALOG_KEY] ?? 0)) return;
+    const appid = queue.shift();
+    if (appid === undefined) return;
+    const entry = await fetchCatalogEntry(appid);
+    if (entry === false) continue; // fetch-level failure — leave uncached, retry later
+    const data = parseCatalogEntry(entry);
+    result.set(appid, data);
+    writeCatalogCacheEntry(appid, data);
+  }
+}
+
+export async function getCatalogMetaMap(appids: number[]): Promise<Map<number, CatalogMeta>> {
+  const result = new Map<number, CatalogMeta>();
+  if (!appids.length) return result;
+
+  const toFetch: number[] = [];
+  for (const id of appids) {
+    const c = readCatalogCache(id);
+    if (c) { result.set(id, c); } else { toFetch.push(id); }
+  }
+  if (!toFetch.length || Date.now() < (backoffUntil[CATALOG_KEY] ?? 0)) return result;
+
+  try {
+    const queue = toFetch.slice(0, 60);
+    const deadline = Date.now() + 8000;
+    const workers = Array.from({ length: CATALOG_CONCURRENCY }, () => fetchCatalogWorker(queue, result, deadline));
+    await Promise.all(workers);
+  } catch (e) {
+    logWarn("ONLINE", "catalog metadata fetch failed", String(e));
+  }
+
+  return result;
+}
+
 const NAME_BATCH = 10;
 const NAME_TIMEOUT_MS = 4000;
 const NAME_CONCURRENCY = 3;

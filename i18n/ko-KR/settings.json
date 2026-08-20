@@ -584,6 +584,8 @@
   "sort_friends_playing_now": "친구가 플레이 중",
   "sort_most_friends_owning": "보유 친구 많은 순",
   "sort_trending_among_friends": "친구 사이 인기",
+  "sort_owned_games": "내가 소유한 게임",
+  "sort_family_shared_games": "가족 공유 게임",
   "sort_recent": "최근 플레이순",
   "sort_release_date": "출시일",
   "sort_remove_key": "키 제거",

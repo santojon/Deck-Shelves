@@ -584,6 +584,8 @@
   "sort_friends_playing_now": "Amis en jeu",
   "sort_most_friends_owning": "Le plus d'amis possèdent",
   "sort_trending_among_friends": "Populaire chez les amis",
+  "sort_owned_games": "Jeux que je possède",
+  "sort_family_shared_games": "Jeux en partage familial",
   "sort_recent": "Dernière session",
   "sort_release_date": "Date de sortie",
   "sort_remove_key": "Supprimer la clé",

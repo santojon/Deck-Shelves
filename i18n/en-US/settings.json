@@ -584,6 +584,8 @@
   "sort_friends_playing_now": "Friends playing now",
   "sort_most_friends_owning": "Most friends own",
   "sort_trending_among_friends": "Trending among friends",
+  "sort_owned_games": "Games I own",
+  "sort_family_shared_games": "Family-shared games",
   "sort_recent": "Last session",
   "sort_release_date": "Release date",
   "sort_remove_key": "Remove key",

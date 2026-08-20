@@ -584,6 +584,8 @@
   "sort_friends_playing_now": "Друзья играют сейчас",
   "sort_most_friends_owning": "Больше друзей владеют",
   "sort_trending_among_friends": "Популярно у друзей",
+  "sort_owned_games": "Игры, которыми я владею",
+  "sort_family_shared_games": "Игры в семейном доступе",
   "sort_recent": "Последняя сессия",
   "sort_release_date": "Дата выхода",
   "sort_remove_key": "Удалить ключ",

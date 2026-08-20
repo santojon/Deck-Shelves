@@ -24,6 +24,7 @@ const BATCH_SORTS = [
   'rarest_achievements', 'newest_installed', 'oldest_installed', 'oldest_unplayed',
   'newest_purchased', 'largest_install', 'smallest_install', 'ssd_priority',
   'sd_priority', 'friends_playing_now', 'most_friends_owning', 'trending_among_friends',
+  'owned_games', 'family_shared_games',
 ]
 
 // Random comparators that are `() => 0` stubs — must stay hidden.
