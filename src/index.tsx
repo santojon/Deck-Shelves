@@ -43,7 +43,7 @@ import { AboutPage } from "./components/AboutPage";
 import { SettingsPage } from "./components/SettingsPage";
 import { ShelfEditRoute, ShelfDeleteRoute } from "./components/ShelfModalRoute";
 import { ShelfManageRoute } from "./components/ShelfManageRoute";
-import type { HostApi } from "./runtime/host/contract";
+import type { HostApi, QamPanel } from "./runtime/host/contract";
 initI18n();
 
 /* HostApi singleton — instantiated once at boot. Every `@decky/*`
@@ -305,17 +305,66 @@ const __ds_entry = definePlugin((serverAPI?: any) => {
     try { logDiagnostic("info", "System environment", navigator?.userAgent ?? "unavailable"); } catch {}
   }
 
+  // The QAM settings editor as a factory, so it can render independently in the
+  // loader's own panel and in a neutral host's native tab — a fresh element tree
+  // for each, both reading the one shared settings store.
+  const renderSettingsContent = () => (
+    <PlatformProvider platform={platform}>
+      <ErrorBoundary title="Deck Shelves">
+        <SettingsView />
+      </ErrorBoundary>
+    </PlatformProvider>
+  );
+
+  // For a neutral host's native tab we render the WHOLE panel ourselves. The
+  // loader draws the title bar (plugin name + about/settings buttons) from
+  // `titleView`; a neutral host's tab has no such chrome, so compose the same
+  // header above the editor. No back button — the tab opens the editor directly,
+  // there is no list to return to.
+  const renderNativeTabPanel = () => (
+    <>
+      {/* The loader draws the title bar with its own inset; a native Steam tab
+          has none, so pad the header to sit off the panel edges (incl. a gap
+          below it, before the first setting). */}
+      <div style={{ padding: "8px 15px 10px" }}>
+        <TitleView />
+      </div>
+      {renderSettingsContent()}
+    </>
+  );
+
+  // If a neutral host injected its own native QAM tab, populate it with that panel
+  // so opening the tab shows Deck Shelves directly (never a plugin list), alongside
+  // the loader's. `__SHELVES_QAM__` only feeds that tab and takes no part in host
+  // selection, so it is safe under any loader. Omit `icon` so the host uses its own
+  // correctly-sized tab icon. The tab may be injected after this body runs, so
+  // retry briefly (and enqueue) until it appears.
+  try {
+    // Typed against the @deck-shelves/host contract: a `QamPanel` registered on
+    // the host-selection-neutral `window.__SHELVES_QAM__`, or queued on
+    // `window.__SHELVES_QAM_PENDING__` until it exists — both declared by the
+    // contract's `Window` augmentation (so no `any` casts here).
+    const qamPanel: QamPanel = { id: "deck-shelves", title: "Deck Shelves", content: renderNativeTabPanel };
+    const registerNativeTab = (): boolean => {
+      const q = window.__SHELVES_QAM__;
+      if (q?.registerPanel) { try { q.registerPanel(qamPanel); } catch {} return true; }
+      return false;
+    };
+    if (!registerNativeTab()) {
+      // Bridge not injected yet — leave the panel for the host runtime to drain
+      // when it installs (order-independent), and also poll briefly in case it is
+      // mid-injection right now.
+      (window.__SHELVES_QAM_PENDING__ ??= []).push(qamPanel);
+      let attempts = 0;
+      const timer = setInterval(() => { if (registerNativeTab() || ++attempts > 100) clearInterval(timer); }, 100);
+    }
+  } catch {}
+
   return {
     name: "Deck Shelves",
     title: <></>,
     titleView: <TitleView />,
-    content: (
-      <PlatformProvider platform={platform}>
-        <ErrorBoundary title="Deck Shelves">
-          <SettingsView />
-        </ErrorBoundary>
-      </PlatformProvider>
-    ),
+    content: renderSettingsContent(),
     icon: <DeckShelvesIcon />,
     onDismount() {
       try {

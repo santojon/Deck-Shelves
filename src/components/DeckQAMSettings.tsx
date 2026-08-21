@@ -181,9 +181,12 @@ function SidecarPanel({ controller, onCollapse }: { controller: SettingsControll
       const mainRect = main?.getBoundingClientRect();
       const panelRect = panel?.getBoundingClientRect();
       const sRect = sideEl.getBoundingClientRect();
-      if (mainRect) {
-        // Anchor the sidecar to the right edge of the plugin tab so we
-        // adapt if the main tab width ever changes.
+      if (mainRect && mainRect.width > 0) {
+        // Anchor the sidecar to the right edge of the plugin tab so we adapt if
+        // the main tab width ever changes. Guard against a transient 0 (a
+        // mid-layout / tab-switch measurement, more likely when a host's native
+        // tab shares the QAM): overriding `left` with 0 stuck the sidecar ON TOP
+        // of the main panel. Skipping it keeps the CSS default (left: 300px).
         sideEl.style.left = `${Math.round(mainRect.width)}px`;
       }
       const { right: targetRight, bottom: targetBottom } = rectEdges(panelRect, win);
@@ -247,8 +250,9 @@ function fireQamExpand(win: Window | null, value: boolean, setQamExpanded: (v: b
   if (value) trackFeature('sidecar');
 }
 
-function useQamCompositorSync(qamExpanded: boolean): void {
+function useQamCompositorSync(qamExpanded: boolean, enabled = true): void {
   useEffect(() => {
+    if (!enabled) return;
     const opener = (getQamWindow()?.opener ?? null) as Window | null;
     if (!opener) return;
     try {
@@ -265,7 +269,7 @@ function useQamCompositorSync(qamExpanded: boolean): void {
         );
       } catch {}
     };
-  }, [qamExpanded]);
+  }, [qamExpanded, enabled]);
 }
 
 type OpenerWithInput = {
@@ -336,12 +340,14 @@ function getQamWindow(): (Window & OpenerWithInput) | null {
 function useDpadExpandBridge(
   scopeRef: { current: HTMLElement | null },
   setQamExpanded: (v: boolean) => void,
+  enabled = true,
 ): void {
-  useEffect(() => installDpadListener(scopeRef, setQamExpanded), [scopeRef, setQamExpanded]);
+  useEffect(() => { if (!enabled) return; return installDpadListener(scopeRef, setQamExpanded); }, [scopeRef, setQamExpanded, enabled]);
   // Track `.gpfocus` movements so we know "focus was just in the sidecar"
   // even when Steam's nav moves it back to main before our controller-input
   // listener has a chance to run.
   useEffect(() => {
+    if (!enabled) return;
     const scope = scopeRef.current;
     const doc = scope?.ownerDocument ?? document;
     let prev: HTMLElement | null = null;
@@ -359,7 +365,7 @@ function useDpadExpandBridge(
       subtree: true,
     });
     return () => obs.disconnect();
-  }, [scopeRef]);
+  }, [scopeRef, enabled]);
 }
 
 const DPAD_LEFT = 22;
@@ -557,9 +563,26 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
      focusable triggers the expand; dpad-left from inside the sidecar
      collapses back. */
   const [qamExpanded, setQamExpanded] = useQamExpanded();
-  useQamCompositorSync(qamExpanded);
   const dsScopeRef = useRef<HTMLDivElement>(null);
-  useDpadExpandBridge(dsScopeRef, setQamExpanded);
+  /* Sidecar management (input, compositor expansion, polling) is a singleton over
+     the shared QAM state, but this panel can be mounted twice at once — in a
+     loader's tab AND in a neutral host's native tab. Only the VISIBLE tab's
+     instance manages it, so the two never fight (fighting corrupts the shared
+     expand state). IntersectionObserver tracks whether this instance's scope is
+     the on-screen one. */
+  const [isActiveTab, setIsActiveTab] = useState(true);
+  useEffect(() => {
+    const el = dsScopeRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      (entries) => setIsActiveTab(entries.some((e) => e.isIntersecting && e.intersectionRatio > 0)),
+      { threshold: 0 },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+  useQamCompositorSync(qamExpanded, isActiveTab);
+  useDpadExpandBridge(dsScopeRef, setQamExpanded, isActiveTab);
   /* Close the sidecar the way the dpad-left / Steam-menu paths do — narrow the
      compositor via fireQamExpand (not just setQamExpanded) so it never leaves a
      stale-wide empty panel. Shared by the B button (onCancelButton) below. */
@@ -576,10 +599,11 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
      useQamExpanded hook's initial read; setQamExpanded(false) on unmount
      still fires the event for any concurrent listeners. */
   useEffect(() => {
+    if (!isActiveTab) return;
     resetQamExpanded();
     setQamExpanded(false);
     return () => setQamExpanded(false);
-  }, [setQamExpanded]);
+  }, [setQamExpanded, isActiveTab]);
   // First-run feature showcase (opens once; replayable from the AboutPage).
   useFirstRunShowcase(settings, actions);
   /* Dev-only screenshot hook: opens/closes the sidecar the same way a
@@ -588,12 +612,12 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
      doesn't widen the window, so the panel would render off-screen. Gamepad
      input can't be driven over CDP. Stripped from release via `if (!__DEV__)`. */
   useEffect(() => {
-    if (!__DEV__) return;
+    if (!__DEV__ || !isActiveTab) return;
     const g = globalThis as any;
     g.__ds_dev_open_sidecar = () => { fireQamExpand(getQamWindow(), true, setQamExpanded); return true; };
     g.__ds_dev_close_sidecar = () => { fireQamExpand(getQamWindow(), false, setQamExpanded); };
     return () => { try { delete g.__ds_dev_open_sidecar; delete g.__ds_dev_close_sidecar; } catch {} };
-  }, [setQamExpanded]);
+  }, [setQamExpanded, isActiveTab]);
   /* Remappable open / close sidecar shortcuts. The defaults (dpad-right ×2 to
      open, dpad-left to close) are served by the nav-aware positional handler
      in `handleDpadInput`. This raw-stream listener only kicks in when the user
@@ -602,6 +626,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
   const openMatcherRef = useRef(createMatcherState());
   const closeMatcherRef = useRef(createMatcherState());
   useEffect(() => {
+    if (!isActiveTab) return;
     return subscribeControllerInput((e) => {
       if (!e.pressed) return;
       const s = getCurrentSettings();
@@ -615,13 +640,14 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
         fireQamExpand(getQamWindow(), false, setQamExpanded);
       }
     });
-  }, [setQamExpanded]);
+  }, [setQamExpanded, isActiveTab]);
   /* Decky keeps the plugin tab mounted across QAM open/close cycles, so
      without explicit hooks the sidecar stays expanded when the user opens
      a Steam overlay (Steam menu, friends, etc) and comes back to the QAM.
      None of the available signals fires reliably on every path Steam can
      hide the QAM through — listen to all of them. */
   useEffect(() => {
+    if (!isActiveTab) return;
     const scope = dsScopeRef.current;
     const doc = scope?.ownerDocument ?? document;
     const win = doc.defaultView ?? window;
@@ -667,7 +693,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
       doc.removeEventListener("freeze", onFreeze);
       doc.removeEventListener("resume", onResume);
     };
-  }, [setQamExpanded]);
+  }, [setQamExpanded, isActiveTab]);
 
   // Authoritative signal for "QAM is no longer the active side menu":
   // `SteamUIStore.WindowStore.GamepadUIMainWindowInstance.m_MenuStore
@@ -678,7 +704,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
      at mount as the "active QAM" reference value — anything different
      afterwards means the QAM lost focus to another overlay. */
   useEffect(() => {
-    if (!qamExpanded) return;
+    if (!isActiveTab || !qamExpanded) return;
     const doc = dsScopeRef.current?.ownerDocument ?? document;
     const win = doc.defaultView ?? window;
     const getMenuState = (): number | null => {
@@ -717,7 +743,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
       } catch {}
     }, 300);
     return () => window.clearInterval(id);
-  }, [qamExpanded, setQamExpanded]);
+  }, [qamExpanded, setQamExpanded, isActiveTab]);
   const hiddenToggles: string[] = (settings as any).qamHiddenToggles ?? []
   const hiddenSections: string[] = (settings as any).qamHiddenSections ?? []
   const isHid = (k: string) => isToggleHiddenWithAncestors(k, hiddenToggles)
@@ -1190,7 +1216,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
       </Field>
       <VersionFooter />
       </Focusable>
-      {qamExpanded && (
+      {isActiveTab && qamExpanded && (
         <SidecarPanel controller={controller} onCollapse={closeSidecar} />
       )}
       </Focusable>
