@@ -19,6 +19,8 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 - **"Friends playing now", "most friends own" and "trending among friends" now show up as sort options on any shelf, not just wishlist/store ones.** They only ever needed your Steam friends list, the same thing the home screen's own "friends playing" overlay already uses — nothing online-only about them. The matching friend-activity filters are no longer hidden outside online shelves either.
 - **Translations touched up across all 17 non-English languages**, including a couple of sections — the in-app feature tour and the About page's online-features guide — that had never been translated at all in some of them.
 - **If your shelves ever look wiped after a settings reset or restore, the first-run screen now offers to bring them back.** Previously it only offered to create new default shelves; now, if the plugin can tell this isn't actually a fresh install, it also shows your saved snapshots to restore from.
+- **Sorting a shelf by more than one criterion (for example "games I own" as a tiebreaker) could silently ignore some of the newer sort options and fall back to alphabetical instead.** A shelf mixing your library with store suggestions, sorted to prioritize your own games, could end up showing store items only. Fixed — every sort option now works correctly as part of a multi-criteria chain, not just on its own.
+- **The live preview in the shelf editor could show a different order than what actually appears on your home screen**, for a shelf that combines a filter source with another source (like a library + store mix). The preview now matches the home exactly.
 
 ## [3.2.1] - 2026-08-15
 

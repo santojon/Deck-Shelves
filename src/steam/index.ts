@@ -3675,15 +3675,25 @@ function rebuildCompositeChildSources(rawChildSources: any[], compositeItems: an
   });
 }
 
+/* Each child sorts + truncates to its own limit before the union is merged
+   and re-sorted — a candidate outside one branch's own cutoff never reaches
+   the final ranking, even if it belonged in the true combined top-N (the
+   editor preview avoids this via its own much larger request). Cheap to
+   raise: local evaluation is synchronous, and enrichApps caps + caches its own lookups regardless of pool size. */
+function compositeChildLimit(overShootLimit: number): number {
+  return Math.min(Math.max(overShootLimit * 4, 200), 600);
+}
+
 async function resolveCompositeChildren(childSources: any[], ctx: ResolverContext): Promise<number[][]> {
   const { sort, shelfId, sortReverse, options, depth: _depth, overShootLimit } = ctx;
+  const childLimit = compositeChildLimit(overShootLimit);
   /* 15 s hard ceiling per child so a single hung online source (e.g. a
      wishlist RPC that doesn't time out cleanly) can't park the parent
      composite resolve forever. Returning `[]` for a misbehaving child
      still lets the union complete with the rest of the data. */
   return Promise.all(
     childSources.map((child) => {
-      const inner = resolveShelfAppIds(child, overShootLimit, sort, shelfId, sortReverse, options, _depth + 1);
+      const inner = resolveShelfAppIds(child, childLimit, sort, shelfId, sortReverse, options, _depth + 1);
       const fallback = new Promise<number[]>((resolve) => {
         setTimeout(() => {
           logWarn("STEAM", "composite child resolve timed out", { type: child?.type, shelfId });
