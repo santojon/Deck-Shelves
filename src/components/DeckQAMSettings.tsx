@@ -546,13 +546,10 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
   useEffect(() => {
     if (!isActiveTab) return;
     resetQamExpanded();
-    // Not just setQamExpanded(false): a neutral host renders this in a NATIVE
-    // Steam tab that Steam unmounts/remounts across QAM cycles (a loader keeps
-    // its tab mounted). On remount the compositor can still be stale-WIDE from
-    // the previous open while the store resets to closed — the "open + empty"
-    // state. Narrow the compositor explicitly (posts QamFriendsHidden) so it
-    // matches the freshly-closed store. Idempotent: narrowing an already-narrow
-    // compositor is a no-op, so a loader's kept-mounted tab is unaffected.
+    /* Not just setQamExpanded(false): a neutral host's NATIVE tab unmounts and
+       remounts across QAM cycles (a loader's tab stays mounted), and on
+       remount the compositor can still be stale-WIDE while the store resets
+       to closed. Narrow it explicitly — idempotent, a no-op if already narrow. */
     const win = dsScopeRef.current?.ownerDocument?.defaultView ?? getQamWindow();
     fireQamExpand(win, false, setQamExpanded);
     return () => setQamExpanded(false);
