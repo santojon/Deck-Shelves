@@ -21,6 +21,8 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 - **If your shelves ever look wiped after a settings reset or restore, the first-run screen now offers to bring them back.** Previously it only offered to create new default shelves; now, if the plugin can tell this isn't actually a fresh install, it also shows your saved snapshots to restore from.
 - **Sorting a shelf by more than one criterion (for example "games I own" as a tiebreaker) could silently ignore some of the newer sort options and fall back to alphabetical instead.** A shelf mixing your library with store suggestions, sorted to prioritize your own games, could end up showing store items only. Fixed — every sort option now works correctly as part of a multi-criteria chain, not just on its own.
 - **The live preview in the shelf editor could show a different order than what actually appears on your home screen**, for a shelf that combines a filter source with another source (like a library + store mix). The preview now matches the home exactly.
+- **A shelf combining your library with another source (like the store) could leave out a game that genuinely deserved to be there**, cut before it ever got a fair comparison against the other source's games. Fixed — every eligible game now gets a real shot at making the final list.
+- **A shelf's background art could get stuck showing a game that's no longer actually in that shelf** (hidden, filtered out, or just corrected after boot), sometimes for a while until something else happened to fix it. It now corrects itself right away instead of waiting.
 
 ## [3.2.1] - 2026-08-15
 

@@ -52,6 +52,7 @@ import { confirmAction } from './qam/modals/ConfirmActionModal'
 import { ProfilesSection } from './qam/sections/ProfilesSection'
 import { VisualGlobalSection } from './qam/sections/VisualGlobalSection'
 import { ErrorBoundary } from './ErrorBoundary'
+import { getQamWindow, useQamCompositorSync, useIsActiveQamTab, shouldRenderSidecar, type OpenerWithInput } from './qam/sidecarActiveTab'
 
 const DPAD_RIGHT = 23;
 
@@ -182,11 +183,10 @@ function SidecarPanel({ controller, onCollapse }: { controller: SettingsControll
       const panelRect = panel?.getBoundingClientRect();
       const sRect = sideEl.getBoundingClientRect();
       if (mainRect && mainRect.width > 0) {
-        // Anchor the sidecar to the right edge of the plugin tab so we adapt if
-        // the main tab width ever changes. Guard against a transient 0 (a
-        // mid-layout / tab-switch measurement, more likely when a host's native
-        // tab shares the QAM): overriding `left` with 0 stuck the sidecar ON TOP
-        // of the main panel. Skipping it keeps the CSS default (left: 300px).
+        /* Anchor to the plugin tab's right edge so we adapt if its width
+           changes. Guard against a transient 0 (a mid-layout/tab-switch
+           measurement, more likely with a host's native tab sharing the
+           QAM): overriding `left` with 0 stuck the sidecar on the main panel. */
         sideEl.style.left = `${Math.round(mainRect.width)}px`;
       }
       const { right: targetRight, bottom: targetBottom } = rectEdges(panelRect, win);
@@ -250,38 +250,6 @@ function fireQamExpand(win: Window | null, value: boolean, setQamExpanded: (v: b
   if (value) trackFeature('sidecar');
 }
 
-function useQamCompositorSync(qamExpanded: boolean, enabled = true): void {
-  useEffect(() => {
-    if (!enabled) return;
-    const opener = (getQamWindow()?.opener ?? null) as Window | null;
-    if (!opener) return;
-    try {
-      opener.postMessage(
-        { message: qamExpanded ? 'QamFriendsExpanded' : 'QamFriendsHidden' },
-        'https://steamloopback.host',
-      );
-    } catch {}
-    return () => {
-      try {
-        opener.postMessage(
-          { message: 'QamFriendsHidden' },
-          'https://steamloopback.host',
-        );
-      } catch {}
-    };
-  }, [qamExpanded, enabled]);
-}
-
-type OpenerWithInput = {
-  SteamClient?: {
-    Input?: {
-      RegisterForControllerInputMessages?: (
-        cb: (slot: number, button: number, pressed: boolean) => void,
-      ) => { unregister?: () => void };
-    };
-  };
-};
-
 function setAttr(el: HTMLElement | null, name: string, value: string): void {
   try { el?.setAttribute(name, value); } catch {}
 }
@@ -325,16 +293,6 @@ function installDpadListener(
   }
   setAttr(scope, 'data-ds-reg', reg ? 'yes' : 'no');
   return () => { try { reg?.unregister?.(); } catch {} };
-}
-
-function getQamWindow(): (Window & OpenerWithInput) | null {
-  // The plugin runs in a sandboxed JS context; the QAM's "real" window is
-  // reachable through the shared DOM via `document.defaultView`.
-  try {
-    return (document.defaultView ?? null) as (Window & OpenerWithInput) | null;
-  } catch {
-    return null;
-  }
 }
 
 function useDpadExpandBridge(
@@ -564,23 +522,10 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
      collapses back. */
   const [qamExpanded, setQamExpanded] = useQamExpanded();
   const dsScopeRef = useRef<HTMLDivElement>(null);
-  /* Sidecar management (input, compositor expansion, polling) is a singleton over
-     the shared QAM state, but this panel can be mounted twice at once — in a
-     loader's tab AND in a neutral host's native tab. Only the VISIBLE tab's
-     instance manages it, so the two never fight (fighting corrupts the shared
-     expand state). IntersectionObserver tracks whether this instance's scope is
-     the on-screen one. */
-  const [isActiveTab, setIsActiveTab] = useState(true);
-  useEffect(() => {
-    const el = dsScopeRef.current;
-    if (!el) return;
-    const io = new IntersectionObserver(
-      (entries) => setIsActiveTab(entries.some((e) => e.isIntersecting && e.intersectionRatio > 0)),
-      { threshold: 0 },
-    );
-    io.observe(el);
-    return () => io.disconnect();
-  }, []);
+  // Sidecar management (input, compositor expansion, polling) is a singleton
+  // over shared state — only the on-screen instance should drive it (see
+  // useIsActiveQamTab above) so two mounted panels never fight over it.
+  const isActiveTab = useIsActiveQamTab(dsScopeRef);
   useQamCompositorSync(qamExpanded, isActiveTab);
   useDpadExpandBridge(dsScopeRef, setQamExpanded, isActiveTab);
   /* Close the sidecar the way the dpad-left / Steam-menu paths do — narrow the
@@ -601,7 +546,15 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
   useEffect(() => {
     if (!isActiveTab) return;
     resetQamExpanded();
-    setQamExpanded(false);
+    // Not just setQamExpanded(false): a neutral host renders this in a NATIVE
+    // Steam tab that Steam unmounts/remounts across QAM cycles (a loader keeps
+    // its tab mounted). On remount the compositor can still be stale-WIDE from
+    // the previous open while the store resets to closed — the "open + empty"
+    // state. Narrow the compositor explicitly (posts QamFriendsHidden) so it
+    // matches the freshly-closed store. Idempotent: narrowing an already-narrow
+    // compositor is a no-op, so a loader's kept-mounted tab is unaffected.
+    const win = dsScopeRef.current?.ownerDocument?.defaultView ?? getQamWindow();
+    fireQamExpand(win, false, setQamExpanded);
     return () => setQamExpanded(false);
   }, [setQamExpanded, isActiveTab]);
   // First-run feature showcase (opens once; replayable from the AboutPage).
@@ -1216,7 +1169,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
       </Field>
       <VersionFooter />
       </Focusable>
-      {isActiveTab && qamExpanded && (
+      {shouldRenderSidecar(isActiveTab, qamExpanded) && (
         <SidecarPanel controller={controller} onCollapse={closeSidecar} />
       )}
       </Focusable>

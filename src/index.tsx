@@ -316,11 +316,9 @@ const __ds_entry = definePlugin((serverAPI?: any) => {
     </PlatformProvider>
   );
 
-  // For a neutral host's native tab we render the WHOLE panel ourselves. The
-  // loader draws the title bar (plugin name + about/settings buttons) from
-  // `titleView`; a neutral host's tab has no such chrome, so compose the same
-  // header above the editor. No back button — the tab opens the editor directly,
-  // there is no list to return to.
+  // For a neutral host's native tab we render the WHOLE panel ourselves — the
+  // loader draws the title bar via `titleView`, but a native tab has no such
+  // chrome, so compose the same header above the editor (no back button needed).
   const renderNativeTabPanel = () => (
     <>
       {/* The loader draws the title bar with its own inset; a native Steam tab
@@ -333,18 +331,13 @@ const __ds_entry = definePlugin((serverAPI?: any) => {
     </>
   );
 
-  // If a neutral host injected its own native QAM tab, populate it with that panel
-  // so opening the tab shows Deck Shelves directly (never a plugin list), alongside
-  // the loader's. `__SHELVES_QAM__` only feeds that tab and takes no part in host
-  // selection, so it is safe under any loader. Omit `icon` so the host uses its own
-  // correctly-sized tab icon. The tab may be injected after this body runs, so
-  // retry briefly (and enqueue) until it appears.
+  // If a neutral host injected its own native QAM tab, populate it so opening
+  // it shows Deck Shelves directly (`__SHELVES_QAM__` takes no part in host
+  // selection). The tab may inject after this body runs — retry + enqueue.
   try {
-    // Typed against the @deck-shelves/host contract: a `QamPanel` registered on
-    // the host-selection-neutral `window.__SHELVES_QAM__`, or queued on
-    // `window.__SHELVES_QAM_PENDING__` until it exists — both declared by the
-    // contract's `Window` augmentation (so no `any` casts here).
-    const qamPanel: QamPanel = { id: "deck-shelves", title: "Deck Shelves", content: renderNativeTabPanel };
+    // `QamPanel` / `window.__SHELVES_QAM__` / `__SHELVES_QAM_PENDING__` are all
+    // declared by the @deck-shelves/host contract's `Window` augmentation.
+    const qamPanel: QamPanel = { id: "deck-shelves", title: i18next.t("menu_deck_shelves"), content: renderNativeTabPanel };
     const registerNativeTab = (): boolean => {
       const q = window.__SHELVES_QAM__;
       if (q?.registerPanel) { try { q.registerPanel(qamPanel); } catch {} return true; }
