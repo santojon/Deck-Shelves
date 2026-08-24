@@ -8,8 +8,8 @@ checks=(
   "main.py:exists"
   "main.py:has_plugin_class"
   "dist/index.js:output_exists_after_build"
-  "shims:decky_api_shim"
-  "shims:decky_ui_shim"
+  "shims:host_api_shim"
+  "shims:host_ui_shim"
 )
 
 run_checks() {
@@ -57,19 +57,19 @@ run_checks() {
     ((fail++))
   fi
 
-  if [[ -f "$root/src/shims/decky-api.ts" ]]; then
-    echo "  ✅ decky-api shim exists"
+  if [[ -f "$root/src/shims/host-api.ts" ]]; then
+    echo "  ✅ host-api shim exists"
     ((pass++))
   else
-    echo "  ❌ decky-api shim missing"
+    echo "  ❌ host-api shim missing"
     ((fail++))
   fi
 
-  if [[ -f "$root/src/shims/decky-ui.ts" ]]; then
-    echo "  ✅ decky-ui shim exists"
+  if [[ -f "$root/src/shims/host-ui.ts" ]]; then
+    echo "  ✅ host-ui shim exists"
     ((pass++))
   else
-    echo "  ❌ decky-ui shim missing"
+    echo "  ❌ host-ui shim missing"
     ((fail++))
   fi
 

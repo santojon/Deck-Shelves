@@ -22,11 +22,11 @@ run_checks() {
     ((pass++))
   fi
 
-  if grep -rq 'from "@decky/api"\|from .@decky/api.' "$root/src/" 2>/dev/null; then
-    echo "  ✅ Uses @decky/api (v3 API)"
+  if grep -rq 'from "@host/api"\|from .@host/api.' "$root/src/" 2>/dev/null; then
+    echo "  ✅ Uses @host/api (v3 API)"
     ((pass++))
   else
-    echo "  ❌ Not using @decky/api"
+    echo "  ❌ Not using @host/api"
     ((fail++))
   fi
 
