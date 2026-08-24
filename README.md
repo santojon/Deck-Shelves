@@ -7,7 +7,7 @@
 
 [![CI](https://github.com/santojon/Deck-Shelves/actions/workflows/ci.yml/badge.svg)](https://github.com/santojon/Deck-Shelves/actions/workflows/ci.yml)
 [![Release](https://github.com/santojon/Deck-Shelves/actions/workflows/release.yml/badge.svg)](https://github.com/santojon/Deck-Shelves/actions/workflows/release.yml)
-[![Tests](https://img.shields.io/badge/vitest-773%20passed-brightgreen?logo=vitest&logoColor=white)](src/test/)
+[![Tests](https://img.shields.io/badge/vitest-780%20passed-brightgreen?logo=vitest&logoColor=white)](src/test/)
 [![pytest](https://img.shields.io/badge/pytest-162%20passed-brightgreen?logo=pytest&logoColor=white)](src/test/test_main.py)
 [![TypeCheck](https://img.shields.io/badge/typecheck-clean-brightgreen?logo=typescript&logoColor=white)](tsconfig.json)
 [![Compatibility](https://img.shields.io/badge/checks-39%2F39-brightgreen?logo=steamdeck&logoColor=white)](scripts/build/validate-compat.mjs)
@@ -35,6 +35,7 @@
   - [Installation](#installation)
     - [From Decky Store](#from-decky-store)
     - [Manual Installation](#manual-installation)
+    - [Install from URL](#install-from-url)
   - [Documentation](#documentation)
   - [Development](#development)
   - [Architecture](#architecture)
@@ -151,6 +152,14 @@ A full visual tour — home, QAM, shelf editor, smart shelves, About docs and mo
 2. In game mode, go to Decky config page -> Developer -> Install from zip file
 3. Select the downloaded zip file and confirm
 4. Restart Steam if prompted
+
+### Install from URL
+
+A Decky developer-mode option — works, but is less reliable than the zip above, since Decky derives the plugin name from the URL itself rather than the file. Prefer Manual Installation unless you specifically need this.
+
+1. In game mode, go to Decky config page -> General -> enable Developer mode
+2. Go to the new Developer tab -> Install from URL
+3. Paste the `deck-shelves-v*.zip` link from the [Releases page](https://github.com/santojon/Deck-Shelves/releases/latest) and confirm
 
 ## Documentation
 

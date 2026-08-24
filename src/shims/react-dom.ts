@@ -1,8 +1,15 @@
+// See src/shims/react.ts — same sole-host fallback.
+function getShelvesHost(): any {
+  const g = globalThis as any;
+  return g.window?.__SHELVES_HOST__ ?? g.__SHELVES_HOST__ ?? null;
+}
+
 const ReactDOMGlobal =
   (globalThis as any).SP_REACTDOM ||
   (globalThis as any).ReactDOM ||
   (globalThis as any).window?.SP_REACTDOM ||
-  (globalThis as any).window?.ReactDOM;
+  (globalThis as any).window?.ReactDOM ||
+  getShelvesHost()?.ReactDOM;
 
 if (!ReactDOMGlobal) {
   throw new Error("Deck Shelves: ReactDOM global is not available in the Deck runtime.");

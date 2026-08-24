@@ -197,7 +197,8 @@ section { scroll-margin-top: 80px; }
 .rn-list li p { margin: 4px 0 0; color: var(--muted); font-size: 0.9rem; }
 
 /* installation */
-.install-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
+/* auto-fit so a 3rd/4th install method wraps in cleanly without a CSS edit */
+.install-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; }
 .inst-card { border: 1px solid var(--border); border-radius: 20px; background: var(--panel); padding: 28px; }
 .inst-card h3 { margin: 0 0 6px; font-size: 1.15rem; display: flex; align-items: center; gap: 10px; }
 .inst-card h3 .icon { color: var(--blue-soft); }

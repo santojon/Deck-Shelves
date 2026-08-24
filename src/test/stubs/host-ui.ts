@@ -1,7 +1,7 @@
-// @decky/ui stub for the vitest Node environment.
+// @host/ui stub for the vitest Node environment.
 // The real package's webpack init expects `window.webpackChunksteamui`
 // which doesn't exist outside the browser. Tests that transitively
-// import @decky/ui (via runtime/host/decky → re-exports) crash the
+// import @host/ui (via runtime/host/decky → re-exports) crash the
 // whole file at module-load. This stub exposes the same shape with
 // no-op implementations so the tests can load without touching the
 // host's webpack machinery.

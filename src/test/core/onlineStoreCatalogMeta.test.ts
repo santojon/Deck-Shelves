@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
-vi.mock('../../shims/decky-api', () => ({ call: async () => null }))
+vi.mock('../../shims/host-api', () => ({ call: async () => null }))
 vi.mock('../../runtime/logger', () => ({ logInfo: () => {}, logWarn: () => {} }))
 
 function installLocalStorageStub(): void {

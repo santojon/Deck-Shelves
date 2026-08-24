@@ -5,7 +5,7 @@
 
 import type { ButtonBindings } from "../types";
 
-// GamepadButton enum mirrored from @decky/ui (see src/shims/decky-ui.ts).
+// GamepadButton enum mirrored from @host/ui (see src/shims/host-ui.ts).
 // Inlined to keep this module side-effect free.
 export const BTN = {
   OK: 1, CANCEL: 2, SECONDARY: 3, OPTIONS: 4,

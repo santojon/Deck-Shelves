@@ -477,7 +477,7 @@ function SideNavShell({ anchor, settings, onClose }: { anchor: Anchor; settings:
           } catch {}
         }}
         onSecondaryActionDescription={t("close" as any) || "Close"}
-        onClick={(e) => e.stopPropagation()}
+        onClick={(e: any) => e.stopPropagation()}
         style={{
           // Tighter column anchored to the left. Dimensions in vw / vh
           // / rem so the panel scales across handheld, docked TV, 4K.

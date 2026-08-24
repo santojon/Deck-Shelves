@@ -133,6 +133,7 @@ jobs:
           generate_release_notes: ${{ steps.notes.outputs.body == '' }}
           files: |
             deck-shelves-v*.zip
+            dist/index.iife.js
 
       - name: Comment on [Unreleased]-linked issues
         env:

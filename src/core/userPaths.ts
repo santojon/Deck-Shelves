@@ -7,7 +7,7 @@
    lands, callers fall back to `~/Downloads` (which the backend's
    `_normalize_path` expands via `os.path.expanduser`). */
 
-import { call } from "../shims/decky-api";
+import { call } from "../shims/host-api";
 
 let cachedDownloadsDir: string | null = null;
 let cachedPicturesDir: string | null = null;

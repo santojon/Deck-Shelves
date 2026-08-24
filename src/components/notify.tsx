@@ -4,7 +4,7 @@
    `buildNotification` is the pure payload builder (unit-tested); `notify` fires
    it through the toaster. */
 import i18next from "i18next";
-import { toaster } from "../shims/decky-api";
+import { toaster } from "../shims/host-api";
 import { getCurrentSettings } from "../store/settingsStore";
 import {
   DeckShelvesLogo,

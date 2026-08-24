@@ -1,0 +1,136 @@
+{
+  "enabled": true,
+  "hideRecents": false,
+  "recentsReplaceSource": false,
+  "hideHomeTabs": false,
+  "shelfHeroBackground": false,
+  "globalMatchNativeSize": false,
+  "globalHighlightFirst": false,
+  "globalHighlightAll": false,
+  "globalHideStatusLine": false,
+  "globalHideNewBadge": false,
+  "globalHideCompatIcons": false,
+  "globalHideNonSteamBadge": false,
+  "globalHideShelfTitle": false,
+  "globalHideGameNames": false,
+  "globalHideInstallIndicator": false,
+  "shelves": [
+    {
+      "id": "s_recent01",
+      "title": "Recently Played",
+      "enabled": true,
+      "hidden": false,
+      "limit": 20,
+      "matchNativeSize": false,
+      "highlightFirst": false,
+      "highlightAll": false,
+      "hideStatusLine": false,
+      "hideNewBadge": false,
+      "hideCompatIcons": false,
+      "hideNonSteamBadge": false,
+      "hideShelfTitle": false,
+      "hideGameNames": false,
+      "hideInstallIndicator": false,
+      "source": { "type": "tab", "tab": "recent" }
+    },
+    {
+      "id": "s_nested001",
+      "title": "Story-driven & Verified, no DLC",
+      "enabled": true,
+      "hidden": false,
+      "limit": 30,
+      "matchNativeSize": false,
+      "highlightFirst": false,
+      "highlightAll": false,
+      "hideStatusLine": false,
+      "hideNewBadge": false,
+      "hideCompatIcons": false,
+      "hideNonSteamBadge": false,
+      "hideShelfTitle": false,
+      "hideGameNames": false,
+      "hideInstallIndicator": false,
+      "source": {
+        "type": "filter",
+        "filter": {
+          "filterGroup": {
+            "mode": "and",
+            "items": [
+              { "type": "deckCompatibility", "params": { "levels": ["verified"] } },
+              { "type": "storeTag", "params": { "tag": "Story Rich" } },
+              { "type": "nameRegex", "inverted": true, "params": { "pattern": "DLC|Soundtrack" } }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "s_merge001",
+      "title": "Achievements or Controller",
+      "enabled": true,
+      "hidden": false,
+      "limit": 20,
+      "matchNativeSize": false,
+      "highlightFirst": false,
+      "highlightAll": false,
+      "hideStatusLine": false,
+      "hideNewBadge": false,
+      "hideCompatIcons": false,
+      "hideNonSteamBadge": false,
+      "hideShelfTitle": false,
+      "hideGameNames": false,
+      "hideInstallIndicator": false,
+      "source": {
+        "type": "filter",
+        "filter": {
+          "filterGroup": {
+            "mode": "or",
+            "items": [
+              { "type": "achievements" },
+              { "type": "controllerSupport" }
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "smartShelvesEnabled": false,
+  "smartShelvesAtBottom": false,
+  "smartShelves": [],
+  "smartSurpriseMe": false,
+  "smartSurpriseMeCount": 0,
+  "savedFilters": [
+    {
+      "id": "sf_verified_coop",
+      "name": "Verified Co-op",
+      "group": {
+        "mode": "and",
+        "items": [
+          { "type": "deckCompatibility", "params": { "levels": ["verified"] } },
+          { "type": "storeTag", "params": { "tag": "Co-op" } }
+        ]
+      }
+    },
+    {
+      "id": "sf_dev_publisher",
+      "name": "From Devs I Like",
+      "group": {
+        "mode": "or",
+        "items": [
+          { "type": "developer", "params": { "name": "Supergiant Games" } },
+          { "type": "publisher", "params": { "name": "Devolver Digital" } }
+        ]
+      }
+    },
+    {
+      "id": "sf_appid_list",
+      "name": "Backlog shortlist",
+      "group": {
+        "mode": "and",
+        "items": [
+          { "type": "appIdList", "params": { "ids": [620, 400, 220, 570] } },
+          { "type": "playtimeRange", "params": { "max": 0 } }
+        ]
+      }
+    }
+  ]
+}

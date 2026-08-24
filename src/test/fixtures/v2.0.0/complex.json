@@ -1,0 +1,157 @@
+{
+  "enabled": true,
+  "hideRecents": true,
+  "recentsReplaceSource": true,
+  "hideHomeTabs": false,
+  "shelfHeroBackground": true,
+  "globalMatchNativeSize": false,
+  "globalHighlightFirst": true,
+  "globalHighlightAll": false,
+  "globalHideStatusLine": false,
+  "globalHideNewBadge": false,
+  "globalHideCompatIcons": true,
+  "globalHideNonSteamBadge": false,
+  "globalHideShelfTitle": false,
+  "globalHideGameNames": false,
+  "globalHideInstallIndicator": false,
+  "shelves": [
+    {
+      "id": "s_11111111",
+      "title": "Deck Verified",
+      "enabled": true,
+      "hidden": false,
+      "limit": 30,
+      "sort": "metacritic",
+      "matchNativeSize": true,
+      "highlightFirst": false,
+      "highlightAll": false,
+      "hideStatusLine": true,
+      "hideNewBadge": false,
+      "hideCompatIcons": false,
+      "hideNonSteamBadge": false,
+      "hideShelfTitle": false,
+      "hideGameNames": false,
+      "hideInstallIndicator": false,
+      "source": {
+        "type": "filter",
+        "filter": { "deckCompatibility": ["verified"], "sort": "metacritic" }
+      }
+    },
+    {
+      "id": "s_22222222",
+      "title": "My Collection",
+      "enabled": true,
+      "hidden": false,
+      "limit": 20,
+      "matchNativeSize": false,
+      "highlightFirst": false,
+      "highlightAll": false,
+      "hideStatusLine": false,
+      "hideNewBadge": false,
+      "hideCompatIcons": false,
+      "hideNonSteamBadge": false,
+      "hideShelfTitle": false,
+      "hideGameNames": false,
+      "hideInstallIndicator": false,
+      "source": { "type": "collection", "collectionId": "uc-12345" }
+    },
+    {
+      "id": "s_33333333",
+      "title": "RPGs I own",
+      "enabled": true,
+      "hidden": false,
+      "limit": 25,
+      "sort": "alphabetical",
+      "matchNativeSize": false,
+      "highlightFirst": false,
+      "highlightAll": false,
+      "hideStatusLine": false,
+      "hideNewBadge": false,
+      "hideCompatIcons": false,
+      "hideNonSteamBadge": false,
+      "hideShelfTitle": false,
+      "hideGameNames": false,
+      "hideInstallIndicator": false,
+      "source": {
+        "type": "filter",
+        "filter": {
+          "filterGroup": {
+            "mode": "and",
+            "items": [
+              { "type": "installed" },
+              { "type": "storeTag", "params": { "tag": "RPG" } },
+              { "type": "hidden", "inverted": true }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "s_44444444",
+      "title": "Pinned order",
+      "enabled": true,
+      "hidden": false,
+      "limit": 10,
+      "sort": "manual",
+      "manualOrder": [620, 400, 220],
+      "manualBaseSort": "alphabetical",
+      "highlightedAppIds": [620],
+      "matchNativeSize": false,
+      "highlightFirst": false,
+      "highlightAll": true,
+      "hideStatusLine": false,
+      "hideNewBadge": false,
+      "hideCompatIcons": false,
+      "hideNonSteamBadge": false,
+      "hideShelfTitle": false,
+      "hideGameNames": false,
+      "hideInstallIndicator": false,
+      "source": { "type": "tab", "tab": "installed" }
+    },
+    {
+      "id": "s_55555555",
+      "title": "Non-Steam",
+      "enabled": false,
+      "hidden": true,
+      "limit": 20,
+      "matchNativeSize": false,
+      "highlightFirst": false,
+      "highlightAll": false,
+      "hideStatusLine": false,
+      "hideNewBadge": false,
+      "hideCompatIcons": false,
+      "hideNonSteamBadge": true,
+      "hideShelfTitle": false,
+      "hideGameNames": false,
+      "hideInstallIndicator": false,
+      "source": { "type": "tab", "tab": "nonsteam" }
+    }
+  ],
+  "smartShelvesEnabled": true,
+  "smartShelvesAtBottom": true,
+  "smartShelves": [
+    {
+      "id": "sm_aaaaaaaa",
+      "title": "Quick Play",
+      "mode": "quick_play",
+      "enabled": true,
+      "hidden": false,
+      "limit": 15
+    }
+  ],
+  "smartSurpriseMe": true,
+  "smartSurpriseMeCount": 3,
+  "savedFilters": [
+    {
+      "id": "sf_1",
+      "name": "Unplayed Verified",
+      "group": {
+        "mode": "and",
+        "items": [
+          { "type": "deckCompatibility", "params": { "levels": ["verified"] } },
+          { "type": "playtimeRange", "params": { "max": 0 } }
+        ]
+      }
+    }
+  ]
+}

@@ -52,7 +52,7 @@ describe("notify — payload builder", () => {
 describe("notify — dispatch", () => {
   let toastSpy: ReturnType<typeof vi.fn>;
   beforeEach(async () => {
-    const decky = await import("../../shims/decky-api");
+    const decky = await import("../../shims/host-api");
     toastSpy = vi.fn();
     vi.spyOn(decky.toaster, "toast").mockImplementation(toastSpy as any);
     settingsState.current = null;
@@ -73,7 +73,7 @@ describe("notify — dispatch", () => {
 describe("notify — area suppression", () => {
   let toastSpy: ReturnType<typeof vi.fn>;
   beforeEach(async () => {
-    const decky = await import("../../shims/decky-api");
+    const decky = await import("../../shims/host-api");
     toastSpy = vi.fn();
     vi.spyOn(decky.toaster, "toast").mockImplementation(toastSpy as any);
   });

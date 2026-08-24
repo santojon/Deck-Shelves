@@ -1,8 +1,17 @@
+// A neutral (non-loader) host injects its runtime as `__SHELVES_HOST__`,
+// exposing the Steam-native components it located as `host.ui` — the
+// sole-host fallback (no loader present to publish `DFL`/`deckyFrontendLib`).
+function getShelvesHost(): any {
+  const g = globalThis as any;
+  return g.window?.__SHELVES_HOST__ ?? g.__SHELVES_HOST__ ?? null;
+}
+
 const decky =
   (globalThis as any).DFL ||
   (globalThis as any).deckyFrontendLib ||
   (globalThis as any).window?.DFL ||
-  (globalThis as any).window?.deckyFrontendLib;
+  (globalThis as any).window?.deckyFrontendLib ||
+  getShelvesHost()?.ui;
 
 if (!decky) {
   throw new Error('Deck Shelves: Decky UI globals are not available.');
@@ -111,7 +120,7 @@ export const Field = decky.Field ?? fieldFallback;
 export const Focusable = decky.Focusable ?? passthroughComponent;
 /* Runtime enum that Decky exposes via FooterLegend. Required for
    gamepad-button comparison in the local ReorderableList. Fallback keeps
-   the numeric values stable (see @decky/ui FooterLegend.d.ts) so any
+   the numeric values stable (see @host/ui FooterLegend.d.ts) so any
    destructuring still works when Decky's global hasn't initialised yet. */
 export const GamepadButton = decky.GamepadButton ?? {
   INVALID: 0, OK: 1, CANCEL: 2, SECONDARY: 3, OPTIONS: 4,
@@ -182,7 +191,7 @@ export type ReorderableEntry<T> = {
 
 export type SingleDropdownOption = {
   data: any;
-  label: string;
+  label: any; // string or a React node — Steam dropdowns accept both
 };
 
 export const ReorderableEntry = undefined as any;

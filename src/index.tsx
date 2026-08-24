@@ -1,4 +1,4 @@
-import { definePlugin } from "@decky/api";
+import { definePlugin } from "@host/api";
 // Build sentinel — bumped each iteration so CDP probes can confirm the
 // running JS matches the latest source. Read via `window.__ds_build`.
 // Dev-only; stripped from release via `if (__DEV__)`.
@@ -27,7 +27,7 @@ import { logDiagnostic } from "./runtime/diagnostics";
 import { prefetchSteamOSVersion } from "./core/steamOSVersion";
 import { prewarmUserPaths } from "./core/userPaths";
 import { checkForUpdate, __resetUpdateCheckCache } from "./core/updateNotifier";
-import { downloadUpdate } from "./runtime/updateDownload";
+import { installOrDownloadUpdate } from "./runtime/updateDownload";
 import { invalidateRandomSortCache } from "./steam";
 import { pruneCache as pruneImageCache, hydrateHotCacheFromStorage } from "./core/imageCache";
 import { isOnline } from "./core/connectivity";
@@ -238,7 +238,7 @@ const __ds_entry = definePlugin((serverAPI?: any) => {
         probe({ step: 'firing-toast' });
         notify("update", {
           body: i18next.t("update_available", { version: r.latestVersion }),
-          onClick: () => { void downloadUpdate(r); },
+          onClick: () => { void installOrDownloadUpdate(r); },
         });
         probe({ step: 'toast-fired' });
       } else {
@@ -396,7 +396,7 @@ let __ds_ran = false;
 function __ds_entry_guarded(serverAPI?: any) {
   if (__ds_ran) return undefined;
   __ds_ran = true;
-  /* @decky/api's own DefinePluginFn type is a zero-arg () => Plugin, but the
+  /* @host/api's own DefinePluginFn type is a zero-arg () => Plugin, but the
      real loader calls this with a serverAPI (see definePlugin() above) — cast
      past that known mismatch, same as the shim's own `serverAPI?: any`. */
   return (__ds_entry as (serverAPI?: any) => unknown)(serverAPI);

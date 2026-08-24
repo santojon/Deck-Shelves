@@ -18,6 +18,23 @@ function resolveNav(): any {
   return steamClient?.Navigation ?? Navigation;
 }
 
+function getDeckySettings(): any {
+  const g = globalThis as any;
+  return g.SteamUIStore?.DeckySettings ?? g.window?.SteamUIStore?.DeckySettings;
+}
+
+// Last-resort OS-version source: Decky publishes this onto SteamUIStore, so it
+// naturally resolves to nothing under a host that isn't Decky (fail-soft).
+function getOSVersion(): string | undefined {
+  try {
+    const ds = getDeckySettings();
+    const v = ds?.steamos_version ?? ds?.osVersion;
+    return typeof v === "string" && v.length ? v : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function navigateToShelfSource(source: ShelfSource, _title?: string) {
   // Original navigation behavior — proven over many releases:
   //   - collection → /library/collection/<id> (specific collection page)
@@ -92,5 +109,8 @@ export function createDeckyPlatform(): PlatformApi {
     getAppMetaBatch,
     navigateToApp: navigate,
     navigateToShelfSource,
+    // Genuinely optional at runtime (undefined when Decky isn't present);
+    // the contract types it non-nullable since callers only reach it via `?.()`.
+    getOSVersion: getOSVersion as PlatformApi["getOSVersion"],
   };
 }
