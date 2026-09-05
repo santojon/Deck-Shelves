@@ -55,6 +55,7 @@
   "section_behavior": "動作",
   "section_visual_global": "グローバルビジュアル",
   "select_placeholder": "選択",
+  "shelf_source_unavailable": "この棚のソースは利用できません。この棚を復元するには、提供元のプラグインを再インストールしてください。",
   "shelves_section": "シェルフ",
   "show_in_shelf": "シェルフに表示",
   "show_shelf": "棚を表示",

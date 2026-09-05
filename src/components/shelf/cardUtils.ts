@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { buildSelectorFromToken, getRuntimeClassMap } from "../../core/webpackCompat";
 
 function readForceThemes(): boolean {
@@ -73,6 +74,26 @@ export function applyNativeAfterAnimation(doc: Document | null, target: HTMLElem
     const animName = (getComputedStyle(sample, '::after').animationName || '').split(',')[0] || '';
     if (animName && animName !== 'none') target.style.setProperty('--ds-native-after-animation', animName);
   } catch {}
+}
+
+/* A card fetching its description and warming its image/icon/logo caches
+   unconditionally on mount does that for every off-screen card in a shelf
+   at once, competing with the focused card for network/CPU. Gates that work
+   to cards within `rootMargin` of the visible area. One-way latch (stays
+   true once near); observer disconnects once triggered. */
+export function useNearViewport(ref: { current: HTMLElement | null }, rootMargin: string): boolean {
+  const [near, setNear] = useState(false);
+  useEffect(() => {
+    if (near) return;
+    const el = ref.current;
+    if (!el || typeof IntersectionObserver === 'undefined') { setNear(true); return; }
+    const io = new IntersectionObserver((entries) => {
+      if (entries.some((e) => e.isIntersecting)) { setNear(true); io.disconnect(); }
+    }, { rootMargin });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [ref, rootMargin, near]);
+  return near;
 }
 
 export function retryWithIntervals(fn: () => boolean, intervals: number[]): () => void {

@@ -55,6 +55,7 @@
   "section_behavior": "동작",
   "section_visual_global": "전역 시각",
   "select_placeholder": "선택",
+  "shelf_source_unavailable": "이 선반의 소스를 사용할 수 없습니다. 이 선반을 복원하려면 이를 제공하는 플러그인을 다시 설치하세요.",
   "shelves_section": "선반",
   "show_in_shelf": "선반에 표시",
   "show_shelf": "선반 표시",

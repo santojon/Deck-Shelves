@@ -90,6 +90,16 @@ img, svg { display: block; }
 .strip-item h3 { margin: 0; font-size: 0.95rem; font-weight: 600; }
 .strip-item p { margin: 3px 0 0; font-size: 0.82rem; color: var(--muted); }
 
+/* usage stats — one row of linked chips spanning the full width, same
+   look as the .btn-ghost community buttons (white icon, soft rounded
+   rectangle) but at chip height/spacing instead of full button size */
+.stats-row { display: flex; gap: 10px; margin-top: -8px; }
+.stat-chip { flex: 1 1 0; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 14px; border-radius: 10px; background: rgba(148, 163, 184, 0.06); border: 1px solid var(--border-strong); color: var(--text); font-size: 0.82rem; text-decoration: none; white-space: nowrap; transition: background .15s ease, border-color .15s ease; }
+.stat-chip:hover { background: rgba(148, 163, 184, 0.14); }
+.stat-chip .icon { width: 16px; height: 16px; color: currentColor; }
+.stat-chip b { font-weight: 700; }
+.stats-updated { text-align: center; color: var(--muted); font-size: 0.78rem; margin: 14px 0 0; }
+
 /* sections */
 section { scroll-margin-top: 80px; }
 .block { padding: 66px 0; }

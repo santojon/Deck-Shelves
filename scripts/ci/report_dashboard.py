@@ -504,6 +504,33 @@ _DASH_JS = r"""
     if(hasPort){const estPo=r=>!!r.portabilityEst;
       const po1=$('portability-trend');if(po1)po1.innerHTML=svgMetricTrend(view,r=>r.portability&&typeof r.portability.unguarded==='number'?r.portability.unguarded:null,{color:'#2dd4bf',upGood:false,estFn:estPo});
       const po2=$('portability-coupled-trend');if(po2)po2.innerHTML=svgMetricTrend(view,r=>r.portability&&typeof r.portability.coupled==='number'?r.portability.coupled:null,{color:'#5eead4',upGood:true,estFn:estPo,fmt:v=>Math.round(v)+' sites'});}
+    // Project usage — Decky Store installs, GitHub downloads/traffic, npm
+    // downloads. Its own dedicated series (window.__USAGE_HISTORY__, one
+    // point per fetch_stats.py snapshot/backfill date), NOT the CI-report
+    // `view` — a local `pnpm qa` run only ever contributes one report, so
+    // sourcing this from `view` would cap the trend at one point
+    // regardless of how much real history.json data actually exists. No
+    // version windows apply here (none of this is tied to app releases),
+    // and there's no "estimated" flag like the metrics above — every
+    // point here, including fetch_stats.py --backfill's, is a real
+    // measured number, never an approximation from git history.
+    const usageRuns=(Array.isArray(window.__USAGE_HISTORY__)?window.__USAGE_HISTORY__:[]).map(e=>({ts:e.date,stats:e}));
+    const hasStats=usageRuns.some(r=>typeof r.stats.deckyStoreInstalls==='number');
+    const hasDownloads=usageRuns.some(r=>typeof r.stats.githubDownloads==='number');
+    const hasNpm=usageRuns.some(r=>r.stats.npm);
+    const usagePanel=$('usage-panel');
+    if(usagePanel)usagePanel.style.display=(hasStats||hasDownloads||hasNpm)?'':'none';
+    if(hasDownloads){
+      const ud=$('usage-downloads-trend');if(ud)ud.innerHTML=svgMetricTrend(usageRuns,r=>typeof r.stats.githubDownloads==='number'?r.stats.githubDownloads:null,{color:'#fbbf24',upGood:true,fmt:v=>Math.round(v)+' downloads'});
+    }
+    if(hasStats){
+      const ui=$('usage-installs-trend');if(ui)ui.innerHTML=svgMetricTrend(usageRuns,r=>typeof r.stats.deckyStoreInstalls==='number'?r.stats.deckyStoreInstalls:null,{color:'#38bdf8',upGood:true,fmt:v=>Math.round(v)+' installs'});
+      const uv=$('usage-views-trend');if(uv)uv.innerHTML=svgMetricTrend(usageRuns,r=>r.stats.traffic&&r.stats.traffic.main&&typeof r.stats.traffic.main.views==='number'?r.stats.traffic.main.views:null,{color:'#4ade80',upGood:true,fmt:v=>Math.round(v)+' views'});
+    }
+    if(hasNpm){
+      const na=$('usage-npm-api-trend');if(na)na.innerHTML=svgMetricTrend(usageRuns,r=>r.stats.npm&&typeof r.stats.npm.api==='number'?r.stats.npm.api:null,{color:'#f472b6',upGood:true,fmt:v=>Math.round(v)+' @deck-shelves/api'});
+      const nh=$('usage-npm-host-trend');if(nh)nh.innerHTML=svgMetricTrend(usageRuns,r=>r.stats.npm&&typeof r.stats.npm.host==='number'?r.stats.npm.host:null,{color:'#c084fc',upGood:true,fmt:v=>Math.round(v)+' @deck-shelves/host'});
+    }
     // Per-step duration trends — whenever the view has timed runs.
     const stHost=$('step-trends');
     if(stHost){const st=stepTrends(view),stPanel=$('steptrends-panel');
@@ -737,6 +764,20 @@ def _rebuild_dashboard(reports_root: Path) -> None:
     </div>
   </div>
 
+  <div class="panel" id="usage-panel" style="display:none">
+    <h2>Project usage &mdash; Decky Store installs &amp; GitHub traffic (14-day)</h2>
+    <div id="usage-installs-trend"></div>
+    <div id="usage-views-trend"></div>
+    <h2 style="margin-top:18px">GitHub release downloads &mdash; cumulative, by release date</h2>
+    <div id="usage-downloads-trend"></div>
+    <h2 style="margin-top:18px">npm downloads &mdash; lifetime total per package</h2>
+    <div id="usage-npm-api-trend"></div>
+    <div id="usage-npm-host-trend"></div>
+    <div class="legend">
+      <span style="color:#64748b;font-size:10px">Snapshotted weekly from the Decky Store's own plugin list, GitHub's traffic/releases API, and the npm registry — no external analytics, no new accounts. GitHub traffic only ever covers a rolling 14-day window, not a running total. GitHub downloads has no true historical snapshot either — each point is the running sum of every release's <i>current</i> download count up to that release's own date, backfilled once from the repo's release history (<code>fetch_stats.py --backfill</code>); npm downloads back to each package's publish date are a real (not estimated) backfill too, since the registry API can answer "total as of a past date" directly.</span>
+    </div>
+  </div>
+
   <div class="panel-grid">
     <div class="panel">
       <h2>Overall test distribution</h2>
@@ -766,6 +807,12 @@ def _rebuild_dashboard(reports_root: Path) -> None:
 
     baked_json = json.dumps(baked, separators=(",", ":"))
     ver_windows_json = json.dumps(_version_windows(reports_root), separators=(",", ":"))
+    usage_history_path = reports_root / "stats" / "history.json"
+    try:
+        usage_history = json.loads(usage_history_path.read_text(encoding="utf-8")) if usage_history_path.is_file() else []
+    except Exception:
+        usage_history = []
+    usage_history_json = json.dumps(usage_history, separators=(",", ":"))
     dash = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -784,7 +831,7 @@ def _rebuild_dashboard(reports_root: Path) -> None:
 </main>
 {_site_footer('../')}
 <div id="chart-tip" class="chart-tip"></div>
-<script>window.__BAKED_RUNS__={baked_json};window.__VER_WINDOWS__={ver_windows_json};</script>
+<script>window.__BAKED_RUNS__={baked_json};window.__VER_WINDOWS__={ver_windows_json};window.__USAGE_HISTORY__={usage_history_json};</script>
 <script>{_DASH_JS}</script>
 </body>
 </html>

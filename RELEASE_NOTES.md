@@ -10,9 +10,11 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 - **Two new sort options: "Games I own" and "Family-shared games."** Handy for shelves that mix your library with a wishlist or store source — sort by what's already yours, or by what's shared through Family Sharing.
 - **Filters like genre, category, franchise, VR support and multiplayer type now actually work on wishlist/store cards you don't own yet**, not just on your own library. Build a shelf that mixes your library with the store, filter both sides for multiplayer games, and it now filters correctly on both — the plugin fetches and caches the needed Store data automatically the first time you use one of these filters (Online features must be on).
 - **Genre, category and franchise now show the same online badge as other online-only filters, and only appear once Online Features is on** — they need it now, wherever you use them, since they never had usable local data to fall back on.
+- **The project's usage numbers are now public.** The README and the [website](https://santojon.github.io/Deck-Shelves/) show Decky Store installs, GitHub traffic and npm downloads, refreshed weekly — no account or external analytics involved.
 
 ### Fixed
 
+- **If the settings panel ever crashed, its error screen showed a Portuguese title regardless of your language.** Fixed.
 - **A profile switched on by a display, controller or charging trigger could stay stuck active after your Deck slept and woke up in a different state.** The trigger now checks display, controller and battery again as soon as the Deck wakes, instead of waiting for the next real change to notice.
 - **The multiplayer filter never matched a single game already in your library — only games from the store you don't own.** It was reading data your Steam client simply doesn't provide that way for games you own; now it reads the right thing, so multiplayer filtering finally works on your own library too.
 - **Genre, category and franchise filters never matched anything, for any game, anywhere.** They now work on your library too — the first time you use one of these on a large library, it may take a couple of refreshes to catch every game while the needed data gets fetched and cached, but it'll get there.
@@ -23,6 +25,11 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 - **The live preview in the shelf editor could show a different order than what actually appears on your home screen**, for a shelf that combines a filter source with another source (like a library + store mix). The preview now matches the home exactly.
 - **A shelf combining your library with another source (like the store) could leave out a game that genuinely deserved to be there**, cut before it ever got a fair comparison against the other source's games. Fixed — every eligible game now gets a real shot at making the final list.
 - **A shelf's background art could get stuck showing a game that's no longer actually in that shelf** (hidden, filtered out, or just corrected after boot), sometimes for a while until something else happened to fix it. It now corrects itself right away instead of waiting.
+- **Pressing Up or Down right after a game closed could get ignored and snapped back to the previous card about a second and a half later.** Fixed.
+- **The built-in "Default" profile, and the "(copy)" label on duplicated or imported profiles, always showed in Portuguese no matter your UI language.** Fixed — now shown in your own language, in all 19 supported locales.
+- **The "New" and discount badges could show unreadable white-on-white text with CSS Loader's Colored Toggles theme (White color option).** Fixed.
+- **Navigating a shelf quickly and then moving up or down right after could snap you back to the row you just left.** Fixed.
+- **Scrolling through a shelf had a noticeable delay compared to Steam's own rows.** Cards now hold off on fetching descriptions and warming their images until they're actually close to the visible area, instead of every card in the row doing that work at once — scrolling should feel noticeably snappier, especially on long shelves.
 
 ## [3.2.1] - 2026-08-15
 

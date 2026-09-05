@@ -55,6 +55,7 @@
   "section_behavior": "Verhalten",
   "section_visual_global": "Globales Erscheinungsbild",
   "select_placeholder": "Auswählen",
+  "shelf_source_unavailable": "Die Quelle dieses Regals ist nicht verfügbar. Installiere das Plugin, das sie bereitstellt, erneut, um dieses Regal wiederherzustellen.",
   "shelves_section": "Regale",
   "show_in_shelf": "Im Regal anzeigen",
   "show_shelf": "Regal anzeigen",

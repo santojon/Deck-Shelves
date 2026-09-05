@@ -144,8 +144,31 @@
     </div>
   </section>
 
+  <!-- USAGE STATS — one row of linked chips spanning the full width, right
+       under the hero's own buttons; refreshed weekly by fetch_stats.py, no
+       external analytics. Hidden until build_site.py has a snapshot to
+       fill it with. The downloads chip links to /releases (not
+       /releases/latest) so it can't collide with _inject_download's own
+       href-rewrite regex. -->
+  <div class="container">
+    <div class="stats-row" data-stats-row title="Last snapshot: 2026-09-01">
+      <a class="stat-chip" href="https://decky.xyz" target="_blank" rel="noopener">
+        <svg class="icon"><use href="#i-store"/></svg> <b data-stat="installs">12,173</b> Decky Store installs
+      </a>
+      <a class="stat-chip" href="https://github.com/santojon/Deck-Shelves/releases" target="_blank" rel="noopener">
+        <svg class="icon"><use href="#i-download"/></svg> <b data-stat="downloads">2,693</b> GitHub downloads
+      </a>
+      <a class="stat-chip" href="https://github.com/santojon/Deck-Shelves" target="_blank" rel="noopener">
+        <svg class="icon"><use href="#i-chart"/></svg> <b data-stat="views">453</b> views (14d)
+      </a>
+      <a class="stat-chip" href="https://www.npmjs.com/package/@deck-shelves/api" target="_blank" rel="noopener">
+        <svg class="icon"><use href="#i-package"/></svg> <b data-stat="npm">1,762</b> npm downloads
+      </a>
+    </div>
+  </div>
+
   <!-- COMMUNITY -->
-  <section class="block community-band" style="padding-top:8px;padding-bottom:8px">
+  <section class="block community-band" style="padding-top:36px;padding-bottom:8px">
     <div class="container">
       <div class="community">
         <div class="community-head">

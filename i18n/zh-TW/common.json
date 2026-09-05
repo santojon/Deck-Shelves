@@ -55,6 +55,7 @@
   "section_behavior": "行為",
   "section_visual_global": "全域視覺",
   "select_placeholder": "選擇",
+  "shelf_source_unavailable": "此貨架的來源無法使用。請重新安裝提供該來源的外掛程式以還原此貨架。",
   "shelves_section": "書架",
   "show_in_shelf": "在書架中顯示",
   "show_shelf": "顯示書架",

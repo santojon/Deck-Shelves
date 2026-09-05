@@ -255,7 +255,18 @@ python3 deckprobe/cdp.py console sjc
 
 # Inject a classmap for testing
 python3 deckprobe/tools/inject_classmap.py
+
+# List every diag script (deckprobe's generic ones + this project's own)
+python3 deckprobe/cli.py diag list
+python3 deckprobe/cli.py diag run diag_composite_filter -- <bp-target-id>
 ```
+
+Project-specific diag scripts (ones that hardcode Deck Shelves' own
+selectors/features rather than the generic, override-anything defaults
+deckprobe ships with) live in `scripts/deckprobe-ext/diag/` — wired via
+`diag_dirs` in `deckprobe.config.json`, same convention as the screenshot
+scenarios and UI-test suites above. `diag list`/`diag run` merge both
+directories automatically.
 
 ## i18n
 

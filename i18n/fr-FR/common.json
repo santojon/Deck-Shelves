@@ -55,6 +55,7 @@
   "section_behavior": "Comportement",
   "section_visual_global": "Visuel global",
   "select_placeholder": "Sélectionner",
+  "shelf_source_unavailable": "La source de cette étagère n'est pas disponible. Réinstallez le plugin qui la fournit pour la restaurer.",
   "shelves_section": "Étagères",
   "show_in_shelf": "Afficher dans l'étagère",
   "show_shelf": "Afficher l'étagère",

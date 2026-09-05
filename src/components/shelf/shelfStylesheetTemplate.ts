@@ -696,12 +696,16 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
          badge falls back to --colored-toggles-main-color (the same var
          the native badge uses, set by themes like Colored Toggles), and
          finally to the Steam-default blue when no theme is active.
+         Text mirrors the same chain — Colored Toggles' own contrasting
+         text var (e.g. #333 for its White option), not a hardcoded white,
+         so a light main color doesn't wash the label out (reported live:
+         white-on-white under Colored Toggles / White).
          Round / More Round themes set --round-radius-size on :root —
          badges (new + discount, both share this class) inherit it
          unconditionally so the round always applies regardless of
          force / promoted-slot state. */
       background: var(--ds-new-badge-bg, var(--colored-toggles-main-color, rgb(26, 159, 255)));
-      color: var(--ds-new-badge-color, #fff);
+      color: var(--ds-new-badge-color, var(--colored-toggles-friends-text-color, #fff));
       font: 700 10px/20px "Motiva Sans", Helvetica, Arial, sans-serif;
       letter-spacing: 0.5px; text-transform: uppercase;
       padding: 2px 12px;

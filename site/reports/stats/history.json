@@ -1,0 +1,329 @@
+[
+  {
+    "date": "2026-03-27",
+    "githubDownloads": 23
+  },
+  {
+    "date": "2026-04-02",
+    "githubDownloads": 70
+  },
+  {
+    "date": "2026-04-04",
+    "githubDownloads": 90
+  },
+  {
+    "date": "2026-04-06",
+    "githubDownloads": 113
+  },
+  {
+    "date": "2026-04-07",
+    "githubDownloads": 176
+  },
+  {
+    "date": "2026-04-09",
+    "githubDownloads": 349
+  },
+  {
+    "date": "2026-04-11",
+    "githubDownloads": 473
+  },
+  {
+    "date": "2026-04-14",
+    "githubDownloads": 539
+  },
+  {
+    "date": "2026-04-16",
+    "githubDownloads": 607
+  },
+  {
+    "date": "2026-04-17",
+    "githubDownloads": 638
+  },
+  {
+    "date": "2026-04-18",
+    "githubDownloads": 682
+  },
+  {
+    "date": "2026-04-19",
+    "githubDownloads": 797
+  },
+  {
+    "date": "2026-04-21",
+    "githubDownloads": 840
+  },
+  {
+    "date": "2026-04-22",
+    "githubDownloads": 882
+  },
+  {
+    "date": "2026-04-24",
+    "githubDownloads": 948
+  },
+  {
+    "date": "2026-04-27",
+    "githubDownloads": 993
+  },
+  {
+    "date": "2026-04-28",
+    "githubDownloads": 1029
+  },
+  {
+    "date": "2026-04-29",
+    "githubDownloads": 1066
+  },
+  {
+    "date": "2026-04-30",
+    "githubDownloads": 1210
+  },
+  {
+    "date": "2026-05-06",
+    "githubDownloads": 1255
+  },
+  {
+    "date": "2026-05-08",
+    "githubDownloads": 1283
+  },
+  {
+    "date": "2026-05-09",
+    "githubDownloads": 1323
+  },
+  {
+    "date": "2026-05-14",
+    "githubDownloads": 1369
+  },
+  {
+    "date": "2026-05-15",
+    "githubDownloads": 1425
+  },
+  {
+    "date": "2026-05-24",
+    "githubDownloads": 1477
+  },
+  {
+    "date": "2026-05-27",
+    "githubDownloads": 1557
+  },
+  {
+    "date": "2026-06-03",
+    "githubDownloads": 1600
+  },
+  {
+    "date": "2026-06-06",
+    "githubDownloads": 1643
+  },
+  {
+    "date": "2026-06-10",
+    "githubDownloads": 1683
+  },
+  {
+    "date": "2026-06-12",
+    "githubDownloads": 1796
+  },
+  {
+    "date": "2026-06-17",
+    "npm": {
+      "api": 46
+    }
+  },
+  {
+    "date": "2026-06-24",
+    "npm": {
+      "api": 332
+    }
+  },
+  {
+    "date": "2026-06-30",
+    "githubDownloads": 1945
+  },
+  {
+    "date": "2026-07-01",
+    "npm": {
+      "api": 346
+    }
+  },
+  {
+    "date": "2026-07-05",
+    "githubDownloads": 1998
+  },
+  {
+    "date": "2026-07-08",
+    "npm": {
+      "api": 532
+    },
+    "githubDownloads": 2020
+  },
+  {
+    "date": "2026-07-09",
+    "githubDownloads": 2042
+  },
+  {
+    "date": "2026-07-10",
+    "githubDownloads": 2143
+  },
+  {
+    "date": "2026-07-12",
+    "npm": {
+      "host": 251
+    }
+  },
+  {
+    "date": "2026-07-15",
+    "npm": {
+      "api": 552
+    }
+  },
+  {
+    "date": "2026-07-19",
+    "npm": {
+      "host": 260
+    }
+  },
+  {
+    "date": "2026-07-20",
+    "githubDownloads": 2352
+  },
+  {
+    "date": "2026-07-22",
+    "npm": {
+      "api": 818
+    }
+  },
+  {
+    "date": "2026-07-26",
+    "npm": {
+      "host": 424
+    }
+  },
+  {
+    "date": "2026-07-29",
+    "npm": {
+      "api": 880
+    }
+  },
+  {
+    "date": "2026-08-02",
+    "npm": {
+      "host": 448
+    }
+  },
+  {
+    "date": "2026-08-05",
+    "npm": {
+      "api": 890
+    }
+  },
+  {
+    "date": "2026-08-09",
+    "npm": {
+      "host": 457
+    }
+  },
+  {
+    "date": "2026-08-12",
+    "npm": {
+      "api": 922
+    }
+  },
+  {
+    "date": "2026-08-14",
+    "githubDownloads": 2437
+  },
+  {
+    "date": "2026-08-15",
+    "githubDownloads": 2693
+  },
+  {
+    "date": "2026-08-16",
+    "npm": {
+      "host": 465
+    }
+  },
+  {
+    "date": "2026-08-19",
+    "npm": {
+      "api": 937
+    }
+  },
+  {
+    "date": "2026-08-23",
+    "npm": {
+      "host": 610
+    }
+  },
+  {
+    "date": "2026-08-26",
+    "npm": {
+      "api": 1099
+    }
+  },
+  {
+    "date": "2026-08-30",
+    "npm": {
+      "host": 647
+    }
+  },
+  {
+    "date": "2026-09-01",
+    "traffic": {
+      "main": {
+        "views": 453,
+        "viewsUniques": 162,
+        "clones": 225,
+        "clonesUniques": 63
+      },
+      "api": {
+        "views": 24,
+        "viewsUniques": 4,
+        "clones": 60,
+        "clonesUniques": 25
+      },
+      "host": {
+        "views": 29,
+        "viewsUniques": 1,
+        "clones": 85,
+        "clonesUniques": 31
+      }
+    },
+    "npm": {
+      "api": 1115,
+      "host": 647
+    },
+    "deckyStoreInstalls": 12173,
+    "githubDownloads": 2693
+  },
+  {
+    "date": "2026-09-02",
+    "traffic": {
+      "main": {
+        "views": 423,
+        "viewsUniques": 153,
+        "clones": 241,
+        "clonesUniques": 68
+      },
+      "api": {
+        "views": 25,
+        "viewsUniques": 5,
+        "clones": 60,
+        "clonesUniques": 26
+      },
+      "host": {
+        "views": 29,
+        "viewsUniques": 1,
+        "clones": 86,
+        "clonesUniques": 33
+      },
+      "shelveshub": {
+        "views": 0,
+        "viewsUniques": 0,
+        "clones": 6,
+        "clonesUniques": 1
+      }
+    },
+    "npm": {
+      "api": 1117,
+      "host": 652
+    },
+    "deckyStoreInstalls": 16692,
+    "githubDownloads": 2892
+  }
+]

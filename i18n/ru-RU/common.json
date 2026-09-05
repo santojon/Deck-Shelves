@@ -55,6 +55,7 @@
   "section_behavior": "Поведение",
   "section_visual_global": "Глобальное оформление",
   "select_placeholder": "Выберите",
+  "shelf_source_unavailable": "Источник этой полки недоступен. Переустановите плагин, который его предоставляет, чтобы восстановить эту полку.",
   "shelves_section": "Полки",
   "show_in_shelf": "Показать на полке",
   "show_shelf": "Показать полку",

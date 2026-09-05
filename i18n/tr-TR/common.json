@@ -55,6 +55,7 @@
   "section_behavior": "Davranış",
   "section_visual_global": "Genel görsel",
   "select_placeholder": "Seçiniz",
+  "shelf_source_unavailable": "Bu rafın kaynağı kullanılamıyor. Bu rafı geri yüklemek için kaynağı sağlayan eklentiyi yeniden yükleyin.",
   "shelves_section": "Raflar",
   "show_in_shelf": "Rafta göster",
   "show_shelf": "Rafı göster",

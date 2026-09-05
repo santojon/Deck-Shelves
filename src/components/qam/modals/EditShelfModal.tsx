@@ -19,7 +19,7 @@ import { logInfo } from '../../../runtime/logger'
 import { notify } from '../../notify'
 import { invalidateRandomSortCache } from '../../../steam'
 import { invalidateSmartShelfCache } from '../../../steam/smartShelves'
-import { getExternalSources } from '../../../core/pluginApi'
+import { getExternalSources, contextAwareSourceRequiresFocus } from '../../../core/pluginApi'
 import { descriptorName } from '../../../core/descriptorName'
 import { isNonSteamBadgesAvailable } from '../../../integrations'
 import { usePlatform } from '../../../runtime/platformContext'
@@ -720,6 +720,9 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
                   <FieldContainer scrollable>
                     <DropdownItem label={t('source')} rgOptions={sourceTypeOptions} selectedOption={state.sourceType} onChange={(opt: unknown) => changeSourceType(String(optionData(opt)) as SourceType)} bottomSeparator='thick' />
                     {renderPrimarySourcePicker()}
+                    {state.sourceType === 'external' && contextAwareSourceRequiresFocus(state.externalSourceId) && (
+                      <Field label={t('context_aware_seed_label' as any)} description={t('context_aware_seed_desc' as any)} bottomSeparator='thick' />
+                    )}
                     {renderAdditionalSourcesBlock()}
                     {(() => {
                       /* Owned-exclusion toggles, one block per online source.

@@ -55,6 +55,7 @@
   "section_behavior": "Поведінка",
   "section_visual_global": "Глобальний вигляд",
   "select_placeholder": "Виберіть",
+  "shelf_source_unavailable": "Джерело цієї полиці недоступне. Перевстановіть плагін, який його надає, щоб відновити цю полицю.",
   "shelves_section": "Полиці",
   "show_in_shelf": "Показати на полиці",
   "show_shelf": "Показати полицю",

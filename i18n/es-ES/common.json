@@ -55,6 +55,7 @@
   "section_behavior": "Comportamiento",
   "section_visual_global": "Visual global",
   "select_placeholder": "Seleccione",
+  "shelf_source_unavailable": "El origen de esta estantería no está disponible. Reinstala el plugin que lo proporciona para restaurar esta estantería.",
   "shelves_section": "Estantes",
   "show_in_shelf": "Mostrar en el estante",
   "show_shelf": "Mostrar estantería",

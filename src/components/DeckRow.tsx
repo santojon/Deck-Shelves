@@ -21,6 +21,7 @@ import {
   globalStylesStart,
   globalStylesStop,
   onNativeDimsChange,
+  clampCardGap,
 } from "./shelf/shelfStyles";
 import { getCurrentSettings, saveSettings } from "../store/settingsStore";
 import { trackFeature } from "../steam/usageTracking";
@@ -52,6 +53,16 @@ function writeCollapsed(shelfId: string, collapsed: boolean): void {
   } catch (e) {
     logInfo("HOME", "writeCollapsed failed", String(e));
   }
+}
+
+/* A deferred re-center pass can outlive the focus that scheduled it (a rapid
+   lateral-navigation burst keeps re-arming a verify timer; by the time it
+   fires, focus may have already moved to a different row entirely). True iff
+   a card inside `el` is still genuinely focused — checks both real DOM focus
+   and GamepadUI's own `gpfocus` class. */
+function isFocusStillWithin(el: HTMLElement): boolean {
+  const active = el.ownerDocument?.activeElement;
+  return (active != null && el.contains(active)) || !!el.querySelector('.gpfocus');
 }
 
 // Row paddingBottom budget: scales with what renders below the card art
@@ -158,11 +169,11 @@ function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = fa
     const nd = getCachedNativeDims();
     const w = matchNativeSize && nd ? nd.width : CARD_W;
     const h = matchNativeSize && nd ? nd.height : CARD_ART_H;
-    // TiltedHome skews cards into each other: a measured native gap of 0 (or
-    // near-0) becomes fully invisible after the skew transform. Clamp to 8px
-    // minimum so parallelograms never fully merge regardless of theme state.
+    // Clamped both ways (min 8px so TiltedHome's skew never fully merges
+    // adjacent cards, max half the card width so a bad native measurement
+    // can never blow up into a huge visible gap) — see clampCardGap.
     const rawGap = matchNativeSize && nd ? nd.gap : CARD_GAP;
-    const gap = Math.max(rawGap, 8);
+    const gap = clampCardGap(rawGap, w);
     // Default featured: ~3.21× portrait width (matches base native 430px featured
     // card at 134px portrait width, measured via CDP on the Steam Deck home screen).
     const featW = matchNativeSize && nd?.featuredWidth ? nd.featuredWidth : Math.round(w * 3.21);
@@ -343,6 +354,10 @@ function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = fa
        prior content (hero / hidden-recents spacer). */
     const maybeCenter = () => {
       try {
+        // The 300ms verify pass below can outlive the focus that scheduled it
+        // (issue #118) — `onCardFocus` further down already guards the same
+        // way; this handler was missing it. See isFocusStillWithin.
+        if (!isFocusStillWithin(el)) return;
         const scr = findScrollableAncestor(el);
         if (!scr) { el.scrollIntoView({ block: "center", behavior: "smooth" }); return; }
         const elRect = el.getBoundingClientRect();

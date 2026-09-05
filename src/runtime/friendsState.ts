@@ -23,6 +23,17 @@ let _playingByApp = new Map<number, FriendBrief[]>();
 let _recentByApp = new Map<number, FriendBrief[]>();
 let _pollTimer: number | null = null;
 
+/* getFriendsInApp is a plain pull inside GameCard's render, not a prop or a
+   subscribed value — a card whose own props stay stable across a poll never
+   re-renders to pick up newly-available friend data. This tiny pub-sub lets
+   a card opt in to re-rendering on a real change, without subscribing every
+   card on every shelf. */
+const _listeners = new Set<() => void>();
+export function subscribeFriendsChanged(cb: () => void): () => void {
+  _listeners.add(cb);
+  return () => { _listeners.delete(cb); };
+}
+
 function avatarUrl(hash: unknown): string {
   const h = typeof hash === "string" ? hash : "";
   return h ? `https://avatars.steamstatic.com/${h}_medium.jpg` : "";
@@ -101,13 +112,16 @@ function processFriendIntoSets(
   } catch {}
 }
 
-function refresh(): void {
+// Returns whether it actually read something, so the boot-time caller below
+// can tell "friendStore isn't ready yet" apart from "ran fine, nothing to
+// report" and retry only the former.
+function refresh(): boolean {
   const fs = getFriendStore();
-  if (!fs) return;
+  if (!fs) return false;
   let all: any[] = [];
   try {
     all = Array.isArray(fs.allFriends) ? fs.allFriends : [];
-  } catch { return; }
+  } catch { return false; }
   const now = Math.floor(Date.now() / 1000);
   const recentCutoff = now - RECENTLY_PLAYED_LOOKBACK_DAYS * 24 * 3600;
   const playing = new Set<number>();
@@ -126,22 +140,48 @@ function refresh(): void {
   if (changed) {
     try { triggerShelfRefresh(); } catch {}
   }
+  /* Unconditional, unlike triggerShelfRefresh above: a card can mount (and
+     read getFriendsInApp) between refresh() populating the maps and this
+     card's own subscription existing yet, missing that one `changed` event
+     for good since the set won't flip again until the friend does something
+     different. Every poll nudges any listening card to just re-check. */
+  for (const l of _listeners) { try { l(); } catch {} }
+  return true;
 }
+
+/* Bounds the "friendStore isn't ready yet" gap: without this, a first
+   attempt landing too early (confirmed live via a dev-only debug hook —
+   the maps stayed empty for a full boot, only catching up at the *next*
+   90s interval tick) silently gives up for good until then. 6 tries every
+   4s covers a slow-hydrating friend list without unbounded polling. */
+const FIRST_REFRESH_RETRY_MS = 4000;
+const FIRST_REFRESH_MAX_ATTEMPTS = 6;
 
 export function installFriendsState(): () => void {
   if (_pollTimer !== null) {
     try { clearInterval(_pollTimer); } catch {}
     _pollTimer = null;
   }
-  // First refresh deferred to idle so the boot path stays responsive.
-  // The friend list isn't usually ready yet at plugin boot anyway.
+  let stopped = false;
+  let retryTimer: number | null = null;
+  const attemptFirstRefresh = (attempt: number) => {
+    if (stopped) return;
+    let ok = false;
+    try { ok = refresh(); } catch {}
+    if (ok || attempt >= FIRST_REFRESH_MAX_ATTEMPTS) return;
+    retryTimer = window.setTimeout(() => attemptFirstRefresh(attempt + 1), FIRST_REFRESH_RETRY_MS);
+  };
+  // First attempt deferred to idle so the boot path stays responsive; the
+  // friend list isn't usually ready yet at plugin boot, hence the retries.
   const schedule = (globalThis as any).requestIdleCallback ?? ((cb: any) => setTimeout(cb, 2000));
-  schedule(() => { try { refresh(); } catch {} });
+  schedule(() => attemptFirstRefresh(1));
   _pollTimer = window.setInterval(() => {
     try { refresh(); } catch {}
   }, POLL_INTERVAL_MS);
   logInfo('RUNTIME', 'friends state subscription installed');
   return () => {
+    stopped = true;
+    if (retryTimer !== null) { try { window.clearTimeout(retryTimer); } catch {} }
     if (_pollTimer !== null) {
       try { clearInterval(_pollTimer); } catch {}
       _pollTimer = null;
@@ -170,4 +210,18 @@ export function getFriendsInApp(appId: number, includeRecent: boolean): FriendBr
 
 export function refreshFriendsState(): void {
   try { refresh(); } catch {}
+}
+
+// Temporary diagnostic for the "friend overlay missing" investigation.
+// Dead-code-eliminated from release builds (`if (!__DEV__) return;`).
+if (__DEV__) {
+  try {
+    (globalThis as any).__ds_dev_friends_debug = () => ({
+      currentlyPlaying: Array.from(_currentlyPlaying),
+      recentlyPlayed: Array.from(_recentlyPlayed),
+      playingByApp: Array.from(_playingByApp.entries()),
+      recentByApp: Array.from(_recentByApp.entries()),
+      listenerCount: _listeners.size,
+    });
+  } catch {}
 }

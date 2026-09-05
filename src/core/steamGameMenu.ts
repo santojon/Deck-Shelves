@@ -1,4 +1,4 @@
-import { showContextMenu, findModuleChild, findModuleByExport, fakeRenderComponent, afterPatch as dflAfterPatch, findInTree as dflFindInTree } from "../runtime/host/decky";
+import { showContextMenu, findModuleChild, findModuleByExport, fakeRenderComponent, afterPatch as hostAfterPatch, findInTree as hostFindInTree } from "../runtime/host/decky";
 import { getPreferredSteamDocument, getPreferredSteamWindow, getAllSteamDocuments } from "../runtime/steamHost";
 import { isSteamOS38OrLater } from "./steamOSVersion";
 import i18n from "../i18n";
@@ -15,8 +15,8 @@ export { buildShelfContextMenu, buildLibraryAddToShelfItems };
    focused-card context (`_activeAppIdForMenu` / `_activeCardIndexForMenu`)
    so existing call sites don't have to forward those values. Signature
    matches the pre-extraction local function. */
-function buildDeckShelvesMenuItems(shelfId: string, dfl: any, R: any, appid?: number): any[] {
-  return buildDeckShelvesMenuItemsBase(shelfId, dfl, R, appid, _activeAppIdForMenu, _activeCardIndexForMenu);
+function buildDeckShelvesMenuItems(shelfId: string, fl: any, R: any, appid?: number): any[] {
+  return buildDeckShelvesMenuItemsBase(shelfId, fl, R, appid, _activeAppIdForMenu, _activeCardIndexForMenu);
 }
 
 /* Only a SteamOS build confirmed older than 3.8 uses the legacy menu flow.
@@ -178,11 +178,11 @@ function resolveShelfIdByAppid(appid: number): string | null {
   return null;
 }
 
-function isGameContextMenuItems(items: any[], dfl: any): boolean {
+function isGameContextMenuItems(items: any[], fl: any): boolean {
   if (!Array.isArray(items) || !items.length) return false;
-  if (!dfl?.findInReactTree) return false;
+  if (!fl?.findInReactTree) return false;
   try {
-    return !!dfl.findInReactTree(items, (x: any) => {
+    return !!fl.findInReactTree(items, (x: any) => {
       const fn = x?.props?.onSelected;
       if (typeof fn !== "function") return false;
       const src = fn.toString();
@@ -220,13 +220,13 @@ function dedupDsMenuItems(items: any[]): void {
   }
 }
 
-function spliceDsItems(items: any[], dsItems: any[], dfl: any, R: any): void {
+function spliceDsItems(items: any[], dsItems: any[], fl: any, R: any): void {
   if (!Array.isArray(items) || !dsItems.length) return;
-  const sep = dfl?.MenuSeparator ? R.createElement(dfl.MenuSeparator, { key: "ds-sep-boot" }) : null;
+  const sep = fl?.MenuSeparator ? R.createElement(fl.MenuSeparator, { key: "ds-sep-boot" }) : null;
   let insertAt = -1;
   try {
     insertAt = items.findIndex((item: any) =>
-      dfl.findInReactTree?.(item, (x: any) =>
+      fl.findInReactTree?.(item, (x: any) =>
         x?.onSelected && typeof x.onSelected === "function" &&
         x.onSelected.toString().includes("AppProperties")
       )
@@ -275,7 +275,7 @@ function appidFromSelfProps(self: any): number {
 
 function appidFromTreeFallback(menuItems: any[]): number {
   try {
-    const foundApp: any = dflFindInTree(menuItems, (x: any) => x?.app?.appid, { walkable: ["props", "children"] } as any);
+    const foundApp: any = hostFindInTree(menuItems, (x: any) => x?.app?.appid, { walkable: ["props", "children"] } as any);
     return foundApp?.app?.appid ? Number(foundApp.app.appid) || 0 : 0;
   } catch { return 0; }
 }
@@ -284,32 +284,32 @@ function resolveAppidFromMenuChildren(menuItems: any[], self: any): number {
   return appidFromMenuOwner(menuItems) || appidFromSelfProps(self) || appidFromTreeFallback(menuItems);
 }
 
-function spliceLibraryOrShelfItems(menuItems: any[], curAppid: number, curShelfId: string | null, dfl: any, R: any): void {
+function spliceLibraryOrShelfItems(menuItems: any[], curAppid: number, curShelfId: string | null, fl: any, R: any): void {
   if (!curShelfId) {
     if (curAppid <= 0) return;
-    const libItems = buildLibraryAddToShelfItems(curAppid, dfl, R);
-    if (libItems.length) spliceDsItems(menuItems, libItems, dfl, R);
+    const libItems = buildLibraryAddToShelfItems(curAppid, fl, R);
+    if (libItems.length) spliceDsItems(menuItems, libItems, fl, R);
     return;
   }
-  const items = buildDeckShelvesMenuItems(curShelfId, dfl, R, curAppid);
-  if (items.length) spliceDsItems(menuItems, items, dfl, R);
+  const items = buildDeckShelvesMenuItems(curShelfId, fl, R, curAppid);
+  if (items.length) spliceDsItems(menuItems, items, fl, R);
 }
 
 function injectIntoMenuItems(menuItems: any[], self: any, dedupBefore: boolean): void {
-  const dfl = getDFL();
+  const fl = getFrontendLib();
   const R = getSteamReact();
-  if (!dfl || !R) return;
-  if (!isGameContextMenuItems(menuItems, dfl)) return;
+  if (!fl || !R) return;
+  if (!isGameContextMenuItems(menuItems, fl)) return;
   if (dedupBefore) dedupDsMenuItems(menuItems);
   const curAppid = resolveAppidFromMenuChildren(menuItems, self);
   const curShelfId = resolveShelfIdByAppid(curAppid);
   if (!dedupBefore) dedupDsMenuItems(menuItems);
-  spliceLibraryOrShelfItems(menuItems, curAppid, curShelfId, dfl, R);
+  spliceLibraryOrShelfItems(menuItems, curAppid, curShelfId, fl, R);
 }
 
 function installInnerRenderPatch(prototype: any): void {
   try {
-    dflAfterPatch(prototype, "render", function (this: any, _b: any, ret2: any) {
+    hostAfterPatch(prototype, "render", function (this: any, _b: any, ret2: any) {
       try {
         const menuItems = findMenuItemsArray(ret2);
         if (menuItems) injectIntoMenuItems(menuItems, this, true);
@@ -324,7 +324,7 @@ function installInnerRenderPatch(prototype: any): void {
 function installShouldComponentUpdatePatch(prototype: any): void {
   if (typeof prototype.shouldComponentUpdate !== "function") return;
   try {
-    dflAfterPatch(prototype, "shouldComponentUpdate", function (this: any, args: any[], shouldUpdate: any) {
+    hostAfterPatch(prototype, "shouldComponentUpdate", function (this: any, args: any[], shouldUpdate: any) {
       try {
         if (shouldUpdate !== true) return shouldUpdate;
         const nextChildren = findMenuItemsArray({ props: args?.[0] });
@@ -350,7 +350,7 @@ export function isLibraryContextMenuPatched(): boolean {
 export function installLibraryContextMenuPatch(): void {
   if (_libraryContextMenuPatched) return;
   const cls = discoverLibraryContextMenuClass();
-  if (!cls?.prototype?.render || typeof dflAfterPatch !== "function") return;
+  if (!cls?.prototype?.render || typeof hostAfterPatch !== "function") return;
   // Debug tap — bumped every time the outer patch fires + the path it
   // took. Surfaced through `window.deckShelves.debug` so we can verify
   // via CDP whether the patch is reaching library cards at all.
@@ -363,7 +363,7 @@ export function installLibraryContextMenuPatch(): void {
   setDebugCounter("lcmNoChildren", 0);
   setDebugCounter("lcmSplicedLib", 0);
   try {
-    dflAfterPatch(cls.prototype, "render", makeLcmRenderHandler());
+    hostAfterPatch(cls.prototype, "render", makeLcmRenderHandler());
     _libraryContextMenuPatched = true;
   } catch {}
 }
@@ -407,7 +407,7 @@ function appidFromOwnerProps(component: any): number {
 
 function appidFromComponentTree(component: any): number {
   try {
-    const foundApp: any = dflFindInTree(component?.props?.children, (x: any) => x?.app?.appid, { walkable: ["props", "children"] } as any);
+    const foundApp: any = hostFindInTree(component?.props?.children, (x: any) => x?.app?.appid, { walkable: ["props", "children"] } as any);
     return Number(foundApp?.app?.appid) || 0;
   } catch { return 0; }
 }
@@ -418,7 +418,7 @@ function appidFromComponent(component: any, self: any): number {
 
 function installInnerTypePatch(component: any): void {
   try {
-    dflAfterPatch(component, "type", (_a: any, ret: any) => {
+    hostAfterPatch(component, "type", (_a: any, ret: any) => {
       try {
         if (ret?.type?.prototype && typeof ret.type.prototype.render === "function" && !_patchedInnerTypes.has(ret.type)) {
           _patchedInnerTypes.add(ret.type);
@@ -430,19 +430,19 @@ function installInnerTypePatch(component: any): void {
   } catch {}
 }
 
-function spliceLcmIntoComponentChildren(component: any, appid: number, shelfId: string | null, dfl: any, R: any): void {
+function spliceLcmIntoComponentChildren(component: any, appid: number, shelfId: string | null, fl: any, R: any): void {
   try {
     const targetItems = findMenuItemsArray(component);
-    if (!targetItems || !isGameContextMenuItems(targetItems, dfl)) { bumpDebugCounter("lcmNoChildren"); return; }
+    if (!targetItems || !isGameContextMenuItems(targetItems, fl)) { bumpDebugCounter("lcmNoChildren"); return; }
     dedupDsMenuItems(targetItems);
     if (shelfId) {
       bumpDebugCounter("lcmShelfCalls");
-      const items = buildDeckShelvesMenuItems(shelfId, dfl, R, appid);
-      if (items.length) spliceDsItems(targetItems, items, dfl, R);
+      const items = buildDeckShelvesMenuItems(shelfId, fl, R, appid);
+      if (items.length) spliceDsItems(targetItems, items, fl, R);
     } else {
       bumpDebugCounter("lcmLibraryCalls");
-      const libItems = buildLibraryAddToShelfItems(appid, dfl, R);
-      if (libItems.length) { spliceDsItems(targetItems, libItems, dfl, R); bumpDebugCounter("lcmSplicedLib"); }
+      const libItems = buildLibraryAddToShelfItems(appid, fl, R);
+      if (libItems.length) { spliceDsItems(targetItems, libItems, fl, R); bumpDebugCounter("lcmSplicedLib"); }
     }
   } catch {}
 }
@@ -455,11 +455,11 @@ function makeLcmRenderHandler() {
       const appid = appidFromComponent(component, this);
       if (!appid) { bumpDebugCounter("lcmNoAppid"); return component; }
       const shelfId = resolveShelfIdByAppid(appid);
-      const dfl = getDFL();
+      const fl = getFrontendLib();
       const R = getSteamReact();
-      if (!dfl || !R) return component;
+      if (!fl || !R) return component;
       if (!innerInstalled) { innerInstalled = true; installInnerTypePatch(component); }
-      spliceLcmIntoComponentChildren(component, appid, shelfId, dfl, R);
+      spliceLcmIntoComponentChildren(component, appid, shelfId, fl, R);
     } catch {}
     return component;
   };
@@ -521,10 +521,10 @@ function containsDsItems(children: any): boolean {
   return children.some((c: any) => DS_ROOT_KEYS.has(c?.key));
 }
 
-function findMenuNode(rendered: any, dfl: any): any {
-  return dfl.findInReactTree(rendered, (node: any) => {
+function findMenuNode(rendered: any, fl: any): any {
+  return fl.findInReactTree(rendered, (node: any) => {
     if (!node || typeof node !== "object" || !node.props) return false;
-    if (node.type === dfl.Menu) return true;
+    if (node.type === fl.Menu) return true;
     if (typeof node.props.label !== "string") return false;
     const ch = node.props.children;
     return Array.isArray(ch) || (ch !== undefined && ch !== null);
@@ -547,13 +547,13 @@ function appendToMenuNode(menu: any, items: any[], shelfId: string): boolean {
   return true;
 }
 
-function fallbackInjectIntoRoot(rendered: any, items: any[], dfl: any, R: any, shelfId: string): void {
+function fallbackInjectIntoRoot(rendered: any, items: any[], fl: any, R: any, shelfId: string): void {
   const existing = rendered.props.children;
   if (containsDsItems(existing)) {
     devInfo("[DS][menu] root inject skipped — DS items already present", { shelfId });
     return;
   }
-  const sep = dfl.MenuSeparator ? R.createElement(dfl.MenuSeparator, { key: "ds-sep-fallback" }) : null;
+  const sep = fl.MenuSeparator ? R.createElement(fl.MenuSeparator, { key: "ds-sep-fallback" }) : null;
   if (Array.isArray(existing)) {
     if (sep) existing.push(sep);
     for (const it of items) existing.push(it);
@@ -567,30 +567,41 @@ function fallbackInjectIntoRoot(rendered: any, items: any[], dfl: any, R: any, s
 
 function injectDeckShelvesIntoTree(rendered: any, shelfId: string): any {
   if (!rendered) { devInfo("[DS][menu] inject skipped — rendered is null"); return rendered; }
-  const dfl = getDFL();
+  const fl = getFrontendLib();
   const R = getSteamReact();
-  if (!dfl?.findInReactTree) {
-    devWarn("[DS][menu] inject skipped — dfl.findInReactTree unavailable");
+  if (!fl?.findInReactTree) {
+    devWarn("[DS][menu] inject skipped — fl.findInReactTree unavailable");
     return rendered;
   }
   try {
-    return injectItemsOrFallback(rendered, shelfId, dfl, R);
+    return injectItemsOrFallback(rendered, shelfId, fl, R);
   } catch (e) {
     try { (globalThis as any).console?.warn?.("[DS][menu] injectDeckShelvesIntoTree threw", e); } catch {}
     return rendered;
   }
 }
 
-function injectItemsOrFallback(rendered: any, shelfId: string, dfl: any, R: any): any {
-  const items = buildDeckShelvesMenuItems(shelfId, dfl, R);
+function injectItemsOrFallback(rendered: any, shelfId: string, fl: any, R: any): any {
+  const __t = ((globalThis as any).__ds_m2 = (globalThis as any).__ds_m2 || []);
+  const items = buildDeckShelvesMenuItems(shelfId, fl, R);
+  __t.push("injectItems: built " + items.length + " items for shelfId=" + shelfId);
   if (!items.length) {
     devWarn("[DS][menu] no items to inject — buildDeckShelvesMenuItems returned []");
     return rendered;
   }
-  const menu = findMenuNode(rendered, dfl);
-  if (menu?.props) { appendToMenuNode(menu, items, shelfId); return rendered; }
-  if (rendered?.props) fallbackInjectIntoRoot(rendered, items, dfl, R, shelfId);
-  else devWarn("[DS][menu] rendered has no props — skipping inject", { shelfId });
+  const menu = findMenuNode(rendered, fl);
+  let __mt = "n/a";
+  try {
+    const t = menu?.type;
+    const ch = menu?.props?.children;
+    const chArr = Array.isArray(ch) ? ch : (ch != null ? [ch] : []);
+    const chKinds = chArr.slice(0, 6).map((c: any) => typeof c === "object" ? (c?.type?.name ?? c?.type?.displayName ?? typeof c?.type) : typeof c).join(",");
+    __mt = "isFlMenu=" + (t === fl.Menu) + " typeName=" + (t?.name ?? t?.displayName ?? typeof t) + " childCount=" + chArr.length + " childKinds=[" + chKinds + "]";
+  } catch (e) { __mt = "err " + e; }
+  __t.push("injectItems: menuNode=" + (menu?.props ? "found label=" + menu.props.label + " " + __mt : "NOT FOUND"));
+  if (menu?.props) { appendToMenuNode(menu, items, shelfId); __t.push("injectItems: appended to menu node"); return rendered; }
+  if (rendered?.props) { fallbackInjectIntoRoot(rendered, items, fl, R, shelfId); __t.push("injectItems: root fallback"); }
+  else { __t.push("injectItems: rendered has no props"); }
   return rendered;
 }
 
@@ -601,8 +612,10 @@ const REACT_FORWARD_REF_TYPE = typeof Symbol === "function" ? Symbol.for("react.
 
 function makeRenderPatchHandler(extractProps: (args: any[], self: any) => any) {
   return function (this: any, args: any[], result: any) {
+    const __t = ((globalThis as any).__ds_m2 = (globalThis as any).__ds_m2 || []);
     const props = extractProps(args, this);
     const shelfId = resolveShelfIdFromProps(props);
+    __t.push("renderHandler ran; shelfId=" + shelfId + " hasResult=" + !!result + " propsKeys=" + (props ? Object.keys(props).slice(0, 8).join(",") : "none"));
     return shelfId ? injectDeckShelvesIntoTree(result, shelfId) : result;
   };
 }
@@ -610,10 +623,10 @@ function makeRenderPatchHandler(extractProps: (args: any[], self: any) => any) {
 const propsFromArgs = (args: any[]) => args?.[0];
 const propsFromThis = (_args: any[], self: any) => self?.props;
 
-function patchRenderOnce(target: any, prop: string, handler: any, dfl: any, kind: string, name: string): void {
+function patchRenderOnce(target: any, prop: string, handler: any, fl: any, kind: string, name: string): void {
   if (patchedComponents.has(target)) return;
   try {
-    dfl.afterPatch(target, prop, handler);
+    fl.afterPatch(target, prop, handler);
     patchedComponents.add(target);
     devInfo(`[DS][menu] afterPatch installed (${kind})`, { name });
   } catch (e) {
@@ -629,24 +642,24 @@ function tryPatchMemo(inner: any): any | null {
   return inner;
 }
 
-function tryPatchForwardRef(inner: any, dfl: any): any | null {
+function tryPatchForwardRef(inner: any, fl: any): any | null {
   if (typeof inner !== "object" || inner?.$$typeof !== REACT_FORWARD_REF_TYPE) return null;
   if (typeof inner.render !== "function") return null;
-  patchRenderOnce(inner, "render", makeRenderPatchHandler(propsFromArgs), dfl,
+  patchRenderOnce(inner, "render", makeRenderPatchHandler(propsFromArgs), fl,
     "forwardRef via $$typeof", inner.displayName ?? "<forwardRef>");
   return inner;
 }
 
-function tryPatchClass(inner: any, dfl: any): any | null {
+function tryPatchClass(inner: any, fl: any): any | null {
   if (!inner?.prototype || typeof inner.prototype.render !== "function") return null;
-  patchRenderOnce(inner.prototype, "render", makeRenderPatchHandler(propsFromThis), dfl,
+  patchRenderOnce(inner.prototype, "render", makeRenderPatchHandler(propsFromThis), fl,
     "class", inner.name ?? inner?.displayName ?? "<anon>");
   return inner;
 }
 
-function tryPatchDuckForwardRef(inner: any, dfl: any): any | null {
+function tryPatchDuckForwardRef(inner: any, fl: any): any | null {
   if (typeof inner.render !== "function" || inner.render === inner) return null;
-  patchRenderOnce(inner, "render", makeRenderPatchHandler(propsFromArgs), dfl,
+  patchRenderOnce(inner, "render", makeRenderPatchHandler(propsFromArgs), fl,
     "forwardRef duck", inner.displayName ?? "<forwardRef>");
   return inner;
 }
@@ -677,9 +690,9 @@ function wrapFunctionComponent(inner: Function): any {
   return wrapped;
 }
 
-function tryAfterPatchVariants(inner: any, dfl: any): any | null {
-  if (typeof dfl.afterPatch !== "function") return null;
-  return tryPatchForwardRef(inner, dfl) ?? tryPatchClass(inner, dfl) ?? tryPatchDuckForwardRef(inner, dfl);
+function tryAfterPatchVariants(inner: any, fl: any): any | null {
+  if (typeof fl.afterPatch !== "function") return null;
+  return tryPatchForwardRef(inner, fl) ?? tryPatchClass(inner, fl) ?? tryPatchDuckForwardRef(inner, fl);
 }
 
 function logNoPatchMatch(inner: any): void {
@@ -691,18 +704,40 @@ function logNoPatchMatch(inner: any): void {
 }
 
 function getInjectedMenuComponent(inner: any): any {
+  const __t = ((globalThis as any).__ds_m2 = (globalThis as any).__ds_m2 || []);
   if (!inner) return inner;
-  const dfl = getDFL();
-  if (!dfl) { devWarn("[DS][menu] inject skipped — DFL not available"); return inner; }
-  const handled = tryPatchMemo(inner) ?? tryAfterPatchVariants(inner, dfl);
-  if (handled) return handled;
-  if (typeof inner === "function") return wrapFunctionComponent(inner);
+  const fl = getFrontendLib();
+  if (!fl) { __t.push("gIMC: no fl"); return inner; }
+  __t.push("gIMC inner typeof=" + typeof inner + " $$=" + (inner?.$$typeof?.toString?.() ?? "none") + " hasProtoRender=" + (!!inner?.prototype?.render) + " hasRender=" + (typeof inner?.render));
+  const memo = tryPatchMemo(inner);
+  if (memo) { __t.push("gIMC -> memo path"); return memo; }
+  const variant = tryAfterPatchVariants(inner, fl);
+  if (variant) { __t.push("gIMC -> afterPatch variant"); return variant; }
+  if (typeof inner === "function") { __t.push("gIMC -> wrapFunctionComponent (passthrough, NO inject)"); return wrapFunctionComponent(inner); }
+  __t.push("gIMC -> no match");
   logNoPatchMatch(inner);
   return inner;
 }
 
-function getDFL(): any {
-  return (globalThis as any).DFL ?? (globalThis as any).deckyFrontendLib ?? (globalThis as any).window?.DFL;
+/* Resolve the frontend-library surface parametrically per host: a loader
+   (Decky) publishes it as a global; a neutral host (no loader) exposes the
+   same helpers on its own adapter (`__SHELVES_HOST__.ui`) instead — so the
+   menu code works under either without any loader-named global. */
+// Split so neither fallback chain pushes getFrontendLib's own complexity
+// over the limit — Decky-loader globals vs the host-parametric
+// __SHELVES_HOST__.ui seam are separate lookup strategies anyway.
+function getDeckyLoaderLib(): any {
+  const g = globalThis as any;
+  return g.DFL ?? g.deckyFrontendLib ?? g.window?.DFL ?? g.window?.deckyFrontendLib;
+}
+
+function getHostUiLib(): any {
+  const g = globalThis as any;
+  return g.window?.__SHELVES_HOST__?.ui ?? g.__SHELVES_HOST__?.ui;
+}
+
+function getFrontendLib(): any {
+  return getDeckyLoaderLib() ?? getHostUiLib();
 }
 
 function getSPDocument(): Document {
@@ -728,7 +763,7 @@ function installCaptureHooks(): {
     /* `React.memo` (an object with `$$typeof === Symbol.for('react.memo')`)
        or `React.forwardRef`, so the previous `typeof type !== "function"`
        gate silently rejected the real captures and forced every shelf-card
-       menu into the DFL fallback. The `overview + client` props signature is
+       menu into the fallback path. The `overview + client` props signature is
        unique to `AppContextMenu`, so it's a sufficient filter on its own. */
     if (!type) return;
     if (!props || !("overview" in props) || !("client" in props)) return;
@@ -866,16 +901,16 @@ export function installPassiveMenuHook(): void {
 
 export function installPassiveShowContextMenuHook(): void {
   if (showContextMenuHookInstalled) return;
-  /* Legacy (≤ 3.7): rely on the React.createElement hook only. The DFL
+  /* Legacy (≤ 3.7): rely on the React.createElement hook only. The frontend-lib
      showContextMenu wrapper was added for 3.8/3.9-only paths where Steam
      sometimes constructs the menu element via a module-bound reference
      before the createElement hook installs; pre-3.8 the createElement
      capture is sufficient on its own. */
   if (isLegacyMenuFlow()) return;
-  const dfl = getDFL();
-  if (!dfl || typeof dfl.showContextMenu !== "function") return;
-  const orig = dfl.showContextMenu;
-  dfl.showContextMenu = function (element: any, anchor: any, ...rest: any[]) {
+  const fl = getFrontendLib();
+  if (!fl || typeof fl.showContextMenu !== "function") return;
+  const orig = fl.showContextMenu;
+  fl.showContextMenu = function (element: any, anchor: any, ...rest: any[]) {
     try {
       if (!cachedMenuComponent && element && typeof element.type === "function") {
         const props = element.props ?? {};
@@ -1104,15 +1139,20 @@ function buildMenuProps(overview: any, ownerWindow: any, shelfId: string | undef
 }
 
 function presentMenuElement(menuElement: any, cardEl: HTMLElement): void {
-  const dfl = getDFL();
-  if (dfl?.showContextMenu) dfl.showContextMenu(menuElement, cardEl);
+  const fl = getFrontendLib();
+  if (fl?.showContextMenu) fl.showContextMenu(menuElement, cardEl);
   else showContextMenu(menuElement, cardEl as any);
 }
 
 function buildFreshMenuElement(overview: any, anchorDoc: Document | undefined, shelfId: string | undefined): any {
   const React = getSteamReact();
   const baseTarget = shelfId ? getInjectedMenuComponent(cachedMenuComponent) : cachedMenuComponent;
-  const renderTarget = function DsFreshMenu(props: any) { return (baseTarget as any)(props); };
+  const __t = ((globalThis as any).__ds_m2 = (globalThis as any).__ds_m2 || []);
+  __t.push("buildFresh: cached typeof=" + typeof cachedMenuComponent + " $$=" + ((cachedMenuComponent as any)?.$$typeof?.toString?.() ?? "none") + "; baseTarget typeof=" + typeof baseTarget + " $$=" + ((baseTarget as any)?.$$typeof?.toString?.() ?? "none") + "; shelfId=" + shelfId);
+  const renderTarget = function DsFreshMenu(props: any) {
+    try { return (baseTarget as any)(props); }
+    catch (e) { ((globalThis as any).__ds_m2 = (globalThis as any).__ds_m2 || []).push("DsFreshMenu THREW calling baseTarget: " + e); throw e; }
+  };
   const props = buildMenuProps(overview, resolveOwnerWindow(anchorDoc), shelfId, cachedMenuTemplateProps);
   return React.createElement(renderTarget, props);
 }
@@ -1222,26 +1262,26 @@ const FALLBACK_SPECS: FallbackSpec[] = [
   },
 ];
 
-function appendShelfItems(items: any[], shelfId: string, appid: number, dfl: any, R: any): void {
-  const dsItems = buildDeckShelvesMenuItems(shelfId, dfl, R, appid);
+function appendShelfItems(items: any[], shelfId: string, appid: number, fl: any, R: any): void {
+  const dsItems = buildDeckShelvesMenuItems(shelfId, fl, R, appid);
   if (!dsItems.length) return;
-  if (dfl.MenuSeparator) items.push(R.createElement(dfl.MenuSeparator, { key: "ds-sep" }));
+  if (fl.MenuSeparator) items.push(R.createElement(fl.MenuSeparator, { key: "ds-sep" }));
   for (const it of dsItems) items.push(it);
 }
 
-function buildDflFallbackItems(appid: number, shelfId: string | undefined, dfl: any, R: any, installed: boolean): any[] {
+function buildFallbackItems(appid: number, shelfId: string | undefined, fl: any, R: any, installed: boolean): any[] {
   const items: any[] = [];
   const sc: any = (globalThis as any).SteamClient;
-  const nav = dfl.Navigation ?? sc?.Navigation;
+  const nav = fl.Navigation ?? sc?.Navigation;
   for (const spec of FALLBACK_SPECS) {
     if (spec.installedOnly && !installed) continue;
     if (!spec.available(sc, nav)) continue;
-    pushIfAvailable(items, R, dfl.MenuItem, spec.key,
+    pushIfAvailable(items, R, fl.MenuItem, spec.key,
       fallbackMenuLabel(spec.labelKey, spec.labelFallback),
       () => spec.action(sc, nav, appid),
       spec.extraProps);
   }
-  if (shelfId) appendShelfItems(items, shelfId, appid, dfl, R);
+  if (shelfId) appendShelfItems(items, shelfId, appid, fl, R);
   return items;
 }
 
@@ -1252,24 +1292,24 @@ function resolveCardLabelName(cardEl: HTMLElement | null): string | null {
   } catch { return null; }
 }
 
-function hasDflMenuApi(dfl: any, R: any): boolean {
-  return !!(dfl?.showContextMenu && R && dfl.Menu && dfl.MenuItem);
+function hasFallbackMenuApi(fl: any, R: any): boolean {
+  return !!(fl?.showContextMenu && R && fl.Menu && fl.MenuItem);
 }
 
-function dflFallbackMenuLabel(overview: any, cardEl: HTMLElement | null): string {
+function resolveFallbackTitle(overview: any, cardEl: HTMLElement | null): string {
   return overview?.display_name || resolveCardLabelName(cardEl) || "Game";
 }
 
-function showDflFallbackMenu(appid: number, shelfId: string | undefined): void {
+function showFallbackMenu(appid: number, shelfId: string | undefined): void {
   try {
-    const dfl = getDFL();
+    const fl = getFrontendLib();
     const R = getSteamReact();
-    if (!hasDflMenuApi(dfl, R)) return;
+    if (!hasFallbackMenuApi(fl, R)) return;
     const anchor = findCardAnchor(appid);
     const cardEl = (anchor?.el ?? getSPDocument().activeElement) as HTMLElement;
     const overview = getAppStore()?.GetAppOverviewByAppID?.(appid);
-    const items = buildDflFallbackItems(appid, shelfId, dfl, R, overview?.installed === true);
-    dfl.showContextMenu(R.createElement(dfl.Menu, { label: dflFallbackMenuLabel(overview, cardEl) }, ...items), cardEl);
+    const items = buildFallbackItems(appid, shelfId, fl, R, overview?.installed === true);
+    fl.showContextMenu(R.createElement(fl.Menu, { label: resolveFallbackTitle(overview, cardEl) }, ...items), cardEl);
   } catch {}
 }
 
@@ -1294,7 +1334,7 @@ export function showGameMenu(appid: number, shelfId?: string): void {
     } else if (tryShowGameMenuNative(appid, shelfId)) {
       return;
     }
-    showDflFallbackMenu(appid, shelfId);
+    showFallbackMenu(appid, shelfId);
   } finally {
     showGameMenuActive = false;
   }

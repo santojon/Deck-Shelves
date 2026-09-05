@@ -55,6 +55,7 @@
   "section_behavior": "Zachowanie",
   "section_visual_global": "Globalny wygląd",
   "select_placeholder": "Wybierz",
+  "shelf_source_unavailable": "Źródło tej półki jest niedostępne. Zainstaluj ponownie wtyczkę, która je dostarcza, aby przywrócić tę półkę.",
   "shelves_section": "Półki",
   "show_in_shelf": "Pokaż na półce",
   "show_shelf": "Pokaż półkę",

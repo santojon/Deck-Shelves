@@ -8,7 +8,9 @@ import {
   toPublicAppMeta,
   resolveExternalSource,
   hasExternalSmartSource, resolveExternalSmartSource,
+  isContextAwareSource,
 } from "../core/pluginApi";
+import { resolveContextAwareShelf } from "../core/contextAwareShelves";
 import type { PlatformAppMeta, PlatformTab } from "../runtime/platform";
 import { logInfo, logWarn } from "../runtime/logger";
 import { getPreferredSteamDocument, getPreferredSteamWindow } from "../runtime/steamHost";
@@ -3384,8 +3386,15 @@ async function _resolveFilter(ctx: ResolverContext): Promise<number[]> {
 
 async function _resolveExternal(ctx: ResolverContext): Promise<number[]> {
   const { source, all, sort, shelfId, sortReverse, finish, overShootLimit, limit } = ctx;
+    const sourceId = String(source.sourceId ?? "");
     try {
-      let ids = await resolveExternalSource(String(source.sourceId ?? ""), limit);
+      /* Context-aware sources resolve through a dedicated orchestrator
+         (focus context, cancellation, a short cache — debounced
+         invalidation lives at the shelf-subscription level); everything
+         else about resolution (sort, dedupe, overshoot) is shared. */
+      let ids = isContextAwareSource(sourceId)
+        ? await resolveContextAwareShelf(sourceId, shelfId ?? sourceId, limit, undefined)
+        : await resolveExternalSource(sourceId, limit);
       logInfo("STEAM", "resolveShelfAppIds(external) resolved", { sourceId: source.sourceId, count: ids.length });
       if (sort) ids = applySortToIds(ids, sort, all, shelfId, sortReverse);
       ids = deduplicateNonSteam(ids, all);

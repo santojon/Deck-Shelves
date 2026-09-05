@@ -12,8 +12,8 @@ import i18n from "../../i18n";
 import { type DeckRowItem, CARD_W, CARD_ART_H } from "./types";
 import { formatPlaytime } from "./shelfStyles";
 import { PlaceholderCard } from "./PlaceholderCard";
-import { resolveNativeCardClass } from "./cardUtils";
-import { getFriendsInApp } from "../../runtime/friendsState";
+import { resolveNativeCardClass, useNearViewport } from "./cardUtils";
+import { getFriendsInApp, subscribeFriendsChanged } from "../../runtime/friendsState";
 import { getCurrentSettings, saveSettings } from "../../store/settingsStore";
 import { patchShelfInSettings } from "../../domain/settings";
 import { saveFocusTarget, beginFocusRestoreLoop } from "../../core/focusRestore";
@@ -172,6 +172,9 @@ function trackCardActivation(ref: { previewMode: boolean; appid: number; shelfId
 function GameCardImpl({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHProp, featured = false, cardIndex, hideStatusLine = false, hideNewBadge = false, hideDiscountBadge = false, hideCompatIcons = false, hideNonSteamBadge = false, hideGameName = false, hideInstallIndicator = false, friendsOverlay = false, friendsOverlayRecent = false, enableLogo = false, enableIcon = false, enableDescription = false, descriptionBelowLogo = false, descriptionPosition = 'left', iconVerticalAlign = 'top', gameNamePosition = 'left', playtimePosition = 'left', previewMode = false, removableSet, onRemoveCard, hiddenSet, onHideCard }: { item: DeckRowItem; cardW?: number; cardH?: number; artH?: number; featured?: boolean; cardIndex?: number; hideStatusLine?: boolean; hideNewBadge?: boolean; hideDiscountBadge?: boolean; hideCompatIcons?: boolean; hideNonSteamBadge?: boolean; hideGameName?: boolean; hideInstallIndicator?: boolean; friendsOverlay?: boolean; friendsOverlayRecent?: boolean; enableLogo?: boolean; enableIcon?: boolean; enableDescription?: boolean; descriptionBelowLogo?: boolean; logoPosition?: 'left' | 'center' | 'right'; descriptionPosition?: 'left' | 'center' | 'right'; iconVerticalAlign?: 'top' | 'center' | 'bottom'; gameNamePosition?: 'left' | 'center' | 'right'; playtimePosition?: 'left' | 'center' | 'right'; inlineBadges?: boolean; previewMode?: boolean; removableSet?: Set<number>; onRemoveCard?: (appid: number) => void; hiddenSet?: Set<number>; onHideCard?: (appid: number) => void }) {
   const t = i18n.t.bind(i18n);
   const cardRef = useRef<HTMLDivElement>(null);
+  // Gates description fetch + icon/logo/cover cache warming (below) to
+  // cards near the visible scroll area — see useNearViewport.
+  const isNearViewport = useNearViewport(cardRef, '600px');
   const imgRef = useRef<HTMLImageElement>(null);
   const fallbackIdx = useRef(0);
   const appid = typeof item.id === "number" ? item.id : Number(item.appid ?? 0);
@@ -189,6 +192,16 @@ function GameCardImpl({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHProp
   const [nativeCardClass, setNativeCardClass] = useState('');
   const [imgFailed, setImgFailed] = useState(false);
   const [imgLoaded, setImgLoaded] = useState(false);
+
+  /* getFriendsInApp (below) is a plain pull read during render, not a prop —
+     without this, a card whose other props stay stable across a friends
+     poll never re-renders to pick up a friend who just started playing.
+     Only subscribes when the decoration is actually on. */
+  const [, forceFriendsTick] = useState(0);
+  useEffect(() => {
+    if (!friendsOverlay || previewMode) return;
+    return subscribeFriendsChanged(() => forceFriendsTick((n) => n + 1));
+  }, [friendsOverlay, previewMode]);
 
   // Dedupe activation: Focusable fires onActivate + onOKButton + dispatches
   // vgp_onok (listened below), so a single A-press can invoke item.onActivate
@@ -457,11 +470,13 @@ function GameCardImpl({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHProp
      back to the network. `getHotCachedImageSrc` returns a blob URL ready to
      feed directly into `<img src>`. */
   useEffect(() => {
+    if (!isNearViewport) return;
     for (const u of iconUrls) if (!getHotCachedImageSrc(u)) warmCacheBackground(u);
-  }, [iconUrls]);
+  }, [iconUrls, isNearViewport]);
   useEffect(() => {
+    if (!isNearViewport) return;
     for (const u of logoUrls) if (!getHotCachedImageSrc(u)) warmCacheBackground(u);
-  }, [logoUrls]);
+  }, [logoUrls, isNearViewport]);
   const iconSrc = (iconUrls[iconIdx] ? (getHotCachedImageSrc(iconUrls[iconIdx]) || iconUrls[iconIdx]) : null);
   /* Description lands in the cache asynchronously after `preloadAppDescriptions`
      kicks off `RequestDescriptionsData`. A useMemo over the cache would never
@@ -469,7 +484,7 @@ function GameCardImpl({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHProp
      the snippet (or the cache's own retry budget runs out). */
   const [description, setDescription] = useState<string | null>(null);
   useEffect(() => {
-    if (!enableDescription || appid <= 0 || previewMode) { setDescription(null); return; }
+    if (!enableDescription || appid <= 0 || previewMode || !isNearViewport) { setDescription(null); return; }
     preloadAppDescriptions(appid);
     const tick = (): boolean => {
       const d = getAppDescriptions(appid);
@@ -480,7 +495,7 @@ function GameCardImpl({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHProp
     const id = window.setInterval(() => { if (tick()) window.clearInterval(id); }, 400);
     const stop = window.setTimeout(() => window.clearInterval(id), 6000);
     return () => { window.clearInterval(id); window.clearTimeout(stop); };
-  }, [enableDescription, appid, previewMode]);
+  }, [enableDescription, appid, previewMode, isNearViewport]);
 
   const allUrls = useMemo(() => {
     const urls: string[] = [];
@@ -532,13 +547,13 @@ function GameCardImpl({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHProp
        it's the local /customimages/ entry that cacheable() rejects,
        so the persistent cache never populated and every reboot
        re-downloaded every cover from the CDN. */
-    if (initialSrc === initialOriginal) {
+    if (isNearViewport && initialSrc === initialOriginal) {
       const warmTarget = firstCacheableUrl(allUrls);
       if (warmTarget) {
         try { warmCacheBackground(warmTarget); } catch {}
       }
     }
-  }, [allUrls, startIdx, initialSrc, initialOriginal]);
+  }, [allUrls, startIdx, initialSrc, initialOriginal, isNearViewport]);
 
   const onImgError = useCallback(() => {
     fallbackIdx.current += 1;
@@ -732,7 +747,7 @@ function GameCardImpl({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHProp
                wait for cached images so this is "instant for cached,
                glyph-free for cold". */
             style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", opacity: imgLoaded ? 1 : 0 }}
-            loading="eager"
+            loading={featured ? "eager" : "lazy"}
             fetchPriority="high"
           />
           <div className={`ds-card-shimmer${imgLoaded ? ' ds-card-shimmer--loaded' : ''}`} aria-hidden="true" />

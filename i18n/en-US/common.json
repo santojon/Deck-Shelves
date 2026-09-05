@@ -55,6 +55,7 @@
   "section_behavior": "Behavior",
   "section_visual_global": "Global Visual",
   "select_placeholder": "Select",
+  "shelf_source_unavailable": "This shelf's source is unavailable. Reinstall the plugin that provides it to restore this shelf.",
   "shelves_section": "Shelves",
   "show_in_shelf": "Show in shelf",
   "show_shelf": "Show shelf",

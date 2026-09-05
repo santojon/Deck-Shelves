@@ -134,16 +134,24 @@ const __ds_entry = definePlugin((serverAPI?: any) => {
   // on systems where the user account isn't `deck` (Bazzite, ChimeraOS, etc.).
   void prewarmUserPaths();
   const enableHomePatch = typeof __DECK_SHELVES_ENABLE_HOME_PATCH__ !== "undefined" ? __DECK_SHELVES_ENABLE_HOME_PATCH__ : true;
-  const routerHook = serverAPI?.routerHook
+  // A LOADER router hook (used to detect that a loader launched us). Keep this
+  // keyed on the loader only — the injected host also exposes a router hook, but
+  // that must NOT make resolveHost pick the loader path.
+  const loaderRouterHook = serverAPI?.routerHook
     ?? (globalThis as any).window?.DFL?.routerHook
     ?? (globalThis as any).DFL?.routerHook;
   // Host selection lives entirely in resolveHost() — loader vs injected host,
   // by launch signal, producing the same HostApi contract either way.
-  _hostApi = resolveHost(serverAPI, routerHook);
+  _hostApi = resolveHost(serverAPI, loaderRouterHook);
+  // The router hook used for our screens + home patch: the loader's when a loader
+  // launched us, or — as sole host — the injected host's own hook.
+  const routerHook = loaderRouterHook
+    ?? (globalThis as any).window?.__SHELVES_HOST__?.routerHook
+    ?? (globalThis as any).__SHELVES_HOST__?.routerHook;
   // Single-owner guard: in a dual-host install the first instance claims the
   // renderer; the other stands down — no home patch and no settings writes —
   // so there's one injector and one writer.
-  const isOwner = claimHomeOwnership((serverAPI || routerHook) ? "decky" : "shelveshub");
+  const isOwner = claimHomeOwnership((serverAPI || loaderRouterHook) ? "decky" : "shelveshub");
   if (!isOwner) logInfo("RUNTIME", "another Deck Shelves instance owns the renderer — standing down (no home patch / no settings writes)");
   const patch = (enableHomePatch && isOwner) ? installHomePatch(routerHook) : null;
   const recentsReplacePatch = isOwner ? installRecentsReplace(routerHook) : null;

@@ -10,6 +10,8 @@ import { shouldShowMoreCard, shouldShowRefreshCard } from "./shelf/trailingCards
 import { showGameMenu, buildShelfContextMenu } from "../core/steamGameMenu";
 import { saveFocusTarget } from "../core/focusRestore";
 import { subscribeShelfRefresh, triggerShelfRefresh } from "../core/shelfRefresh";
+import { maybeSubscribeContextInvalidation } from "../core/contextAwareShelves";
+import { hasExternalSource } from "../core/pluginApi";
 import { mark, measure } from "../core/perf";
 import { logInfo } from "../runtime/logger";
 import { applyManualOrder, invalidateRandomSortCache, getAllAppOverviews, getLocalLibraryAppIds } from "../steam";
@@ -189,6 +191,25 @@ function computeEffectiveShelfDisplayProps(shelf: any, isOnlineShelf: boolean, g
   };
 }
 
+// True when this shelf's external source id references a provider that
+// isn't currently registered (uninstalled/disabled) — distinguishes that
+// from a source genuinely resolving to zero results, which stays silent.
+function unavailableExternalSourceId(shelf: Shelf): boolean {
+  const source = shelf.source as any;
+  if (source?.type !== 'external') return false;
+  const sourceId = String(source.sourceId ?? '');
+  return !!sourceId && !hasExternalSource(sourceId);
+}
+
+function renderUnavailableSourceNotice(title: string, message: string) {
+  return (
+    <div style={{ padding: '10px 16px', opacity: 0.75 }}>
+      <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>{title}</div>
+      <div style={{ fontSize: 12 }}>⚠️ {message}</div>
+    </div>
+  );
+}
+
 function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFirst = false, globalHighlightAll = false, globalHighlightRandom = false, globalHideStatusLine = false, globalHideNewBadge = false, globalHideDiscountBadge = false, globalHideCompatIcons = false, globalHideNonSteamBadge = false, globalHideShelfTitle = false, globalHideGameNames = false, globalHideInstallIndicator = false, globalHideSeeMore = false, globalHideRefreshCard = false, globalHeroEnabled = false, globalGameInfoAbove = false, globalFriendsPlayingOverlay = false, globalFriendsPlayingOverlayRecent = false, globalDedupeByName = false, globalEnableLogo = false, globalEnableIcon = false, globalEnableDescription = false, globalDescriptionBelowLogo = false, globalLogoBelowShelf = false, globalLogoPosition = 'left', globalDescriptionPosition = 'left', globalLogoSize = 100, globalLogoTopOffset = 20, globalFullPageShelf = false, globalIconVerticalAlign, globalShelfTitlePosition, globalGameNamePosition, globalPlaytimePosition, globalDescriptionHeight, heroForced = false, heroLabelMount = false, forceExpanded = false, forceLayoutAsRecents = false, forceCollapsed = false, autoCollapseWhenEmpty = false }: { shelf: Shelf; globalMatchNativeSize?: boolean; globalHighlightFirst?: boolean; globalHighlightAll?: boolean; globalHighlightRandom?: boolean; globalHideStatusLine?: boolean; globalHideNewBadge?: boolean; globalHideDiscountBadge?: boolean; globalHideCompatIcons?: boolean; globalHideNonSteamBadge?: boolean; globalHideShelfTitle?: boolean; globalHideGameNames?: boolean; globalHideInstallIndicator?: boolean; globalHideSeeMore?: boolean; globalHideRefreshCard?: boolean; globalHeroEnabled?: boolean; globalGameInfoAbove?: boolean; globalFriendsPlayingOverlay?: boolean; globalFriendsPlayingOverlayRecent?: boolean; globalDedupeByName?: boolean; globalEnableLogo?: boolean; globalEnableIcon?: boolean; globalEnableDescription?: boolean; globalDescriptionBelowLogo?: boolean; globalLogoBelowShelf?: boolean; globalLogoPosition?: 'left' | 'center' | 'right'; globalDescriptionPosition?: 'left' | 'center' | 'right'; globalLogoSize?: number; globalLogoTopOffset?: number; globalFullPageShelf?: boolean; globalIconVerticalAlign?: 'top' | 'center' | 'bottom' | null; globalShelfTitlePosition?: 'left' | 'center' | 'right' | null; globalGameNamePosition?: 'left' | 'center' | 'right' | null; globalPlaytimePosition?: 'left' | 'center' | 'right' | null; globalDescriptionHeight?: number | null; heroForced?: boolean; heroLabelMount?: boolean; forceExpanded?: boolean; forceLayoutAsRecents?: boolean; forceCollapsed?: boolean; autoCollapseWhenEmpty?: boolean }) {
   const { t } = useTranslation();
   const platform = usePlatform();
@@ -351,9 +372,20 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
     };
     globalThis.addEventListener("deck-shelves-settings-changed", onSettings);
 
+    /* Context-aware re-resolve: no-op for every shelf except one whose
+       external source declared it needs the focused game — see
+       `maybeSubscribeContextInvalidation`. Reuses the SAME `resolve()`
+       closure (generation counter included), so a focus change is just
+       another debounced trigger alongside the refresh emitter above. */
+    /* `manual: true` reuses the existing brief opacity-dip (no layout jump,
+       no new UI) so a context-driven re-resolve gives the same "updating"
+       cue a manual refresh does — old contents stay visible the whole time. */
+    const unsubContext = maybeSubscribeContextInvalidation(shelf.source as any, () => resolve({ manual: true }));
+
     return () => {
       cancelled = true;
       unsubRefresh();
+      unsubContext?.();
       globalThis.removeEventListener("deck-shelves-settings-changed", onSettings);
       if (settingsTimer !== null) { clearTimeout(settingsTimer); settingsTimer = null; }
       if (refreshTimerRef.current) { clearTimeout(refreshTimerRef.current); refreshTimerRef.current = null; }
@@ -791,7 +823,11 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
   if (!rowItems.length && items.size > 0 && metaVersion < 5 && firstLoad.current) {
     return <div style={{ padding: 10 }}><Spinner /></div>;
   }
-  if (!rowItems.length) return null;
+  if (!rowItems.length) {
+    return unavailableExternalSourceId(shelf)
+      ? renderUnavailableSourceNotice(shelf.title, t('shelf_source_unavailable'))
+      : null;
+  }
 
   // Random-featured rule: stable per shelf id, ~25 % of cards. Implementation
   // pulled out to `computeRandomHighlightSet` to keep render complexity under

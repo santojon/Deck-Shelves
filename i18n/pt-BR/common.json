@@ -55,6 +55,7 @@
   "section_behavior": "Comportamento",
   "section_visual_global": "Visual Global",
   "select_placeholder": "Selecione",
+  "shelf_source_unavailable": "A origem desta prateleira está indisponível. Reinstale o plugin que a fornece para restaurar esta prateleira.",
   "shelves_section": "Prateleiras",
   "show_in_shelf": "Mostrar na prateleira",
   "show_shelf": "Mostrar prateleira",

@@ -2,7 +2,7 @@ import { forwardRef, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Focusable } from "../../runtime/host/decky";
 import { getCurrentSettings, subscribeSettings } from "../../settingsStore";
-import { getExternalSideMenuProviders, type SideMenuContext, type SideMenuEntry } from "../../core/pluginApi";
+import { getExternalSideMenuProviders, type SideMenuContext, type SideMenuEntry, type SideMenuProviderDescriptor } from "../../core/pluginApi";
 import type { Settings, Shelf, SmartShelf } from "../../types";
 import { focusElement } from "../../core/focusRestore";
 import { GamepadButton, dispatchHomeButtonDown, subscribeHomeButton } from "../../runtime/homeInputBus";
@@ -386,7 +386,14 @@ function SideNavShell({ anchor, settings, onClose }: { anchor: Anchor; settings:
   useEffect(() => {
     let alive = true;
     const providers = getExternalSideMenuProviders();
-    void Promise.all(providers.map((p) => Promise.resolve(p.resolve(ctx)).catch(() => [] as SideMenuEntry[])))
+    // A provider's `resolve()` may throw synchronously (not just reject) —
+    // wrapping the call itself, not just its promise, keeps one bad
+    // provider from breaking every entry in the side menu.
+    const safeResolve = (p: SideMenuProviderDescriptor): Promise<SideMenuEntry[]> => {
+      try { return Promise.resolve(p.resolve(ctx)).catch(() => [] as SideMenuEntry[]); }
+      catch { return Promise.resolve([] as SideMenuEntry[]); }
+    };
+    void Promise.all(providers.map(safeResolve))
       .then((lists) => {
         if (!alive) return;
         setPluginEntries(lists.flat());

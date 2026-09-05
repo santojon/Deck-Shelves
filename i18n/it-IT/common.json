@@ -55,6 +55,7 @@
   "section_behavior": "Comportamento",
   "section_visual_global": "Stile globale",
   "select_placeholder": "Seleziona",
+  "shelf_source_unavailable": "L'origine di questo scaffale non è disponibile. Reinstalla il plugin che la fornisce per ripristinare questo scaffale.",
   "shelves_section": "Scaffali",
   "show_in_shelf": "Mostra nello scaffale",
   "show_shelf": "Mostra scaffale",

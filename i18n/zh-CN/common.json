@@ -55,6 +55,7 @@
   "section_behavior": "行为",
   "section_visual_global": "全局视觉",
   "select_placeholder": "选择",
+  "shelf_source_unavailable": "此货架的来源不可用。重新安装提供该来源的插件以恢复此货架。",
   "shelves_section": "书架",
   "show_in_shelf": "在书架中显示",
   "show_shelf": "显示书架",

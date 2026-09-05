@@ -69,8 +69,9 @@ function normalizeImportedProfile(p: any, seenNames: Set<string>): ProfileRecord
   if (typeof p.snapshot !== "object" || !p.snapshot) return null;
   let name = p.name.trim().slice(0, 64);
   let n = 2;
+  const copyWord = i18next.t("profile_duplicate_suffix");
   while (seenNames.has(name.toLowerCase())) {
-    name = `${p.name.trim().slice(0, 56)} (cópia ${n})`.slice(0, 64);
+    name = `${p.name.trim().slice(0, 56)} (${copyWord} ${n})`.slice(0, 64);
     n++;
   }
   seenNames.add(name.toLowerCase());
@@ -169,10 +170,11 @@ export function createProfileActions(deps: ProfilesDeps) {
       const source = profiles.find((p) => p.id === id);
       if (!source) return null;
       // Suffix with a unique counter so duplicates of duplicates work.
-      let name = `${source.name} (cópia)`.slice(0, 64);
+      const copyWord = i18next.t("profile_duplicate_suffix");
+      let name = `${source.name} (${copyWord})`.slice(0, 64);
       let n = 2;
       while (isNameTaken(profiles, name)) {
-        const stem = `${source.name} (cópia ${n})`;
+        const stem = `${source.name} (${copyWord} ${n})`;
         name = stem.slice(0, 64);
         n++;
       }

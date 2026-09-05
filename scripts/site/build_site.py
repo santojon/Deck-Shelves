@@ -18,6 +18,7 @@ Usage: python3 scripts/site/build_site.py [--root .]
 from __future__ import annotations
 
 import html
+import json
 import os
 import re
 import shutil
@@ -155,6 +156,69 @@ def _inject_download(page: str, version: str) -> str:
         r'(?:/download/deck-shelves-v[^"]+)?"(?:\s+download)?'
     )
     return pattern.sub(f'href="{direct}" download', page)
+
+
+# ── Usage stats ──────────────────────────────────────────────────────────────
+
+def _parse_stats(root: Path):
+    """Latest usage-stats snapshot written weekly by fetch_stats.py. Returns
+    None (leaves the placeholder text untouched) if it hasn't run yet."""
+    path = root / "site" / "reports" / "stats" / "history.json"
+    if not path.is_file():
+        return None
+    try:
+        history = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    return history[-1] if isinstance(history, list) and history else None
+
+
+def _stats_values(stats: dict) -> dict:
+    """Map each stat card's data-stat key to its display string, omitting
+    any source that didn't come back this run instead of showing a zero."""
+    values = {}
+    installs = stats.get("deckyStoreInstalls")
+    if installs is not None:
+        values["installs"] = f"{installs:,}"
+    downloads = stats.get("githubDownloads")
+    if downloads is not None:
+        values["downloads"] = f"{downloads:,}"
+    main_traffic = (stats.get("traffic") or {}).get("main") or {}
+    if "views" in main_traffic:
+        values["views"] = f"{main_traffic['views']:,}"
+    npm = stats.get("npm") or {}
+    npm_total = sum(v for v in npm.values() if isinstance(v, int))
+    if npm_total:
+        values["npm"] = f"{npm_total:,}"
+    return values
+
+
+def _inject_stat(page: str, key: str, value: str) -> str:
+    pattern = re.compile(rf'(<b data-stat="{key}">).*?(</b>)', re.DOTALL)
+    return pattern.sub(lambda mo: mo.group(1) + html.escape(value) + mo.group(2), page)
+
+
+def _inject_stats_row(page: str, stats: dict | None) -> str | None:
+    """Fill in the chips left at their placeholder "—" and reveal the row
+    (hidden by default so a page built before the first snapshot doesn't
+    show four dashes). A chip with no value this run just keeps "—" rather
+    than a stale or fabricated number. The snapshot date goes on the row's
+    own title attribute — a hover tooltip, no extra visible text."""
+    if not stats:
+        return None
+    values = _stats_values(stats)
+    if not values:
+        return None
+    for key, value in values.items():
+        page = _inject_stat(page, key, value)
+    date = stats.get("date")
+    # Matched by regex, not a plain string .replace() — re-runnable across
+    # snapshots, since a later run's row already carries attributes from
+    # the run before it (same class of bug _inject_download guards against).
+    row_pattern = re.compile(r'<div class="stats-row" data-stats-row(?:\s+style="display:none")?(?:\s+title="[^"]*")?>')
+    title_attr = f' title="Last snapshot: {html.escape(date)}"' if date else ''
+    page = row_pattern.sub(f'<div class="stats-row" data-stats-row{title_attr}>', page)
+    return page
 
 
 # ── Features page ────────────────────────────────────────────────────────────
@@ -340,6 +404,14 @@ def main() -> int:
         print(f"[build_site] download links point to deck-shelves-v{version}.zip")
     else:
         print("[build_site] WARN: no version found; download links kept as release page")
+
+    stats = _parse_stats(root)
+    stats_page = _inject_stats_row(page, stats)
+    if stats_page is not None:
+        page = stats_page
+        print(f"[build_site] stats row: {_stats_values(stats)}")
+    else:
+        print("[build_site] stats: no snapshot yet, row stays hidden")
 
     index.write_text(page, encoding="utf-8")
 

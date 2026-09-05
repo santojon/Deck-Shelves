@@ -143,7 +143,7 @@ export function ProfilesDetail({ controller, t }: ProfilesDetailProps) {
                   ) : (
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontWeight: 600, display: "flex", gap: 8, alignItems: "center" }}>
-                        <span>{profile.name}</span>
+                        <span>{isFactory ? t("profile_factory_name") : profile.name}</span>
                         {isActive ? (
                           <span style={{
                             fontSize: 10,
@@ -299,7 +299,10 @@ export function ProfilesDetail({ controller, t }: ProfilesDetailProps) {
       {activeName ? (
         <SettingsSection
           title={t("settings_profiles_active_title")}
-          description={t("settings_profiles_active_desc").replace("{{name}}", activeName)}
+          description={t("settings_profiles_active_desc").replace(
+            "{{name}}",
+            activeName === FACTORY_PROFILE_NAME ? t("profile_factory_name") : activeName,
+          )}
         >
           <DialogButton
             onClick={() => (controller.actions as any).clearActiveProfile?.()}

@@ -193,16 +193,27 @@ export function beginFocusRestoreLoop(): void {
      5 s + up to 5 re-takes. Steam's native focus-first-card reflex can
      fire as late as 3 s after the home remounts. */
   const scheduleConfirmation = () => {
+    /* A genuine directional press during this window proves the user is back
+       in control — any focus loss from here on is their own navigation, not
+       Steam's reflex, so this loop must stand down for good (reported live:
+       Down got fought and snapped back ~1.6s later). Scoped to this call's
+       own 5s lifetime. */
+    let userNavigated = false;
+    const onDirection = () => { userNavigated = true; };
+    doc.addEventListener("vgp_ondirection", onDirection, true);
+    const stopListening = () => doc.removeEventListener("vgp_ondirection", onDirection, true);
+
     let reTakes = 0;
     const start = Date.now();
     const check = () => {
-      if (activeAbort !== abort) return;
+      if (activeAbort !== abort || userNavigated) { stopListening(); return; }
       const card = findCard();
       if (card && !card.classList.contains("gpfocus") && reTakes < 5) {
         const navNode = findNavNodeForElement(card);
         if (navNode && takeNavFocus(navNode)) reTakes++;
       }
-      if (Date.now() - start < 5000) setTimeout(check, 200);
+      if (Date.now() - start < 5000) { setTimeout(check, 200); return; }
+      stopListening();
     };
     setTimeout(check, 150);
   };

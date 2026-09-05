@@ -55,6 +55,7 @@
   "section_behavior": "Gedrag",
   "section_visual_global": "Globaal visueel",
   "select_placeholder": "Selecteer",
+  "shelf_source_unavailable": "De bron van dit rek is niet beschikbaar. Installeer de plugin die deze bron levert opnieuw om dit rek te herstellen.",
   "shelves_section": "Planken",
   "show_in_shelf": "Tonen op plank",
   "show_shelf": "Schap tonen",
