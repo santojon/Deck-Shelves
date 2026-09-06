@@ -582,26 +582,15 @@ function injectDeckShelvesIntoTree(rendered: any, shelfId: string): any {
 }
 
 function injectItemsOrFallback(rendered: any, shelfId: string, fl: any, R: any): any {
-  const __t = ((globalThis as any).__ds_m2 = (globalThis as any).__ds_m2 || []);
   const items = buildDeckShelvesMenuItems(shelfId, fl, R);
-  __t.push("injectItems: built " + items.length + " items for shelfId=" + shelfId);
   if (!items.length) {
     devWarn("[DS][menu] no items to inject — buildDeckShelvesMenuItems returned []");
     return rendered;
   }
   const menu = findMenuNode(rendered, fl);
-  let __mt = "n/a";
-  try {
-    const t = menu?.type;
-    const ch = menu?.props?.children;
-    const chArr = Array.isArray(ch) ? ch : (ch != null ? [ch] : []);
-    const chKinds = chArr.slice(0, 6).map((c: any) => typeof c === "object" ? (c?.type?.name ?? c?.type?.displayName ?? typeof c?.type) : typeof c).join(",");
-    __mt = "isFlMenu=" + (t === fl.Menu) + " typeName=" + (t?.name ?? t?.displayName ?? typeof t) + " childCount=" + chArr.length + " childKinds=[" + chKinds + "]";
-  } catch (e) { __mt = "err " + e; }
-  __t.push("injectItems: menuNode=" + (menu?.props ? "found label=" + menu.props.label + " " + __mt : "NOT FOUND"));
-  if (menu?.props) { appendToMenuNode(menu, items, shelfId); __t.push("injectItems: appended to menu node"); return rendered; }
-  if (rendered?.props) { fallbackInjectIntoRoot(rendered, items, fl, R, shelfId); __t.push("injectItems: root fallback"); }
-  else { __t.push("injectItems: rendered has no props"); }
+  if (menu?.props) { appendToMenuNode(menu, items, shelfId); return rendered; }
+  if (rendered?.props) fallbackInjectIntoRoot(rendered, items, fl, R, shelfId);
+  else devWarn("[DS][menu] rendered has no props — skipping inject", { shelfId });
   return rendered;
 }
 
@@ -612,10 +601,8 @@ const REACT_FORWARD_REF_TYPE = typeof Symbol === "function" ? Symbol.for("react.
 
 function makeRenderPatchHandler(extractProps: (args: any[], self: any) => any) {
   return function (this: any, args: any[], result: any) {
-    const __t = ((globalThis as any).__ds_m2 = (globalThis as any).__ds_m2 || []);
     const props = extractProps(args, this);
     const shelfId = resolveShelfIdFromProps(props);
-    __t.push("renderHandler ran; shelfId=" + shelfId + " hasResult=" + !!result + " propsKeys=" + (props ? Object.keys(props).slice(0, 8).join(",") : "none"));
     return shelfId ? injectDeckShelvesIntoTree(result, shelfId) : result;
   };
 }
@@ -704,17 +691,12 @@ function logNoPatchMatch(inner: any): void {
 }
 
 function getInjectedMenuComponent(inner: any): any {
-  const __t = ((globalThis as any).__ds_m2 = (globalThis as any).__ds_m2 || []);
   if (!inner) return inner;
   const fl = getFrontendLib();
-  if (!fl) { __t.push("gIMC: no fl"); return inner; }
-  __t.push("gIMC inner typeof=" + typeof inner + " $$=" + (inner?.$$typeof?.toString?.() ?? "none") + " hasProtoRender=" + (!!inner?.prototype?.render) + " hasRender=" + (typeof inner?.render));
-  const memo = tryPatchMemo(inner);
-  if (memo) { __t.push("gIMC -> memo path"); return memo; }
-  const variant = tryAfterPatchVariants(inner, fl);
-  if (variant) { __t.push("gIMC -> afterPatch variant"); return variant; }
-  if (typeof inner === "function") { __t.push("gIMC -> wrapFunctionComponent (passthrough, NO inject)"); return wrapFunctionComponent(inner); }
-  __t.push("gIMC -> no match");
+  if (!fl) { devWarn("[DS][menu] inject skipped — frontend lib not available"); return inner; }
+  const handled = tryPatchMemo(inner) ?? tryAfterPatchVariants(inner, fl);
+  if (handled) return handled;
+  if (typeof inner === "function") return wrapFunctionComponent(inner);
   logNoPatchMatch(inner);
   return inner;
 }
@@ -1147,12 +1129,7 @@ function presentMenuElement(menuElement: any, cardEl: HTMLElement): void {
 function buildFreshMenuElement(overview: any, anchorDoc: Document | undefined, shelfId: string | undefined): any {
   const React = getSteamReact();
   const baseTarget = shelfId ? getInjectedMenuComponent(cachedMenuComponent) : cachedMenuComponent;
-  const __t = ((globalThis as any).__ds_m2 = (globalThis as any).__ds_m2 || []);
-  __t.push("buildFresh: cached typeof=" + typeof cachedMenuComponent + " $$=" + ((cachedMenuComponent as any)?.$$typeof?.toString?.() ?? "none") + "; baseTarget typeof=" + typeof baseTarget + " $$=" + ((baseTarget as any)?.$$typeof?.toString?.() ?? "none") + "; shelfId=" + shelfId);
-  const renderTarget = function DsFreshMenu(props: any) {
-    try { return (baseTarget as any)(props); }
-    catch (e) { ((globalThis as any).__ds_m2 = (globalThis as any).__ds_m2 || []).push("DsFreshMenu THREW calling baseTarget: " + e); throw e; }
-  };
+  const renderTarget = function DsFreshMenu(props: any) { return (baseTarget as any)(props); };
   const props = buildMenuProps(overview, resolveOwnerWindow(anchorDoc), shelfId, cachedMenuTemplateProps);
   return React.createElement(renderTarget, props);
 }
