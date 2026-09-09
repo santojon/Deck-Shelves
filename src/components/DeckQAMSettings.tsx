@@ -6,6 +6,8 @@ import {
   ToggleField,
 } from '../runtime/host/decky'
 import { getMountFailed, getMountError, subscribeMountFailed } from '../runtime/homePatch'
+import { hostProvidesNativeTab } from '../runtime/host/resolve'
+import { restartSteam } from '../runtime/ownQamTab'
 import type { SettingsController } from '../features/settings/controller'
 import { usePlatform } from '../runtime/platformContext'
 import { DeckQAMStyles } from './styles/DeckQAMStyles'
@@ -43,7 +45,7 @@ import { SavedFilterRow } from './qam/list/SavedFilterRow'
 import { SavedSmartFilterRow } from './qam/list/SavedSmartFilterRow'
 import { SmartShelvesFirstRunBanner } from './qam/modals/SmartShelvesFirstRunBanner'
 import { CollapsibleSection, DSSliderField, VersionFooter } from './ui'
-import { SlidersIcon, StackIcon, SparkleIcon, BookmarkIcon, PlusCircleIcon, OnlineIcon } from './icons'
+import { SlidersIcon, StackIcon, SparkleIcon, BookmarkIcon, PlusCircleIcon, OnlineIcon, SearchIcon, WandIcon } from './icons'
 import { UpdateBanner } from './qam/UpdateBanner'
 import { useQamExpanded, resetQamExpanded } from './qam/qamExpandedStore'
 import { confirmAction } from './qam/modals/ConfirmActionModal'
@@ -502,8 +504,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
       {(() => {
         if (isSecHid('additional')) return null;
         return (
-      <CollapsibleSection id='additional' icon={<PlusCircleIcon />} title={t('section_additional_features')} count={[settings.updateNotifyEnabled !== false, (settings as any).contextSearchEnabled === true, (settings as any).sideNavEnabled === true, settings.onlineFeaturesEnabled === true, settings.forceCssLoaderThemes === true].filter(Boolean).length}>
-        {(() => (<>
+      <CollapsibleSection id='additional' icon={<PlusCircleIcon />} title={t('section_additional_features')} count={[settings.updateNotifyEnabled !== false, (settings as any).lightModeEnabled === true, (settings as any).advancedModeEnabled === true, (settings as any).offlineModeEnabled === true].filter(Boolean).length}>
         {!isHid('updateNotifyEnabled') && (
           <ToggleField label={t('check_for_updates')} checked={settings.updateNotifyEnabled !== false} onChange={(value: boolean) => actions.setUpdateNotifyEnabled(value)} />
         )}
@@ -521,9 +522,16 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
         {!isHid('offlineModeEnabled') && (
           <ToggleField label={t('offline_mode_enabled' as any)} checked={(settings as any).offlineModeEnabled === true} onChange={(v: boolean) => (actions as any).setOfflineModeEnabled?.(v)} />
         )}
-        </>))()}
+      </CollapsibleSection>
+        );
+      })()}
+
+      {(() => {
+        if (lightMode || isSecHid('navigation')) return null; // search + side nav are disabled on the home in light mode
+        return (
+      <CollapsibleSection id='navigation' icon={<SearchIcon />} title={t('section_navigation' as any)} count={[(settings as any).contextSearchEnabled === true, (settings as any).sideNavEnabled === true].filter(Boolean).length}>
         {(() => {
-          const showCtx = !lightMode && !isHid('contextSearchEnabled');
+          const showCtx = !isHid('contextSearchEnabled');
           const ctxSub = showCtx && (settings as any).contextSearchEnabled === true;
           return (<>
         {showCtx && (
@@ -543,7 +551,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
           </>);
         })()}
         {(() => {
-          const showSideNav = !lightMode && !isHid('sideNavEnabled');
+          const showSideNav = !isHid('sideNavEnabled');
           return (<>
         {showSideNav && (
           <ToggleField label={t('side_nav_toggle' as any)} checked={(settings as any).sideNavEnabled === true} onChange={(v: boolean) => (actions as any).setSideNavEnabled(v)} />
@@ -555,7 +563,14 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
         )}
           </>);
         })()}
-        {(() => (<>
+      </CollapsibleSection>
+        );
+      })()}
+
+      {(() => {
+        if (isSecHid('online')) return null;
+        return (
+      <CollapsibleSection id='online' icon={<OnlineIcon />} title={t('section_online' as any)} count={settings.onlineFeaturesEnabled === true ? 1 : 0}>
         {!isHid('onlineFeaturesEnabled') && (
         <ToggleField
           label={t('online_features')}
@@ -580,7 +595,6 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
           <OnlineIcon size={12} /><span>{t('online_features_desc')}</span>
         </div>
         )}
-        </>))()}
         {(() => (
         settings.onlineFeaturesEnabled === true && (
           <div style={{ paddingLeft: 14, fontSize: 12 }}>
@@ -611,10 +625,53 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
           </div>
         )
         ))()}
+      </CollapsibleSection>
+        );
+      })()}
+
+      {(() => {
+        if (isSecHid('experimental')) return null;
+        return (
+      <CollapsibleSection id='experimental' icon={<WandIcon />} title={t('section_experimental' as any)} count={[settings.forceCssLoaderThemes === true, (settings as any).ownQamTabEnabled === true, (settings as any).showcaseModeEnabled === true].filter(Boolean).length}>
         {(() => (
         hasCssLoader && !lightMode && !isHid('forceCssLoaderThemes') && (
           <ToggleField label={t('force_themes_label')} checked={settings.forceCssLoaderThemes === true} onChange={(value: boolean) => void actions.setForceCssLoaderThemes(value)} />
         )
+        ))()}
+        {(() => (
+        !isHid('ownQamTabEnabled') && !hostProvidesNativeTab() && (
+          <ToggleField label={t('own_qam_tab_enabled' as any)} checked={(settings as any).ownQamTabEnabled === true} onChange={(value: boolean) => {
+            void (actions as any).setOwnQamTabEnabled(value);
+            confirmAction({
+              title: t('own_qam_tab_restart_title' as any),
+              body: t((value ? 'own_qam_tab_restart_body' : 'own_qam_tab_restart_body_off') as any),
+              okText: t('own_qam_tab_restart_now' as any),
+              cancelText: t('own_qam_tab_restart_later' as any),
+              onConfirm: restartSteam,
+            });
+          }} />
+        )
+        ))()}
+        {(() => (
+        !isHid('showcaseModeEnabled') && (<>
+          <ToggleField label={t('showcase_mode_enabled' as any)} checked={(settings as any).showcaseModeEnabled === true} onChange={(value: boolean) => void (actions as any).setShowcaseModeEnabled(value)} />
+          <div style={{ paddingLeft: 16, paddingRight: 8, paddingBottom: 4, fontSize: 11, opacity: 0.65, lineHeight: 1.4 }}>
+            {t('showcase_mode_desc' as any)}
+          </div>
+          {(settings as any).showcaseModeEnabled === true && (
+            <div style={{ paddingLeft: 16 }}>
+              <DSSliderField label={t('showcase_start_after_label' as any)} value={(settings as any).showcaseStartAfterSeconds ?? 60} min={15} max={600} step={15} unit='s' onChange={(value: number) => void (actions as any).setShowcaseStartAfterSeconds(value)} />
+              <DSSliderField label={t('showcase_dwell_label' as any)} value={(settings as any).showcaseDwellSeconds ?? 10} min={3} max={120} step={1} unit='s' onChange={(value: number) => void (actions as any).setShowcaseDwellSeconds(value)} />
+              <ToggleField label={t('showcase_randomize_label' as any)} checked={(settings as any).showcaseRandomize === true} onChange={(value: boolean) => void (actions as any).setShowcaseRandomize(value)} />
+              <ToggleField label={t('showcase_stop_on_interaction_label' as any)} checked={(settings as any).showcaseStopOnInteraction !== false} onChange={(value: boolean) => void (actions as any).setShowcaseStopOnInteraction(value)} />
+              <ToggleField label={t('showcase_pan_cards_label' as any)} checked={(settings as any).showcasePanCards === true} onChange={(value: boolean) => void (actions as any).setShowcasePanCards(value)} />
+              {(settings as any).showcasePanCards === true && (<>
+                <DSSliderField label={t('showcase_cards_per_shelf_label' as any)} value={(settings as any).showcaseCardsPerShelf ?? 5} min={1} max={20} step={1} onChange={(value: number) => void (actions as any).setShowcaseCardsPerShelf(value)} />
+                <DSSliderField label={t('showcase_card_dwell_label' as any)} value={(settings as any).showcaseCardDwellSeconds ?? 4} min={1} max={60} step={1} unit='s' onChange={(value: number) => void (actions as any).setShowcaseCardDwellSeconds(value)} />
+              </>)}
+            </div>
+          )}
+        </>)
         ))()}
       </CollapsibleSection>
         );

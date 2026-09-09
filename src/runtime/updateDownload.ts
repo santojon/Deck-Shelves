@@ -1,9 +1,12 @@
+import { createElement } from "react";
 import { call } from "../shims/host-api";
 import { notifyUser } from "./notify";
 import { openReleaseUrl, type UpdateCheckResult } from "../core/updateNotifier";
 import i18n from "../i18n";
 import { logInfo } from "./logger";
 import { getHostApi } from "../index";
+import { openManagedModal } from "../components/qam/common/openManagedModal";
+import { UpdateInstallingModal } from "../components/update/UpdateInstallingModal";
 
 /* Manual-update download: hand the release .zip URL to the backend, which saves
    it to ~/Downloads (per-OS equivalent) for the user to install by hand — there
@@ -71,11 +74,18 @@ export async function installOrDownloadUpdate(result: UpdateCheckResult | null |
   if (!canSelfInstallUpdate()) { await downloadUpdate(result); return; }
 
   const { latestVersion } = result;
+  // A blocking spinner modal makes the download+swap+reload step explicit (self-
+  // install ends by reloading the renderer — the reload closes this modal). The
+  // toast stays as a fallback if the reload is slow.
+  const closeModal = openManagedModal((close) =>
+    createElement(UpdateInstallingModal, { version: latestVersion ?? undefined, closeModal: close }),
+  );
   notifyUser(i18n.t("plugin_name"), i18n.t("update_installing", { version: latestVersion ?? "" }), "update", "update");
   if (await runInstall(result)) {
     notifyUser(i18n.t("plugin_name"), i18n.t("update_installed", { version: latestVersion ?? "" }), "success", "update");
     return;
   }
+  try { closeModal(); } catch {}
   notifyUser(i18n.t("plugin_name"), i18n.t("update_install_failed"), "error", "update");
   await downloadUpdate(result);
 }

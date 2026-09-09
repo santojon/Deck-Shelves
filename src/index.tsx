@@ -20,6 +20,8 @@ import { installDeviceState, getDeviceState } from "./runtime/deviceState";
 import { installSessionState } from "./runtime/sessionState";
 import { installProfileTriggers } from "./runtime/profileTriggers";
 import { installFriendsState } from "./runtime/friendsState";
+import { installOwnQamTab } from "./runtime/ownQamTab";
+import { installShowcaseMode } from "./runtime/showcaseMode";
 import { installPluginApi } from "./core/pluginApi";
 import { installLauncherCachePoll } from "./runtime/launcherCache";
 import "./core/internalRegistry";
@@ -37,7 +39,7 @@ import { pickNewSuggestions } from "./runtime/suggestionNotifier";
 import { notify } from "./components/notify";
 import { logError, logInfo } from "./runtime/logger";
 import { Navigation, Focusable, DialogButton, quickAccessMenuClasses } from "./runtime/host/decky";
-import { resolveHost } from "./runtime/host/resolve";
+import { resolveHost, hostProvidesNativeTab } from "./runtime/host/resolve";
 import { claimHomeOwnership } from "./runtime/host/ownerGuard";
 import { AboutPage } from "./components/AboutPage";
 import { SettingsPage } from "./components/SettingsPage";
@@ -361,6 +363,22 @@ const __ds_entry = definePlugin((serverAPI?: any) => {
     }
   } catch {}
 
+  // Own native QAM tab under Decky alone (opt-in, default OFF). Owner-only,
+  // Decky-loader-only, and never when a neutral host already provides its own
+  // native tab — the option itself is hidden in that case (settings UI).
+  const uninstallOwnQamTab = (isOwner && (serverAPI || loaderRouterHook) && !hostProvidesNativeTab())
+    ? installOwnQamTab({
+        title: i18next.t("menu_deck_shelves"),
+        icon: <DeckShelvesIcon />,
+        renderPanel: renderNativeTabPanel,
+        isEnabled: () => getCurrentSettings()?.ownQamTabEnabled === true,
+      })
+    : null;
+
+  // Sprint 26 — Showcase / Dynamic Idle Mode (opt-in, default OFF). Only the
+  // renderer's owner drives Home focus.
+  const uninstallShowcaseMode = isOwner ? installShowcaseMode() : null;
+
   return {
     name: "Deck Shelves",
     title: <></>,
@@ -385,6 +403,8 @@ const __ds_entry = definePlugin((serverAPI?: any) => {
         uninstallFriendsState();
         uninstallPluginApi();
         uninstallLauncherCache();
+        uninstallOwnQamTab?.();
+        uninstallShowcaseMode?.();
         unsubUpdateNotify();
         if (updateBootTimer !== null) { clearTimeout(updateBootTimer); updateBootTimer = null; }
         clearTimeout(suggestTimer);

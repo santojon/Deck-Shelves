@@ -374,6 +374,48 @@ function evalExclusionGroup(item: any, app: AppOverview, evalChild?: ChildEvalua
   return !childrenOf(item).some((c) => runChild(c, app, evalChild));
 }
 
+// ── TabMaster-parity filters (data confirmed present) ─────────────────────
+
+// Review score — metacritic (default) or Steam review %. Both are online-
+// enriched (onlineMetadata.ts); an app with no score never matches (so the
+// filter narrows to titles that actually have a rating meeting the bound).
+function reviewScoreOf(app: AppOverview, source: string): number | undefined {
+  const key = source === "steam" ? "review_percentage" : "metacritic_score";
+  const v = (app as any)[key];
+  return typeof v === "number" ? v : undefined;
+}
+function evalReviewScore(item: any, app: AppOverview): boolean {
+  const value = Number(item.params?.value ?? 0);
+  const op = String(item.params?.op ?? ">=");
+  const score = reviewScoreOf(app, String(item.params?.source ?? "metacritic"));
+  if (score == null) return false;
+  return op === "<=" ? score <= value : score >= value;
+}
+
+// Release date — `rt_original_release_date` is in SECONDS (native + enriched).
+// Param `ts` is a seconds timestamp; `op` after/before is inclusive.
+function releaseSecOf(app: AppOverview): number {
+  return Number((app as any).rt_original_release_date ?? (app as any).rt_steam_release_date ?? 0);
+}
+function evalReleaseDate(item: any, app: AppOverview): boolean {
+  const ts = Number(item.params?.ts ?? 0);
+  if (!ts) return true; // no date set yet → don't constrain
+  const rel = releaseSecOf(app);
+  if (!rel) return false;
+  return String(item.params?.op ?? "after") === "before" ? rel <= ts : rel >= ts;
+}
+
+// Coming soon — released in the future (or unreleased with a future date).
+function evalComingSoon(_item: any, app: AppOverview): boolean {
+  const rel = releaseSecOf(app);
+  return rel > Date.now() / 1000;
+}
+
+// Demo — Steam EAppType demo bit (8). Non-Steam shortcuts never qualify.
+function evalDemo(_item: any, app: AppOverview): boolean {
+  return Number((app as any).app_type) === 8;
+}
+
 export const FILTER_V3_EVALUATORS: Record<string, FilterEvaluator> = {
   genres: evalGenres,
   categories: evalCategories,
@@ -407,6 +449,10 @@ export const FILTER_V3_EVALUATORS: Record<string, FilterEvaluator> = {
   weightedFilter: evalWeighted,
   priorityFilter: evalPriority,
   exclusionGroup: evalExclusionGroup,
+  reviewScore: evalReviewScore,
+  releaseDate: evalReleaseDate,
+  comingSoon: evalComingSoon,
+  demo: evalDemo,
 };
 
 export type SortComparator = (a: AppOverview, b: AppOverview) => number;

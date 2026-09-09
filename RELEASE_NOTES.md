@@ -11,6 +11,10 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 - **Filters like genre, category, franchise, VR support and multiplayer type now actually work on wishlist/store cards you don't own yet**, not just on your own library. Build a shelf that mixes your library with the store, filter both sides for multiplayer games, and it now filters correctly on both — the plugin fetches and caches the needed Store data automatically the first time you use one of these filters (Online features must be on).
 - **Genre, category and franchise now show the same online badge as other online-only filters, and only appear once Online Features is on** — they need it now, wherever you use them, since they never had usable local data to fall back on.
 - **The project's usage numbers are now public.** The README and the [website](https://santojon.github.io/Deck-Shelves/) show Decky Store installs, GitHub traffic and npm downloads, refreshed weekly — no account or external analytics involved.
+- **New, optional toggle: your own Deck Shelves tab right in the Quick Access Menu, next to Notifications and Settings** — no more opening Decky's plugin list first. Off by default; enable it under Additional Features and restart Steam. Still experimental — leave it off unless you're comfortable testing something new.
+- **New, optional toggle: Showcase mode.** When you leave the Home idle, Deck Shelves slowly cycles through your shelves like a screensaver — any button, touch or scroll stops it immediately. Configurable delay and time per shelf. Off by default.
+- **New on the website: dedicated guide pages for TabMaster, UnifiDeck and CSS Loader**, each with a step-by-step on how the integration works — linked right from the "Works with your setup" cards.
+- **The QAM and sidecar's "Additional Features" section was getting crowded, so it's now four smaller sections**: Additional Features, Navigation & Search, Online Features, and Experimental. Nothing about your settings changed — just how they're grouped.
 
 ### Fixed
 

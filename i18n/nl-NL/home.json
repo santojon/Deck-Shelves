@@ -28,5 +28,7 @@
   "update_downloaded": "Opgeslagen in {{path}} — installeer het handmatig.",
   "update_download_failed": "Downloaden mislukt — de release-pagina wordt geopend.",
   "shelf_type_normal": "Normaal",
-  "shelf_type_smart": "Slim"
+  "shelf_type_smart": "Slim",
+  "update_installing_title": "Update installeren",
+  "update_will_reload": "Steam wordt na afloop herladen."
 }

@@ -28,5 +28,7 @@
   "update_downloaded": "Salvato in {{path}} — installalo manualmente.",
   "update_download_failed": "Download non riuscito — apertura della pagina della versione.",
   "shelf_type_normal": "Normale",
-  "shelf_type_smart": "Intelligente"
+  "shelf_type_smart": "Intelligente",
+  "update_installing_title": "Installazione aggiornamento",
+  "update_will_reload": "Steam si ricaricherà al termine."
 }

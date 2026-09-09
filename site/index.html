@@ -4,9 +4,34 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Deck Shelves — Your Steam Deck Home Screen. Your Way.</title>
-  <meta name="description" content="Deck Shelves is a Decky plugin that lets you build custom shelves from your collections, library tabs, and smart filters — with decoration cards, smart shelves and a built-in editor in Quick Access.">
+  <meta name="description" content="Deck Shelves is a gaming utility for your Steam library — a Decky plugin that lets you build custom shelves from your collections, library tabs, and smart filters — with decoration cards, smart shelves and a built-in editor in Quick Access. Runs wherever Decky Loader does: SteamOS, Linux, Windows and macOS. Works alongside TabMaster, UnifiDeck and CSS Loader themes.">
+  <link rel="canonical" href="https://santojon.github.io/Deck-Shelves/">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Deck Shelves">
+  <meta property="og:url" content="https://santojon.github.io/Deck-Shelves/">
+  <meta property="og:title" content="Deck Shelves — Customize Your Steam Deck Home Screen">
+  <meta property="og:description" content="A gaming utility for your Steam library. Build custom shelves from your collections, library tabs, and smart filters — with decoration cards, smart shelves and a built-in editor in Quick Access. Runs on SteamOS, Linux, Windows and macOS. Works alongside TabMaster, UnifiDeck and CSS Loader themes.">
+  <meta property="og:image" content="https://santojon.github.io/Deck-Shelves/img/steam-deck.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Deck Shelves — Customize Your Steam Deck Home Screen">
+  <meta name="twitter:description" content="A gaming utility for your Steam library. Build custom shelves from your collections, library tabs, and smart filters — with decoration cards, smart shelves and a built-in editor in Quick Access.">
+  <meta name="twitter:image" content="https://santojon.github.io/Deck-Shelves/img/steam-deck.png">
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="stylesheet" href="style.css">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Deck Shelves",
+    "applicationCategory": "UtilitiesApplication",
+    "applicationSubCategory": "Gaming utility",
+    "operatingSystem": "SteamOS, Linux, Windows, macOS",
+    "url": "https://santojon.github.io/Deck-Shelves/",
+    "description": "A gaming utility for the Steam library: a Decky plugin that adds custom, organized shelves to the Steam Deck Home screen — built from collections, library tabs, filters and smart rules. Runs on SteamOS, Linux, Windows and macOS wherever Decky Loader is available.",
+    "keywords": "Steam, Steam Deck, gaming, game library, Decky, Decky Loader, home screen customization",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+  }
+  </script>
 </head>
 <body>
 
@@ -151,18 +176,18 @@
        /releases/latest) so it can't collide with _inject_download's own
        href-rewrite regex. -->
   <div class="container">
-    <div class="stats-row" data-stats-row title="Last snapshot: 2026-09-01">
+    <div class="stats-row" data-stats-row title="Last snapshot: 2026-09-02">
       <a class="stat-chip" href="https://decky.xyz" target="_blank" rel="noopener">
-        <svg class="icon"><use href="#i-store"/></svg> <b data-stat="installs">12,173</b> Decky Store installs
+        <svg class="icon"><use href="#i-store"/></svg> <b data-stat="installs">16,692</b> Decky Store installs
       </a>
       <a class="stat-chip" href="https://github.com/santojon/Deck-Shelves/releases" target="_blank" rel="noopener">
-        <svg class="icon"><use href="#i-download"/></svg> <b data-stat="downloads">2,693</b> GitHub downloads
+        <svg class="icon"><use href="#i-download"/></svg> <b data-stat="downloads">2,892</b> GitHub downloads
       </a>
       <a class="stat-chip" href="https://github.com/santojon/Deck-Shelves" target="_blank" rel="noopener">
-        <svg class="icon"><use href="#i-chart"/></svg> <b data-stat="views">453</b> views (14d)
+        <svg class="icon"><use href="#i-chart"/></svg> <b data-stat="views">423</b> views (14d)
       </a>
       <a class="stat-chip" href="https://www.npmjs.com/package/@deck-shelves/api" target="_blank" rel="noopener">
-        <svg class="icon"><use href="#i-package"/></svg> <b data-stat="npm">1,762</b> npm downloads
+        <svg class="icon"><use href="#i-package"/></svg> <b data-stat="npm">1,769</b> npm downloads
       </a>
     </div>
   </div>
@@ -252,6 +277,69 @@
         <a class="btn btn-ghost" href="features.html">
           Explore all features <svg class="icon"><use href="#i-arrow"/></svg>
         </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- WORKS WITH YOUR SETUP -->
+  <section id="ecosystem" class="block">
+    <div class="container">
+      <div class="section-head">
+        <h2>Works with your setup</h2>
+        <div class="rule"></div>
+        <p>Deck Shelves is the Home screen layer — it complements the tools you already run, it doesn't replace them.</p>
+      </div>
+      <div class="feat-grid">
+        <article class="feat-card">
+          <div class="feat-ico"><svg class="icon"><use href="#i-list"/></svg></div>
+          <h3>Organize with TabMaster</h3>
+          <p>Use your existing TabMaster tabs — including filter-based ones — as shelf sources, right on the Home screen.</p>
+          <a class="feat-link" href="integrations/tabmaster.html">Learn more <svg class="icon"><use href="#i-arrow"/></svg></a>
+        </article>
+        <article class="feat-card">
+          <div class="feat-ico"><svg class="icon"><use href="#i-layers"/></svg></div>
+          <h3>Unify with UnifiDeck</h3>
+          <p>UnifiDeck brings every store into one library; Deck Shelves organizes that unified library into shelves on your Home.</p>
+          <a class="feat-link" href="integrations/unifideck.html">Learn more <svg class="icon"><use href="#i-arrow"/></svg></a>
+        </article>
+        <article class="feat-card">
+          <div class="feat-ico"><svg class="icon"><use href="#i-sliders"/></svg></div>
+          <h3>Customize with CSS Loader</h3>
+          <p>Your shelves stay visually consistent with the CSS Loader themes you already have installed.</p>
+          <a class="feat-link" href="integrations/css-loader.html">Learn more <svg class="icon"><use href="#i-arrow"/></svg></a>
+        </article>
+      </div>
+      <p style="text-align:center;color:var(--muted);font-size:0.85rem;margin:28px 0 0">
+        Also works alongside: <a href="https://github.com/SteamGridDB" target="_blank" rel="noopener">SteamGridDB</a> ·
+        <a href="https://github.com/exM092/NonSteamBadges" target="_blank" rel="noopener">Non-Steam Badges</a> ·
+        popular CSS Loader themes · <a href="https://github.com/SteamDeckHomebrew/decky-loader" target="_blank" rel="noopener">Decky Loader</a> ·
+        and many others in the Decky plugin ecosystem
+      </p>
+      <div class="faq">
+        <details class="faq-item">
+          <summary>Can Deck Shelves work with TabMaster, UnifiDeck or CSS Loader?</summary>
+          <p>Yes. Deck Shelves reads your TabMaster tabs as a shelf source, coexists with UnifiDeck's unified library, and detects popular CSS Loader themes to keep shelves visually consistent with them.</p>
+        </details>
+        <details class="faq-item">
+          <summary>Does Deck Shelves replace TabMaster or UnifiDeck?</summary>
+          <p>No — they solve different problems. TabMaster organizes your library into tabs and UnifiDeck unifies multiple stores into one library; Deck Shelves adds a customizable, shelf-based Home screen on top of either.</p>
+        </details>
+        <details class="faq-item">
+          <summary>Do I need Decky Loader installed?</summary>
+          <p>Yes, Deck Shelves is a Decky plugin — install Decky Loader first, then install Deck Shelves from the Decky Store (or manually, see Installation below).</p>
+        </details>
+        <details class="faq-item">
+          <summary>What platforms does Deck Shelves run on?</summary>
+          <p>Anywhere Decky Loader runs — SteamOS on Steam Deck, and Linux or Windows wherever Steam's gamepad-style interface is available. It's not a Steam Deck-exclusive tool.</p>
+        </details>
+        <details class="faq-item">
+          <summary>Is Deck Shelves affiliated with or endorsed by Valve, Decky Loader, or any of these plugins/themes?</summary>
+          <p>No. Deck Shelves is an independent, community-made plugin. It's not affiliated with, endorsed by, or sponsored by Valve, the Decky Loader project, TabMaster, UnifiDeck, SteamGridDB, Non-Steam Badges, or any CSS Loader theme it detects or interoperates with.</p>
+        </details>
+        <details class="faq-item">
+          <summary>Is Deck Shelves free?</summary>
+          <p>Yes — it's free and open source (BSD-3-Clause), with no account, subscription, or in-plugin purchase of any kind.</p>
+        </details>
       </div>
     </div>
   </section>
@@ -502,7 +590,7 @@
     <hr class="foot-rule">
     <div class="container">
       <div class="foot-disclaimer">
-        Steam Deck and Steam are trademarks and/or registered trademarks of Valve Corporation. Decky and Decky Loader are trademarks of their respective owners. Deck Shelves is an independent plugin and is not affiliated with, endorsed, or sponsored by Valve Corporation or the Decky Loader project.
+        Steam Deck and Steam are trademarks and/or registered trademarks of Valve Corporation. Decky and Decky Loader are trademarks of their respective owners. Deck Shelves is an independent plugin and is not affiliated with, endorsed, or sponsored by Valve Corporation or the Decky Loader project. The same applies to every other plugin and theme mentioned on this site — including TabMaster, UnifiDeck, SteamGridDB, Non-Steam Badges, and any CSS Loader theme Deck Shelves detects or interoperates with: mentions are for interoperability only, not a claim of affiliation or endorsement by their respective authors.
       </div>
     </div>
 

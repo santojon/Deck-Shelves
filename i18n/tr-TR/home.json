@@ -28,5 +28,7 @@
   "update_downloaded": "{{path}} konumuna kaydedildi — elle yükleyin.",
   "update_download_failed": "İndirme başarısız — sürüm sayfası açılıyor.",
   "shelf_type_normal": "Normal",
-  "shelf_type_smart": "Akıllı"
+  "shelf_type_smart": "Akıllı",
+  "update_installing_title": "Güncelleme yükleniyor",
+  "update_will_reload": "Bittiğinde Steam yeniden yüklenecek."
 }

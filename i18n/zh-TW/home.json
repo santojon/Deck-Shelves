@@ -28,5 +28,7 @@
   "update_downloaded": "已儲存至 {{path}} — 請手動安裝。",
   "update_download_failed": "下載失敗 — 改為開啟發佈頁面。",
   "shelf_type_normal": "一般",
-  "shelf_type_smart": "智慧"
+  "shelf_type_smart": "智慧",
+  "update_installing_title": "正在安裝更新",
+  "update_will_reload": "完成後 Steam 將重新載入。"
 }

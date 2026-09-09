@@ -473,6 +473,14 @@ Concurrent `saveSettings` calls coalesce: a save in flight latches the next payl
 
 QAM-expanded state is per-session: backed by `sessionStorage` in the QAM popup so it never survives a Steam-menu-over-QAM cycle that destroys the popup, and the `DeckQAMSettings` mount effect calls `resetQamExpanded()` to wipe even the persisted flag every time the plugin tab mounts. While the sidecar is expanded, a 300 ms poll watches three orthogonal signals — `document.hasFocus()`, a set-interval gap heuristic (catches Chromium-throttled inactive popups), and `m_MenuStore.m_eOpenSideMenu` change relative to the value captured at expand — and collapses on any of them. Multiple browser-lifecycle listeners (`visibilitychange`, `focus`, `pagehide`, `freeze`, `resume`) add belt-and-suspenders coverage. `SidecarPanel` itself bails (`return null`) when `controller.settings` is unhydrated so a freshly-remounted tab never renders the "open but empty body" bug-state.
 
+### Own QAM tab under Decky alone (`runtime/ownQamTab.ts`)
+
+Opt-in, off by default (`ownQamTabEnabled`). Ports the tab-injection mechanism ShelvesHub's own host runtime already validated on-device: register a numeric key in Steam's `QuickAccessTab` enum, then `afterPatch` the `QuickAccessMenuBrowserView` consumer to push a tab object onto its render output's `props.tabs` array — via Decky's own `afterPatch` / `findModuleByExport` / `findInReactTree`, not a hand-rolled webpack walk. A localStorage breaker mirrors ShelvesHub's own (an unconfirmed arm trips and refuses to re-patch). Stands down completely whenever a neutral host's own QAM bridge (`window.__SHELVES_QAM__`) is present — that tab always wins. This mechanism still needs its own on-device validation pass before it's safe to default on; see `.roadmaps/ROADMAP.md`, Sprint 24.
+
+### Showcase / Dynamic Idle Mode (`runtime/showcaseMode.ts`)
+
+Opt-in, off by default (`showcaseModeEnabled`). During Home inactivity, cycles focus through the user's own shelves on a timer, reusing the exact same focus-a-shelf's-first-card mechanism Side Nav's own "jump to shelf" already ships — never synthetic input. Any real interaction (a controller button via `subscribeControllerInput`, or a pointer/wheel/keydown event) stops it and re-arms the idle timer. MVP scope only; see `.roadmaps/showcase-mode.md` for what's deferred (per-shelf pan/crossfade, a shelf-participation picker UI).
+
 ## Home internals
 
 | File | Role |

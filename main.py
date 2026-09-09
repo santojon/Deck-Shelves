@@ -9,6 +9,7 @@ import time
 from subprocess import run as _sp_run
 import urllib.request
 import urllib.error
+import urllib.parse
 from typing import Any, Dict, List, Optional
 
 # SteamOS ships with an incomplete CA bundle; urllib fails SSL verification
@@ -802,13 +803,47 @@ class Plugin:
         except Exception:
             return b""
 
-    def _get_steam_id64(self) -> Optional[str]:
-        """Derive the user's SteamID64 from the Steam userdata directory.
+    def _logged_in_steam_id64(self) -> Optional[str]:
+        """The SteamID64 of the account Steam is CURRENTLY logged into, read from
+        `config/loginusers.vdf` (keys are SteamID64s; the account with
+        `MostRecent "1"`, else the highest `Timestamp`, is the active one). This is
+        what distinguishes accounts on a multi-account machine — the userdata
+        directory listing alone can't (it has one dir per account ever used)."""
+        for root in _steam_install_candidates():
+            path = os.path.join(root, "config", "loginusers.vdf")
+            if not os.path.isfile(path):
+                continue
+            try:
+                with open(path, "r", encoding="utf-8", errors="replace") as f:
+                    text = f.read()
+            except Exception:
+                continue
+            best_id, best_ts, most_recent = None, -1, None
+            for m in re.finditer(r'"(7656\d{13,})"\s*\{([^{}]*)\}', text):
+                sid, body = m.group(1), m.group(2)
+                if re.search(r'"MostRecent"\s*"1"', body):
+                    most_recent = sid
+                ts_m = re.search(r'"Timestamp"\s*"(\d+)"', body)
+                ts = int(ts_m.group(1)) if ts_m else 0
+                if ts > best_ts:
+                    best_ts, best_id = ts, sid
+            chosen = most_recent or best_id
+            if chosen:
+                return chosen
+        return None
 
-        Steam creates a per-user directory under userdata/ named by SteamID3
-        (the lower 32 bits of SteamID64). SteamID64 = SteamID3 + 76561197960265728.
-        No cookie or authentication needed — just a directory listing.
+    def _get_steam_id64(self) -> Optional[str]:
+        """Derive the user's SteamID64. Prefers the logged-in account from
+        `loginusers.vdf`; falls back to the userdata directory (the most recently
+        used dir when several exist, so a multi-account machine still resolves the
+        active account rather than an arbitrary first one).
+
+        userdata/ dirs are named by SteamID3 (the lower 32 bits);
+        SteamID64 = SteamID3 + 76561197960265728.
         """
+        logged_in = self._logged_in_steam_id64()
+        if logged_in:
+            return logged_in
         # Same install-root list as `_get_steam_cookie` — first match wins.
         userdata_candidates = [
             os.path.join(root, "userdata") for root in _steam_install_candidates()
@@ -823,6 +858,11 @@ class Plugin:
             ]
             if not candidates:
                 return None
+            # Most-recently-touched account dir wins over an arbitrary first one.
+            candidates.sort(
+                key=lambda d: os.path.getmtime(os.path.join(userdata, d)),
+                reverse=True,
+            )
             steam_id3 = int(candidates[0])
             return str(76561197960265728 + steam_id3)
         except Exception:
@@ -848,7 +888,13 @@ class Plugin:
                     raw_cookie = self._get_steam_cookie("steamLoginSecure")
                     if not raw_cookie:
                         break
-                    parts = raw_cookie.split("||", 1)
+                    # The steamLoginSecure value is `<steamid>||<jwt>`, but it is
+                    # stored URL-encoded (`%7C%7C`) in the cookie DB — decoding
+                    # first is what makes the split find the separator. Without
+                    # this the JWT never extracts and every PRIVATE wishlist falls
+                    # through to "empty or private" even with a valid session.
+                    cookie = urllib.parse.unquote(raw_cookie)
+                    parts = cookie.split("||", 1)
                     jwt = parts[1].strip() if len(parts) > 1 else ""
                     if not jwt:
                         break

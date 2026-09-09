@@ -19,7 +19,7 @@ import { createProfileActions } from "./controller/profiles";
 export function useSettingsController() {
   const { t } = useTranslation();
   const platform = usePlatform();
-  const [settings, setSettings] = useState<Settings | null>(() => getCurrentSettings() ?? { enabled: false, hideRecents: false, recentsReplaceSource: false, hideHomeTabs: false, shelfHeroBackground: false, globalMatchNativeSize: false, globalHighlightFirst: false, globalHighlightAll: false, globalHideStatusLine: false, globalHideNewBadge: false, globalHideDiscountBadge: false, globalHideCompatIcons: false, globalHideNonSteamBadge: false, globalHideShelfTitle: false, globalHideGameNames: false, globalHideInstallIndicator: false, globalHideSeeMore: false, globalHideRefreshCard: false, globalDedupeByName: false, shelves: [], smartShelvesEnabled: false, smartShelvesAtBottom: false, smartShelves: [], smartSurpriseMe: false, smartSurpriseMeCount: 0, savedFilters: [], savedSmartFilters: [], updateNotifyEnabled: true, onlineFeaturesEnabled: false, onlineWishlistEnabled: true, onlinePriceSortEnabled: true, onlinePrivacyAccepted: false, onlineMetadataEnabled: false, onlineHideOwnedGames: false, onlineHideOwnedNonSteam: false, onlineHideOwnedNonSteamCloud: false, forceCssLoaderThemes: false, globalHeroEnabled: false, globalGameInfoAbove: false, globalFriendsPlayingOverlay: false, globalFriendsPlayingOverlayRecent: false, qamHiddenToggles: [], qamHiddenSections: [], unifiedListEnabled: false, allShelvesOrder: [], lightModeEnabled: false, advancedModeEnabled: false, templateSuggestionsEnabled: false, offlineModeEnabled: false, featureToggles: {}, profiles: [], integrationsEnabled: {}, buttonBindings: {}, buttonBindingsDisabled: [] });
+  const [settings, setSettings] = useState<Settings | null>(() => getCurrentSettings() ?? { enabled: false, hideRecents: false, recentsReplaceSource: false, hideHomeTabs: false, shelfHeroBackground: false, globalMatchNativeSize: false, globalHighlightFirst: false, globalHighlightAll: false, globalHideStatusLine: false, globalHideNewBadge: false, globalHideDiscountBadge: false, globalHideCompatIcons: false, globalHideNonSteamBadge: false, globalHideShelfTitle: false, globalHideGameNames: false, globalHideInstallIndicator: false, globalHideSeeMore: false, globalHideRefreshCard: false, globalDedupeByName: false, shelves: [], smartShelvesEnabled: false, smartShelvesAtBottom: false, smartShelves: [], smartSurpriseMe: false, smartSurpriseMeCount: 0, savedFilters: [], savedSmartFilters: [], updateNotifyEnabled: true, onlineFeaturesEnabled: false, onlineWishlistEnabled: true, onlinePriceSortEnabled: true, onlinePrivacyAccepted: false, onlineMetadataEnabled: false, onlineHideOwnedGames: false, onlineHideOwnedNonSteam: false, onlineHideOwnedNonSteamCloud: false, forceCssLoaderThemes: false, ownQamTabEnabled: false, showcaseModeEnabled: false, showcaseStartAfterSeconds: 60, showcaseDwellSeconds: 10, showcaseRandomize: false, showcaseStopOnInteraction: true, showcaseShelfIds: [], showcasePanCards: false, showcaseCardsPerShelf: 5, showcaseCardDwellSeconds: 4, globalHeroEnabled: false, globalGameInfoAbove: false, globalFriendsPlayingOverlay: false, globalFriendsPlayingOverlayRecent: false, qamHiddenToggles: [], qamHiddenSections: [], unifiedListEnabled: false, allShelvesOrder: [], lightModeEnabled: false, advancedModeEnabled: false, templateSuggestionsEnabled: false, offlineModeEnabled: false, featureToggles: {}, profiles: [], integrationsEnabled: {}, buttonBindings: {}, buttonBindingsDisabled: [] });
   
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [collections, setCollections] = useState<PlatformCollection[]>([]);
@@ -319,6 +319,51 @@ export function useSettingsController() {
       if (!s || (s as any).sideNavEnabled === sideNavEnabled) return;
       await persist({ ...s, sideNavEnabled } as any);
     },
+    async setOwnQamTabEnabled(ownQamTabEnabled: boolean) {
+      const s = liveSettings();
+      if (!s || (s as any).ownQamTabEnabled === ownQamTabEnabled) return;
+      await persist({ ...s, ownQamTabEnabled } as any);
+    },
+    async setShowcaseModeEnabled(showcaseModeEnabled: boolean) {
+      const s = liveSettings();
+      if (!s || (s as any).showcaseModeEnabled === showcaseModeEnabled) return;
+      await persist({ ...s, showcaseModeEnabled } as any);
+    },
+    async setShowcaseStartAfterSeconds(showcaseStartAfterSeconds: number) {
+      const s = liveSettings();
+      if (!s || (s as any).showcaseStartAfterSeconds === showcaseStartAfterSeconds) return;
+      await persist({ ...s, showcaseStartAfterSeconds } as any);
+    },
+    async setShowcaseDwellSeconds(showcaseDwellSeconds: number) {
+      const s = liveSettings();
+      if (!s || (s as any).showcaseDwellSeconds === showcaseDwellSeconds) return;
+      await persist({ ...s, showcaseDwellSeconds } as any);
+    },
+    async setShowcaseRandomize(showcaseRandomize: boolean) {
+      const s = liveSettings();
+      if (!s || (s as any).showcaseRandomize === showcaseRandomize) return;
+      await persist({ ...s, showcaseRandomize } as any);
+    },
+    async setShowcaseStopOnInteraction(showcaseStopOnInteraction: boolean) {
+      const s = liveSettings();
+      if (!s || (s as any).showcaseStopOnInteraction === showcaseStopOnInteraction) return;
+      await persist({ ...s, showcaseStopOnInteraction } as any);
+    },
+    async setShowcasePanCards(showcasePanCards: boolean) {
+      const s = liveSettings();
+      if (!s || (s as any).showcasePanCards === showcasePanCards) return;
+      await persist({ ...s, showcasePanCards } as any);
+    },
+    async setShowcaseCardsPerShelf(showcaseCardsPerShelf: number) {
+      const s = liveSettings();
+      if (!s || (s as any).showcaseCardsPerShelf === showcaseCardsPerShelf) return;
+      await persist({ ...s, showcaseCardsPerShelf } as any);
+    },
+    async setShowcaseCardDwellSeconds(showcaseCardDwellSeconds: number) {
+      const s = liveSettings();
+      if (!s || (s as any).showcaseCardDwellSeconds === showcaseCardDwellSeconds) return;
+      await persist({ ...s, showcaseCardDwellSeconds } as any);
+    },
     async setContextSearchKeyboardEnabled(contextSearchKeyboardEnabled: boolean) {
       const s = liveSettings();
       if (!s || (s as any).contextSearchKeyboardEnabled === contextSearchKeyboardEnabled) return;
@@ -330,7 +375,7 @@ export function useSettingsController() {
       await persist({ ...s, contextSearchOnEnter } as any);
     },
     async resetAll() {
-      const empty: Settings = { enabled: false, hideRecents: false, recentsReplaceSource: false, hideHomeTabs: false, shelfHeroBackground: false, globalMatchNativeSize: false, globalHighlightFirst: false, globalHighlightAll: false, globalHideStatusLine: false, globalHideNewBadge: false, globalHideDiscountBadge: false, globalHideCompatIcons: false, globalHideNonSteamBadge: false, globalHideShelfTitle: false, globalHideGameNames: false, globalHideInstallIndicator: false, globalHideSeeMore: false, globalHideRefreshCard: false, globalDedupeByName: false, shelves: [], smartShelvesEnabled: false, smartShelvesAtBottom: false, smartShelves: [], smartSurpriseMe: false, smartSurpriseMeCount: 0, savedFilters: [], savedSmartFilters: [], updateNotifyEnabled: true, onlineFeaturesEnabled: false, onlineWishlistEnabled: true, onlinePriceSortEnabled: true, onlinePrivacyAccepted: false, onlineMetadataEnabled: false, onlineHideOwnedGames: false, onlineHideOwnedNonSteam: false, onlineHideOwnedNonSteamCloud: false, forceCssLoaderThemes: false, globalHeroEnabled: false, globalGameInfoAbove: false, globalFriendsPlayingOverlay: false, globalFriendsPlayingOverlayRecent: false, qamHiddenToggles: [], qamHiddenSections: [], unifiedListEnabled: false, allShelvesOrder: [], lightModeEnabled: false, advancedModeEnabled: false, templateSuggestionsEnabled: false, offlineModeEnabled: false, featureToggles: {}, profiles: [], integrationsEnabled: {}, buttonBindings: {}, buttonBindingsDisabled: [] };
+      const empty: Settings = { enabled: false, hideRecents: false, recentsReplaceSource: false, hideHomeTabs: false, shelfHeroBackground: false, globalMatchNativeSize: false, globalHighlightFirst: false, globalHighlightAll: false, globalHideStatusLine: false, globalHideNewBadge: false, globalHideDiscountBadge: false, globalHideCompatIcons: false, globalHideNonSteamBadge: false, globalHideShelfTitle: false, globalHideGameNames: false, globalHideInstallIndicator: false, globalHideSeeMore: false, globalHideRefreshCard: false, globalDedupeByName: false, shelves: [], smartShelvesEnabled: false, smartShelvesAtBottom: false, smartShelves: [], smartSurpriseMe: false, smartSurpriseMeCount: 0, savedFilters: [], savedSmartFilters: [], updateNotifyEnabled: true, onlineFeaturesEnabled: false, onlineWishlistEnabled: true, onlinePriceSortEnabled: true, onlinePrivacyAccepted: false, onlineMetadataEnabled: false, onlineHideOwnedGames: false, onlineHideOwnedNonSteam: false, onlineHideOwnedNonSteamCloud: false, forceCssLoaderThemes: false, ownQamTabEnabled: false, showcaseModeEnabled: false, showcaseStartAfterSeconds: 60, showcaseDwellSeconds: 10, showcaseRandomize: false, showcaseStopOnInteraction: true, showcaseShelfIds: [], showcasePanCards: false, showcaseCardsPerShelf: 5, showcaseCardDwellSeconds: 4, globalHeroEnabled: false, globalGameInfoAbove: false, globalFriendsPlayingOverlay: false, globalFriendsPlayingOverlayRecent: false, qamHiddenToggles: [], qamHiddenSections: [], unifiedListEnabled: false, allShelvesOrder: [], lightModeEnabled: false, advancedModeEnabled: false, templateSuggestionsEnabled: false, offlineModeEnabled: false, featureToggles: {}, profiles: [], integrationsEnabled: {}, buttonBindings: {}, buttonBindingsDisabled: [] };
       try {
         const ls = globalThis.localStorage;
         if (ls) {

@@ -49,6 +49,8 @@ flowchart LR
 | `updatePending` | Games with pending updates | — |
 | `isNew` | Added to library within 30 days | — |
 | `deckCompatibility` | Steam Deck compatibility level | `levels`: `["verified", "playable", "unsupported", "unknown"]` |
+| `steamosCompatibility` | SteamOS compatibility rating — distinct from Deck Compatibility (a different Valve rating, same 4-level scale) | `levels`: `["verified", "playable", "unsupported", "unknown"]` |
+| `demo` | Steam demo listings | — |
 | `playedWithinDays` | Played within N days | `days`: number |
 | `playtimeRange` | Total playtime in a range | `minHours`: number, `maxHours`: number (either optional) |
 | `nameIncludes` | Name contains substring | `text`: string |
@@ -90,8 +92,11 @@ flowchart LR
 | `dlcOwned` | Owns at least N DLC | `minCount`: number |
 | `soundtrackOwned` | Owns the soundtrack | — |
 | `compatDataQuality` | Has any Deck compatibility rating | — |
+| `reviewScore` | Review score meets a threshold | `value`: number (0–100), `op`: `">="` \| `"<="` (default `">="`), `source`: `"metacritic"` \| `"steam"` (default `"metacritic"`) |
+| `releaseDate` | Released before/after a date | `ts`: number (Unix seconds), `op`: `"after"` \| `"before"` (default `"after"`) |
+| `comingSoon` | Not yet released (future release date) | — |
 
-> **Where each of these actually reads its data:** `multiplayerType` and `vrSupport` read the Steam client's own local data for games you own — instant, works offline, no Online features needed. `genres`, `categories` and `franchise` have no usable local data at all, even for games in your own library, so they fetch and cache it (from the Store for genres/categories, from the Steam client's details cache for franchise) the first time such a filter runs — this needs Online features enabled, and on a large library the first resolve only covers a batch of games at a time, filling in the rest over the next few refreshes rather than all at once. All five also work correctly on wishlist/store cards you don't own yet. Every other filter in this section is personal play data and only ever matches games already in your library.
+> **Where each of these actually reads its data:** `multiplayerType` and `vrSupport` read the Steam client's own local data for games you own — instant, works offline, no Online features needed. `genres`, `categories`, `franchise`, `reviewScore`, `releaseDate` and `comingSoon` have no usable local data at all, even for games in your own library, so they fetch and cache it (from the Store for genres/categories/review-score/release-date, from the Steam client's details cache for franchise) the first time such a filter runs — this needs Online features enabled, and on a large library the first resolve only covers a batch of games at a time, filling in the rest over the next few refreshes rather than all at once. All of these also work correctly on wishlist/store cards you don't own yet. Every other filter in this section is personal play data and only ever matches games already in your library.
 
 ### Usage and progress
 

@@ -28,5 +28,7 @@
   "update_downloaded": "{{path}}에 저장됨 — 수동으로 설치하세요.",
   "update_download_failed": "다운로드 실패 — 릴리스 페이지를 엽니다.",
   "shelf_type_normal": "일반",
-  "shelf_type_smart": "스마트"
+  "shelf_type_smart": "스마트",
+  "update_installing_title": "업데이트 설치 중",
+  "update_will_reload": "완료되면 Steam이 다시 로드됩니다."
 }

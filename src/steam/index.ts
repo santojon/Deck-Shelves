@@ -988,6 +988,7 @@ export type AppOverview = {
   is_hidden?: boolean;
   installed?: boolean;
   deck_compatibility_category?: number;
+  steamos_compatibility_category?: number;
   library_capsule?: string;
   library_capsule_filename?: string;
   rt_store_asset_mtime?: number;
@@ -1147,10 +1148,22 @@ function buildTimestampFields(node: any) {
   };
 }
 
+function deckCompatCategory(n: any): number {
+  return Number(n.deck_compatibility_category ?? n.m_eDeckCompatibilityCategory ?? ((Number(n.steam_hw_compat_category_packed ?? 0) & 0xF) || 0));
+}
+
+// SteamOS rating sits in the HIGH nibble of the same packed field — the exact
+// same extraction TabMaster ships (`(packed >> 4) & 0xF`, 0..3).
+function steamosCompatCategory(n: any): number {
+  return Number(n.steamos_compatibility_category ?? n.m_eSteamOSCompatibilityCategory ??
+    ((((Number(n.steam_hw_compat_category_packed ?? 0) >> 4) & 0xF)) || 0));
+}
+
 function buildTypeFields(node: any) {
   const n = node ?? {};
   return {
-    deck_compatibility_category: Number(n.deck_compatibility_category ?? n.m_eDeckCompatibilityCategory ?? ((Number(n.steam_hw_compat_category_packed ?? 0) & 0xF) || 0)),
+    deck_compatibility_category: deckCompatCategory(n),
+    steamos_compatibility_category: steamosCompatCategory(n),
     app_type: firstNumber(n.app_type, n.appType, n.m_eAppType, n.eAppType) || undefined,
     controller_support: deriveControllerSupport(node),
   };
@@ -1965,6 +1978,13 @@ function isDeckCompatMatch(cat: number | undefined, allowed: string[] | undefine
   return cat != null && cats.includes(cat);
 }
 
+// SteamOS compat uses the SAME 0..3 category scale as Deck compat (verified=3,
+// playable=2, unsupported=1, unknown=0); only the data source differs (high
+// nibble of the packed field vs the low one). Reuse the identical mapping.
+function isSteamOsCompatMatch(cat: number | undefined, allowed: string[] | undefined): boolean {
+  return isDeckCompatMatch(cat, allowed);
+}
+
 export type CustomFilter = {
   favorites?: boolean;
   hidden?: boolean | "only";
@@ -2440,6 +2460,7 @@ const FILTER_EVALUATORS: Record<string, FilterEvaluator> = {
   appStatus:              evalAppStatus,
   isNew:                  evalIsNew,
   deckCompatibility:      (item, app) => isDeckCompatMatch(app.deck_compatibility_category, item.params?.levels ?? []),
+  steamosCompatibility:   (item, app) => isSteamOsCompatMatch(app.steamos_compatibility_category, item.params?.levels ?? []),
   playedWithinDays:       evalPlayedWithinDays,
   playtimeRange:          evalPlaytimeRange,
   recentlyActive:         evalRecentlyActive,
@@ -3311,6 +3332,13 @@ async function _resolveFilterGroupPath(
   const flatItems = collectFilterGroupItemsFlat(filterGroup);
   const byIdAll = new Map(all.map((a) => [appIdOf(a), a] as const));
   await prefetchCatalogFilterData(flatItems, allAppIds, byIdAll).catch(() => {});
+  // Hosts whose local Steam client omits per-platform availability leave
+  // `available_on_current_platform` undefined (the system-compatibility filter
+  // would then pass everything) — fill it from the store first when present.
+  if (flatItems.some((it: any) => it?.type === "systemCompatibility")) {
+    const om = await import("../core/onlineMetadata");
+    if (om.onlineStoreFallbackOn()) await om.enrichPlatformAvailability(all).catch(() => {});
+  }
   let filtered = evaluateFilterGroup(filterGroup, all, evalCtx);
   const fSort = (ctx.source.filter as any)?.sort as string | string[] | undefined;
   await enrichAppsForMetaSort(fSort, filtered);

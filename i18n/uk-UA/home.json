@@ -28,5 +28,7 @@
   "update_downloaded": "Збережено в {{path}} — установіть вручну.",
   "update_download_failed": "Помилка завантаження — відкривається сторінка випуску.",
   "shelf_type_normal": "Звичайна",
-  "shelf_type_smart": "Розумна"
+  "shelf_type_smart": "Розумна",
+  "update_installing_title": "Встановлення оновлення",
+  "update_will_reload": "Steam перезавантажиться після завершення."
 }

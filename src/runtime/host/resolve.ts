@@ -13,6 +13,23 @@ function injectedHostRuntime(): any {
   return g.window?.__SHELVES_HOST__ ?? g.__SHELVES_HOST__ ?? null;
 }
 
+/* True when a neutral host already provides its own native Quick Access tab
+   (sole or coexisting with a plugin loader) — the plugin's opt-in "own QAM
+   tab" option is then redundant, so the settings UI hides it and the runtime
+   never double-adds a tab. `__SHELVES_QAM__` is the host's tab bridge;
+   `__SHELVES_HOST__` covers the brief window before it injects. */
+export function hostProvidesNativeTab(): boolean {
+  const g = globalThis as any;
+  try {
+    return !!(
+      g.window?.__SHELVES_QAM__ ?? g.__SHELVES_QAM__ ??
+      g.window?.__SHELVES_HOST__ ?? g.__SHELVES_HOST__
+    );
+  } catch {
+    return false;
+  }
+}
+
 export function resolveHost(serverApi: unknown, routerHook: unknown): HostApi {
   // A plugin loader launched us (it passed a serverApi, or left a router hook) —
   // use the Decky legacy bridge even if an injected host global also exists.

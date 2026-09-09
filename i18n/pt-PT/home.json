@@ -28,5 +28,7 @@
   "update_downloaded": "Guardado em {{path}} — instale manualmente.",
   "update_download_failed": "Falha na transferência — a abrir a página da versão.",
   "shelf_type_normal": "Normal",
-  "shelf_type_smart": "Inteligente"
+  "shelf_type_smart": "Inteligente",
+  "update_installing_title": "A instalar atualização",
+  "update_will_reload": "O Steam vai recarregar ao concluir."
 }

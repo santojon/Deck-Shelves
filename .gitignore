@@ -57,6 +57,9 @@ site/reports/dashboard.html
 # (release notes/version are injected into site/index.html in place).
 site/features.html
 
+# Integration guide pages (TabMaster/UnifiDeck/CSS Loader) — same reason.
+site/integrations/
+
 # Shared images copied from assets/ into the Pages tree by build_site.py.
 # Source of truth is assets/icon.svg + assets/steam-deck.png; these are
 # generated so the repo holds each image once.

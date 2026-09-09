@@ -1,9 +1,11 @@
 import { useRef, type ReactNode } from 'react'
 import { Dropdown, Field, Focusable, ToggleField } from '../../../runtime/host/decky'
+import { hostProvidesNativeTab } from '../../../runtime/host/resolve'
+import { restartSteam } from '../../../runtime/ownQamTab'
 import { takeNavTreeFocus } from '../../../runtime/navFocus'
 import type { SettingsController } from '../../../features/settings/controller'
 import { CollapsibleSection, DSSliderField, PositionField, useLightMode, type HorizontalPosition } from '../../ui'
-import { SlidersIcon, SparkleIcon, WandIcon, PlusCircleIcon, EyeIcon, EyeOffIcon, BookmarkIcon } from '../../icons'
+import { SlidersIcon, SparkleIcon, WandIcon, PlusCircleIcon, SearchIcon, OnlineIcon, EyeIcon, EyeOffIcon, BookmarkIcon } from '../../icons'
 import { openManagedModal } from '../common/openManagedModal'
 import { applyGameInfoAboveToggle, applyHideTitleToggle } from '../common/gameInfoCoupling'
 import { confirmAction } from '../modals/ConfirmActionModal'
@@ -128,38 +130,14 @@ function onlineSubsection(c: GCtx): ReactNode {
   )
 }
 
-function searchNavGroup(c: GCtx): ReactNode {
-  const { t, settings, actions, row } = c
-  return (
-    <>
-      {row('contextSearchEnabled', (
-        <ToggleField label={t('context_search_toggle' as any)} checked={(settings as any).contextSearchEnabled === true} onChange={(v: boolean) => (actions as any).setContextSearchEnabled(v)} />
-      ))}
-      {(settings as any).contextSearchEnabled === true && (
-        <div style={{ paddingLeft: 14, fontSize: 12 }}>
-          {row('contextSearchKeyboardEnabled', (
-            <ToggleField label={t('context_search_keyboard' as any)} checked={(settings as any).contextSearchKeyboardEnabled !== false} onChange={(v: boolean) => (actions as any).setContextSearchKeyboardEnabled(v)} />
-          ))}
-          {row('contextSearchOnEnter', (
-            <ToggleField label={t('context_search_on_enter' as any)} checked={(settings as any).contextSearchOnEnter === true} onChange={(v: boolean) => (actions as any).setContextSearchOnEnter(v)} />
-          ))}
-        </div>
-      )}
-      {row('sideNavEnabled', (
-        <ToggleField label={t('side_nav_toggle' as any)} checked={(settings as any).sideNavEnabled === true} onChange={(v: boolean) => (actions as any).setSideNavEnabled(v)} />
-      ))}
-    </>
-  )
-}
-
 function additionalSection(c: GCtx): ReactNode {
-  const { t, settings, actions, row, lightMode, hasCssLoader } = c
+  const { t, settings, actions, row } = c
   return (
     <CollapsibleSection
       id='additional'
       icon={<PlusCircleIcon />}
       title={t('section_additional_features')}
-      count={[settings.updateNotifyEnabled !== false, (settings as any).contextSearchEnabled === true, (settings as any).sideNavEnabled === true, settings.onlineFeaturesEnabled === true, settings.forceCssLoaderThemes === true].filter(Boolean).length}
+      count={[settings.updateNotifyEnabled !== false, (settings as any).lightModeEnabled === true, (settings as any).advancedModeEnabled === true, (settings as any).offlineModeEnabled === true].filter(Boolean).length}
       headerExtra={eye(c, 'additional')}
     >
       {row('updateNotifyEnabled', (
@@ -181,8 +159,51 @@ function additionalSection(c: GCtx): ReactNode {
       {row('offlineModeEnabled', (
         <ToggleField label={t('offline_mode_enabled' as any)} checked={(settings as any).offlineModeEnabled === true} onChange={(v: boolean) => (actions as any).setOfflineModeEnabled?.(v)} />
       ))}
-      {/* Search + side nav are disabled on the home in light mode. */}
-      {!lightMode && searchNavGroup(c)}
+    </CollapsibleSection>
+  )
+}
+
+function navigationSection(c: GCtx): ReactNode {
+  const { t, settings, actions, row, lightMode } = c
+  if (lightMode) return null // search + side nav are disabled on the home in light mode
+  return (
+    <CollapsibleSection
+      id='navigation'
+      icon={<SearchIcon />}
+      title={t('section_navigation' as any)}
+      count={[(settings as any).contextSearchEnabled === true, (settings as any).sideNavEnabled === true].filter(Boolean).length}
+      headerExtra={eye(c, 'navigation')}
+    >
+      {row('contextSearchEnabled', (
+        <ToggleField label={t('context_search_toggle' as any)} checked={(settings as any).contextSearchEnabled === true} onChange={(v: boolean) => (actions as any).setContextSearchEnabled(v)} />
+      ))}
+      {(settings as any).contextSearchEnabled === true && (
+        <div style={{ paddingLeft: 14, fontSize: 12 }}>
+          {row('contextSearchKeyboardEnabled', (
+            <ToggleField label={t('context_search_keyboard' as any)} checked={(settings as any).contextSearchKeyboardEnabled !== false} onChange={(v: boolean) => (actions as any).setContextSearchKeyboardEnabled(v)} />
+          ))}
+          {row('contextSearchOnEnter', (
+            <ToggleField label={t('context_search_on_enter' as any)} checked={(settings as any).contextSearchOnEnter === true} onChange={(v: boolean) => (actions as any).setContextSearchOnEnter(v)} />
+          ))}
+        </div>
+      )}
+      {row('sideNavEnabled', (
+        <ToggleField label={t('side_nav_toggle' as any)} checked={(settings as any).sideNavEnabled === true} onChange={(v: boolean) => (actions as any).setSideNavEnabled(v)} />
+      ))}
+    </CollapsibleSection>
+  )
+}
+
+function onlineSection(c: GCtx): ReactNode {
+  const { t, settings, actions, row } = c
+  return (
+    <CollapsibleSection
+      id='online'
+      icon={<OnlineIcon />}
+      title={t('section_online' as any)}
+      count={settings.onlineFeaturesEnabled === true ? 1 : 0}
+      headerExtra={eye(c, 'online')}
+    >
       {row('onlineFeaturesEnabled', (
         <ToggleField
           label={t('online_features')}
@@ -199,11 +220,88 @@ function additionalSection(c: GCtx): ReactNode {
         />
       ))}
       {settings.onlineFeaturesEnabled === true && onlineSubsection(c)}
+    </CollapsibleSection>
+  )
+}
+
+function experimentalSection(c: GCtx): ReactNode {
+  const { t, settings, actions, row, lightMode, hasCssLoader } = c
+  return (
+    <CollapsibleSection
+      id='experimental'
+      icon={<WandIcon />}
+      title={t('section_experimental' as any)}
+      count={[settings.forceCssLoaderThemes === true, (settings as any).ownQamTabEnabled === true, (settings as any).showcaseModeEnabled === true].filter(Boolean).length}
+      headerExtra={eye(c, 'experimental')}
+    >
       {hasCssLoader && !lightMode && row('forceCssLoaderThemes', (
         <ToggleField label={t('force_themes_label')} checked={settings.forceCssLoaderThemes === true} onChange={(v: boolean) => void actions.setForceCssLoaderThemes(v)} />
       ))}
+      {ownQamTabGroup(c)}
+      {showcaseModeGroup(c)}
     </CollapsibleSection>
   )
+}
+
+function ownQamTabGroup(c: GCtx): ReactNode {
+  const { t, settings, actions, row } = c
+  // Hidden when a neutral host already provides its own native tab (sole or
+  // coexist) — the option would only add a duplicate Deck Shelves tab.
+  if (hostProvidesNativeTab()) return null
+  return (
+    row('ownQamTabEnabled', (
+      <ToggleField label={t('own_qam_tab_enabled' as any)} checked={(settings as any).ownQamTabEnabled === true} onChange={(v: boolean) => {
+        void (actions as any).setOwnQamTabEnabled(v);
+        confirmAction({
+          title: t('own_qam_tab_restart_title' as any),
+          body: t((v ? 'own_qam_tab_restart_body' : 'own_qam_tab_restart_body_off') as any),
+          okText: t('own_qam_tab_restart_now' as any),
+          cancelText: t('own_qam_tab_restart_later' as any),
+          onConfirm: restartSteam,
+        });
+      }} />
+    ))
+  )
+}
+
+function showcaseModeGroup(c: GCtx): ReactNode {
+  const { t, settings, actions, row } = c
+  const on = (settings as any).showcaseModeEnabled === true
+  return (<>
+    {row('showcaseModeEnabled', (
+      <ToggleField label={t('showcase_mode_enabled' as any)} checked={on} onChange={(v: boolean) => void (actions as any).setShowcaseModeEnabled(v)} />
+    ))}
+    <div style={{ paddingLeft: 16, paddingRight: 8, paddingBottom: 4, fontSize: 11, opacity: 0.65, lineHeight: 1.4 }}>
+      {t('showcase_mode_desc' as any)}
+    </div>
+    {on && (
+      <div style={{ paddingLeft: 14, fontSize: 12 }}>
+        {row('showcaseStartAfterSeconds', (
+          <DSSliderField label={t('showcase_start_after_label' as any)} value={(settings as any).showcaseStartAfterSeconds ?? 60} min={15} max={600} step={15} unit='s' onChange={(v: number) => void (actions as any).setShowcaseStartAfterSeconds(v)} />
+        ))}
+        {row('showcaseDwellSeconds', (
+          <DSSliderField label={t('showcase_dwell_label' as any)} value={(settings as any).showcaseDwellSeconds ?? 10} min={3} max={120} step={1} unit='s' onChange={(v: number) => void (actions as any).setShowcaseDwellSeconds(v)} />
+        ))}
+        {row('showcaseRandomize', (
+          <ToggleField label={t('showcase_randomize_label' as any)} checked={(settings as any).showcaseRandomize === true} onChange={(v: boolean) => void (actions as any).setShowcaseRandomize(v)} />
+        ))}
+        {row('showcaseStopOnInteraction', (
+          <ToggleField label={t('showcase_stop_on_interaction_label' as any)} checked={(settings as any).showcaseStopOnInteraction !== false} onChange={(v: boolean) => void (actions as any).setShowcaseStopOnInteraction(v)} />
+        ))}
+        {row('showcasePanCards', (
+          <ToggleField label={t('showcase_pan_cards_label' as any)} checked={(settings as any).showcasePanCards === true} onChange={(v: boolean) => void (actions as any).setShowcasePanCards(v)} />
+        ))}
+        {(settings as any).showcasePanCards === true && (<>
+          {row('showcaseCardsPerShelf', (
+            <DSSliderField label={t('showcase_cards_per_shelf_label' as any)} value={(settings as any).showcaseCardsPerShelf ?? 5} min={1} max={20} step={1} onChange={(v: number) => void (actions as any).setShowcaseCardsPerShelf(v)} />
+          ))}
+          {row('showcaseCardDwellSeconds', (
+            <DSSliderField label={t('showcase_card_dwell_label' as any)} value={(settings as any).showcaseCardDwellSeconds ?? 4} min={1} max={60} step={1} unit='s' onChange={(v: number) => void (actions as any).setShowcaseCardDwellSeconds(v)} />
+          ))}
+        </>)}
+      </div>
+    )}
+  </>)
 }
 
 function smartSection(c: GCtx): ReactNode {
@@ -468,6 +566,9 @@ export function GeneralTab({ controller }: { controller: SettingsController }) {
       />
       {behaviorSection(c)}
       {additionalSection(c)}
+      {navigationSection(c)}
+      {onlineSection(c)}
+      {experimentalSection(c)}
       {smartSection(c)}
       {visualGlobalSection(c)}
       {savedFiltersSections(c)}

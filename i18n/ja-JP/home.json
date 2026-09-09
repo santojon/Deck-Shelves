@@ -28,5 +28,7 @@
   "update_downloaded": "{{path}} に保存しました。手動でインストールしてください。",
   "update_download_failed": "ダウンロードに失敗しました。リリースページを開きます。",
   "shelf_type_normal": "通常",
-  "shelf_type_smart": "スマート"
+  "shelf_type_smart": "スマート",
+  "update_installing_title": "アップデートをインストール中",
+  "update_will_reload": "完了すると Steam が再読み込みされます。"
 }

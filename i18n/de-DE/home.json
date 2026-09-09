@@ -28,5 +28,7 @@
   "update_downloaded": "Gespeichert unter {{path}} – manuell installieren.",
   "update_download_failed": "Download fehlgeschlagen – Release-Seite wird geöffnet.",
   "shelf_type_normal": "Normal",
-  "shelf_type_smart": "Intelligent"
+  "shelf_type_smart": "Intelligent",
+  "update_installing_title": "Update wird installiert",
+  "update_will_reload": "Steam wird nach Abschluss neu geladen."
 }

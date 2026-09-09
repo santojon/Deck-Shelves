@@ -7,7 +7,7 @@
 
 [![CI](https://github.com/santojon/Deck-Shelves/actions/workflows/ci.yml/badge.svg)](https://github.com/santojon/Deck-Shelves/actions/workflows/ci.yml)
 [![Release](https://github.com/santojon/Deck-Shelves/actions/workflows/release.yml/badge.svg)](https://github.com/santojon/Deck-Shelves/actions/workflows/release.yml)
-[![Tests](https://img.shields.io/badge/vitest-806%20passed-brightgreen?logo=vitest&logoColor=white)](src/test/)
+[![Tests](https://img.shields.io/badge/vitest-812%20passed-brightgreen?logo=vitest&logoColor=white)](src/test/)
 [![pytest](https://img.shields.io/badge/pytest-168%20passed-brightgreen?logo=pytest&logoColor=white)](src/test/test_main.py)
 [![TypeCheck](https://img.shields.io/badge/typecheck-clean-brightgreen?logo=typescript&logoColor=white)](tsconfig.json)
 [![Compatibility](https://img.shields.io/badge/checks-39%2F39-brightgreen?logo=steamdeck&logoColor=white)](scripts/build/validate-compat.mjs)
@@ -130,6 +130,8 @@
 - **Exclude owned games** — per-shelf toggle on wishlist / store sources that hides any game whose appid or exact name matches a title in your local library; sub-toggle for non-Steam shortcuts (from other storefronts), and a further sub-toggle for cloud-play catalogue stubs (cloud-gaming services surfaced via Unifideck) so promotions on the cloud catalogue still surface
 - **Discount badges** — cards on online shelves show a green "% off" badge (mirrors the NEW badge slot, shown even on placeholder cards while artwork is still loading)
 - **Refresh action everywhere** — context-aware "Refresh cache" / "Refresh" available from the QAM action menu, the shelf-card context menu, and the trailing refresh tile
+- **Own Quick Access tab (experimental, opt-in)** — puts Deck Shelves in the Quick Access tab strip itself, next to Notifications and Settings, instead of only inside Decky's plugin list. Off by default; restart Steam after enabling
+- **Showcase mode (opt-in)** — while idle on the Home, slowly cycles through your shelves like a screensaver; any input stops it instantly. Configurable delay, time per shelf, and randomize order
 - Import / export all shelves and smart shelf configuration as JSON
 - Persistent settings across plugin reinstalls
 - Crash protection with automatic retry
