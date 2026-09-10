@@ -76,6 +76,13 @@ jobs:
       - name: Package release zip
         run: pnpm run dist
 
+      # Standalone backend archive: the Python backend (`main.py` + `src/backend/`)
+      # published so it can run without a plugin loader (e.g. on macOS/Windows). The
+      # archive root mirrors the repo so `main.py`'s own `sys.path` splice of
+      # `src/backend` resolves after extraction.
+      - name: Package backend archive
+        run: tar -czf deck-shelves-backend.tar.gz --exclude='__pycache__' main.py src/backend
+
       - name: Resolve release tag
         id: tag
         run: |
@@ -123,3 +130,4 @@ jobs:
           files: |
             deck-shelves-v*.zip
             dist/index.iife.js
+            deck-shelves-backend.tar.gz

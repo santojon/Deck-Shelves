@@ -249,15 +249,44 @@ const _patchedInnerTypes = new WeakSet<any>();
 
 function findMenuItemsArray(ret2: any): any[] | null {
   const c = ret2?.props?.children;
-  if (!c) return null;
-  // Nested shape: items live in children[0] (installed Steam game menu)
-  if (Array.isArray(c) && Array.isArray(c[0]) && c[0].length > 0 &&
-      c[0].some((it: any) => it?.props?.onSelected)) {
-    return c[0];
+  if (c) {
+    // Nested shape: items live in children[0] (installed Steam game menu)
+    if (Array.isArray(c) && Array.isArray(c[0]) && c[0].length > 0 &&
+        c[0].some((it: any) => it?.props?.onSelected)) {
+      return c[0];
+    }
+    // Flat shape: children itself contains MenuItems (uninstalled/shortcut)
+    if (Array.isArray(c) && c.some((it: any) => it?.props?.onSelected)) {
+      return c;
+    }
   }
-  // Flat shape: children itself contains MenuItems (uninstalled/shortcut)
-  if (Array.isArray(c) && c.some((it: any) => it?.props?.onSelected)) {
-    return c;
+  // Gamepad fallback: the Deck's gamepad menu nests the item list DEEPER than
+  // the top two levels (items are wrapped in Focusable containers), so the
+  // shallow checks above miss it and no rows get spliced. Deep-search the whole
+  // render output for the array that actually holds the menu items (elements
+  // with `onSelected`). This is what makes the injection reach the gamepad menu,
+  // not just the desktop presentation.
+  const fl = getFrontendLib();
+  if (fl?.findInReactTree) {
+    try {
+      // Find the array that holds a REAL game-menu action (Play / Properties),
+      // not just any `onSelected` list — otherwise the deep-search latches onto
+      // a nested submenu (e.g. the "Add to collection" list, whose items have
+      // `onSelected` too), which the `isGameContextMenuItems` gate then rejects
+      // and no rows get spliced. Same predicate as that gate, so they agree.
+      const holder = fl.findInReactTree(ret2, (n: any) => {
+        const ch = n?.props?.children;
+        if (!Array.isArray(ch)) return false;
+        return ch.some((it: any) => {
+          const f = it?.props?.onSelected;
+          if (typeof f !== "function") return false;
+          const src = f.toString();
+          return src.includes("launchSource") || src.includes("AppProperties");
+        });
+      });
+      const ch = holder?.props?.children;
+      if (Array.isArray(ch)) return ch;
+    } catch { /* fall through */ }
   }
   return null;
 }
@@ -299,20 +328,24 @@ function injectIntoMenuItems(menuItems: any[], self: any, dedupBefore: boolean):
   const fl = getFrontendLib();
   const R = getSteamReact();
   if (!fl || !R) return;
-  if (!isGameContextMenuItems(menuItems, fl)) return;
+  if (!isGameContextMenuItems(menuItems, fl)) { bumpDebugCounter("iimGateFail"); return; }
   if (dedupBefore) dedupDsMenuItems(menuItems);
   const curAppid = resolveAppidFromMenuChildren(menuItems, self);
   const curShelfId = resolveShelfIdByAppid(curAppid);
   if (!dedupBefore) dedupDsMenuItems(menuItems);
+  const before = menuItems.length;
   spliceLibraryOrShelfItems(menuItems, curAppid, curShelfId, fl, R);
+  if (menuItems.length > before) bumpDebugCounter("iimSpliced");
 }
 
 function installInnerRenderPatch(prototype: any): void {
   try {
     hostAfterPatch(prototype, "render", function (this: any, _b: any, ret2: any) {
       try {
+        bumpDebugCounter("fmRenderCalls");
         const menuItems = findMenuItemsArray(ret2);
-        if (menuItems) injectIntoMenuItems(menuItems, this, true);
+        if (menuItems) { bumpDebugCounter("fmFound"); injectIntoMenuItems(menuItems, this, true); }
+        else bumpDebugCounter("fmNoArray");
       } catch (e) {
         try { (globalThis as any).console?.warn?.("[DS][menu] inner render patch threw", e); } catch {}
       }
@@ -1264,8 +1297,18 @@ function buildFallbackItems(appid: number, shelfId: string | undefined, fl: any,
 
 function resolveCardLabelName(cardEl: HTMLElement | null): string | null {
   try {
-    const n = cardEl?.querySelector?.('.ds-card-label-name')?.textContent?.trim();
-    return n || null;
+    if (!cardEl) return null;
+    const card = (cardEl.closest?.('.ds-card') as HTMLElement | null) ?? cardEl;
+    // `data-name` carries the resolved title on the card root even when the
+    // visible label is hidden (logo mode / hide-game-names) — and it is the
+    // ONLY reliable source for online (wishlist/store) items, which have no
+    // local AppOverview to read `display_name` from.
+    const dataName = card?.getAttribute?.('data-name')?.trim();
+    if (dataName) return dataName;
+    const label = card?.querySelector?.('.ds-card-label-name')?.textContent?.trim();
+    if (label) return label;
+    const alt = (card?.querySelector?.('img[alt]') as HTMLImageElement | null)?.alt?.trim();
+    return alt || null;
   } catch { return null; }
 }
 
@@ -1274,7 +1317,7 @@ function hasFallbackMenuApi(fl: any, R: any): boolean {
 }
 
 function resolveFallbackTitle(overview: any, cardEl: HTMLElement | null): string {
-  return overview?.display_name || resolveCardLabelName(cardEl) || "Game";
+  return overview?.display_name || resolveCardLabelName(cardEl) || fallbackMenuLabel("menu_game_fallback", "Game");
 }
 
 function showFallbackMenu(appid: number, shelfId: string | undefined): void {
