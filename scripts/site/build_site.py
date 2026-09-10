@@ -173,23 +173,31 @@ def _parse_stats(root: Path):
     return history[-1] if isinstance(history, list) and history else None
 
 
+def _fmt_compact(n: int) -> str:
+    """Anything past the thousands mark reads as "16.7k" / "1.8k" (one
+    decimal, trailing .0 dropped); below 1000 stays an exact figure."""
+    if n < 1000:
+        return f"{n:,}"
+    return f"{n / 1000:.1f}k".replace(".0k", "k")
+
+
 def _stats_values(stats: dict) -> dict:
     """Map each stat card's data-stat key to its display string, omitting
     any source that didn't come back this run instead of showing a zero."""
     values = {}
     installs = stats.get("deckyStoreInstalls")
     if installs is not None:
-        values["installs"] = f"{installs:,}"
+        values["installs"] = _fmt_compact(installs)
     downloads = stats.get("githubDownloads")
     if downloads is not None:
-        values["downloads"] = f"{downloads:,}"
+        values["downloads"] = _fmt_compact(downloads)
     main_traffic = (stats.get("traffic") or {}).get("main") or {}
     if "views" in main_traffic:
-        values["views"] = f"{main_traffic['views']:,}"
+        values["views"] = _fmt_compact(main_traffic["views"])
     npm = stats.get("npm") or {}
     npm_total = sum(v for v in npm.values() if isinstance(v, int))
     if npm_total:
-        values["npm"] = f"{npm_total:,}"
+        values["npm"] = _fmt_compact(npm_total)
     return values
 
 

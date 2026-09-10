@@ -9,7 +9,7 @@ name: "Release · Pre-release"
 # into package.json + plugin.json **in the runner only**, build:release, and
 # publish a GitHub *pre-release*. The repo's package.json stays untouched.
 #
-# Beta testers opt in via Deck Shelves → "Check for updates" → "Canal beta",
+# Beta testers opt in via Deck Shelves → "Check for updates" → "Beta channel",
 # which makes the in-plugin update check surface pre-releases.
 
 on:
@@ -149,6 +149,6 @@ jobs:
           for n in $ISSUES; do
             echo "Commenting on #$n"
             gh issue comment "$n" --repo "$REPO" \
-              --body "🧪 Something referenced here just shipped in pre-release [\`${TAG}\`](${REL_URL}) for testing. Turn on the **beta channel** in Deck Shelves → *Check for updates* → *Canal beta* to grab it, and please report back if it looks good. 🙏" \
+              --body "🧪 Something referenced here just shipped in pre-release [\`${TAG}\`](${REL_URL}) for testing. Turn on the **Beta channel** in Deck Shelves → *Check for updates* → *Beta channel* to grab it, and please report back if it looks good. 🙏" \
               || echo "Skipped #$n (PR, locked, or not commentable)"
           done

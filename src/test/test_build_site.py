@@ -72,7 +72,16 @@ def test_stats_values_covers_every_source():
         "traffic": {"main": {"views": 453}},
         "npm": {"api": 230, "host": 210},
     })
-    assert values == {"installs": "12,173", "downloads": "2,692", "views": "453", "npm": "440"}
+    # Anything past the thousands mark reads compact ("12.2k"); below stays exact.
+    assert values == {"installs": "12.2k", "downloads": "2.7k", "views": "453", "npm": "440"}
+
+
+def test_fmt_compact_only_abbreviates_past_a_thousand():
+    assert build_site._fmt_compact(453) == "453"
+    assert build_site._fmt_compact(999) == "999"
+    assert build_site._fmt_compact(1000) == "1k"
+    assert build_site._fmt_compact(1769) == "1.8k"
+    assert build_site._fmt_compact(16692) == "16.7k"
 
 
 def test_stats_values_omits_missing_sources_instead_of_a_placeholder():
@@ -86,8 +95,8 @@ def test_inject_stats_row_fills_chips_and_reveals_the_row():
         "date": "2026-09-01", "deckyStoreInstalls": 12173, "githubDownloads": 2692,
         "traffic": {"main": {"views": 453}}, "npm": {"api": 230, "host": 210},
     })
-    assert '<b data-stat="installs">12,173</b>' in out
-    assert '<b data-stat="downloads">2,692</b>' in out
+    assert '<b data-stat="installs">12.2k</b>' in out
+    assert '<b data-stat="downloads">2.7k</b>' in out
     assert 'style="display:none"' not in out
     assert 'title="Last snapshot: 2026-09-01"' in out
 

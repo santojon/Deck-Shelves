@@ -240,7 +240,10 @@ export function installOwnQamTab(opts: OwnQamTabOptions): () => void {
       const consumer = findQamConsumer();
       if (!consumer) return false;
       if (consumer.bv.type.__dsOwnQamTabPatched) { patched = true; return true; }
-      if (!registerTabEnum(KEY, opts.title)) {
+      // Steam derives the panel wrapper's class as `tab_${QuickAccessTab[key]}`,
+      // so the enum name must be a single CSS-safe token, not the spaced
+      // display title (that lives on `strTitle`) — matching "Notifications"/"Perf".
+      if (!registerTabEnum(KEY, "DeckShelves")) {
         logWarn("RUNTIME", "own QAM tab: enum not found — standing down (would render as tab_undefined).");
         return false;
       }

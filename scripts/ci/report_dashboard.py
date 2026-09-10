@@ -314,6 +314,24 @@ _DASH_JS = r"""
     const svg=`<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}">${grid}${vmarks}<path d="${area}" fill="#38bdf815"/><path d="${line}" fill="none" stroke="#38bdf8" stroke-width="1.5" opacity="0.5"/>${avgLines}${dots}</svg>`;
     return svg+`<div style="display:flex;flex-direction:column;gap:5px;margin-top:10px">${legend.join('')}</div>`;
   }
+  // Horizontal bar list — one bar per {label,value,color} entry. Used for
+  // the per-version download breakdown (not a time series, so svgMetricTrend
+  // doesn't fit); newest-first order is the caller's responsibility.
+  function svgBars(items,opts){
+    opts=opts||{};
+    const rows=(items||[]).filter(it=>it&&typeof it.value==='number'&&isFinite(it.value));
+    if(!rows.length)return '';
+    const fmt=opts.fmt||(v=>String(Math.round(v)));
+    const max=Math.max(1,...rows.map(r=>r.value));
+    const rh=18,gap=4,lw=104,vw=52,bw=340,h=rows.length*(rh+gap);
+    const bars=rows.map((r,i)=>{
+      const y=i*(rh+gap),w=Math.max(1,bw*r.value/max);
+      return `<text x="${lw-8}" y="${y+rh-4}" fill="#cbd5e1" font-size="10" text-anchor="end">${esc(r.label)}</text>`+
+        `<rect x="${lw}" y="${y+2}" width="${w.toFixed(1)}" height="${rh-4}" rx="2" fill="${r.color||'#38bdf8'}" data-tip="${esc(r.label)} · ${fmt(r.value)}${r.tip?' · '+esc(r.tip):''}"/>`+
+        `<text x="${lw+bw+8}" y="${y+rh-4}" fill="#e2e8f0" font-size="10" font-weight="600">${fmt(r.value)}</text>`;
+    }).join('');
+    return `<svg viewBox="0 0 ${lw+bw+vw} ${h}" width="100%" height="${Math.max(h,20)}">${bars}</svg>`;
+  }
   function unitTotals(r){const u=r.unit;return (u&&typeof u==='object'&&u.total)?u:null;}
   // Per-step duration trend as small multiples: one sparkline per step showing
   // how its time moves across runs/versions, with the latest value + trend %.
@@ -518,14 +536,30 @@ _DASH_JS = r"""
     const hasStats=usageRuns.some(r=>typeof r.stats.deckyStoreInstalls==='number');
     const hasDownloads=usageRuns.some(r=>typeof r.stats.githubDownloads==='number');
     const hasNpm=usageRuns.some(r=>r.stats.npm);
+    const verSnap=(sortRuns(usageRuns).filter(r=>r.stats.versionDownloads).pop()||{}).stats;
+    const hasVer=!!(verSnap&&verSnap.versionDownloads);
+    const hasDeckyUpd=usageRuns.some(r=>typeof r.stats.deckyStoreUpdates==='number');
     const usagePanel=$('usage-panel');
-    if(usagePanel)usagePanel.style.display=(hasStats||hasDownloads||hasNpm)?'':'none';
+    if(usagePanel)usagePanel.style.display=(hasStats||hasDownloads||hasNpm||hasVer)?'':'none';
     if(hasDownloads){
       const ud=$('usage-downloads-trend');if(ud)ud.innerHTML=svgMetricTrend(usageRuns,r=>typeof r.stats.githubDownloads==='number'?r.stats.githubDownloads:null,{color:'#fbbf24',upGood:true,fmt:v=>Math.round(v)+' downloads'});
+    }
+    const verBlk=$('usage-version-block');if(verBlk)verBlk.style.display=hasVer?'':'none';
+    if(hasVer){
+      // Newest-first from fetch_stats.py; cap so the chart stays readable —
+      // recent versions are what "which version are people on" is about.
+      const vd=verSnap.versionDownloads,items=[];
+      Object.keys(vd.stable||{}).slice(0,10).forEach(tag=>items.push({label:tag,value:vd.stable[tag],color:'#38bdf8',tip:'stable'}));
+      Object.keys(vd.beta||{}).slice(0,5).forEach(tag=>items.push({label:tag,value:vd.beta[tag],color:'#c084fc',tip:'beta'}));
+      const uvb=$('usage-version-bars');if(uvb)uvb.innerHTML=svgBars(items,{fmt:v=>Math.round(v)+' downloads'});
     }
     if(hasStats){
       const ui=$('usage-installs-trend');if(ui)ui.innerHTML=svgMetricTrend(usageRuns,r=>typeof r.stats.deckyStoreInstalls==='number'?r.stats.deckyStoreInstalls:null,{color:'#38bdf8',upGood:true,fmt:v=>Math.round(v)+' installs'});
       const uv=$('usage-views-trend');if(uv)uv.innerHTML=svgMetricTrend(usageRuns,r=>r.stats.traffic&&r.stats.traffic.main&&typeof r.stats.traffic.main.views==='number'?r.stats.traffic.main.views:null,{color:'#4ade80',upGood:true,fmt:v=>Math.round(v)+' views'});
+    }
+    const updBlk=$('usage-decky-updates-block');if(updBlk)updBlk.style.display=hasDeckyUpd?'':'none';
+    if(hasDeckyUpd){
+      const uu=$('usage-decky-updates-trend');if(uu)uu.innerHTML=svgMetricTrend(usageRuns,r=>typeof r.stats.deckyStoreUpdates==='number'?r.stats.deckyStoreUpdates:null,{color:'#5eead4',upGood:true,fmt:v=>Math.round(v)+' updates'});
     }
     if(hasNpm){
       const na=$('usage-npm-api-trend');if(na)na.innerHTML=svgMetricTrend(usageRuns,r=>r.stats.npm&&typeof r.stats.npm.api==='number'?r.stats.npm.api:null,{color:'#f472b6',upGood:true,fmt:v=>Math.round(v)+' @deck-shelves/api'});
@@ -770,11 +804,19 @@ def _rebuild_dashboard(reports_root: Path) -> None:
     <div id="usage-views-trend"></div>
     <h2 style="margin-top:18px">GitHub release downloads &mdash; cumulative, by release date</h2>
     <div id="usage-downloads-trend"></div>
+    <div id="usage-version-block" style="display:none">
+      <h2 style="margin-top:18px">Downloads by version &mdash; recent, <span style="color:#38bdf8">stable</span> vs <span style="color:#c084fc">beta</span></h2>
+      <div id="usage-version-bars"></div>
+    </div>
+    <div id="usage-decky-updates-block" style="display:none">
+      <h2 style="margin-top:18px">Decky Store updates &mdash; times the current published version was updated to</h2>
+      <div id="usage-decky-updates-trend"></div>
+    </div>
     <h2 style="margin-top:18px">npm downloads &mdash; lifetime total per package</h2>
     <div id="usage-npm-api-trend"></div>
     <div id="usage-npm-host-trend"></div>
     <div class="legend">
-      <span style="color:#64748b;font-size:10px">Snapshotted weekly from the Decky Store's own plugin list, GitHub's traffic/releases API, and the npm registry — no external analytics, no new accounts. GitHub traffic only ever covers a rolling 14-day window, not a running total. GitHub downloads has no true historical snapshot either — each point is the running sum of every release's <i>current</i> download count up to that release's own date, backfilled once from the repo's release history (<code>fetch_stats.py --backfill</code>); npm downloads back to each package's publish date are a real (not estimated) backfill too, since the registry API can answer "total as of a past date" directly.</span>
+      <span style="color:#64748b;font-size:10px">Snapshotted weekly from the Decky Store's own plugin list, GitHub's traffic/releases API, and the npm registry — no external analytics, no new accounts. GitHub traffic only ever covers a rolling 14-day window, not a running total. GitHub downloads has no true historical snapshot either — each point is the running sum of every release's <i>current</i> download count up to that release's own date, backfilled once from the repo's release history (<code>fetch_stats.py --backfill</code>); npm downloads back to each package's publish date are a real (not estimated) backfill too, since the registry API can answer "total as of a past date" directly. <b>Downloads by version</b> is manual <code>.zip</code> installs only — a version's count keeps growing after it's superseded and Decky Store installs never touch a GitHub asset, so read it as relative interest across versions, not an active-user count.</span>
     </div>
   </div>
 

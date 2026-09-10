@@ -15,6 +15,12 @@ narrower CI token even when the main repo isn't).
 
 Usage: python3 scripts/ci/fetch_stats.py [--root .]
        python3 scripts/ci/fetch_stats.py --backfill | --backfill-npm | --backfill-github-downloads
+Each snapshot also carries an additive per-version breakdown of the GitHub
+download total — `versionDownloads: {stable: {...}, beta: {...}}` — plus the
+Decky Store's `updates` count (`deckyStoreUpdates`), and its `versions`
+array if it ever holds more than the one published version. None of this
+changes `githubDownloads` / `deckyStoreInstalls` or the badges below.
+
 Writes:
   site/reports/stats/history.json  — one entry appended per run (dashboard trend)
   site/stats/decky-store.json      — shields.io "endpoint" badge JSON (installs)
@@ -121,22 +127,29 @@ def _fetch_npm_downloads(package: str) -> int | None:
         return None
 
 
-def _fetch_decky_store_installs() -> int | None:
+def _fetch_decky_plugin() -> dict | None:
+    """The Deck Shelves entry from the Decky Store's public plugin list, or
+    None. Callers pull whatever fields they need — `downloads` (installs),
+    `updates`, and the `versions` array (today it only ever holds the single
+    published version, but if the Store ever exposes more than one, the
+    per-version breakdown lands in the snapshot automatically)."""
     try:
         plugins = _get_json(DECKY_STORE_URL)
     except (urllib.error.URLError, ValueError):
         return None
     for p in plugins if isinstance(plugins, list) else []:
         if p.get("name") == DECKY_PLUGIN_NAME:
-            return p.get("downloads")
+            return p
     return None
 
 
-def _fetch_github_downloads(repo: str) -> int | None:
-    """Sum every release asset's download_count — the same total the
-    README's own shields.io badge shows, fetched here too so the site/
-    dashboard can render it as a plain number instead of an embedded badge
-    image."""
+def _fetch_decky_store_installs() -> int | None:
+    p = _fetch_decky_plugin()
+    return p.get("downloads") if p else None
+
+
+def _gh_releases(repo: str) -> list | None:
+    """Raw `repos/{repo}/releases` list (all pages), or None on any failure."""
     try:
         res = subprocess.run(["gh", "api", f"repos/{repo}/releases", "--paginate"],
                              capture_output=True, text=True, timeout=30)
@@ -148,9 +161,64 @@ def _fetch_github_downloads(repo: str) -> int | None:
         releases = json.loads(res.stdout)
     except Exception:
         return None
-    if not isinstance(releases, list):
+    return releases if isinstance(releases, list) else None
+
+
+def _fetch_github_downloads(repo: str) -> int | None:
+    """Sum every release asset's download_count — the same total the
+    README's own shields.io badge shows, fetched here too so the site/
+    dashboard can render it as a plain number instead of an embedded badge
+    image."""
+    releases = _gh_releases(repo)
+    if releases is None:
         return None
     return sum(a.get("download_count", 0) for r in releases for a in r.get("assets", []))
+
+
+def _fetch_github_version_downloads(repo: str) -> dict | None:
+    """Per-version download counts, split stable vs beta, newest first — an
+    additive breakdown of the same `_fetch_github_downloads` total (this
+    sums to that). Downloads only, and only the manually-installed `.zip`:
+    a version's count keeps growing after it's superseded, and Decky Store
+    installs never touch a GitHub asset, so read it as relative interest
+    across versions, not an active-user count. `index.iife.js` assets (the
+    standalone-host bundle) are excluded — different audience."""
+    releases = _gh_releases(repo)
+    if releases is None:
+        return None
+    out: dict = {"stable": {}, "beta": {}}
+    rows = []
+    for r in releases:
+        tag = r.get("tag_name")
+        if not tag:
+            continue
+        dl = sum(a.get("download_count", 0) for a in r.get("assets", [])
+                 if str(a.get("name", "")).endswith(".zip"))
+        rows.append((r.get("published_at") or "", tag, bool(r.get("prerelease")), dl))
+    rows.sort(key=lambda x: x[0], reverse=True)
+    for _pub, tag, is_pre, dl in rows:
+        out["beta" if is_pre else "stable"][tag] = dl
+    return out if (out["stable"] or out["beta"]) else None
+
+
+def _decky_snapshot_fields() -> dict:
+    """Decky Store fields for a snapshot: installs (`downloads`), `updates`,
+    and a per-version list only if the Store ever returns more than one."""
+    decky = _fetch_decky_plugin()
+    if not decky:
+        return {}
+    out: dict = {}
+    if decky.get("downloads") is not None:
+        out["deckyStoreInstalls"] = decky["downloads"]
+    if decky.get("updates") is not None:
+        out["deckyStoreUpdates"] = decky["updates"]
+    versions = decky.get("versions")
+    if isinstance(versions, list) and len(versions) > 1:
+        out["deckyStoreVersions"] = [
+            {"name": v.get("name"), "downloads": v.get("downloads"), "updates": v.get("updates")}
+            for v in versions if isinstance(v, dict) and v.get("name")
+        ]
+    return out
 
 
 def _build_snapshot() -> dict:
@@ -169,12 +237,13 @@ def _build_snapshot() -> dict:
         snapshot["traffic"] = traffic
     if npm:
         snapshot["npm"] = npm
-    installs = _fetch_decky_store_installs()
-    if installs is not None:
-        snapshot["deckyStoreInstalls"] = installs
+    snapshot.update(_decky_snapshot_fields())
     gh_downloads = _fetch_github_downloads(REPOS["main"])
     if gh_downloads is not None:
         snapshot["githubDownloads"] = gh_downloads
+    version_downloads = _fetch_github_version_downloads(REPOS["main"])
+    if version_downloads is not None:
+        snapshot["versionDownloads"] = version_downloads
     return snapshot
 
 
