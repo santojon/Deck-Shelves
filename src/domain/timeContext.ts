@@ -1,4 +1,4 @@
-// Pure time-context predicates for Visibility Rules v2 (Sprint 4). No side
+// Pure time-context predicates for Visibility Rules v2. No side
 // effects, no I/O — evaluated during render like the other visibility kinds.
 
 type Rule = { kind?: string } & Record<string, any>;

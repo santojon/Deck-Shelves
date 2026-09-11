@@ -6,6 +6,7 @@ import {
   patchShelfInSettings,
 } from "../domain/settings";
 import { randomShelfId } from "../domain/defaults";
+import { getFrontendLib } from "../runtime/host/decky";
 import type { Shelf, SmartShelf } from "../types";
 
 function isSmartShelfId(id: string): boolean {
@@ -138,9 +139,10 @@ export function consumePendingShelfModalTab(): string | null {
 }
 
 function resolveNavigationApi(): any {
-  return (globalThis as any).DFL?.Navigation
-    ?? (globalThis as any).Navigation
-    ?? (globalThis as any).window?.Navigation;
+  // The host UI surface (loader OR neutral host) comes from the one central
+  // resolver; `Navigation` may also be a standalone global on some hosts.
+  const g = globalThis as any;
+  return getFrontendLib()?.Navigation ?? g.Navigation ?? g.window?.Navigation;
 }
 
 // Primary path: navigate to a dedicated route that mounts a standalone

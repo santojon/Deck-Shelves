@@ -6,15 +6,25 @@ function getShelvesHost(): any {
   return g.window?.__SHELVES_HOST__ ?? g.__SHELVES_HOST__ ?? null;
 }
 
-const decky =
-  (globalThis as any).DFL ||
-  (globalThis as any).deckyFrontendLib ||
-  (globalThis as any).window?.DFL ||
-  (globalThis as any).window?.deckyFrontendLib ||
-  getShelvesHost()?.ui;
+/* THE single host-parametric resolver for the whole UI surface: a plugin loader
+   publishes it as a global (`DFL`/`deckyFrontendLib`); a neutral host exposes the
+   same surface on `__SHELVES_HOST__.ui`. Call sites that need the raw lib object
+   go through THIS — don't re-derive the chain inline. Lazy (a function, not a
+   const) so late-injected sole-host UI resolves too. */
+export function getFrontendLib(): any {
+  const g = globalThis as any;
+  return g.DFL
+    ?? g.deckyFrontendLib
+    ?? g.window?.DFL
+    ?? g.window?.deckyFrontendLib
+    ?? getShelvesHost()?.ui
+    ?? null;
+}
 
-if (!decky) {
-  throw new Error('Deck Shelves: Decky UI globals are not available.');
+const frontendLib = getFrontendLib();
+
+if (!frontendLib) {
+  throw new Error('Deck Shelves: host UI surface is not available.');
 }
 
 const classProxy = new Proxy({} as Record<string, string>, {
@@ -27,7 +37,7 @@ const noop = () => {};
 
 // Decky resolves `Field` via `findModuleExport` against a Steam-internal
 // string ("shift-children-below"). When Steam refactors that source, the
-/* match breaks and `decky.Field` becomes undefined. The previous fallback
+/* match breaks and `frontendLib.Field` becomes undefined. The previous fallback
    (`passthroughComponent`) silently dropped `label` and `description`,
    hiding shelf-list titles and the EditShelfModal title input. This
    fallback renders both visibly with the standard Decky row layout so
@@ -108,79 +118,79 @@ const fieldFallback = (props: any) => {
   );
 };
 
-export const ButtonItem = decky.ButtonItem ?? passthroughComponent;
-export const ConfirmModal = decky.ConfirmModal ?? passthroughComponent;
-export const DialogBody = decky.DialogBody ?? passthroughComponent;
-export const DialogControlsSection = decky.DialogControlsSection ?? passthroughComponent;
-export const DialogButton = decky.DialogButton ?? decky.ButtonItem ?? passthroughComponent;
-export const DialogCheckbox = decky.DialogCheckbox ?? passthroughComponent;
-export const Dropdown = decky.Dropdown ?? passthroughComponent;
-export const DropdownItem = decky.DropdownItem ?? decky.Dropdown ?? passthroughComponent;
-export const Field = decky.Field ?? fieldFallback;
-export const Focusable = decky.Focusable ?? passthroughComponent;
+export const ButtonItem = frontendLib.ButtonItem ?? passthroughComponent;
+export const ConfirmModal = frontendLib.ConfirmModal ?? passthroughComponent;
+export const DialogBody = frontendLib.DialogBody ?? passthroughComponent;
+export const DialogControlsSection = frontendLib.DialogControlsSection ?? passthroughComponent;
+export const DialogButton = frontendLib.DialogButton ?? frontendLib.ButtonItem ?? passthroughComponent;
+export const DialogCheckbox = frontendLib.DialogCheckbox ?? passthroughComponent;
+export const Dropdown = frontendLib.Dropdown ?? passthroughComponent;
+export const DropdownItem = frontendLib.DropdownItem ?? frontendLib.Dropdown ?? passthroughComponent;
+export const Field = frontendLib.Field ?? fieldFallback;
+export const Focusable = frontendLib.Focusable ?? passthroughComponent;
 /* Runtime enum that Decky exposes via FooterLegend. Required for
    gamepad-button comparison in the local ReorderableList. Fallback keeps
    the numeric values stable (see @host/ui FooterLegend.d.ts) so any
    destructuring still works when Decky's global hasn't initialised yet. */
-export const GamepadButton = decky.GamepadButton ?? {
+export const GamepadButton = frontendLib.GamepadButton ?? {
   INVALID: 0, OK: 1, CANCEL: 2, SECONDARY: 3, OPTIONS: 4,
   BUMPER_LEFT: 5, BUMPER_RIGHT: 6, TRIGGER_LEFT: 7, TRIGGER_RIGHT: 8,
   DIR_UP: 9, DIR_DOWN: 10, DIR_LEFT: 11, DIR_RIGHT: 12,
   SELECT: 13, START: 14, LSTICK_CLICK: 15, RSTICK_CLICK: 16,
 };
-export const Menu = decky.Menu ?? passthroughMenu;
-export const MenuGroup = decky.MenuGroup ?? passthroughMenu;
-export const MenuItem = decky.MenuItem ?? passthroughComponent;
-export const Navigation = decky.Navigation ?? { Navigate: noop };
-export const PanelSection = decky.PanelSection ?? passthroughComponent;
-export const PanelSectionRow = decky.PanelSectionRow ?? passthroughComponent;
-export const ReorderableList = decky.ReorderableList ?? passthroughComponent;
-export const ScrollPanel = decky.ScrollPanel ?? passthroughComponent;
-export const ScrollPanelGroup = decky.ScrollPanelGroup ?? passthroughComponent;
-export const SidebarNavigation = decky.SidebarNavigation ?? passthroughComponent;
-export const SliderField = decky.SliderField ?? passthroughComponent;
-export const Spinner = decky.Spinner ?? passthroughComponent;
-export const Tabs = decky.Tabs ?? passthroughComponent;
-export const TextField = decky.TextField ?? passthroughComponent;
-export const ToggleField = decky.ToggleField ?? passthroughComponent;
-export const showContextMenu = decky.showContextMenu ?? noop;
-export const showModal = decky.showModal ?? noop;
-export const afterPatch = decky.afterPatch ?? ((_target: any, _method: any, _cb: any, _options?: any) => noop);
-export const findInReactTree = decky.findInReactTree ?? ((_node: any, _cb: any) => null);
-export const findInTree = decky.findInTree ?? ((_node: any, _cb: any, _opts?: any) => null);
-export const findModuleChild = decky.findModuleChild ?? ((_filter: any) => undefined);
-export const findModuleByExport = decky.findModuleByExport ?? ((_filter: any, _minExports?: number) => undefined);
-export const fakeRenderComponent = decky.fakeRenderComponent ?? ((_fn: any, _customHooks?: any) => null);
-export const staticClasses = decky.staticClasses ?? {};
+export const Menu = frontendLib.Menu ?? passthroughMenu;
+export const MenuGroup = frontendLib.MenuGroup ?? passthroughMenu;
+export const MenuItem = frontendLib.MenuItem ?? passthroughComponent;
+export const Navigation = frontendLib.Navigation ?? { Navigate: noop };
+export const PanelSection = frontendLib.PanelSection ?? passthroughComponent;
+export const PanelSectionRow = frontendLib.PanelSectionRow ?? passthroughComponent;
+export const ReorderableList = frontendLib.ReorderableList ?? passthroughComponent;
+export const ScrollPanel = frontendLib.ScrollPanel ?? passthroughComponent;
+export const ScrollPanelGroup = frontendLib.ScrollPanelGroup ?? passthroughComponent;
+export const SidebarNavigation = frontendLib.SidebarNavigation ?? passthroughComponent;
+export const SliderField = frontendLib.SliderField ?? passthroughComponent;
+export const Spinner = frontendLib.Spinner ?? passthroughComponent;
+export const Tabs = frontendLib.Tabs ?? passthroughComponent;
+export const TextField = frontendLib.TextField ?? passthroughComponent;
+export const ToggleField = frontendLib.ToggleField ?? passthroughComponent;
+export const showContextMenu = frontendLib.showContextMenu ?? noop;
+export const showModal = frontendLib.showModal ?? noop;
+export const afterPatch = frontendLib.afterPatch ?? ((_target: any, _method: any, _cb: any, _options?: any) => noop);
+export const findInReactTree = frontendLib.findInReactTree ?? ((_node: any, _cb: any) => null);
+export const findInTree = frontendLib.findInTree ?? ((_node: any, _cb: any, _opts?: any) => null);
+export const findModuleChild = frontendLib.findModuleChild ?? ((_filter: any) => undefined);
+export const findModuleByExport = frontendLib.findModuleByExport ?? ((_filter: any, _minExports?: number) => undefined);
+export const fakeRenderComponent = frontendLib.fakeRenderComponent ?? ((_fn: any, _customHooks?: any) => null);
+export const staticClasses = frontendLib.staticClasses ?? {};
 
 export const gamepadDialogClasses =
-  decky.gamepadDialogClasses ??
-  decky.staticClasses?.gamepadDialogClasses ??
-  decky.staticClasses?.GamepadDialog ??
+  frontendLib.gamepadDialogClasses ??
+  frontendLib.staticClasses?.gamepadDialogClasses ??
+  frontendLib.staticClasses?.GamepadDialog ??
   classProxy;
 
 export const quickAccessControlsClasses =
-  decky.quickAccessControlsClasses ??
-  decky.staticClasses?.quickAccessControlsClasses ??
-  decky.staticClasses?.QuickAccessControls ??
+  frontendLib.quickAccessControlsClasses ??
+  frontendLib.staticClasses?.quickAccessControlsClasses ??
+  frontendLib.staticClasses?.QuickAccessControls ??
   classProxy;
 
 export const scrollPanelClasses =
-  decky.scrollPanelClasses ??
-  decky.staticClasses?.scrollPanelClasses ??
-  decky.staticClasses?.ScrollPanel ??
+  frontendLib.scrollPanelClasses ??
+  frontendLib.staticClasses?.scrollPanelClasses ??
+  frontendLib.staticClasses?.ScrollPanel ??
   classProxy;
 
 export const gamepadContextMenuClasses =
-  decky.gamepadContextMenuClasses ??
-  decky.staticClasses?.gamepadContextMenuClasses ??
-  decky.staticClasses?.GamepadContextMenu ??
+  frontendLib.gamepadContextMenuClasses ??
+  frontendLib.staticClasses?.gamepadContextMenuClasses ??
+  frontendLib.staticClasses?.GamepadContextMenu ??
   classProxy;
 
 export const quickAccessMenuClasses =
-  decky.quickAccessMenuClasses ??
-  decky.staticClasses?.quickAccessMenuClasses ??
-  decky.staticClasses?.QuickAccessMenu ??
+  frontendLib.quickAccessMenuClasses ??
+  frontendLib.staticClasses?.quickAccessMenuClasses ??
+  frontendLib.staticClasses?.QuickAccessMenu ??
   classProxy;
 
 export type ReorderableEntry<T> = {

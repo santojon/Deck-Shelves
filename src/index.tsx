@@ -375,8 +375,8 @@ const __ds_entry = definePlugin((serverAPI?: any) => {
       })
     : null;
 
-  // Sprint 26 — Showcase / Dynamic Idle Mode (opt-in, default OFF). Only the
-  // renderer's owner drives Home focus.
+  // Showcase / Dynamic Idle Mode (opt-in, default OFF). Only the renderer's
+  // owner drives Home focus.
   const uninstallShowcaseMode = isOwner ? installShowcaseMode() : null;
 
   return {

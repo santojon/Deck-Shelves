@@ -43,7 +43,7 @@ export async function downloadUpdate(result: UpdateCheckResult | null | undefine
   openReleaseUrl(releaseUrl);
 }
 
-/* Host-parametric install: a self-install host (ShelvesHub) obtains the
+/* Host-parametric install: a self-install host (a neutral host) obtains the
    release and swaps it in directly; a host without that surface (Decky) has
    no mechanism beyond handing the user a file, so this always falls back to
    the manual download above. Best-effort — never throws. */

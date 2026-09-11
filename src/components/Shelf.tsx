@@ -1,5 +1,5 @@
 
-import { Spinner } from "../runtime/host/decky";
+import { Spinner, getFrontendLib } from "../runtime/host/decky";
 import { memo, useEffect, useMemo, useState, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import type { Shelf } from "../types";
@@ -43,6 +43,10 @@ function openSteamStoreUrl(url: string, steamUrl?: string) {
     }
   } catch {}
 }
+
+// Host-parametric UI lib — resolved by the one central resolver in the host
+// adapter (loader global OR `__SHELVES_HOST__.ui`), aliased locally.
+const resolveFrontendLib = getFrontendLib;
 
 // Cross-source name key: same normalisation as the wishlist compare so
 // "Kingdom Come Deliverance" (non-Steam) matches "Kingdom Come: Deliverance".
@@ -643,7 +647,9 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
         // Uses buildShelfContextMenu for structure parity with regular shelves.
         const showOnlineMenu = () => {
           try {
-            const dfl = (globalThis as any).DFL ?? (globalThis as any).deckyFrontendLib;
+            // Without the host fallback this online-card menu never opened in
+            // sole mode (no loader global there).
+            const dfl = resolveFrontendLib();
             const R = (globalThis as any).SP_REACT;
             if (!dfl?.showContextMenu || !R || !dfl.MenuItem || !dfl.Menu) return;
             const items = buildShelfContextMenu(shelf.id, appid, dfl, R);

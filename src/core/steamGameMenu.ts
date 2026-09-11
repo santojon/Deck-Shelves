@@ -1,4 +1,4 @@
-import { showContextMenu, findModuleChild, findModuleByExport, fakeRenderComponent, afterPatch as hostAfterPatch, findInTree as hostFindInTree } from "../runtime/host/decky";
+import { showContextMenu, findModuleChild, findModuleByExport, fakeRenderComponent, afterPatch as hostAfterPatch, findInTree as hostFindInTree, getFrontendLib } from "../runtime/host/decky";
 import { getPreferredSteamDocument, getPreferredSteamWindow, getAllSteamDocuments } from "../runtime/steamHost";
 import { isSteamOS38OrLater } from "./steamOSVersion";
 import i18n from "../i18n";
@@ -247,48 +247,55 @@ function spliceDsItems(items: any[], dsItems: any[], fl: any, R: any): void {
    across renders without leaking when types are GC'd. */
 const _patchedInnerTypes = new WeakSet<any>();
 
-function findMenuItemsArray(ret2: any): any[] | null {
-  const c = ret2?.props?.children;
-  if (c) {
-    // Nested shape: items live in children[0] (installed Steam game menu)
-    if (Array.isArray(c) && Array.isArray(c[0]) && c[0].length > 0 &&
-        c[0].some((it: any) => it?.props?.onSelected)) {
-      return c[0];
-    }
-    // Flat shape: children itself contains MenuItems (uninstalled/shortcut)
-    if (Array.isArray(c) && c.some((it: any) => it?.props?.onSelected)) {
-      return c;
-    }
+/* A REAL game-menu action (Play / Install / Properties), identified by its
+   `onSelected` source — the SAME test `isGameContextMenuItems` (the inject gate)
+   uses. Both must agree, or the finder can return a nested submenu the gate then
+   rejects (the "Add to collection" list has `onSelected` too) — exactly what left
+   the gamepad menu un-injected in sole mode while desktop worked fine. */
+function isRealGameActionItem(it: any): boolean {
+  const f = it?.props?.onSelected;
+  if (typeof f !== "function") return false;
+  const src = f.toString();
+  return src.includes("launchSource") || src.includes("AppProperties");
+}
+
+function menuItemsFromShallowShape(c: any): any[] | null {
+  if (!c) return null;
+  // Nested shape: items live in children[0] (installed Steam game menu)
+  if (Array.isArray(c) && Array.isArray(c[0]) && c[0].some(isRealGameActionItem)) {
+    return c[0];
   }
-  // Gamepad fallback: the Deck's gamepad menu nests the item list DEEPER than
-  // the top two levels (items are wrapped in Focusable containers), so the
-  // shallow checks above miss it and no rows get spliced. Deep-search the whole
-  // render output for the array that actually holds the menu items (elements
-  // with `onSelected`). This is what makes the injection reach the gamepad menu,
-  // not just the desktop presentation.
-  const fl = getFrontendLib();
-  if (fl?.findInReactTree) {
-    try {
-      // Find the array that holds a REAL game-menu action (Play / Properties),
-      // not just any `onSelected` list — otherwise the deep-search latches onto
-      // a nested submenu (e.g. the "Add to collection" list, whose items have
-      // `onSelected` too), which the `isGameContextMenuItems` gate then rejects
-      // and no rows get spliced. Same predicate as that gate, so they agree.
-      const holder = fl.findInReactTree(ret2, (n: any) => {
-        const ch = n?.props?.children;
-        if (!Array.isArray(ch)) return false;
-        return ch.some((it: any) => {
-          const f = it?.props?.onSelected;
-          if (typeof f !== "function") return false;
-          const src = f.toString();
-          return src.includes("launchSource") || src.includes("AppProperties");
-        });
-      });
-      const ch = holder?.props?.children;
-      if (Array.isArray(ch)) return ch;
-    } catch { /* fall through */ }
+  // Flat shape: children itself contains MenuItems (uninstalled/shortcut)
+  if (Array.isArray(c) && c.some(isRealGameActionItem)) {
+    return c;
   }
   return null;
+}
+
+function holdsRealGameAction(n: any): boolean {
+  const ch = n?.props?.children;
+  return Array.isArray(ch) && ch.some(isRealGameActionItem);
+}
+
+function menuItemsFromDeepSearch(ret2: any): any[] | null {
+  /* Gamepad fallback: the Deck's gamepad menu nests the item list DEEPER than
+     the top two levels (items wrapped in Focusable containers), so the shallow
+     checks miss it. Deep-search for the array holding a REAL game action (Play /
+     Properties), not just any `onSelected` list — a nested submenu ("Add to
+     collection") has `onSelected` too and isGameContextMenuItems would reject it. */
+  const fl = getFrontendLib();
+  if (!fl?.findInReactTree) return null;
+  try {
+    const holder = fl.findInReactTree(ret2, holdsRealGameAction);
+    const ch = holder?.props?.children;
+    return Array.isArray(ch) ? ch : null;
+  } catch {
+    return null;
+  }
+}
+
+function findMenuItemsArray(ret2: any): any[] | null {
+  return menuItemsFromShallowShape(ret2?.props?.children) ?? menuItemsFromDeepSearch(ret2);
 }
 
 function appidFromMenuOwner(menuItems: any[]): number {
@@ -310,7 +317,13 @@ function appidFromTreeFallback(menuItems: any[]): number {
 }
 
 function resolveAppidFromMenuChildren(menuItems: any[], self: any): number {
-  return appidFromMenuOwner(menuItems) || appidFromSelfProps(self) || appidFromTreeFallback(menuItems);
+  /* Final fallback: the appid the menu was opened FOR. The Deck's gamepad menu
+     structure doesn't expose `_owner.pendingProps.overview.appid` on its items
+     the way desktop does, so the three tree-probes above all return 0 there —
+     but `_activeAppIdForMenu` was set by `setActiveShelfIdForMenu` when this
+     menu opened, so it's the reliable appid on gamepad. */
+  return appidFromMenuOwner(menuItems) || appidFromSelfProps(self)
+    || appidFromTreeFallback(menuItems) || _activeAppIdForMenu || 0;
 }
 
 function spliceLibraryOrShelfItems(menuItems: any[], curAppid: number, curShelfId: string | null, fl: any, R: any): void {
@@ -328,24 +341,20 @@ function injectIntoMenuItems(menuItems: any[], self: any, dedupBefore: boolean):
   const fl = getFrontendLib();
   const R = getSteamReact();
   if (!fl || !R) return;
-  if (!isGameContextMenuItems(menuItems, fl)) { bumpDebugCounter("iimGateFail"); return; }
+  if (!isGameContextMenuItems(menuItems, fl)) return;
   if (dedupBefore) dedupDsMenuItems(menuItems);
   const curAppid = resolveAppidFromMenuChildren(menuItems, self);
   const curShelfId = resolveShelfIdByAppid(curAppid);
   if (!dedupBefore) dedupDsMenuItems(menuItems);
-  const before = menuItems.length;
   spliceLibraryOrShelfItems(menuItems, curAppid, curShelfId, fl, R);
-  if (menuItems.length > before) bumpDebugCounter("iimSpliced");
 }
 
 function installInnerRenderPatch(prototype: any): void {
   try {
     hostAfterPatch(prototype, "render", function (this: any, _b: any, ret2: any) {
       try {
-        bumpDebugCounter("fmRenderCalls");
         const menuItems = findMenuItemsArray(ret2);
-        if (menuItems) { bumpDebugCounter("fmFound"); injectIntoMenuItems(menuItems, this, true); }
-        else bumpDebugCounter("fmNoArray");
+        if (menuItems) injectIntoMenuItems(menuItems, this, true);
       } catch (e) {
         try { (globalThis as any).console?.warn?.("[DS][menu] inner render patch threw", e); } catch {}
       }
@@ -734,26 +743,10 @@ function getInjectedMenuComponent(inner: any): any {
   return inner;
 }
 
-/* Resolve the frontend-library surface parametrically per host: a loader
-   (Decky) publishes it as a global; a neutral host (no loader) exposes the
-   same helpers on its own adapter (`__SHELVES_HOST__.ui`) instead — so the
-   menu code works under either without any loader-named global. */
-// Split so neither fallback chain pushes getFrontendLib's own complexity
-// over the limit — Decky-loader globals vs the host-parametric
-// __SHELVES_HOST__.ui seam are separate lookup strategies anyway.
-function getDeckyLoaderLib(): any {
-  const g = globalThis as any;
-  return g.DFL ?? g.deckyFrontendLib ?? g.window?.DFL ?? g.window?.deckyFrontendLib;
-}
-
-function getHostUiLib(): any {
-  const g = globalThis as any;
-  return g.window?.__SHELVES_HOST__?.ui ?? g.__SHELVES_HOST__?.ui;
-}
-
-function getFrontendLib(): any {
-  return getDeckyLoaderLib() ?? getHostUiLib();
-}
+/* `getFrontendLib` — the host-parametric lib-object resolver — is imported from
+   the host adapter (see the top import). It is THE single place that maps a
+   loader global (`DFL`) or a neutral host (`__SHELVES_HOST__.ui`) to the UI
+   surface; the menu code below just calls it, never re-derives the chain. */
 
 function getSPDocument(): Document {
   return getPreferredSteamDocument();
@@ -1295,20 +1288,27 @@ function buildFallbackItems(appid: number, shelfId: string | undefined, fl: any,
   return items;
 }
 
+function labelFromDataName(card: HTMLElement): string | null {
+  /* `data-name` carries the resolved title on the card root even when the
+     visible label is hidden (logo mode / hide-game-names) — and it is the ONLY
+     reliable source for online (wishlist/store) items, which have no local
+     AppOverview to read `display_name` from. */
+  return card?.getAttribute?.('data-name')?.trim() || null;
+}
+
+function labelFromVisibleText(card: HTMLElement): string | null {
+  return card?.querySelector?.('.ds-card-label-name')?.textContent?.trim() || null;
+}
+
+function labelFromImgAlt(card: HTMLElement): string | null {
+  return (card?.querySelector?.('img[alt]') as HTMLImageElement | null)?.alt?.trim() || null;
+}
+
 function resolveCardLabelName(cardEl: HTMLElement | null): string | null {
   try {
     if (!cardEl) return null;
     const card = (cardEl.closest?.('.ds-card') as HTMLElement | null) ?? cardEl;
-    // `data-name` carries the resolved title on the card root even when the
-    // visible label is hidden (logo mode / hide-game-names) — and it is the
-    // ONLY reliable source for online (wishlist/store) items, which have no
-    // local AppOverview to read `display_name` from.
-    const dataName = card?.getAttribute?.('data-name')?.trim();
-    if (dataName) return dataName;
-    const label = card?.querySelector?.('.ds-card-label-name')?.textContent?.trim();
-    if (label) return label;
-    const alt = (card?.querySelector?.('img[alt]') as HTMLImageElement | null)?.alt?.trim();
-    return alt || null;
+    return labelFromDataName(card) ?? labelFromVisibleText(card) ?? labelFromImgAlt(card);
   } catch { return null; }
 }
 

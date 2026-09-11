@@ -1,4 +1,4 @@
-/* Live session-state snapshot for Visibility Rules v2 session kinds (Sprint 4).
+/* Live session-state snapshot for Visibility Rules v2 session kinds.
    Event-driven (Steam app-lifetime notifications) — no polling; reads are cached
    synchronous values. The home is only visible between games, so the useful
    session signals are "what you last played" (persists across the session) and

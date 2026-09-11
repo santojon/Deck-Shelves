@@ -24,6 +24,7 @@ import {
   gamepadDialogClasses,
   quickAccessControlsClasses,
   quickAccessMenuClasses,
+  getFrontendLib,
   type SingleDropdownOption,
 } from "@host/ui";
 
@@ -41,6 +42,9 @@ export {
   gamepadDialogClasses,
   quickAccessControlsClasses,
   quickAccessMenuClasses,
+  // THE host-parametric lib-object resolver (lazy). Imperative code that needs
+  // the whole `fl` object imports it from here — never re-derives the chain.
+  getFrontendLib,
 };
 export type { SingleDropdownOption };
 import { HOST_API_VERSION, type Disposable, type HostApi, type PluginDescriptor, type ToastOptions } from "./contract";

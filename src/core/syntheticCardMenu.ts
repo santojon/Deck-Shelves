@@ -4,11 +4,13 @@
    Reuses buildShelfContextMenu with appid=0 to skip per-card actions. */
 import { getCurrentSettings } from "../store/settingsStore";
 import { buildShelfContextMenu } from "./steamGameMenu";
+import { getFrontendLib } from "../runtime/host/decky";
 import i18n from "i18next";
 
-function dfl(): any {
-  return (globalThis as any).DFL ?? (globalThis as any).deckyFrontendLib;
-}
+// The host-parametric UI lib comes from the one central resolver — without it
+// (loader global only) this menu never opened in sole mode. `dfl` is kept as a
+// local alias so the call sites below read the same as before.
+const dfl = getFrontendLib;
 function react(): any {
   return (globalThis as any).SP_REACT;
 }

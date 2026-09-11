@@ -641,16 +641,16 @@ export const SettingsSchema = z.object({
   // (e.g. Xbox Cloud Gaming) don't hide their store/wishlist promotions.
   onlineHideOwnedNonSteamCloud: z.boolean().nullable().optional().transform((v) => v ?? false),
   forceCssLoaderThemes: z.boolean().nullable().optional().transform((v) => v ?? false),
-  /* Own native Quick Access tab under Decky alone (Sprint 24) — off by
-     default, since it patches a live Steam QAM consumer and needs its own
-     on-device validation pass before it's safe to default on. Never has
-     any effect when a neutral host's own QAM bridge is present; that tab
-     always wins (see runtime/ownQamTab.ts). */
+  /* Own native Quick Access tab under Decky alone — off by default, since it
+     patches a live Steam QAM consumer and needs its own on-device validation
+     pass before it's safe to default on. Never has any effect when a neutral
+     host's own QAM bridge is present; that tab always wins (see
+     runtime/ownQamTab.ts). */
   ownQamTabEnabled: z.boolean().nullable().optional().transform((v) => v ?? false),
-  /* Showcase / Dynamic Idle Mode (Sprint 26) — cycles attention through the
-     user's own shelves during Home inactivity; any real interaction stops
-     it instantly. Off by default. Empty `showcaseShelfIds` means every
-     currently-visible shelf participates (no picker UI yet — MVP scope). */
+  /* Showcase / Dynamic Idle Mode — cycles attention through the user's own
+     shelves during Home inactivity; any real interaction stops it instantly.
+     Off by default. Empty `showcaseShelfIds` means every currently-visible
+     shelf participates (no picker UI yet — MVP scope). */
   showcaseModeEnabled: z.boolean().nullable().optional().transform((v) => v ?? false),
   showcaseStartAfterSeconds: z.number().int().min(15).max(600).nullable().optional().transform((v) => v ?? 60),
   showcaseDwellSeconds: z.number().int().min(3).max(120).nullable().optional().transform((v) => v ?? 10),

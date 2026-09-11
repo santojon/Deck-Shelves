@@ -1,8 +1,8 @@
-/* Own native Quick Access tab under Decky alone (Sprint 24, opt-in, off).
+/* Own native Quick Access tab under Decky alone (opt-in, off by default).
    Registers a `QuickAccessTab` enum key, `afterPatch`es the consumer, then
-   re-points an already-mounted consumer's live fiber (ports ShelvesHub's own
-   validated fix) and finds the real tab-list owner by prop shape, not a name
-   match. Confirmed live via CDP (2026-09-09) — see ROADMAP.md Sprint 24. */
+   re-points an already-mounted consumer's live fiber (ports a fix already
+   validated in a neutral host's own runtime) and finds the real tab-list
+   owner by prop shape, not a name match. Confirmed live via CDP (2026-09-09). */
 
 import type { ReactNode } from "react";
 import { afterPatch, findInReactTree, findModuleByExport } from "./host/decky";
@@ -17,7 +17,11 @@ export function restartSteam(): void {
 
 const TRIP_KEY = "ds-own-qam-tab-trip";
 const STALE_ARM_MS = 15_000;
-const DEFAULT_TAB_KEY = 901; // distinct from ShelvesHub's own native tab (900)
+// A stale arm may be a real crash OR just a reload before the first healthy
+// render (Steam restart / host switch). One stale arm is retried as transient;
+// only repeated stale arms (a real crash-loop) latch the breaker.
+const MAX_STALE_STRIKES = 2;
+const DEFAULT_TAB_KEY = 901;
 const DEFAULT_AFTER_KEY = 5; // Steam's QuickAccessTab.Perf — sit just after Performance
 const MAX_INSTALL_ATTEMPTS = 20;
 const INSTALL_RETRY_MS = 1000;
@@ -32,23 +36,40 @@ function tripClear(): void {
   try { window.localStorage.removeItem(TRIP_KEY); } catch {}
 }
 
-/* Breaker: if a previous arm (patch installed, first render pending) never
-   confirmed, the render that would have confirmed it likely crashed the
-   renderer — trip and refuse to patch again until the key is cleared by
-   hand. A RECENT arm is just a normal boot re-inject (Steam reloaded before
-   the first healthy render), so only a STALE one trips. */
-function checkBreaker(): "ok" | "tripped" {
+/* Breaker: an arm that never confirmed MAY mean the confirming render crashed
+   the renderer. A recent arm is a normal re-inject; a stale arm is a "strike"
+   (first one retried as transient, carried forward), and reaching
+   MAX_STALE_STRIKES latches "tripped". `armStrikes()` reads the carried count. */
+function armStrikes(): number {
   const prior = tripGet();
-  if (prior?.startsWith("tripped")) return "tripped";
-  if (!prior?.startsWith("armed")) return "ok";
-  const armTs = parseInt(prior.split(":")[1] || "0", 10) || 0;
-  if (Date.now() - armTs <= STALE_ARM_MS) return "ok";
-  tripSet(`tripped:${Date.now()}`);
-  return "tripped";
+  if (!prior?.startsWith("armed")) return 0;
+  return Number(prior.split(":")[2]) || 0;
+}
+/* Pure breaker decision (exported for unit tests — no `window`/localStorage):
+   given the stored value + `now`, returns the decision and the next value to
+   store (`null` = leave unchanged). */
+export function evaluateBreaker(
+  prior: string | null,
+  now: number,
+): { decision: "ok" | "tripped"; next: string | null } {
+  if (!prior) return { decision: "ok", next: null };
+  if (prior.startsWith("tripped")) return { decision: "tripped", next: null };
+  if (!prior.startsWith("armed")) return { decision: "ok", next: null };
+  const parts = prior.split(":");
+  const armTs = Number(parts[1]) || 0;
+  const strikes = Number(parts[2]) || 0;
+  if (now - armTs <= STALE_ARM_MS) return { decision: "ok", next: null };
+  if (strikes + 1 >= MAX_STALE_STRIKES) return { decision: "tripped", next: `tripped:${now}` };
+  return { decision: "ok", next: `armed:${now}:${strikes + 1}` };
+}
+function checkBreaker(): "ok" | "tripped" {
+  const { decision, next } = evaluateBreaker(tripGet(), Date.now());
+  if (next !== null) tripSet(next);
+  return decision;
 }
 
-// A neutral host's own native tab (ShelvesHub or a future equivalent)
-// always wins — never double-add, never fight over the tab slot.
+// A neutral host's own native tab, when present, always wins — never
+// double-add, never fight over the tab slot.
 function coexistPresent(): boolean {
   try { return !!(window as any).__SHELVES_QAM__; } catch { return false; }
 }
@@ -249,7 +270,10 @@ export function installOwnQamTab(opts: OwnQamTabOptions): () => void {
       }
       const handler = (_args: any, ret: any) => {
         try {
-          if (!confirmed) tripSet(`armed:${Date.now()}`);
+          // Re-arm before the risky render, preserving the carried strike count
+          // (see checkBreaker) so a real crash-loop still latches while a one-off
+          // interruption that later confirms clears cleanly.
+          if (!confirmed) tripSet(`armed:${Date.now()}:${armStrikes()}`);
           injectTabs(ret);
         } catch (e) { logWarn("RUNTIME", "own QAM tab: append error (ignored): " + String(e)); }
         return ret;

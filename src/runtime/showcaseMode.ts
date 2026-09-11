@@ -1,4 +1,4 @@
-/* Showcase / Dynamic Idle Mode (Sprint 26, opt-in, off by default). During
+/* Showcase / Dynamic Idle Mode (opt-in, off by default). During
    Home inactivity, cycles attention through the user's own shelves; any
    real interaction stops it instantly. MVP scope only — see
    .roadmaps/showcase-mode.md for the full spec and what's deferred. */
