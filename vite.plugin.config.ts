@@ -43,16 +43,16 @@ export default defineConfig(({ mode }) => {
     },
     resolve: {
       alias: [
-        { find: /^react$/, replacement: path.resolve(__dirname, "src/shims/react.ts") },
-        { find: /^react\/jsx-runtime$/, replacement: path.resolve(__dirname, "src/shims/react-jsx-runtime.ts") },
-        { find: /^react-dom$/, replacement: path.resolve(__dirname, "src/shims/react-dom.ts") },
-        { find: /^react-dom\/client$/, replacement: path.resolve(__dirname, "src/shims/react-dom-client.ts") },
-        { find: /^@host\/api$/, replacement: path.resolve(__dirname, "src/shims/host-api.ts") },
-        { find: /^@host\/ui$/, replacement: path.resolve(__dirname, "src/shims/host-ui.ts") },
-        { find: /^@host\/manifest$/, replacement: path.resolve(__dirname, "src/shims/host-manifest.ts") },
-        { find: /^@deck-shelves\/host$/, replacement: path.resolve(__dirname, "host/src/contract/index.ts") },
-        { find: /^@deck-shelves\/api$/, replacement: path.resolve(__dirname, "api/src/index.ts") },
-        { find: /^@$/, replacement: path.resolve(__dirname, "src") },
+        { find: /^react$/, replacement: path.resolve(import.meta.dirname, "src/shims/react.ts") },
+        { find: /^react\/jsx-runtime$/, replacement: path.resolve(import.meta.dirname, "src/shims/react-jsx-runtime.ts") },
+        { find: /^react-dom$/, replacement: path.resolve(import.meta.dirname, "src/shims/react-dom.ts") },
+        { find: /^react-dom\/client$/, replacement: path.resolve(import.meta.dirname, "src/shims/react-dom-client.ts") },
+        { find: /^@host\/api$/, replacement: path.resolve(import.meta.dirname, "src/shims/host-api.ts") },
+        { find: /^@host\/ui$/, replacement: path.resolve(import.meta.dirname, "src/shims/host-ui.ts") },
+        { find: /^@host\/manifest$/, replacement: path.resolve(import.meta.dirname, "src/shims/host-manifest.ts") },
+        { find: /^@deck-shelves\/host$/, replacement: path.resolve(import.meta.dirname, "host/src/contract/index.ts") },
+        { find: /^@deck-shelves\/api$/, replacement: path.resolve(import.meta.dirname, "api/src/index.ts") },
+        { find: /^@$/, replacement: path.resolve(import.meta.dirname, "src") },
       ],
     },
     build: {
@@ -62,7 +62,7 @@ export default defineConfig(({ mode }) => {
       sourcemap: !isProd,
       minify: isProd ? "esbuild" : false,
       lib: {
-        entry: path.resolve(__dirname, "src/index.tsx"),
+        entry: path.resolve(import.meta.dirname, "src/index.tsx"),
         // `formats` / `fileName` are superseded by the explicit
         // rollupOptions.output array below — one build, two output
         // flavours from the same entry, not two separate build commands.

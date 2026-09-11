@@ -1,5 +1,16 @@
-"""About / docs page — opened via the QAM book icon (not a route nav, which
-lands on the library). Tab variants switch the in-page [role=tab] bar."""
+"""About / docs page — reached by a direct route nav (`/deck-shelves/about`,
+registered via `routerHook.addRoute` in `index.tsx`), not the QAM book icon.
+Tab variants switch the in-page [role=tab] bar.
+
+Previously went through the QAM (open panel → click Decky tab → click
+Deck Shelves plugin entry → click the book icon) because a direct route nav
+"landed on the library" — that was `nav.py`'s own `navigate()` calling an
+unconditional, unrelated `m_Navigator.LibraryTab()` before ever trying the
+route, not a real platform limitation (fixed there; confirmed live that
+`inst.Navigate('/deck-shelves/about')` lands correctly). The QAM path was
+also the least reliable in this whole suite — Steam's own QAM tab-selection
+state isn't reliably controllable from CDP, so any scenario that can reach
+its target without going through it should."""
 from __future__ import annotations
 
 import time
@@ -7,24 +18,24 @@ from pathlib import Path
 from typing import Dict
 
 from deckprobe.screenshots.lib.cdp import Session
-from deckprobe.screenshots.lib.nav import (
-    navigate_to_ds_qam, click_qam_button, _bp_eval, _dismiss_bp_modal,
-)
+from deckprobe.screenshots.lib.nav import navigate_about, _bp_eval, _dismiss_bp_modal
 from deckprobe.screenshots.lib.capture import capture_bigpicture
 from deckprobe.screenshots.lib.registry import register
 from ._locale import force_english
 
-BOOK_ICON = "M4 19.5A2.5"  # About / docs book icon in the QAM title bar
+_LANDED_CHECK = "document.querySelectorAll('[role=\"tab\"]').length > 0"
 
 
 def _open_about(sjc: Session, host: str, port: int) -> bool:
-    if not navigate_to_ds_qam(sjc, host, port):
-        return False
     force_english(sjc)
-    if not click_qam_button(host, port, BOOK_ICON):
-        return False
-    time.sleep(2.5)
-    return True
+    _dismiss_bp_modal(host, port)
+    navigate_about(sjc, settle_ms=2000)
+    # One retry: a route nav right after a modal-dismiss can occasionally
+    # land before the About page's own tab bar has mounted.
+    if _bp_eval(host, port, _LANDED_CHECK) is True:
+        return True
+    navigate_about(sjc, settle_ms=1500)
+    return _bp_eval(host, port, _LANDED_CHECK) is True
 
 
 def _switch_tab(host: str, port: int, label_substring: str) -> str:

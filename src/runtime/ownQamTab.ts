@@ -68,10 +68,31 @@ function checkBreaker(): "ok" | "tripped" {
   return decision;
 }
 
-// A neutral host's own native tab, when present, always wins — never
-// double-add, never fight over the tab slot.
-function coexistPresent(): boolean {
-  try { return !!(window as any).__SHELVES_QAM__; } catch { return false; }
+/* Tab-ownership handshake with a neutral host (ShelvesHub) in coexistence: the
+   host owns the Deck Shelves QAM tab, but ours retracts ONLY once the host's has
+   actually landed — never on the mere presence of the `__SHELVES_QAM__` bridge
+   (created at boot, before any tab), which risked dropping ours into a gap if
+   the host set the bridge but its own insert was delayed or failed. */
+// Either race-safe signal suffices; if neither holds ours stays as the fallback:
+// `hostStampedOwner` (owner global, stamped on real insertion) and `hostTabInList`
+// (the host's tab observed in the live array, by its `__shelvesTab` marker).
+const HOST_TAB_MARKER = "__shelvesTab";
+
+function hostStampedOwner(): boolean {
+  try {
+    const o = (window as any).__SHELVES_QAM_OWNER__;
+    return typeof o === "string" && o.length > 0;
+  } catch { return false; }
+}
+
+/** Pure (exported for tests): is the host's own Deck Shelves tab already in this
+ *  list? Matched by the host's marker and excluding our own key, so the two
+ *  never mistake each other. */
+export function hostTabInList(tabs: any[], ownKey: number): boolean {
+  return (
+    Array.isArray(tabs) &&
+    tabs.some((t) => t && t.key !== ownKey && (t as any)[HOST_TAB_MARKER] === true)
+  );
 }
 
 function tabEnum(): any {
@@ -215,7 +236,7 @@ export function installOwnQamTab(opts: OwnQamTabOptions): () => void {
   // tab isn't showing up despite a successful enum + consumer patch.
   const debugState = { renderCalls: 0, rootFound: null as boolean | null, lastNodeFound: null as boolean | null, lastTabsLength: null as number | null, repoint: null as string | null };
   if (__DEV__) {
-    try { (globalThis as any).__ds_dev_own_qam_tab_debug = () => ({ ...debugState, patched, confirmed, coexist: coexistPresent(), enabled: opts.isEnabled() }); } catch {}
+    try { (globalThis as any).__ds_dev_own_qam_tab_debug = () => ({ ...debugState, patched, confirmed, hostOwner: hostStampedOwner(), enabled: opts.isEnabled() }); } catch {}
   }
 
   function insertAt(tabs: any[]): void {
@@ -223,10 +244,11 @@ export function installOwnQamTab(opts: OwnQamTabOptions): () => void {
     tabs.splice(i >= 0 ? i + 1 : tabs.length, 0, cachedTab);
   }
 
-  // Retract on every render where the feature is off or a neutral host's
-  // own tab has appeared, so both take effect on the very next QAM render.
+  // Retract on every render where the feature is off or the host has taken
+  // ownership of the tab (stamped the owner signal, or its tab is already in
+  // this list), so both take effect on the very next QAM render.
   function pushTab(tabs: any[]): void {
-    if (coexistPresent() || !opts.isEnabled()) {
+    if (hostStampedOwner() || hostTabInList(tabs, KEY) || !opts.isEnabled()) {
       const i = tabs.findIndex((t) => t?.key === KEY);
       if (i >= 0) tabs.splice(i, 1);
       return;

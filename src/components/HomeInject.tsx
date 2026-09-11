@@ -17,7 +17,7 @@ import { applyHideRecents, reapplyHomeHides, applyHideHomeTabs, applyReplaceActi
 import { getRecentsReplaceFailed, subscribeRecentsReplaceFailed, isRecentsReplaceInjecting, subscribeRecentsReplaceInjecting, getRecentsReplaceActiveShelfId } from "../runtime/recentsReplace";
 import { Focusable } from "../runtime/host/decky";
 import { installPassiveMenuHook, installPassiveShowContextMenuHook, installLibraryContextMenuPatch, installCreateContextMenuPatch, prewarmMenuExtraction } from "../core/steamGameMenu";
-import { tryRestoreFocus, hasPendingFocus, beginFocusRestoreLoop, focusElement } from "../core/focusRestore";
+import { tryRestoreFocus, hasPendingFocus, beginFocusRestoreLoop, beginColdBootFocusGuard, focusElement } from "../core/focusRestore";
 import { focusNativeRecentsFirstCard, findNativeRecentsEl } from "../features/sidenav/ShelfSideNav";
 import { patchShelfEdgeNavigation, patchMenuButton, installVerticalFocusBridge, reparentNavTreeNodes } from "./home/navPatches";
 import { triggerShelfRefresh } from "../core/shelfRefresh";
@@ -621,6 +621,7 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
 
     applyPatches();
     if (hasPendingFocus()) beginFocusRestoreLoop();
+    else beginColdBootFocusGuard(shelves.map((s: any) => s.id));
 
     // rAF-throttle the high-frequency callers so applyPatches runs
     // at most once per frame instead of per-mutation.

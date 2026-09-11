@@ -154,6 +154,56 @@ export function tryRestoreFocus(): boolean {
   return false;
 }
 
+let coldBootAbort: AbortController | null = null;
+// 6s matches the post-restore loop's own overall settle window below — local
+// shelves (Steam library store hydration) have been observed taking ~4s on
+// cold boot, so a shorter window risks expiring just before they populate.
+const COLD_BOOT_GUARD_MS = 6000;
+
+/* Cold-boot default-focus fix: an online shelf reads a synchronous
+   localStorage cache and can render before an earlier LOCAL shelf finishes
+   loading Steam's own library store. Steam's "focus first card" boot reflex
+   ignores shelf order, so it lands wherever that race landed first — walk it
+   back once an earlier shelf has cards; no-op once it already landed right. */
+export function beginColdBootFocusGuard(orderedShelfIds: string[]): void {
+  if (hasPendingFocus() || orderedShelfIds.length < 2) return;
+  coldBootAbort?.abort();
+  const abort = new AbortController();
+  coldBootAbort = abort;
+
+  const doc = getPreferredSteamDocument();
+  if (!doc) return;
+
+  // A real directional press proves the user is in control — stand down for
+  // good so their own navigation is never fought (same gate as the
+  // post-restore confirmation loop below).
+  let userNavigated = false;
+  const onDirection = () => { userNavigated = true; };
+  doc.addEventListener("vgp_ondirection", onDirection, true);
+  const cleanup = () => doc.removeEventListener("vgp_ondirection", onDirection, true);
+  abort.signal.addEventListener("abort", cleanup, { once: true });
+
+  const start = Date.now();
+  const tick = () => {
+    if (abort.signal.aborted || userNavigated) { cleanup(); return; }
+    const gp = doc.querySelector(".ds-card.gpfocus") as HTMLElement | null;
+    const focusedShelfId = gp?.getAttribute("data-shelfid");
+    const focusedIdx = focusedShelfId ? orderedShelfIds.indexOf(focusedShelfId) : -1;
+    if (focusedIdx > 0) {
+      for (let i = 0; i < focusedIdx; i++) {
+        const earlier = doc.querySelector(`.ds-card[data-shelfid="${orderedShelfIds[i]}"]`) as HTMLElement | null;
+        if (!earlier) continue;
+        const navNode = findNavNodeForElement(earlier);
+        if (navNode) takeNavFocus(navNode);
+        break;
+      }
+    }
+    if (Date.now() - start < COLD_BOOT_GUARD_MS) { setTimeout(tick, 200); return; }
+    cleanup();
+  };
+  setTimeout(tick, 200);
+}
+
 let activeAbort: AbortController | null = null;
 
 export function beginFocusRestoreLoop(): void {

@@ -20,6 +20,8 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Fixed
 
+- **A card's "New" or discount badge could vanish for good the moment you selected it inside the shelf editor's preview or the manual reorder list.** It's meant to hide there in favor of a floating version drawn above the focus ring — but only on the actual Home screen, which is the only place that floating badge exists. Fixed so the badge always stays visible everywhere else.
+- **On a Steam restart, focus could land on an online (wishlist/store) shelf instead of your actual first shelf**, briefly scrolling there before you'd navigated anywhere. Local shelves can take a moment longer to load right after a restart, and an online shelf could win that race purely by loading faster — not because it's actually first in your shelf order. Fixed.
 - **If the settings panel ever crashed, its error screen showed a Portuguese title regardless of your language.** Fixed.
 - **A profile switched on by a display, controller or charging trigger could stay stuck active after your Deck slept and woke up in a different state.** The trigger now checks display, controller and battery again as soon as the Deck wakes, instead of waiting for the next real change to notice.
 - **The multiplayer filter never matched a single game already in your library — only games from the store you don't own.** It was reading data your Steam client simply doesn't provide that way for games you own; now it reads the right thing, so multiplayer filtering finally works on your own library too.

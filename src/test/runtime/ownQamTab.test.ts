@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { installOwnQamTab, evaluateBreaker } from "../../runtime/ownQamTab";
+import { installOwnQamTab, evaluateBreaker, hostTabInList } from "../../runtime/ownQamTab";
 
 const STALE_ARM_MS = 15_000;
 
@@ -50,5 +50,25 @@ describe("evaluateBreaker (own-tab crash breaker)", () => {
     const r = evaluateBreaker(`armed:${stale}:1`, now); // strike would become 2 = MAX
     expect(r.decision).toBe("tripped");
     expect(r.next).toBe(`tripped:${now}`);
+  });
+});
+
+// Tab-ownership handshake: our own tab retracts only when the host's tab is
+// actually present, keyed by the host's `__shelvesTab` marker — never on our
+// own tab, so the two never mistake each other and there is no gap.
+describe("hostTabInList (coexist tab-ownership handshake)", () => {
+  const OWN = 901;
+  it("is false for an empty / non-array list", () => {
+    expect(hostTabInList([], OWN)).toBe(false);
+    expect(hostTabInList(undefined as any, OWN)).toBe(false);
+  });
+  it("ignores our own tab (same marker key excluded)", () => {
+    expect(hostTabInList([{ key: OWN, __shelvesTab: true }], OWN)).toBe(false);
+  });
+  it("ignores Steam's native tabs (no marker)", () => {
+    expect(hostTabInList([{ key: 5 }, { key: 4 }], OWN)).toBe(false);
+  });
+  it("detects the host's tab (marker present, different key)", () => {
+    expect(hostTabInList([{ key: 5 }, { key: 900, __shelvesTab: true }], OWN)).toBe(true);
   });
 });

@@ -684,10 +684,15 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
       top: -2px;
       height: calc(100% + 2px);
     }
-    .ds-card.gpfocus .ds-card-badge-host--inline,
-    .ds-card:focus .ds-card-badge-host--inline,
-    .ds-card:hover .ds-card-badge-host--inline,
-    .ds-card.is-selected .ds-card-badge-host--inline {
+    /* Home-only: BadgeFocusOverlay portals a replacement badge above the
+       focused card there, so the inline one can hide. Scoped to the home
+       root — modals (ShelfPreview, ManualSortRow, …) have no such overlay,
+       so leaving this unscoped made their badges vanish for good the moment
+       a card was focused/hovered/selected, with nothing to bring them back. */
+    #deck-shelves-home-root .ds-card.gpfocus .ds-card-badge-host--inline,
+    #deck-shelves-home-root .ds-card:focus .ds-card-badge-host--inline,
+    #deck-shelves-home-root .ds-card:hover .ds-card-badge-host--inline,
+    #deck-shelves-home-root .ds-card.is-selected .ds-card-badge-host--inline {
       visibility: hidden;
     }
     .ds-new-badge {
