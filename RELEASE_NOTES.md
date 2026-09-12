@@ -38,6 +38,10 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 - **The "New" and discount badges could show unreadable white-on-white text with CSS Loader's Colored Toggles theme (White color option).** Fixed.
 - **Navigating a shelf quickly and then moving up or down right after could snap you back to the row you just left.** Fixed.
 - **Scrolling through a shelf had a noticeable delay compared to Steam's own rows.** Cards now hold off on fetching descriptions and warming their images until they're actually close to the visible area, instead of every card in the row doing that work at once — scrolling should feel noticeably snappier, especially on long shelves.
+- **On the current Steam Client Beta, the SteamOS and Deck compatibility filters stopped working, reading every game as "Unknown."** Fixed — both filters read correctly again on the beta, with no change on the stable client.
+- **On the current Steam Client Beta, Home shelves could render completely empty.** Fixed.
+- **On the current Steam Client Beta, shelves could render but not be reachable with the gamepad — and once that was fixed, cards had no visible highlight, wouldn't center on screen, scrolled unevenly, and hero art never updated.** All fixed — shelves are now fully gamepad-navigable, with focus highlighting, centering, smooth scrolling and hero art all working again, on both the stable client and this beta.
+- **On the current Steam Client Beta, Showcase mode could run at the same time as the beta's own new screensaver.** Showcase now steps aside automatically whenever the native screensaver takes over, and resumes on its own once it's genuinely idle again.
 
 ## [3.2.1] - 2026-08-15
 
