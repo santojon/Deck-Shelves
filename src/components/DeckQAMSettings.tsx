@@ -52,7 +52,7 @@ import { confirmAction } from './qam/modals/ConfirmActionModal'
 import { ProfilesSection } from './qam/sections/ProfilesSection'
 import { VisualGlobalSection } from './qam/sections/VisualGlobalSection'
 import { getQamWindow, useQamCompositorSync, useIsActiveQamTab, shouldRenderSidecar } from './qam/sidecarActiveTab'
-import { SidecarPanel, useDpadExpandBridge, fireQamExpand, traceSidecarCollapse } from './qam/sidecar/SidecarPanel'
+import { SidecarPanel, useDpadExpandBridge, fireQamExpand, traceSidecarCollapse, absorbDpadRightAtEdge } from './qam/sidecar/SidecarPanel'
 
 try {
   (globalThis as unknown as Record<string, unknown>).__ds_module_loaded__ = 'DeckQAMSettings@' + Date.now();
@@ -444,7 +444,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
     <div ref={dsScopeRef} className='deck-shelves-qam-scope' data-ds-qam-expanded={qamExpanded ? '1' : '0'}>
       <DeckQAMStyles />
       <Focusable className='deck-shelves-qam-flex' flow-children='row' noFocusRing>
-      <Focusable className='deck-shelves-qam-main' noFocusRing onCancelButton={sidecarCancelHandler(qamExpanded, closeSidecar)} onButtonDown={(evt: any) => mainCancelButtonDown(evt, qamExpanded, closeSidecar)}>
+      <Focusable className='deck-shelves-qam-main' noFocusRing onCancelButton={sidecarCancelHandler(qamExpanded, closeSidecar)} onButtonDown={(evt: any) => mainCancelButtonDown(evt, qamExpanded, closeSidecar) || absorbDpadRightAtEdge(evt, dsScopeRef.current)}>
       <UpdateBanner controller={controller} />
 
       <ToggleField

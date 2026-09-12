@@ -5,7 +5,7 @@ import { Focusable } from "../runtime/host/decky";
 import { getPreferredSteamDocument, getAllSteamDocuments } from "../runtime/steamHost";
 import { buildSelectorFromToken, getRuntimeClassMap } from "../core/webpackCompat";
 import { logInfo } from "../runtime/logger";
-import { focusElement } from "../core/focusRestore";
+import { focusElement, getLastFocusedElement } from "../core/focusRestore";
 import { flowChildrenProps } from "../core/steamOSVersion";
 
 // Re-export types and components from shelf/ for backwards compatibility
@@ -404,11 +404,50 @@ function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = fa
       }, 300);
     };
     el.addEventListener("focusin", onFocusIn);
+    /* `focusin` alone misses Steam's native BTakeFocus-driven navigation,
+       which moves GamepadUI's own tracked focus (and the `gpfocus` class)
+       without ever touching document.activeElement — confirmed live on the
+       2026-09-09 beta once shelves became real nav-tree members. Mirror the
+       gpfocus-class watch the row-level effect below already uses. */
+    const gpfocusObserver = new MutationObserver((mutations) => {
+      for (const m of mutations) {
+        const t = m.target as HTMLElement;
+        if (t.classList?.contains("gpfocus") && t.classList?.contains("ds-card")) { onFocusIn(); return; }
+      }
+    });
+    gpfocusObserver.observe(el, { subtree: true, attributes: true, attributeFilter: ["class"] });
     return () => {
       el.removeEventListener("focusin", onFocusIn);
+      gpfocusObserver.disconnect();
       if (scheduled !== null) cancelAnimationFrame(scheduled);
       if (verifyTimer) clearTimeout(verifyTimer);
     };
+  }, []);
+
+  /* Confirmed live (2026-09-12): BTakeFocus nav on this beta never fires
+     focusin/gpfocus; activeElement and m_FocusWithin subscriptions both
+     proved unreliable. `getLastFocusedElement()` tracks correctly every
+     time — poll it, same tradeoff HomeInject.tsx makes elsewhere. */
+  useEffect(() => {
+    const rowEl = rowRef.current;
+    if (!rowEl) return;
+    const sync = () => {
+      try {
+        const active = getLastFocusedElement();
+        const card = active && rowEl.contains(active) ? (active.closest(".ds-card") as HTMLElement | null) : null;
+        if (!card) {
+          for (const el of Array.from(rowEl.querySelectorAll<HTMLElement>(".ds-card.gpfocus"))) el.classList.remove("gpfocus");
+          return;
+        }
+        if (card.classList.contains("gpfocus")) return;
+        for (const el of Array.from(rowEl.querySelectorAll<HTMLElement>(".ds-card.gpfocus"))) {
+          if (el !== card) el.classList.remove("gpfocus");
+        }
+        card.classList.add("gpfocus");
+      } catch (e) { logInfo("HOME", "row gpfocus sync failed", String(e)); }
+    };
+    const poll = window.setInterval(sync, 150);
+    return () => window.clearInterval(poll);
   }, []);
 
   useEffect(() => {
@@ -419,21 +458,26 @@ function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = fa
     let rafPending: number | null = null;
     let throttleTimer: any = null;
 
+    /* Coalesce to one scrollTo per rendered FRAME, not a fixed 150ms window
+       — the old value predates real dpad-driven nav reaching shelves at
+       all and suppressed every intermediate card under genuine hardware
+       repeat, landing only once on release. A frame still coalesces
+       same-paint mutations without dropping in-between positions. */
     const doHorizontalScroll = (card: HTMLElement) => {
       const final = computeCenteredScrollLeft(
         { width: rowEl.clientWidth, scrollWidth: rowEl.scrollWidth },
         { left: card.offsetLeft, top: card.offsetTop, width: card.offsetWidth, height: card.offsetHeight }
       );
       rowEl.scrollTo({ left: final, behavior: 'instant' });
+      if (throttleTimer !== null) return;
       throttleRows.add(rowEl);
-      if (throttleTimer) clearTimeout(throttleTimer);
-      throttleTimer = setTimeout(() => {
+      throttleTimer = requestAnimationFrame(() => {
         throttleRows.delete(rowEl);
         throttleTimer = null;
         if (lastFocusedCard && lastFocusedCard !== card) {
           doHorizontalScroll(lastFocusedCard);
         }
-      }, 150);
+      });
     };
 
     let lastFocusedCard: HTMLElement | null = null;
@@ -609,7 +653,7 @@ function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = fa
       rowEl.removeEventListener("focusin", onCardFocus);
       observer.disconnect();
       if (rafPending !== null) { cancelAnimationFrame(rafPending); rafPending = null; }
-      if (throttleTimer !== null) { clearTimeout(throttleTimer); throttleTimer = null; }
+      if (throttleTimer !== null) { cancelAnimationFrame(throttleTimer); throttleTimer = null; }
       throttleRows.delete(rowEl);
     };
   }, []);

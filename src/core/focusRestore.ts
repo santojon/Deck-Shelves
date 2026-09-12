@@ -59,6 +59,23 @@ function getMainNavTree(): any {
   return getNavTrees().find((t: any) => t.m_ID === "GamepadUI_Full_Root") ?? null;
 }
 
+function nodeElement(node: any): HTMLElement | null {
+  const el = node?.m_element ?? node?.Element ?? node?.m_pElement ?? node?.element;
+  // Not `instanceof HTMLElement` — this can run against an element from a
+  // different window/realm (BP's own document, read from the SJC realm),
+  // where that check silently fails on the prototype-chain mismatch.
+  return el?.nodeType === 1 ? (el as HTMLElement) : null;
+}
+
+/* The tree's own `m_lastFocusNode` is the reliable source of "what's really
+   focused" — confirmed live (2026-09-12) it tracks correctly on every
+   BTakeFocus call, unlike document.activeElement (moves inconsistently)
+   or the `gpfocus` class (never applied at all on this beta). */
+export function getLastFocusedElement(): HTMLElement | null {
+  const tree = getMainNavTree();
+  return nodeElement(tree?.m_lastFocusNode ?? tree?.m_LastFocusNode);
+}
+
 function findNavNodeForElement(el: HTMLElement): any {
   const walk = (node: any, target: HTMLElement): any => {
     // Cover property name variations across SteamOS versions
@@ -92,9 +109,18 @@ function takeNavFocus(navNode: any): boolean {
   return false;
 }
 
+/* Confirmed live (2026-09-11 beta): Steam's real nav tree has no entry for
+   our shelf content on this build. Raw DOM .focus() here would desync
+   document.activeElement from the node Steam's tree still tracks (e.g. the
+   search bar) — native elements with a real nav node keep the fallback. */
+function isUnintegratedDsElement(el: HTMLElement): boolean {
+  return !!el.closest?.(".ds-card, .deck-shelves-root");
+}
+
 export function focusElement(el: HTMLElement): boolean {
   const navNode = findNavNodeForElement(el);
   if (navNode && takeNavFocus(navNode)) return true;
+  if (isUnintegratedDsElement(el)) return false;
   try { el.focus?.(); } catch {}
   return false;
 }
@@ -141,16 +167,10 @@ export function tryRestoreFocus(): boolean {
   }
 
   const navNode = findNavNodeForElement(card);
-  if (navNode) {
-    takeNavFocus(navNode);
-  } else {
-    try {
-      card.focus?.();
-      card.scrollIntoView?.({ block: "center", behavior: "smooth" });
-    } catch {}
-  }
-  // Unconfirmed: keep the pending state so a later call retries once the
-  // rebuilt nav tree actually registers the node.
+  if (navNode) takeNavFocus(navNode);
+  // No navNode: skip the raw DOM-focus fallback (see focusElement above).
+  // Keep the pending state so a later call retries once the rebuilt nav
+  // tree actually registers the node.
   return false;
 }
 
@@ -288,14 +308,8 @@ export function beginFocusRestoreLoop(): void {
       // Not confirmed yet — let the next poll verify gpfocus landed.
       return false;
     }
-    // Nav tree never registered the node — last-resort DOM focus once the
-    // window is nearly spent. DOM focus won't sync the gamepad tree but beats
-    // Steam defaulting to the first card.
-    if (Date.now() >= DEADLINE - 200) {
-      try { card.focus?.(); card.scrollIntoView?.({ block: 'nearest' }); } catch {}
-      succeed();
-      return true;
-    }
+    // No navNode: skip the raw DOM-focus fallback (see focusElement above)
+    // and let the outer 6s hard timeout clear pending state.
     return false;
   };
 

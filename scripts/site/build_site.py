@@ -475,7 +475,7 @@ _INTEGRATION_TEMPLATE = """<!DOCTYPE html>
 
 <main class="block" style="padding-top:0"><div class="container">
 <div class="panel-block" style="max-width:820px;margin:0 auto">
-<img loading="lazy" src="{screenshot}" alt="{screenshot_alt}" style="width:100%;border-radius:12px;border:1px solid var(--border);margin-bottom:28px">
+<img loading="lazy" src="{screenshot}" onerror="this.onerror=null;this.src='{screenshot_raw}'" alt="{screenshot_alt}" style="width:100%;border-radius:12px;border:1px solid var(--border);margin-bottom:28px">
 <h2 style="margin-top:0">How it works</h2>
 <ol class="steps">
 {steps}
@@ -503,7 +503,6 @@ def _integration_steps_html(steps) -> str:
 def _write_integration_pages(root: Path, site: Path) -> None:
     out_dir = site / "integrations"
     out_dir.mkdir(parents=True, exist_ok=True)
-    fallback = _SCREENS + "settings-integrations.png"
     generic = 0
     for entry in _INTEGRATIONS:
         # Prefer the real, integration-specific capture (from the optional
@@ -513,7 +512,13 @@ def _write_integration_pages(root: Path, site: Path) -> None:
         # specific integration is actually detected active.
         own_shot = root / "assets" / "screenshots" / entry["screenshot"]
         has_own_shot = own_shot.is_file()
-        screenshot = _SCREENS + entry["screenshot"] if has_own_shot else fallback
+        screenshot_file = entry["screenshot"] if has_own_shot else "settings-integrations.png"
+        # Local-first, same pattern as the index.html gallery: a relative path
+        # (works from a local checkout / repo-root-served preview) with an
+        # onerror fallback to raw.githubusercontent — Pages serves site/ only,
+        # so assets/ resolves there via the raw URL, not the relative path.
+        screenshot = f"../../assets/screenshots/{screenshot_file}"
+        screenshot_raw = _SCREENS + screenshot_file
         screenshot_alt = (f"Deck Shelves detecting {entry['name']} in System information"
                           if has_own_shot else "Deck Shelves Integrations settings tab")
         if not has_own_shot:
@@ -523,6 +528,7 @@ def _write_integration_pages(root: Path, site: Path) -> None:
             tagline=html.escape(entry["tagline"]),
             repo=entry["repo"],
             screenshot=screenshot,
+            screenshot_raw=screenshot_raw,
             screenshot_alt=screenshot_alt,
             steps=_integration_steps_html(entry["steps"]),
             note=html.escape(entry["note"]),

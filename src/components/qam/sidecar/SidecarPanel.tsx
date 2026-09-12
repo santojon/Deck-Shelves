@@ -5,6 +5,7 @@ import { resolveBindings, DEFAULT_BINDINGS } from '../../../runtime/buttonBindin
 import { getCurrentSettings } from '../../../store/settingsStore'
 import { trackFeature } from '../../../steam/usageTracking'
 import { absorbCancelButton } from '../sidecarCancel'
+import { GamepadButton } from '../../../runtime/homeInputBus'
 import { type OpenerWithInput } from '../sidecarActiveTab'
 import { GearIcon } from '../../icons'
 import { ErrorBoundary } from '../../ErrorBoundary'
@@ -336,19 +337,22 @@ function handleDpadClose(doc: Document, win: Window | null, button: number, posi
   return false;
 }
 
+/* Sliders consume horizontal dpad to change their value, and the expand
+   gesture only applies at the main panel's right edge — otherwise a
+   mid-row dpad-right where Steam can't move horizontally would falsely
+   trigger it. Shared by the async open flow below AND the synchronous
+   onButtonDown absorb, so both agree on what counts as "the edge." */
+function isRightEdgePress(focused: HTMLElement, main: Element): boolean {
+  if (focused.closest('[class*="slider" i], [role="slider"], .gpfocus[class*="slider" i]')) return false;
+  const fRect = focused.getBoundingClientRect();
+  const mRect = main.getBoundingClientRect();
+  return mRect.right - fRect.right <= 40;
+}
+
 // Nav-aware positional OPEN (two dpad-rights on the rightmost focusable of the
 // main column). Called only when button === DPAD_RIGHT.
 function handleDpadOpen(doc: Document, win: Window | null, positionalOpen: boolean, insideMain: boolean, main: Element | null, focused: HTMLElement, setQamExpanded: (v: boolean) => void): void {
-  if (!(positionalOpen && insideMain && main)) { lastRightTarget = null; return; }
-  /* Sliders consume horizontal dpad to change their value; bail so holding
-     right on a slider doesn't pop the sidecar open mid-adjustment. */
-  if (focused.closest('[class*="slider" i], [role="slider"], .gpfocus[class*="slider" i]')) return;
-  /* Only expand when the focused element is already at (or near) the right
-     edge of the main panel — otherwise a mid-row dpad-right where Steam
-     can't move horizontally would falsely trigger the expand. */
-  const fRect = focused.getBoundingClientRect();
-  const mRect = main.getBoundingClientRect();
-  if (mRect.right - fRect.right > 40) return;
+  if (!(positionalOpen && insideMain && main) || !isRightEdgePress(focused, main)) { lastRightTarget = null; return; }
   // Require two dpad-rights on the *same* rightmost focusable: the first just
   // navigates onto it, the second confirms the intent to expand.
   if (lastRightTarget !== focused) {
@@ -360,6 +364,28 @@ function handleDpadOpen(doc: Document, win: Window | null, positionalOpen: boole
   setTimeout(() => {
     if (focusKeyForExpand(doc) === before) fireQamExpand(win, true, setQamExpanded);
   }, 80);
+}
+
+function isDpadRightEdgeCandidate(evt: any, scope: HTMLElement | null): boolean {
+  if (evt?.detail?.button !== GamepadButton.DIR_RIGHT || !scope) return false;
+  const doc = scope.ownerDocument;
+  const focused = doc.querySelector('.gpfocus') as HTMLElement | null;
+  const main = scope.querySelector('.deck-shelves-qam-main');
+  if (!focused || !main || !main.contains(focused)) return false;
+  return currentPositionalBindings().open && isRightEdgePress(focused, main);
+}
+
+/* 2026-09-12: Steam's own QAM seems to ALSO treat dpad-right here as
+   "switch to the next QAM tab" on this beta, landing on Notifications
+   right as our sidecar opens. The broadcast channel `handleDpadInput`
+   uses can't stop that; `onButtonDown` is a real dispatch we CAN absorb
+   (same trick already proven for CANCEL in sidecarCancel.ts). */
+export function absorbDpadRightAtEdge(evt: any, scope: HTMLElement | null): boolean {
+  if (!isDpadRightEdgeCandidate(evt, scope)) return false;
+  const inner = evt.detail.event;
+  try { evt.preventDefault(); evt.stopImmediatePropagation(); } catch {}
+  try { inner?.preventDefault(); inner?.stopImmediatePropagation(); } catch {}
+  return true;
 }
 
 function handleDpadInput(

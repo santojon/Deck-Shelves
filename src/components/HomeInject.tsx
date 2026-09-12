@@ -329,11 +329,12 @@ export function HomeShelves() {
     }
   }, [settings?.hideRecents, settings?.enabled, settings?.shelves, settings?.smartShelvesEnabled, settings?.smartShelves, settings?.recentsReplaceSource, mountEl, replaceKillSwitch, replaceInjecting]);
 
-  // Apply hideHomeTabs — no suppression criteria, simple toggle. If no sibling
-  // elements are found around the mount, the helper is a no-op.
+  // Apply hideHomeTabs — gated on the master enabled toggle too (like
+  // hideRecents above), so disabling the plugin restores every native Home
+  // element it was suppressing, not just recents.
   useEffect(() => {
-    applyHideHomeTabs(settings?.hideHomeTabs === true);
-  }, [settings?.hideHomeTabs, mountEl]);
+    applyHideHomeTabs(settings?.enabled === true && settings?.hideHomeTabs === true);
+  }, [settings?.enabled, settings?.hideHomeTabs, mountEl]);
 
   /* Schedule a one-shot refresh at the next visibility-window boundary across
      all smart shelves. Picks the earliest boundary; on fire, invalidates
