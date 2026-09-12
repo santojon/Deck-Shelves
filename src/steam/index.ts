@@ -1148,14 +1148,18 @@ function buildTimestampFields(node: any) {
   };
 }
 
+/* Confirmed live (2026-09-11): current clients expose `steam_deck_compat_category`
+   / `steam_os_compat_category` directly, already unpacked (plus two more for
+   Steam Machine/Frame). `steam_hw_compat_category_packed` now fits four
+   categories, not two, so the old nibble unpack below reads the wrong bits —
+   kept only for clients old enough to lack the named getters. */
 function deckCompatCategory(n: any): number {
-  return Number(n.deck_compatibility_category ?? n.m_eDeckCompatibilityCategory ?? ((Number(n.steam_hw_compat_category_packed ?? 0) & 0xF) || 0));
+  return Number(n.steam_deck_compat_category ?? n.deck_compatibility_category ?? n.m_eDeckCompatibilityCategory
+    ?? ((Number(n.steam_hw_compat_category_packed ?? 0) & 0xF) || 0));
 }
 
-// SteamOS rating sits in the HIGH nibble of the same packed field — the exact
-// same extraction TabMaster ships (`(packed >> 4) & 0xF`, 0..3).
 function steamosCompatCategory(n: any): number {
-  return Number(n.steamos_compatibility_category ?? n.m_eSteamOSCompatibilityCategory ??
+  return Number(n.steam_os_compat_category ?? n.steamos_compatibility_category ?? n.m_eSteamOSCompatibilityCategory ??
     ((((Number(n.steam_hw_compat_category_packed ?? 0) >> 4) & 0xF)) || 0));
 }
 
@@ -1979,8 +1983,8 @@ function isDeckCompatMatch(cat: number | undefined, allowed: string[] | undefine
 }
 
 // SteamOS compat uses the SAME 0..3 category scale as Deck compat (verified=3,
-// playable=2, unsupported=1, unknown=0); only the data source differs (high
-// nibble of the packed field vs the low one). Reuse the identical mapping.
+// playable=2, unsupported=1, unknown=0) — confirmed live against
+// `steam_os_compat_category` itself. Reuse the identical mapping.
 function isSteamOsCompatMatch(cat: number | undefined, allowed: string[] | undefined): boolean {
   return isDeckCompatMatch(cat, allowed);
 }

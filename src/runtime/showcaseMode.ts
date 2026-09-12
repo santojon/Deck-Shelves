@@ -66,6 +66,21 @@ function eligibleShelfIds(settings: Settings): string[] {
   return all.filter((id) => participants.includes(id));
 }
 
+/* The 2026-09-09 Steam Beta added its own native idle screensaver — a
+   separate GamepadNavigationTree ("ScreensaverPopup") that pops full-screen
+   on its own independent idle timer. `BIsActive()` reads that tree's state
+   the same way `focusRestore.ts` already reads Steam's own trees elsewhere;
+   absent entirely (and reads `false`) on a client without this feature. */
+function isNativeScreensaverActive(): boolean {
+  try {
+    const ctrl = (globalThis as any).FocusNavController;
+    const ctx = ctrl?.m_ActiveContext ?? ctrl?.m_LastActiveContext;
+    const trees: any[] = ctx?.m_rgGamepadNavigationTrees ?? [];
+    const popup = trees.find((t) => t?.m_ID === "ScreensaverPopup");
+    return !!popup?.BIsActive?.();
+  } catch { return false; }
+}
+
 export function installShowcaseMode(): () => void {
   let disposed = false;
   let running = false;
@@ -125,6 +140,9 @@ export function installShowcaseMode(): () => void {
     if (disposed || !running) return;
     const s = getCurrentSettings();
     if (!s?.showcaseModeEnabled) { stopShowcase(); return; }
+    // Yield the instant Steam's own screensaver takes the screen — it can
+    // engage mid-cycle, on its own independent idle timer.
+    if (isNativeScreensaverActive()) { stopShowcase(); armIdle(); return; }
     const ids = eligibleShelfIds(s);
     if (ids.length === 0) { stopShowcase(); return; }
     const pick = s.showcaseRandomize ? Math.floor(Math.random() * ids.length) : idx % ids.length;
@@ -150,6 +168,7 @@ export function installShowcaseMode(): () => void {
     if (running || disposed) return;
     const s = getCurrentSettings();
     if (!s?.showcaseModeEnabled) return;
+    if (isNativeScreensaverActive()) { armIdle(); return; } // native screensaver has it; retry later
     if (eligibleShelfIds(s).length === 0) { armIdle(); return; } // nothing to show yet; retry later
     running = true;
     idx = 0;

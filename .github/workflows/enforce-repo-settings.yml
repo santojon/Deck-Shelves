@@ -64,7 +64,7 @@ jobs:
               // Priority labels (assigned automatically by issue-priority-labeler; critical is manual-only)
               { name: "priority::critical", color: "B60205", description: "Critical — immediate fix (crash, regression, security)" },
               { name: "priority::high",     color: "D93F0B", description: "High — prioritized fix in the next PATCH release" },
-              { name: "priority::medium",   color: "FBCA04", description: "Medium — fix planned within a sprint" },
+              { name: "priority::medium",   color: "FBCA04", description: "Medium — fix planned for an upcoming release" },
               { name: "priority::low",      color: "0E8A16", description: "Low — backlog, addressed when capacity allows" },
               // Area labels (assigned automatically by pr-auto-labeler)
               { name: "area::core",         color: "5319E7", description: "src/core/ — sensitive logic" },
