@@ -745,6 +745,20 @@ export const SettingsSchema = z.object({
     navSidecarClose: z.string().optional(),
   }).nullable().optional().transform((v) => v ?? {}),
   buttonBindingsDisabled: z.array(z.string()).nullable().optional().transform((v) => v ?? []),
+  /* Keyboard equivalent of buttonBindings — an independent, optional
+     second trigger per action (either input fires the same action).
+     Every field is nullable since, unlike gamepad bindings, none has
+     a default. */
+  keyboardBindings: z.object({
+    cardHideRemove:  z.string().nullable().optional(),
+    cardHighlightToggle: z.string().nullable().optional(),
+    cardQuickLaunch: z.string().nullable().optional(),
+    navSearch:       z.string().nullable().optional(),
+    navSideNav:      z.string().nullable().optional(),
+    navSidecarOpen:  z.string().nullable().optional(),
+    navSidecarClose: z.string().nullable().optional(),
+  }).nullable().optional().transform((v) => v ?? {}),
+  keyboardBindingsDisabled: z.array(z.string()).nullable().optional().transform((v) => v ?? []),
 });
 
 export type Settings = z.infer<typeof SettingsSchema>;
@@ -757,4 +771,14 @@ export interface ButtonBindings {
   navSideNav?: string;
   navSidecarOpen?: string;
   navSidecarClose?: string;
+}
+
+export interface KeyboardBindings {
+  cardHideRemove?: string | null;
+  cardHighlightToggle?: string | null;
+  cardQuickLaunch?: string | null;
+  navSearch?: string | null;
+  navSideNav?: string | null;
+  navSidecarOpen?: string | null;
+  navSidecarClose?: string | null;
 }

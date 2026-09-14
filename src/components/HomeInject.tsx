@@ -13,7 +13,7 @@ import { logInfo, logWarn } from "../runtime/logger";
 import { logDiagnostic } from "../runtime/diagnostics";
 import { getPreferredSteamDocument, getPreferredSteamWindow, getAllSteamDocuments } from "../runtime/steamHost";
 import { ROOT_ID, seededShuffle, isHomeRoute, hasHomeDomSignals, detectNavTreeApi, findOrCreateMount } from "./home/mountUtils";
-import { applyHideRecents, reapplyHomeHides, applyHideHomeTabs, applyReplaceActiveMargin, getMountFailed, getPendingHideRecents, getPendingHideHomeTabs } from "../runtime/homePatch";
+import { applyHideRecents, reapplyHomeHides, enforceHomeFocusSuppression, applyHideHomeTabs, applyReplaceActiveMargin, getMountFailed, getPendingHideRecents, getPendingHideHomeTabs } from "../runtime/homePatch";
 import { getRecentsReplaceFailed, subscribeRecentsReplaceFailed, isRecentsReplaceInjecting, subscribeRecentsReplaceInjecting, getRecentsReplaceActiveShelfId } from "../runtime/recentsReplace";
 import { Focusable } from "../runtime/host/decky";
 import { installPassiveMenuHook, installPassiveShowContextMenuHook, installLibraryContextMenuPatch, installCreateContextMenuPatch, prewarmMenuExtraction } from "../core/steamGameMenu";
@@ -112,6 +112,9 @@ export function HomeShelves() {
         const recentsMismatch = recentsVisible === getPendingHideRecents();
         const tabsMismatch = tabsVisible === getPendingHideHomeTabs();
         if (recentsMismatch || tabsMismatch) reapplyHomeHides();
+        // Visibility can match while a re-rendered row still holds a reachable
+        // (tabindex>=0) focusable the nav tree traps on — heal that every tick.
+        enforceHomeFocusSuppression();
       } catch {}
     };
     /* Tight poll (250 ms) cures the flicker the user sees when dpad-up
@@ -154,7 +157,7 @@ export function HomeShelves() {
            entry back to home (B from library, etc.). The freshly mounted
            siblings arrive without our hides, so they flash back into view.
            Re-apply both hide states so they collapse again before the next paint. */
-        try { reapplyHomeHides(); } catch {}
+        try { reapplyHomeHides(); enforceHomeFocusSuppression(); } catch {}
         // Steam restores the previously-focused DS card on B-return, but the
         // mount's scroll container can be at the top — the focused card is
         /* in view only after the user moves the D-pad once. Sync the

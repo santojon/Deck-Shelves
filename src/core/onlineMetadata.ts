@@ -175,21 +175,52 @@ export function onlineStoreFallbackOn(): boolean {
   } catch { return false; }
 }
 
-/** Fill `available_on_current_platform` (in place) from the store `platforms` for
- *  apps whose local Steam client didn't provide it (undefined) — e.g. macOS, where
- *  the system-compatibility filter would otherwise pass every game. Bounded +
- *  cached; gated by the master online toggle. No-op when the field is already set. */
+/** The metadata cache id for an app — must match `getGameMetadata`. */
+function metaCacheId(a: any): string {
+  return a.is_non_steam
+    ? `name:${String(a.display_name ?? a.sort_as ?? "").trim().toLowerCase()}`
+    : `app:${Number(a.appid)}`;
+}
+
+/* Our own platform-availability field. We must NOT write the store result onto
+   Steam's `available_on_current_platform` — that overview is the SAME object
+   Steam's store/app pages read to gate "available on this platform", so writing
+   `false` there blacks those pages out. The system-compatibility filter reads
+   this private field first (see steam/index.ts). */
+export const DS_PLATFORM_AVAIL = "__ds_available_on_platform";
+
+/** Fill our private `__ds_available_on_platform` from the store `platforms` for
+ *  apps whose local client left `available_on_current_platform` undefined (macOS,
+ *  where it's never `false`, so the filter would otherwise pass every game).
+ *  Applies the persistent cache to every undefined app (no network), then fetches
+ *  only never-fetched ones (bounded). Never touches Steam's own field. */
 export async function enrichPlatformAvailability(apps: any[]): Promise<number> {
   if (!onlineStoreFallbackOn()) return 0;
   const key = currentPlatformKey();
-  const targets = apps.filter((a) => a && a.available_on_current_platform === undefined).slice(0, MAX_ENRICH_PER_PASS);
-  if (!targets.length) return 0;
+  const undefinedApps = apps.filter(
+    (a) => a && a.available_on_current_platform === undefined && a[DS_PLATFORM_AVAIL] === undefined,
+  );
+  if (!undefinedApps.length) return 0;
   let n = 0;
+  // Apply already-cached platform data to ALL undefined apps first — no network.
+  // Read the persistent map ONCE (localStorage parse is costly) and look up
+  // in-memory; a cached miss (`{}`) counts as tried, never re-fetched.
+  const cache = readMap<GameMetadata>(META_KEY);
+  const now = Date.now();
+  const uncached: any[] = [];
+  for (const a of undefinedApps) {
+    const e = cache[metaCacheId(a)];
+    const cached = e && now - e.ts < META_TTL ? e.v : undefined;
+    if (cached === undefined) { uncached.push(a); continue; }
+    if (cached.platforms) { a[DS_PLATFORM_AVAIL] = !!cached.platforms[key]; n++; }
+  }
+  // Fetch the never-fetched ones, bounded so a resolve never fans out the library.
+  const targets = uncached.slice(0, MAX_ENRICH_PER_PASS);
   await Promise.all(targets.map(async (a) => {
     const meta = await getGameMetadata(Number(a.appid), String(a.display_name ?? a.sort_as ?? ""), !!a.is_non_steam);
-    if (meta?.platforms) { a.available_on_current_platform = !!meta.platforms[key]; n++; }
+    if (meta?.platforms) { a[DS_PLATFORM_AVAIL] = !!meta.platforms[key]; n++; }
   }));
-  if (n) logInfo("STEAM", `platform availability enriched ${n}/${targets.length} apps (${key})`);
+  if (n) logInfo("STEAM", `platform availability: ${n} apps (${key}); fetched ${targets.length}, ${uncached.length - targets.length} pending`);
   return n;
 }
 

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback, useMemo, useState, memo } from "react";
 import { Focusable } from "../../runtime/host/decky";
-import { dispatchHomeButtonDown } from "../../runtime/homeInputBus";
+import { dispatchHomeButtonDown, subscribeHomeKey } from "../../runtime/homeInputBus";
 import { getPreferredSteamDocument } from "../../runtime/steamHost";
 import { buildSelectorFromToken, getRuntimeClassMap } from "../../core/webpackCompat";
 import { getPortraitUrls, getLandscapeUrls, getLogoUrls, getIconUrls, getAppAssetCacheKey } from "../../core/steamAssets";
@@ -18,6 +18,7 @@ import { getCurrentSettings, saveSettings } from "../../store/settingsStore";
 import { patchShelfInSettings } from "../../domain/settings";
 import { saveFocusTarget, beginFocusRestoreLoop } from "../../core/focusRestore";
 import { BTN, createMatcherState, matchEvent, parseCombo, parseRawCombo, resolveBindings } from "../../runtime/buttonBindings";
+import { resolveKeyboardBindings, parseKeyCombo, matchKeyEvent, createKeyMatcherState, isEditableKeyTarget, type KeyMatcherState } from "../../runtime/keyboardBindings";
 import { subscribeControllerInput } from "../../runtime/controllerInput";
 import { resolveQuickLaunchAction } from "../../steam/appDisplayStatus";
 
@@ -167,6 +168,23 @@ function trackCardActivation(ref: { previewMode: boolean; appid: number; shelfId
     trackCardLaunch(classifyCard(ref.appid, ref.shelfId));
     if (ref.shelfId) trackShelfView(ref.shelfId);
   } catch { /* best-effort */ }
+}
+
+/* Dispatches a captured keydown code against a card's keyboard bindings.
+   Split out of the subscribeHomeKey effect below so that effect stays a
+   thin gate/subscribe wrapper instead of also carrying the per-action
+   branching. */
+function handleCardKeyEvent(
+  code: string | null,
+  state: KeyMatcherState,
+  actions: { quickLaunch: () => void; removeOrHide: () => void; toggleHighlight: () => void },
+): void {
+  try {
+    const kb = resolveKeyboardBindings(getCurrentSettings()?.keyboardBindings as any, (getCurrentSettings() as any)?.keyboardBindingsDisabled);
+    if (kb.cardQuickLaunch && matchKeyEvent(code, parseKeyCombo(kb.cardQuickLaunch), state)) { actions.quickLaunch(); return; }
+    if (kb.cardHideRemove && matchKeyEvent(code, parseKeyCombo(kb.cardHideRemove), state)) { actions.removeOrHide(); return; }
+    if (kb.cardHighlightToggle && matchKeyEvent(code, parseKeyCombo(kb.cardHighlightToggle), state)) actions.toggleHighlight();
+  } catch {}
 }
 
 function GameCardImpl({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHProp, featured = false, cardIndex, hideStatusLine = false, hideNewBadge = false, hideDiscountBadge = false, hideCompatIcons = false, hideNonSteamBadge = false, hideGameName = false, hideInstallIndicator = false, friendsOverlay = false, friendsOverlayRecent = false, enableLogo = false, enableIcon = false, enableDescription = false, descriptionBelowLogo = false, descriptionPosition = 'left', iconVerticalAlign = 'top', gameNamePosition = 'left', playtimePosition = 'left', previewMode = false, removableSet, onRemoveCard, hiddenSet, onHideCard }: { item: DeckRowItem; cardW?: number; cardH?: number; artH?: number; featured?: boolean; cardIndex?: number; hideStatusLine?: boolean; hideNewBadge?: boolean; hideDiscountBadge?: boolean; hideCompatIcons?: boolean; hideNonSteamBadge?: boolean; hideGameName?: boolean; hideInstallIndicator?: boolean; friendsOverlay?: boolean; friendsOverlayRecent?: boolean; enableLogo?: boolean; enableIcon?: boolean; enableDescription?: boolean; descriptionBelowLogo?: boolean; logoPosition?: 'left' | 'center' | 'right'; descriptionPosition?: 'left' | 'center' | 'right'; iconVerticalAlign?: 'top' | 'center' | 'bottom'; gameNamePosition?: 'left' | 'center' | 'right'; playtimePosition?: 'left' | 'center' | 'right'; inlineBadges?: boolean; previewMode?: boolean; removableSet?: Set<number>; onRemoveCard?: (appid: number) => void; hiddenSet?: Set<number>; onHideCard?: (appid: number) => void }) {
@@ -360,6 +378,22 @@ function GameCardImpl({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHProp
           return;
         }
       } catch {}
+    });
+  }, [appid, previewMode, quickLaunch, removableSet, onRemoveCard, onHideCard, item.shelfId]);
+
+  // Keyboard equivalent of the two effects above — independent trigger,
+  // same `.gpfocus` gate so only the focused card's shortcut fires.
+  const keyMatcherRef = useRef(createKeyMatcherState());
+  useEffect(() => {
+    if (previewMode || !appid) return;
+    return subscribeHomeKey((e) => {
+      if (isEditableKeyTarget(e.tag)) return;
+      if (!cardRef.current?.classList.contains("gpfocus")) return;
+      handleCardKeyEvent(e.code ?? null, keyMatcherRef.current, {
+        quickLaunch,
+        removeOrHide: () => { if (removableSet?.has(appid) && onRemoveCard) onRemoveCard(appid); else onHideCard?.(appid); },
+        toggleHighlight: () => { try { toggleCardHighlight(item.shelfId, appid); } catch {} },
+      });
     });
   }, [appid, previewMode, quickLaunch, removableSet, onRemoveCard, onHideCard, item.shelfId]);
 

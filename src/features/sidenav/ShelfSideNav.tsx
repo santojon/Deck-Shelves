@@ -5,8 +5,9 @@ import { getCurrentSettings, subscribeSettings } from "../../settingsStore";
 import { getExternalSideMenuProviders, type SideMenuContext, type SideMenuEntry, type SideMenuProviderDescriptor } from "../../core/pluginApi";
 import type { Settings, Shelf, SmartShelf } from "../../types";
 import { focusElement } from "../../core/focusRestore";
-import { GamepadButton, dispatchHomeButtonDown, subscribeHomeButton } from "../../runtime/homeInputBus";
+import { GamepadButton, dispatchHomeButtonDown, subscribeHomeButton, subscribeHomeKey } from "../../runtime/homeInputBus";
 import { createMatcherState, matchEvent, parseCombo, parseRawCombo, resolveBindings } from "../../runtime/buttonBindings";
+import { resolveKeyboardBindings, parseKeyCombo, matchKeyEvent, createKeyMatcherState, isEditableKeyTarget } from "../../runtime/keyboardBindings";
 import { subscribeControllerInput } from "../../runtime/controllerInput";
 import { trackFeature } from "../../steam/usageTracking";
 import { isHomeRoute } from "../../components/home/mountUtils";
@@ -206,7 +207,15 @@ export function ShelfSideNav() {
       if (!navSideNav) return;
       if (matchEvent({ button: e.button }, parseRawCombo(navSideNav), rawMatcherState)) tryOpen();
     });
-    return () => { unsubBtn(); unsubRaw(); };
+    // Keyboard equivalent — independent trigger, same debounce via tryOpen.
+    const keyMatcherState = createKeyMatcherState();
+    const unsubKey = subscribeHomeKey((e) => {
+      if (!enabledRef.current || isEditableKeyTarget(e.tag)) return;
+      const navSideNavKey = resolveKeyboardBindings(getCurrentSettings()?.keyboardBindings as any, (getCurrentSettings() as any)?.keyboardBindingsDisabled).navSideNav;
+      if (!navSideNavKey) return;
+      if (matchKeyEvent(e.code ?? null, parseKeyCombo(navSideNavKey), keyMatcherState)) tryOpen();
+    });
+    return () => { unsubBtn(); unsubRaw(); unsubKey(); };
   }, [anchor, enabled]);
 
   if (!enabled || !anchor || !settings) return null;

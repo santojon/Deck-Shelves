@@ -3,9 +3,10 @@ import { DialogButton, Focusable } from "../../../runtime/host/decky";
 import type { useSettingsController } from "../../../features/settings/controller";
 import { subscribeControllerInput, Button as RawBtn } from "../../../runtime/controllerInput";
 import { DEFAULT_BINDINGS, findCollisions, resolveBindings, validateCombo } from "../../../runtime/buttonBindings";
-import type { ButtonBindings } from "../../../types";
+import { validateKeyCombo, formatKeyComboForDisplay } from "../../../runtime/keyboardBindings";
+import type { ButtonBindings, KeyboardBindings } from "../../../types";
 import { CollapsibleSection } from "../../ui/CollapsibleSection";
-import { BanIcon, CheckIcon, RefreshIcon, TargetIcon, TrashIcon, GamepadIcon } from "../../icons";
+import { BanIcon, CheckIcon, RefreshIcon, TargetIcon, TrashIcon, GamepadIcon, KeyboardIcon } from "../../icons";
 import { BTN_ICON_STYLE } from "../../ui/buttonStyles";
 import { confirmAction } from "../../qam/modals/ConfirmActionModal";
 
@@ -94,6 +95,15 @@ function renderCombo(raw: string | null | undefined): React.ReactNode {
   );
 }
 
+// Keyboard combos render as one chip with the formatted label (e.g. "CTRL
+// + F") rather than per-token glyphs — there's no fixed token set to give
+// each key its own recognizable shape the way gamepad buttons have.
+function renderKeyCombo(raw: string | null | undefined): React.ReactNode {
+  const label = formatKeyComboForDisplay(raw);
+  if (!label) return null;
+  return <ButtonGlyph token={label} />;
+}
+
 export function ButtonBindingsDetail({ controller, t }: ButtonBindingsDetailProps) {
   const settings = controller.settings;
   if (!settings) return null;
@@ -102,6 +112,8 @@ export function ButtonBindingsDetail({ controller, t }: ButtonBindingsDetailProp
   const bindings: Required<ButtonBindings> = resolveBindings(rawBindings, disabledList);
   const collisions = findCollisions(bindings);
   const collisionTokens = new Set(collisions.flat());
+  const keyDisabledList: string[] = ((settings as any).keyboardBindingsDisabled ?? []) as string[];
+  const rawKeyBindings: KeyboardBindings = (settings as any).keyboardBindings ?? {};
   // Only surface a navigation shortcut whose feature is actually enabled — a
   // Quick Search / Side Nav binding is meaningless when that feature is off.
   // The sidecar (the QAM panel) is always available, so its rows always show.
@@ -121,6 +133,8 @@ export function ButtonBindingsDetail({ controller, t }: ButtonBindingsDetailProp
       for (const r of rows) {
         void (controller.actions as any).setButtonBinding?.(r.key, (DEFAULT_BINDINGS as any)[r.key]);
         if (disabledList.includes(r.key)) void (controller.actions as any).setBindingDisabled?.(r.key, false);
+        void (controller.actions as any).setKeyboardBinding?.(r.key, null);
+        if (keyDisabledList.includes(r.key)) void (controller.actions as any).setKeyboardBindingDisabled?.(r.key, false);
       }
     },
   });
@@ -140,6 +154,8 @@ export function ButtonBindingsDetail({ controller, t }: ButtonBindingsDetailProp
           effectiveValue={(bindings as any)[row.key] ?? null}
           disabled={disabledList.includes(row.key)}
           colliding={collisionTokens.has(row.key)}
+          rawKeyValue={(rawKeyBindings as any)[row.key] ?? null}
+          keyDisabled={keyDisabledList.includes(row.key)}
           controller={controller}
           t={t}
         />
@@ -174,11 +190,12 @@ export function ButtonBindingsDetail({ controller, t }: ButtonBindingsDetailProp
   );
 }
 
-function BindingStatus({ capturing, disabled, value, t }: {
+function BindingStatus({ capturing, disabled, value, t, render = renderCombo }: {
   capturing: boolean;
   disabled: boolean;
   value: string | null;
   t: (key: string) => string;
+  render?: (raw: string | null | undefined) => React.ReactNode;
 }) {
   const wrapperStyle: React.CSSProperties = {
     fontSize: 12, padding: "3px 8px", borderRadius: 4,
@@ -188,7 +205,7 @@ function BindingStatus({ capturing, disabled, value, t }: {
   let content: React.ReactNode;
   if (capturing) content = <span style={{ opacity: 0.85 }}>{t("binding_waiting")}</span>;
   else if (disabled) content = <span style={{ fontStyle: "italic" }}>{t("binding_disabled")}</span>;
-  else if (value) content = renderCombo(value);
+  else if (value) content = render(value);
   else content = <span style={{ opacity: 0.55, fontStyle: "italic" }}>{t("binding_unset")}</span>;
   return <div style={wrapperStyle}>{content}</div>;
 }
@@ -250,17 +267,150 @@ function BindingRowButtons({
   );
 }
 
+// Advances the double-tap/chord capture buffer by one token — shared shape
+// with the gamepad capture's inline buffer, split out here purely to keep
+// the keyboard capture hook below under the complexity budget.
+function advanceKeyCaptureBuffer(
+  token: string,
+  now: number,
+  buf: { tokens: string[]; firstAt: number },
+  timerRef: React.MutableRefObject<number | null>,
+  commit: (combo: string) => void,
+): void {
+  if (buf.tokens.length === 0) {
+    buf.tokens = [token];
+    buf.firstAt = now;
+    timerRef.current = window.setTimeout(() => {
+      if (buf.tokens.length === 1) commit(buf.tokens[0]);
+    }, 300);
+  } else if (buf.tokens.length === 1 && (now - buf.firstAt) <= 300) {
+    if (timerRef.current !== null) { clearTimeout(timerRef.current); timerRef.current = null; }
+    buf.tokens.push(token);
+    commit(buf.tokens.join("+"));
+  }
+}
+
+/* Keyboard capture — a second, independent slot per row. Structurally the
+   same double-tap/chord buffer as the gamepad capture in BindingRowView,
+   but reading real keydown events off this row's own document instead of
+   the controller bus. Pulled into its own hook (rather than inlined in
+   BindingRowView) purely to keep that component's complexity down. */
+function useKeyCaptureSlot(
+  containerRef: React.RefObject<HTMLDivElement | null>,
+  rawKeyValue: string | null,
+  keyDisabled: boolean,
+  controller: ReturnType<typeof useSettingsController>,
+  bindingKey: BindingKey,
+) {
+  const [capturing, setCapturing] = useState(false);
+  const [captured, setCaptured] = useState<string | null>(null);
+  const [error, setError] = useState<"reserved" | "unknown" | "duplicate" | "empty" | null>(null);
+  const buffer = useRef<{ tokens: string[]; firstAt: number }>({ tokens: [], firstAt: 0 });
+  const timerRef = useRef<number | null>(null);
+  const startedAtRef = useRef<number>(0);
+  useEffect(() => { setCaptured(null); setError(null); }, [rawKeyValue, keyDisabled]);
+
+  const startCapture = () => {
+    buffer.current = { tokens: [], firstAt: 0 };
+    setCaptured(null);
+    setError(null);
+    startedAtRef.current = Date.now();
+    setCapturing(true);
+  };
+  const stopCapture = () => {
+    setCapturing(false);
+    if (timerRef.current !== null) { clearTimeout(timerRef.current); timerRef.current = null; }
+  };
+
+  useEffect(() => {
+    if (!capturing) return;
+    const doc = containerRef.current?.ownerDocument ?? document;
+    const commit = (combo: string) => {
+      const v = validateKeyCombo(combo);
+      if (v.ok) {
+        setCaptured(combo);
+        void (controller.actions as any).setKeyboardBinding?.(bindingKey, combo);
+      } else setError(v.reason ?? "unknown");
+      stopCapture();
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      // 250ms grace — eats the Enter/Space that activated Capture itself.
+      if (e.repeat || Date.now() - startedAtRef.current < 250) return;
+      const token = e.code || null;
+      if (!token) return;
+      e.preventDefault();
+      const validation = validateKeyCombo(token);
+      if (!validation.ok && validation.reason === "reserved") {
+        setError("reserved");
+        stopCapture();
+        return;
+      }
+      advanceKeyCaptureBuffer(token, Date.now(), buffer.current, timerRef, commit);
+    };
+    doc.addEventListener("keydown", onKeyDown, true);
+    return () => { doc.removeEventListener("keydown", onKeyDown, true); stopCapture(); };
+  }, [capturing]);
+
+  return {
+    capturing, captured, error, startCapture,
+    deleteBinding: () => { void (controller.actions as any).setKeyboardBinding?.(bindingKey, null); },
+    toggleDisabled: () => { void (controller.actions as any).setKeyboardBindingDisabled?.(bindingKey, !keyDisabled); },
+  };
+}
+
+type KeyCaptureSlot = ReturnType<typeof useKeyCaptureSlot>;
+
+// Keyboard capture row — mirrors BindingStatus + BindingRowButtons' split
+// for the gamepad row, kept as its own component (not inlined into
+// BindingRowView) so its branching has its own complexity budget.
+function KeyBindingRow({ keyState, rawKeyValue, keyDisabled, t }: {
+  keyState: KeyCaptureSlot;
+  rawKeyValue: string | null;
+  keyDisabled: boolean;
+  t: (key: string) => string;
+}) {
+  const keyBusy = keyState.capturing || !rawKeyValue;
+  return (
+    <>
+      <Focusable flow-children="row" style={{ display: "flex", alignItems: "center", gap: 8, paddingTop: 6, borderTop: "1px solid var(--ds-border, rgba(255, 255, 255, 0.06))" }}>
+        <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 5, fontSize: 11, opacity: 0.75 }}>
+          <KeyboardIcon size={12} />
+          {t("binding_keyboard_label")}
+        </div>
+        <BindingStatus capturing={keyState.capturing} disabled={keyDisabled} value={keyState.captured ?? rawKeyValue} t={t} render={renderKeyCombo} />
+        <DialogButton onClick={keyState.startCapture} onOKButton={keyState.startCapture} disabled={keyState.capturing} style={BTN_ICON_STYLE} aria-label={t(keyState.capturing ? "binding_cancel" : "binding_capture")}>
+          <TargetIcon size={16} />
+        </DialogButton>
+        <DialogButton onClick={keyState.toggleDisabled} onOKButton={keyState.toggleDisabled} disabled={keyBusy} style={BTN_ICON_STYLE} aria-label={t(keyDisabled ? "binding_enable" : "binding_disable")}>
+          {keyDisabled ? <CheckIcon size={16} /> : <BanIcon size={16} />}
+        </DialogButton>
+        <DialogButton onClick={keyState.deleteBinding} onOKButton={keyState.deleteBinding} disabled={keyBusy} style={BTN_ICON_STYLE} aria-label={t("binding_delete")}>
+          <TrashIcon size={16} />
+        </DialogButton>
+      </Focusable>
+      {keyState.error && (
+        <div style={{ fontSize: 12, color: "rgb(255, 120, 120)" }}>
+          {t(`binding_error_${keyState.error}`)}
+        </div>
+      )}
+    </>
+  );
+}
+
 function BindingRowView({
-  row, rawValue, effectiveValue, disabled, colliding, controller, t,
+  row, rawValue, effectiveValue, disabled, colliding, rawKeyValue, keyDisabled, controller, t,
 }: {
   row: BindingRow;
   rawValue: string | null;
   effectiveValue: string | null;
   disabled: boolean;
   colliding: boolean;
+  rawKeyValue: string | null;
+  keyDisabled: boolean;
   controller: ReturnType<typeof useSettingsController>;
   t: (key: string) => string;
 }) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const [capturing, setCapturing] = useState(false);
   const [captured, setCaptured] = useState<string | null>(null);
   const [error, setError] = useState<"reserved" | "unknown" | "duplicate" | "empty" | null>(null);
@@ -329,6 +479,8 @@ function BindingRowView({
   const [lastRawId, setLastRawId] = useState<{ id: number; token: string | null } | null>(null);
   useEffect(() => { if (!capturing) setLastRawId(null); }, [capturing]);
 
+  const key = useKeyCaptureSlot(containerRef, rawKeyValue, keyDisabled, controller, row.key);
+
   const persist = (combo: string) => {
     void (controller.actions as any).setButtonBinding?.(row.key, combo);
   };
@@ -346,7 +498,7 @@ function BindingRowView({
   };
 
   return (
-    <div style={{
+    <div ref={containerRef} style={{
       padding: "10px 12px",
       borderRadius: 8,
       background: colliding ? "var(--ds-danger-soft, rgba(255, 80, 80, 0.10))" : "var(--ds-surface, rgba(255, 255, 255, 0.04))",
@@ -380,6 +532,7 @@ function BindingRowView({
           {t(`binding_error_${error}`)}
         </div>
       )}
+      <KeyBindingRow keyState={key} rawKeyValue={rawKeyValue} keyDisabled={keyDisabled} t={t} />
       {colliding && (
         <div style={{ fontSize: 12, color: "rgb(255, 180, 120)" }}>
           {t("binding_collision")}

@@ -445,5 +445,29 @@ export function createProfileActions(deps: ProfilesDeps) {
       else return;
       await persist({ ...s, buttonBindingsDisabled: next } as Settings);
     },
+    async setKeyboardBinding(key: "cardHideRemove" | "cardHighlightToggle" | "cardQuickLaunch" | "navSearch" | "navSideNav" | "navSidecarOpen" | "navSidecarClose", value: string | null) {
+      const s = liveSettings();
+      if (!s) return;
+      const current = (s as any).keyboardBindings ?? {};
+      const next = { ...current, [key]: value };
+      if (current[key] === next[key]) return;
+      await persist({ ...s, keyboardBindings: next } as Settings);
+    },
+    async resetKeyboardBindings() {
+      const s = liveSettings();
+      if (!s) return;
+      await persist({ ...s, keyboardBindings: {}, keyboardBindingsDisabled: [] } as Settings);
+    },
+    async setKeyboardBindingDisabled(key: string, disabled: boolean) {
+      const s = liveSettings();
+      if (!s) return;
+      const list = ((s as any).keyboardBindingsDisabled ?? []) as string[];
+      const has = list.includes(key);
+      let next: string[];
+      if (disabled && !has) next = [...list, key];
+      else if (!disabled && has) next = list.filter((k) => k !== key);
+      else return;
+      await persist({ ...s, keyboardBindingsDisabled: next } as Settings);
+    },
   };
 }

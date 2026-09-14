@@ -298,6 +298,37 @@ export function reapplyHomeHides(): void {
   applyHideHomeTabs(pendingHideHomeTabs);
 }
 
+/* Re-assert ONLY the focus-tree suppression (tabindex) for the hidden home
+   areas — cheap and idempotent, safe on a tight poll. Steam re-renders the
+   native recents row and the home tabs on route round-trips (notably B / a
+   `history.go(-1)`, which fires `popstate`, not the pushState/replaceState hook
+   reapplyHomeHides is wired to) WITHOUT re-applying our tabindex strip, leaving a
+   fresh `tabindex=0` focusable inside the still-`visibility:hidden` row. GamepadUI's
+   nav tree honours tabindex but ignores CSS visibility, so gamepad focus gets
+   trapped on that invisible row and can't reach the DS shelves. The visibility-only
+   divergence poll never catches it (visibility already matches). Re-stripping the
+   current focusables heals it. Acts only when the area is meant to be hidden, and
+   never touches a recents row that is REPURPOSED (DS content injected in it) so the
+   replace-recents shelf stays focusable — covers native-recents/home-tabs shown or
+   hidden, on Deck and Mac, stable and beta. */
+export function enforceHomeFocusSuppression(): void {
+  try {
+    if (pendingHideRecents) {
+      reseedCachedRecentsEl();
+      const el = cachedRecentsEl;
+      const repurposed = !!el && !!el.querySelector('.ds-shelf, .deck-shelves-root, #' + ROOT_ID);
+      if (el && !repurposed) applyRecentsFocusSuppression(true);
+    }
+    if (pendingHideHomeTabs) {
+      for (const el of Array.from(hiddenHomeTabs)) {
+        if (!el.isConnected) continue;
+        const focusables = el.querySelectorAll<HTMLElement>('[tabindex], button, a, input, [role="button"], .Focusable');
+        for (const f of Array.from(focusables)) setFocusableTabindex(f, true);
+      }
+    }
+  } catch (e) { logInfo("HOME", "enforceHomeFocusSuppression failed", String(e)); }
+}
+
 /* The currently-desired hide state — lets HomeInject.tsx's poll tell
    "should be hidden but isn't" apart from "should be visible but isn't". */
 export function getPendingHideRecents(): boolean { return pendingHideRecents; }

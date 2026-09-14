@@ -24,6 +24,7 @@ import { ImportMenuButton, type ImportEntry } from './qam/common/ImportMenuButto
 import { openManagedModal } from './qam/common/openManagedModal'
 import { getExternalImportTypesForTarget, registerInternalImportType } from '../core/pluginApi'
 import { formatComboForDisplay, resolveBindings, parseRawCombo, matchEvent, createMatcherState, DEFAULT_BINDINGS } from '../runtime/buttonBindings'
+import { resolveKeyboardBindings, parseKeyCombo, matchKeyEvent, createKeyMatcherState, isEditableKeyTarget } from '../runtime/keyboardBindings'
 import { subscribeControllerInput } from '../runtime/controllerInput'
 import { sidecarCancelHandler, mainCancelButtonDown } from './qam/sidecarCancel'
 import { getCurrentSettings } from '../store/settingsStore'
@@ -52,7 +53,7 @@ import { confirmAction } from './qam/modals/ConfirmActionModal'
 import { ProfilesSection } from './qam/sections/ProfilesSection'
 import { VisualGlobalSection } from './qam/sections/VisualGlobalSection'
 import { getQamWindow, useQamCompositorSync, useIsActiveQamTab, shouldRenderSidecar } from './qam/sidecarActiveTab'
-import { SidecarPanel, useDpadExpandBridge, fireQamExpand, traceSidecarCollapse, absorbDpadRightAtEdge } from './qam/sidecar/SidecarPanel'
+import { SidecarPanel, useDpadExpandBridge, fireQamExpand, traceSidecarCollapse } from './qam/sidecar/SidecarPanel'
 
 try {
   (globalThis as unknown as Record<string, unknown>).__ds_module_loaded__ = 'DeckQAMSettings@' + Date.now();
@@ -61,6 +62,18 @@ try {
   }
   try { document.documentElement.setAttribute('data-ds-module-loaded', 'yes@' + Date.now()); } catch {}
 } catch {}
+
+// Temporary diagnostic: remapped sidecar-open ("R2") reportedly doesn't
+// work — records raw controller events, read back via CDP as
+// globalThis.__ds_input_trace, instead of guessing again.
+function traceRawInput(button: number, pressed: boolean): void {
+  try {
+    const g = globalThis as any;
+    if (!Array.isArray(g.__ds_input_trace)) g.__ds_input_trace = [];
+    g.__ds_input_trace.push({ t: Date.now(), button, pressed });
+    if (g.__ds_input_trace.length > 40) g.__ds_input_trace.shift();
+  } catch { /* tracing must never throw */ }
+}
 
 // Parent → sub-toggle map used both for hiding sub-toggles from the QAM
 // when the parent is hidden, and for sidecar UI consistency. Order matters
@@ -198,6 +211,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
   useEffect(() => {
     if (!isActiveTab) return;
     return subscribeControllerInput((e) => {
+      traceRawInput(e.button, e.pressed);
       if (!e.pressed) return;
       const s = getCurrentSettings();
       const b = resolveBindings(s?.buttonBindings as any, (s as any)?.buttonBindingsDisabled);
@@ -210,6 +224,28 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
         fireQamExpand(getQamWindow(), false, setQamExpanded);
       }
     });
+  }, [setQamExpanded, isActiveTab]);
+  /* Keyboard equivalent of the pair above — an independent trigger, not a
+     replacement for the gamepad one. A real keydown reaches this window's
+     own document normally (unlike controller input, which needs the raw
+     SteamClient.Input bridge), so no bus/bridge is needed here. */
+  const openKeyMatcherRef = useRef(createKeyMatcherState());
+  const closeKeyMatcherRef = useRef(createKeyMatcherState());
+  useEffect(() => {
+    if (!isActiveTab) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.repeat || isEditableKeyTarget((e.target as HTMLElement | null)?.tagName)) return;
+      const s = getCurrentSettings();
+      const kb = resolveKeyboardBindings(s?.keyboardBindings as any, (s as any)?.keyboardBindingsDisabled);
+      if (kb.navSidecarOpen && matchKeyEvent(e.code, parseKeyCombo(kb.navSidecarOpen), openKeyMatcherRef.current)) {
+        fireQamExpand(getQamWindow(), true, setQamExpanded); return;
+      }
+      if (kb.navSidecarClose && matchKeyEvent(e.code, parseKeyCombo(kb.navSidecarClose), closeKeyMatcherRef.current)) {
+        fireQamExpand(getQamWindow(), false, setQamExpanded);
+      }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
   }, [setQamExpanded, isActiveTab]);
   /* Decky keeps the plugin tab mounted across QAM open/close cycles, so
      without explicit hooks the sidecar stays expanded when the user opens
@@ -444,7 +480,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
     <div ref={dsScopeRef} className='deck-shelves-qam-scope' data-ds-qam-expanded={qamExpanded ? '1' : '0'}>
       <DeckQAMStyles />
       <Focusable className='deck-shelves-qam-flex' flow-children='row' noFocusRing>
-      <Focusable className='deck-shelves-qam-main' noFocusRing onCancelButton={sidecarCancelHandler(qamExpanded, closeSidecar)} onButtonDown={(evt: any) => mainCancelButtonDown(evt, qamExpanded, closeSidecar) || absorbDpadRightAtEdge(evt, dsScopeRef.current)}>
+      <Focusable className='deck-shelves-qam-main' noFocusRing onCancelButton={sidecarCancelHandler(qamExpanded, closeSidecar)} onButtonDown={(evt: any) => mainCancelButtonDown(evt, qamExpanded, closeSidecar)}>
       <UpdateBanner controller={controller} />
 
       <ToggleField

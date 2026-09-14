@@ -112,5 +112,7 @@ export function defaultSettings(): Settings {
       navSideNav: "L1+L1",
     },
     buttonBindingsDisabled: [],
+    keyboardBindings: {},
+    keyboardBindingsDisabled: [],
   };
 }

@@ -2455,6 +2455,13 @@ function evalFriendsPlayedRecently(item: FilterItem, app: AppOverview): boolean 
   } catch { return false; }
 }
 
+/* Desktop Steam clients (macOS/Windows) never mark a non-native game's
+   `available_on_current_platform` as `false` — only `true` or undefined — so an
+   undefined value there is unreliable (unlike the Deck, where `false` IS given). */
+const PLATFORM_LOCAL_ONESIDED = (() => {
+  try { return /mac|win/i.test((globalThis as any).navigator?.platform ?? ""); } catch { return false; }
+})();
+
 const FILTER_EVALUATORS: Record<string, FilterEvaluator> = {
   installed:              (_i, app) => isInstalledOf(app),
   favorites:              (_i, app) => isFavoriteOf(app),
@@ -2478,7 +2485,14 @@ const FILTER_EVALUATORS: Record<string, FilterEvaluator> = {
   appIdList:              evalAppIdList,
   cloudAvailable:         (_i, app) => app.cloud_available === true,
   controllerSupport:      evalControllerSupport,
-  systemCompatibility:    (_i, app) => app.available_on_current_platform !== false,
+  systemCompatibility:    (_i, app) => {
+    // Steam's own field first; then our private store-derived fill (macOS, where
+    // Steam leaves it undefined). We never write Steam's field — store pages read it.
+    let v = app.available_on_current_platform;
+    if (typeof v !== "boolean") v = (app as any).__ds_available_on_platform;
+    if (typeof v === "boolean") return v;
+    return !PLATFORM_LOCAL_ONESIDED; // undefined: include on the Deck, exclude on desktop
+  },
   remotePlayLocation:     evalRemotePlay,
   shortcutType:           evalShortcutType,
   discount:               evalDiscount,
