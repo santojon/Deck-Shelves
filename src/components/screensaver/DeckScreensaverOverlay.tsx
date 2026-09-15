@@ -80,7 +80,7 @@ function Slide({ item, logoEnabled, logoScale, onExhausted }: {
       <img
         src={src}
         onError={() => setIdx((i) => i + 1)}
-        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", display: "block", objectFit: "fill", objectPosition: "50% 18%" }}
+        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
       />
       {item.type === "app" && logoEnabled && <LogoImage appid={item.appid} scale={logoScale} />}
     </div>
