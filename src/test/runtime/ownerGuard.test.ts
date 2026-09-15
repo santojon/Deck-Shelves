@@ -11,6 +11,7 @@ describe("ownerGuard", () => {
     const w = scope();
     delete w.__DECK_SHELVES_OWNER__;
     delete w.__SHELVES_FORCE_OWNER__;
+    delete w.__DS_SH_CLAIMED__;
   });
 
   it("a single install always owns (first claim wins)", () => {
@@ -37,6 +38,14 @@ describe("ownerGuard", () => {
     expect(claimHomeOwnership("decky")).toBe(true);
     scope().__SHELVES_FORCE_OWNER__ = "shelveshub";
     expect(claimHomeOwnership("shelveshub")).toBe(true);
+    expect(scope().__DECK_SHELVES_OWNER__).toBe("shelveshub");
+  });
+
+  it("under force only the first shelveshub instance owns (no double mount)", () => {
+    scope().__SHELVES_FORCE_OWNER__ = "shelveshub";
+    expect(claimHomeOwnership("shelveshub")).toBe(true); // our injected bundle
+    expect(claimHomeOwnership("shelveshub")).toBe(false); // the loader's copy stands down
+    expect(claimHomeOwnership("decky")).toBe(false); // a decky-launched instance too
     expect(scope().__DECK_SHELVES_OWNER__).toBe("shelveshub");
   });
 });

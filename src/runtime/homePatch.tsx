@@ -5,6 +5,7 @@ import { wrapHomeShelves } from "../qa/harness";
 const HomeShelves = wrapHomeShelves(HomeShelvesRaw);
 import { SearchOverlay } from "../features/search/SearchOverlay";
 import { ShelfSideNav } from "../features/sidenav/ShelfSideNav";
+import { DeckScreensaverOverlay } from "../components/screensaver/DeckScreensaverOverlay";
 try { (globalThis as any).__ds_homepatch_loaded = Date.now(); (globalThis as any).__ds_overlays_imported = typeof SearchOverlay === 'function' && typeof ShelfSideNav === 'function'; } catch {}
 import { logDiagnostic } from "./diagnostics";
 import { logError, logInfo, logWarn } from "./logger";
@@ -298,19 +299,11 @@ export function reapplyHomeHides(): void {
   applyHideHomeTabs(pendingHideHomeTabs);
 }
 
-/* Re-assert ONLY the focus-tree suppression (tabindex) for the hidden home
-   areas — cheap and idempotent, safe on a tight poll. Steam re-renders the
-   native recents row and the home tabs on route round-trips (notably B / a
-   `history.go(-1)`, which fires `popstate`, not the pushState/replaceState hook
-   reapplyHomeHides is wired to) WITHOUT re-applying our tabindex strip, leaving a
-   fresh `tabindex=0` focusable inside the still-`visibility:hidden` row. GamepadUI's
-   nav tree honours tabindex but ignores CSS visibility, so gamepad focus gets
-   trapped on that invisible row and can't reach the DS shelves. The visibility-only
-   divergence poll never catches it (visibility already matches). Re-stripping the
-   current focusables heals it. Acts only when the area is meant to be hidden, and
-   never touches a recents row that is REPURPOSED (DS content injected in it) so the
-   replace-recents shelf stays focusable — covers native-recents/home-tabs shown or
-   hidden, on Deck and Mac, stable and beta. */
+/* Re-assert ONLY the tabindex suppression for hidden home areas (cheap,
+   idempotent, poll-safe). Steam re-renders native recents / home tabs on route
+   round-trips (e.g. B / popstate) without our strip, leaving a `tabindex=0`
+   focusable in a still-hidden row that traps gamepad focus (the nav tree honours
+   tabindex, ignores visibility). A REPURPOSED recents row is left focusable. */
 export function enforceHomeFocusSuppression(): void {
   try {
     if (pendingHideRecents) {
@@ -722,6 +715,7 @@ function HomeDomBridge() {
       React.createElement(HomeShelves),
       React.createElement(SearchOverlay),
       React.createElement(ShelfSideNav),
+      React.createElement(DeckScreensaverOverlay),
     ),
   );
 }
@@ -874,6 +868,12 @@ export function installHomePatch(_routerHook?: any) {
   });
 
   let bridgeRegistered = false;
+  // Time the bridge was set up, for the fallback grace window below.
+  const installedAt = Date.now();
+  // How long a registered bridge gets to render before the DOM fallback steps in.
+  // The fallback exists only for a bridge that failed to register/render; a
+  // slower-to-render working bridge must not race it into a double mount.
+  const BRIDGE_FALLBACK_GRACE_MS = 8000;
 
   try {
     bridgeRegistered = registerGlobalBridge(routerHook);
@@ -997,6 +997,7 @@ export function installHomePatch(_routerHook?: any) {
       React.createElement(HomeShelves),
       React.createElement(SearchOverlay),
       React.createElement(ShelfSideNav),
+      React.createElement(DeckScreensaverOverlay),
     ),
   );
     const tree = wrapWithRealNavParent(mount, innerTree);
@@ -1049,11 +1050,27 @@ export function installHomePatch(_routerHook?: any) {
     else logWarn("HOME", "fallback: no working render path found (global or webpack)");
   };
 
+  // The bridge is rendering the home once its component has rendered at least
+  // once (`__ds_bridge_renders` > 0) — earlier than the post-mount marker.
+  const bridgeIsRendering = (): boolean =>
+    bridgeRegistered && (((globalThis as any).__ds_bridge_renders as number) || 0) > 0;
+
+  /* True when the DOM fallback must NOT render. The bridge and this fallback must
+     never both mount HomeShelves into the same root (that duplicates every shelf),
+     so once the bridge is rendering it owns the home — drop any fallback already
+     up. A registered bridge also gets a grace window to render before we fall back
+     (the fallback is only for a bridge that failed to register/render). */
+  const fallbackShouldYield = (doc: Document): boolean => {
+    if (bridgeIsRendering()) { if (fallbackRoot) teardownPreviousFallbackRoot(); return true; }
+    if (shouldSkipFallbackRender(doc)) return true;
+    if (!isHomeVisible()) { fallbackRetries = 0; return true; }
+    return bridgeRegistered && Date.now() - installedAt < BRIDGE_FALLBACK_GRACE_MS;
+  };
+
   const tryFallbackRender = () => {
     try {
       const { win, doc } = getHostContext();
-      if (shouldSkipFallbackRender(doc)) return;
-      if (!isHomeVisible()) { fallbackRetries = 0; return; }
+      if (fallbackShouldYield(doc)) return;
       const mount = ensureFallbackMount();
       if (!mount || mount.dataset.deckShelvesRenderer === "react") return;
       if (fallbackRoot && fallbackMountEl === mount && mount.isConnected) return;

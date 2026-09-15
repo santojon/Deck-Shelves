@@ -71,7 +71,7 @@ function eligibleShelfIds(settings: Settings): string[] {
    on its own independent idle timer. `BIsActive()` reads that tree's state
    the same way `focusRestore.ts` already reads Steam's own trees elsewhere;
    absent entirely (and reads `false`) on a client without this feature. */
-function isNativeScreensaverActive(): boolean {
+export function isNativeScreensaverActive(): boolean {
   try {
     const ctrl = (globalThis as any).FocusNavController;
     const ctx = ctrl?.m_ActiveContext ?? ctrl?.m_LastActiveContext;

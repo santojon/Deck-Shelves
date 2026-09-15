@@ -22,6 +22,7 @@ import { installProfileTriggers } from "./runtime/profileTriggers";
 import { installFriendsState } from "./runtime/friendsState";
 import { installOwnQamTab } from "./runtime/ownQamTab";
 import { installShowcaseMode } from "./runtime/showcaseMode";
+import { installScreensaverInject } from "./runtime/screensaverInject";
 import { installPluginApi } from "./core/pluginApi";
 import { installLauncherCachePoll } from "./runtime/launcherCache";
 import "./core/internalRegistry";
@@ -136,15 +137,24 @@ const __ds_entry = definePlugin((serverAPI?: any) => {
   // on systems where the user account isn't `deck` (Bazzite, ChimeraOS, etc.).
   void prewarmUserPaths();
   const enableHomePatch = typeof __DECK_SHELVES_ENABLE_HOME_PATCH__ !== "undefined" ? __DECK_SHELVES_ENABLE_HOME_PATCH__ : true;
+  /* Forced hand-over: the neutral host stamped `__SHELVES_FORCE_OWNER__` and this
+     instance was self-invoked (no loader serverAPI). Bind to the injected host and
+     own as shelveshub even alongside a loader global — so force works in
+     coexistence, not just sole mode. A loader-launched instance (serverAPI set)
+     keeps its decky identity and stands down via the owner guard. */
+  const selfHosted = !serverAPI && (
+    (globalThis as any).window?.__SHELVES_FORCE_OWNER__ === "shelveshub"
+    || (globalThis as any).__SHELVES_FORCE_OWNER__ === "shelveshub"
+  );
   // A LOADER router hook (used to detect that a loader launched us). Keep this
   // keyed on the loader only — the injected host also exposes a router hook, but
   // that must NOT make resolveHost pick the loader path.
-  const loaderRouterHook = serverAPI?.routerHook
+  const loaderRouterHook = selfHosted ? undefined : (serverAPI?.routerHook
     ?? (globalThis as any).window?.DFL?.routerHook
-    ?? (globalThis as any).DFL?.routerHook;
+    ?? (globalThis as any).DFL?.routerHook);
   // Host selection lives entirely in resolveHost() — loader vs injected host,
   // by launch signal, producing the same HostApi contract either way.
-  _hostApi = resolveHost(serverAPI, loaderRouterHook);
+  _hostApi = resolveHost(selfHosted ? undefined : serverAPI, loaderRouterHook);
   // The router hook used for our screens + home patch: the loader's when a loader
   // launched us, or — as sole host — the injected host's own hook.
   const routerHook = loaderRouterHook
@@ -153,7 +163,7 @@ const __ds_entry = definePlugin((serverAPI?: any) => {
   // Single-owner guard: in a dual-host install the first instance claims the
   // renderer; the other stands down — no home patch and no settings writes —
   // so there's one injector and one writer.
-  const isOwner = claimHomeOwnership((serverAPI || loaderRouterHook) ? "decky" : "shelveshub");
+  const isOwner = claimHomeOwnership((!selfHosted && (serverAPI || loaderRouterHook)) ? "decky" : "shelveshub");
   if (!isOwner) logInfo("RUNTIME", "another Deck Shelves instance owns the renderer — standing down (no home patch / no settings writes)");
   const patch = (enableHomePatch && isOwner) ? installHomePatch(routerHook) : null;
   const recentsReplacePatch = isOwner ? installRecentsReplace(routerHook) : null;
@@ -378,6 +388,11 @@ const __ds_entry = definePlugin((serverAPI?: any) => {
   // Showcase / Dynamic Idle Mode (opt-in, default OFF). Only the renderer's
   // owner drives Home focus.
   const uninstallShowcaseMode = isOwner ? installShowcaseMode() : null;
+  /* Screensaver shelf injection (experimental, default OFF). Not gated on
+     isOwner. Wrapped defensively — it patches a live Steam internal of
+     unguaranteed shape, and this runs unconditionally at plugin init. */
+  let uninstallScreensaverInject: (() => void) | null = null;
+  try { uninstallScreensaverInject = installScreensaverInject(); } catch { uninstallScreensaverInject = null; }
 
   return {
     name: "Deck Shelves",
@@ -405,6 +420,7 @@ const __ds_entry = definePlugin((serverAPI?: any) => {
         uninstallLauncherCache();
         uninstallOwnQamTab?.();
         uninstallShowcaseMode?.();
+        uninstallScreensaverInject?.();
         unsubUpdateNotify();
         if (updateBootTimer !== null) { clearTimeout(updateBootTimer); updateBootTimer = null; }
         clearTimeout(suggestTimer);
@@ -431,11 +447,14 @@ function __ds_entry_guarded(serverAPI?: any) {
 }
 export default __ds_entry_guarded;
 
-// A loader always wins on a dual-install (see resolveHost()) — only
-// self-invoke when the injected-host signal is present with no loader global.
+/* A loader normally wins on a dual-install (see resolveHost()) — self-invoke when
+   the injected-host signal is present with no loader global. Under a forced
+   hand-over (`__SHELVES_FORCE_OWNER__`) self-invoke even alongside a loader, so
+   OUR injected bundle boots as shelveshub (the owner guard dedups the two graphs). */
 try {
   const g = globalThis as any;
   const hasInjectedHost = !!(g.window?.__SHELVES_HOST__ ?? g.__SHELVES_HOST__);
   const hasLoaderGlobal = !!(g.window?.DFL ?? g.DFL ?? g.window?.deckyFrontendLib ?? g.deckyFrontendLib);
-  if (hasInjectedHost && !hasLoaderGlobal) __ds_entry_guarded();
+  const forced = (g.window?.__SHELVES_FORCE_OWNER__ ?? g.__SHELVES_FORCE_OWNER__) === "shelveshub";
+  if (hasInjectedHost && (!hasLoaderGlobal || forced)) __ds_entry_guarded();
 } catch {}

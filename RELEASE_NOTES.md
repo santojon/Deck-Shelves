@@ -7,6 +7,9 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Added
 
+- **Every gamepad shortcut can now also be bound to a keyboard key.** In the bindings screen, each action (card hide/highlight/quick-launch, Quick Search, Side Nav, Sidecar open/close) has a second capture slot for a keyboard key — bind one and either the gamepad combo or the key triggers the same action. Supports modifier combos like Ctrl+F, and never fires while you're typing in a text field.
+- **New, optional toggle: Deck Shelves' own idle screensaver.** Instead of Steam's built-in one, show a slideshow of your Recents and shelf games (or just your shelves), optionally mixing in your local screenshots — with your own start delay, time per image, and an optional game-logo overlay you can resize. Still experimental. Off by default.
+
 - **Five new filters: Review score, Release date, Coming soon, Demo, and SteamOS compatibility.** Filter a shelf by a Metacritic or Steam-review threshold, by release date (before/after a day you pick), to unreleased titles only, to demos only, or by the SteamOS verified/playable/unsupported rating (separate from the Steam Deck one). The score/date filters use the same online data as the online sort options, so Online Features needs to be on for those.
 - **Importing a shelf from TabMaster now brings across your filters properly.** Tabs using regex, tags, playtime, size, review score, release date, "coming soon", demo, streamable, SD-card or SteamOS-compatibility filters used to import as an unrelated name filter; they now convert to the matching Deck Shelves filter instead.
 - **Two new sort options: "Games I own" and "Family-shared games."** Handy for shelves that mix your library with a wishlist or store source — sort by what's already yours, or by what's shared through Family Sharing.
@@ -20,6 +23,9 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Fixed
 
+- **On the Steam Beta client, a selected card's "New"/discount badge disappeared while it had focus on the Home.** The badge that floats above the focus ring wasn't tracking controller focus on the Beta; it now does, so the badge stays visible.
+- **On the Steam Beta client, a game's context menu was missing the Deck Shelves rows ("Add to shelf", "Highlight", "Hide") when running under the standalone host.** They're back.
+- **The System compatibility filter on macOS now correctly hides games that aren't available on your platform — and no longer blanks Steam's store pages.**
 - **A card's "New" or discount badge could vanish for good the moment you selected it inside the shelf editor's preview or the manual reorder list.** It's meant to hide there in favor of a floating version drawn above the focus ring — but only on the actual Home screen, which is the only place that floating badge exists. Fixed so the badge always stays visible everywhere else.
 - **On a Steam restart, focus could land on an online (wishlist/store) shelf instead of your actual first shelf**, briefly scrolling there before you'd navigated anywhere. Local shelves can take a moment longer to load right after a restart, and an online shelf could win that race purely by loading faster — not because it's actually first in your shelf order. Fixed.
 - **If the settings panel ever crashed, its error screen showed a Portuguese title regardless of your language.** Fixed.

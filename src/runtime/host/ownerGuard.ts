@@ -21,11 +21,16 @@ export function claimHomeOwnership(kind: HostKind): boolean {
   try {
     const w = ownerScope();
     if (w.__SHELVES_FORCE_OWNER__ === "shelveshub") {
-      w.__DECK_SHELVES_OWNER__ = "shelveshub"; // cooperative hand-over
-    } else if (w.__DECK_SHELVES_OWNER__ == null) {
-      w.__DECK_SHELVES_OWNER__ = kind; // first mount claims
+      // Forced hand-over to the neutral host: a loader-launched (decky) instance
+      // stands down, and only the FIRST shelveshub instance patches — two module
+      // graphs (our injected bundle + the loader's own copy) must not both mount.
+      w.__DECK_SHELVES_OWNER__ = "shelveshub";
+      _isOwner = kind === "shelveshub" && !w.__DS_SH_CLAIMED__;
+      if (_isOwner) w.__DS_SH_CLAIMED__ = true;
+    } else {
+      if (w.__DECK_SHELVES_OWNER__ == null) w.__DECK_SHELVES_OWNER__ = kind; // first mount claims
+      _isOwner = w.__DECK_SHELVES_OWNER__ === kind;
     }
-    _isOwner = w.__DECK_SHELVES_OWNER__ === kind;
   } catch {
     _isOwner = true;
   }

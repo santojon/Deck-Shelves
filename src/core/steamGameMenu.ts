@@ -1049,7 +1049,9 @@ function resolveLegacyOwnerWindow(): any {
 function buildLegacyMenuElement(React: any, overview: any, shelfId: string | undefined): any {
   const ownerWindow = resolveLegacyOwnerWindow();
   const baseTarget = shelfId ? getInjectedMenuComponent(legacyCachedComponent) : legacyCachedComponent;
-  const renderTarget = function DsFreshMenuLegacy(props: any) { return (baseTarget as any)(props); };
+  // See buildFreshMenuElement — render via createElement so a class-component menu
+  // (beta) is instantiated and its patched render runs, not called as a function.
+  const renderTarget = function DsFreshMenuLegacy(props: any) { return React.createElement(baseTarget, props); };
   const props = buildMenuProps(overview, ownerWindow, shelfId, legacyCachedTemplateProps);
   return React.createElement(renderTarget, props);
 }
@@ -1155,7 +1157,10 @@ function presentMenuElement(menuElement: any, cardEl: HTMLElement): void {
 function buildFreshMenuElement(overview: any, anchorDoc: Document | undefined, shelfId: string | undefined): any {
   const React = getSteamReact();
   const baseTarget = shelfId ? getInjectedMenuComponent(cachedMenuComponent) : cachedMenuComponent;
-  const renderTarget = function DsFreshMenu(props: any) { return (baseTarget as any)(props); };
+  // Render via React.createElement, not `baseTarget(props)` — the captured menu is
+  // a plain function on the stable client but a CLASS on the beta, and calling a
+  // class as a function bypasses its (patched) render, so our items never inject.
+  const renderTarget = function DsFreshMenu(props: any) { return React.createElement(baseTarget, props); };
   const props = buildMenuProps(overview, resolveOwnerWindow(anchorDoc), shelfId, cachedMenuTemplateProps);
   return React.createElement(renderTarget, props);
 }

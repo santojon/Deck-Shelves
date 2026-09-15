@@ -13,6 +13,7 @@ import { OnlinePrivacyModal } from '../../DeckQAMSettings'
 import { ProfilesSection } from '../sections/ProfilesSection'
 import { isCssLoaderActive } from '../../../core/cssLoaderDetect'
 import { isNonSteamBadgesAvailable } from '../../../integrations'
+import { isScreensaverSupportDetected } from '../../../runtime/screensaverInject'
 import { HideableRow, type HideableRowMode } from './HideableRow'
 
 type Mode = HideableRowMode
@@ -60,6 +61,7 @@ interface GCtx {
   lightMode: boolean;
   hasNonSteamBadges: boolean;
   hasCssLoader: boolean;
+  hasScreensaverSupport: boolean;
 }
 
 const eye = (c: GCtx, id: string) => (
@@ -225,13 +227,13 @@ function onlineSection(c: GCtx): ReactNode {
 }
 
 function experimentalSection(c: GCtx): ReactNode {
-  const { t, settings, actions, row, lightMode, hasCssLoader } = c
+  const { t, settings, actions, row, lightMode, hasCssLoader, hasScreensaverSupport } = c
   return (
     <CollapsibleSection
       id='experimental'
       icon={<WandIcon />}
       title={t('section_experimental' as any)}
-      count={[settings.forceCssLoaderThemes === true, (settings as any).ownQamTabEnabled === true, (settings as any).showcaseModeEnabled === true].filter(Boolean).length}
+      count={[settings.forceCssLoaderThemes === true, (settings as any).ownQamTabEnabled === true, (settings as any).showcaseModeEnabled === true, hasScreensaverSupport && (settings as any).screensaverShelvesEnabled === true].filter(Boolean).length}
       headerExtra={eye(c, 'experimental')}
     >
       {hasCssLoader && !lightMode && row('forceCssLoaderThemes', (
@@ -239,8 +241,43 @@ function experimentalSection(c: GCtx): ReactNode {
       ))}
       {ownQamTabGroup(c)}
       {showcaseModeGroup(c)}
+      {hasScreensaverSupport && screensaverShelvesGroup(c)}
     </CollapsibleSection>
   )
+}
+
+function screensaverShelvesGroup(c: GCtx): ReactNode {
+  const { t, settings, actions, row } = c
+  const on = (settings as any).screensaverShelvesEnabled === true
+  const onlyOurs = (settings as any).screensaverShelvesOnlyOurs === true
+  const logoOn = (settings as any).screensaverLogoEnabled !== false
+  return (<>
+    {row('screensaverShelvesEnabled', (
+      <ToggleField label={t('screensaver_shelves_enabled' as any)} checked={on} onChange={(v: boolean) => void (actions as any).setScreensaverShelvesEnabled(v)} />
+    ))}
+    {on && (
+      <div style={{ paddingLeft: 14, fontSize: 12 }}>
+        {row('screensaverShelvesOnlyOurs', (
+          <ToggleField label={t('screensaver_shelves_only_ours' as any)} checked={onlyOurs} onChange={(v: boolean) => void (actions as any).setScreensaverShelvesOnlyOurs(v)} />
+        ))}
+        {row('screensaverShelvesIncludeScreenshots', (
+          <ToggleField label={t('screensaver_shelves_include_screenshots' as any)} checked={(settings as any).screensaverShelvesIncludeScreenshots === true} onChange={(v: boolean) => void (actions as any).setScreensaverShelvesIncludeScreenshots(v)} />
+        ))}
+        {row('screensaverStartAfterSeconds', (
+          <DSSliderField label={t('screensaver_start_after_label' as any)} value={(settings as any).screensaverStartAfterSeconds ?? 60} min={15} max={600} step={15} unit='s' onChange={(v: number) => void (actions as any).setScreensaverStartAfterSeconds(v)} />
+        ))}
+        {row('screensaverDwellSeconds', (
+          <DSSliderField label={t('screensaver_dwell_label' as any)} value={(settings as any).screensaverDwellSeconds ?? 8} min={3} max={120} step={1} unit='s' onChange={(v: number) => void (actions as any).setScreensaverDwellSeconds(v)} />
+        ))}
+        {row('screensaverLogoEnabled', (
+          <ToggleField label={t('screensaver_logo_enabled' as any)} checked={logoOn} onChange={(v: boolean) => void (actions as any).setScreensaverLogoEnabled(v)} />
+        ))}
+        {logoOn && row('screensaverLogoSize', (
+          <DSSliderField label={t('screensaver_logo_size_label' as any)} value={(settings as any).screensaverLogoSize ?? 100} min={50} max={200} step={5} unit='%' onChange={(v: number) => void (actions as any).setScreensaverLogoSize(v)} />
+        ))}
+      </div>
+    )}
+  </>)
 }
 
 function ownQamTabGroup(c: GCtx): ReactNode {
@@ -550,11 +587,13 @@ export function GeneralTab({ controller }: { controller: SettingsController }) {
   const hasNonSteamBadges = isNonSteamBadgesAvailable()
   let hasCssLoader = false
   try { hasCssLoader = isCssLoaderActive() } catch {}
+  let hasScreensaverSupport = false
+  try { hasScreensaverSupport = isScreensaverSupportDetected() } catch {}
   const mode: Mode = 'sidecar'
   const row = (tk: string, node: ReactNode) => (
     <HideableRow tk={tk} hidden={isHid(tk)} setHidden={(v) => setHid(tk, v)} mode={mode} t={t}>{node}</HideableRow>
   )
-  const c: GCtx = { t, settings, actions, row, isSecHid, setSecHid, lightMode, hasNonSteamBadges, hasCssLoader }
+  const c: GCtx = { t, settings, actions, row, isSecHid, setSecHid, lightMode, hasNonSteamBadges, hasCssLoader, hasScreensaverSupport }
 
   return (
     <div className='ds-general-tab'>

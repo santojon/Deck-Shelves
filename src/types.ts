@@ -759,6 +759,22 @@ export const SettingsSchema = z.object({
     navSidecarClose: z.string().nullable().optional(),
   }).nullable().optional().transform((v) => v ?? {}),
   keyboardBindingsDisabled: z.array(z.string()).nullable().optional().transform((v) => v ?? []),
+  /* Deck Shelves' own idle screensaver (native recents + shelf games,
+     optionally shelves-only and/or including screenshots), replacing
+     Steam's native one while active. Experimental — defaults off. */
+  screensaverShelvesEnabled: z.boolean().nullable().optional().transform((v) => v ?? false),
+  screensaverShelvesOnlyOurs: z.boolean().nullable().optional().transform((v) => v ?? false),
+  screensaverShelvesIncludeScreenshots: z.boolean().nullable().optional().transform((v) => v ?? false),
+  /* Steam's own idle-screensaver timeout (seconds), cached here right
+     before we override it so it can be restored exactly when the
+     feature is turned off. null = not currently overridden. */
+  screensaverIdleBackupAcSec: z.number().nullable().optional().transform((v) => v ?? null),
+  screensaverIdleBackupBatterySec: z.number().nullable().optional().transform((v) => v ?? null),
+  // Own idle/dwell timing — independent of Steam's cached value above.
+  screensaverStartAfterSeconds: z.number().int().min(15).max(600).nullable().optional().transform((v) => v ?? 60),
+  screensaverDwellSeconds: z.number().int().min(3).max(120).nullable().optional().transform((v) => v ?? 8),
+  screensaverLogoEnabled: z.boolean().nullable().optional().transform((v) => v ?? true),
+  screensaverLogoSize: z.number().int().min(50).max(200).nullable().optional().transform((v) => v ?? 100),
 });
 
 export type Settings = z.infer<typeof SettingsSchema>;

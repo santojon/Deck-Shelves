@@ -114,5 +114,14 @@ export function defaultSettings(): Settings {
     buttonBindingsDisabled: [],
     keyboardBindings: {},
     keyboardBindingsDisabled: [],
+    screensaverShelvesEnabled: false,
+    screensaverShelvesOnlyOurs: false,
+    screensaverShelvesIncludeScreenshots: false,
+    screensaverIdleBackupAcSec: null,
+    screensaverIdleBackupBatterySec: null,
+    screensaverStartAfterSeconds: 60,
+    screensaverDwellSeconds: 8,
+    screensaverLogoEnabled: true,
+    screensaverLogoSize: 100,
   };
 }

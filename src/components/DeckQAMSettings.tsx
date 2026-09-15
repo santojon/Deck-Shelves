@@ -14,6 +14,7 @@ import { DeckQAMStyles } from './styles/DeckQAMStyles'
 import { logInfo } from '../runtime/logger'
 import { isTabMasterInstalled, isNonSteamBadgesAvailable } from '../integrations'
 import { isCssLoaderActive } from '../core/cssLoaderDetect'
+import { isScreensaverSupportDetected } from '../runtime/screensaverInject'
 import { useLightMode } from './ui/lightMode'
 import { getUserDownloadsDir, joinDownloads } from '../core/userPaths'
 import { descriptorName } from '../core/descriptorName'
@@ -244,7 +245,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
         fireQamExpand(getQamWindow(), false, setQamExpanded);
       }
     };
-    document.addEventListener('keydown', onKeyDown);
+    document.addEventListener('keydown', onKeyDown); // deck-shelves: bound-combo match only, never preventDefault/stopPropagation
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [setQamExpanded, isActiveTab]);
   /* Decky keeps the plugin tab mounted across QAM open/close cycles, so
@@ -356,6 +357,9 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
   const isSecHid = (id: string) => hiddenSections.includes(id)
   const [hasTabMaster] = useState(() => isTabMasterInstalled())
   const [hasNonSteamBadges] = useState(() => isNonSteamBadgesAvailable())
+  const [hasScreensaverSupport] = useState(() => {
+    try { return isScreensaverSupportDetected(); } catch { return false; }
+  })
   // CSS Loader presence — the force-themes toggle only shows when at least
   // one CSS Loader theme is loaded. Re-check shortly after mount in case
   // the panel opens before CSS Loader has injected its stylesheets.
@@ -668,7 +672,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
       {(() => {
         if (isSecHid('experimental')) return null;
         return (
-      <CollapsibleSection id='experimental' icon={<WandIcon />} title={t('section_experimental' as any)} count={[settings.forceCssLoaderThemes === true, (settings as any).ownQamTabEnabled === true, (settings as any).showcaseModeEnabled === true].filter(Boolean).length}>
+      <CollapsibleSection id='experimental' icon={<WandIcon />} title={t('section_experimental' as any)} count={[settings.forceCssLoaderThemes === true, (settings as any).ownQamTabEnabled === true, (settings as any).showcaseModeEnabled === true, hasScreensaverSupport && (settings as any).screensaverShelvesEnabled === true].filter(Boolean).length}>
         {(() => (
         hasCssLoader && !lightMode && !isHid('forceCssLoaderThemes') && (
           <ToggleField label={t('force_themes_label')} checked={settings.forceCssLoaderThemes === true} onChange={(value: boolean) => void actions.setForceCssLoaderThemes(value)} />
@@ -705,6 +709,23 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
                 <DSSliderField label={t('showcase_cards_per_shelf_label' as any)} value={(settings as any).showcaseCardsPerShelf ?? 5} min={1} max={20} step={1} onChange={(value: number) => void (actions as any).setShowcaseCardsPerShelf(value)} />
                 <DSSliderField label={t('showcase_card_dwell_label' as any)} value={(settings as any).showcaseCardDwellSeconds ?? 4} min={1} max={60} step={1} unit='s' onChange={(value: number) => void (actions as any).setShowcaseCardDwellSeconds(value)} />
               </>)}
+            </div>
+          )}
+        </>)
+        ))()}
+        {(() => (
+        hasScreensaverSupport && !isHid('screensaverShelvesEnabled') && (<>
+          <ToggleField label={t('screensaver_shelves_enabled' as any)} checked={(settings as any).screensaverShelvesEnabled === true} onChange={(value: boolean) => void (actions as any).setScreensaverShelvesEnabled(value)} />
+          {(settings as any).screensaverShelvesEnabled === true && (
+            <div style={{ paddingLeft: 16 }}>
+              <ToggleField label={t('screensaver_shelves_only_ours' as any)} checked={(settings as any).screensaverShelvesOnlyOurs === true} onChange={(value: boolean) => void (actions as any).setScreensaverShelvesOnlyOurs(value)} />
+              <ToggleField label={t('screensaver_shelves_include_screenshots' as any)} checked={(settings as any).screensaverShelvesIncludeScreenshots === true} onChange={(value: boolean) => void (actions as any).setScreensaverShelvesIncludeScreenshots(value)} />
+              <DSSliderField label={t('screensaver_start_after_label' as any)} value={(settings as any).screensaverStartAfterSeconds ?? 60} min={15} max={600} step={15} unit='s' onChange={(value: number) => void (actions as any).setScreensaverStartAfterSeconds(value)} />
+              <DSSliderField label={t('screensaver_dwell_label' as any)} value={(settings as any).screensaverDwellSeconds ?? 8} min={3} max={120} step={1} unit='s' onChange={(value: number) => void (actions as any).setScreensaverDwellSeconds(value)} />
+              <ToggleField label={t('screensaver_logo_enabled' as any)} checked={(settings as any).screensaverLogoEnabled !== false} onChange={(value: boolean) => void (actions as any).setScreensaverLogoEnabled(value)} />
+              {(settings as any).screensaverLogoEnabled !== false && (
+                <DSSliderField label={t('screensaver_logo_size_label' as any)} value={(settings as any).screensaverLogoSize ?? 100} min={50} max={200} step={5} unit='%' onChange={(value: number) => void (actions as any).setScreensaverLogoSize(value)} />
+              )}
             </div>
           )}
         </>)
