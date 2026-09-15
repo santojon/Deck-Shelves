@@ -8,6 +8,7 @@ import {
   buildScreensaverPool, getStartAfterSeconds, getDwellSeconds, isQamOrMenuOpen, closeQamOrMenu,
   type ScreensaverItem,
 } from "../../runtime/screensaverInject";
+import { isNativeScreensaverActive } from "../../runtime/showcaseMode";
 import type { Settings } from "../../types";
 
 const IDLE_CHECK_MS = 1000;
@@ -79,7 +80,7 @@ function Slide({ item, logoEnabled, logoScale, onExhausted }: {
       <img
         src={src}
         onError={() => setIdx((i) => i + 1)}
-        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
+        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", display: "block", objectFit: "fill", objectPosition: "50% 18%" }}
       />
       {item.type === "app" && logoEnabled && <LogoImage appid={item.appid} scale={logoScale} />}
     </div>
@@ -125,6 +126,11 @@ export function DeckScreensaverOverlay() {
     document.addEventListener("wheel", wake);
     const unsubInput = subscribeControllerInput((e) => { if (e.pressed) wake(); });
     const idleCheck = window.setInterval(() => {
+      /* Belt-and-suspenders against Steam's own native idle screensaver —
+         disabling its timer already keeps it from triggering, but stand
+         down instead of doubling up if it's somehow active anyway (same
+         ScreensaverPopup check showcaseMode.ts already relies on). */
+      if (isNativeScreensaverActive()) { setActive(false); return; }
       if (activeRef.current) { setSuppressed(isQamOrMenuOpen()); return; }
       const thresholdSec = getStartAfterSeconds(getCurrentSettings());
       if (Date.now() - lastActivityRef.current < thresholdSec * 1000) return;
