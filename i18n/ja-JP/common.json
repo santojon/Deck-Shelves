@@ -93,6 +93,8 @@
   "screensaver_dwell_label": "項目ごとの表示時間",
   "screensaver_logo_enabled": "ロゴを表示",
   "screensaver_logo_size_label": "ロゴサイズ",
+  "screensaver_logo_at_top_label": "ロゴを上部に配置",
+  "screensaver_logo_offset_label": "ロゴの距離",
   "showcase_mode_enabled": "ショーケースモード",
   "showcase_mode_desc": "アイドル時に棚を切り替えます。操作するとすぐ停止します。",
   "showcase_start_after_label": "開始までの時間",

@@ -123,5 +123,8 @@ export function defaultSettings(): Settings {
     screensaverDwellSeconds: 8,
     screensaverLogoEnabled: true,
     screensaverLogoSize: 100,
+    screensaverLogoPosition: 'left',
+    screensaverLogoAtTop: false,
+    screensaverLogoOffset: 8,
   };
 }

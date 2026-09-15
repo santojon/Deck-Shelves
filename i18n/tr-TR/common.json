@@ -93,6 +93,8 @@
   "screensaver_dwell_label": "Öğe başına süre",
   "screensaver_logo_enabled": "Logoyu göster",
   "screensaver_logo_size_label": "Logo boyutu",
+  "screensaver_logo_at_top_label": "Logo üstte",
+  "screensaver_logo_offset_label": "Logo boşluğu",
   "showcase_mode_enabled": "Vitrin modu",
   "showcase_mode_desc": "Boştayken raflarınızda gezinir. Herhangi bir girdi durdurur.",
   "showcase_start_after_label": "Şu süre sonra başlat",

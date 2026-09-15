@@ -93,6 +93,8 @@
   "screensaver_dwell_label": "Tempo por item",
   "screensaver_logo_enabled": "Exibir logo",
   "screensaver_logo_size_label": "Tamanho da logo",
+  "screensaver_logo_at_top_label": "Logo no topo",
+  "screensaver_logo_offset_label": "Distância do logo",
   "showcase_mode_enabled": "Modo vitrine",
   "showcase_mode_desc": "Percorre suas prateleiras quando ocioso. Qualquer entrada interrompe.",
   "showcase_start_after_label": "Iniciar após",

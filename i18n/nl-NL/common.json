@@ -93,6 +93,8 @@
   "screensaver_dwell_label": "Tijd per item",
   "screensaver_logo_enabled": "Logo tonen",
   "screensaver_logo_size_label": "Logogrootte",
+  "screensaver_logo_at_top_label": "Logo bovenaan",
+  "screensaver_logo_offset_label": "Logo-marge",
   "showcase_mode_enabled": "Showcase-modus",
   "showcase_mode_desc": "Doorloopt je planken bij inactiviteit. Elke invoer stopt het.",
   "showcase_start_after_label": "Starten na",

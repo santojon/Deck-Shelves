@@ -93,6 +93,8 @@
   "screensaver_dwell_label": "Temps par élément",
   "screensaver_logo_enabled": "Afficher le logo",
   "screensaver_logo_size_label": "Taille du logo",
+  "screensaver_logo_at_top_label": "Logo en haut",
+  "screensaver_logo_offset_label": "Décalage du logo",
   "showcase_mode_enabled": "Mode vitrine",
   "showcase_mode_desc": "Parcourt vos étagères en cas d'inactivité. Toute entrée l'arrête.",
   "showcase_start_after_label": "Démarrer après",

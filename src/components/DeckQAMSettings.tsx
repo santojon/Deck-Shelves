@@ -46,7 +46,7 @@ import { UnifiedShelvesPanelSection } from './qam/list/UnifiedShelvesPanelSectio
 import { SavedFilterRow } from './qam/list/SavedFilterRow'
 import { SavedSmartFilterRow } from './qam/list/SavedSmartFilterRow'
 import { SmartShelvesFirstRunBanner } from './qam/modals/SmartShelvesFirstRunBanner'
-import { CollapsibleSection, DSSliderField, VersionFooter } from './ui'
+import { CollapsibleSection, DSSliderField, PositionField, VersionFooter, type HorizontalPosition } from './ui'
 import { SlidersIcon, StackIcon, SparkleIcon, BookmarkIcon, PlusCircleIcon, OnlineIcon, SearchIcon, WandIcon } from './icons'
 import { UpdateBanner } from './qam/UpdateBanner'
 import { useQamExpanded, resetQamExpanded } from './qam/qamExpandedStore'
@@ -723,9 +723,12 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
               <DSSliderField label={t('screensaver_start_after_label' as any)} value={(settings as any).screensaverStartAfterSeconds ?? 60} min={15} max={600} step={15} unit='s' onChange={(value: number) => void (actions as any).setScreensaverStartAfterSeconds(value)} />
               <DSSliderField label={t('screensaver_dwell_label' as any)} value={(settings as any).screensaverDwellSeconds ?? 8} min={3} max={120} step={1} unit='s' onChange={(value: number) => void (actions as any).setScreensaverDwellSeconds(value)} />
               <ToggleField label={t('screensaver_logo_enabled' as any)} checked={(settings as any).screensaverLogoEnabled !== false} onChange={(value: boolean) => void (actions as any).setScreensaverLogoEnabled(value)} />
-              {(settings as any).screensaverLogoEnabled !== false && (
+              {(settings as any).screensaverLogoEnabled !== false && (<>
                 <DSSliderField label={t('screensaver_logo_size_label' as any)} value={(settings as any).screensaverLogoSize ?? 100} min={50} max={200} step={5} unit='%' onChange={(value: number) => void (actions as any).setScreensaverLogoSize(value)} />
-              )}
+                <PositionField labelKey='logo_position_label' value={(settings as any).screensaverLogoPosition ?? 'left'} t={(k: string) => t(k as any)} onChange={(v: HorizontalPosition) => void (actions as any).setScreensaverLogoPosition(v)} />
+                <ToggleField label={t('screensaver_logo_at_top_label' as any)} checked={(settings as any).screensaverLogoAtTop === true} onChange={(value: boolean) => void (actions as any).setScreensaverLogoAtTop(value)} />
+                <DSSliderField label={t('screensaver_logo_offset_label' as any)} value={(settings as any).screensaverLogoOffset ?? 8} min={0} max={50} step={1} unit='%' onChange={(value: number) => void (actions as any).setScreensaverLogoOffset(value)} />
+              </>)}
             </div>
           )}
         </>)

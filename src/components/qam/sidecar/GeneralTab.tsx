@@ -275,8 +275,24 @@ function screensaverShelvesGroup(c: GCtx): ReactNode {
         {logoOn && row('screensaverLogoSize', (
           <DSSliderField label={t('screensaver_logo_size_label' as any)} value={(settings as any).screensaverLogoSize ?? 100} min={50} max={200} step={5} unit='%' onChange={(v: number) => void (actions as any).setScreensaverLogoSize(v)} />
         ))}
+        {logoOn && screensaverLogoPlacementGroup(c)}
       </div>
     )}
+  </>)
+}
+
+function screensaverLogoPlacementGroup(c: GCtx): ReactNode {
+  const { t, settings, actions, row } = c
+  return (<>
+    {row('screensaverLogoPosition', (
+      <PositionField labelKey='logo_position_label' value={(settings as any).screensaverLogoPosition ?? 'left'} t={t} onChange={(v: HorizontalPosition) => void (actions as any).setScreensaverLogoPosition(v)} />
+    ))}
+    {row('screensaverLogoAtTop', (
+      <ToggleField label={t('screensaver_logo_at_top_label' as any)} checked={(settings as any).screensaverLogoAtTop === true} onChange={(v: boolean) => void (actions as any).setScreensaverLogoAtTop(v)} />
+    ))}
+    {row('screensaverLogoOffset', (
+      <DSSliderField label={t('screensaver_logo_offset_label' as any)} value={(settings as any).screensaverLogoOffset ?? 8} min={0} max={50} step={1} unit='%' onChange={(v: number) => void (actions as any).setScreensaverLogoOffset(v)} />
+    ))}
   </>)
 }
 

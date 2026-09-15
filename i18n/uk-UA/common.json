@@ -93,6 +93,8 @@
   "screensaver_dwell_label": "Час на елемент",
   "screensaver_logo_enabled": "Показувати логотип",
   "screensaver_logo_size_label": "Розмір логотипа",
+  "screensaver_logo_at_top_label": "Логотип зверху",
+  "screensaver_logo_offset_label": "Відступ логотипа",
   "showcase_mode_enabled": "Режим вітрини",
   "showcase_mode_desc": "Перемикає ваші полиці під час бездіяльності. Будь-яке введення зупиняє.",
   "showcase_start_after_label": "Почати через",

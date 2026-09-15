@@ -93,6 +93,8 @@
   "screensaver_dwell_label": "Tiempo por elemento",
   "screensaver_logo_enabled": "Mostrar logo",
   "screensaver_logo_size_label": "Tamaño del logo",
+  "screensaver_logo_at_top_label": "Logo arriba",
+  "screensaver_logo_offset_label": "Distancia del logo",
   "showcase_mode_enabled": "Modo escaparate",
   "showcase_mode_desc": "Recorre tus estanterías cuando está inactivo. Cualquier entrada lo detiene.",
   "showcase_start_after_label": "Iniciar tras",

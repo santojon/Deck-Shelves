@@ -93,6 +93,8 @@
   "screensaver_dwell_label": "Время на элемент",
   "screensaver_logo_enabled": "Показывать логотип",
   "screensaver_logo_size_label": "Размер логотипа",
+  "screensaver_logo_at_top_label": "Логотип сверху",
+  "screensaver_logo_offset_label": "Отступ логотипа",
   "showcase_mode_enabled": "Режим витрины",
   "showcase_mode_desc": "Переключает ваши полки при бездействии. Любой ввод останавливает.",
   "showcase_start_after_label": "Начать через",

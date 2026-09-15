@@ -93,6 +93,8 @@
   "screensaver_dwell_label": "Czas na element",
   "screensaver_logo_enabled": "Pokaż logo",
   "screensaver_logo_size_label": "Rozmiar logo",
+  "screensaver_logo_at_top_label": "Logo u góry",
+  "screensaver_logo_offset_label": "Margines logo",
   "showcase_mode_enabled": "Tryb prezentacji",
   "showcase_mode_desc": "Przełącza Twoje półki przy bezczynności. Dowolne wejście to zatrzymuje.",
   "showcase_start_after_label": "Rozpocznij po",
