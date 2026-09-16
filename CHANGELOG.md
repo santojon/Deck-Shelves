@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.3.0] - 2026-09-16
+
 ### Added
 
 - **Every gamepad binding now has an independent keyboard shortcut too — either input fires the same action, neither replaces the other.** All seven configurable triggers (card hide/highlight/quick-launch, Quick Search, Side Nav, Sidecar open/close) gained a second capture slot in the bindings UI, using `KeyboardEvent.code` (layout-independent) with the same single/chord/double-tap grammar the gamepad parser already has, including modifier chords (`ControlLeft+KeyF`). A bound key is ignored while a text field has focus, so it never fires mid-typing. Arrow keys are deliberately not bindable — this beta's GamepadUI intercepts them as virtual D-pad navigation before a real keydown ever reaches the page. Card-action and nav-search/side-nav keys ride the existing Home input bus; the QAM sidecar's own open/close keys use a `keydown` listener scoped to the QAM's real document (this component's code runs in SharedJSContext, whose own bare `document` never receives real key events even though the rendered DOM ends up inside the QAM). Exposed to third-party plugins read-only via `api.listKeyboardShortcuts()`, mirroring the existing gamepad `api.listShortcuts()`. Fully localized across all 18 shipped locales ([`keyboardBindings.ts`](src/runtime/keyboardBindings.ts), [`ButtonBindingsDetail.tsx`](src/components/settings/details/ButtonBindingsDetail.tsx)).

@@ -5,6 +5,8 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+## [3.3.0] - 2026-09-16
+
 ### Added
 
 - **Every gamepad shortcut can now also be bound to a keyboard key.** In the bindings screen, each action (card hide/highlight/quick-launch, Quick Search, Side Nav, Sidecar open/close) has a second capture slot for a keyboard key — bind one and either the gamepad combo or the key triggers the same action. Supports modifier combos like Ctrl+F, and never fires while you're typing in a text field.
