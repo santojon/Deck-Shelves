@@ -779,6 +779,10 @@ export const SettingsSchema = z.object({
   screensaverLogoAtTop: z.boolean().nullable().optional().transform((v) => v ?? false),
   screensaverLogoOffset: z.number().int().min(0).max(50).nullable().optional().transform((v) => v ?? 8),
   screensaverLogoOnScreenshots: z.boolean().nullable().optional().transform((v) => v ?? true),
+  cloudSyncEnabled: z.boolean().nullable().optional().transform((v) => v ?? false),
+  // Timestamp of the last cloud snapshot this device pushed or applied —
+  // internal LWW bookkeeping, never synced itself (see cloudSync.ts).
+  cloudSyncLastSyncedAt: z.number().nullable().optional().transform((v) => v ?? null),
 });
 
 export type Settings = z.infer<typeof SettingsSchema>;

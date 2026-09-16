@@ -479,7 +479,19 @@ Opt-in, off by default (`ownQamTabEnabled`). Ports a tab-injection mechanism alr
 
 ### Showcase / Dynamic Idle Mode (`runtime/showcaseMode.ts`)
 
-Opt-in, off by default (`showcaseModeEnabled`). During Home inactivity, cycles focus through the user's own shelves on a timer, reusing the exact same focus-a-shelf's-first-card mechanism Side Nav's own "jump to shelf" already ships — never synthetic input. Any real interaction (a controller button via `subscribeControllerInput`, or a pointer/wheel/keydown event) stops it and re-arms the idle timer. MVP scope only; deferred: per-shelf pan/crossfade, a shelf-participation picker UI.
+Opt-in, off by default (`showcaseModeEnabled`). During Home inactivity, cycles focus through the user's own shelves on a timer, reusing the exact same focus-a-shelf's-first-card mechanism Side Nav's own "jump to shelf" already ships — never synthetic input. Any real interaction (a controller button via `subscribeControllerInput`, or a pointer/wheel/keydown event) stops it and re-arms the idle timer. MVP scope only; deferred: per-shelf pan/crossfade, a shelf-participation picker UI. Also exports `isNativeScreensaverActive()` (`ScreensaverPopup`/`BIsActive()` on the active `GamepadNavigationTree`), which both Showcase and the screensaver below use to stand down if Steam's own native screensaver is somehow active.
+
+### Keyboard bindings (`runtime/keyboardBindings.ts`)
+
+Every gamepad binding (card hide/highlight/quick-launch, Quick Search, Side Nav, Sidecar open/close) also has an independent keyboard shortcut slot — either input fires the same action, neither replaces the other. Uses `KeyboardEvent.code` (layout-independent) with the same single/chord/double-tap grammar the gamepad parser already has, including modifier chords. Card-action and nav-search/side-nav keys are captured via the existing Home input bus (already proven for "type to filter"); the QAM sidecar's own open/close keys use a plain `keydown` listener scoped to that window. Ignored while a text field has focus.
+
+### Own idle screensaver (`runtime/screensaverInject.ts`, `runtime/steamSettingsWriter.ts`)
+
+Opt-in, off by default (`screensaverShelvesEnabled`). Replaces Steam's native idle screensaver outright (two injection-into-the-native-one approaches were tried and are confirmed dead ends) with a slideshow of shelf games/Recents and, opt-in, local screenshots. Disables Steam's own idle timeout while active, restoring it exactly on toggle-off, via an internal settings-write path located at runtime by a stable call-site string (not a hardcoded module id) and never trusted without a round-trip verification first.
+
+### Cross-device settings sync (`runtime/cloudSync.ts`)
+
+Opt-in, off by default (`cloudSyncEnabled`). Mirrors settings across devices on the same Steam account via `SteamClient.RoamingStorage` — not real Steam Cloud (`ISteamRemoteStorage` is per-appid; a plugin has none). Local storage stays authoritative; this is a timestamp-LWW third mirror, reconciled once at boot/toggle-on and pushed on a debounce afterward, no polling.
 
 ## Home internals
 

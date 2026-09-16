@@ -5,7 +5,7 @@ import { restartSteam } from '../../../runtime/ownQamTab'
 import { takeNavTreeFocus } from '../../../runtime/navFocus'
 import type { SettingsController } from '../../../features/settings/controller'
 import { CollapsibleSection, DSSliderField, PositionField, useLightMode, type HorizontalPosition } from '../../ui'
-import { SlidersIcon, SparkleIcon, WandIcon, PlusCircleIcon, SearchIcon, OnlineIcon, EyeIcon, EyeOffIcon, BookmarkIcon } from '../../icons'
+import { SlidersIcon, SparkleIcon, WandIcon, PlusCircleIcon, SearchIcon, OnlineIcon, EyeIcon, EyeOffIcon, BookmarkIcon, CloudIcon } from '../../icons'
 import { openManagedModal } from '../common/openManagedModal'
 import { applyGameInfoAboveToggle, applyHideTitleToggle } from '../common/gameInfoCoupling'
 import { confirmAction } from '../modals/ConfirmActionModal'
@@ -14,6 +14,7 @@ import { ProfilesSection } from '../sections/ProfilesSection'
 import { isCssLoaderActive } from '../../../core/cssLoaderDetect'
 import { isNonSteamBadgesAvailable } from '../../../integrations'
 import { isScreensaverSupportDetected } from '../../../runtime/screensaverInject'
+import { hasCloudSyncSupport } from '../../../runtime/cloudSync'
 import { HideableRow, type HideableRowMode } from './HideableRow'
 
 type Mode = HideableRowMode
@@ -62,6 +63,7 @@ interface GCtx {
   hasNonSteamBadges: boolean;
   hasCssLoader: boolean;
   hasScreensaverSupport: boolean;
+  hasCloudSync: boolean;
 }
 
 const eye = (c: GCtx, id: string) => (
@@ -197,13 +199,13 @@ function navigationSection(c: GCtx): ReactNode {
 }
 
 function onlineSection(c: GCtx): ReactNode {
-  const { t, settings, actions, row } = c
+  const { t, settings, actions, row, hasCloudSync } = c
   return (
     <CollapsibleSection
       id='online'
       icon={<OnlineIcon />}
       title={t('section_online' as any)}
-      count={settings.onlineFeaturesEnabled === true ? 1 : 0}
+      count={[settings.onlineFeaturesEnabled === true, hasCloudSync && (settings as any).cloudSyncEnabled === true].filter(Boolean).length}
       headerExtra={eye(c, 'online')}
     >
       {row('onlineFeaturesEnabled', (
@@ -221,9 +223,22 @@ function onlineSection(c: GCtx): ReactNode {
           }}
         />
       ))}
+      {hasCloudSync && cloudSyncGroup(c)}
       {settings.onlineFeaturesEnabled === true && onlineSubsection(c)}
     </CollapsibleSection>
   )
+}
+
+function cloudSyncGroup(c: GCtx): ReactNode {
+  const { t, settings, actions, row } = c
+  return (<>
+    {row('cloudSyncEnabled', (
+      <ToggleField label={t('cloud_sync_enabled' as any)} checked={(settings as any).cloudSyncEnabled === true} onChange={(v: boolean) => void (actions as any).setCloudSyncEnabled(v)} />
+    ))}
+    <div style={{ paddingLeft: 14, fontSize: 11, opacity: 0.65, lineHeight: 1.4, display: 'flex', gap: 6, alignItems: 'flex-start' }}>
+      <CloudIcon size={12} /><span>{t('cloud_sync_desc' as any)}</span>
+    </div>
+  </>)
 }
 
 function experimentalSection(c: GCtx): ReactNode {
@@ -608,11 +623,13 @@ export function GeneralTab({ controller }: { controller: SettingsController }) {
   try { hasCssLoader = isCssLoaderActive() } catch {}
   let hasScreensaverSupport = false
   try { hasScreensaverSupport = isScreensaverSupportDetected() } catch {}
+  let hasCloudSync = false
+  try { hasCloudSync = hasCloudSyncSupport() } catch {}
   const mode: Mode = 'sidecar'
   const row = (tk: string, node: ReactNode) => (
     <HideableRow tk={tk} hidden={isHid(tk)} setHidden={(v) => setHid(tk, v)} mode={mode} t={t}>{node}</HideableRow>
   )
-  const c: GCtx = { t, settings, actions, row, isSecHid, setSecHid, lightMode, hasNonSteamBadges, hasCssLoader, hasScreensaverSupport }
+  const c: GCtx = { t, settings, actions, row, isSecHid, setSecHid, lightMode, hasNonSteamBadges, hasCssLoader, hasScreensaverSupport, hasCloudSync }
 
   return (
     <div className='ds-general-tab'>

@@ -76,6 +76,17 @@ export function getLastFocusedElement(): HTMLElement | null {
   return nodeElement(tree?.m_lastFocusNode ?? tree?.m_LastFocusNode);
 }
 
+/* The gamepad-focused element in the ACTIVE nav context — the beta-safe stand-in
+   for `document.querySelector('.gpfocus')`, which this beta never applies (see the
+   note above). While the QAM is open its context is the active one, so this reads
+   QAM-internal focus, unlike getLastFocusedElement() which is pinned to the home
+   tree. Falls back to the last active context. */
+export function getActiveFocusedElement(): HTMLElement | null {
+  const ctrl = getFocusNavController();
+  const node = ctrl?.m_ActiveContext?.m_lastFocusNode ?? ctrl?.m_LastActiveContext?.m_lastFocusNode;
+  return nodeElement(node);
+}
+
 function findNavNodeForElement(el: HTMLElement): any {
   const walk = (node: any, target: HTMLElement): any => {
     // Cover property name variations across SteamOS versions

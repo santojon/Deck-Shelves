@@ -96,6 +96,7 @@
   "screensaver_logo_at_top_label": "로고를 상단에 배치",
   "screensaver_logo_offset_label": "로고 여백",
   "screensaver_logo_on_screenshots_label": "스크린샷에 로고 표시",
+  "cloud_sync_applied": "다른 기기에서 설정이 업데이트되었습니다.",
   "showcase_mode_enabled": "쇼케이스 모드",
   "showcase_mode_desc": "유휴 상태일 때 선반을 순환합니다. 입력하면 멈춥니다.",
   "showcase_start_after_label": "시작 대기 시간",

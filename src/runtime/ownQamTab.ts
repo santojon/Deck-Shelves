@@ -68,7 +68,7 @@ function checkBreaker(): "ok" | "tripped" {
   return decision;
 }
 
-/* Tab-ownership handshake with a neutral host (ShelvesHub) in coexistence: the
+/* Tab-ownership handshake with a neutral host in coexistence: the
    host owns the Deck Shelves QAM tab, but ours retracts ONLY once the host's has
    actually landed — never on the mere presence of the `__SHELVES_QAM__` bridge
    (created at boot, before any tab), which risked dropping ours into a gap if

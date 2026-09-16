@@ -1,8 +1,8 @@
 /* Keyboard-binding parser + matcher, mirroring runtime/buttonBindings.ts's
    combo grammar (single / double-tap / chord) but for physical keyboard
-   keys. Tokens are KeyboardEvent.code values (layout-independent), e.g.
-   "KeyF", "Digit1", "ArrowUp". A modifier + key chord (e.g.
-   "ControlLeft+KeyF") reuses the same chord path for free. */
+   keys ("KeyF", "Digit1", KeyboardEvent.code values). Arrow keys are
+   deliberately excluded — Steam's own GamepadUI intercepts them as
+   virtual D-pad navigation before a real keydown reaches the page. */
 
 import type { KeyboardBindings } from "../types";
 
@@ -13,7 +13,6 @@ export const ALLOWED_KEY_TOKENS = [
   "Digit0", "Digit1", "Digit2", "Digit3", "Digit4", "Digit5", "Digit6", "Digit7", "Digit8", "Digit9",
   "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12",
   "Space", "Tab", "Backspace", "Delete", "Insert",
-  "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight",
   "Minus", "Equal", "BracketLeft", "BracketRight", "Semicolon", "Quote",
   "Comma", "Period", "Slash", "Backslash", "Backquote",
   "ControlLeft", "ControlRight", "AltLeft", "AltRight", "ShiftLeft", "ShiftRight",

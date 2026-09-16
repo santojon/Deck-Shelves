@@ -127,5 +127,7 @@ export function defaultSettings(): Settings {
     screensaverLogoAtTop: false,
     screensaverLogoOffset: 8,
     screensaverLogoOnScreenshots: true,
+    cloudSyncEnabled: false,
+    cloudSyncLastSyncedAt: null,
   };
 }

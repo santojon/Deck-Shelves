@@ -15,6 +15,7 @@ import { logInfo } from '../runtime/logger'
 import { isTabMasterInstalled, isNonSteamBadgesAvailable } from '../integrations'
 import { isCssLoaderActive } from '../core/cssLoaderDetect'
 import { isScreensaverSupportDetected } from '../runtime/screensaverInject'
+import { hasCloudSyncSupport } from '../runtime/cloudSync'
 import { useLightMode } from './ui/lightMode'
 import { getUserDownloadsDir, joinDownloads } from '../core/userPaths'
 import { descriptorName } from '../core/descriptorName'
@@ -47,7 +48,7 @@ import { SavedFilterRow } from './qam/list/SavedFilterRow'
 import { SavedSmartFilterRow } from './qam/list/SavedSmartFilterRow'
 import { SmartShelvesFirstRunBanner } from './qam/modals/SmartShelvesFirstRunBanner'
 import { CollapsibleSection, DSSliderField, PositionField, VersionFooter, type HorizontalPosition } from './ui'
-import { SlidersIcon, StackIcon, SparkleIcon, BookmarkIcon, PlusCircleIcon, OnlineIcon, SearchIcon, WandIcon } from './icons'
+import { SlidersIcon, StackIcon, SparkleIcon, BookmarkIcon, PlusCircleIcon, OnlineIcon, SearchIcon, WandIcon, CloudIcon } from './icons'
 import { UpdateBanner } from './qam/UpdateBanner'
 import { useQamExpanded, resetQamExpanded } from './qam/qamExpandedStore'
 import { confirmAction } from './qam/modals/ConfirmActionModal'
@@ -245,20 +246,36 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
   const openKeyMatcherRef = useRef(createKeyMatcherState());
   const closeKeyMatcherRef = useRef(createKeyMatcherState());
   useEffect(() => {
+    try { (globalThis as any).__ds_sidecar_kb_effect = { isActiveTab, ranAt: Date.now() }; } catch {}
     if (!isActiveTab) return;
+    const writeSidecarKbDiag = (payload: Record<string, unknown>) => {
+      try { (globalThis as any).__ds_sidecar_kb_diag = { ...payload, t: Date.now() }; } catch {}
+    };
+    const matchSidecarKey = (code: string | null, kb: ReturnType<typeof resolveKeyboardBindings>) => {
+      const open = !!kb.navSidecarOpen && matchKeyEvent(code, parseKeyCombo(kb.navSidecarOpen), openKeyMatcherRef.current);
+      const close = !open && !!kb.navSidecarClose && matchKeyEvent(code, parseKeyCombo(kb.navSidecarClose), closeKeyMatcherRef.current);
+      return { open, close };
+    };
+    // Same window resolution as closeSidecar/the reset effect above —
+    // getQamWindow() alone can resolve a window whose opener doesn't
+    // post through to the compositor.
+    const resolveQamWin = () => dsScopeRef.current?.ownerDocument?.defaultView ?? getQamWindow();
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.repeat || isEditableKeyTarget((e.target as HTMLElement | null)?.tagName)) return;
       const s = getCurrentSettings();
       const kb = resolveKeyboardBindings(s?.keyboardBindings as any, (s as any)?.keyboardBindingsDisabled);
-      if (kb.navSidecarOpen && matchKeyEvent(e.code, parseKeyCombo(kb.navSidecarOpen), openKeyMatcherRef.current)) {
-        fireQamExpand(getQamWindow(), true, setQamExpanded); return;
-      }
-      if (kb.navSidecarClose && matchKeyEvent(e.code, parseKeyCombo(kb.navSidecarClose), closeKeyMatcherRef.current)) {
-        fireQamExpand(getQamWindow(), false, setQamExpanded);
-      }
+      const { open, close } = matchSidecarKey(e.code, kb);
+      writeSidecarKbDiag({ code: e.code, hasSettings: !!s, navSidecarOpen: kb.navSidecarOpen, open, close, isActiveTab });
+      if (!open && !close) return;
+      fireQamExpand(resolveQamWin(), open, setQamExpanded);
     };
-    document.addEventListener('keydown', onKeyDown); // deck-shelves: bound-combo match only, never preventDefault/stopPropagation
-    return () => document.removeEventListener('keydown', onKeyDown);
+    /* deck-shelves: bound-combo match only, never preventDefault/stopPropagation.
+       Real key events only land on the QAM's own document (ownerDocument of
+       this scope) — this component's code runs in SharedJSContext, and bare
+       `document` there is SJC's own document, which never receives them. */
+    const doc = dsScopeRef.current?.ownerDocument ?? document;
+    doc.addEventListener('keydown', onKeyDown, true);
+    return () => doc.removeEventListener('keydown', onKeyDown, true);
   }, [setQamExpanded, isActiveTab]);
   /* Decky keeps the plugin tab mounted across QAM open/close cycles, so
      without explicit hooks the sidecar stays expanded when the user opens
@@ -371,6 +388,9 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
   const [hasNonSteamBadges] = useState(() => isNonSteamBadgesAvailable())
   const [hasScreensaverSupport] = useState(() => {
     try { return isScreensaverSupportDetected(); } catch { return false; }
+  })
+  const [hasCloudSync] = useState(() => {
+    try { return hasCloudSyncSupport(); } catch { return false; }
   })
   // CSS Loader presence — the force-themes toggle only shows when at least
   // one CSS Loader theme is loaded. Re-check shortly after mount in case
@@ -622,7 +642,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
       {(() => {
         if (isSecHid('online')) return null;
         return (
-      <CollapsibleSection id='online' icon={<OnlineIcon />} title={t('section_online' as any)} count={settings.onlineFeaturesEnabled === true ? 1 : 0}>
+      <CollapsibleSection id='online' icon={<OnlineIcon />} title={t('section_online' as any)} count={[settings.onlineFeaturesEnabled === true, hasCloudSync && (settings as any).cloudSyncEnabled === true].filter(Boolean).length}>
         {!isHid('onlineFeaturesEnabled') && (
         <ToggleField
           label={t('online_features')}
@@ -647,6 +667,12 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
           <OnlineIcon size={12} /><span>{t('online_features_desc')}</span>
         </div>
         )}
+        {hasCloudSync && !isHid('cloudSyncEnabled') && (<>
+          <ToggleField label={t('cloud_sync_enabled' as any)} checked={(settings as any).cloudSyncEnabled === true} onChange={(value: boolean) => void (actions as any).setCloudSyncEnabled(value)} />
+          <div style={{ paddingLeft: 16, paddingRight: 8, paddingBottom: 4, fontSize: 11, opacity: 0.65, lineHeight: 1.4, display: 'flex', gap: 6, alignItems: 'flex-start' }}>
+            <CloudIcon size={12} /><span>{t('cloud_sync_desc' as any)}</span>
+          </div>
+        </>)}
         {(() => (
         settings.onlineFeaturesEnabled === true && (
           <div style={{ paddingLeft: 14, fontSize: 12 }}>

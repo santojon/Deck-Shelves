@@ -96,6 +96,7 @@
   "screensaver_logo_at_top_label": "Logo 置顶",
   "screensaver_logo_offset_label": "Logo 偏移",
   "screensaver_logo_on_screenshots_label": "在截图上显示 Logo",
+  "cloud_sync_applied": "设置已从另一台设备更新。",
   "showcase_mode_enabled": "展示模式",
   "showcase_mode_desc": "空闲时轮播书架。任何输入都会停止。",
   "showcase_start_after_label": "延迟启动时间",

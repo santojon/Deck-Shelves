@@ -1,6 +1,6 @@
 import { ToggleField } from '../../runtime/host/decky';
 
-export const NOTIFICATION_AREAS = ['shelves', 'profiles', 'filters', 'triggers'];
+export const NOTIFICATION_AREAS = ['shelves', 'profiles', 'filters', 'triggers', 'cloudSync'];
 
 /* Per-area exceptions to the master "disable notifications" toggle, shown
    only while it's ON (off, everything already flows — nothing to except).

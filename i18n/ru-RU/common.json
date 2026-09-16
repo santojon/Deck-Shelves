@@ -96,6 +96,7 @@
   "screensaver_logo_at_top_label": "Логотип сверху",
   "screensaver_logo_offset_label": "Отступ логотипа",
   "screensaver_logo_on_screenshots_label": "Логотип на скриншотах",
+  "cloud_sync_applied": "Настройки обновлены с другого устройства.",
   "showcase_mode_enabled": "Режим витрины",
   "showcase_mode_desc": "Переключает ваши полки при бездействии. Любой ввод останавливает.",
   "showcase_start_after_label": "Начать через",

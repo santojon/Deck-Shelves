@@ -23,6 +23,7 @@ import { installFriendsState } from "./runtime/friendsState";
 import { installOwnQamTab } from "./runtime/ownQamTab";
 import { installShowcaseMode } from "./runtime/showcaseMode";
 import { installScreensaverInject } from "./runtime/screensaverInject";
+import { installCloudSync } from "./runtime/cloudSync";
 import { installPluginApi } from "./core/pluginApi";
 import { installLauncherCachePoll } from "./runtime/launcherCache";
 import "./core/internalRegistry";
@@ -40,13 +41,13 @@ import { pickNewSuggestions } from "./runtime/suggestionNotifier";
 import { notify } from "./components/notify";
 import { logError, logInfo } from "./runtime/logger";
 import { Navigation, Focusable, DialogButton, quickAccessMenuClasses } from "./runtime/host/decky";
-import { resolveHost, hostProvidesNativeTab } from "./runtime/host/resolve";
+import { resolveHost, hostProvidesNativeTab, shouldUseForcedHost, awaitInjectedHost } from "./runtime/host/resolve";
 import { claimHomeOwnership } from "./runtime/host/ownerGuard";
 import { AboutPage } from "./components/AboutPage";
 import { SettingsPage } from "./components/SettingsPage";
 import { ShelfEditRoute, ShelfDeleteRoute } from "./components/ShelfModalRoute";
 import { ShelfManageRoute } from "./components/ShelfManageRoute";
-import type { HostApi, QamPanel } from "./runtime/host/contract";
+import { isForcedOwner, getInjectedHost, type HostApi, type QamPanel } from "./runtime/host/contract";
 initI18n();
 
 /* HostApi singleton — instantiated once at boot. Every `@decky/*`
@@ -136,6 +137,12 @@ const __ds_entry = definePlugin((serverAPI?: any) => {
   // Resolve `~/Downloads` from the backend so import/export defaults work
   // on systems where the user account isn't `deck` (Bazzite, ChimeraOS, etc.).
   void prewarmUserPaths();
+  /* Cooperative force: a loader launched us, but the user forced the neutral host
+     and it hasn't injected `__SHELVES_HOST__` yet (the loader booted us first).
+     Defer the host-dependent boot until the host appears, then run on it — no
+     race, no takeover. Meanwhile hand the loader a minimal placeholder. Everything
+     host-dependent lives in boot() so it can run now or once the host is ready. */
+  const boot = (): unknown => {
   const enableHomePatch = typeof __DECK_SHELVES_ENABLE_HOME_PATCH__ !== "undefined" ? __DECK_SHELVES_ENABLE_HOME_PATCH__ : true;
   // A LOADER router hook (used to detect that a loader launched us). Keep this
   // keyed on the loader only — the injected host also exposes a router hook, but
@@ -151,10 +158,13 @@ const __ds_entry = definePlugin((serverAPI?: any) => {
   const routerHook = loaderRouterHook
     ?? (globalThis as any).window?.__SHELVES_HOST__?.routerHook
     ?? (globalThis as any).__SHELVES_HOST__?.routerHook;
-  // Single-owner guard: in a dual-host install the first instance claims the
-  // renderer; the other stands down — no home patch and no settings writes —
-  // so there's one injector and one writer.
-  const isOwner = claimHomeOwnership((serverAPI || loaderRouterHook) ? "decky" : "shelveshub");
+  /* Single-owner guard: in a dual-host install the first instance claims the
+     renderer; the other stands down — no home patch and no settings writes — so
+     there's one injector and one writer. Under cooperative force this single
+     instance runs on the neutral host, so it owns as shelveshub even though a
+     loader launched it (resolveHost already bound _hostApi to the injected host). */
+  const coopForce = shouldUseForcedHost();
+  const isOwner = claimHomeOwnership((coopForce || !(serverAPI || loaderRouterHook)) ? "shelveshub" : "decky");
   if (!isOwner) logInfo("RUNTIME", "another Deck Shelves instance owns the renderer — standing down (no home patch / no settings writes)");
   const patch = (enableHomePatch && isOwner) ? installHomePatch(routerHook) : null;
   const recentsReplacePatch = isOwner ? installRecentsReplace(routerHook) : null;
@@ -384,6 +394,11 @@ const __ds_entry = definePlugin((serverAPI?: any) => {
      unguaranteed shape, and this runs unconditionally at plugin init. */
   let uninstallScreensaverInject: (() => void) | null = null;
   try { uninstallScreensaverInject = installScreensaverInject(); } catch { uninstallScreensaverInject = null; }
+  /* Cross-device settings sync via SteamClient.RoamingStorage (experimental,
+     default OFF). Same defensive wrapping — a live Steam internal, not a
+     guaranteed-stable public contract. */
+  let uninstallCloudSync: (() => void) | null = null;
+  try { uninstallCloudSync = installCloudSync(); } catch { uninstallCloudSync = null; }
 
   return {
     name: "Deck Shelves",
@@ -412,6 +427,7 @@ const __ds_entry = definePlugin((serverAPI?: any) => {
         uninstallOwnQamTab?.();
         uninstallShowcaseMode?.();
         uninstallScreensaverInject?.();
+        uninstallCloudSync?.();
         unsubUpdateNotify();
         if (updateBootTimer !== null) { clearTimeout(updateBootTimer); updateBootTimer = null; }
         clearTimeout(suggestTimer);
@@ -420,6 +436,19 @@ const __ds_entry = definePlugin((serverAPI?: any) => {
       }
     },
   };
+  };
+  /* Cooperative force with the host not yet injected: wait for it, then boot on
+     the neutral host. The loader gets a minimal placeholder now; the real UI is
+     driven by boot() once `__SHELVES_HOST__` appears (bounded — falls back to a
+     normal boot if it never does). */
+  if (isForcedOwner() && !getInjectedHost()) {
+    logInfo("RUNTIME", "cooperative force — awaiting injected host before boot");
+    void awaitInjectedHost(8000).then(() => {
+      try { boot(); } catch (e) { logError("RUNTIME", "deferred cooperative boot failed", String(e)); }
+    });
+    return { name: "Deck Shelves", title: <></>, content: <></>, icon: <DeckShelvesIcon /> } as unknown as ReturnType<typeof boot>;
+  }
+  return boot();
 });
 
 /* Self-invoke bootstrap: a loader imports this module and calls the default

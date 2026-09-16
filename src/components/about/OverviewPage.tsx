@@ -26,6 +26,9 @@ const GROUPS: { labelKey: string; keys: string[] }[] = [
       'about_feature_sort_v3',
       'about_feature_source_v3',
       'about_feature_asset_refresh',
+      'about_feature_keyboard_bindings',
+      'about_feature_screensaver',
+      'about_feature_cloud_sync',
     ],
   },
   {

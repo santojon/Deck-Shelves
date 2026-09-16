@@ -1,5 +1,14 @@
 import { useEffect, useRef } from 'react'
 import { Focusable } from '../../../runtime/host/decky'
+import { getActiveFocusedElement } from '../../../core/focusRestore'
+
+/* Beta-safe "what's gamepad-focused". This beta never applies the `.gpfocus`
+   class, so a bare `.gpfocus` query is null and the whole dpad open/close gate
+   fails — resolve it from the active nav context instead, with `.gpfocus` as the
+   stable-client fallback. */
+function focusedInDoc(doc: Document): HTMLElement | null {
+  return (doc.querySelector('.gpfocus') as HTMLElement | null) ?? getActiveFocusedElement();
+}
 import type { SettingsController } from '../../../features/settings/controller'
 import { resolveBindings, DEFAULT_BINDINGS } from '../../../runtime/buttonBindings'
 import { getCurrentSettings } from '../../../store/settingsStore'
@@ -318,7 +327,7 @@ function handleDpadClose(doc: Document, win: Window | null, button: number, posi
     // Only collapse if Steam's nav couldn't move focus left within the
     // sidecar — detected by checking 80ms later if focus left the sidecar.
     setTimeout(() => {
-      const f = doc.querySelector('.gpfocus') as HTMLElement | null;
+      const f = focusedInDoc(doc);
       const stillInSidecar = !!(f && f.closest('.deck-shelves-qam-sidecar'));
       if (!stillInSidecar) {
         lastFocusWasInSidecar = false;
@@ -375,7 +384,7 @@ function handleDpadInput(
   if (!isDpadButton(button)) return;
   const doc = scope.ownerDocument;
   const win = doc.defaultView;
-  const focused = doc.querySelector('.gpfocus') as HTMLElement | null;
+  const focused = focusedInDoc(doc);
   if (!focused) return;
   const insideSidecar = !!focused.closest('.deck-shelves-qam-sidecar');
   /* Eye-column vertical nav is handled in the MutationObserver in
