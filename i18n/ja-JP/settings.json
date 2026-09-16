@@ -386,6 +386,8 @@
   "online_features_desc": "棚がSteamストアのデータ（ウィッシュリスト、価格）を使用できるようにします。以下にリストされたURLのみが接触されます。",
   "cloud_sync_enabled": "デバイス間で設定を同期(実験的機能)",
   "cloud_sync_desc": "Steamアカウント自体のクラウドストレージを使って、複数のDeck/PC間で設定を同期します — Steam Cloudではありません。",
+  "cloud_sync_status_synced": "最終同期: {{time}}",
+  "cloud_sync_status_never": "まだ同期されていません",
   "online_hide_owned": "所有済みゲームを除外",
   "online_price_sort": "価格・割引で並び替え",
   "online_privacy_accept": "了解、有効にする",

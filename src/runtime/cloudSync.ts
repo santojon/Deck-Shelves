@@ -35,10 +35,28 @@ export function hasCloudSyncSupport(): boolean {
   } catch { return false; }
 }
 
-function stripLocalOnly(settings: Settings): Record<string, unknown> {
+/* `SetObject` silently no-ops (resolves, but the next `GetJSON` throws
+   "Not found") on any payload containing `null`/`undefined` anywhere, at
+   any depth — confirmed live, and every real settings snapshot has some
+   (e.g. screensaverIdleBackupAcSec). Dropping those keys is the only way
+   to make the payload storable; a null-valued field just doesn't sync. */
+function stripNullish(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(stripNullish);
+  if (value && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value)) {
+      if (v === null || v === undefined) continue;
+      out[k] = stripNullish(v);
+    }
+    return out;
+  }
+  return value;
+}
+
+function preparePayload(settings: Settings): Record<string, unknown> {
   const out: Record<string, unknown> = { ...(settings as any) };
   for (const key of LOCAL_ONLY_FIELDS) delete out[key];
-  return out;
+  return stripNullish(out) as Record<string, unknown>;
 }
 
 async function readCloud(): Promise<CloudPayload | null> {
@@ -51,18 +69,39 @@ async function readCloud(): Promise<CloudPayload | null> {
   } catch { return null; }
 }
 
+// Never trust a write without a round-trip check — SetObject's own promise
+// resolving proves nothing (see stripNullish's own doc comment above).
 async function writeCloud(settings: Settings): Promise<number | null> {
   const updatedAt = Date.now();
   try {
-    await (globalThis as any).SteamClient.RoamingStorage.SetObject(CLOUD_KEY, { updatedAt, settings: stripLocalOnly(settings) });
-    return updatedAt;
+    const rs = (globalThis as any).SteamClient.RoamingStorage;
+    await rs.SetObject(CLOUD_KEY, { updatedAt, settings: preparePayload(settings) });
+    const confirmed = await readCloud();
+    return confirmed?.updatedAt === updatedAt ? updatedAt : null;
   } catch { return null; }
 }
 
-function patchSyncMark(updatedAt: number): void {
-  const s = getCurrentSettings();
-  if (!s) return;
-  void saveSettings({ ...s, cloudSyncLastSyncedAt: updatedAt } as any);
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/* A bare fire-and-forget saveSettings() here can silently lose the patch
+   to a concurrent save built from a slightly older snapshot (the exact
+   race screensaverInject.ts's own patchSettingsVerified already avoids
+   for the same reason) — rebuild against the latest snapshot and verify
+   on every retry rather than trusting a single save call. */
+async function patchSettingsVerified(
+  patch: Record<string, unknown>, verify: (s: Settings) => boolean, attempts = 5,
+): Promise<boolean> {
+  for (let i = 0; i < attempts; i++) {
+    const s = getCurrentSettings();
+    if (!s) return false;
+    await saveSettings({ ...s, ...patch } as Settings);
+    await delay(200);
+    const after = getCurrentSettings();
+    if (after && verify(after)) return true;
+  }
+  return false;
 }
 
 export function installCloudSync(): () => void {
@@ -81,24 +120,31 @@ export function installCloudSync(): () => void {
     const cloud = await readCloud();
     const lastKnownAt = (local as any).cloudSyncLastSyncedAt ?? 0;
     if (cloud && cloud.updatedAt > lastKnownAt) {
-      const merged = { ...local, ...cloud.settings, cloudSyncLastSyncedAt: cloud.updatedAt } as Settings;
-      lastKnownJson = JSON.stringify(stripLocalOnly(merged));
-      await saveSettings(merged);
+      const patch = { ...cloud.settings, cloudSyncLastSyncedAt: cloud.updatedAt };
+      const ok = await patchSettingsVerified(patch, (s) => (s as any).cloudSyncLastSyncedAt === cloud.updatedAt);
+      if (!ok) return;
+      lastKnownJson = JSON.stringify(preparePayload(getCurrentSettings() as Settings));
       notifyUser(i18n.t("plugin_name"), i18n.t("cloud_sync_applied"), "import", "cloudSync");
       return;
     }
     const at = await writeCloud(local);
-    if (at) { lastKnownJson = JSON.stringify(stripLocalOnly(local)); patchSyncMark(at); }
+    if (!at) return;
+    lastKnownJson = JSON.stringify(preparePayload(local));
+    await patchSettingsVerified({ cloudSyncLastSyncedAt: at }, (s) => (s as any).cloudSyncLastSyncedAt === at);
   }
 
   function schedulePush(s: Settings): void {
     if (disposed || !hasCloudSyncSupport() || !isHomeOwner()) return;
-    const json = JSON.stringify(stripLocalOnly(s));
+    const json = JSON.stringify(preparePayload(s));
     if (json === lastKnownJson) return;
     if (debounceTimer) clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => {
       debounceTimer = null;
-      void writeCloud(s).then((at) => { if (at) { lastKnownJson = json; patchSyncMark(at); } });
+      void writeCloud(s).then(async (at) => {
+        if (!at) return;
+        lastKnownJson = json;
+        await patchSettingsVerified({ cloudSyncLastSyncedAt: at }, (s2) => (s2 as any).cloudSyncLastSyncedAt === at);
+      });
     }, PUSH_DEBOUNCE_MS);
   }
 

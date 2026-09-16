@@ -386,6 +386,8 @@
   "online_features_desc": "Permite que prateleiras usem dados da Steam Store (lista de desejos, preços). Apenas os URLs listados abaixo são contactados.",
   "cloud_sync_enabled": "Sincronizar definições entre dispositivos (experimental)",
   "cloud_sync_desc": "Usa o próprio armazenamento na nuvem da tua conta Steam para manter as definições sincronizadas entre os teus Decks/PC — não é a Steam Cloud.",
+  "cloud_sync_status_synced": "Última sincronização: {{time}}",
+  "cloud_sync_status_never": "Ainda não sincronizado",
   "online_hide_owned": "Ignorar jogos que já tenho",
   "online_price_sort": "Ordenar por preço / desconto",
   "online_privacy_accept": "Percebido, ativar",

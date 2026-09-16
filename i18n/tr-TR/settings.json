@@ -386,6 +386,8 @@
   "online_features_desc": "Rafların Steam Store verilerini kullanmasına izin verir (istek listesi, fiyatlar). Yalnızca aşağıda listelenen URL'ler iletişime geçilir.",
   "cloud_sync_enabled": "Ayarları cihazlar arasında senkronize et (deneysel)",
   "cloud_sync_desc": "Ayarları Deck/PC'leriniz arasında senkronize tutmak için Steam hesabınızın kendi bulut depolamasını kullanır — Steam Cloud değildir.",
+  "cloud_sync_status_synced": "Son senkronizasyon: {{time}}",
+  "cloud_sync_status_never": "Henüz senkronize edilmedi",
   "online_hide_owned": "Zaten sahip olduğum oyunları yoksay",
   "online_price_sort": "Fiyat / indirim sıralaması",
   "online_privacy_accept": "Anladım, etkinleştir",

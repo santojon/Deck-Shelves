@@ -16,6 +16,7 @@ import {
 import { TRIGGER_CATALOG } from "../domain/triggerCatalog";
 import { SHELF_TEMPLATES, ONLINE_SHELF_TEMPLATES } from "../domain/templates";
 import { DEFAULT_BINDINGS } from "../runtime/buttonBindings";
+import { DEFAULT_KEYBOARD_BINDINGS, resolveKeyboardBindings } from "../runtime/keyboardBindings";
 import pkg from "../../package.json";
 import type {
   Unsubscribe as ApiUnsubscribe,
@@ -45,6 +46,7 @@ import type {
   AssetType,
   PublicTriggerKind,
   PublicShortcut,
+  PublicKeyboardShortcut,
   ParsedImport,
   PublicFilterGroup,
   PublicFilterItem,
@@ -97,6 +99,7 @@ export type {
   AssetType,
   PublicTriggerKind,
   PublicShortcut,
+  PublicKeyboardShortcut,
   ParsedImport,
   PublicFilterGroup,
   PublicFilterItem,
@@ -755,6 +758,13 @@ export function makeApi(): DeckShelvesPublicAPI {
       return (Object.keys(DEFAULT_BINDINGS) as Array<keyof typeof DEFAULT_BINDINGS>).map((action) => ({
         action, defaultCombo: DEFAULT_BINDINGS[action],
         combo: typeof bindings[action] === "string" && bindings[action] ? bindings[action] : DEFAULT_BINDINGS[action],
+      }));
+    },
+    listKeyboardShortcuts() {
+      const s = getCurrentSettings() as any;
+      const resolved = resolveKeyboardBindings(s?.keyboardBindings, s?.keyboardBindingsDisabled);
+      return (Object.keys(DEFAULT_KEYBOARD_BINDINGS) as Array<keyof typeof DEFAULT_KEYBOARD_BINDINGS>).map((action) => ({
+        action, combo: resolved[action],
       }));
     },
 

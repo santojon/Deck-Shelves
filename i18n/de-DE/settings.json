@@ -386,6 +386,8 @@
   "online_features_desc": "Erlaubt Regalen die Nutzung von Steam Store-Daten (Wunschliste, Preise). Nur die unten aufgeführten URLs werden kontaktiert.",
   "cloud_sync_enabled": "Einstellungen geräteübergreifend synchronisieren (experimentell)",
   "cloud_sync_desc": "Nutzt den eigenen Cloud-Speicher deines Steam-Kontos, um Einstellungen zwischen deinen Decks/PCs zu synchronisieren — keine Steam Cloud.",
+  "cloud_sync_status_synced": "Zuletzt synchronisiert: {{time}}",
+  "cloud_sync_status_never": "Noch nicht synchronisiert",
   "online_hide_owned": "Bereits besessene Spiele ignorieren",
   "online_price_sort": "Preis-/Rabatt-Sortierung",
   "online_privacy_accept": "Verstanden, aktivieren",

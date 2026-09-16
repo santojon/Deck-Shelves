@@ -120,6 +120,7 @@
 - **Usage profiles** — save the setup (every toggle, saved filter, and — if you tick **Link shelves to profile** — your shelves) as a named profile, switch in one tap, import / export to JSON. A **Default** profile restores factory settings while keeping the plugin on; it only clears your shelves if you opt in
 - **Profile auto-switch triggers** — give a saved profile a trigger (the same visibility conditions above) and turn on **auto-switch** so it applies itself when the trigger matches — a *Docked* profile when you dock, a *Battery saver* profile when the battery runs low. Each profile sets its own triggers; the master toggle sits in the QAM, the sidecar and Settings → Profiles, and triggers round-trip through export / import and the System information summary
 - **Customizable button shortcuts** — remap or disable the gamepad triggers for hide / highlight / quick-launch, and remap the chords for Quick Search and Side Navigation. Single, chord, and double-tap inputs are supported, including back-grip and stick-click buttons (`L3` / `R3` / `L4` / `R4` / `L5` / `R5`); reserved system buttons are rejected
+- **Independent keyboard shortcuts** — every button shortcut above also has its own keyboard key, bindable alongside the gamepad combo — either input fires the same action, neither replaces the other. Same single / chord / double-tap grammar, plus modifier chords (e.g. `Ctrl+F`); ignored while a text field has focus
 - **Unified shelf list + drag-and-drop reorder** — opt in to merge regular and smart shelves into a single ordered list and drag rows directly in the Shelves panel (gamepad `↑` / `↓` buttons stay as a fallback)
 - **External launcher discovery** — EmuDeck, RetroDECK, Heroic, Lutris, Moonlight, and Chiaki games surface through dedicated shelf sources; read-only, refreshed every 15 minutes in the background
 - **Integrations panel** — every registered descriptor (built-in or third-party) gets a per-row enable / disable; first-party entries carry a green BUILT-IN chip
@@ -132,6 +133,8 @@
 - **Refresh action everywhere** — context-aware "Refresh cache" / "Refresh" available from the QAM action menu, the shelf-card context menu, and the trailing refresh tile
 - **Own Quick Access tab (experimental, opt-in)** — puts Deck Shelves in the Quick Access tab strip itself, next to Notifications and Settings, instead of only inside Decky's plugin list. Off by default; restart Steam after enabling
 - **Showcase mode (opt-in)** — while idle on the Home, slowly cycles through your shelves like a screensaver; any input stops it instantly. Configurable delay, time per shelf, and randomize order
+- **Screensaver (opt-in, experimental)** — a full-screen slideshow of everything your home screen shows, optionally mixing in your local screenshots too, in place of the built-in one. Your own start delay and time per image, plus an optional game-logo overlay you can resize and reposition to any corner
+- **Cross-device settings sync (opt-in, experimental)** — keep shelves, filters, profiles and every other preference in sync across every device on the same Steam account, using that account's own cloud storage — no extra sign-in, no cost
 - Import / export all shelves and smart shelf configuration as JSON
 - Persistent settings across plugin reinstalls
 - Crash protection with automatic retry

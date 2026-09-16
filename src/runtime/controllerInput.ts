@@ -173,10 +173,6 @@ function installBPInjection(): boolean {
     ].join("\n");
     const kbFn = new view.Function(kbBody);
     kbFn.call(view);
-    // Mirrored onto SJC's own globalThis (not just `view`) so a live CDP
-    // check can confirm install succeeded without reading a cross-realm
-    // property off `view` — that read is unreliable to eval remotely.
-    try { g.__ds_bp_keydown_ok = true; } catch {}
   } catch (e) {
     try { g.__ds_bp_keydown_err = String(e).slice(0, 200); } catch {}
   }

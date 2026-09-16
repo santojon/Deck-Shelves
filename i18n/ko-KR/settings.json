@@ -386,6 +386,8 @@
   "online_features_desc": "선반이 Steam Store 데이터(위시리스트, 가격)를 사용할 수 있습니다. 아래 나열된 URL만 접속됩니다.",
   "cloud_sync_enabled": "기기 간 설정 동기화(실험적 기능)",
   "cloud_sync_desc": "스팀 계정 자체의 클라우드 저장소를 사용해 여러 Deck/PC 간 설정을 동기화합니다 — 스팀 클라우드가 아닙니다.",
+  "cloud_sync_status_synced": "마지막 동기화: {{time}}",
+  "cloud_sync_status_never": "아직 동기화되지 않음",
   "online_hide_owned": "이미 보유한 게임 무시",
   "online_price_sort": "가격/할인 정렬",
   "online_privacy_accept": "알겠습니다, 활성화",

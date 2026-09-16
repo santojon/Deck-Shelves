@@ -386,6 +386,8 @@
   "online_features_desc": "Umożliwia półkom korzystanie z danych Steam Store (lista życzeń, ceny). Kontaktowane są tylko poniższe adresy URL.",
   "cloud_sync_enabled": "Synchronizuj ustawienia między urządzeniami (eksperymentalne)",
   "cloud_sync_desc": "Wykorzystuje własną chmurę Twojego konta Steam do synchronizacji ustawień między Twoimi Deckami/komputerami — to nie Steam Cloud.",
+  "cloud_sync_status_synced": "Ostatnia synchronizacja: {{time}}",
+  "cloud_sync_status_never": "Jeszcze nie zsynchronizowano",
   "online_hide_owned": "Ignoruj gry, które już posiadam",
   "online_price_sort": "Sortuj według ceny / rabatu",
   "online_privacy_accept": "Rozumiem, włącz",

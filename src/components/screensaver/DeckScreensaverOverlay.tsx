@@ -148,21 +148,28 @@ export function DeckScreensaverOverlay() {
 
   useEffect(() => {
     if (!enabled) { setActive(false); return; }
-    document.addEventListener("mousemove", wake);
-    document.addEventListener("mousedown", wake);
-    document.addEventListener("keydown", wake); // deck-shelves: idle-wake only, never preventDefault/stopPropagation
-    document.addEventListener("wheel", wake);
+    // Real mouse/keyboard activity only lands on Home's own document (the
+    // anchor's ownerDocument) — this component's code runs in
+    // SharedJSContext, whose own bare `document` never receives them.
+    const doc = anchorRef.current?.ownerDocument ?? document;
+    doc.addEventListener("mousemove", wake);
+    doc.addEventListener("mousedown", wake);
+    doc.addEventListener("keydown", wake); // deck-shelves: idle-wake only, never preventDefault/stopPropagation
+    doc.addEventListener("wheel", wake);
     const unsubInput = subscribeControllerInput((e) => { if (e.pressed) wake(); });
     const idleCheck = window.setInterval(() => {
+      const qamOpen = isQamOrMenuOpen();
+      const nativeActive = isNativeScreensaverActive();
+      const elapsedMs = Date.now() - lastActivityRef.current;
+      const thresholdSec = getStartAfterSeconds(getCurrentSettings());
       /* Belt-and-suspenders against Steam's own native idle screensaver —
          disabling its timer already keeps it from triggering, but stand
          down instead of doubling up if it's somehow active anyway (same
          ScreensaverPopup check showcaseMode.ts already relies on). */
-      if (isNativeScreensaverActive()) { setActive(false); return; }
-      if (activeRef.current) { setSuppressed(isQamOrMenuOpen()); return; }
-      const thresholdSec = getStartAfterSeconds(getCurrentSettings());
-      if (Date.now() - lastActivityRef.current < thresholdSec * 1000) return;
-      if (isQamOrMenuOpen()) { closeQamOrMenu(); setSuppressed(true); return; }
+      if (nativeActive) { setActive(false); return; }
+      if (activeRef.current) { setSuppressed(qamOpen); return; }
+      if (elapsedMs < thresholdSec * 1000) return;
+      if (qamOpen) { closeQamOrMenu(); setSuppressed(true); return; }
       setSuppressed(false);
       void buildScreensaverPool(getCurrentSettings()).then((items) => {
         if (!items.length) return;
@@ -173,10 +180,10 @@ export function DeckScreensaverOverlay() {
       });
     }, IDLE_CHECK_MS);
     return () => {
-      document.removeEventListener("mousemove", wake);
-      document.removeEventListener("mousedown", wake);
-      document.removeEventListener("keydown", wake);
-      document.removeEventListener("wheel", wake);
+      doc.removeEventListener("mousemove", wake);
+      doc.removeEventListener("mousedown", wake);
+      doc.removeEventListener("keydown", wake);
+      doc.removeEventListener("wheel", wake);
       unsubInput();
       window.clearInterval(idleCheck);
     };

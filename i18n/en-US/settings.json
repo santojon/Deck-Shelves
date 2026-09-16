@@ -386,6 +386,8 @@
   "online_features_desc": "Allows shelves to use Steam Store data (wishlist, prices). Only URLs listed below are contacted.",
   "cloud_sync_enabled": "Sync settings across devices (experimental)",
   "cloud_sync_desc": "Uses your Steam account's own cloud storage to keep settings in sync across your Decks/PCs — not Steam Cloud.",
+  "cloud_sync_status_synced": "Last synced {{time}}",
+  "cloud_sync_status_never": "Not synced yet",
   "online_hide_owned": "Ignore games I already own",
   "online_price_sort": "Price / discount sort",
   "online_privacy_accept": "Got it, enable",

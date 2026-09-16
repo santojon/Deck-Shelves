@@ -386,6 +386,8 @@
   "online_features_desc": "Hierdoor kunnen schappen Steam Store-gegevens gebruiken (verlanglijst, prijzen). Alleen de onderstaande URL's worden gecontacteerd.",
   "cloud_sync_enabled": "Instellingen synchroniseren tussen apparaten (experimenteel)",
   "cloud_sync_desc": "Gebruikt de eigen cloudopslag van je Steam-account om instellingen te synchroniseren tussen je Decks/pc's — geen Steam Cloud.",
+  "cloud_sync_status_synced": "Laatst gesynchroniseerd: {{time}}",
+  "cloud_sync_status_never": "Nog niet gesynchroniseerd",
   "online_hide_owned": "Spellen die ik al heb negeren",
   "online_price_sort": "Sorteren op prijs / korting",
   "online_privacy_accept": "Begrepen, inschakelen",

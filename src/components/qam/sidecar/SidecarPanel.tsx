@@ -14,7 +14,7 @@ import { resolveBindings, DEFAULT_BINDINGS } from '../../../runtime/buttonBindin
 import { getCurrentSettings } from '../../../store/settingsStore'
 import { trackFeature } from '../../../steam/usageTracking'
 import { absorbCancelButton } from '../sidecarCancel'
-import { type OpenerWithInput, qamIsTabbed } from '../sidecarActiveTab'
+import { type OpenerWithInput } from '../sidecarActiveTab'
 import { GearIcon } from '../../icons'
 import { ErrorBoundary } from '../../ErrorBoundary'
 import { GeneralTab } from './GeneralTab'
@@ -201,14 +201,12 @@ function focusKeyForExpand(doc: Document): string {
 
 export function fireQamExpand(win: Window | null, value: boolean, setQamExpanded: (v: boolean) => void): void {
   const opener = (win?.opener ?? null) as Window | null;
-  if (!qamIsTabbed(win?.document ?? null)) {
-    try {
-      opener?.postMessage(
-        { message: value ? 'QamFriendsExpanded' : 'QamFriendsHidden' },
-        'https://steamloopback.host',
-      );
-    } catch {}
-  }
+  try {
+    opener?.postMessage(
+      { message: value ? 'QamFriendsExpanded' : 'QamFriendsHidden' },
+      'https://steamloopback.host',
+    );
+  } catch {}
   setQamExpanded(value);
   if (value) trackFeature('sidecar');
 }

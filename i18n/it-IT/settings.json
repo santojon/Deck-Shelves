@@ -386,6 +386,8 @@
   "online_features_desc": "Consente agli scaffali di usare i dati dello Steam Store (lista dei desideri, prezzi). Vengono contattati solo gli URL elencati di seguito.",
   "cloud_sync_enabled": "Sincronizza le impostazioni tra dispositivi (sperimentale)",
   "cloud_sync_desc": "Usa lo spazio cloud del tuo stesso account Steam per mantenere le impostazioni sincronizzate tra i tuoi Deck/PC — non è Steam Cloud.",
+  "cloud_sync_status_synced": "Ultima sincronizzazione: {{time}}",
+  "cloud_sync_status_never": "Non ancora sincronizzato",
   "online_hide_owned": "Ignora giochi già posseduti",
   "online_price_sort": "Ordina per prezzo / sconto",
   "online_privacy_accept": "Capito, attiva",

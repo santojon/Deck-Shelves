@@ -386,6 +386,8 @@
   "online_features_desc": "允许书架使用Steam商店数据（愿望单、价格）。仅联系以下列出的URL。",
   "cloud_sync_enabled": "跨设备同步设置(实验性功能)",
   "cloud_sync_desc": "使用你 Steam 账户自身的云存储，在你的多台 Deck/PC 之间保持设置同步——这不是 Steam Cloud。",
+  "cloud_sync_status_synced": "上次同步: {{time}}",
+  "cloud_sync_status_never": "尚未同步",
   "online_hide_owned": "忽略已拥有的游戏",
   "online_price_sort": "按价格/折扣排序",
   "online_privacy_accept": "明白，启用",

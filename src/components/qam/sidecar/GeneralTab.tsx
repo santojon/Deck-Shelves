@@ -229,15 +229,26 @@ function onlineSection(c: GCtx): ReactNode {
   )
 }
 
+function cloudSyncStatusText(t: any, lastSyncedAt: unknown): string {
+  if (typeof lastSyncedAt !== 'number') return t('cloud_sync_status_never' as any)
+  return t('cloud_sync_status_synced' as any, { time: new Date(lastSyncedAt).toLocaleString() })
+}
+
 function cloudSyncGroup(c: GCtx): ReactNode {
   const { t, settings, actions, row } = c
+  const on = (settings as any).cloudSyncEnabled === true
   return (<>
     {row('cloudSyncEnabled', (
-      <ToggleField label={t('cloud_sync_enabled' as any)} checked={(settings as any).cloudSyncEnabled === true} onChange={(v: boolean) => void (actions as any).setCloudSyncEnabled(v)} />
+      <ToggleField label={t('cloud_sync_enabled' as any)} checked={on} onChange={(v: boolean) => void (actions as any).setCloudSyncEnabled(v)} />
     ))}
     <div style={{ paddingLeft: 14, fontSize: 11, opacity: 0.65, lineHeight: 1.4, display: 'flex', gap: 6, alignItems: 'flex-start' }}>
       <CloudIcon size={12} /><span>{t('cloud_sync_desc' as any)}</span>
     </div>
+    {on && (
+      <div style={{ paddingLeft: 14, fontSize: 11, opacity: 0.55 }}>
+        {cloudSyncStatusText(t, (settings as any).cloudSyncLastSyncedAt)}
+      </div>
+    )}
   </>)
 }
 

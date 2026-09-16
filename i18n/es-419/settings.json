@@ -386,6 +386,8 @@
   "online_features_desc": "Permite que los estantes usen datos de la Steam Store (lista de deseos, precios). Solo se contactan las URLs enumeradas a continuación.",
   "cloud_sync_enabled": "Sincronizar ajustes entre dispositivos (experimental)",
   "cloud_sync_desc": "Usa el almacenamiento en la nube de tu propia cuenta de Steam para mantener los ajustes sincronizados entre tus Decks/PC — no es Steam Cloud.",
+  "cloud_sync_status_synced": "Última sincronización: {{time}}",
+  "cloud_sync_status_never": "Aún no sincronizado",
   "online_hide_owned": "Ignorar juegos que ya tengo",
   "online_price_sort": "Ordenar por precio / descuento",
   "online_privacy_accept": "Entendido, activar",

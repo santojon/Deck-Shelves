@@ -386,6 +386,8 @@
   "online_features_desc": "允許書架使用Steam商店資料（願望清單、價格）。僅聯絡下列URL。",
   "cloud_sync_enabled": "跨裝置同步設定(實驗性功能)",
   "cloud_sync_desc": "使用你 Steam 帳戶自身的雲端儲存空間，在你的多台 Deck/PC 之間保持設定同步——這不是 Steam Cloud。",
+  "cloud_sync_status_synced": "上次同步: {{time}}",
+  "cloud_sync_status_never": "尚未同步",
   "online_hide_owned": "忽略已擁有的遊戲",
   "online_price_sort": "依價格/折扣排序",
   "online_privacy_accept": "了解，啟用",

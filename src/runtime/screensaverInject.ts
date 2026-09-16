@@ -5,6 +5,7 @@
    Steam's own screensaver setting would. Experimental, off by default. */
 
 import { readIdleTimeoutSec, writeIdleTimeoutSec } from "./steamSettingsWriter";
+import { activeFirstShelf } from "./recentsReplace";
 import { resolveShelfAppIds } from "../steam";
 import { getCurrentSettings, saveSettings, subscribeSettings } from "../store/settingsStore";
 import type { Settings, Shelf } from "../types";
@@ -108,6 +109,20 @@ function resolveNativeRecentAppIds(): number[] {
   } catch { return []; }
 }
 
+/* Whatever's actually shown in the "recents" slot on Home right now:
+   native Recents when displayed as-is, the promoted shelf's own games
+   when hideRecents + recentsReplaceSource are both on (reusing the exact
+   resolver the real replacement uses, not a re-derived guess), or
+   nothing when recents are simply hidden with no override. */
+async function resolveRecentsSlotAppIds(settings: Settings | null): Promise<number[]> {
+  if ((settings as any)?.hideRecents !== true) return resolveNativeRecentAppIds();
+  const shelf = activeFirstShelf();
+  if (!shelf) return [];
+  try {
+    return await resolveShelfAppIds(shelf.source, shelf.limit ?? 20, shelf.sort, shelf.id, shelf.sortReverse);
+  } catch { return []; }
+}
+
 function getScreenshotFilterMode(): "all" | "general" | "none" {
   try {
     const raw = (globalThis as any).settingsStore?.clientSettings?.["screensaver_settings"];
@@ -174,12 +189,13 @@ async function resolveScreenshotPool(): Promise<ScreensaverItem[]> {
 }
 
 // Always the full mix of whatever's shown on the home screen — shelf
-// games and native Recents alike — no "ours only" distinction.
+// games and whatever's actually in the recents slot (native, promoted
+// shelf, or nothing) — no "ours only" distinction.
 export async function buildScreensaverPool(settings: Settings | null): Promise<ScreensaverItem[]> {
   const includeScreenshots = (settings as any)?.screensaverShelvesIncludeScreenshots === true;
 
   const shelfIds = await resolveShelfAppPool(settings);
-  const recentIds = resolveNativeRecentAppIds();
+  const recentIds = await resolveRecentsSlotAppIds(settings);
   const seen = new Set<number>();
   const apps: ScreensaverItem[] = [];
   for (const id of [...shelfIds, ...recentIds]) {

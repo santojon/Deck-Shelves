@@ -20,21 +20,10 @@ export function getQamWindow(): (Window & OpenerWithInput) | null {
   }
 }
 
-/* Beta restructured the QAM into a wide, TAB-based panel; stable expands a Friends
-   SIDE PANEL instead. When tabs are present the wide space already exists and the
-   `QamFriendsExpanded` message just switches to the Friends tab (the empty
-   "notifications" state on beta) — so callers skip it and render in place; stable
-   (no tabs) keeps posting it. */
-export function qamIsTabbed(doc: Document | null): boolean {
-  try { return !!doc?.querySelector('[class*="tab_Friends"], [class*="tab_Notifications"]'); } catch { return false; }
-}
-
 export function useQamCompositorSync(qamExpanded: boolean, enabled = true): void {
   useEffect(() => {
     if (!enabled) return;
-    const qamWin = getQamWindow();
-    if (qamIsTabbed(qamWin?.document ?? null)) return; // beta: no Friends-expand message
-    const opener = (qamWin?.opener ?? null) as Window | null;
+    const opener = (getQamWindow()?.opener ?? null) as Window | null;
     if (!opener) return;
     try {
       opener.postMessage(

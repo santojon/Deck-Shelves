@@ -144,6 +144,11 @@ export function SavedSmartFiltersList({ controller }: { controller: SettingsCont
   )
 }
 
+function cloudSyncStatusText(t: any, lastSyncedAt: unknown): string {
+  if (typeof lastSyncedAt !== 'number') return t('cloud_sync_status_never' as any);
+  return t('cloud_sync_status_synced' as any, { time: new Date(lastSyncedAt).toLocaleString() });
+}
+
 function screensaverLogoDetail(t: any, settings: any, actions: any): ReactNode {
   return (<>
     <DSSliderField label={t('screensaver_logo_size_label' as any)} value={settings.screensaverLogoSize ?? 100} min={50} max={200} step={5} unit='%' onChange={(value: number) => void actions.setScreensaverLogoSize(value)} />
@@ -667,6 +672,11 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
           <div style={{ paddingLeft: 16, paddingRight: 8, paddingBottom: 4, fontSize: 11, opacity: 0.65, lineHeight: 1.4, display: 'flex', gap: 6, alignItems: 'flex-start' }}>
             <CloudIcon size={12} /><span>{t('cloud_sync_desc' as any)}</span>
           </div>
+          {(settings as any).cloudSyncEnabled === true && (
+            <div style={{ paddingLeft: 16, paddingRight: 8, paddingBottom: 4, fontSize: 11, opacity: 0.55 }}>
+              {cloudSyncStatusText(t, (settings as any).cloudSyncLastSyncedAt)}
+            </div>
+          )}
         </>)}
         {(() => (
         settings.onlineFeaturesEnabled === true && (
