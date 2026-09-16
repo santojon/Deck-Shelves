@@ -19,7 +19,7 @@ on:
   # itself only runs on `v*` tags, so any reachable run here is a real
   # version release.
   workflow_run:
-    workflows: ["Release"]
+    workflows: ["Release · Publish"]
     types: [completed]
 
 permissions:
