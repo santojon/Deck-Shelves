@@ -143,7 +143,7 @@
             <p>A fresh version of Deck Shelves just dropped — update now.</p>
           </div>
         </div>
-        <a class="btn btn-primary" data-fresh-dl href="https://github.com/santojon/Deck-Shelves/releases/latest/download/deck-shelves-v3.2.1.zip" download>
+        <a class="btn btn-primary" data-fresh-dl href="https://github.com/santojon/Deck-Shelves/releases/latest/download/deck-shelves-v3.3.0.zip" download>
           <svg class="icon"><use href="#i-download"/></svg> Download latest
         </a>
       </div>
@@ -161,7 +161,7 @@
           built-in editor in Quick Access. No desktop mode, no config files.
         </p>
         <div class="actions">
-          <a class="btn btn-primary" href="https://github.com/santojon/Deck-Shelves/releases/latest/download/deck-shelves-v3.2.1.zip" download>
+          <a class="btn btn-primary" href="https://github.com/santojon/Deck-Shelves/releases/latest/download/deck-shelves-v3.3.0.zip" download>
             <svg class="icon"><use href="#i-download"/></svg> Download latest release
           </a>
           <a class="btn btn-ghost" href="https://github.com/santojon/Deck-Shelves">
@@ -188,21 +188,21 @@
        /releases/latest) so it can't collide with _inject_download's own
        href-rewrite regex. -->
   <div class="container">
-    <div class="stats-row" data-stats-row title="Last snapshot: 2026-09-11">
+    <div class="stats-row" data-stats-row title="Last snapshot: 2026-09-16">
       <a class="stat-chip" href="https://github.com/santojon/ShelvesHub/releases" target="_blank" rel="noopener">
-        <svg class="icon"><use href="#i-shelveshub"/></svg> <b data-stat="hubDownloads">—</b> ShelvesHub downloads
+        <svg class="icon"><use href="#i-shelveshub"/></svg> <b data-stat="hubDownloads">0</b> ShelvesHub downloads
       </a>
       <a class="stat-chip" href="https://decky.xyz" target="_blank" rel="noopener">
-        <svg class="icon"><use href="#i-store"/></svg> <b data-stat="installs">17.8k</b> Decky Store installs
+        <svg class="icon"><use href="#i-store"/></svg> <b data-stat="installs">18.4k</b> Decky Store installs
       </a>
       <a class="stat-chip" href="https://github.com/santojon/Deck-Shelves/releases" target="_blank" rel="noopener">
-        <svg class="icon"><use href="#i-download"/></svg> <b data-stat="downloads">4.7k</b> GitHub downloads
+        <svg class="icon"><use href="#i-download"/></svg> <b data-stat="downloads">5.9k</b> GitHub downloads
       </a>
       <a class="stat-chip" href="https://github.com/santojon/Deck-Shelves" target="_blank" rel="noopener">
-        <svg class="icon"><use href="#i-chart"/></svg> <b data-stat="views">1k</b> views (14d)
+        <svg class="icon"><use href="#i-chart"/></svg> <b data-stat="views">1.1k</b> views (14d)
       </a>
       <a class="stat-chip" href="https://www.npmjs.com/package/@deck-shelves/api" target="_blank" rel="noopener">
-        <svg class="icon"><use href="#i-package"/></svg> <b data-stat="npm">1.8k</b> npm downloads
+        <svg class="icon"><use href="#i-package"/></svg> <b data-stat="npm">2.2k</b> npm downloads
       </a>
     </div>
   </div>
@@ -466,9 +466,9 @@
     <div class="container">
       <div class="panel-block release">
         <div>
-          <span class="ver-chip"><svg class="icon" style="width:16px;height:16px"><use href="#i-tag"/></svg> <span data-rn-version>v3.2.1</span></span>
+          <span class="ver-chip"><svg class="icon" style="width:16px;height:16px"><use href="#i-tag"/></svg> <span data-rn-version>v3.3.0</span></span>
           <h2>What's New</h2>
-          <p class="date">Latest release · <span data-rn-date>August 15, 2026</span></p>
+          <p class="date">Latest release · <span data-rn-date>September 16, 2026</span></p>
           <div class="links">
             <a class="btn btn-ghost" href="https://github.com/santojon/Deck-Shelves/blob/main/RELEASE_NOTES.md">
               Release notes <svg class="icon"><use href="#i-arrow"/></svg>
@@ -478,16 +478,20 @@
         </div>
         <ul class="rn-list" data-rn-list>
           <li>
-            <b>The first-run tour could get stuck reopening every time you closed it, with no way to reach the toggle that turns the plugin on</b>
-            <p>A backend bug threw away the saved "tour seen" flag whenever you hadn't enabled the plugin or added a shelf yet — exactly the state right after seeing the tour for the first time.</p>
+            <b>Every gamepad shortcut can now also be bound to a keyboard key</b>
+            <p>In the bindings screen, each action (card hide/highlight/quick-launch, Quick Search, Side Nav, Sidecar open/close) has a second capture slot for a keyboard key — bind one and either the gamepad combo or the…</p>
           </li>
           <li>
-            <b>The &quot;Report an issue&quot; button on the About page could quietly do nothing</b>
-            <p>It now works reliably, and asks what kind of report you're filing — <strong>bug</strong>, <strong>enhancement</strong> or <strong>feature request</strong> — before opening the matching GitHub form pre-filled with your details.</p>
+            <b>New, optional toggle: sync your settings across devices on the same Steam account</b>
+            <p>Uses your account's own cloud storage (not Steam Cloud, no sign-up, no extra cost) to keep shelves, filters, profiles and every other preference in sync between your Decks/PCs, with a status line showing…</p>
           </li>
           <li>
-            <b>The About page now leads with &quot;Support the developer&quot;</b>
-            <p>, with the community links below it.</p>
+            <b>New, optional toggle: Deck Shelves&#x27; own idle screensaver</b>
+            <p>Instead of Steam's built-in one, show a slideshow of everything your home screen displays — Recents and shelf games — optionally mixing in your local screenshots (shown with the game logo too, when there's…</p>
+          </li>
+          <li>
+            <b>Five new filters: Review score, Release date, Coming soon, Demo, and SteamOS compatibility</b>
+            <p>Filter a shelf by a Metacritic or Steam-review threshold, by release date (before/after a day you pick), to unreleased titles only, to demos only, or by the SteamOS verified/playable/unsupported rating…</p>
           </li>
         </ul>
       </div>
@@ -545,7 +549,7 @@
         <a class="btn btn-primary" href="https://github.com/santojon/ShelvesHub/releases/latest">
           <svg class="icon"><use href="#i-shelveshub"/></svg> Get ShelvesHub
         </a>
-        <a class="btn btn-ghost" href="https://github.com/santojon/Deck-Shelves/releases/latest/download/deck-shelves-v3.2.1.zip" download>
+        <a class="btn btn-ghost" href="https://github.com/santojon/Deck-Shelves/releases/latest/download/deck-shelves-v3.3.0.zip" download>
           <svg class="icon"><use href="#i-download"/></svg> Download latest release
         </a>
         <a class="btn btn-ghost" href="https://decky.xyz">
@@ -566,7 +570,7 @@
             <p>Grab the latest release and start building your perfect home screen.</p>
           </div>
         </div>
-        <a class="btn btn-primary" href="https://github.com/santojon/Deck-Shelves/releases/latest/download/deck-shelves-v3.2.1.zip" download>
+        <a class="btn btn-primary" href="https://github.com/santojon/Deck-Shelves/releases/latest/download/deck-shelves-v3.3.0.zip" download>
           <svg class="icon"><use href="#i-download"/></svg> Download latest release
         </a>
       </div>
