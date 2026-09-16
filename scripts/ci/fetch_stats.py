@@ -244,6 +244,12 @@ def _build_snapshot() -> dict:
     gh_downloads = _fetch_github_downloads(REPOS["main"])
     if gh_downloads is not None:
         snapshot["githubDownloads"] = gh_downloads
+    # ShelvesHub's own installer downloads — reported as its own stat (site +
+    # README badge) rather than folded into githubDownloads above, so each
+    # distribution repo's figure stays independently readable.
+    hub_downloads = _fetch_github_downloads(REPOS["shelveshub"])
+    if hub_downloads is not None:
+        snapshot["shelvesHubDownloads"] = hub_downloads
     version_downloads = _fetch_github_version_downloads(REPOS["main"])
     if version_downloads is not None:
         snapshot["versionDownloads"] = version_downloads

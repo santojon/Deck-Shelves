@@ -10,8 +10,10 @@ Deck Shelves is a plugin that injects custom game shelves into the Steam Deck ho
 
 ### The plugin in its environment
 
-Deck Shelves runs inside Decky Loader, renders into Steam's Gaming Mode home
-screen, and reads from the local library plus a few optional external sources.
+Deck Shelves runs standalone via ShelvesHub (no plugin loader needed), or
+inside Decky Loader — the same bundle, injected either way — renders into
+Steam's Gaming Mode home screen, and reads from the local library plus a
+few optional external sources.
 
 ```mermaid
 flowchart TB
@@ -22,7 +24,7 @@ flowchart TB
     end
 
     subgraph host["Host platform"]
-        decky["Decky Loader<br/>plugin runtime"]
+        decky["ShelvesHub or Decky Loader<br/>host/plugin runtime"]
         steam["Steam client<br/>GamepadUI + app library"]
     end
 

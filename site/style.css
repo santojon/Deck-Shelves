@@ -230,8 +230,10 @@ section { scroll-margin-top: 80px; }
 /* auto-fit so a 3rd/4th install method wraps in cleanly without a CSS edit */
 .install-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; }
 .inst-card { border: 1px solid var(--border); border-radius: 20px; background: var(--panel); padding: 28px; }
+.inst-card.featured { border-color: var(--blue); background: linear-gradient(180deg, rgba(61, 139, 255, 0.1), var(--panel)); }
 .inst-card h3 { margin: 0 0 6px; font-size: 1.15rem; display: flex; align-items: center; gap: 10px; }
 .inst-card h3 .icon { color: var(--blue-soft); }
+.inst-tag { display: inline-block; margin-bottom: 10px; padding: 3px 10px; border-radius: 999px; background: rgba(61, 139, 255, 0.14); border: 1px solid rgba(61, 139, 255, 0.3); color: var(--blue-soft); font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
 .inst-card > p { color: var(--muted); margin: 0 0 16px; font-size: 0.9rem; }
 .steps { list-style: none; counter-reset: step; margin: 0; padding: 0; display: grid; gap: 12px; }
 .steps li { display: flex; gap: 14px; align-items: flex-start; }

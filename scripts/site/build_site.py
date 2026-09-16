@@ -191,6 +191,9 @@ def _stats_values(stats: dict) -> dict:
     downloads = stats.get("githubDownloads")
     if downloads is not None:
         values["downloads"] = _fmt_compact(downloads)
+    hub_downloads = stats.get("shelvesHubDownloads")
+    if hub_downloads is not None:
+        values["hubDownloads"] = _fmt_compact(hub_downloads)
     main_traffic = (stats.get("traffic") or {}).get("main") or {}
     if "views" in main_traffic:
         values["views"] = _fmt_compact(main_traffic["views"])

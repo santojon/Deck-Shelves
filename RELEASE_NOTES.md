@@ -5,6 +5,8 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+- **New recommended way to install: ShelvesHub.** A standalone host, no Decky Loader needed — one-click installers for Steam Deck, Linux, macOS and Windows, with automatic updates for itself and Deck Shelves. The Decky Store, manual-zip and install-from-URL options are all still there and unchanged; ShelvesHub is simply the easiest path for anyone starting fresh.
+
 ## [3.3.0] - 2026-09-16
 
 ### Added

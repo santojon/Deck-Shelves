@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **ShelvesHub is now the recommended installation path, listed first in README/site — a standalone host that needs no plugin loader.** The existing Decky Store, manual-zip, and install-from-URL paths are unchanged and still fully supported; ShelvesHub is additive, not a replacement. The weekly usage snapshot's `githubDownloads` total (site + README) now sums both distribution repos' release downloads instead of only this repo's ([`fetch_stats.py`](scripts/ci/fetch_stats.py)).
+
 ## [3.3.0] - 2026-09-16
 
 ### Added

@@ -13,6 +13,7 @@
 [![Compatibility](https://img.shields.io/badge/checks-39%2F39-brightgreen?logo=steamdeck&logoColor=white)](scripts/build/validate-compat.mjs)
 [![Platform](https://img.shields.io/badge/platform-SteamOS%20%C2%B7%20Linux%20%C2%B7%20macOS%20%C2%B7%20Windows-purple?logo=steamdeck&logoColor=white)](https://github.com/ValveSoftware/SteamOS)
 [![Downloads](https://img.shields.io/github/downloads/santojon/Deck-Shelves/total.svg?label=downloads&color=blue)](https://github.com/santojon/Deck-Shelves/releases/latest)
+[![ShelvesHub downloads](https://img.shields.io/github/downloads/santojon/ShelvesHub/total.svg?label=shelveshub%20downloads&color=blue)](https://github.com/santojon/ShelvesHub/releases/latest)
 [![GitHub release](https://img.shields.io/github/v/release/santojon/Deck-Shelves?label=latest&color=blue)](https://github.com/santojon/Deck-Shelves/releases/latest)
 [![Decky Store](https://img.shields.io/endpoint?url=https%3A%2F%2Fsantojon.github.io%2FDeck-Shelves%2Fstats%2Fdecky-store.json)](https://plugins.deckbrew.xyz/plugins)
 [![npm api](https://img.shields.io/npm/dt/@deck-shelves/api?label=api%20downloads&logo=npm&color=cb3837)](https://www.npmjs.com/package/@deck-shelves/api)
@@ -29,7 +30,7 @@
 
 **Deck Shelves** is a plugin that makes the Steam Deck Home screen yours. Build custom shelves from your collections, library tabs, or filters; let **smart shelves** surface games automatically when they're relevant; add hero artwork, decoration cards, and online wishlist/store rows — all configured right on the Deck through a built-in Quick Access Menu editor. No desktop mode, no config files.
 
-**New here?** Read the [getting-started guide](https://github.com/santojon/Deck-Shelves/discussions/48), then install from the Decky Store or latest versions manually (see [Installation](#installation)). Questions or ideas? Join the [Discord](https://discord.gg/EChuVEDakk) or [r/DeckShelves](https://www.reddit.com/r/DeckShelves/).
+**New here?** Read the [getting-started guide](https://github.com/santojon/Deck-Shelves/discussions/48), then install via [ShelvesHub](https://github.com/santojon/ShelvesHub) (recommended — no Decky Loader required) or through the Decky Store (see [Installation](#installation)). Questions or ideas? Join the [Discord](https://discord.gg/EChuVEDakk) or [r/DeckShelves](https://www.reddit.com/r/DeckShelves/).
 
 ## Contents
 
@@ -38,6 +39,7 @@
   - [Features](#features)
   - [Screenshots](#screenshots)
   - [Installation](#installation)
+    - [Via ShelvesHub (recommended)](#via-shelveshub-recommended)
     - [From Decky Store](#from-decky-store)
     - [Manual Installation](#manual-installation)
     - [Install from URL](#install-from-url)
@@ -149,6 +151,16 @@
 A full visual tour — home, QAM, shelf editor, smart shelves, About docs and more — lives in **[docs/showcase.md](docs/showcase.md)**.
 
 ## Installation
+
+### Via ShelvesHub (recommended)
+
+[ShelvesHub](https://github.com/santojon/ShelvesHub) is a standalone host — it injects Deck Shelves directly and needs no plugin loader. One-click installers for every platform, automatic updates for itself and the plugin, and its own Quick Access Menu tab.
+
+1. Grab the installer for your platform from the [ShelvesHub releases page](https://github.com/santojon/ShelvesHub/releases/latest) (or see the [ShelvesHub site](https://santojon.github.io/ShelvesHub/) for details).
+2. Run it — on Steam Deck it's a `.desktop` file, no sudo required.
+3. Restart Steam if prompted. Deck Shelves gets its own Quick Access Menu tab automatically.
+
+Already using Decky Loader? ShelvesHub coexists with it — both can be installed at once, sharing the same settings.
 
 ### From Decky Store
 

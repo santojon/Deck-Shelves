@@ -60,6 +60,17 @@
 
       <symbol id="i-deck" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="4"/><circle cx="7" cy="12" r="1.4"/><circle cx="17" cy="12" r="1.4"/><path d="M7 9.5v5M4.5 12h5"/></symbol>
       <symbol id="i-monitor" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4M3 8l18 8"/></symbol>
+      <symbol id="i-shelveshub" viewBox="0 0 24 24">
+        <rect x="5" y="2.6" width="3.7" height="11.8" rx="0.7" fill="currentColor"/>
+        <rect x="9.5" y="1" width="3.7" height="13.4" rx="0.7" fill="currentColor"/>
+        <rect x="14" y="3.4" width="3.7" height="11" rx="0.7" transform="rotate(-12 15.85 14.4)" fill="currentColor"/>
+        <rect x="3.3" y="14.4" width="17.4" height="2.1" rx="0.9" fill="currentColor"/>
+        <circle cx="12" cy="19.2" r="1.6" fill="currentColor"/>
+        <circle cx="8.6" cy="22.3" r="1" fill="currentColor"/>
+        <circle cx="12" cy="22.8" r="1" fill="currentColor"/>
+        <circle cx="15.4" cy="22.3" r="1" fill="currentColor"/>
+        <path d="M12 20.5 L9 21.9 M12 20.8 L12 21.9 M12 20.5 L15 21.9" stroke="currentColor" stroke-width="1" fill="none" stroke-linecap="round"/>
+      </symbol>
       <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 6h10M18 6h2M4 12h2M10 12h10M4 18h8M16 18h4"/><circle cx="16" cy="6" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="14" cy="18" r="2"/></symbol>
       <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.4 3.8 5.6 3.8 9S14.5 18.6 12 21c-2.5-2.4-3.8-5.6-3.8-9S9.5 5.4 12 3z"/></symbol>
       <symbol id="i-filter" viewBox="0 0 24 24"><path d="M3 5h18l-7 8v5l-4 2v-7z"/></symbol>
@@ -106,6 +117,7 @@
         <a href="#features">Features</a>
         <a href="#showcase">Screenshots</a>
         <a href="#install">Installation</a>
+        <a href="https://santojon.github.io/ShelvesHub/">ShelvesHub</a>
         <a href="https://github.com/santojon/Deck-Shelves/tree/main/docs">Docs</a>
       </nav>
       <span class="nav-social">
@@ -177,6 +189,9 @@
        href-rewrite regex. -->
   <div class="container">
     <div class="stats-row" data-stats-row title="Last snapshot: 2026-09-11">
+      <a class="stat-chip" href="https://github.com/santojon/ShelvesHub/releases" target="_blank" rel="noopener">
+        <svg class="icon"><use href="#i-shelveshub"/></svg> <b data-stat="hubDownloads">—</b> ShelvesHub downloads
+      </a>
       <a class="stat-chip" href="https://decky.xyz" target="_blank" rel="noopener">
         <svg class="icon"><use href="#i-store"/></svg> <b data-stat="installs">17.8k</b> Decky Store installs
       </a>
@@ -326,11 +341,11 @@
         </details>
         <details class="faq-item">
           <summary>Do I need Decky Loader installed?</summary>
-          <p>Yes, Deck Shelves is a Decky plugin — install Decky Loader first, then install Deck Shelves from the Decky Store (or manually, see Installation below).</p>
+          <p>No — <a class="accent" href="https://github.com/santojon/ShelvesHub">ShelvesHub</a> is a standalone host that injects Deck Shelves directly, no plugin loader required. Already have Decky Loader? You can still install Deck Shelves from the Decky Store instead (or manually — see Installation below), and the two hosts coexist if you have both.</p>
         </details>
         <details class="faq-item">
           <summary>What platforms does Deck Shelves run on?</summary>
-          <p>Anywhere Decky Loader runs — SteamOS on Steam Deck, and Linux or Windows wherever Steam's gamepad-style interface is available. It's not a Steam Deck-exclusive tool.</p>
+          <p>SteamOS on Steam Deck (via ShelvesHub or Decky Loader), plus Linux, macOS and Windows wherever Steam's gamepad-style interface is available. It's not a Steam Deck-exclusive tool.</p>
         </details>
         <details class="faq-item">
           <summary>Is Deck Shelves affiliated with or endorsed by Valve, Decky Loader, or any of these plugins/themes?</summary>
@@ -485,9 +500,19 @@
       <div class="section-head">
         <h2>Installation</h2>
         <div class="rule"></div>
-        <p>Deck Shelves runs on top of <a class="accent" href="https://decky.xyz">Decky Loader</a>. Install it from the Decky Store, grab the latest release and add it manually, or install it from a URL.</p>
+        <p>The easiest way is <a class="accent" href="https://github.com/santojon/ShelvesHub">ShelvesHub</a> — a standalone host, no plugin loader needed. Already on <a class="accent" href="https://decky.xyz">Decky Loader</a>? Install from the Decky Store instead, grab the latest release and add it manually, or install it from a URL.</p>
       </div>
       <div class="install-grid">
+        <div class="inst-card featured">
+          <span class="inst-tag">Recommended</span>
+          <h3><svg class="icon"><use href="#i-shelveshub"/></svg> Via ShelvesHub</h3>
+          <p>A standalone host — no Decky Loader required. One-click installers for every platform, with automatic updates for itself and Deck Shelves.</p>
+          <ol class="steps">
+            <li><span>Grab the installer for your platform from the <b>ShelvesHub releases page</b>.</span></li>
+            <li><span>Run it — on Steam Deck it's a <b>.desktop</b> file, no sudo required.</span></li>
+            <li><span>Restart Steam if prompted. Deck Shelves gets its own Quick Access Menu tab automatically.</span></li>
+          </ol>
+        </div>
         <div class="inst-card">
           <h3><svg class="icon"><use href="#i-store"/></svg> From Decky Store</h3>
           <p>The easiest way — once installed, Deck Shelves updates on a click of a button whenever a new version is available in the store.</p>
@@ -517,7 +542,10 @@
         </div>
       </div>
       <div class="install-actions">
-        <a class="btn btn-primary" href="https://github.com/santojon/Deck-Shelves/releases/latest/download/deck-shelves-v3.2.1.zip" download>
+        <a class="btn btn-primary" href="https://github.com/santojon/ShelvesHub/releases/latest">
+          <svg class="icon"><use href="#i-shelveshub"/></svg> Get ShelvesHub
+        </a>
+        <a class="btn btn-ghost" href="https://github.com/santojon/Deck-Shelves/releases/latest/download/deck-shelves-v3.2.1.zip" download>
           <svg class="icon"><use href="#i-download"/></svg> Download latest release
         </a>
         <a class="btn btn-ghost" href="https://decky.xyz">
@@ -565,6 +593,7 @@
           <a href="#features">Features</a>
           <a href="#showcase">Screenshots</a>
           <a href="#install">Installation</a>
+          <a href="https://santojon.github.io/ShelvesHub/">ShelvesHub</a>
           <a href="https://github.com/santojon/Deck-Shelves/tree/main/docs">Docs</a>
         </div>
 
