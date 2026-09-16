@@ -1,5 +1,217 @@
 [
   {
+    "ts": "2026-09-16_20-42-06",
+    "stress": false,
+    "subdir": "release",
+    "version": "3.3.0",
+    "overall": "PASS",
+    "passed": 6,
+    "failed": 0,
+    "skipped": 0,
+    "total": 6,
+    "per_suite": {},
+    "unit": {
+      "passed": 851,
+      "failed": 0,
+      "skipped": 0,
+      "total": 851
+    },
+    "pytest": {},
+    "ruff": {},
+    "lint": {},
+    "suppressions": 72,
+    "complexity": {
+      "level": 1875,
+      "count": 70,
+      "max": 105,
+      "avg": 26.8,
+      "top": [
+        {
+          "file": "src/components/shelf/GameCard.tsx",
+          "line": 190,
+          "fn": "GameCardImpl",
+          "score": 105
+        },
+        {
+          "file": "src/components/Shelf.tsx",
+          "line": 217,
+          "fn": "ShelfViewImpl",
+          "score": 99
+        },
+        {
+          "file": "src/components/DeckRow.tsx",
+          "line": 85,
+          "fn": "DeckRowImpl",
+          "score": 94
+        },
+        {
+          "file": "src/components/shelf/PerShelfHero.tsx",
+          "line": 275,
+          "fn": "PerShelfHero",
+          "score": 84
+        },
+        {
+          "file": "src/index.tsx",
+          "line": 145,
+          "fn": "(anonymous)",
+          "score": 59
+        },
+        {
+          "file": "src/components/HomeInject.tsx",
+          "line": 46,
+          "fn": "HomeShelves",
+          "score": 52
+        },
+        {
+          "file": "src/components/home/navPatches/reparent.ts",
+          "line": 3,
+          "fn": "reparentNavTreeNodes",
+          "score": 50
+        },
+        {
+          "file": "src/components/shelf/PlaceholderCard.tsx",
+          "line": 11,
+          "fn": "PlaceholderCard",
+          "score": 50
+        },
+        {
+          "file": "src/components/shelf/GameCard.tsx",
+          "line": 401,
+          "fn": "injectNativeClasses",
+          "score": 45
+        },
+        {
+          "file": "src/components/DeckRow.tsx",
+          "line": 484,
+          "fn": "(anonymous)",
+          "score": 42
+        }
+      ]
+    },
+    "decoupling": {
+      "leaks": 0,
+      "adapter": 130,
+      "ratio": 0,
+      "top": []
+    },
+    "portability": {
+      "coupled": 38,
+      "guarded": 38,
+      "unguarded": 0,
+      "top": []
+    },
+    "stats": {
+      "date": "2026-09-11",
+      "traffic": {
+        "main": {
+          "views": 1048,
+          "viewsUniques": 440,
+          "clones": 178,
+          "clonesUniques": 66
+        },
+        "api": {
+          "views": 7,
+          "viewsUniques": 5,
+          "clones": 38,
+          "clonesUniques": 20
+        },
+        "host": {
+          "views": 3,
+          "viewsUniques": 2,
+          "clones": 41,
+          "clonesUniques": 20
+        },
+        "shelveshub": {
+          "views": 1,
+          "viewsUniques": 1,
+          "clones": 5,
+          "clonesUniques": 1
+        }
+      },
+      "npm": {
+        "api": 1139,
+        "host": 668
+      },
+      "deckyStoreInstalls": 17838,
+      "deckyStoreUpdates": 1669,
+      "githubDownloads": 4693,
+      "versionDownloads": {
+        "stable": {
+          "v3.2.1": 424,
+          "v3.2.0": 124,
+          "v3.1.0": 249,
+          "v3.0.2": 140,
+          "v3.0.1": 92,
+          "v3.0.0": 189,
+          "v2.4.3": 152,
+          "v2.4.2": 79,
+          "v2.4.1": 82,
+          "v2.4.0": 82,
+          "v2.3.2": 99,
+          "v2.3.1": 59,
+          "v2.3.0": 91,
+          "v2.2.2": 95,
+          "v2.2.1": 64,
+          "v2.2.0": 60,
+          "v2.1.1": 79,
+          "v2.1.0": 67,
+          "v2.0.1": 84,
+          "v2.0.0": 183,
+          "v1.6.3": 76,
+          "v1.6.2": 75,
+          "v1.6.1": 84,
+          "v1.6.0": 105,
+          "v1.5.3": 81,
+          "v1.5.2": 82,
+          "v1.5.1": 100,
+          "v1.5.0": 94,
+          "v1.4.0": 83,
+          "v1.3.1": 70,
+          "v1.3.0": 84,
+          "v1.2.5": 62,
+          "v1.2.4": 105,
+          "v1.2.3": 163,
+          "v1.2.2": 115,
+          "v1.2.1": 66,
+          "v1.2.0": 109,
+          "v1.1.3": 81,
+          "v1.1.2": 60,
+          "v1.1.1": 62,
+          "v1.1.0": 59,
+          "v1.0.0": 64,
+          "v0.2.0": 61,
+          "v0.1.0": 62
+        },
+        "beta": {
+          "v3.3.0-beta.2": 5,
+          "v3.3.0-beta.1": 3,
+          "v3.2.2-beta.2": 20,
+          "v3.2.2-beta.1": 38,
+          "v3.0.2-beta.2": 61,
+          "v3.0.2-beta.1": 61
+        }
+      }
+    },
+    "step_names": [
+      "TypeScript typecheck",
+      "Build (production)",
+      "Unit tests (vitest)",
+      "Package (.zip)",
+      "Verify package",
+      "Compat validation"
+    ],
+    "step_durations_ms": [
+      10062,
+      2968,
+      9049,
+      3387,
+      68,
+      6343
+    ],
+    "total_duration_ms": 31877,
+    "_scope": "release"
+  },
+  {
     "ts": "2026-08-15_13-13-15",
     "stress": false,
     "subdir": "release",
