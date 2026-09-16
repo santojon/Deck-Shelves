@@ -95,6 +95,7 @@
   "screensaver_logo_size_label": "標誌大小",
   "screensaver_logo_at_top_label": "Logo 置頂",
   "screensaver_logo_offset_label": "Logo 偏移",
+  "screensaver_logo_on_screenshots_label": "在截圖上顯示 Logo",
   "showcase_mode_enabled": "展示模式",
   "showcase_mode_desc": "閒置時輪播書架。任何輸入都會停止。",
   "showcase_start_after_label": "延遲啟動時間",

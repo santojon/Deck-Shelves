@@ -95,6 +95,7 @@
   "screensaver_logo_size_label": "Logo size",
   "screensaver_logo_at_top_label": "Logo at top",
   "screensaver_logo_offset_label": "Logo offset",
+  "screensaver_logo_on_screenshots_label": "Logo on screenshots",
   "showcase_mode_enabled": "Showcase mode",
   "showcase_mode_desc": "Cycles through your shelves when idle. Any input stops it.",
   "showcase_start_after_label": "Start after",

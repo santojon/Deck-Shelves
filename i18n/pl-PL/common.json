@@ -95,6 +95,7 @@
   "screensaver_logo_size_label": "Rozmiar logo",
   "screensaver_logo_at_top_label": "Logo u góry",
   "screensaver_logo_offset_label": "Margines logo",
+  "screensaver_logo_on_screenshots_label": "Logo na zrzutach ekranu",
   "showcase_mode_enabled": "Tryb prezentacji",
   "showcase_mode_desc": "Przełącza Twoje półki przy bezczynności. Dowolne wejście to zatrzymuje.",
   "showcase_start_after_label": "Rozpocznij po",

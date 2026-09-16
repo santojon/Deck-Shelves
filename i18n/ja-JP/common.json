@@ -95,6 +95,7 @@
   "screensaver_logo_size_label": "ロゴサイズ",
   "screensaver_logo_at_top_label": "ロゴを上部に配置",
   "screensaver_logo_offset_label": "ロゴの距離",
+  "screensaver_logo_on_screenshots_label": "スクリーンショットにロゴを表示",
   "showcase_mode_enabled": "ショーケースモード",
   "showcase_mode_desc": "アイドル時に棚を切り替えます。操作するとすぐ停止します。",
   "showcase_start_after_label": "開始までの時間",

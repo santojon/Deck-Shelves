@@ -95,6 +95,7 @@
   "screensaver_logo_size_label": "Розмір логотипа",
   "screensaver_logo_at_top_label": "Логотип зверху",
   "screensaver_logo_offset_label": "Відступ логотипа",
+  "screensaver_logo_on_screenshots_label": "Логотип на знімках екрана",
   "showcase_mode_enabled": "Режим вітрини",
   "showcase_mode_desc": "Перемикає ваші полиці під час бездіяльності. Будь-яке введення зупиняє.",
   "showcase_start_after_label": "Почати через",

@@ -95,6 +95,7 @@
   "screensaver_logo_size_label": "Tamaño del logo",
   "screensaver_logo_at_top_label": "Logo arriba",
   "screensaver_logo_offset_label": "Distancia del logo",
+  "screensaver_logo_on_screenshots_label": "Logo en las capturas",
   "showcase_mode_enabled": "Modo vitrina",
   "showcase_mode_desc": "Recorre tus estantes cuando está inactivo. Cualquier entrada lo detiene.",
   "showcase_start_after_label": "Iniciar después de",

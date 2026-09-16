@@ -34,7 +34,7 @@ function resolveTargetBody(anchorEl: HTMLElement | null): HTMLElement | null {
 type LogoPosition = "left" | "center" | "right";
 
 function getLogoConfig(settings: Settings | null): {
-  enabled: boolean; scale: number; position: LogoPosition; atTop: boolean; offsetPct: number;
+  enabled: boolean; scale: number; position: LogoPosition; atTop: boolean; offsetPct: number; onScreenshots: boolean;
 } {
   const s = settings as any;
   return {
@@ -43,6 +43,7 @@ function getLogoConfig(settings: Settings | null): {
     position: (s?.screensaverLogoPosition ?? "left") as LogoPosition,
     atTop: s?.screensaverLogoAtTop === true,
     offsetPct: s?.screensaverLogoOffset ?? 8,
+    onScreenshots: s?.screensaverLogoOnScreenshots !== false,
   };
 }
 
@@ -88,8 +89,8 @@ function LogoImage({ appid, scale, position, atTop, offsetPct }: {
    fallback pattern. Calls `onExhausted` once every candidate has failed,
    so the parent can skip to the next pool item instead of showing
    nothing (or a broken image) for the rest of the dwell time. */
-function Slide({ item, logoEnabled, logoScale, logoPosition, logoAtTop, logoOffsetPct, onExhausted }: {
-  item: ScreensaverItem; logoEnabled: boolean; logoScale: number;
+function Slide({ item, logoEnabled, logoOnScreenshots, logoScale, logoPosition, logoAtTop, logoOffsetPct, onExhausted }: {
+  item: ScreensaverItem; logoEnabled: boolean; logoOnScreenshots: boolean; logoScale: number;
   logoPosition: LogoPosition; logoAtTop: boolean; logoOffsetPct: number; onExhausted: () => void;
 }) {
   const urls = backgroundCandidates(item);
@@ -99,6 +100,9 @@ function Slide({ item, logoEnabled, logoScale, logoPosition, logoAtTop, logoOffs
   if (idx >= urls.length) return null;
   const url = urls[idx];
   const src = getHotCachedImageSrc(url) || url;
+  // Screenshots carry a real appid too (Steam's own screenshot rows always
+  // include nAppID — see screenshotRowToItem), gated by its own toggle.
+  const showLogo = logoEnabled && (item.type !== "screenshot" || logoOnScreenshots);
   return (
     <div style={{ position: "absolute", inset: 0, animation: "ds-screensaver-fade 900ms ease-in-out" }}>
       <img
@@ -106,10 +110,7 @@ function Slide({ item, logoEnabled, logoScale, logoPosition, logoAtTop, logoOffs
         onError={() => setIdx((i) => i + 1)}
         style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
       />
-      {/* Screenshots carry a real appid too (Steam's own screenshot rows
-          always include nAppID — see screenshotRowToItem), so the logo
-          isn't limited to shelf/recent items. */}
-      {logoEnabled && <LogoImage appid={item.appid} scale={logoScale} position={logoPosition} atTop={logoAtTop} offsetPct={logoOffsetPct} />}
+      {showLogo && <LogoImage appid={item.appid} scale={logoScale} position={logoPosition} atTop={logoAtTop} offsetPct={logoOffsetPct} />}
     </div>
   );
 }
@@ -195,7 +196,7 @@ export function DeckScreensaverOverlay() {
   const targetBody = resolveTargetBody(anchorRef.current);
   if (!targetBody) return anchor;
 
-  const { enabled: logoEnabled, scale: logoScale, position: logoPosition, atTop: logoAtTop, offsetPct: logoOffsetPct } = getLogoConfig(getCurrentSettings());
+  const { enabled: logoEnabled, scale: logoScale, position: logoPosition, atTop: logoAtTop, offsetPct: logoOffsetPct, onScreenshots: logoOnScreenshots } = getLogoConfig(getCurrentSettings());
 
   return (
     <>
@@ -205,7 +206,7 @@ export function DeckScreensaverOverlay() {
           onClick={wake}
           style={{ position: "fixed", inset: 0, zIndex: 999999, background: "#000", overflow: "hidden" }}
         >
-          <Slide key={`${pool[index].type}-${index}`} item={pool[index]} logoEnabled={logoEnabled} logoScale={logoScale} logoPosition={logoPosition} logoAtTop={logoAtTop} logoOffsetPct={logoOffsetPct} onExhausted={advanceOrGiveUp} />
+          <Slide key={`${pool[index].type}-${index}`} item={pool[index]} logoEnabled={logoEnabled} logoOnScreenshots={logoOnScreenshots} logoScale={logoScale} logoPosition={logoPosition} logoAtTop={logoAtTop} logoOffsetPct={logoOffsetPct} onExhausted={advanceOrGiveUp} />
           <style>{`@keyframes ds-screensaver-fade { from { opacity: 0; } to { opacity: 1; } }`}</style>
         </div>,
         targetBody,

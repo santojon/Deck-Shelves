@@ -293,6 +293,9 @@ function screensaverLogoPlacementGroup(c: GCtx): ReactNode {
     {row('screensaverLogoOffset', (
       <DSSliderField label={t('screensaver_logo_offset_label' as any)} value={(settings as any).screensaverLogoOffset ?? 8} min={0} max={50} step={1} unit='%' onChange={(v: number) => void (actions as any).setScreensaverLogoOffset(v)} />
     ))}
+    {(settings as any).screensaverShelvesIncludeScreenshots === true && row('screensaverLogoOnScreenshots', (
+      <ToggleField label={t('screensaver_logo_on_screenshots_label' as any)} checked={(settings as any).screensaverLogoOnScreenshots !== false} onChange={(v: boolean) => void (actions as any).setScreensaverLogoOnScreenshots(v)} />
+    ))}
   </>)
 }
 

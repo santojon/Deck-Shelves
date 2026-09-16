@@ -126,5 +126,6 @@ export function defaultSettings(): Settings {
     screensaverLogoPosition: 'left',
     screensaverLogoAtTop: false,
     screensaverLogoOffset: 8,
+    screensaverLogoOnScreenshots: true,
   };
 }

@@ -95,6 +95,7 @@
   "screensaver_logo_size_label": "Logo-Größe",
   "screensaver_logo_at_top_label": "Logo oben",
   "screensaver_logo_offset_label": "Logo-Versatz",
+  "screensaver_logo_on_screenshots_label": "Logo auf Screenshots",
   "showcase_mode_enabled": "Vitrinenmodus",
   "showcase_mode_desc": "Durchläuft deine Regale bei Inaktivität. Jede Eingabe stoppt es.",
   "showcase_start_after_label": "Start nach",

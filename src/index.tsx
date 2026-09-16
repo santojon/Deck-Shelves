@@ -137,35 +137,24 @@ const __ds_entry = definePlugin((serverAPI?: any) => {
   // on systems where the user account isn't `deck` (Bazzite, ChimeraOS, etc.).
   void prewarmUserPaths();
   const enableHomePatch = typeof __DECK_SHELVES_ENABLE_HOME_PATCH__ !== "undefined" ? __DECK_SHELVES_ENABLE_HOME_PATCH__ : true;
-  const g = globalThis as any;
-  /* Cooperative force ownership: a loader launched us, but the hub runtime is
-     present and the user forced ShelvesHub. Route data/backend through the hub
-     while the loader keeps owning the renderer + its other plugins — we render
-     in place (no takeover, no reload), as the single instance. Inert unless the
-     hub actually publishes `__SHELVES_HOST__` alongside the loader. */
-  const coopForce = !!(g.window?.__SHELVES_HOST__ ?? g.__SHELVES_HOST__)
-    && ((g.window?.__SHELVES_FORCE_OWNER__ ?? g.__SHELVES_FORCE_OWNER__) === "shelveshub");
   // A LOADER router hook (used to detect that a loader launched us). Keep this
   // keyed on the loader only — the injected host also exposes a router hook, but
   // that must NOT make resolveHost pick the loader path.
   const loaderRouterHook = serverAPI?.routerHook
-    ?? g.window?.DFL?.routerHook
-    ?? g.DFL?.routerHook;
-  // Host selection lives in resolveHost() — loader vs injected host by launch
-  // signal. Under cooperative force we take the injected-host branch on purpose,
-  // so data/backend/settings run through the hub even though a loader launched us.
-  _hostApi = coopForce ? resolveHost(undefined, undefined) : resolveHost(serverAPI, loaderRouterHook);
+    ?? (globalThis as any).window?.DFL?.routerHook
+    ?? (globalThis as any).DFL?.routerHook;
+  // Host selection lives entirely in resolveHost() — loader vs injected host,
+  // by launch signal, producing the same HostApi contract either way.
+  _hostApi = resolveHost(serverAPI, loaderRouterHook);
   // The router hook used for our screens + home patch: the loader's when a loader
-  // launched us (patch the live renderer in place, incl. cooperative force), or —
-  // as sole host — the injected host's own hook.
+  // launched us, or — as sole host — the injected host's own hook.
   const routerHook = loaderRouterHook
-    ?? g.window?.__SHELVES_HOST__?.routerHook
-    ?? g.__SHELVES_HOST__?.routerHook;
-  /* Single-owner guard: in a dual-host install the first instance claims the
-     renderer; the other stands down — no home patch and no settings writes — so
-     there's one injector and one writer. Cooperative force is the single
-     hub-backed instance, so it owns as shelveshub. */
-  const isOwner = claimHomeOwnership((coopForce || !(serverAPI || loaderRouterHook)) ? "shelveshub" : "decky");
+    ?? (globalThis as any).window?.__SHELVES_HOST__?.routerHook
+    ?? (globalThis as any).__SHELVES_HOST__?.routerHook;
+  // Single-owner guard: in a dual-host install the first instance claims the
+  // renderer; the other stands down — no home patch and no settings writes —
+  // so there's one injector and one writer.
+  const isOwner = claimHomeOwnership((serverAPI || loaderRouterHook) ? "decky" : "shelveshub");
   if (!isOwner) logInfo("RUNTIME", "another Deck Shelves instance owns the renderer — standing down (no home patch / no settings writes)");
   const patch = (enableHomePatch && isOwner) ? installHomePatch(routerHook) : null;
   const recentsReplacePatch = isOwner ? installRecentsReplace(routerHook) : null;

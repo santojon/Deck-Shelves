@@ -778,6 +778,7 @@ export const SettingsSchema = z.object({
   screensaverLogoPosition: z.enum(['left', 'center', 'right']).nullable().optional().transform((v) => v ?? 'left'),
   screensaverLogoAtTop: z.boolean().nullable().optional().transform((v) => v ?? false),
   screensaverLogoOffset: z.number().int().min(0).max(50).nullable().optional().transform((v) => v ?? 8),
+  screensaverLogoOnScreenshots: z.boolean().nullable().optional().transform((v) => v ?? true),
 });
 
 export type Settings = z.infer<typeof SettingsSchema>;
