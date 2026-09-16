@@ -246,11 +246,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
   const openKeyMatcherRef = useRef(createKeyMatcherState());
   const closeKeyMatcherRef = useRef(createKeyMatcherState());
   useEffect(() => {
-    try { (globalThis as any).__ds_sidecar_kb_effect = { isActiveTab, ranAt: Date.now() }; } catch {}
     if (!isActiveTab) return;
-    const writeSidecarKbDiag = (payload: Record<string, unknown>) => {
-      try { (globalThis as any).__ds_sidecar_kb_diag = { ...payload, t: Date.now() }; } catch {}
-    };
     const matchSidecarKey = (code: string | null, kb: ReturnType<typeof resolveKeyboardBindings>) => {
       const open = !!kb.navSidecarOpen && matchKeyEvent(code, parseKeyCombo(kb.navSidecarOpen), openKeyMatcherRef.current);
       const close = !open && !!kb.navSidecarClose && matchKeyEvent(code, parseKeyCombo(kb.navSidecarClose), closeKeyMatcherRef.current);
@@ -265,7 +261,6 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
       const s = getCurrentSettings();
       const kb = resolveKeyboardBindings(s?.keyboardBindings as any, (s as any)?.keyboardBindingsDisabled);
       const { open, close } = matchSidecarKey(e.code, kb);
-      writeSidecarKbDiag({ code: e.code, hasSettings: !!s, navSidecarOpen: kb.navSidecarOpen, open, close, isActiveTab });
       if (!open && !close) return;
       fireQamExpand(resolveQamWin(), open, setQamExpanded);
     };
