@@ -52,6 +52,18 @@ jobs:
         with:
           python-version: '3.12'
 
+      # Refresh the usage-stats snapshot right before building the site, so a
+      # deploy never ships numbers from whenever weekly-report.yml last ran —
+      # build_site.py reads whatever history.json says, and a site-touching
+      # push (release, docs, README) can land well before that weekly cron
+      # does. Not committed back here; weekly-report.yml stays the one place
+      # that persists dashboard-trend history — this is just a fresh read for
+      # this deploy's own numbers.
+      - name: Fetch usage stats snapshot
+        env:
+          GH_TOKEN: ${{ secrets.SUBMIT_TOKEN || secrets.GITHUB_TOKEN }}
+        run: python3 scripts/ci/fetch_stats.py --root .
+
       - name: Rebuild report aggregates (index + dashboard)
         run: python3 scripts/ci/report.py --rebuild --root .
 

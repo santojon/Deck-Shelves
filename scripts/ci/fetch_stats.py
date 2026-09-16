@@ -6,12 +6,15 @@ free and needs no new account: `gh api` (already authenticated in CI), the
 npm registry's public downloads API, and the Decky Store's own public plugin
 list (plugins.deckbrew.xyz).
 
-Meant to run on a low-frequency schedule (the weekly CI report), not on every
-push — these numbers change slowly and GitHub's traffic API itself only ever
-reports a 14-day rolling window. Never hard-fails: any single source that
-errors is simply omitted from the snapshot ('gh api' needs push access to a
-repo to read its traffic, so the two sibling repos may be unreachable from a
-narrower CI token even when the main repo isn't).
+Runs on the weekly CI report's own schedule (persists a history.json entry
+for the dashboard trend) and again, read-only, right before every site
+deploy (pages.yml) so a deploy never ships numbers from whenever the weekly
+run last happened. These numbers change slowly and GitHub's traffic API only
+ever reports a 14-day rolling window, so neither caller needs it more often
+than that. Never hard-fails: any single source that errors is simply omitted
+from the snapshot ('gh api' needs push access to a repo to read its traffic,
+so the two sibling repos may be unreachable from a narrower CI token even
+when the main repo isn't).
 
 Usage: python3 scripts/ci/fetch_stats.py [--root .]
        python3 scripts/ci/fetch_stats.py --backfill | --backfill-npm | --backfill-github-downloads
