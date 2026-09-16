@@ -39,22 +39,30 @@ export const isNonSteamBadgesInstalled = (): boolean => {
   return isPluginInstalled('NonSteamLaunchersBadges') || isPluginInstalled('NonSteamBadges') || isPluginInstalled('Non-Steam Badges');
 };
 
+const UNIFIDECK_PLUGIN_NAMES = ['Unifideck', 'UnifiDeck', 'UnifyDeck'];
+
+function isUnifiDeckPluginPresent(): boolean {
+  return UNIFIDECK_PLUGIN_NAMES.some((n) => isPluginInstalled(n));
+}
+
+function isUnifiDeckDomPresent(): boolean {
+  if (typeof document === 'undefined') return false;
+  return !!(document.getElementById?.('unifideck-tab-hider')
+    || document.querySelector?.('#unifideck-tab-hider')
+    || document.querySelector?.('[data-tab-id^="unifideck-"]'));
+}
+
+const UNIFIDECK_GLOBAL_NAMES = ['UnifiDeck', 'UnifyDeck', 'Unifideck'];
+
+function isUnifiDeckGlobalPresent(): boolean {
+  const hosts: any[] = [globalThis as any, window as any];
+  return hosts.some((h) => UNIFIDECK_GLOBAL_NAMES.some((n) => !!h?.[n]));
+}
+
 export const isUnifiDeckInstalled = (): boolean => {
   if (qaUnifiDeck) return qaUnifiDeck === "present";
   try {
-    if (isPluginInstalled('Unifideck') || isPluginInstalled('UnifiDeck') || isPluginInstalled('UnifyDeck')) return true;
-
-    if (typeof document !== 'undefined') {
-      if (document.getElementById?.('unifideck-tab-hider')) return true;
-      if (document.querySelector?.('#unifideck-tab-hider')) return true;
-      if (document.querySelector?.('[data-tab-id^="unifideck-"]')) return true;
-    }
-
-    const g: any = globalThis as any;
-    if (g?.UnifiDeck || g?.UnifyDeck || g?.Unifideck) return true;
-    if ((window as any)?.UnifiDeck || (window as any)?.UnifyDeck || (window as any)?.Unifideck) return true;
-
-    return false;
+    return isUnifiDeckPluginPresent() || isUnifiDeckDomPresent() || isUnifiDeckGlobalPresent();
   } catch {
     return false;
   }

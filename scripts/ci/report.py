@@ -39,6 +39,7 @@ from report_metrics import (
     _read_complexity,
     _read_decoupling,
     _read_portability,
+    _read_stats,
     _backfill_complexity,
     _backfill_decoupling,
     _backfill_portability,
@@ -594,6 +595,11 @@ text{font-family:system-ui,sans-serif}
 .filter-chips button.active{background:var(--accent);border-color:var(--accent);color:#0f172a}
 .scope-view[hidden]{display:none}
 .empty-scope{color:#475569;font-size:12px;text-align:center;padding:24px}
+.chart-tip{position:fixed;z-index:999;pointer-events:none;background:#0e1626;border:1px solid var(--border,#334155);
+  border-radius:6px;padding:6px 9px;font-size:11px;line-height:1.4;color:#e2e8f0;white-space:nowrap;
+  box-shadow:0 4px 14px rgba(0,0,0,.4);opacity:0;transform:translateY(2px);transition:opacity .08s ease,transform .08s ease}
+.chart-tip.show{opacity:1;transform:translateY(0)}
+[data-tip]{cursor:default}
 """
 
 
@@ -1007,6 +1013,7 @@ def generate(
         "complexity": _read_complexity(root),
         "decoupling": _read_decoupling(root),
         "portability": _read_portability(root),
+        "stats": _read_stats(root),
         "step_names": names,
         "step_durations_ms": durations_ms,
         "total_duration_ms": total_duration_ms,

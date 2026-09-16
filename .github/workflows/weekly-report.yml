@@ -50,6 +50,19 @@ jobs:
           python3 -m pip install -U pip setuptools
           python3 -m pip install pytest
 
+      # Weekly usage snapshot (GitHub traffic, npm downloads, Decky Store
+      # installs) — cheap, external, and slow-moving, so it rides this
+      # already-weekly job instead of its own schedule, and runs before the
+      # report below so this run's own report.json carries today's numbers.
+      # Uses the checkout's own gh auth; never fails the job (fetch_stats.py
+      # fails soft per source). GH_TOKEN needs to see the sibling repos'
+      # traffic too, so it prefers the same admin PAT the commit step below
+      # uses.
+      - name: Fetch usage stats snapshot
+        env:
+          GH_TOKEN: ${{ secrets.SUBMIT_TOKEN || secrets.GITHUB_TOKEN }}
+        run: python3 scripts/ci/fetch_stats.py --root .
+
       - name: Run CI report
         run: pnpm run validate:ci
 

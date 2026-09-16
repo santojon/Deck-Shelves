@@ -49,6 +49,31 @@ _DASH_JS = r"""
   const SCOPES=['local','ci','release'];
   const PASS='#4ade80',FAIL='#f87171',SKIP='#94a3b8';
   const $=id=>document.getElementById(id);
+  // Shared floating tooltip for every SVG chart point — one delegated
+  // listener replaces native <title> (slow, unstyled, no styling control)
+  // on every point across every chart type, including points added by
+  // later render() re-generations (delegation needs no re-binding).
+  (function initChartTooltips(){
+    const tip=$('chart-tip');
+    if(!tip)return;
+    document.addEventListener('mouseover',e=>{
+      const t=e.target.closest('[data-tip]');
+      if(t){tip.textContent=t.getAttribute('data-tip');tip.classList.add('show');}
+    });
+    document.addEventListener('mousemove',e=>{
+      if(!tip.classList.contains('show'))return;
+      const pad=14;
+      let x=e.clientX+pad,y=e.clientY+pad;
+      const r=tip.getBoundingClientRect();
+      if(x+r.width>window.innerWidth-4)x=e.clientX-r.width-pad;
+      if(y+r.height>window.innerHeight-4)y=e.clientY-r.height-pad;
+      tip.style.left=x+'px';tip.style.top=y+'px';
+    });
+    document.addEventListener('mouseout',e=>{
+      const t=e.target.closest('[data-tip]');
+      if(t&&!t.contains(e.relatedTarget))tip.classList.remove('show');
+    });
+  })();
   let runs=Array.isArray(window.__BAKED_RUNS__)?window.__BAKED_RUNS__:[];
   // Scope is multi-select: an empty set means "all". Deck/stress stay tri-state.
   let currentScopes=new Set(), currentDeck='all', currentStress='all';
@@ -199,7 +224,7 @@ _DASH_JS = r"""
     const vmarks=verDateMarkers(items,X,pt,ch);
     const line='M'+pts.map(p=>`${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' L');
     const area=`M${pts[0].x.toFixed(1)},${pt+ch} L`+pts.map(p=>`${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' L')+` L${pts[pts.length-1].x.toFixed(1)},${pt+ch} Z`;
-    const dots=pts.map(p=>`<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3" fill="${(p.m.failed||0)===0?PASS:FAIL}"><title>${esc(p.m.ts||'?')} · ${esc(p.m.version||'?')} [${esc(scopeOf(p.m)||'?')}] · ${Math.round(p.rate)}% (${p.m.passed||0}/${p.m.total||0})</title></circle>`).join('');
+    const dots=pts.map(p=>`<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3" fill="${(p.m.failed||0)===0?PASS:FAIL}" data-tip="${esc(p.m.ts||'?')} · ${esc(p.m.version||'?')} [${esc(scopeOf(p.m)||'?')}] · ${Math.round(p.rate)}% (${p.m.passed||0}/${p.m.total||0})"/>`).join('');
     return `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}">${grid}${vmarks}<path d="${area}" fill="#3d8bff22"/><path d="${line}" fill="none" stroke="#6ea8ff" stroke-width="2"/>${dots}</svg>`;
   }
   // Generic metric-over-time trend: one point per run for which valueFn returns
@@ -228,7 +253,7 @@ _DASH_JS = r"""
     const line='M'+pts.map(p=>`${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' L');
     const area=`M${pts[0].x.toFixed(1)},${pt+ch} L`+pts.map(p=>`${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' L')+` L${pts[pts.length-1].x.toFixed(1)},${pt+ch} Z`;
     const dots=pts.map(p=>{const est=opts.estFn&&opts.estFn(p.m);
-      return `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3" ${est?`fill="#0e1626" stroke="${color}" stroke-width="1.5"`:`fill="${color}"`}><title>${esc(p.m.ts||'?')} · ${esc(p.m.version||'?')} · ${fmt(p.v)}${est?' (est.)':''}</title></circle>`;}).join('');
+      return `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3" ${est?`fill="#0e1626" stroke="${color}" stroke-width="1.5"`:`fill="${color}"`} data-tip="${esc(p.m.ts||'?')} · ${esc(p.m.version||'?')} · ${fmt(p.v)}${est?' (est.)':''}"/>`;}).join('');
     let lastLX=-99;const labels=pts.map((p,i)=>{
       const chg=i===0||Math.abs(p.v-pts[i-1].v)>1e-9;
       const last=i===pts.length-1;
@@ -268,7 +293,7 @@ _DASH_JS = r"""
     const line='M'+pts.map(p=>`${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' L');
     const area=`M${pts[0].x.toFixed(1)},${pt+ch} L`+pts.map(p=>`${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' L')+` L${pts[pts.length-1].x.toFixed(1)},${pt+ch} Z`;
     const dots=pts.map(p=>{const est=opts.estFn&&opts.estFn(p.m);
-      return `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="2.5" ${est?'fill="#0e1626" stroke="#38bdf8" stroke-width="1.5"':'fill="#38bdf8"'}><title>${esc(p.m.ts||'?')} · ${esc(p.m.version||'?')} [${esc(scopeOf(p.m)||'?')}] · ${fmt(p.v)}${est?' (est.)':''}</title></circle>`;}).join('');
+      return `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="2.5" ${est?'fill="#0e1626" stroke="#38bdf8" stroke-width="1.5"':'fill="#38bdf8"'} data-tip="${esc(p.m.ts||'?')} · ${esc(p.m.version||'?')} [${esc(scopeOf(p.m)||'?')}] · ${fmt(p.v)}${est?' (est.)':''}"/>`;}).join('');
     const idxOf=new Map(items.map((m,i)=>[m,i]));
     let avgLines='';const legend=[],placedY=[];
     for(const [name,color,ws] of verWindows(items)){
@@ -278,7 +303,7 @@ _DASH_JS = r"""
       let gy=Y(avg);while(placedY.some(py=>Math.abs(py-gy)<5))gy+=5;placedY.push(gy);
       const idxs=ws.map(m=>idxOf.get(m)).filter(i=>i!=null);
       const x1=X(Math.min(...idxs)),x2=X(Math.max(...idxs));
-      avgLines+=`<line x1="${x1.toFixed(1)}" y1="${gy.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${gy.toFixed(1)}" stroke="${color}" stroke-width="1.75" stroke-dasharray="5 3"><title>${esc(name)}: avg ${fmt(Math.round(avg))} over ${ds.length} run(s)</title></line>`;
+      avgLines+=`<line x1="${x1.toFixed(1)}" y1="${gy.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${gy.toFixed(1)}" stroke="${color}" stroke-width="1.75" stroke-dasharray="5 3" data-tip="${esc(name)}: avg ${fmt(Math.round(avg))} over ${ds.length} run(s)"/>`;
       const sw=ws.slice().sort((a,b)=>String(a.ts||'').localeCompare(String(b.ts||'')));
       const fv=valMap.get(sw[0]),lv=valMap.get(sw[sw.length-1]),delta=lv-fv;
       const dtxt=pct?((delta>=0?'+':'')+Math.round(delta)+'pp'):((delta>=0?'+':'')+(fv?Math.round(100*delta/fv):0)+'%');
@@ -288,6 +313,24 @@ _DASH_JS = r"""
     }
     const svg=`<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}">${grid}${vmarks}<path d="${area}" fill="#38bdf815"/><path d="${line}" fill="none" stroke="#38bdf8" stroke-width="1.5" opacity="0.5"/>${avgLines}${dots}</svg>`;
     return svg+`<div style="display:flex;flex-direction:column;gap:5px;margin-top:10px">${legend.join('')}</div>`;
+  }
+  // Horizontal bar list — one bar per {label,value,color} entry. Used for
+  // the per-version download breakdown (not a time series, so svgMetricTrend
+  // doesn't fit); newest-first order is the caller's responsibility.
+  function svgBars(items,opts){
+    opts=opts||{};
+    const rows=(items||[]).filter(it=>it&&typeof it.value==='number'&&isFinite(it.value));
+    if(!rows.length)return '';
+    const fmt=opts.fmt||(v=>String(Math.round(v)));
+    const max=Math.max(1,...rows.map(r=>r.value));
+    const rh=18,gap=4,lw=104,vw=52,bw=340,h=rows.length*(rh+gap);
+    const bars=rows.map((r,i)=>{
+      const y=i*(rh+gap),w=Math.max(1,bw*r.value/max);
+      return `<text x="${lw-8}" y="${y+rh-4}" fill="#cbd5e1" font-size="10" text-anchor="end">${esc(r.label)}</text>`+
+        `<rect x="${lw}" y="${y+2}" width="${w.toFixed(1)}" height="${rh-4}" rx="2" fill="${r.color||'#38bdf8'}" data-tip="${esc(r.label)} · ${fmt(r.value)}${r.tip?' · '+esc(r.tip):''}"/>`+
+        `<text x="${lw+bw+8}" y="${y+rh-4}" fill="#e2e8f0" font-size="10" font-weight="600">${fmt(r.value)}</text>`;
+    }).join('');
+    return `<svg viewBox="0 0 ${lw+bw+vw} ${h}" width="100%" height="${Math.max(h,20)}">${bars}</svg>`;
   }
   function unitTotals(r){const u=r.unit;return (u&&typeof u==='object'&&u.total)?u:null;}
   // Per-step duration trend as small multiples: one sparkline per step showing
@@ -309,7 +352,7 @@ _DASH_JS = r"""
       const vals=pts.map(p=>p.v),mx=Math.max(...vals)||1,sw=170,sh=42;
       const X=i=>5+(sw-10)*i/Math.max(1,pts.length-1),Y=v=>4+(sh-8)*(1-v/mx);
       const line='M'+pts.map((p,i)=>`${X(i).toFixed(1)},${Y(p.v).toFixed(1)}`).join(' L');
-      const dots=pts.map((p,i)=>`<circle cx="${X(i).toFixed(1)}" cy="${Y(p.v).toFixed(1)}" r="1.6" fill="#6ea8ff"><title>${esc(p.m.version||'?')} · ${fmtDur(p.v)}</title></circle>`).join('');
+      const dots=pts.map((p,i)=>`<circle cx="${X(i).toFixed(1)}" cy="${Y(p.v).toFixed(1)}" r="1.6" fill="#6ea8ff" data-tip="${esc(p.m.version||'?')} · ${fmtDur(p.v)}"/>`).join('');
       const f=pts[0].v,l=pts[pts.length-1].v,delta=l-f,dp=f?Math.round(100*delta/f):0;
       const tr=pts.length<2?'—':(delta>0?`▲ +${dp}%`:(delta<0?`▼ ${dp}%`:'• flat'));
       const trc=delta>0?FAIL:(delta<0?PASS:'#94a3b8');
@@ -479,6 +522,49 @@ _DASH_JS = r"""
     if(hasPort){const estPo=r=>!!r.portabilityEst;
       const po1=$('portability-trend');if(po1)po1.innerHTML=svgMetricTrend(view,r=>r.portability&&typeof r.portability.unguarded==='number'?r.portability.unguarded:null,{color:'#2dd4bf',upGood:false,estFn:estPo});
       const po2=$('portability-coupled-trend');if(po2)po2.innerHTML=svgMetricTrend(view,r=>r.portability&&typeof r.portability.coupled==='number'?r.portability.coupled:null,{color:'#5eead4',upGood:true,estFn:estPo,fmt:v=>Math.round(v)+' sites'});}
+    // Project usage — Decky Store installs, GitHub downloads/traffic, npm
+    // downloads. Its own dedicated series (window.__USAGE_HISTORY__, one
+    // point per fetch_stats.py snapshot/backfill date), NOT the CI-report
+    // `view` — a local `pnpm qa` run only ever contributes one report, so
+    // sourcing this from `view` would cap the trend at one point
+    // regardless of how much real history.json data actually exists. No
+    // version windows apply here (none of this is tied to app releases),
+    // and there's no "estimated" flag like the metrics above — every
+    // point here, including fetch_stats.py --backfill's, is a real
+    // measured number, never an approximation from git history.
+    const usageRuns=(Array.isArray(window.__USAGE_HISTORY__)?window.__USAGE_HISTORY__:[]).map(e=>({ts:e.date,stats:e}));
+    const hasStats=usageRuns.some(r=>typeof r.stats.deckyStoreInstalls==='number');
+    const hasDownloads=usageRuns.some(r=>typeof r.stats.githubDownloads==='number');
+    const hasNpm=usageRuns.some(r=>r.stats.npm);
+    const verSnap=(sortRuns(usageRuns).filter(r=>r.stats.versionDownloads).pop()||{}).stats;
+    const hasVer=!!(verSnap&&verSnap.versionDownloads);
+    const hasDeckyUpd=usageRuns.some(r=>typeof r.stats.deckyStoreUpdates==='number');
+    const usagePanel=$('usage-panel');
+    if(usagePanel)usagePanel.style.display=(hasStats||hasDownloads||hasNpm||hasVer)?'':'none';
+    if(hasDownloads){
+      const ud=$('usage-downloads-trend');if(ud)ud.innerHTML=svgMetricTrend(usageRuns,r=>typeof r.stats.githubDownloads==='number'?r.stats.githubDownloads:null,{color:'#fbbf24',upGood:true,fmt:v=>Math.round(v)+' downloads'});
+    }
+    const verBlk=$('usage-version-block');if(verBlk)verBlk.style.display=hasVer?'':'none';
+    if(hasVer){
+      // Newest-first from fetch_stats.py; cap so the chart stays readable —
+      // recent versions are what "which version are people on" is about.
+      const vd=verSnap.versionDownloads,items=[];
+      Object.keys(vd.stable||{}).slice(0,10).forEach(tag=>items.push({label:tag,value:vd.stable[tag],color:'#38bdf8',tip:'stable'}));
+      Object.keys(vd.beta||{}).slice(0,5).forEach(tag=>items.push({label:tag,value:vd.beta[tag],color:'#c084fc',tip:'beta'}));
+      const uvb=$('usage-version-bars');if(uvb)uvb.innerHTML=svgBars(items,{fmt:v=>Math.round(v)+' downloads'});
+    }
+    if(hasStats){
+      const ui=$('usage-installs-trend');if(ui)ui.innerHTML=svgMetricTrend(usageRuns,r=>typeof r.stats.deckyStoreInstalls==='number'?r.stats.deckyStoreInstalls:null,{color:'#38bdf8',upGood:true,fmt:v=>Math.round(v)+' installs'});
+      const uv=$('usage-views-trend');if(uv)uv.innerHTML=svgMetricTrend(usageRuns,r=>r.stats.traffic&&r.stats.traffic.main&&typeof r.stats.traffic.main.views==='number'?r.stats.traffic.main.views:null,{color:'#4ade80',upGood:true,fmt:v=>Math.round(v)+' views'});
+    }
+    const updBlk=$('usage-decky-updates-block');if(updBlk)updBlk.style.display=hasDeckyUpd?'':'none';
+    if(hasDeckyUpd){
+      const uu=$('usage-decky-updates-trend');if(uu)uu.innerHTML=svgMetricTrend(usageRuns,r=>typeof r.stats.deckyStoreUpdates==='number'?r.stats.deckyStoreUpdates:null,{color:'#5eead4',upGood:true,fmt:v=>Math.round(v)+' updates'});
+    }
+    if(hasNpm){
+      const na=$('usage-npm-api-trend');if(na)na.innerHTML=svgMetricTrend(usageRuns,r=>r.stats.npm&&typeof r.stats.npm.api==='number'?r.stats.npm.api:null,{color:'#f472b6',upGood:true,fmt:v=>Math.round(v)+' @deck-shelves/api'});
+      const nh=$('usage-npm-host-trend');if(nh)nh.innerHTML=svgMetricTrend(usageRuns,r=>r.stats.npm&&typeof r.stats.npm.host==='number'?r.stats.npm.host:null,{color:'#c084fc',upGood:true,fmt:v=>Math.round(v)+' @deck-shelves/host'});
+    }
     // Per-step duration trends — whenever the view has timed runs.
     const stHost=$('step-trends');
     if(stHost){const st=stepTrends(view),stPanel=$('steptrends-panel');
@@ -712,6 +798,28 @@ def _rebuild_dashboard(reports_root: Path) -> None:
     </div>
   </div>
 
+  <div class="panel" id="usage-panel" style="display:none">
+    <h2>Project usage &mdash; Decky Store installs &amp; GitHub traffic (14-day)</h2>
+    <div id="usage-installs-trend"></div>
+    <div id="usage-views-trend"></div>
+    <h2 style="margin-top:18px">GitHub release downloads &mdash; cumulative, by release date</h2>
+    <div id="usage-downloads-trend"></div>
+    <div id="usage-version-block" style="display:none">
+      <h2 style="margin-top:18px">Downloads by version &mdash; recent, <span style="color:#38bdf8">stable</span> vs <span style="color:#c084fc">beta</span></h2>
+      <div id="usage-version-bars"></div>
+    </div>
+    <div id="usage-decky-updates-block" style="display:none">
+      <h2 style="margin-top:18px">Decky Store updates &mdash; times the current published version was updated to</h2>
+      <div id="usage-decky-updates-trend"></div>
+    </div>
+    <h2 style="margin-top:18px">npm downloads &mdash; lifetime total per package</h2>
+    <div id="usage-npm-api-trend"></div>
+    <div id="usage-npm-host-trend"></div>
+    <div class="legend">
+      <span style="color:#64748b;font-size:10px">Snapshotted weekly from the Decky Store's own plugin list, GitHub's traffic/releases API, and the npm registry — no external analytics, no new accounts. GitHub traffic only ever covers a rolling 14-day window, not a running total. GitHub downloads has no true historical snapshot either — each point is the running sum of every release's <i>current</i> download count up to that release's own date, backfilled once from the repo's release history (<code>fetch_stats.py --backfill</code>); npm downloads back to each package's publish date are a real (not estimated) backfill too, since the registry API can answer "total as of a past date" directly. <b>Downloads by version</b> is manual <code>.zip</code> installs only — a version's count keeps growing after it's superseded and Decky Store installs never touch a GitHub asset, so read it as relative interest across versions, not an active-user count.</span>
+    </div>
+  </div>
+
   <div class="panel-grid">
     <div class="panel">
       <h2>Overall test distribution</h2>
@@ -741,6 +849,12 @@ def _rebuild_dashboard(reports_root: Path) -> None:
 
     baked_json = json.dumps(baked, separators=(",", ":"))
     ver_windows_json = json.dumps(_version_windows(reports_root), separators=(",", ":"))
+    usage_history_path = reports_root / "stats" / "history.json"
+    try:
+        usage_history = json.loads(usage_history_path.read_text(encoding="utf-8")) if usage_history_path.is_file() else []
+    except Exception:
+        usage_history = []
+    usage_history_json = json.dumps(usage_history, separators=(",", ":"))
     dash = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -758,7 +872,8 @@ def _rebuild_dashboard(reports_root: Path) -> None:
   {panels}
 </main>
 {_site_footer('../')}
-<script>window.__BAKED_RUNS__={baked_json};window.__VER_WINDOWS__={ver_windows_json};</script>
+<div id="chart-tip" class="chart-tip"></div>
+<script>window.__BAKED_RUNS__={baked_json};window.__VER_WINDOWS__={ver_windows_json};window.__USAGE_HISTORY__={usage_history_json};</script>
 <script>{_DASH_JS}</script>
 </body>
 </html>

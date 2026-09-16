@@ -131,3 +131,90 @@ export function pickNextAvailableSource(opts: Opts): any {
   const factory = NEXT_SOURCE_FACTORIES[t0];
   return factory ? factory(opts) : null;
 }
+
+// ── Additional-source row helpers (composite "source 2+" rows) ─────────────
+
+export type ChildSourceType = 'collection' | 'tab' | 'wishlist' | 'store' | 'filter' | 'external';
+
+const CHILD_SOURCE_TYPES: ReadonlySet<string> = new Set(['collection', 'wishlist', 'store', 'filter', 'external']);
+
+export function normalizeChildSourceType(rawType: unknown): ChildSourceType {
+  return typeof rawType === 'string' && CHILD_SOURCE_TYPES.has(rawType) ? (rawType as ChildSourceType) : 'tab';
+}
+
+export function childSourceNeedsValuePicker(childType: ChildSourceType): boolean {
+  return childType === 'collection' || childType === 'tab' || childType === 'external';
+}
+
+export function childSourceValue(child: any, childType: ChildSourceType): string {
+  if (childType === 'collection') return String(child?.collectionId ?? '');
+  if (childType === 'tab') return String(child?.tab ?? 'all');
+  if (childType === 'external') return String(child?.sourceId ?? '');
+  return '';
+}
+
+const CHILD_SOURCE_LABEL_KEYS: Record<ChildSourceType, string> = {
+  collection: 'source_collection',
+  tab: 'source_tab',
+  wishlist: 'source_wishlist',
+  filter: 'source_filter',
+  external: 'source_external',
+  store: 'source_store',
+};
+
+export function childSourceTypeLabel(childType: ChildSourceType, t: (key: any) => string): string {
+  return t(CHILD_SOURCE_LABEL_KEYS[childType] as any);
+}
+
+// Primary/additional-row label for the two online-only source types — used
+// by both the "exclude owned" toggle blocks and the online-filters tab,
+// which each need to tell a wishlist row from a store row.
+export function onlineSourceLabel(type: unknown, t: (key: any) => string): string {
+  return t(type === 'wishlist' ? 'source_wishlist' : 'source_store');
+}
+
+export type ExclusionFlags = { excludeOwned: boolean; excludeOwnedNonSteam: boolean; hideOwnedNonSteamCloud: boolean };
+
+// An inner flag can only be true when its parent is: hiding non-Steam-cloud
+// entries implies hiding non-Steam entries implies excluding owned at all.
+export function deriveExclusionFlags(src: any): ExclusionFlags {
+  const excludeOwned = src?.excludeOwned === true;
+  const excludeOwnedNonSteam = excludeOwned && src?.excludeOwnedNonSteam === true;
+  const hideOwnedNonSteamCloud = excludeOwnedNonSteam && src?.hideOwnedNonSteamCloud === true;
+  return { excludeOwned, excludeOwnedNonSteam, hideOwnedNonSteamCloud };
+}
+
+export function onlineAdditionalIndexes(state: EditableShelfState): number[] {
+  return state.additionalSources
+    .map((s: any, i: number) => ((s?.type === 'wishlist' || s?.type === 'store') ? i : -1))
+    .filter((i) => i >= 0);
+}
+
+// Filters-tab (childFilters) visibility/plan: shows for a direct online or
+// offline (collection/tab) source, or a composite with an online child —
+// bundled once since each case edits a different `childFilter` slot set.
+
+export type FilterTabPlan = {
+  showTab: boolean;
+  primaryOnline: boolean;
+  primaryOffline: boolean;
+  allowOnline: boolean;
+  tabLabelKey: 'edit_tab_online_filters' | 'edit_tab_additional_filters';
+  onlineAdditionalIdx: number[];
+};
+
+export function resolveFilterTabPlan(state: EditableShelfState): FilterTabPlan {
+  const primaryOnline = state.sourceType === 'wishlist' || state.sourceType === 'store';
+  const primaryOffline = state.sourceType === 'collection' || state.sourceType === 'tab';
+  const onlineAdditionalIdx = onlineAdditionalIndexes(state);
+  const compositeOnlineChild = state.additionalSources.length > 0 && (primaryOnline || onlineAdditionalIdx.length > 0);
+  const allowOnline = primaryOnline || compositeOnlineChild;
+  return {
+    showTab: primaryOffline || primaryOnline || compositeOnlineChild,
+    primaryOnline,
+    primaryOffline,
+    allowOnline,
+    tabLabelKey: allowOnline ? 'edit_tab_online_filters' : 'edit_tab_additional_filters',
+    onlineAdditionalIdx,
+  };
+}

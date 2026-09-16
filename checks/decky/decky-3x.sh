@@ -14,19 +14,23 @@ run_checks() {
     ((fail++))
   fi
 
-  if grep -q '"@decky/api"' "$root/package.json" 2>/dev/null; then
-    echo "  ✅ Uses @decky/api package"
+  # No real @decky/api npm dependency — the host-neutral `@host/api` alias
+  # (vite/tsconfig) resolves to src/shims/host-api.ts, which talks to Decky's
+  # real runtime globals (DFL / deckyFrontendLib / the loader's secret connect
+  # init) directly. Verify that wiring instead of a package.json entry.
+  if grep -q 'DFL\|deckyFrontendLib' "$root/src/shims/host-api.ts" 2>/dev/null; then
+    echo "  ✅ host-api shim talks to Decky's runtime API (DFL)"
     ((pass++))
   else
-    echo "  ❌ Missing @decky/api dependency"
+    echo "  ❌ host-api shim missing Decky runtime API wiring"
     ((fail++))
   fi
 
-  if grep -q '"@decky/ui"' "$root/package.json" 2>/dev/null; then
-    echo "  ✅ Uses @decky/ui package"
+  if grep -q 'DFL\|deckyFrontendLib' "$root/src/shims/host-ui.ts" 2>/dev/null; then
+    echo "  ✅ host-ui shim talks to Decky's runtime UI (DFL)"
     ((pass++))
   else
-    echo "  ❌ Missing @decky/ui dependency"
+    echo "  ❌ host-ui shim missing Decky runtime UI wiring"
     ((fail++))
   fi
 
@@ -49,7 +53,7 @@ run_checks() {
   # The loader module is imported (try/except) in the host-abstraction module
   # `plugin_host.py`, not main.py — so the same backend also runs on a neutral
   # host. Scan the backend .py files rather than main.py alone.
-  if grep -q "import decky" "$root"/*.py 2>/dev/null; then
+  if grep -q "import decky" "$root"/*.py "$root"/src/backend/*.py 2>/dev/null; then
     echo "  ✅ Uses 'import decky' (v3 style)"
     ((pass++))
   else
@@ -57,7 +61,7 @@ run_checks() {
     ((fail++))
   fi
 
-  if ! grep -q "from decky_plugin" "$root"/*.py 2>/dev/null; then
+  if ! grep -q "from decky_plugin" "$root"/*.py "$root"/src/backend/*.py 2>/dev/null; then
     echo "  ✅ No legacy decky_plugin imports"
     ((pass++))
   else

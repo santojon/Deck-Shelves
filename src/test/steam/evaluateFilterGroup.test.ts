@@ -370,14 +370,29 @@ describe('evaluateFilterGroup — appStatus on non-Steam (synthesized display_st
 })
 
 describe('systemCompatibility filter', () => {
-  it('keeps apps available on the current platform (and unknown), drops incompatible', () => {
+  // Unknown (no data) is kept on the Deck but excluded on desktop, where Steam
+  // never marks a game's platform availability `false` — mirror that here.
+  const oneSided = /mac|win/i.test((globalThis as any).navigator?.platform ?? '')
+
+  it('honours Steam\'s field, then our store-derived fill, drops incompatible', () => {
     const apps = [
       app({ appid: 1, available_on_current_platform: true } as any),
       app({ appid: 2, available_on_current_platform: false } as any),
-      app({ appid: 3 } as any), // no data (non-Steam) → kept
+      app({ appid: 3, __ds_available_on_platform: true } as any),  // store-derived
+      app({ appid: 4, __ds_available_on_platform: false } as any), // store-derived
     ]
     const g = group([{ type: 'systemCompatibility', params: {} }])
     expect(evaluateFilterGroup(g, apps).map((a) => a.appid)).toEqual([1, 3])
+  })
+
+  it('keeps unknown on the Deck, excludes it on desktop', () => {
+    const apps = [
+      app({ appid: 1, available_on_current_platform: true } as any),
+      app({ appid: 2 } as any), // no data anywhere (non-Steam, no store fill)
+    ]
+    const g = group([{ type: 'systemCompatibility', params: {} }])
+    const kept = evaluateFilterGroup(g, apps).map((a) => a.appid)
+    expect(kept).toEqual(oneSided ? [1] : [1, 2])
   })
 
   it('inverts to keep only incompatible apps', () => {

@@ -1,13 +1,13 @@
 /* DeckyHostApi — the ONLY place `@decky/*` imports may be added.
    Re-exports every primitive / helper / class-name binding DS source
    files need, so the rest of the codebase imports from this adapter
-   (`runtime/host/decky`) instead of reaching into `@decky/ui`
+   (`runtime/host/decky`) instead of reaching into `@host/ui`
    directly. Adding a new symbol? Add it here once and update callers. */
-import { call, toaster, openFilePicker } from "@decky/api";
-/* Re-export the @decky/api primitives DS source files need so the
-   adapter is the single import point for both `@decky/ui` and
-   `@decky/api`. Adding a new symbol? Add it here once and update
-   callers — the only file that should keep an `@decky/api` import is
+import { call, toaster, openFilePicker } from "@host/api";
+/* Re-export the @host/api primitives DS source files need so the
+   adapter is the single import point for both `@host/ui` and
+   `@host/api`. Adding a new symbol? Add it here once and update
+   callers — the only file that should keep an `@host/api` import is
    `index.tsx` for `definePlugin` (the bundle entry point). */
 export { call, toaster, openFilePicker };
 import {
@@ -24,8 +24,9 @@ import {
   gamepadDialogClasses,
   quickAccessControlsClasses,
   quickAccessMenuClasses,
+  getFrontendLib,
   type SingleDropdownOption,
-} from "@decky/ui";
+} from "@host/ui";
 
 export {
   ConfirmModal, DialogBody, DialogButton, DialogControlsSection,
@@ -41,6 +42,9 @@ export {
   gamepadDialogClasses,
   quickAccessControlsClasses,
   quickAccessMenuClasses,
+  // THE host-parametric lib-object resolver (lazy). Imperative code that needs
+  // the whole `fl` object imports it from here — never re-derives the chain.
+  getFrontendLib,
 };
 export type { SingleDropdownOption };
 import { HOST_API_VERSION, type Disposable, type HostApi, type PluginDescriptor, type ToastOptions } from "./contract";
@@ -74,7 +78,7 @@ export function createDeckyHostApi(routerHook: any): HostApi {
     },
     rpc: {
       async call<Req = unknown, Res = unknown>(method: string, args?: Req): Promise<Res> {
-        // `@decky/api`'s `call` accepts the args array directly; passing
+        // `@host/api`'s `call` accepts the args array directly; passing
         // `args` (object or array) lets the Python backend receive the
         // same shape callers send. Decky deserialises both shapes.
         return call<any[], Res>(method, args as any);

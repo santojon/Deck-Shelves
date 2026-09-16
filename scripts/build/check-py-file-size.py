@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Python parity for ESLint's `max-lines` rule (cap 1000 code lines).
 # Counts non-blank, non-comment lines per .py and errors on overruns.
-# Scope mirrors `pnpm run lint:py`: main.py + scripts/ (recurses).
+# Scope mirrors `pnpm run lint:py`: main.py + src/backend/ + scripts/ (recurses).
 from __future__ import annotations
 
 import sys
@@ -37,7 +37,7 @@ def iter_targets(roots: list[Path]):
 
 def main(argv: list[str]) -> int:
     repo = Path(__file__).resolve().parent.parent.parent
-    roots = [repo / a for a in (argv or ["main.py", "scripts"])]
+    roots = [repo / a for a in (argv or ["main.py", "src/backend", "scripts"])]
     fails: list[tuple[Path, int]] = []
     for path in iter_targets(roots):
         n = code_lines(path)

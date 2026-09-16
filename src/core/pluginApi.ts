@@ -7,6 +7,7 @@
 import type { Settings } from "../types";
 import { registerTranslations } from "../i18n";
 import { getCurrentSettings, saveSettings, subscribeSettings } from "../store/settingsStore";
+import { triggerShelfRefresh } from "./shelfRefresh";
 import {
   isTabMasterInstalled,
   isNonSteamBadgesInstalled,
@@ -15,6 +16,7 @@ import {
 import { TRIGGER_CATALOG } from "../domain/triggerCatalog";
 import { SHELF_TEMPLATES, ONLINE_SHELF_TEMPLATES } from "../domain/templates";
 import { DEFAULT_BINDINGS } from "../runtime/buttonBindings";
+import { DEFAULT_KEYBOARD_BINDINGS, resolveKeyboardBindings } from "../runtime/keyboardBindings";
 import pkg from "../../package.json";
 import type {
   Unsubscribe as ApiUnsubscribe,
@@ -44,6 +46,7 @@ import type {
   AssetType,
   PublicTriggerKind,
   PublicShortcut,
+  PublicKeyboardShortcut,
   ParsedImport,
   PublicFilterGroup,
   PublicFilterItem,
@@ -52,6 +55,8 @@ import type {
   // there are no plugin-specific copies.
   ExternalShelfSourceDescriptor,
   SmartShelfSourceDescriptor,
+  ContextAwareShelfSourceDescriptor,
+  ShelfResolveContext,
   ExternalFilterTypeDescriptor,
   ExternalSortOptionDescriptor,
   ExternalImportTypeDescriptor,
@@ -94,11 +99,14 @@ export type {
   AssetType,
   PublicTriggerKind,
   PublicShortcut,
+  PublicKeyboardShortcut,
   ParsedImport,
   PublicFilterGroup,
   PublicFilterItem,
   ExternalShelfSourceDescriptor,
   SmartShelfSourceDescriptor,
+  ContextAwareShelfSourceDescriptor,
+  ShelfResolveContext,
   ExternalFilterTypeDescriptor,
   ExternalSortOptionDescriptor,
   ExternalImportTypeDescriptor,
@@ -158,6 +166,12 @@ export function toPublicAppMeta(raw: any): PublicAppMeta {
    are re-exported from `@deck-shelves/api` at the top of this file. */
 
 const shelfSources = new Map<string, ExternalShelfSourceDescriptor>();
+/* Context-aware sources are ALSO registered into `shelfSources` above (a
+   structural superset — see `registerContextAwareShelfSource` below) so
+   every existing consumer (the source picker, `getExternalSources()`) sees
+   them without knowing context awareness exists. This map is only for
+   looking up the `context` declaration and the widened `resolve()`. */
+const contextAwareShelfSources = new Map<string, ContextAwareShelfSourceDescriptor>();
 const smartSources = new Map<string, SmartShelfSourceDescriptor>();
 const filterTypes = new Map<string, ExternalFilterTypeDescriptor>();
 const sortOptions = new Map<string, ExternalSortOptionDescriptor>();
@@ -173,15 +187,62 @@ const recommendationProviders = new Map<string, RecommendationProviderDescriptor
 const exportHandlers = new Map<string, ExportHandlerDescriptor>();
 const importHandlers = new Map<string, ImportHandlerDescriptor>();
 
+/* A registered `resolve()` may throw synchronously instead of rejecting — a
+   bare `Promise.resolve(fn()).catch(...)` doesn't catch that, since the
+   throw happens before the promise is even constructed. Wrapping the call
+   itself closes that gap for every resolve() wrapper below. */
+function safeResolveIds(fn: () => Promise<number[]> | number[]): Promise<number[]> {
+  try {
+    return Promise.resolve(fn()).catch(() => []);
+  } catch {
+    return Promise.resolve([]);
+  }
+}
+
 export function resolveExternalSource(sourceId: string, limit: number): Promise<number[]> {
   const src = shelfSources.get(sourceId);
   if (!src) return Promise.resolve([]);
-  // resolve() may be sync or async in the public contract — normalize.
-  return Promise.resolve(src.resolve(limit)).catch(() => []);
+  return safeResolveIds(() => src.resolve(limit));
 }
 
 export function getExternalSources(): ExternalShelfSourceDescriptor[] {
   return Array.from(shelfSources.values());
+}
+
+export function hasExternalSource(id: string): boolean {
+  return shelfSources.has(id);
+}
+
+/** Whether `sourceId` needs a focused appid to produce results — the signal
+ *  the resolver uses to skip `resolve()` while nothing is focused. A source
+ *  that didn't declare this still resolves normally, just with
+ *  `context`/`signal` also passed through. */
+export function contextAwareSourceRequiresFocus(sourceId: string): boolean {
+  return contextAwareShelfSources.get(sourceId)?.context?.requiresFocusedApp === true;
+}
+
+export function isContextAwareSource(sourceId: string): boolean {
+  return contextAwareShelfSources.has(sourceId);
+}
+
+export function getRegisteredContextAwareShelfSources(): ContextAwareShelfSourceDescriptor[] {
+  return Array.from(contextAwareShelfSources.values());
+}
+
+/** Resolves a context-aware external source, passing the live context and
+ *  an `AbortSignal` through. Never throws — a provider failure must not be
+ *  able to break Home rendering (spec §13); the caller sees an empty result
+ *  and the shelf keeps whatever it last had. */
+export function resolveContextAwareExternalSource(
+  sourceId: string,
+  limit: number,
+  params: Record<string, unknown> | undefined,
+  context: ShelfResolveContext,
+  signal?: AbortSignal,
+): Promise<number[]> {
+  const src = contextAwareShelfSources.get(sourceId);
+  if (!src) return Promise.resolve([]);
+  return safeResolveIds(() => src.resolve(limit, params, context, signal));
 }
 
 export function hasExternalSmartSource(id: string): boolean {
@@ -196,7 +257,7 @@ export function resolveExternalSmartSource(
   const src = smartSources.get(id);
   if (!src) return Promise.resolve([]);
   const merged = { ...(src.defaultParams ?? {}), ...params };
-  return Promise.resolve(src.resolve(limit, merged)).catch(() => []);
+  return safeResolveIds(() => src.resolve(limit, merged));
 }
 
 export function getExternalSmartSourceMeta(id: string): SmartShelfSourceDescriptor | undefined {
@@ -577,6 +638,15 @@ export function makeApi(): DeckShelvesPublicAPI {
     },
     getRegisteredSources() { return Array.from(shelfSources.values()); },
 
+    registerContextAwareShelfSource(d) {
+      // Also into `shelfSources` (a structural superset) so the source
+      // picker and `getExternalSources()` see it without special-casing.
+      contextAwareShelfSources.set(d.id, d);
+      shelfSources.set(d.id, d);
+      return () => { contextAwareShelfSources.delete(d.id); shelfSources.delete(d.id); };
+    },
+    getRegisteredContextAwareShelfSources() { return Array.from(contextAwareShelfSources.values()); },
+
     registerSmartShelfSource(d) {
       smartSources.set(d.id, d);
       return () => { smartSources.delete(d.id); };
@@ -690,6 +760,13 @@ export function makeApi(): DeckShelvesPublicAPI {
         combo: typeof bindings[action] === "string" && bindings[action] ? bindings[action] : DEFAULT_BINDINGS[action],
       }));
     },
+    listKeyboardShortcuts() {
+      const s = getCurrentSettings() as any;
+      const resolved = resolveKeyboardBindings(s?.keyboardBindings, s?.keyboardBindingsDisabled);
+      return (Object.keys(DEFAULT_KEYBOARD_BINDINGS) as Array<keyof typeof DEFAULT_KEYBOARD_BINDINGS>).map((action) => ({
+        action, combo: resolved[action],
+      }));
+    },
 
     getShelves() { return projectShelves(getCurrentSettings()); },
     getSmartShelves() { return projectSmartShelves(getCurrentSettings()); },
@@ -725,6 +802,7 @@ export function makeApi(): DeckShelvesPublicAPI {
         try { cb(next); } catch {}
       });
     },
+    refreshShelf(shelfId) { triggerShelfRefresh({ manual: true, shelfId }); },
 
     getFocusedCard() {
       const { getFocusedCard } = requireFocusTracker();
@@ -845,7 +923,10 @@ export function installPluginApi(): () => void {
     return () => {
       if (unmountFired) return;
       unmountFired = true;
-      try { integration.onUnmount?.(); } catch {}
+      try {
+        const r = integration.onUnmount?.();
+        if (r) void Promise.resolve(r).catch(() => {});
+      } catch {}
     };
   };
 

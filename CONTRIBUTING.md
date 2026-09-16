@@ -107,11 +107,11 @@ It never installs Decky — set `DECKY_PLUGINS_DIR` if Decky isn't at
 main.py                  Python backend entry — DEFAULT_SETTINGS, _SSL_CTX,
                          Plugin class (lifecycle + RPC). Re-exports the
                          helper modules below for back-compat imports.
-paths.py                 _steam_install_candidates, _normalize_path —
+src/backend/paths.py     _steam_install_candidates, _normalize_path —
                          path discovery + home-confined path validation.
-storage.py               _settings_dir, _primary_file, _safe_read_json —
+src/backend/storage.py   _settings_dir, _primary_file, _safe_read_json —
                          settings.json read helpers (Decky env-var aware).
-sanitizer.py             _sanitize_settings — settings-shape normaliser
+src/backend/sanitizer.py _sanitize_settings — settings-shape normaliser
                          (mirrors the Zod schemas in src/types.ts).
 src/index.tsx            Frontend entry point (Decky lifecycle)
 src/types.ts             Zod schemas (Shelf, Settings, FilterGroup)

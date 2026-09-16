@@ -35,7 +35,7 @@ export function ExportAndClearModal({ closeModal, controller, folderPath }: { cl
         onEscKeypress={closeModal}
         onOK={() => {
           setSaveBusy(true);
-          (async () => {
+          void (async () => {
             const target = `${folder}/${filenameWithJson(name)}`;
             try {
               const ok = await exportSettingsToFile(target);

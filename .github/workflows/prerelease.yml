@@ -9,7 +9,7 @@ name: "Release · Pre-release"
 # into package.json + plugin.json **in the runner only**, build:release, and
 # publish a GitHub *pre-release*. The repo's package.json stays untouched.
 #
-# Beta testers opt in via Deck Shelves → "Check for updates" → "Canal beta",
+# Beta testers opt in via Deck Shelves → "Check for updates" → "Beta channel",
 # which makes the in-plugin update check surface pre-releases.
 
 on:
@@ -101,6 +101,11 @@ jobs:
       - name: Package zip
         run: pnpm run dist
 
+      # Standalone backend archive (see release.yml) — so beta installs without a
+      # plugin loader (macOS/Windows) also get the Python backend.
+      - name: Package backend archive
+        run: tar -czf deck-shelves-backend.tar.gz --exclude='__pycache__' main.py src/backend
+
       - name: Extract [Unreleased] notes
         id: notes
         run: |
@@ -133,6 +138,8 @@ jobs:
           generate_release_notes: ${{ steps.notes.outputs.body == '' }}
           files: |
             deck-shelves-v*.zip
+            dist/index.iife.js
+            deck-shelves-backend.tar.gz
 
       - name: Comment on [Unreleased]-linked issues
         env:
@@ -148,6 +155,6 @@ jobs:
           for n in $ISSUES; do
             echo "Commenting on #$n"
             gh issue comment "$n" --repo "$REPO" \
-              --body "🧪 Something referenced here just shipped in pre-release [\`${TAG}\`](${REL_URL}) for testing. Turn on the **beta channel** in Deck Shelves → *Check for updates* → *Canal beta* to grab it, and please report back if it looks good. 🙏" \
+              --body "🧪 Something referenced here just shipped in pre-release [\`${TAG}\`](${REL_URL}) for testing. Turn on the **Beta channel** in Deck Shelves → *Check for updates* → *Beta channel* to grab it, and please report back if it looks good. 🙏" \
               || echo "Skipped #$n (PR, locked, or not commentable)"
           done

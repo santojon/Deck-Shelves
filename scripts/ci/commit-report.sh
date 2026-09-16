@@ -31,12 +31,17 @@ fi
 
 # The report step just wrote into the (possibly detached-HEAD) working tree, so
 # `git checkout "$TARGET"` would abort with "local changes would be overwritten".
-# Stash the freshly-generated report aside, make site/reports/ clean, switch to
-# the branch tip, then lay the report back down on top — this run's report wins.
+# Stash the freshly-generated report + stats badges aside, make those paths
+# clean, switch to the branch tip, then lay them back down on top — this run's
+# output wins. site/stats/*.json (fetch_stats.py's shields.io badge endpoints —
+# Decky Store installs, traffic, clones) lives outside site/reports/, so it
+# needs the same stash/restore treatment or it silently never gets committed.
 REPORT_TMP="$(mktemp -d)"
-cp -a site/reports/. "$REPORT_TMP/" 2>/dev/null || true
-git checkout -- site/reports/ 2>/dev/null || true
-git clean -fdq site/reports/ 2>/dev/null || true
+mkdir -p "$REPORT_TMP/reports" "$REPORT_TMP/stats"
+cp -a site/reports/. "$REPORT_TMP/reports/" 2>/dev/null || true
+cp -a site/stats/. "$REPORT_TMP/stats/" 2>/dev/null || true
+git checkout -- site/reports/ site/stats/ 2>/dev/null || true
+git clean -fdq site/reports/ site/stats/ 2>/dev/null || true
 
 # Switch to target branch (tag push starts detached). Branch push is a no-op.
 git fetch origin "$TARGET" --depth=1
@@ -44,10 +49,12 @@ git checkout "$TARGET"
 # Ensure tip-of-branch — rebase any parallel landed commit; next run retries naturally.
 git pull --rebase origin "$TARGET" || true
 
-# Restore the generated report over the branch's version, then stage it.
-cp -a "$REPORT_TMP/." site/reports/ 2>/dev/null || true
+# Restore the generated report + stats over the branch's version, then stage them.
+cp -a "$REPORT_TMP/reports/." site/reports/ 2>/dev/null || true
+mkdir -p site/stats
+cp -a "$REPORT_TMP/stats/." site/stats/ 2>/dev/null || true
 rm -rf "$REPORT_TMP"
-git add site/reports/ 2>/dev/null || true
+git add site/reports/ site/stats/ 2>/dev/null || true
 if git diff --staged --quiet; then
   echo "no report changes — nothing to commit"
   echo "::endgroup::"

@@ -32,4 +32,6 @@ export interface PlatformApi {
   getAppMetaBatch?(appids: number[]): Promise<Map<number, PlatformAppMeta>>;
   navigateToApp(appid: number): void;
   navigateToShelfSource?(source: ShelfSource, title?: string): void;
+  /** Optional host/OS information a host may expose. */
+  getOSVersion?(): string;
 }

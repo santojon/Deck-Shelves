@@ -330,13 +330,19 @@ src/
 
 main.py Python entry: DEFAULT_SETTINGS, _SSL_CTX, Plugin class
  (lifecycle + RPC). Re-exports helpers from below.
-paths.py _steam_install_candidates, _normalize_path
+src/backend/ Every sibling module main.py imports (paths, storage,
+ sanitizer, launchers, css_themes, display_state,
+ hardware_info, host_os, peripherals, perf_probe,
+ plugin_host). Kept out of the plugin root — which
+ Decky requires main.py itself to stay at — via a
+ sys.path splice at the top of main.py.
+src/backend/paths.py _steam_install_candidates, _normalize_path
  (path discovery + home-confined validation)
-storage.py _settings_dir, _primary_file, _safe_read_json
+src/backend/storage.py _settings_dir, _primary_file, _safe_read_json
  (settings.json read helpers, env-var aware)
-sanitizer.py _sanitize_settings (settings-shape normaliser,
+src/backend/sanitizer.py _sanitize_settings (settings-shape normaliser,
  mirrors the Zod schemas in src/types.ts)
-launchers.py External launcher discovery probe :
+src/backend/launchers.py External launcher discovery probe :
  EmuDeck / RetroDECK / Heroic / Lutris / Moonlight /
  Chiaki. stdlib-only (configparser, sqlite3, json),
  every helper degrades to [] on missing dir / parse
@@ -353,7 +359,7 @@ Settings (backend JSON) → settingsStore → controller → HomeInject → Shel
  homePatch (fallback DOM renderer)
 ```
 
-1. **Settings** are persisted by the Python backend (`main.py` → atomic write via `paths.py` + `storage.py`; shape-checked through `sanitizer.py` on every read AND write) and cached in `localStorage`
+1. **Settings** are persisted by the Python backend (`main.py` → atomic write via `src/backend/paths.py` + `src/backend/storage.py`; shape-checked through `src/backend/sanitizer.py` on every read AND write) and cached in `localStorage`
 2. **`settingsStore`** manages the cache, backend RPC calls, and subscriber notifications
 3. **`controller`** (React hook) provides actions and state to QAM components
 4. **`HomeInject`** creates a portal into the Steam home screen DOM
@@ -445,6 +451,8 @@ Smart shelves whose result can change between two clicks (`random_pick` / `time_
 
 Filter groups are AND/OR predicates evaluated against a single source pool — never list-unions. The full library flows through `evaluateFilterGroup` once and each app is tested against every item independently. `merge` is a special filter type that wraps a nested predicate group with its own `mode: "and" | "or"` plus a sub-`items` array — useful for composing OR-of-predicates inside an outer AND group (e.g. `merge { or, [installed, nonSteam] }` to surface "Steam installed OR any non-Steam app" in one shelf). Sub-filters are edited via the recursive `MergeFilterOptions` component which renders a `<FilterPanel>` for the children; saved filters can be applied at any merge level.
 
+`genres`, `categories`, `multiplayerType`, `franchise` and `vrSupport` (`steam/v3Extensions.ts`) read `rawField`, which checks a **locally-owned game's real `AppOverview` first, per field, then falls back to fetched data** — never per-object, since an owned game's overview exists but never carries genre/franchise data and only carries categories as numeric ids (`BHasStoreCategory(id)`, not name strings). `multiplayerType` and `vrSupport` have a fast local path for owned games and only need the fetch for ids the client has never seen; `genres`/`categories` (via `onlineStore.ts`'s `getCatalogMetaMap`, Store `appdetails`, one appid per request — batched requests 400 for this filter set even though `price_overview` batches fine) and `franchise` (via `SteamClient.Apps.GetCachedAppDetails`'s `associations.rgFranchises`, the only source for franchise at all) need it for *every* game, owned or not — so these three are gated behind Online Features in the picker (`isOnlineFeatureFilterType`, distinct from `isOnlineFilterType`'s source-type gate for `discount`/`priceRange`) rather than by source type, since they're meaningful on a plain library shelf. `prefetchCatalogFilterData` (+ `collectFilterGroupItemsFlat` for the tree-walking cases) warms both caches before evaluation in every filter-group resolution path: the plain library filter, a collection's own child filter, a Smart Shelf's filter group, and a composite child's `childFilter`.
+
 Asc/desc inversion is a separate boolean (`Shelf.sortReverse` / `SmartShelf.sortReverse`, plus `manualBaseSortReverse` for the manual case) toggled by a 40×40 icon button next to the sort dropdown in `EditShelfModal` / `EditSmartShelfModal`. The flag flows through `resolveShelfAppIds(source, limit, sort, shelfId, sortReverse)` to `applySortToIds`, which reverses the result post-sort. Skipped for `manual` (would invalidate user order) and `random` (re-reversing a shuffle adds no signal). When no explicit sort is persisted but reverse is on, `Shelf.tsx` substitutes `"alphabetical"` as the resolver sort so the reverse has somewhere to apply. The `"alphabetical"` branch in `applySortToIds` is **explicit** — without it, the internal sort registry's noop pass-through descriptor would intercept and skip sorting.
 
 Native Steam library tabs (`installed`, `great_on_deck`) post-filter the candidate set to `app_type === 1` (game) or `undefined` (unknown — allowed through) AND exclude non-Steam shortcuts, matching the native SteamOS Installed tab. Applied in both the TabMaster path (`getCustomFiltersAppsForContainer`) and the store-API path (`getTabAppIdsFromStore`); other tab ids are untouched.
@@ -464,6 +472,26 @@ Concurrent `saveSettings` calls coalesce: a save in flight latches the next payl
 ### Sidecar lifecycle (`components/qam/qamExpandedStore.ts` + `DeckQAMSettings.tsx`)
 
 QAM-expanded state is per-session: backed by `sessionStorage` in the QAM popup so it never survives a Steam-menu-over-QAM cycle that destroys the popup, and the `DeckQAMSettings` mount effect calls `resetQamExpanded()` to wipe even the persisted flag every time the plugin tab mounts. While the sidecar is expanded, a 300 ms poll watches three orthogonal signals — `document.hasFocus()`, a set-interval gap heuristic (catches Chromium-throttled inactive popups), and `m_MenuStore.m_eOpenSideMenu` change relative to the value captured at expand — and collapses on any of them. Multiple browser-lifecycle listeners (`visibilitychange`, `focus`, `pagehide`, `freeze`, `resume`) add belt-and-suspenders coverage. `SidecarPanel` itself bails (`return null`) when `controller.settings` is unhydrated so a freshly-remounted tab never renders the "open but empty body" bug-state.
+
+### Own QAM tab under Decky alone (`runtime/ownQamTab.ts`)
+
+Opt-in, off by default (`ownQamTabEnabled`). Ports a tab-injection mechanism already validated on-device in a neutral host's own runtime: register a numeric key in Steam's `QuickAccessTab` enum, then `afterPatch` the `QuickAccessMenuBrowserView` consumer to push a tab object onto its render output's `props.tabs` array — via Decky's own `afterPatch` / `findModuleByExport` / `findInReactTree`, not a hand-rolled webpack walk. A localStorage breaker mirrors that same safeguard (an unconfirmed arm trips and refuses to re-patch). Stands down completely whenever a neutral host's own QAM bridge (`window.__SHELVES_QAM__`) is present — that tab always wins. This mechanism still needs its own on-device validation pass before it's safe to default on.
+
+### Showcase / Dynamic Idle Mode (`runtime/showcaseMode.ts`)
+
+Opt-in, off by default (`showcaseModeEnabled`). During Home inactivity, cycles focus through the user's own shelves on a timer, reusing the exact same focus-a-shelf's-first-card mechanism Side Nav's own "jump to shelf" already ships — never synthetic input. Any real interaction (a controller button via `subscribeControllerInput`, or a pointer/wheel/keydown event) stops it and re-arms the idle timer. MVP scope only; deferred: per-shelf pan/crossfade, a shelf-participation picker UI. Also exports `isNativeScreensaverActive()` (`ScreensaverPopup`/`BIsActive()` on the active `GamepadNavigationTree`), which both Showcase and the screensaver below use to stand down if Steam's own native screensaver is somehow active.
+
+### Keyboard bindings (`runtime/keyboardBindings.ts`)
+
+Every gamepad binding (card hide/highlight/quick-launch, Quick Search, Side Nav, Sidecar open/close) also has an independent keyboard shortcut slot — either input fires the same action, neither replaces the other. Uses `KeyboardEvent.code` (layout-independent) with the same single/chord/double-tap grammar the gamepad parser already has, including modifier chords. Card-action and nav-search/side-nav keys are captured via the existing Home input bus (already proven for "type to filter"); the QAM sidecar's own open/close keys use a plain `keydown` listener scoped to that window. Ignored while a text field has focus.
+
+### Own idle screensaver (`runtime/screensaverInject.ts`, `runtime/steamSettingsWriter.ts`)
+
+Opt-in, off by default (`screensaverShelvesEnabled`). Replaces Steam's native idle screensaver outright (two injection-into-the-native-one approaches were tried and are confirmed dead ends) with a slideshow of shelf games/Recents and, opt-in, local screenshots. Disables Steam's own idle timeout while active, restoring it exactly on toggle-off, via an internal settings-write path located at runtime by a stable call-site string (not a hardcoded module id) and never trusted without a round-trip verification first.
+
+### Cross-device settings sync (`runtime/cloudSync.ts`)
+
+Opt-in, off by default (`cloudSyncEnabled`). Mirrors settings across devices on the same Steam account via `SteamClient.RoamingStorage` — not real Steam Cloud (`ISteamRemoteStorage` is per-appid; a plugin has none). Local storage stays authoritative; this is a timestamp-LWW third mirror, reconciled once at boot/toggle-on and pushed on a debounce afterward, no polling.
 
 ## Home internals
 

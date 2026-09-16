@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { getPreferredSteamDocument, getAllSteamDocuments } from '../../runtime/steamHost';
+import { getLastFocusedElement } from '../../core/focusRestore';
 import { subscribeOverlayActive } from './overlayState';
 import i18n from '../../i18n';
 
@@ -95,31 +96,45 @@ export function BadgeFocusOverlay() {
         try { resizeObserver?.observe(card); } catch {}
       }
     };
+    /* Point the overlay at a card. The 200ms re-sync captures the rect
+       after the 160ms focus-lift transition settles (an immediate read
+       lands mid-animation, stranding the band 1-2 px high). */
+    const setCurrent = (card: HTMLElement | null) => {
+      if (card === current) return;
+      current = card;
+      attachAttrObserver(card);
+      setTimeout(schedule, READ_TARGET_DELAY_MS);
+      setTimeout(schedule, 200);
+    };
+    /* The reliable focused-card source. BTakeFocus gamepad nav on the beta
+       never fires focusin/gpfocus, so `getLastFocusedElement()` is the
+       primary signal (same as DeckRow); the `.gpfocus` class DeckRow keeps
+       in sync is the fallback for mouse/hover focus. */
+    const resolveFocusedCard = (): HTMLElement | null => {
+      try {
+        const active = getLastFocusedElement();
+        const c = active && root.contains(active) ? (active.closest('.ds-card') as HTMLElement | null) : null;
+        if (c) return c;
+      } catch {}
+      return root.querySelector('.ds-card.gpfocus') as HTMLElement | null;
+    };
     const onFocusIn = (e: Event) => {
-      const t = e.target as HTMLElement | null;
-      const card = t?.closest?.('.ds-card') as HTMLElement | null;
-      if (card) {
-        current = card;
-        attachAttrObserver(card);
-        /* The card gains a `transform: translateY(-2px)` on focus via a
-           160ms CSS transition; reading the rect immediately captures a
-           mid-transition position, leaving the overlay 1-2 px above the
-           settled card. Re-sync after the transition window so the
-           overlay matches the card's final rect. */
-        setTimeout(schedule, READ_TARGET_DELAY_MS);
-        setTimeout(schedule, 200);
-      }
+      const card = (e.target as HTMLElement | null)?.closest?.('.ds-card') as HTMLElement | null;
+      if (card) setCurrent(card);
     };
     const onFocusOut = (e: FocusEvent) => {
       const next = e.relatedTarget as Node | null;
-      if (!next || !root.contains(next)) { current = null; attachAttrObserver(null); schedule(); }
+      if (!next || !root.contains(next)) setCurrent(resolveFocusedCard());
     };
+    // Poll the reliable signal (focusin is only a fast path on this beta).
+    const poll = win.setInterval(() => setCurrent(resolveFocusedCard()), 150);
     root.addEventListener('focusin', onFocusIn, true);
     root.addEventListener('focusout', onFocusOut, true);
     win.addEventListener('scroll', schedule, { passive: true, capture: true });
     win.addEventListener('resize', schedule);
     return () => {
       unsubOverlay();
+      win.clearInterval(poll);
       root.removeEventListener('focusin', onFocusIn, true);
       root.removeEventListener('focusout', onFocusOut, true);
       win.removeEventListener('scroll', schedule, { capture: true } as any);

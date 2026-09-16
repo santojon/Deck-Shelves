@@ -4,9 +4,34 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Deck Shelves — Your Steam Deck Home Screen. Your Way.</title>
-  <meta name="description" content="Deck Shelves is a Decky plugin that lets you build custom shelves from your collections, library tabs, and smart filters — with decoration cards, smart shelves and a built-in editor in Quick Access.">
+  <meta name="description" content="Deck Shelves is a gaming utility for your Steam library — a Decky plugin that lets you build custom shelves from your collections, library tabs, and smart filters — with decoration cards, smart shelves and a built-in editor in Quick Access. Runs wherever Decky Loader does: SteamOS, Linux, Windows and macOS. Works alongside TabMaster, UnifiDeck and CSS Loader themes.">
+  <link rel="canonical" href="https://santojon.github.io/Deck-Shelves/">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Deck Shelves">
+  <meta property="og:url" content="https://santojon.github.io/Deck-Shelves/">
+  <meta property="og:title" content="Deck Shelves — Customize Your Steam Deck Home Screen">
+  <meta property="og:description" content="A gaming utility for your Steam library. Build custom shelves from your collections, library tabs, and smart filters — with decoration cards, smart shelves and a built-in editor in Quick Access. Runs on SteamOS, Linux, Windows and macOS. Works alongside TabMaster, UnifiDeck and CSS Loader themes.">
+  <meta property="og:image" content="https://santojon.github.io/Deck-Shelves/img/steam-deck.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Deck Shelves — Customize Your Steam Deck Home Screen">
+  <meta name="twitter:description" content="A gaming utility for your Steam library. Build custom shelves from your collections, library tabs, and smart filters — with decoration cards, smart shelves and a built-in editor in Quick Access.">
+  <meta name="twitter:image" content="https://santojon.github.io/Deck-Shelves/img/steam-deck.png">
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="stylesheet" href="style.css">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Deck Shelves",
+    "applicationCategory": "UtilitiesApplication",
+    "applicationSubCategory": "Gaming utility",
+    "operatingSystem": "SteamOS, Linux, Windows, macOS",
+    "url": "https://santojon.github.io/Deck-Shelves/",
+    "description": "A gaming utility for the Steam library: a Decky plugin that adds custom, organized shelves to the Steam Deck Home screen — built from collections, library tabs, filters and smart rules. Runs on SteamOS, Linux, Windows and macOS wherever Decky Loader is available.",
+    "keywords": "Steam, Steam Deck, gaming, game library, Decky, Decky Loader, home screen customization",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+  }
+  </script>
 </head>
 <body>
 
@@ -106,7 +131,7 @@
             <p>A fresh version of Deck Shelves just dropped — update now.</p>
           </div>
         </div>
-        <a class="btn btn-primary" data-fresh-dl href="https://github.com/santojon/Deck-Shelves/releases/latest/download/deck-shelves-v3.0.0.zip" download>
+        <a class="btn btn-primary" data-fresh-dl href="https://github.com/santojon/Deck-Shelves/releases/latest/download/deck-shelves-v3.2.1.zip" download>
           <svg class="icon"><use href="#i-download"/></svg> Download latest
         </a>
       </div>
@@ -124,7 +149,7 @@
           built-in editor in Quick Access. No desktop mode, no config files.
         </p>
         <div class="actions">
-          <a class="btn btn-primary" href="https://github.com/santojon/Deck-Shelves/releases/latest/download/deck-shelves-v3.0.0.zip" download>
+          <a class="btn btn-primary" href="https://github.com/santojon/Deck-Shelves/releases/latest/download/deck-shelves-v3.2.1.zip" download>
             <svg class="icon"><use href="#i-download"/></svg> Download latest release
           </a>
           <a class="btn btn-ghost" href="https://github.com/santojon/Deck-Shelves">
@@ -138,14 +163,37 @@
       <div class="deck-photo">
         <div class="deck-inner">
           <img class="deck-frame-img" src="img/steam-deck.png" alt="Steam Deck" loading="eager">
-          <img class="deck-screen-img" src="https://raw.githubusercontent.com/santojon/Deck-Shelves/main/assets/screenshots/home.png" alt="Deck Shelves home screen with custom shelves and hero artwork" loading="eager">
+          <img class="deck-screen-img" src="../assets/screenshots/home.png" onerror="this.onerror=null;this.src='https://raw.githubusercontent.com/santojon/Deck-Shelves/main/assets/screenshots/home.png'" alt="Deck Shelves home screen with custom shelves and hero artwork" loading="eager">
         </div>
       </div>
     </div>
   </section>
 
+  <!-- USAGE STATS — one row of linked chips spanning the full width, right
+       under the hero's own buttons; refreshed weekly by fetch_stats.py, no
+       external analytics. Hidden until build_site.py has a snapshot to
+       fill it with. The downloads chip links to /releases (not
+       /releases/latest) so it can't collide with _inject_download's own
+       href-rewrite regex. -->
+  <div class="container">
+    <div class="stats-row" data-stats-row title="Last snapshot: 2026-09-11">
+      <a class="stat-chip" href="https://decky.xyz" target="_blank" rel="noopener">
+        <svg class="icon"><use href="#i-store"/></svg> <b data-stat="installs">17.8k</b> Decky Store installs
+      </a>
+      <a class="stat-chip" href="https://github.com/santojon/Deck-Shelves/releases" target="_blank" rel="noopener">
+        <svg class="icon"><use href="#i-download"/></svg> <b data-stat="downloads">4.7k</b> GitHub downloads
+      </a>
+      <a class="stat-chip" href="https://github.com/santojon/Deck-Shelves" target="_blank" rel="noopener">
+        <svg class="icon"><use href="#i-chart"/></svg> <b data-stat="views">1k</b> views (14d)
+      </a>
+      <a class="stat-chip" href="https://www.npmjs.com/package/@deck-shelves/api" target="_blank" rel="noopener">
+        <svg class="icon"><use href="#i-package"/></svg> <b data-stat="npm">1.8k</b> npm downloads
+      </a>
+    </div>
+  </div>
+
   <!-- COMMUNITY -->
-  <section class="block community-band" style="padding-top:8px;padding-bottom:8px">
+  <section class="block community-band" style="padding-top:36px;padding-bottom:8px">
     <div class="container">
       <div class="community">
         <div class="community-head">
@@ -233,6 +281,69 @@
     </div>
   </section>
 
+  <!-- WORKS WITH YOUR SETUP -->
+  <section id="ecosystem" class="block">
+    <div class="container">
+      <div class="section-head">
+        <h2>Works with your setup</h2>
+        <div class="rule"></div>
+        <p>Deck Shelves is the Home screen layer — it complements the tools you already run, it doesn't replace them.</p>
+      </div>
+      <div class="feat-grid">
+        <article class="feat-card">
+          <div class="feat-ico"><svg class="icon"><use href="#i-list"/></svg></div>
+          <h3>Organize with TabMaster</h3>
+          <p>Use your existing TabMaster tabs — including filter-based ones — as shelf sources, right on the Home screen.</p>
+          <a class="feat-link" href="integrations/tabmaster.html">Learn more <svg class="icon"><use href="#i-arrow"/></svg></a>
+        </article>
+        <article class="feat-card">
+          <div class="feat-ico"><svg class="icon"><use href="#i-layers"/></svg></div>
+          <h3>Unify with UnifiDeck</h3>
+          <p>UnifiDeck brings every store into one library; Deck Shelves organizes that unified library into shelves on your Home.</p>
+          <a class="feat-link" href="integrations/unifideck.html">Learn more <svg class="icon"><use href="#i-arrow"/></svg></a>
+        </article>
+        <article class="feat-card">
+          <div class="feat-ico"><svg class="icon"><use href="#i-sliders"/></svg></div>
+          <h3>Customize with CSS Loader</h3>
+          <p>Your shelves stay visually consistent with the CSS Loader themes you already have installed.</p>
+          <a class="feat-link" href="integrations/css-loader.html">Learn more <svg class="icon"><use href="#i-arrow"/></svg></a>
+        </article>
+      </div>
+      <p style="text-align:center;color:var(--muted);font-size:0.85rem;margin:28px 0 0">
+        Also works alongside: <a href="https://github.com/SteamGridDB" target="_blank" rel="noopener">SteamGridDB</a> ·
+        <a href="https://github.com/exM092/NonSteamBadges" target="_blank" rel="noopener">Non-Steam Badges</a> ·
+        popular CSS Loader themes · <a href="https://github.com/SteamDeckHomebrew/decky-loader" target="_blank" rel="noopener">Decky Loader</a> ·
+        and many others in the Decky plugin ecosystem
+      </p>
+      <div class="faq">
+        <details class="faq-item">
+          <summary>Can Deck Shelves work with TabMaster, UnifiDeck or CSS Loader?</summary>
+          <p>Yes. Deck Shelves reads your TabMaster tabs as a shelf source, coexists with UnifiDeck's unified library, and detects popular CSS Loader themes to keep shelves visually consistent with them.</p>
+        </details>
+        <details class="faq-item">
+          <summary>Does Deck Shelves replace TabMaster or UnifiDeck?</summary>
+          <p>No — they solve different problems. TabMaster organizes your library into tabs and UnifiDeck unifies multiple stores into one library; Deck Shelves adds a customizable, shelf-based Home screen on top of either.</p>
+        </details>
+        <details class="faq-item">
+          <summary>Do I need Decky Loader installed?</summary>
+          <p>Yes, Deck Shelves is a Decky plugin — install Decky Loader first, then install Deck Shelves from the Decky Store (or manually, see Installation below).</p>
+        </details>
+        <details class="faq-item">
+          <summary>What platforms does Deck Shelves run on?</summary>
+          <p>Anywhere Decky Loader runs — SteamOS on Steam Deck, and Linux or Windows wherever Steam's gamepad-style interface is available. It's not a Steam Deck-exclusive tool.</p>
+        </details>
+        <details class="faq-item">
+          <summary>Is Deck Shelves affiliated with or endorsed by Valve, Decky Loader, or any of these plugins/themes?</summary>
+          <p>No. Deck Shelves is an independent, community-made plugin. It's not affiliated with, endorsed by, or sponsored by Valve, the Decky Loader project, TabMaster, UnifiDeck, SteamGridDB, Non-Steam Badges, or any CSS Loader theme it detects or interoperates with.</p>
+        </details>
+        <details class="faq-item">
+          <summary>Is Deck Shelves free?</summary>
+          <p>Yes — it's free and open source (BSD-3-Clause), with no account, subscription, or in-plugin purchase of any kind.</p>
+        </details>
+      </div>
+    </div>
+  </section>
+
   <!-- SEE IT IN ACTION -->
   <section id="showcase" class="block">
     <div class="container">
@@ -245,16 +356,16 @@
         <button class="car-btn prev" data-car-prev aria-label="Scroll left"><svg class="icon"><use href="#i-chevL"/></svg></button>
         <button class="car-btn next" data-car-next aria-label="Scroll right"><svg class="icon"><use href="#i-chevR"/></svg></button>
         <div class="shots" data-gallery data-track>
-          <button class="shot-btn"><span class="thumb"><img loading="lazy" src="https://raw.githubusercontent.com/santojon/Deck-Shelves/main/assets/screenshots/home.png" alt="Beautiful Home"><span class="zoom"><svg class="icon"><use href="#i-zoom"/></svg></span></span><b>Beautiful Home</b><span>Decoration cards, banners and custom art.</span></button>
-          <button class="shot-btn"><span class="thumb"><img loading="lazy" src="https://raw.githubusercontent.com/santojon/Deck-Shelves/main/assets/screenshots/home-shelves.png" alt="Smart Shelves"><span class="zoom"><svg class="icon"><use href="#i-zoom"/></svg></span></span><b>Smart Shelves</b><span>Combine tabs, filters and multiple sources.</span></button>
-          <button class="shot-btn"><span class="thumb"><img loading="lazy" src="https://raw.githubusercontent.com/santojon/Deck-Shelves/main/assets/screenshots/shelf-edit-visual.png" alt="Shelf Editor (Visual)"><span class="zoom"><svg class="icon"><use href="#i-zoom"/></svg></span></span><b>Shelf Editor</b><span>Powerful editor with live preview.</span></button>
-          <button class="shot-btn"><span class="thumb"><img loading="lazy" src="https://raw.githubusercontent.com/santojon/Deck-Shelves/main/assets/screenshots/shelf-edit-filters.png" alt="Advanced Filters"><span class="zoom"><svg class="icon"><use href="#i-zoom"/></svg></span></span><b>Advanced Filters</b><span>Filter groups with AND/OR logic.</span></button>
-          <button class="shot-btn"><span class="thumb"><img loading="lazy" src="https://raw.githubusercontent.com/santojon/Deck-Shelves/main/assets/screenshots/settings-statistics.png" alt="Statistics & Insights"><span class="zoom"><svg class="icon"><use href="#i-zoom"/></svg></span></span><b>Statistics &amp; Insights</b><span>Charts for usage and most-played games.</span></button>
-          <button class="shot-btn"><span class="thumb"><img loading="lazy" src="https://raw.githubusercontent.com/santojon/Deck-Shelves/main/assets/screenshots/settings-suggestions.png" alt="Suggestions"><span class="zoom"><svg class="icon"><use href="#i-zoom"/></svg></span></span><b>Smart Suggestions</b><span>One-tap ideas to improve your setup.</span></button>
-          <button class="shot-btn"><span class="thumb"><img loading="lazy" src="https://raw.githubusercontent.com/santojon/Deck-Shelves/main/assets/screenshots/smart-shelf-modal.png" alt="Smart Shelf templates"><span class="zoom"><svg class="icon"><use href="#i-zoom"/></svg></span></span><b>Smart Shelves</b><span>30+ ready-made templates.</span></button>
-          <button class="shot-btn"><span class="thumb"><img loading="lazy" src="https://raw.githubusercontent.com/santojon/Deck-Shelves/main/assets/screenshots/qam.png" alt="Quick Access Menu"><span class="zoom"><svg class="icon"><use href="#i-zoom"/></svg></span></span><b>Quick Access</b><span>Configure everything on the Deck.</span></button>
-          <button class="shot-btn"><span class="thumb"><img loading="lazy" src="https://raw.githubusercontent.com/santojon/Deck-Shelves/main/assets/screenshots/game-menu.png" alt="Game context menu"><span class="zoom"><svg class="icon"><use href="#i-zoom"/></svg></span></span><b>Game Menu</b><span>Per-game actions and quick add to shelf.</span></button>
-          <button class="shot-btn"><span class="thumb"><img loading="lazy" src="https://raw.githubusercontent.com/santojon/Deck-Shelves/main/assets/screenshots/settings-page.png" alt="Settings"><span class="zoom"><svg class="icon"><use href="#i-zoom"/></svg></span></span><b>Settings</b><span>Full-page settings in one place.</span></button>
+          <button class="shot-btn"><span class="thumb"><img loading="lazy" src="../assets/screenshots/home.png" onerror="this.onerror=null;this.src='https://raw.githubusercontent.com/santojon/Deck-Shelves/main/assets/screenshots/home.png'" alt="Beautiful Home"><span class="zoom"><svg class="icon"><use href="#i-zoom"/></svg></span></span><b>Beautiful Home</b><span>Decoration cards, banners and custom art.</span></button>
+          <button class="shot-btn"><span class="thumb"><img loading="lazy" src="../assets/screenshots/home-shelves.png" onerror="this.onerror=null;this.src='https://raw.githubusercontent.com/santojon/Deck-Shelves/main/assets/screenshots/home-shelves.png'" alt="Smart Shelves"><span class="zoom"><svg class="icon"><use href="#i-zoom"/></svg></span></span><b>Smart Shelves</b><span>Combine tabs, filters and multiple sources.</span></button>
+          <button class="shot-btn"><span class="thumb"><img loading="lazy" src="../assets/screenshots/shelf-edit-visual.png" onerror="this.onerror=null;this.src='https://raw.githubusercontent.com/santojon/Deck-Shelves/main/assets/screenshots/shelf-edit-visual.png'" alt="Shelf Editor (Visual)"><span class="zoom"><svg class="icon"><use href="#i-zoom"/></svg></span></span><b>Shelf Editor</b><span>Powerful editor with live preview.</span></button>
+          <button class="shot-btn"><span class="thumb"><img loading="lazy" src="../assets/screenshots/shelf-edit-filters.png" onerror="this.onerror=null;this.src='https://raw.githubusercontent.com/santojon/Deck-Shelves/main/assets/screenshots/shelf-edit-filters.png'" alt="Advanced Filters"><span class="zoom"><svg class="icon"><use href="#i-zoom"/></svg></span></span><b>Advanced Filters</b><span>Filter groups with AND/OR logic.</span></button>
+          <button class="shot-btn"><span class="thumb"><img loading="lazy" src="../assets/screenshots/settings-statistics.png" onerror="this.onerror=null;this.src='https://raw.githubusercontent.com/santojon/Deck-Shelves/main/assets/screenshots/settings-statistics.png'" alt="Statistics & Insights"><span class="zoom"><svg class="icon"><use href="#i-zoom"/></svg></span></span><b>Statistics &amp; Insights</b><span>Charts for usage and most-played games.</span></button>
+          <button class="shot-btn"><span class="thumb"><img loading="lazy" src="../assets/screenshots/settings-suggestions.png" onerror="this.onerror=null;this.src='https://raw.githubusercontent.com/santojon/Deck-Shelves/main/assets/screenshots/settings-suggestions.png'" alt="Suggestions"><span class="zoom"><svg class="icon"><use href="#i-zoom"/></svg></span></span><b>Smart Suggestions</b><span>One-tap ideas to improve your setup.</span></button>
+          <button class="shot-btn"><span class="thumb"><img loading="lazy" src="../assets/screenshots/smart-shelf-modal.png" onerror="this.onerror=null;this.src='https://raw.githubusercontent.com/santojon/Deck-Shelves/main/assets/screenshots/smart-shelf-modal.png'" alt="Smart Shelf templates"><span class="zoom"><svg class="icon"><use href="#i-zoom"/></svg></span></span><b>Smart Shelves</b><span>30+ ready-made templates.</span></button>
+          <button class="shot-btn"><span class="thumb"><img loading="lazy" src="../assets/screenshots/qam.png" onerror="this.onerror=null;this.src='https://raw.githubusercontent.com/santojon/Deck-Shelves/main/assets/screenshots/qam.png'" alt="Quick Access Menu"><span class="zoom"><svg class="icon"><use href="#i-zoom"/></svg></span></span><b>Quick Access</b><span>Configure everything on the Deck.</span></button>
+          <button class="shot-btn"><span class="thumb"><img loading="lazy" src="../assets/screenshots/game-menu.png" onerror="this.onerror=null;this.src='https://raw.githubusercontent.com/santojon/Deck-Shelves/main/assets/screenshots/game-menu.png'" alt="Game context menu"><span class="zoom"><svg class="icon"><use href="#i-zoom"/></svg></span></span><b>Game Menu</b><span>Per-game actions and quick add to shelf.</span></button>
+          <button class="shot-btn"><span class="thumb"><img loading="lazy" src="../assets/screenshots/settings-page.png" onerror="this.onerror=null;this.src='https://raw.githubusercontent.com/santojon/Deck-Shelves/main/assets/screenshots/settings-page.png'" alt="Settings"><span class="zoom"><svg class="icon"><use href="#i-zoom"/></svg></span></span><b>Settings</b><span>Full-page settings in one place.</span></button>
         </div>
       </div>
     </div>
@@ -340,9 +451,9 @@
     <div class="container">
       <div class="panel-block release">
         <div>
-          <span class="ver-chip"><svg class="icon" style="width:16px;height:16px"><use href="#i-tag"/></svg> <span data-rn-version>v3.1.0</span></span>
+          <span class="ver-chip"><svg class="icon" style="width:16px;height:16px"><use href="#i-tag"/></svg> <span data-rn-version>v3.2.1</span></span>
           <h2>What's New</h2>
-          <p class="date">Latest release · <span data-rn-date>July 20, 2026</span></p>
+          <p class="date">Latest release · <span data-rn-date>August 15, 2026</span></p>
           <div class="links">
             <a class="btn btn-ghost" href="https://github.com/santojon/Deck-Shelves/blob/main/RELEASE_NOTES.md">
               Release notes <svg class="icon"><use href="#i-arrow"/></svg>
@@ -352,20 +463,16 @@
         </div>
         <ul class="rn-list" data-rn-list>
           <li>
-            <b>Conditions for your peripherals</b>
-            <p>Show a shelf — or switch a profile — when a controller is connected, when headphones are plugged in, or when a specific Bluetooth device is connected, plus the inverse of each.</p>
+            <b>The first-run tour could get stuck reopening every time you closed it, with no way to reach the toggle that turns the plugin on</b>
+            <p>A backend bug threw away the saved "tour seen" flag whenever you hadn't enabled the plugin or added a shelf yet — exactly the state right after seeing the tour for the first time.</p>
           </li>
           <li>
-            <b>Works across your devices</b>
-            <p>The battery, CPU, memory and external-display conditions now also work on Windows and macOS, not just the Steam Deck.</p>
+            <b>The &quot;Report an issue&quot; button on the About page could quietly do nothing</b>
+            <p>It now works reliably, and asks what kind of report you're filing — <strong>bug</strong>, <strong>enhancement</strong> or <strong>feature request</strong> — before opening the matching GitHub form pre-filled with your details.</p>
           </li>
           <li>
-            <b>System information now shows your real operating system</b>
-            <p>— SteamOS, your Linux distribution, Windows or macOS, with version and architecture — so the one-tap bug report is accurate wherever you run it.</p>
-          </li>
-          <li>
-            <b>Online features authenticate on every desktop OS</b>
-            <p>— Linux, macOS and Windows — instead of Linux only; if anything can't be read they fall back to the public data.</p>
+            <b>The About page now leads with &quot;Support the developer&quot;</b>
+            <p>, with the community links below it.</p>
           </li>
         </ul>
       </div>
@@ -378,7 +485,7 @@
       <div class="section-head">
         <h2>Installation</h2>
         <div class="rule"></div>
-        <p>Deck Shelves runs on top of <a class="accent" href="https://decky.xyz">Decky Loader</a>. Install it from the Decky Store, or grab the latest release and add it manually.</p>
+        <p>Deck Shelves runs on top of <a class="accent" href="https://decky.xyz">Decky Loader</a>. Install it from the Decky Store, grab the latest release and add it manually, or install it from a URL.</p>
       </div>
       <div class="install-grid">
         <div class="inst-card">
@@ -399,9 +506,18 @@
             <li><span>Select the zip, confirm, and restart Steam if prompted.</span></li>
           </ol>
         </div>
+        <div class="inst-card">
+          <h3><svg class="icon"><use href="#i-code"/></svg> Install from URL</h3>
+          <p>A Decky developer-mode option — works, but less reliable than the zip above since Decky reads the plugin name from the URL itself rather than the file.</p>
+          <ol class="steps">
+            <li><span>In game mode, open Decky's settings (gear icon) → <b>General</b> → enable <b>Developer mode</b>.</span></li>
+            <li><span>Go to the new <b>Developer</b> tab → <b>Install from URL</b>.</span></li>
+            <li><span>Paste the <b>deck-shelves-v*.zip</b> link from the Releases page and confirm.</span></li>
+          </ol>
+        </div>
       </div>
       <div class="install-actions">
-        <a class="btn btn-primary" href="https://github.com/santojon/Deck-Shelves/releases/latest/download/deck-shelves-v3.0.0.zip" download>
+        <a class="btn btn-primary" href="https://github.com/santojon/Deck-Shelves/releases/latest/download/deck-shelves-v3.2.1.zip" download>
           <svg class="icon"><use href="#i-download"/></svg> Download latest release
         </a>
         <a class="btn btn-ghost" href="https://decky.xyz">
@@ -422,7 +538,7 @@
             <p>Grab the latest release and start building your perfect home screen.</p>
           </div>
         </div>
-        <a class="btn btn-primary" href="https://github.com/santojon/Deck-Shelves/releases/latest/download/deck-shelves-v3.0.0.zip" download>
+        <a class="btn btn-primary" href="https://github.com/santojon/Deck-Shelves/releases/latest/download/deck-shelves-v3.2.1.zip" download>
           <svg class="icon"><use href="#i-download"/></svg> Download latest release
         </a>
       </div>
@@ -474,7 +590,7 @@
     <hr class="foot-rule">
     <div class="container">
       <div class="foot-disclaimer">
-        Steam Deck and Steam are trademarks and/or registered trademarks of Valve Corporation. Decky and Decky Loader are trademarks of their respective owners. Deck Shelves is an independent plugin and is not affiliated with, endorsed, or sponsored by Valve Corporation or the Decky Loader project.
+        Steam Deck and Steam are trademarks and/or registered trademarks of Valve Corporation. Decky and Decky Loader are trademarks of their respective owners. Deck Shelves is an independent plugin and is not affiliated with, endorsed, or sponsored by Valve Corporation or the Decky Loader project. The same applies to every other plugin and theme mentioned on this site — including TabMaster, UnifiDeck, SteamGridDB, Non-Steam Badges, and any CSS Loader theme Deck Shelves detects or interoperates with: mentions are for interoperability only, not a claim of affiliation or endorsement by their respective authors.
       </div>
     </div>
 
@@ -513,12 +629,16 @@
       var lb = document.querySelector('[data-lightbox]');
       if (!gallery || !lb) return;
 
+      // Full-size images: try the LOCAL relative path first (so a local preview
+      // shows them without pushing), fall back to raw.githubusercontent for the
+      // published site (Pages serves site/ only, so assets/ is URL-only there).
+      var LB_RAW = "https://raw.githubusercontent.com/santojon/Deck-Shelves/main/assets/screenshots/";
       var buttons = Array.prototype.slice.call(gallery.querySelectorAll('.shot-btn'));
       var slides = buttons.map(function (b) {
         var img = b.querySelector('img');
         var t = b.querySelector('b');
         var s = b.querySelector('span:last-child');
-        return { src: img.getAttribute('src'), alt: img.getAttribute('alt'), title: t ? t.textContent : '', sub: s ? s.textContent : '' };
+        return { src: img.getAttribute('src'), file: (img.getAttribute('src') || '').split('/').pop(), alt: img.getAttribute('alt'), title: t ? t.textContent : '', sub: s ? s.textContent : '' };
       });
 
       var imgEl = lb.querySelector('[data-lb-img]');
@@ -539,6 +659,7 @@
       function show(i) {
         current = (i + slides.length) % slides.length;
         var sl = slides[current];
+        imgEl.onerror = function () { imgEl.onerror = null; imgEl.src = LB_RAW + sl.file; };
         imgEl.setAttribute('src', sl.src);
         imgEl.setAttribute('alt', sl.alt);
         titleEl.textContent = sl.title;

@@ -57,18 +57,10 @@ export function triggerShelfRefresh(opts?: RefreshOptions): void {
   emit(opts);
 }
 
-export function installShelfRefreshEmitter(): () => void {
-  const cleanups: Array<() => void> = [];
-
-  // Single global fallback poll at 30s
-  pollId = setInterval(emit, 30000);
-  cleanups.push(() => {
-    if (pollId !== null) { clearInterval(pollId); pollId = null; }
-  });
-
-  // AppOverviewChanges throttle (5 s leading + 1 trailing).
-  // Steam fires this on every download tick — without the throttle,
-  // a long download flooded the resolver (#66).
+// AppOverviewChanges throttle (5 s leading + 1 trailing). Steam fires this
+// on every download tick — without the throttle, a long download flooded
+// the resolver (#66).
+function installOverviewChangesThrottle(): (() => void) | null {
   try {
     const client = (globalThis as any).SteamClient ?? (window as any).SteamClient;
     const OVERVIEW_THROTTLE_MS = 5000;
@@ -91,14 +83,16 @@ export function installShelfRefreshEmitter(): () => void {
       }
     };
     const reg = client?.Apps?.RegisterForAppOverviewChanges?.(throttledEmit);
-    if (typeof reg?.unregister === 'function') {
-      cleanups.push(() => { try { reg.unregister(); } catch {} });
-    }
-    cleanups.push(() => { if (trailingTimer !== null) { clearTimeout(trailingTimer); trailingTimer = null; } });
-  } catch {}
+    return () => {
+      if (typeof reg?.unregister === 'function') { try { reg.unregister(); } catch {} }
+      if (trailingTimer !== null) { clearTimeout(trailingTimer); trailingTimer = null; }
+    };
+  } catch { return null; }
+}
 
-  // GameActionStart debounce: Steam fires multiple events per launch
-  // (initiated → started → ready). Coalesce to one invalidate + emit.
+// GameActionStart debounce: Steam fires multiple events per launch
+// (initiated → started → ready). Coalesce to one invalidate + emit.
+function installGameActionStartDebounce(): (() => void) | null {
   try {
     const client = (globalThis as any).SteamClient ?? (window as any).SteamClient;
     let gameActionTimer: ReturnType<typeof setTimeout> | null = null;
@@ -115,30 +109,52 @@ export function installShelfRefreshEmitter(): () => void {
       }, 1500);
     };
     const reg = client?.Apps?.RegisterForGameActionStart?.(onGameAction);
-    if (typeof reg?.unregister === 'function') {
-      cleanups.push(() => { try { reg.unregister(); } catch {} });
-    }
-    cleanups.push(() => { if (gameActionTimer !== null) { clearTimeout(gameActionTimer); gameActionTimer = null; } });
-  } catch {}
+    return () => {
+      if (typeof reg?.unregister === 'function') { try { reg.unregister(); } catch {} }
+      if (gameActionTimer !== null) { clearTimeout(gameActionTimer); gameActionTimer = null; }
+    };
+  } catch { return null; }
+}
 
-  // Subscribe to collection store changes (favorites, user collections)
+// First window whose collectionStore also exposes an `.on` subscribe
+// method (a store present but without `.on` doesn't count — keep looking).
+function findSubscribableCollectionStore(): any {
+  const hostWindows: any[] = [
+    window,
+    ...(((window as any).SteamUIStore?.WindowStore?.SteamUIWindows ?? []).map((e: any) => e?.BrowserWindow)),
+  ].filter(Boolean);
+  for (const win of hostWindows) {
+    const store = win?.collectionStore ?? (globalThis as any).collectionStore;
+    if (store && typeof store.on === 'function') return store;
+  }
+  return null;
+}
+
+// Subscribe to collection store changes (favorites, user collections).
+// collectionStore may expose a MobX-style reaction or onChange callback.
+function installCollectionStoreSubscription(): (() => void) | null {
   try {
-    const hostWindows: any[] = [
-      window,
-      ...(((window as any).SteamUIStore?.WindowStore?.SteamUIWindows ?? []).map((e: any) => e?.BrowserWindow)),
-    ].filter(Boolean);
-    for (const win of hostWindows) {
-      const store = win?.collectionStore ?? (globalThis as any).collectionStore;
-      if (!store) continue;
-      // collectionStore may expose MobX-style reaction or onChange callback
-      if (typeof store.on === 'function') {
-        const handler = () => emit();
-        store.on('change', handler);
-        cleanups.push(() => { try { store.off?.('change', handler); } catch {} });
-        break;
-      }
-    }
-  } catch {}
+    const store = findSubscribableCollectionStore();
+    if (!store) return null;
+    const handler = () => emit();
+    store.on('change', handler);
+    return () => { try { store.off?.('change', handler); } catch {} };
+  } catch { return null; }
+}
+
+export function installShelfRefreshEmitter(): () => void {
+  const cleanups: Array<() => void> = [];
+
+  // Single global fallback poll at 30s
+  pollId = setInterval(emit, 30000);
+  cleanups.push(() => {
+    if (pollId !== null) { clearInterval(pollId); pollId = null; }
+  });
+
+  for (const install of [installOverviewChangesThrottle, installGameActionStartDebounce, installCollectionStoreSubscription]) {
+    const cleanup = install();
+    if (cleanup) cleanups.push(cleanup);
+  }
 
   return () => {
     for (const fn of cleanups) fn();

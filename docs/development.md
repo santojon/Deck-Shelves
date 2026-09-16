@@ -78,6 +78,8 @@ argument takes precedence.
 | `pnpm run package` | Create distributable `.zip` |
 | `pnpm run upload:deckzip` | Upload the zip to the Deck Downloads folder |
 
+> **Caution — `--hard` right after a live save:** `killall steam` can land mid-round-trip of a `saveSettings` call the user just made in the UI. The write itself already landed on disk (confirmed via a reproduction: the backend's pre-save backup snapshot had it), but the frontend's `lastSaveSucceeded` flag can be left `false` if the ack never arrives — and `refreshSettings`'s boot-time "retry unsynced save" then re-pushes whatever `localStorage` cache was current *when the save call started*, which can be older than what's now on disk. If you're deploying `--hard` shortly after the user (or you, live-testing) added/edited something, verify the settings file on disk afterward before assuming it's still there.
+
 ## Testing
 
 ```bash
@@ -253,7 +255,18 @@ python3 deckprobe/cdp.py console sjc
 
 # Inject a classmap for testing
 python3 deckprobe/tools/inject_classmap.py
+
+# List every diag script (deckprobe's generic ones + this project's own)
+python3 deckprobe/cli.py diag list
+python3 deckprobe/cli.py diag run diag_composite_filter -- <bp-target-id>
 ```
+
+Project-specific diag scripts (ones that hardcode Deck Shelves' own
+selectors/features rather than the generic, override-anything defaults
+deckprobe ships with) live in `scripts/deckprobe-ext/diag/` — wired via
+`diag_dirs` in `deckprobe.config.json`, same convention as the screenshot
+scenarios and UI-test suites above. `diag list`/`diag run` merge both
+directories automatically.
 
 ## i18n
 

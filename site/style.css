@@ -90,6 +90,16 @@ img, svg { display: block; }
 .strip-item h3 { margin: 0; font-size: 0.95rem; font-weight: 600; }
 .strip-item p { margin: 3px 0 0; font-size: 0.82rem; color: var(--muted); }
 
+/* usage stats — one row of linked chips spanning the full width, same
+   look as the .btn-ghost community buttons (white icon, soft rounded
+   rectangle) but at chip height/spacing instead of full button size */
+.stats-row { display: flex; gap: 10px; margin-top: -8px; }
+.stat-chip { flex: 1 1 0; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 14px; border-radius: 10px; background: rgba(148, 163, 184, 0.06); border: 1px solid var(--border-strong); color: var(--text); font-size: 0.82rem; text-decoration: none; white-space: nowrap; transition: background .15s ease, border-color .15s ease; }
+.stat-chip:hover { background: rgba(148, 163, 184, 0.14); }
+.stat-chip .icon { width: 16px; height: 16px; color: currentColor; }
+.stat-chip b { font-weight: 700; }
+.stats-updated { text-align: center; color: var(--muted); font-size: 0.78rem; margin: 14px 0 0; }
+
 /* sections */
 section { scroll-margin-top: 80px; }
 .block { padding: 66px 0; }
@@ -111,7 +121,26 @@ section { scroll-margin-top: 80px; }
 .feat-ico { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 12px; color: var(--blue-soft); background: rgba(61, 139, 255, 0.12); border: 1px solid rgba(61, 139, 255, 0.22); margin-bottom: 16px; }
 .feat-card h3 { margin: 0 0 6px; font-size: 1.02rem; }
 .feat-card p { margin: 0; color: var(--muted); font-size: 0.9rem; }
+.feat-link { display: inline-flex; align-items: center; gap: 6px; margin-top: 14px; color: var(--blue-soft); font-size: 0.85rem; font-weight: 600; text-decoration: none; }
+.feat-link .icon { width: 13px; height: 13px; }
+.feat-link:hover { color: var(--text); }
 .center-btn { margin-top: 30px; display: flex; justify-content: center; }
+
+/* ecosystem FAQ */
+.faq { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px 16px; margin: 32px 0 0; align-items: start; }
+.faq-item { border: 1px solid var(--border); border-radius: 12px; background: rgba(16, 24, 41, 0.4); padding: 4px 18px; }
+.faq-item summary { cursor: pointer; padding: 14px 0; font-weight: 600; list-style: none; }
+.faq-item summary::-webkit-details-marker { display: none; }
+.faq-item summary::before { content: "+"; display: inline-block; width: 1.2em; color: var(--blue-soft); }
+.faq-item[open] summary::before { content: "\2212"; }
+.faq-item p { margin: 0 0 16px 1.2em; color: var(--muted); font-size: 0.9rem; }
+
+/* integration guide pages — numbered steps */
+.steps { list-style: none; counter-reset: step; margin: 0; padding: 0; display: grid; gap: 14px; }
+.steps > li { counter-increment: step; position: relative; padding-left: 40px; }
+.steps > li::before { content: counter(step); position: absolute; left: 0; top: 0; width: 28px; height: 28px; display: grid; place-items: center; border-radius: 50%; background: rgba(61, 139, 255, 0.14); border: 1px solid rgba(61, 139, 255, 0.3); color: var(--blue-soft); font-weight: 700; font-size: 0.85rem; }
+.steps > li strong { display: block; margin-bottom: 4px; }
+.steps > li p { margin: 0; color: var(--muted); font-size: 0.9rem; }
 
 /* features page — visual showcase rows */
 .feature-rows { display: grid; gap: 28px; margin: 8px 0 48px; }
@@ -125,6 +154,7 @@ section { scroll-margin-top: 80px; }
 @media (max-width: 760px) {
   .feature-row { grid-template-columns: 1fr; gap: 18px; }
   .feature-row:nth-child(even) .fr-media { order: 0; }
+  .faq { grid-template-columns: 1fr; }
 }
 
 /* features list (features.html) */
@@ -197,7 +227,8 @@ section { scroll-margin-top: 80px; }
 .rn-list li p { margin: 4px 0 0; color: var(--muted); font-size: 0.9rem; }
 
 /* installation */
-.install-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
+/* auto-fit so a 3rd/4th install method wraps in cleanly without a CSS edit */
+.install-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; }
 .inst-card { border: 1px solid var(--border); border-radius: 20px; background: var(--panel); padding: 28px; }
 .inst-card h3 { margin: 0 0 6px; font-size: 1.15rem; display: flex; align-items: center; gap: 10px; }
 .inst-card h3 .icon { color: var(--blue-soft); }

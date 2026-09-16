@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Focusable, Navigation } from "../../runtime/host/decky";
 import { ChevronLeftIcon, DocsIcon, GearIcon, DownloadIcon } from "../icons";
 import { checkForUpdate, type UpdateCheckResult } from "../../core/updateNotifier";
-import { downloadUpdate } from "../../runtime/updateDownload";
+import { installOrDownloadUpdate } from "../../runtime/updateDownload";
 
 const ABOUT_ROUTE = "/deck-shelves/about";
 const SETTINGS_ROUTE = "/deck-shelves/settings";
@@ -47,7 +47,7 @@ export function PageHeader({ title, onBack, trailing, active }: PageHeaderProps)
     return () => { cancelled = true; };
   }, []);
   const hasUpdate = !!(update?.hasUpdate && update.releaseUrl);
-  const viewRelease = () => { void downloadUpdate(update); };
+  const viewRelease = () => { void installOrDownloadUpdate(update); };
   return (
     <Focusable
       flow-children="row"

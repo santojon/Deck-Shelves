@@ -69,8 +69,8 @@ function unwrapResult<T>(response: any): T {
   return response as T;
 }
 
-// The neutral host (e.g. ShelvesHub) injects its runtime as `__SHELVES_HOST__`
-// on the renderer global; it carries `rpc.call` (backend proxy) + `notifications`.
+// A neutral (non-Decky) host injects its runtime as `__SHELVES_HOST__` on the
+// renderer global; it carries `rpc.call` (backend proxy) + `notifications`.
 function getShelvesHost(): any {
   const g = globalThis as any;
   return g.window?.__SHELVES_HOST__ ?? g.__SHELVES_HOST__ ?? null;
@@ -99,8 +99,8 @@ export async function call<TArgs extends unknown[], TResult>(method: string, ...
     return await api.call<TResult>(method, ...args);
   }
 
-  // ShelvesHub / neutral host: the runner proxies renderer RPC to the backend
-  // via `window.__SHELVES_HOST__.rpc`. `payload` is the kwargs-shaped object the
+  // Neutral host: the runner proxies renderer RPC to the backend via
+  // `window.__SHELVES_HOST__.rpc`. `payload` is the kwargs-shaped object the
   // runner dispatches as keyword arguments (see the backend host contract).
   const sh = getShelvesHost();
   if (sh?.rpc?.call) return await sh.rpc.call(method, payload) as TResult;
@@ -157,7 +157,7 @@ function tryToast(target: any, input: any): { done: boolean; result?: any } {
   return { done: true, result: toaster.toast(input) };
 }
 
-// ShelvesHub / neutral host: route toasts through its notification API. A
+// Neutral host: route toasts through its notification API. A
 // contract-conforming runtime exposes toast(opts); older ones expose send().
 function tryShelvesHubToast(input: { title?: string; body?: string; duration?: number }): { done: boolean; result?: any } {
   const notifs = getShelvesHost()?.notifications;

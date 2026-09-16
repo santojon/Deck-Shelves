@@ -54,8 +54,12 @@ vocabulary instead of hard-coding ids:
   `defaultSort`, and its `source`.
 - `api.listShortcuts()` — every built-in gamepad shortcut (`PublicShortcut[]`):
   `action`, `defaultCombo`, and the user's current `combo`.
+- `api.listKeyboardShortcuts()` — every built-in action's independent keyboard
+  shortcut (`PublicKeyboardShortcut[]`): `action` and the user's current
+  `combo`. Unlike gamepad shortcuts, every action defaults to unset — `combo`
+  is `null` until the user explicitly binds one.
 
-All three are read-only snapshots — call them again for the latest state.
+All four are read-only snapshots — call them again for the latest state.
 
 ## Runtime translations
 

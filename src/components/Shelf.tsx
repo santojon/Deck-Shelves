@@ -1,5 +1,5 @@
 
-import { Spinner } from "../runtime/host/decky";
+import { Spinner, getFrontendLib } from "../runtime/host/decky";
 import { memo, useEffect, useMemo, useState, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import type { Shelf } from "../types";
@@ -10,6 +10,8 @@ import { shouldShowMoreCard, shouldShowRefreshCard } from "./shelf/trailingCards
 import { showGameMenu, buildShelfContextMenu } from "../core/steamGameMenu";
 import { saveFocusTarget } from "../core/focusRestore";
 import { subscribeShelfRefresh, triggerShelfRefresh } from "../core/shelfRefresh";
+import { maybeSubscribeContextInvalidation } from "../core/contextAwareShelves";
+import { hasExternalSource } from "../core/pluginApi";
 import { mark, measure } from "../core/perf";
 import { logInfo } from "../runtime/logger";
 import { applyManualOrder, invalidateRandomSortCache, getAllAppOverviews, getLocalLibraryAppIds } from "../steam";
@@ -41,6 +43,10 @@ function openSteamStoreUrl(url: string, steamUrl?: string) {
     }
   } catch {}
 }
+
+// Host-parametric UI lib — resolved by the one central resolver in the host
+// adapter (loader global OR `__SHELVES_HOST__.ui`), aliased locally.
+const resolveFrontendLib = getFrontendLib;
 
 // Cross-source name key: same normalisation as the wishlist compare so
 // "Kingdom Come Deliverance" (non-Steam) matches "Kingdom Come: Deliverance".
@@ -94,6 +100,118 @@ function computeEffectiveHighlightedAppIds(
   const picked = new Set(scored.slice(0, targetCount).map((s) => s.id));
   for (const id of explicitList) picked.add(id);
   return Array.from(picked);
+}
+
+type ShelfDisplayGlobals = {
+  hideStatusLine: boolean;
+  hideNewBadge: boolean;
+  hideDiscountBadge: boolean;
+  hideCompatIcons: boolean;
+  hideNonSteamBadge: boolean;
+  hideShelfTitle: boolean;
+  hideGameNames: boolean;
+  hideInstallIndicator: boolean;
+  enableLogo: boolean;
+  enableIcon: boolean;
+  enableDescription: boolean;
+  descriptionBelowLogo: boolean;
+  logoBelowShelf: boolean;
+  logoPosition: 'left' | 'center' | 'right';
+  descriptionPosition: 'left' | 'center' | 'right';
+  logoSize: number;
+  logoTopOffset: number;
+  fullPageShelf: boolean;
+  iconVerticalAlign: 'top' | 'center' | 'bottom' | null | undefined;
+  shelfTitlePosition: 'left' | 'center' | 'right' | null | undefined;
+  gameNamePosition: 'left' | 'center' | 'right' | null | undefined;
+  playtimePosition: 'left' | 'center' | 'right' | null | undefined;
+  descriptionHeight: number | null | undefined;
+};
+
+function isValidPos(v: unknown): v is 'left' | 'center' | 'right' {
+  return v === 'left' || v === 'center' || v === 'right';
+}
+function isValidVAlign(v: unknown): v is 'top' | 'center' | 'bottom' {
+  return v === 'top' || v === 'center' || v === 'bottom';
+}
+function readGlobalSetting(key: string): unknown {
+  return (getCurrentSettings() as any)?.[key];
+}
+// Global wins outright; otherwise fall back to the per-shelf value.
+// `forceOn` covers the two flags that ALSO force on for online shelves.
+function resolveBoolFlag(globalVal: boolean, shelfVal: unknown, forceOn = false): boolean {
+  if (globalVal === true) return true;
+  return shelfVal === true || forceOn;
+}
+function resolveEnableFlag(lightMode: boolean, globalVal: boolean): boolean {
+  return !lightMode && globalVal === true;
+}
+function resolveClampedNumber(globalVal: unknown, shelfVal: unknown, lo: number, hi: number, fallback: number): number {
+  if (typeof globalVal === 'number') return Math.max(lo, Math.min(hi, globalVal));
+  if (typeof shelfVal === 'number') return Math.max(lo, Math.min(hi, shelfVal));
+  return fallback;
+}
+function resolvePosition<T extends string>(valid: (v: unknown) => v is T, globalVal: unknown, shelfVal: unknown, fallback: T): T {
+  if (valid(globalVal)) return globalVal;
+  if (valid(shelfVal)) return shelfVal;
+  return fallback;
+}
+
+/* Pulled out to keep ShelfViewImpl's render complexity under the lint cap.
+   Every field follows "global wins, else per-shelf, else default" via the
+   small resolvers above; `g` is already-defaulted (applied at destructuring
+   in ShelfViewImpl). No behaviour change — every rule is copied verbatim
+   from the body it replaced, just table-driven instead of inlined. */
+function computeEffectiveShelfDisplayProps(shelf: any, isOnlineShelf: boolean, g: ShelfDisplayGlobals) {
+  const lightMode = readGlobalSetting('lightModeEnabled') === true;
+  const descriptionScalePercent = resolveClampedNumber(readGlobalSetting('globalDescriptionScale'), shelf.descriptionScale, 100, 200, 100);
+  return {
+    lightMode,
+    effectiveHide: resolveBoolFlag(g.hideStatusLine, shelf.hideStatusLine, isOnlineShelf),
+    effectiveHideNewBadge: resolveBoolFlag(g.hideNewBadge, shelf.hideNewBadge),
+    effectiveHideDiscountBadge: resolveBoolFlag(g.hideDiscountBadge, shelf.hideDiscountBadge),
+    effectiveHideCompatIcons: resolveBoolFlag(g.hideCompatIcons, shelf.hideCompatIcons),
+    effectiveHideNonSteamBadge: resolveBoolFlag(g.hideNonSteamBadge, shelf.hideNonSteamBadge),
+    effectiveHideShelfTitle: resolveBoolFlag(g.hideShelfTitle, shelf.hideShelfTitle),
+    effectiveHideGameNames: resolveBoolFlag(g.hideGameNames, shelf.hideGameNames),
+    effectiveHideInstallIndicator: resolveBoolFlag(g.hideInstallIndicator, shelf.hideInstallIndicator, isOnlineShelf),
+    effectiveEnableLogo: resolveEnableFlag(lightMode, g.enableLogo),
+    effectiveEnableIcon: resolveEnableFlag(lightMode, g.enableIcon),
+    effectiveEnableDescription: resolveEnableFlag(lightMode, g.enableDescription),
+    effectiveDescriptionScale: descriptionScalePercent / 100,
+    effectiveDescriptionBelowLogo: resolveBoolFlag(g.descriptionBelowLogo, shelf.descriptionBelowLogo),
+    effectiveLogoBelowShelf: resolveBoolFlag(g.logoBelowShelf, shelf.logoBelowShelf),
+    effectiveLogoPosition: resolvePosition(isValidPos, g.logoPosition, shelf.logoPosition, 'left'),
+    effectiveDescriptionPosition: resolvePosition(isValidPos, g.descriptionPosition, shelf.descriptionPosition, 'left'),
+    effectiveLogoSize: resolveClampedNumber(g.logoSize, shelf.logoSize, 50, 200, 100),
+    effectiveLogoTopOffset: resolveClampedNumber(g.logoTopOffset, shelf.logoTopOffset, 0, 100, 20),
+    fullPageLayout: resolveBoolFlag(g.fullPageShelf, shelf.fullPageShelf),
+    effectiveIconVerticalAlign: resolvePosition(isValidVAlign, g.iconVerticalAlign, shelf.iconVerticalAlign, 'top'),
+    effectiveShelfTitlePosition: resolvePosition(isValidPos, g.shelfTitlePosition, shelf.shelfTitlePosition, 'left'),
+    effectiveGameNamePosition: resolvePosition(isValidPos, g.gameNamePosition, shelf.gameNamePosition, 'left'),
+    effectivePlaytimePosition: resolvePosition(isValidPos, g.playtimePosition, shelf.playtimePosition, 'left'),
+    effectiveDescriptionHeight: resolveClampedNumber(g.descriptionHeight, shelf.descriptionHeight, 1, 3, 2),
+    effectiveDescriptionLogoGap: resolveClampedNumber(readGlobalSetting('globalDescriptionLogoGap'), shelf.descriptionLogoGap, -40, 80, 10),
+  };
+}
+
+// True when this shelf's external source id references a provider that
+// isn't currently registered (uninstalled/disabled) — distinguishes that
+// from a source genuinely resolving to zero results, which stays silent.
+function unavailableExternalSourceId(shelf: Shelf): boolean {
+  const source = shelf.source as any;
+  if (source?.type !== 'external') return false;
+  const sourceId = String(source.sourceId ?? '');
+  return !!sourceId && !hasExternalSource(sourceId);
+}
+
+function renderUnavailableSourceNotice(title: string, message: string) {
+  return (
+    <div style={{ padding: '10px 16px', opacity: 0.75 }}>
+      <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>{title}</div>
+      <div style={{ fontSize: 12 }}>⚠️ {message}</div>
+    </div>
+  );
 }
 
 function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFirst = false, globalHighlightAll = false, globalHighlightRandom = false, globalHideStatusLine = false, globalHideNewBadge = false, globalHideDiscountBadge = false, globalHideCompatIcons = false, globalHideNonSteamBadge = false, globalHideShelfTitle = false, globalHideGameNames = false, globalHideInstallIndicator = false, globalHideSeeMore = false, globalHideRefreshCard = false, globalHeroEnabled = false, globalGameInfoAbove = false, globalFriendsPlayingOverlay = false, globalFriendsPlayingOverlayRecent = false, globalDedupeByName = false, globalEnableLogo = false, globalEnableIcon = false, globalEnableDescription = false, globalDescriptionBelowLogo = false, globalLogoBelowShelf = false, globalLogoPosition = 'left', globalDescriptionPosition = 'left', globalLogoSize = 100, globalLogoTopOffset = 20, globalFullPageShelf = false, globalIconVerticalAlign, globalShelfTitlePosition, globalGameNamePosition, globalPlaytimePosition, globalDescriptionHeight, heroForced = false, heroLabelMount = false, forceExpanded = false, forceLayoutAsRecents = false, forceCollapsed = false, autoCollapseWhenEmpty = false }: { shelf: Shelf; globalMatchNativeSize?: boolean; globalHighlightFirst?: boolean; globalHighlightAll?: boolean; globalHighlightRandom?: boolean; globalHideStatusLine?: boolean; globalHideNewBadge?: boolean; globalHideDiscountBadge?: boolean; globalHideCompatIcons?: boolean; globalHideNonSteamBadge?: boolean; globalHideShelfTitle?: boolean; globalHideGameNames?: boolean; globalHideInstallIndicator?: boolean; globalHideSeeMore?: boolean; globalHideRefreshCard?: boolean; globalHeroEnabled?: boolean; globalGameInfoAbove?: boolean; globalFriendsPlayingOverlay?: boolean; globalFriendsPlayingOverlayRecent?: boolean; globalDedupeByName?: boolean; globalEnableLogo?: boolean; globalEnableIcon?: boolean; globalEnableDescription?: boolean; globalDescriptionBelowLogo?: boolean; globalLogoBelowShelf?: boolean; globalLogoPosition?: 'left' | 'center' | 'right'; globalDescriptionPosition?: 'left' | 'center' | 'right'; globalLogoSize?: number; globalLogoTopOffset?: number; globalFullPageShelf?: boolean; globalIconVerticalAlign?: 'top' | 'center' | 'bottom' | null; globalShelfTitlePosition?: 'left' | 'center' | 'right' | null; globalGameNamePosition?: 'left' | 'center' | 'right' | null; globalPlaytimePosition?: 'left' | 'center' | 'right' | null; globalDescriptionHeight?: number | null; heroForced?: boolean; heroLabelMount?: boolean; forceExpanded?: boolean; forceLayoutAsRecents?: boolean; forceCollapsed?: boolean; autoCollapseWhenEmpty?: boolean }) {
@@ -258,9 +376,20 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
     };
     globalThis.addEventListener("deck-shelves-settings-changed", onSettings);
 
+    /* Context-aware re-resolve: no-op for every shelf except one whose
+       external source declared it needs the focused game — see
+       `maybeSubscribeContextInvalidation`. Reuses the SAME `resolve()`
+       closure (generation counter included), so a focus change is just
+       another debounced trigger alongside the refresh emitter above. */
+    /* `manual: true` reuses the existing brief opacity-dip (no layout jump,
+       no new UI) so a context-driven re-resolve gives the same "updating"
+       cue a manual refresh does — old contents stay visible the whole time. */
+    const unsubContext = maybeSubscribeContextInvalidation(shelf.source as any, () => resolve({ manual: true }));
+
     return () => {
       cancelled = true;
       unsubRefresh();
+      unsubContext?.();
       globalThis.removeEventListener("deck-shelves-settings-changed", onSettings);
       if (settingsTimer !== null) { clearTimeout(settingsTimer); settingsTimer = null; }
       if (refreshTimerRef.current) { clearTimeout(refreshTimerRef.current); refreshTimerRef.current = null; }
@@ -288,7 +417,7 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
        `preloadAppDescriptions(appid)` on-demand (e.g. on focus, on
        tooltip open) so the cost is paid only for the cards the user
        actually interacts with. */
-    (async () => {
+    void (async () => {
       // Batched meta lookup: ONE catalog walk for every appid instead
       // of N per-id calls. Collapses ~1 s of cold-mount blocking work
       // into ~50 ms on a 1k-game library.
@@ -421,7 +550,7 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
     });
     if (!toFetch.length) return;
     let cancelled = false;
-    (async () => {
+    void (async () => {
       try {
         const names = await fetchGameNames(toFetch);
         if (!cancelled && names.size) {
@@ -439,7 +568,7 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
        Wishlist/store sources already do this during resolve; smart shelves
        don't, so without this the discount data is never fetched. */
     if (sourceIncludesNonOwned) {
-      (async () => {
+      void (async () => {
         try {
           const { getPriceMap } = await import("../core/onlineStore");
           await getPriceMap(toFetch);
@@ -518,7 +647,9 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
         // Uses buildShelfContextMenu for structure parity with regular shelves.
         const showOnlineMenu = () => {
           try {
-            const dfl = (globalThis as any).DFL ?? (globalThis as any).deckyFrontendLib;
+            // Without the host fallback this online-card menu never opened in
+            // sole mode (no loader global there).
+            const dfl = resolveFrontendLib();
             const R = (globalThis as any).SP_REACT;
             if (!dfl?.showContextMenu || !R || !dfl.MenuItem || !dfl.Menu) return;
             const items = buildShelfContextMenu(shelf.id, appid, dfl, R);
@@ -698,22 +829,12 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
   if (!rowItems.length && items.size > 0 && metaVersion < 5 && firstLoad.current) {
     return <div style={{ padding: 10 }}><Spinner /></div>;
   }
-  if (!rowItems.length) return null;
+  if (!rowItems.length) {
+    return unavailableExternalSourceId(shelf)
+      ? renderUnavailableSourceNotice(shelf.title, t('shelf_source_unavailable'))
+      : null;
+  }
 
-  const effectiveHide = globalHideStatusLine === true ? true : (shelf.hideStatusLine === true) || isOnlineShelf;
-  const effectiveHideNewBadge = globalHideNewBadge === true ? true : (shelf.hideNewBadge === true);
-  const effectiveHideDiscountBadge = globalHideDiscountBadge === true ? true : ((shelf as any).hideDiscountBadge === true);
-  const effectiveHideCompatIcons = globalHideCompatIcons === true ? true : (shelf.hideCompatIcons === true);
-  const effectiveHideNonSteamBadge = globalHideNonSteamBadge === true ? true : (shelf.hideNonSteamBadge === true);
-  const effectiveHideShelfTitle = globalHideShelfTitle === true ? true : ((shelf as any).hideShelfTitle === true);
-  const effectiveHideGameNames = globalHideGameNames === true ? true : ((shelf as any).hideGameNames === true);
-  // Hide install indicator: shelf-wide global flag, per-shelf hide flag, OR
-  /* when the source is direct online (wishlist / store — no cards in the
-     row are local installs). Composite shelves with online children handle
-     the per-card hide INSIDE GameCard (checking the appid's appStore
-     overview presence) so owned cards in the same composite keep their
-     indicator and only the wishlist / store items lose it. */
-  const effectiveHideInstallIndicator = globalHideInstallIndicator === true ? true : ((shelf as any).hideInstallIndicator === true) || isOnlineShelf;
   // Random-featured rule: stable per shelf id, ~25 % of cards. Implementation
   // pulled out to `computeRandomHighlightSet` to keep render complexity under
   // the lint cap.
@@ -723,56 +844,29 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
     shelf.id,
     globalHighlightRandom || (shelf as any).highlightRandom,
   );
-  /* Global is the master switch — when on, every shelf shows the logo/icon/
-     description (including older saves with per-shelf=false); when off, none do.
-     Per-shelf overrides are no longer honoured at render time so the QAM toggle
-     behaves predictably across the home (incl. the first shelf, which could
-     previously stick off via a stale per-shelf=false). */
-  /* Light mode strips per-shelf decorations (logo / icon / description /
-     per-shelf hero) for performance + simplicity. Hero is allowed only
-     on the first shelf and is force-on there as a single cinematic
-     backdrop. User toggles stay untouched and come back when light
-     mode is off. */
-  const lightMode = (getCurrentSettings() as any)?.lightModeEnabled === true;
-  const effectiveEnableLogo = !lightMode && globalEnableLogo === true;
-  const effectiveEnableIcon = !lightMode && globalEnableIcon === true;
-  const effectiveEnableDescription = !lightMode && globalEnableDescription === true;
-  // Description font size (percent → CSS multiplier). Global wins if set, else
-  // per-shelf, else 100% — same resolution as descriptionHeight below.
-  const globalDescriptionScale = (getCurrentSettings() as any)?.globalDescriptionScale;
-  const descriptionScalePercent = typeof globalDescriptionScale === 'number'
-    ? Math.max(100, Math.min(200, globalDescriptionScale))
-    : (typeof (shelf as any).descriptionScale === 'number' ? Math.max(100, Math.min(200, (shelf as any).descriptionScale)) : 100);
-  const effectiveDescriptionScale = descriptionScalePercent / 100;
-  const effectiveDescriptionBelowLogo = globalDescriptionBelowLogo === true ? true : ((shelf as any).descriptionBelowLogo === true);
-  const effectiveLogoBelowShelf = globalLogoBelowShelf === true ? true : ((shelf as any).logoBelowShelf === true);
-  /* Global takes precedence over per-shelf for position / size / offset
-     (mirrors how the boolean global toggles already force their value
-     regardless of per-shelf state — e.g. `globalHideStatusLine === true`
-     wins over `shelf.hideStatusLine === false`). */
-  const isValidPos = (v: any): v is 'left' | 'center' | 'right' => v === 'left' || v === 'center' || v === 'right';
-  const shelfLogoPosition = isValidPos((shelf as any).logoPosition) ? (shelf as any).logoPosition : null;
-  const effectiveLogoPosition: 'left' | 'center' | 'right' = isValidPos(globalLogoPosition) ? globalLogoPosition : (shelfLogoPosition ?? 'left');
-  const shelfDescPos = isValidPos((shelf as any).descriptionPosition) ? (shelf as any).descriptionPosition : null;
-  const effectiveDescriptionPosition: 'left' | 'center' | 'right' = isValidPos(globalDescriptionPosition) ? globalDescriptionPosition : (shelfDescPos ?? 'left');
-  const effectiveLogoSize: number = typeof globalLogoSize === 'number' ? Math.max(50, Math.min(200, globalLogoSize)) : (typeof (shelf as any).logoSize === 'number' ? Math.max(50, Math.min(200, (shelf as any).logoSize)) : 100);
-  const effectiveLogoTopOffset: number = typeof globalLogoTopOffset === 'number' ? Math.max(0, Math.min(100, globalLogoTopOffset)) : (typeof (shelf as any).logoTopOffset === 'number' ? Math.max(0, Math.min(100, (shelf as any).logoTopOffset)) : 20);
-  // Two distinct concepts that used to be merged into one prop:
-  //   `forceExpanded` → shelf is REPLACING native recents (nothing above)
-  /*   `fullPageLayout` → user opted into the 100vh layout via per-shelf
-                          or global `fullPageShelf` flag, but native
-                          recents may still be visible above.
-     Only the first one should drive PerShelfHero's `isFirstShelf`
-     (controls fade vs opaque-top). The second only changes layout. */
-  const fullPageLayout = globalFullPageShelf === true || (shelf as any).fullPageShelf === true;
-  const isValidVAlign = (v: any): v is 'top' | 'center' | 'bottom' => v === 'top' || v === 'center' || v === 'bottom';
-  const effectiveIconVerticalAlign: 'top' | 'center' | 'bottom' = isValidVAlign(globalIconVerticalAlign) ? globalIconVerticalAlign : (isValidVAlign((shelf as any).iconVerticalAlign) ? (shelf as any).iconVerticalAlign : 'top');
-  const effectiveShelfTitlePosition: 'left' | 'center' | 'right' = isValidPos(globalShelfTitlePosition) ? globalShelfTitlePosition : (isValidPos((shelf as any).shelfTitlePosition) ? (shelf as any).shelfTitlePosition : 'left');
-  const effectiveGameNamePosition: 'left' | 'center' | 'right' = isValidPos(globalGameNamePosition) ? globalGameNamePosition : (isValidPos((shelf as any).gameNamePosition) ? (shelf as any).gameNamePosition : 'left');
-  const effectivePlaytimePosition: 'left' | 'center' | 'right' = isValidPos(globalPlaytimePosition) ? globalPlaytimePosition : (isValidPos((shelf as any).playtimePosition) ? (shelf as any).playtimePosition : 'left');
-  const effectiveDescriptionHeight: number = typeof globalDescriptionHeight === 'number' ? Math.max(1, Math.min(3, globalDescriptionHeight)) : (typeof (shelf as any).descriptionHeight === 'number' ? Math.max(1, Math.min(3, (shelf as any).descriptionHeight)) : 2);
-  const globalDescriptionLogoGap = (getCurrentSettings() as any)?.globalDescriptionLogoGap as number | null | undefined;
-  const effectiveDescriptionLogoGap: number = typeof globalDescriptionLogoGap === 'number' ? Math.max(-40, Math.min(80, globalDescriptionLogoGap)) : (typeof (shelf as any).descriptionLogoGap === 'number' ? Math.max(-40, Math.min(80, (shelf as any).descriptionLogoGap)) : 10);
+  /* Global is the master switch for logo/icon/description/hide flags and
+     position/size overrides; light mode additionally strips per-shelf
+     decorations. Pulled out to `computeEffectiveShelfDisplayProps` (same
+     reasoning as above) — see that function for the field-by-field rules. */
+  const {
+    lightMode, effectiveHide, effectiveHideNewBadge, effectiveHideDiscountBadge, effectiveHideCompatIcons,
+    effectiveHideNonSteamBadge, effectiveHideShelfTitle, effectiveHideGameNames, effectiveHideInstallIndicator,
+    effectiveEnableLogo, effectiveEnableIcon, effectiveEnableDescription, effectiveDescriptionScale,
+    effectiveDescriptionBelowLogo, effectiveLogoBelowShelf, effectiveLogoPosition, effectiveDescriptionPosition,
+    effectiveLogoSize, effectiveLogoTopOffset, fullPageLayout, effectiveIconVerticalAlign,
+    effectiveShelfTitlePosition, effectiveGameNamePosition, effectivePlaytimePosition, effectiveDescriptionHeight,
+    effectiveDescriptionLogoGap,
+  } = computeEffectiveShelfDisplayProps(shelf, isOnlineShelf, {
+    hideStatusLine: globalHideStatusLine, hideNewBadge: globalHideNewBadge, hideDiscountBadge: globalHideDiscountBadge,
+    hideCompatIcons: globalHideCompatIcons, hideNonSteamBadge: globalHideNonSteamBadge, hideShelfTitle: globalHideShelfTitle,
+    hideGameNames: globalHideGameNames, hideInstallIndicator: globalHideInstallIndicator, enableLogo: globalEnableLogo,
+    enableIcon: globalEnableIcon, enableDescription: globalEnableDescription, descriptionBelowLogo: globalDescriptionBelowLogo,
+    logoBelowShelf: globalLogoBelowShelf, logoPosition: globalLogoPosition, descriptionPosition: globalDescriptionPosition,
+    logoSize: globalLogoSize, logoTopOffset: globalLogoTopOffset, fullPageShelf: globalFullPageShelf,
+    iconVerticalAlign: globalIconVerticalAlign, shelfTitlePosition: globalShelfTitlePosition,
+    gameNamePosition: globalGameNamePosition, playtimePosition: globalPlaytimePosition,
+    descriptionHeight: globalDescriptionHeight,
+  });
   const row = <DeckRow title={shelf.title} items={rowItems} shelfId={shelf.id} removableSet={removableSet} matchNativeSize={globalMatchNativeSize || shelf.matchNativeSize} highlightFirst={globalHighlightFirst || shelf.highlightFirst} highlightAll={globalHighlightAll || shelf.highlightAll} highlightedAppIds={effectiveHighlightedAppIds} hideStatusLine={effectiveHide} hideNewBadge={effectiveHideNewBadge} hideDiscountBadge={effectiveHideDiscountBadge} hideCompatIcons={effectiveHideCompatIcons} hideNonSteamBadge={effectiveHideNonSteamBadge} hideShelfTitle={effectiveHideShelfTitle} hideGameNames={effectiveHideGameNames} hideInstallIndicator={effectiveHideInstallIndicator} enableLogo={effectiveEnableLogo} enableIcon={effectiveEnableIcon} enableDescription={effectiveEnableDescription} descriptionBelowLogo={effectiveDescriptionBelowLogo} logoBelowShelf={effectiveLogoBelowShelf} logoPosition={effectiveLogoPosition} descriptionPosition={effectiveDescriptionPosition} logoSize={effectiveLogoSize} logoTopOffset={effectiveLogoTopOffset} iconVerticalAlign={effectiveIconVerticalAlign} shelfTitlePosition={effectiveShelfTitlePosition} gameNamePosition={effectiveGameNamePosition} playtimePosition={effectivePlaytimePosition} descriptionHeight={effectiveDescriptionHeight} descriptionLogoGap={effectiveDescriptionLogoGap} descriptionScale={effectiveDescriptionScale} forceExpanded={forceExpanded} fullPageLayoutOnly={fullPageLayout} pinScrollTop={forceExpanded && !fullPageLayout} forceLayoutAsRecents={forceLayoutAsRecents} heroEnabled={lightMode ? (forceExpanded || forceLayoutAsRecents) : (heroForced || globalHeroEnabled || (shelf as any).heroEnabled === true)} heroLabelMount={heroLabelMount} infoAbove={globalGameInfoAbove || (shelf as any).gameInfoAbove === true} friendsOverlay={globalFriendsPlayingOverlay || (shelf as any).friendsPlayingOverlay === true} friendsOverlayRecent={globalFriendsPlayingOverlayRecent || (shelf as any).friendsPlayingOverlayRecent === true} forceCollapsed={forceCollapsed} autoCollapseWhenEmpty={autoCollapseWhenEmpty} />;
   /* Brief opacity dip while a user-triggered refresh is in flight so the
      click is never ambiguous — even when the resolver returns identical

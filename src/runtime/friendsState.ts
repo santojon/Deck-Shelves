@@ -23,6 +23,17 @@ let _playingByApp = new Map<number, FriendBrief[]>();
 let _recentByApp = new Map<number, FriendBrief[]>();
 let _pollTimer: number | null = null;
 
+/* getFriendsInApp is a plain pull inside GameCard's render, not a prop or a
+   subscribed value — a card whose own props stay stable across a poll never
+   re-renders to pick up newly-available friend data. This tiny pub-sub lets
+   a card opt in to re-rendering on a real change, without subscribing every
+   card on every shelf. */
+const _listeners = new Set<() => void>();
+export function subscribeFriendsChanged(cb: () => void): () => void {
+  _listeners.add(cb);
+  return () => { _listeners.delete(cb); };
+}
+
 function avatarUrl(hash: unknown): string {
   const h = typeof hash === "string" ? hash : "";
   return h ? `https://avatars.steamstatic.com/${h}_medium.jpg` : "";
@@ -38,44 +49,86 @@ function getFriendStore(): any {
   return (globalThis as any).friendStore ?? (window as any).friendStore;
 }
 
-function refresh(): void {
+function friendBriefOf(f: any): FriendBrief {
+  return { name: String(f?.m_persona?.m_strPlayerName ?? ""), avatar: avatarUrl(f?.m_persona?.m_strAvatarHash) };
+}
+
+// Live "in game now": m_persona.m_unGamePlayedAppID is non-zero while the
+// friend is actively in a game on Steam.
+function liveAppIdOf(f: any): number {
+  return Number(f?.m_persona?.m_unGamePlayedAppID ?? f?.m_persona?.m_gameid ?? 0);
+}
+
+function recordLiveFriend(
+  live: number,
+  brief: FriendBrief,
+  playing: Set<number>,
+  recent: Set<number>,
+  playingByApp: Map<number, FriendBrief[]>,
+  recentByApp: Map<number, FriendBrief[]>,
+): void {
+  if (live <= 0) return;
+  playing.add(live);
+  recent.add(live);
+  pushFriend(playingByApp, live, brief);
+  pushFriend(recentByApp, live, brief);
+}
+
+// Historical "last seen playing": friend was observed in this app at some
+// point. Steam includes a coarse timestamp via m_dtLastSeenPlaying; include
+// only when the timestamp is recent (or absent — treat as unknown-but-ok).
+function recordHistoricalFriend(
+  f: any,
+  live: number,
+  recentCutoff: number,
+  brief: FriendBrief,
+  recent: Set<number>,
+  recentByApp: Map<number, FriendBrief[]>,
+): void {
+  const lastApp = Number(f?.m_nAppIDLastSeenPlaying ?? 0);
+  if (lastApp <= 0 || lastApp === live) return;
+  const lastTs = Number(f?.m_dtLastSeenPlaying ?? 0);
+  if (lastTs && lastTs < recentCutoff) return;
+  recent.add(lastApp);
+  pushFriend(recentByApp, lastApp, brief);
+}
+
+// Folds one friend's live/recent app into the running sets + overlay maps.
+// Isolated per-friend so a single malformed entry (missing m_persona etc.)
+// can't drop the rest of the poll.
+function processFriendIntoSets(
+  f: any,
+  recentCutoff: number,
+  playing: Set<number>,
+  recent: Set<number>,
+  playingByApp: Map<number, FriendBrief[]>,
+  recentByApp: Map<number, FriendBrief[]>,
+): void {
+  try {
+    const brief = friendBriefOf(f);
+    const live = liveAppIdOf(f);
+    recordLiveFriend(live, brief, playing, recent, playingByApp, recentByApp);
+    recordHistoricalFriend(f, live, recentCutoff, brief, recent, recentByApp);
+  } catch {}
+}
+
+// Returns whether it actually read something, so the boot-time caller below
+// can tell "friendStore isn't ready yet" apart from "ran fine, nothing to
+// report" and retry only the former.
+function refresh(): boolean {
   const fs = getFriendStore();
-  if (!fs) return;
+  if (!fs) return false;
   let all: any[] = [];
   try {
     all = Array.isArray(fs.allFriends) ? fs.allFriends : [];
-  } catch { return; }
+  } catch { return false; }
   const now = Math.floor(Date.now() / 1000);
   const recentCutoff = now - RECENTLY_PLAYED_LOOKBACK_DAYS * 24 * 3600;
   const playing = new Set<number>();
   const recent = new Set<number>();
   const playingByApp = new Map<number, FriendBrief[]>();
   const recentByApp = new Map<number, FriendBrief[]>();
-  for (const f of all) {
-    try {
-      const brief: FriendBrief = { name: String(f?.m_persona?.m_strPlayerName ?? ""), avatar: avatarUrl(f?.m_persona?.m_strAvatarHash) };
-      // Live "in game now": m_persona.m_unGamePlayedAppID is non-zero
-      // while the friend is actively in a game on Steam.
-      const live = Number(f?.m_persona?.m_unGamePlayedAppID ?? f?.m_persona?.m_gameid ?? 0);
-      if (live > 0) {
-        playing.add(live);
-        recent.add(live);
-        pushFriend(playingByApp, live, brief);
-        pushFriend(recentByApp, live, brief);
-      }
-      // Historical "last seen playing": friend was observed in this app at
-      // some point. Steam includes a coarse timestamp via m_dtLastSeenPlaying;
-      // include only when the timestamp is recent.
-      const lastApp = Number(f?.m_nAppIDLastSeenPlaying ?? 0);
-      if (lastApp > 0 && lastApp !== live) {
-        const lastTs = Number(f?.m_dtLastSeenPlaying ?? 0);
-        if (!lastTs || lastTs >= recentCutoff) {
-          recent.add(lastApp);
-          pushFriend(recentByApp, lastApp, brief);
-        }
-      }
-    } catch {}
-  }
+  for (const f of all) processFriendIntoSets(f, recentCutoff, playing, recent, playingByApp, recentByApp);
   // Re-resolve friends-playing shelves + the card overlay only when the set
   // actually changed (polled ~every 90s, so this fires rarely — no debounce
   // needed). This is what makes the shelf appear once the first poll lands.
@@ -87,22 +140,48 @@ function refresh(): void {
   if (changed) {
     try { triggerShelfRefresh(); } catch {}
   }
+  /* Unconditional, unlike triggerShelfRefresh above: a card can mount (and
+     read getFriendsInApp) between refresh() populating the maps and this
+     card's own subscription existing yet, missing that one `changed` event
+     for good since the set won't flip again until the friend does something
+     different. Every poll nudges any listening card to just re-check. */
+  for (const l of _listeners) { try { l(); } catch {} }
+  return true;
 }
+
+/* Bounds the "friendStore isn't ready yet" gap: without this, a first
+   attempt landing too early (confirmed live via a dev-only debug hook —
+   the maps stayed empty for a full boot, only catching up at the *next*
+   90s interval tick) silently gives up for good until then. 6 tries every
+   4s covers a slow-hydrating friend list without unbounded polling. */
+const FIRST_REFRESH_RETRY_MS = 4000;
+const FIRST_REFRESH_MAX_ATTEMPTS = 6;
 
 export function installFriendsState(): () => void {
   if (_pollTimer !== null) {
     try { clearInterval(_pollTimer); } catch {}
     _pollTimer = null;
   }
-  // First refresh deferred to idle so the boot path stays responsive.
-  // The friend list isn't usually ready yet at plugin boot anyway.
+  let stopped = false;
+  let retryTimer: number | null = null;
+  const attemptFirstRefresh = (attempt: number) => {
+    if (stopped) return;
+    let ok = false;
+    try { ok = refresh(); } catch {}
+    if (ok || attempt >= FIRST_REFRESH_MAX_ATTEMPTS) return;
+    retryTimer = window.setTimeout(() => attemptFirstRefresh(attempt + 1), FIRST_REFRESH_RETRY_MS);
+  };
+  // First attempt deferred to idle so the boot path stays responsive; the
+  // friend list isn't usually ready yet at plugin boot, hence the retries.
   const schedule = (globalThis as any).requestIdleCallback ?? ((cb: any) => setTimeout(cb, 2000));
-  schedule(() => { try { refresh(); } catch {} });
+  schedule(() => attemptFirstRefresh(1));
   _pollTimer = window.setInterval(() => {
     try { refresh(); } catch {}
   }, POLL_INTERVAL_MS);
   logInfo('RUNTIME', 'friends state subscription installed');
   return () => {
+    stopped = true;
+    if (retryTimer !== null) { try { window.clearTimeout(retryTimer); } catch {} }
     if (_pollTimer !== null) {
       try { clearInterval(_pollTimer); } catch {}
       _pollTimer = null;
@@ -131,4 +210,18 @@ export function getFriendsInApp(appId: number, includeRecent: boolean): FriendBr
 
 export function refreshFriendsState(): void {
   try { refresh(); } catch {}
+}
+
+// Temporary diagnostic for the "friend overlay missing" investigation.
+// Dead-code-eliminated from release builds (`if (!__DEV__) return;`).
+if (__DEV__) {
+  try {
+    (globalThis as any).__ds_dev_friends_debug = () => ({
+      currentlyPlaying: Array.from(_currentlyPlaying),
+      recentlyPlayed: Array.from(_recentlyPlayed),
+      playingByApp: Array.from(_playingByApp.entries()),
+      recentByApp: Array.from(_recentByApp.entries()),
+      listenerCount: _listeners.size,
+    });
+  } catch {}
 }

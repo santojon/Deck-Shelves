@@ -1,0 +1,43 @@
+{
+  "enabled": true,
+  "hideRecents": false,
+  "recentsReplaceSource": false,
+  "hideHomeTabs": false,
+  "shelfHeroBackground": false,
+  "globalMatchNativeSize": false,
+  "globalHighlightFirst": false,
+  "globalHighlightAll": false,
+  "globalHideStatusLine": false,
+  "globalHideNewBadge": false,
+  "globalHideCompatIcons": false,
+  "globalHideNonSteamBadge": false,
+  "globalHideShelfTitle": false,
+  "globalHideGameNames": false,
+  "globalHideInstallIndicator": false,
+  "shelves": [
+    {
+      "id": "s_a1b2c3d4",
+      "title": "Favorites",
+      "enabled": true,
+      "hidden": false,
+      "limit": 20,
+      "matchNativeSize": false,
+      "highlightFirst": false,
+      "highlightAll": false,
+      "hideStatusLine": false,
+      "hideNewBadge": false,
+      "hideCompatIcons": false,
+      "hideNonSteamBadge": false,
+      "hideShelfTitle": false,
+      "hideGameNames": false,
+      "hideInstallIndicator": false,
+      "source": { "type": "tab", "tab": "favorites" }
+    }
+  ],
+  "smartShelvesEnabled": false,
+  "smartShelvesAtBottom": false,
+  "smartShelves": [],
+  "smartSurpriseMe": false,
+  "smartSurpriseMeCount": 0,
+  "savedFilters": []
+}

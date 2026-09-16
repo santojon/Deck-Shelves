@@ -48,6 +48,7 @@ by default even with "Include non-Steam shortcuts" on.
 | `ds-price-cache-v1` | 6 h (per-app `data.fetchedAt`) | `clearOnlineShelfCache()` |
 | `ds-game-name-cache-v1` | implicit | `clearOnlineShelfCache()` |
 | `ds-shelf-cache-<shelfId>-<sort>-...` | 24 h | per-shelf, cleared on settings change |
+| `ds-catalog-meta-cache-v1` | 7 d (per-app) | not yet wired to `clearOnlineShelfCache()` — see below |
 
 The price cache feeds:
 
@@ -62,6 +63,28 @@ The name cache (`ds-game-name-cache-v1`) is sourced from
 `fetchGameNames(appids)` in `src/core/onlineStore.ts` and feeds the
 "online card" branch in `Shelf.tsx` so wishlist entries not in the local
 appStore still render a real title instead of `#appid`.
+
+`ds-catalog-meta-cache-v1` (genres + categories + VR support, `getCatalogMetaMap`
+in `src/core/onlineStore.ts`) is a different kind of cache from the four
+above: it isn't about *which games* to show on an online shelf, it's
+genre/category/VR data for the `genres`/`categories`/`vrSupport`/
+`multiplayerType` **filters**, fetched per-appid (`store.steampowered.com/
+api/appdetails?filters=genres,categories` — batching multiple appids in
+one request 400s for this filter combination even though `price_overview`
+batches fine, so requests go out one at a time, `CATALOG_CONCURRENCY = 4`
+in flight) and consulted as a fallback inside `v3Extensions.ts`'s
+`rawField` for any field a locally-owned game's real overview doesn't
+carry (see [architecture.md](architecture.md#filter-system-steamindexts--evaluatefiltergroup--componentsfilter)).
+7-day TTL — genre/category data changes rarely enough that a hand-triggered
+"Refresh cache" isn't currently wired to clear it early (unlike the other
+four caches above); it'll pick up a real re-categorization within a week.
+
+Franchise data has no persistent cache at all (`_franchiseCache` in
+`v3Extensions.ts`, in-memory `Map`, cleared on plugin reload) — it comes
+from `SteamClient.Apps.GetCachedAppDetails(appid).associations.rgFranchises`,
+the Steam **client's** own store-details cache, not a fetch this plugin
+makes directly. Works for owned and unowned appids alike, and is the only
+source for franchise data at all (the public Store API doesn't expose it).
 
 ---
 
@@ -172,3 +195,11 @@ still resolves the SteamID, so wishlist still works.
 - No third-party services contacted. URLs surfaced to the user in the
   privacy disclosure (`online_privacy_body` i18n key) match what the
   resolver actually contacts.
+- Genre/category/franchise fetches (above) are gated by the same master
+  toggle, but unlike wishlist/store they can now fire for a **plain
+  library shelf** too — any shelf using a `genres`/`categories`/`franchise`
+  filter, not just wishlist/store ones. Same `store.steampowered.com`
+  domain as the rest of this doc; the franchise lookup is a Steam client
+  API call, not a request this plugin makes directly. The filter picker
+  hides these three filter types entirely while the master toggle is off
+  (`isOnlineFeatureFilterType`), so a library-only user never triggers them.

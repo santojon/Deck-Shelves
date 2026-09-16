@@ -2,9 +2,15 @@ import { useEffect, useRef, useState } from "react";
 import { DialogButton, Focusable } from "../../runtime/host/decky";
 import type { SettingsController } from "../../features/settings/controller";
 import { checkForUpdate, __resetUpdateCheckCache, type UpdateCheckResult } from "../../core/updateNotifier";
-import { downloadUpdate } from "../../runtime/updateDownload";
+import { installOrDownloadUpdate, canSelfInstallUpdate } from "../../runtime/updateDownload";
 import { isOnline } from "../../core/connectivity";
 import { logInfo } from "../../runtime/logger";
+
+// Not inlined into the render ternary — keeps that decision out of
+// UpdateBanner's own complexity count (see DeckQAMSettings's shouldRenderSidecar).
+function updateActionKey(): "update_install" | "download_update" {
+  return canSelfInstallUpdate() ? "update_install" : "download_update";
+}
 
 export function UpdateBanner({ controller }: { controller: SettingsController }) {
   const { t, settings, actions } = controller;
@@ -26,7 +32,7 @@ export function UpdateBanner({ controller }: { controller: SettingsController })
     const wasOff = !prevEnabledRef.current;
     prevEnabledRef.current = true;
     let cancelled = false;
-    (async () => {
+    void (async () => {
       if (wasOff) {
         try { if (await isOnline()) __resetUpdateCheckCache(); } catch {}
       }
@@ -42,8 +48,9 @@ export function UpdateBanner({ controller }: { controller: SettingsController })
   if (!result?.hasUpdate || !result.latestVersion) return null;
   if (dismissed && dismissed === result.latestVersion) return null;
 
-  const open = () => { void downloadUpdate(result); };
-  const dismiss = () => { if (result.latestVersion) actions.dismissUpdateNotice(result.latestVersion); };
+  const open = () => { void installOrDownloadUpdate(result); };
+  const dismiss = () => { if (result.latestVersion) void actions.dismissUpdateNotice(result.latestVersion); };
+  const actionLabel = t(updateActionKey());
 
   return (
     <div
@@ -68,7 +75,7 @@ export function UpdateBanner({ controller }: { controller: SettingsController })
           onClick={open}
           style={{ flex: 1, padding: "4px 8px", fontSize: 12, minWidth: 0 }}
         >
-          {t("download_update")}
+          {actionLabel}
         </DialogButton>
         <DialogButton
           onClick={dismiss}

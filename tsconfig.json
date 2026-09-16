@@ -18,7 +18,10 @@
     ],
     "paths": {
       "@deck-shelves/host": ["./host/src/contract/index.ts"],
-      "@deck-shelves/api": ["./api/src/index.ts"]
+      "@deck-shelves/api": ["./api/src/index.ts"],
+      "@host/api": ["./src/shims/host-api.ts"],
+      "@host/ui": ["./src/shims/host-ui.ts"],
+      "@host/manifest": ["./src/shims/host-manifest.ts"]
     }
   },
   "include": [

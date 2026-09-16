@@ -13,11 +13,11 @@ import { logInfo, logWarn } from "../runtime/logger";
 import { logDiagnostic } from "../runtime/diagnostics";
 import { getPreferredSteamDocument, getPreferredSteamWindow, getAllSteamDocuments } from "../runtime/steamHost";
 import { ROOT_ID, seededShuffle, isHomeRoute, hasHomeDomSignals, detectNavTreeApi, findOrCreateMount } from "./home/mountUtils";
-import { applyHideRecents, reapplyHomeHides, applyHideHomeTabs, applyReplaceActiveMargin, getMountFailed } from "../runtime/homePatch";
+import { applyHideRecents, reapplyHomeHides, enforceHomeFocusSuppression, applyHideHomeTabs, applyReplaceActiveMargin, getMountFailed, getPendingHideRecents, getPendingHideHomeTabs } from "../runtime/homePatch";
 import { getRecentsReplaceFailed, subscribeRecentsReplaceFailed, isRecentsReplaceInjecting, subscribeRecentsReplaceInjecting, getRecentsReplaceActiveShelfId } from "../runtime/recentsReplace";
 import { Focusable } from "../runtime/host/decky";
 import { installPassiveMenuHook, installPassiveShowContextMenuHook, installLibraryContextMenuPatch, installCreateContextMenuPatch, prewarmMenuExtraction } from "../core/steamGameMenu";
-import { tryRestoreFocus, hasPendingFocus, beginFocusRestoreLoop, focusElement } from "../core/focusRestore";
+import { tryRestoreFocus, hasPendingFocus, beginFocusRestoreLoop, beginColdBootFocusGuard, focusElement } from "../core/focusRestore";
 import { focusNativeRecentsFirstCard, findNativeRecentsEl } from "../features/sidenav/ShelfSideNav";
 import { patchShelfEdgeNavigation, patchMenuButton, installVerticalFocusBridge, reparentNavTreeNodes } from "./home/navPatches";
 import { triggerShelfRefresh } from "../core/shelfRefresh";
@@ -97,13 +97,11 @@ export function HomeShelves() {
     observeDoc(doc);
     for (const d of getAllSteamDocuments()) observeDoc(d);
 
-    // State-divergence poll (2 s): when Steam re-renders the home DOM (B from
-    // library, route swap via SteamClient APIs that bypass history events,
-    /* etc.), the fresh native recents / home tabs arrive WITHOUT our hides.
-       History-event listeners miss those swaps. A MutationObserver on the
-       mount's parent fires on every D-pad mutation and cascades. This poll
-       is the smallest middle ground: cheap state read, only re-applies when
-       the actual DOM contradicts the desired hide state. */
+    /* State-divergence poll (2 s): Steam re-renders the home DOM without our
+       hides (B from library, route swap, etc.). Checked in BOTH directions —
+       a mount/DOM churn event (e.g. an external display connecting) can
+       skip the un-hide call a profile-trigger revert relies on, otherwise
+       leaving recents stuck hidden with nothing to self-correct it. */
     const checkHidden = () => {
       try {
         const m = doc.getElementById(ROOT_ID) ?? getAllSteamDocuments().map((dd) => dd.getElementById(ROOT_ID)).find(Boolean);
@@ -111,7 +109,12 @@ export function HomeShelves() {
         const parent = (m as HTMLElement).parentElement;
         if (!parent) return;
         const { recentsVisible, tabsVisible } = scanHomeChildren(parent, m as HTMLElement);
-        if (recentsVisible || tabsVisible) reapplyHomeHides();
+        const recentsMismatch = recentsVisible === getPendingHideRecents();
+        const tabsMismatch = tabsVisible === getPendingHideHomeTabs();
+        if (recentsMismatch || tabsMismatch) reapplyHomeHides();
+        // Visibility can match while a re-rendered row still holds a reachable
+        // (tabindex>=0) focusable the nav tree traps on — heal that every tick.
+        enforceHomeFocusSuppression();
       } catch {}
     };
     /* Tight poll (250 ms) cures the flicker the user sees when dpad-up
@@ -154,7 +157,7 @@ export function HomeShelves() {
            entry back to home (B from library, etc.). The freshly mounted
            siblings arrive without our hides, so they flash back into view.
            Re-apply both hide states so they collapse again before the next paint. */
-        try { reapplyHomeHides(); } catch {}
+        try { reapplyHomeHides(); enforceHomeFocusSuppression(); } catch {}
         // Steam restores the previously-focused DS card on B-return, but the
         // mount's scroll container can be at the top — the focused card is
         /* in view only after the user moves the D-pad once. Sync the
@@ -329,11 +332,12 @@ export function HomeShelves() {
     }
   }, [settings?.hideRecents, settings?.enabled, settings?.shelves, settings?.smartShelvesEnabled, settings?.smartShelves, settings?.recentsReplaceSource, mountEl, replaceKillSwitch, replaceInjecting]);
 
-  // Apply hideHomeTabs — no suppression criteria, simple toggle. If no sibling
-  // elements are found around the mount, the helper is a no-op.
+  // Apply hideHomeTabs — gated on the master enabled toggle too (like
+  // hideRecents above), so disabling the plugin restores every native Home
+  // element it was suppressing, not just recents.
   useEffect(() => {
-    applyHideHomeTabs(settings?.hideHomeTabs === true);
-  }, [settings?.hideHomeTabs, mountEl]);
+    applyHideHomeTabs(settings?.enabled === true && settings?.hideHomeTabs === true);
+  }, [settings?.enabled, settings?.hideHomeTabs, mountEl]);
 
   /* Schedule a one-shot refresh at the next visibility-window boundary across
      all smart shelves. Picks the earliest boundary; on fire, invalidates
@@ -621,6 +625,7 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
 
     applyPatches();
     if (hasPendingFocus()) beginFocusRestoreLoop();
+    else beginColdBootFocusGuard(shelves.map((s: any) => s.id));
 
     // rAF-throttle the high-frequency callers so applyPatches runs
     // at most once per frame instead of per-mutation.
@@ -742,7 +747,7 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
         if (alive) globalThis.dispatchEvent(new CustomEvent('deck-shelves-hideRecents-disabled', { detail: { disabled: false } }));
       }
     };
-    check();
+    void check();
     return () => { alive = false; };
   }, [shelves, hideRecentsSetting, mountEl]);
 
@@ -1033,7 +1038,7 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
       const map = new Map(s.shelves.map((sh: any) => [sh.id, sh]));
       const next = newIds.map((id) => map.get(id)).filter(Boolean) as any[];
       for (const sh of s.shelves) if (!newIds.includes(sh.id)) next.push(sh);
-      saveSettings({ ...s, shelves: next });
+      void saveSettings({ ...s, shelves: next });
     },
     axis: 'vertical',
     allowedPointerTypes: ['mouse', 'touch'],

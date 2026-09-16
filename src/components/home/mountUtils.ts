@@ -204,11 +204,37 @@ function createMountIn(docs: Document[]): HTMLElement | null {
   return null;
 }
 
+/* True when the mount sits right after the recents row (its previous sibling is
+   the recents, or a wrapper containing the virtualized recents grid). */
+function isRecentsAdjacent(mount: HTMLElement): boolean {
+  const prev = mount.previousElementSibling as HTMLElement | null;
+  if (!prev) return false;
+  const txt = `${(prev.getAttribute?.("aria-label") || "")} ${(prev.textContent || "")}`.toLowerCase();
+  if (RECENT_LABELS.some((l) => txt.includes(l))) return true;
+  return !!prev.querySelector('[class*="ReactVirtualized"]');
+}
+
+/* The mount can be created early (before the home DOM settles), landing on the
+   generic-container anchor instead of next to recents — breaking recents-hide
+   and shelf position. Once the recents-adjacent anchor is available, move the
+   existing mount there (a React portal follows its target, so this is safe).
+   Only moves when currently misplaced, so it never thrashes. */
+function maybeRepositionMount(mount: HTMLElement, doc: Document): void {
+  try {
+    if (isRecentsAdjacent(mount)) return;
+    const anchor = findScrollableAnchorAfterRecents(doc);
+    if (!anchor || anchor.parent === doc.body) return;
+    if (mount.parentElement === anchor.parent && mount.nextSibling === anchor.before) return;
+    anchor.parent.insertBefore(mount, anchor.before);
+    logInfo("HOME", "mount repositioned to recents anchor", { parent: anchor.parent.tagName });
+  } catch (e) { logInfo("HOME", "maybeRepositionMount failed", String(e)); }
+}
+
 export function findOrCreateMount(): HTMLElement | null {
   const docs = collectKnownDocs();
   for (const d of docs) {
     const existing = d.getElementById(ROOT_ID) as HTMLElement | null;
-    if (existing?.isConnected) return existing;
+    if (existing?.isConnected) { maybeRepositionMount(existing, d); return existing; }
   }
   return reattachExistingMount(docs) ?? createMountIn(docs);
 }

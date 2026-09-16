@@ -1,3 +1,5 @@
+import { getPlatform } from "../runtime/platformContext";
+
 let cachedVersion: string | null | undefined;
 let prefetchPromise: Promise<string | null> | null = null;
 
@@ -11,10 +13,12 @@ function versionFromSteamClient(): string | null {
   return null;
 }
 
-function versionFromDeckySettings(): string | null {
+// Routed through the host contract (getPlatform().getOSVersion) instead of a
+// hardcoded Decky global read — a Decky-adapter-internal fallback resolves
+// there (see deckyPlatform.ts), and it's a no-op under any other host.
+function versionFromHostPlatform(): string | null {
   try {
-    const ds: any = (globalThis as any).SteamUIStore?.DeckySettings;
-    const v = ds?.steamos_version ?? ds?.osVersion;
+    const v = getPlatform()?.getOSVersion?.();
     if (typeof v === "string" && v.length) return v;
   } catch {}
   return null;
@@ -31,7 +35,7 @@ function versionFromUserAgent(): string | null {
 
 // Sync SteamOS-version sources in priority order (first hit wins).
 function readRawVersionSync(): string | null {
-  return versionFromSteamClient() ?? versionFromDeckySettings() ?? versionFromUserAgent();
+  return versionFromSteamClient() ?? versionFromHostPlatform() ?? versionFromUserAgent();
 }
 
 async function readRawVersionAsync(): Promise<string | null> {

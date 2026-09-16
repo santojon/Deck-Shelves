@@ -8,13 +8,14 @@ local-dev outside Decky still works.
 import json
 import os
 import shutil
+import sys
 import time
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional, Tuple
 
 # Host abstraction — `plugin_host` try-imports the loader module (when present)
 # and otherwise falls back to a stderr logger + env-based settings dir, so these
 # helpers run unchanged under the plugin loader and under a neutral runner.
-from plugin_host import logger, settings_dir
+from plugin_host import logger, settings_dir, _loader
 
 
 def _settings_dir() -> str:
@@ -23,6 +24,144 @@ def _settings_dir() -> str:
 
 def _primary_file() -> str:
     return os.path.join(_settings_dir(), "settings.json")
+
+def _canonical_settings_dir() -> str:
+    """Host-agnostic canonical location — authoritative once established,
+    independent of which host launched this session. `DECK_SHELVES_SETTINGS_DIR`
+    (the same var `settings_dir()` treats as the neutral-runner canonical
+    var) wins when set — under a neutral host session that's exactly this
+    directory already, so its `_primary_file()` and this agree without a
+    second lookup. Only falls back to a per-OS app-data guess when unset,
+    e.g. under plain Decky with no other host involved yet."""
+    override = os.environ.get("DECK_SHELVES_SETTINGS_DIR")
+    if override:
+        return override
+    if sys.platform == "win32":
+        base = os.environ.get("APPDATA") or os.path.expanduser("~")
+    elif sys.platform == "darwin":
+        base = os.path.expanduser("~/Library/Application Support")
+    else:
+        base = os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share")
+    return os.path.join(base, "deck-shelves")
+
+
+def _loader_settings_dir() -> str:
+    """The plugin-loader-managed settings dir, resolved unconditionally —
+    unlike `_settings_dir()`, this always points here regardless of which
+    env var the current session actually launched under, so mirroring can
+    target it even from a neutral-host session. Mirrors `settings_dir()`'s
+    own loader-specific fallback chain (env var, then the loader module's
+    attribute) minus the canonical-var check, so this always agrees with
+    `_primary_file()` when the current session IS the loader."""
+    return (
+        os.environ.get("DECKY_PLUGIN_SETTINGS_DIR")
+        or getattr(_loader, "DECKY_PLUGIN_SETTINGS_DIR", "")
+        or os.path.expanduser("~/.config/decky-loader/settings/deck-shelves")
+    )
+
+
+def _mirror_paths() -> Tuple[str, str]:
+    """(canonical_file, loader_file) — the two locations kept in sync."""
+    return (
+        os.path.join(_canonical_settings_dir(), "settings.json"),
+        os.path.join(_loader_settings_dir(), "settings.json"),
+    )
+
+
+def _read_wrapped(path: str) -> Optional[Dict[str, Any]]:
+    """Read the `{state, rev, updatedAt}` wrapper from `path`. None when
+    missing/unreadable/shapeless. A file written before mirroring existed
+    has no `rev`/`updatedAt` — defaults to rev 0 so the first mirrored write
+    naturally supersedes it."""
+    if not path or not os.path.exists(path):
+        return None
+    data = _safe_read_json(path)
+    state = data.get("state") if isinstance(data.get("state"), dict) else None
+    if state is None:
+        return None
+    try:
+        rev = int(data.get("rev") or 0)
+    except Exception:
+        rev = 0
+    try:
+        updated_at = float(data.get("updatedAt") or 0)
+    except Exception:
+        updated_at = 0.0
+    return {"state": state, "rev": rev, "updatedAt": updated_at}
+
+
+def _atomic_write_wrapped(path: str, wrapped: Dict[str, Any]) -> None:
+    """Same tmp+fsync+rename discipline as the primary writer, generalised
+    to any of the two mirrored paths. Best-effort — logs, never raises, so a
+    mirror failure (e.g. the other host's directory not writable yet) can
+    never block the primary save the caller actually needs to succeed."""
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        tmp_path = path + ".tmp"
+        with open(tmp_path, "w", encoding="utf-8") as f:
+            json.dump(wrapped, f, ensure_ascii=False, indent=2)
+            f.flush()
+            os.fsync(f.fileno())
+        if os.path.exists(path):
+            try:
+                os.replace(path, path + ".bak")
+            except Exception:
+                pass
+        os.replace(tmp_path, path)
+    except Exception as e:
+        try:
+            logger.error(f"Deck Shelves: mirror write failed for {path}: {e}")
+        except Exception:
+            pass
+
+
+def sync_mirror(state: Dict[str, Any], rev: int, updated_at: float) -> None:
+    """Propagate a just-written primary state to the other mirrored
+    location. `rev`-gated: never overwrites a mirror that's already at this
+    revision or newer (protects against an old/slow host session racing a
+    write after a newer one already landed)."""
+    try:
+        canonical, loader = _mirror_paths()
+        primary = _primary_file()
+        other = loader if os.path.normpath(primary) == os.path.normpath(canonical) else canonical
+        if os.path.normpath(other) == os.path.normpath(primary):
+            return  # dev fallback where both resolve to the same path
+        existing = _read_wrapped(other)
+        if existing and existing["rev"] >= rev:
+            return
+        _atomic_write_wrapped(other, {"state": state, "rev": rev, "updatedAt": updated_at})
+    except Exception:
+        pass
+
+
+def reconcile_settings() -> Optional[Dict[str, Any]]:
+    """Resolve the canonical/loader pair before a read: the higher-`rev`
+    side wins and is copied over the other (adopt-by-copy — never a move,
+    the loser's own file is simply refreshed to match, so no host's data
+    is ever deleted by this). Handles every combination: both present
+    (LWW), only one present (adopt into the missing side — first-ever run
+    of the second host on a machine that already has the other), or
+    neither (fresh install, caller falls back to defaults). Best-effort:
+    any failure here just means the caller reads from `_primary_file()`
+    as it always did, so this can never break settings load."""
+    try:
+        canonical, loader = _mirror_paths()
+        c = _read_wrapped(canonical)
+        l = _read_wrapped(loader)
+        if c and l:
+            winner_path, winner = (canonical, c) if c["rev"] >= l["rev"] else (loader, l)
+            loser_path = loader if winner_path == canonical else canonical
+            _atomic_write_wrapped(loser_path, winner)
+            return winner
+        if c and not l:
+            _atomic_write_wrapped(loader, c)
+            return c
+        if l and not c:
+            _atomic_write_wrapped(canonical, l)
+            return l
+        return None
+    except Exception:
+        return None
 
 
 def _safe_read_json(path: str) -> Dict[str, Any]:

@@ -26,6 +26,7 @@ export const FilterItemTypeSchema = z.enum([
   "cloudAvailable",
   "controllerSupport",
   "systemCompatibility",
+  "steamosCompatibility",
   "remotePlayLocation",
   "merge",
   "shortcutType",
@@ -35,6 +36,8 @@ export const FilterItemTypeSchema = z.enum([
   "familySharing",
   // Filter v3 — param-free predicates (evaluators in steam/v3Extensions.ts).
   "vrSupport",
+  "demo",
+  "comingSoon",
   "soundtrackOwned",
   "neverCompleted",
   "installedNeverPlayed",
@@ -47,6 +50,8 @@ export const FilterItemTypeSchema = z.enum([
   "moonlightApp",
   "hiddenLauncherShortcuts",
   // Filter v3 — parameterized predicates (editors in FilterItemOptions.tsx).
+  "reviewScore",
+  "releaseDate",
   "genres",
   "categories",
   "franchise",
@@ -636,6 +641,29 @@ export const SettingsSchema = z.object({
   // (e.g. Xbox Cloud Gaming) don't hide their store/wishlist promotions.
   onlineHideOwnedNonSteamCloud: z.boolean().nullable().optional().transform((v) => v ?? false),
   forceCssLoaderThemes: z.boolean().nullable().optional().transform((v) => v ?? false),
+  /* Own native Quick Access tab under Decky alone — off by default, since it
+     patches a live Steam QAM consumer and needs its own on-device validation
+     pass before it's safe to default on. Never has any effect when a neutral
+     host's own QAM bridge is present; that tab always wins (see
+     runtime/ownQamTab.ts). */
+  ownQamTabEnabled: z.boolean().nullable().optional().transform((v) => v ?? false),
+  /* Showcase / Dynamic Idle Mode — cycles attention through the user's own
+     shelves during Home inactivity; any real interaction stops it instantly.
+     Off by default. Empty `showcaseShelfIds` means every currently-visible
+     shelf participates (no picker UI yet — MVP scope). */
+  showcaseModeEnabled: z.boolean().nullable().optional().transform((v) => v ?? false),
+  showcaseStartAfterSeconds: z.number().int().min(15).max(600).nullable().optional().transform((v) => v ?? 60),
+  showcaseDwellSeconds: z.number().int().min(3).max(120).nullable().optional().transform((v) => v ?? 10),
+  showcaseRandomize: z.boolean().nullable().optional().transform((v) => v ?? false),
+  showcaseStopOnInteraction: z.boolean().nullable().optional().transform((v) => v ?? true),
+  showcaseShelfIds: z.array(z.string()).nullable().optional().transform((v) => v ?? []),
+  /* Within-shelf panning: when on, the cycle also walks across a shelf's cards
+     before advancing, instead of only landing on each shelf's first card. On
+     by default. `showcaseCardsPerShelf` caps cards visited per shelf;
+     `showcaseCardDwellSeconds` is the shorter per-card dwell. */
+  showcasePanCards: z.boolean().nullable().optional().transform((v) => v ?? true),
+  showcaseCardsPerShelf: z.number().int().min(1).max(20).nullable().optional().transform((v) => v ?? 5),
+  showcaseCardDwellSeconds: z.number().int().min(1).max(60).nullable().optional().transform((v) => v ?? 4),
   // Sidecar "Configurações" — keys de toggles e ids de seções que o
   // usuário escolheu ocultar do painel principal do QAM. Não desliga a
   // funcionalidade, só remove o controle da listagem do QAM.
@@ -717,6 +745,43 @@ export const SettingsSchema = z.object({
     navSidecarClose: z.string().optional(),
   }).nullable().optional().transform((v) => v ?? {}),
   buttonBindingsDisabled: z.array(z.string()).nullable().optional().transform((v) => v ?? []),
+  /* Keyboard equivalent of buttonBindings — an independent, optional
+     second trigger per action (either input fires the same action).
+     Every field is nullable since, unlike gamepad bindings, none has
+     a default. */
+  keyboardBindings: z.object({
+    cardHideRemove:  z.string().nullable().optional(),
+    cardHighlightToggle: z.string().nullable().optional(),
+    cardQuickLaunch: z.string().nullable().optional(),
+    navSearch:       z.string().nullable().optional(),
+    navSideNav:      z.string().nullable().optional(),
+    navSidecarOpen:  z.string().nullable().optional(),
+    navSidecarClose: z.string().nullable().optional(),
+  }).nullable().optional().transform((v) => v ?? {}),
+  keyboardBindingsDisabled: z.array(z.string()).nullable().optional().transform((v) => v ?? []),
+  /* Deck Shelves' own idle screensaver (native recents + shelf games,
+     optionally shelves-only and/or including screenshots), replacing
+     Steam's native one while active. Experimental — defaults off. */
+  screensaverShelvesEnabled: z.boolean().nullable().optional().transform((v) => v ?? false),
+  screensaverShelvesIncludeScreenshots: z.boolean().nullable().optional().transform((v) => v ?? false),
+  /* Steam's own idle-screensaver timeout (seconds), cached here right
+     before we override it so it can be restored exactly when the
+     feature is turned off. null = not currently overridden. */
+  screensaverIdleBackupAcSec: z.number().nullable().optional().transform((v) => v ?? null),
+  screensaverIdleBackupBatterySec: z.number().nullable().optional().transform((v) => v ?? null),
+  // Own idle/dwell timing — independent of Steam's cached value above.
+  screensaverStartAfterSeconds: z.number().int().min(15).max(600).nullable().optional().transform((v) => v ?? 60),
+  screensaverDwellSeconds: z.number().int().min(3).max(120).nullable().optional().transform((v) => v ?? 8),
+  screensaverLogoEnabled: z.boolean().nullable().optional().transform((v) => v ?? true),
+  screensaverLogoSize: z.number().int().min(50).max(200).nullable().optional().transform((v) => v ?? 100),
+  screensaverLogoPosition: z.enum(['left', 'center', 'right']).nullable().optional().transform((v) => v ?? 'left'),
+  screensaverLogoAtTop: z.boolean().nullable().optional().transform((v) => v ?? false),
+  screensaverLogoOffset: z.number().int().min(0).max(50).nullable().optional().transform((v) => v ?? 8),
+  screensaverLogoOnScreenshots: z.boolean().nullable().optional().transform((v) => v ?? true),
+  cloudSyncEnabled: z.boolean().nullable().optional().transform((v) => v ?? false),
+  // Timestamp of the last cloud snapshot this device pushed or applied —
+  // internal LWW bookkeeping, never synced itself (see cloudSync.ts).
+  cloudSyncLastSyncedAt: z.number().nullable().optional().transform((v) => v ?? null),
 });
 
 export type Settings = z.infer<typeof SettingsSchema>;
@@ -729,4 +794,14 @@ export interface ButtonBindings {
   navSideNav?: string;
   navSidecarOpen?: string;
   navSidecarClose?: string;
+}
+
+export interface KeyboardBindings {
+  cardHideRemove?: string | null;
+  cardHighlightToggle?: string | null;
+  cardQuickLaunch?: string | null;
+  navSearch?: string | null;
+  navSideNav?: string | null;
+  navSidecarOpen?: string | null;
+  navSidecarClose?: string | null;
 }

@@ -12,7 +12,7 @@ export function RenameProfileModal({ closeModal, controller, profileId, currentN
   const handleOK = () => {
     if (!trimmed || trimmed === currentName) { closeModal?.(); return }
     closeModal?.()
-    ;(async () => { await (controller.actions as any).renameProfile?.(profileId, trimmed) })()
+    void (async () => { await (controller.actions as any).renameProfile?.(profileId, trimmed) })()
   }
 
   return (

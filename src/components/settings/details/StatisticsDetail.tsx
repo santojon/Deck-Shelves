@@ -189,7 +189,7 @@ export function StatisticsDetail({ controller, t }: StatisticsDetailProps) {
     // open; the stats render once resolved.
     const timer = setTimeout(() => {
       const providers = getExternalStatisticsProviders();
-      Promise.all(
+      void Promise.all(
         providers.map(async (p) => {
           const entries = await Promise.resolve().then(() => p.resolve()).catch(() => [] as StatisticsEntry[]);
           return { id: p.id, displayName: p.displayName, entries: [...entries] };

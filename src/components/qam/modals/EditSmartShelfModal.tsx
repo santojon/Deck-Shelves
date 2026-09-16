@@ -70,7 +70,11 @@ function firstOr<T>(v: T | T[] | undefined, fallback: T): T {
 
 
 export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edit' }: { closeModal?: () => void; controller: SettingsController; shelf: SmartShelf; mode?: 'create' | 'edit' }) {
-  const { t, actions } = controller
+  const { t, actions, settings } = controller
+  // Matches EditShelfModal's source-gating semantics exactly (not the
+  // resolver's offlineModeEnabled-aware check) — genres/categories/franchise
+  // need it the same way wishlist/store sources already do.
+  const onlineOn = (settings as { onlineFeaturesEnabled?: boolean } | null | undefined)?.onlineFeaturesEnabled === true
   const platform = usePlatform()
   const hasNonSteamBadges = useMemo(() => isNonSteamBadgesAvailable(), [])
   const [activeTab, setActiveTab] = useState<Tab>('source')
@@ -749,7 +753,7 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
                         currentGroup={state.filterGroup}
                         onApply={(group) => setState((prev) => ({ ...prev, filterGroup: { ...group } }))}
                       />
-                      <FilterPanel group={state.filterGroup} onChange={(group) => setState((prev) => ({ ...prev, filterGroup: group }))} controller={controller} allowOnlineFilters={false} />
+                      <FilterPanel group={state.filterGroup} onChange={(group) => setState((prev) => ({ ...prev, filterGroup: group }))} controller={controller} allowOnlineFilters={false} onlineFeaturesOn={onlineOn} />
                     </FieldContainer>
                   ),
                 },

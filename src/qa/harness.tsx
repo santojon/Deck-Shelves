@@ -25,6 +25,7 @@ const collectionEmpty = __DEV__ && typeof __QA_COLLECTION_EMPTY__ !== "undefined
 const collectionInverted = __DEV__ && typeof __QA_COLLECTION_INVERTED__ !== "undefined" && __QA_COLLECTION_INVERTED__;
 const sourcesFixture = __DEV__ && typeof __QA_SOURCES_FIXTURE__ !== "undefined" && __QA_SOURCES_FIXTURE__;
 const templatesFixture = __DEV__ && typeof __QA_TEMPLATES_FIXTURE__ !== "undefined" && __QA_TEMPLATES_FIXTURE__;
+const decorationFixture = __DEV__ && typeof __QA_DECORATION_FIXTURE__ !== "undefined" && __QA_DECORATION_FIXTURE__;
 const stressFixture = __DEV__ && typeof __QA_STRESS_FIXTURE__ !== "undefined" && __QA_STRESS_FIXTURE__;
 
 // Stable fake version surfaced by the update notifier when `qa:update-available`
@@ -33,14 +34,34 @@ const stressFixture = __DEV__ && typeof __QA_STRESS_FIXTURE__ !== "undefined" &&
 const QA_FAKE_LATEST_VERSION = "99.0.0";
 const QA_FAKE_RELEASE_URL = "https://github.com/santojon/Deck-Shelves/releases/tag/v99.0.0";
 
-if (firstRun || qamError || shelfError || allShelvesHide || allShelvesShow || allShelvesHideTabs || allShelvesShowTabs || forceTabMaster || forceUnifiDeck || forceNonSteamBadges || smartShelvesFixture || savedFiltersFixture || forceHidden || surpriseMe || forceCrash || forceReplaceFailed || updateAvailable || updateDismissed || updateOffline || collectionEmpty || collectionInverted || sourcesFixture || templatesFixture) {
+/* True whenever ANY QA flag is active — the single source of truth
+   `settingsStore.ts` gates real backend writes on. A QA-overridden
+   `current` must NEVER reach `set_settings`: it's placeholder data (fixture
+   shelves, forced errors, fake update state, …), not something a real
+   install's saved config should ever become. This was a real incident, not
+   a hypothetical — a resilience feature designed to retry a save that
+   failed right before a restart (`refreshSettings`'s "retry unsynced save
+   on boot") fired while a fixture was active and permanently overwrote a
+   real user's shelves with fixture data. A narrower, two-flag version of
+   this guard existed already (`allShelvesHide`/`allShelvesShow` only); this
+   replaces it with everything, including `stressFixture`, which the same
+   narrow check had never covered either. */
+export const qaOverrideActive = __DEV__ && (
+  firstRun || qamError || shelfError || allShelvesHide || allShelvesShow || allShelvesHideTabs || allShelvesShowTabs
+  || !!forceTabMaster || !!forceUnifiDeck || !!forceNonSteamBadges || smartShelvesFixture || savedFiltersFixture
+  || forceHidden || surpriseMe || forceCrash || forceReplaceFailed || updateAvailable || updateDismissed
+  || updateOffline || collectionEmpty || collectionInverted || sourcesFixture || templatesFixture
+  || decorationFixture || stressFixture
+);
+
+if (qaOverrideActive) {
   console.warn("[Deck Shelves QA] active flags:", {
     firstRun, qamError, shelfError,
     allShelvesHide, allShelvesShow, allShelvesHideTabs, allShelvesShowTabs,
     forceTabMaster, forceUnifiDeck, forceNonSteamBadges,
     smartShelvesFixture, savedFiltersFixture, forceHidden, surpriseMe, forceCrash, forceReplaceFailed,
     updateAvailable, updateDismissed, updateOffline, collectionEmpty, collectionInverted,
-    sourcesFixture, templatesFixture, stressFixture,
+    sourcesFixture, templatesFixture, decorationFixture, stressFixture,
   });
 }
 
@@ -499,6 +520,56 @@ function qaTemplatesFixture(): { shelves: Shelf[]; smartShelves: SmartShelf[] } 
   return { shelves, smartShelves };
 }
 
+// ─── Fixture: just the decorated shelves, no smart/composite/online noise ────
+// Same two shelves as qaTemplatesFixture's `qa_tpl_decorated(_image)` (kept in
+// sync manually — small enough that a shared extraction isn't worth it), but
+// WITHOUT the other ~33 template/smart shelves that come with the full
+// fixture, which resolve concurrently on every home mount and add real
+// contention this fixture doesn't need.
+//
+// Order matters here, deliberately: `qa_tpl_decorated`'s first synthetic
+// card sits at position 0 (a pure gap, no text/image/link) — fine deep in a
+// ~19-shelf fixture, but as literally the FIRST shelf it made the very
+// first rendered card on all of home a gap instead of a real game card,
+// breaking two pre-existing, unrelated uitest suites (`context_menu`,
+// `home`) that assert the page's first card carries `data-ds-card-index=0`
+// — true for every other fixture, where a plain shelf leads. Listed second
+// instead; `qa_tpl_decorated_image` leads because its one synthetic card
+// sits at position 1, so its own first card is a real game at index 0.
+function qaDecorationFixture(): { shelves: Shelf[] } {
+  const b = { enabled: true, hidden: false, limit: 20, matchNativeSize: false, highlightFirst: false, highlightAll: false, hideStatusLine: false, hideNewBadge: false, hideDiscountBadge: false, hideCompatIcons: false, hideNonSteamBadge: false, hideShelfTitle: false, hideGameNames: false, hideInstallIndicator: false, hideSeeMore: false, hideRefreshCard: false };
+  const shelves: Shelf[] = [
+    {
+      ...b,
+      id: "qa_tpl_decorated_image",
+      title: "Tpl: Decorated row (image)",
+      source: { type: "tab", tab: "installed" },
+      sort: "manual" as any,
+      manualBaseSort: "alphabetical",
+      manualOrder: [],
+      syntheticCards: [
+        { position: 1, size: "normal", image: "https://cdn.akamai.steamstatic.com/steam/apps/220/header.jpg", link: { type: "url", value: "https://store.steampowered.com/app/220" } },
+      ] as any,
+    },
+    {
+      ...b,
+      id: "qa_tpl_decorated",
+      title: "Tpl: Decorated row",
+      source: { type: "tab", tab: "installed" },
+      sort: "manual" as any,
+      manualBaseSort: "alphabetical",
+      manualOrder: [],
+      // Three shapes side-by-side: pure gap, text label, focusable URL with text.
+      syntheticCards: [
+        { position: 0, size: "normal" },
+        { position: 2, size: "normal", text: "Section A", placeholder: true },
+        { position: 4, size: "featured", text: "Open Steam", link: { type: "url", value: "https://store.steampowered.com" } },
+      ] as any,
+    },
+  ];
+  return { shelves };
+}
+
 export function applyQASettingsOverride(s: Settings): Settings {
   const wantsHomeOverride = allShelvesHide || allShelvesShow || allShelvesHideTabs || allShelvesShowTabs || forceHidden;
   const wantsSmartOverride = smartShelvesFixture || surpriseMe;
@@ -509,22 +580,36 @@ export function applyQASettingsOverride(s: Settings): Settings {
   if (
     !wantsHomeOverride && !wantsSmartOverride && !wantsFiltersOverride
     && !wantsCollectionEmpty && !wantsCollectionInverted && !wantsUpdateDismissed
-    && !sourcesFixture && !templatesFixture && !stressFixture
+    && !sourcesFixture && !templatesFixture && !decorationFixture && !stressFixture
   ) return s;
 
-  // Sources / templates / stress fixtures are exclusive with each other and
-  // with the existing collection-fixture overrides — only one set wins.
+  /* Every override below is placeholder data that must never be mistaken
+     for real settings once this QA session ends — see `qaOverrideActive`'s
+     doc comment for the incident this marker exists to prevent. `tag`
+     stamps every actual override return (never the no-op passthrough
+     above) so `settingsStore.ts`'s cache readers can refuse to trust a
+     leftover QA payload found sitting in localStorage on a later, non-QA
+     boot, however it got there. */
+  const tag = <T extends object>(o: T): T => ({ ...o, __dsQaOverride: true }) as T;
+
+  // Sources / templates / decoration / stress fixtures are exclusive with
+  // each other and with the existing collection-fixture overrides — only
+  // one set wins.
   if (stressFixture) {
     const f = qaStressFixture();
-    return { ...s, enabled: true, smartShelvesEnabled: true, onlineFeaturesEnabled: true, shelves: f.shelves, smartShelves: f.smartShelves };
+    return tag({ ...s, enabled: true, smartShelvesEnabled: true, onlineFeaturesEnabled: true, shelves: f.shelves, smartShelves: f.smartShelves });
   }
   if (sourcesFixture) {
     const f = qaSourcesFixture();
-    return { ...s, enabled: true, smartShelvesEnabled: true, shelves: f.shelves, smartShelves: f.smartShelves };
+    return tag({ ...s, enabled: true, smartShelvesEnabled: true, shelves: f.shelves, smartShelves: f.smartShelves });
   }
   if (templatesFixture) {
     const f = qaTemplatesFixture();
-    return { ...s, enabled: true, smartShelvesEnabled: true, onlineFeaturesEnabled: true, shelves: f.shelves, smartShelves: f.smartShelves };
+    return tag({ ...s, enabled: true, smartShelvesEnabled: true, onlineFeaturesEnabled: true, shelves: f.shelves, smartShelves: f.smartShelves });
+  }
+  if (decorationFixture) {
+    const f = qaDecorationFixture();
+    return tag({ ...s, enabled: true, shelves: f.shelves });
   }
 
   // Collection-fixture overrides are exclusive — only one shelf set wins,
@@ -533,7 +618,7 @@ export function applyQASettingsOverride(s: Settings): Settings {
   if (wantsHomeOverride) shelves = qaAllShelvesFixture();
   else if (wantsCollectionEmpty) shelves = qaCollectionEmptyFixture();
   else if (wantsCollectionInverted) shelves = qaCollectionInvertedFixture();
-  return {
+  return tag({
     ...s,
     enabled: true,
     hideRecents: allShelvesHide ? true : (allShelvesShow ? false : s.hideRecents),
@@ -546,7 +631,7 @@ export function applyQASettingsOverride(s: Settings): Settings {
     // When `qa:update-dismissed` is set, also pre-populate the dismissed
     // version so the banner stays hidden in spite of `qa:update-available`.
     updateNotifyDismissedVersion: wantsUpdateDismissed ? QA_FAKE_LATEST_VERSION : s.updateNotifyDismissedVersion,
-  };
+  });
 }
 
 /* Dev-only runtime QA flag read from localStorage — lets a UI test toggle a

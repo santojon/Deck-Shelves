@@ -507,7 +507,17 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
          focused a card — afterwards, focus leaving the shelf must keep the
          last-selected hero/label, not revert to the first card. */
       if (!focused) {
-        if (userHasFocusedRef.current) return;
+        if (userHasFocusedRef.current) {
+          /* The tracked card can vanish outright (hidden/filtered, or a later
+             re-resolve after an early boot pass) — without this, nothing
+             re-arms the fallback and the hero stays stuck until an unrelated
+             focus event lands here. Real appids only; a synthetic key has no
+             matching data-appid, so it keeps the last-focused behaviour. */
+          const trackedGone = currentAppid.current > 0
+            && !el.querySelector(`.ds-card[data-appid="${currentAppid.current}"]`);
+          if (!trackedGone) return;
+          userHasFocusedRef.current = false;
+        }
         const allCards = el.querySelectorAll<HTMLElement>('.ds-card[data-appid]');
         for (const c of allCards) {
           // Check element is visible: has layout height and is in the document flow.

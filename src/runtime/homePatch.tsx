@@ -5,12 +5,14 @@ import { wrapHomeShelves } from "../qa/harness";
 const HomeShelves = wrapHomeShelves(HomeShelvesRaw);
 import { SearchOverlay } from "../features/search/SearchOverlay";
 import { ShelfSideNav } from "../features/sidenav/ShelfSideNav";
+import { DeckScreensaverOverlay } from "../components/screensaver/DeckScreensaverOverlay";
 try { (globalThis as any).__ds_homepatch_loaded = Date.now(); (globalThis as any).__ds_overlays_imported = typeof SearchOverlay === 'function' && typeof ShelfSideNav === 'function'; } catch {}
 import { logDiagnostic } from "./diagnostics";
 import { logError, logInfo, logWarn } from "./logger";
 import { setPreferredSteamWindow, getAllSteamDocuments } from "./steamHost";
 import { getRuntimeClassMap } from "../core/webpackCompat";
 import { notify } from "../components/notify";
+import { findModuleByExport } from "./host/decky";
 
 const ROOT_ID = "deck-shelves-home-root";
 const GLOBAL_COMPONENT_ID = "DeckShelvesHomeDomBridge";
@@ -296,6 +298,34 @@ export function reapplyHomeHides(): void {
   applyHideRecents(pendingHideRecents);
   applyHideHomeTabs(pendingHideHomeTabs);
 }
+
+/* Re-assert ONLY the tabindex suppression for hidden home areas (cheap,
+   idempotent, poll-safe). Steam re-renders native recents / home tabs on route
+   round-trips (e.g. B / popstate) without our strip, leaving a `tabindex=0`
+   focusable in a still-hidden row that traps gamepad focus (the nav tree honours
+   tabindex, ignores visibility). A REPURPOSED recents row is left focusable. */
+export function enforceHomeFocusSuppression(): void {
+  try {
+    if (pendingHideRecents) {
+      reseedCachedRecentsEl();
+      const el = cachedRecentsEl;
+      const repurposed = !!el && !!el.querySelector('.ds-shelf, .deck-shelves-root, #' + ROOT_ID);
+      if (el && !repurposed) applyRecentsFocusSuppression(true);
+    }
+    if (pendingHideHomeTabs) {
+      for (const el of Array.from(hiddenHomeTabs)) {
+        if (!el.isConnected) continue;
+        const focusables = el.querySelectorAll<HTMLElement>('[tabindex], button, a, input, [role="button"], .Focusable');
+        for (const f of Array.from(focusables)) setFocusableTabindex(f, true);
+      }
+    }
+  } catch (e) { logInfo("HOME", "enforceHomeFocusSuppression failed", String(e)); }
+}
+
+/* The currently-desired hide state — lets HomeInject.tsx's poll tell
+   "should be hidden but isn't" apart from "should be visible but isn't". */
+export function getPendingHideRecents(): boolean { return pendingHideRecents; }
+export function getPendingHideHomeTabs(): boolean { return pendingHideHomeTabs; }
 
 function isDsOwn(el: HTMLElement | null, mountEl: HTMLElement): boolean {
   if (!el) return false;
@@ -685,6 +715,7 @@ function HomeDomBridge() {
       React.createElement(HomeShelves),
       React.createElement(SearchOverlay),
       React.createElement(ShelfSideNav),
+      React.createElement(DeckScreensaverOverlay),
     ),
   );
 }
@@ -837,6 +868,12 @@ export function installHomePatch(_routerHook?: any) {
   });
 
   let bridgeRegistered = false;
+  // Time the bridge was set up, for the fallback grace window below.
+  const installedAt = Date.now();
+  // How long a registered bridge gets to render before the DOM fallback steps in.
+  // The fallback exists only for a bridge that failed to register/render; a
+  // slower-to-render working bridge must not race it into a double mount.
+  const BRIDGE_FALLBACK_GRACE_MS = 8000;
 
   try {
     bridgeRegistered = registerGlobalBridge(routerHook);
@@ -846,7 +883,11 @@ export function installHomePatch(_routerHook?: any) {
   }
 
   let fallbackRoot: { unmount(): void } | null = null;
-  let fallbackMountId: string | null = null;
+  /* The actual mount ELEMENT, not just its id string — a Home implementation
+     that tears down and recreates the anchor DOM (same id, a different node)
+     still string-matches the old id; identity is what actually detects
+     "this is a fresh, unrendered node." */
+  let fallbackMountEl: HTMLElement | null = null;
   let fallbackRetries = 0;
   const MAX_FALLBACK_RETRIES = 6;
 
@@ -860,16 +901,106 @@ export function installHomePatch(_routerHook?: any) {
     return (globalThis as any).ReactDOM ?? (globalThis as any).SP_REACTDOM ?? (win as any).ReactDOM ?? (win as any).SP_REACTDOM;
   };
 
+  /* React DOM 19 dropped createRoot/render from the base react-dom package
+     (moved to react-dom/client). Confirmed on the 2026-09-09 Steam Beta: no
+     known global has it anymore — it's in its own webpack module, findable
+     by export name like ownQamTab.ts finds Steam's internals. Cached: the
+     module graph doesn't change mid-session. */
+  let cachedWebpackCreateRoot: ((container: Element) => { render(node: unknown): void; unmount(): void }) | null | undefined;
+  const findCreateRootViaWebpack = (): typeof cachedWebpackCreateRoot => {
+    if (cachedWebpackCreateRoot !== undefined) return cachedWebpackCreateRoot;
+    try {
+      const mod: any = findModuleByExport((_val: any, name: string) => name === "createRoot");
+      cachedWebpackCreateRoot = typeof mod?.createRoot === "function" ? mod.createRoot : null;
+    } catch { cachedWebpackCreateRoot = null; }
+    return cachedWebpackCreateRoot;
+  };
+
+  /* Attempt 1 (2026-09-11, reverted): wrapped this tree in a HAND-BUILT
+     nav-tree node (CreateNode + RegisterNavigationItem). Real Focusables
+     did register, but the whole subtree hung off one synthetic, flat node
+     with no real row/card geometry — directional navigation was erratic.
+     See `.roadmaps/steam-beta-2026-09-compat.md` §3. */
+
+  /* Attempt 3 (2026-09-12): reuse a REAL, already-registered nav node as the
+     parent Context value instead of fabricating one, so nested Focusables
+     register normally with real geometry. Confirmed live via CDP; NOT yet
+     physically verified — CDP can't confirm dpad feel, only tree shape.
+     Full rationale: `.roadmaps/steam-beta-2026-09-compat.md` §3. */
+  const looksLikeNavNode = (v: any): boolean =>
+    !!v && typeof v === "object" && typeof v.BTakeFocus === "function" && !!(v.m_Tree || v.Tree);
+
+  const findNavProviderInChain = (startFiber: any): any | null => {
+    let f = startFiber;
+    for (let i = 0; i < 40 && f; i++) {
+      if (f.tag === 10 && looksLikeNavNode(f.memoizedProps?.value)) return f.type;
+      f = f.return;
+    }
+    return null;
+  };
+
+  let cachedNavProviderType: any | null | undefined;
+  const findNavProviderType = (mount: HTMLElement): any | null => {
+    if (cachedNavProviderType !== undefined) return cachedNavProviderType;
+    cachedNavProviderType = null;
+    try {
+      const candidates = [mount.previousElementSibling, mount.nextElementSibling, mount.parentElement]
+        .filter((el): el is HTMLElement => !!el && el !== mount);
+      for (const el of candidates) {
+        const fiberKey = Object.keys(el).find((k) => k.startsWith("__reactFiber$"));
+        if (!fiberKey) continue;
+        const found = findNavProviderInChain((el as any)[fiberKey]);
+        if (found) { cachedNavProviderType = found; return found; }
+      }
+    } catch (e) { logInfo("HOME", "findNavProviderType failed", String(e)); }
+    return cachedNavProviderType;
+  };
+
+  const findNodeByElement = (node: any, targetEl: HTMLElement): any | null => {
+    const el = node.Element ?? node.m_element ?? node.m_Element;
+    if (el === targetEl) return node;
+    const children: any[] = node.m_rgChildren ?? [];
+    for (const child of children) {
+      const found = findNodeByElement(child, targetEl);
+      if (found) return found;
+    }
+    return null;
+  };
+
+  const findRealParentNavNode = (mount: HTMLElement): any | null => {
+    const targetEl = mount.parentElement;
+    if (!targetEl) return null;
+    try {
+      for (const tree of getGamepadNavigationTrees()) {
+        const root = tree.Root ?? tree.m_Root ?? tree.m_root;
+        if (!root) continue;
+        const found = findNodeByElement(root, targetEl);
+        if (found) return found;
+      }
+    } catch (e) { logInfo("HOME", "findRealParentNavNode failed", String(e)); }
+    return null;
+  };
+
+  const wrapWithRealNavParent = (mount: HTMLElement, innerTree: any): any => {
+    const providerType = findNavProviderType(mount);
+    const realParentNode = providerType ? findRealParentNavNode(mount) : null;
+    if (!providerType || !realParentNode) return innerTree;
+    logInfo("HOME", "fallback: wrapped tree in real nav-tree parent node");
+    return React.createElement(providerType, { value: realParentNode }, innerTree);
+  };
+
   const renderWithReactDOM = (ReactDOM: any, mount: HTMLElement): { unmount(): void } | null => {
-    const tree = React.createElement(
+    const innerTree = React.createElement(
     HomeBoundary,
     null,
     React.createElement(React.Fragment, null,
       React.createElement(HomeShelves),
       React.createElement(SearchOverlay),
       React.createElement(ShelfSideNav),
+      React.createElement(DeckScreensaverOverlay),
     ),
   );
+    const tree = wrapWithRealNavParent(mount, innerTree);
     const renderFn = ReactDOM.createRoot ?? ReactDOM.default?.createRoot;
     if (typeof renderFn === "function") {
       const root = renderFn.call(ReactDOM.default ?? ReactDOM, mount);
@@ -881,6 +1012,13 @@ export function installHomePatch(_routerHook?: any) {
       ReactDOM.render(tree, mount);
       logInfo("HOME", "fallback: rendered via legacy render");
       return { unmount: () => { try { ReactDOM.unmountComponentAtNode?.(mount); } catch {} } };
+    }
+    const webpackCreateRoot = findCreateRootViaWebpack();
+    if (webpackCreateRoot) {
+      const root = webpackCreateRoot(mount);
+      root.render(tree);
+      logInfo("HOME", "fallback: rendered via webpack-discovered createRoot");
+      return root;
     }
     return null;
   };
@@ -908,17 +1046,34 @@ export function installHomePatch(_routerHook?: any) {
     const ReactDOM = resolveReactDOM(win);
     if (!ReactDOM) { logWarn("HOME", "fallback: ReactDOM unavailable"); return; }
     const rendered = renderWithReactDOM(ReactDOM, mount);
-    if (rendered) { fallbackRoot = rendered; fallbackMountId = mount.id; }
+    if (rendered) { fallbackRoot = rendered; fallbackMountEl = mount; }
+    else logWarn("HOME", "fallback: no working render path found (global or webpack)");
+  };
+
+  // The bridge is rendering the home once its component has rendered at least
+  // once (`__ds_bridge_renders` > 0) — earlier than the post-mount marker.
+  const bridgeIsRendering = (): boolean =>
+    bridgeRegistered && (((globalThis as any).__ds_bridge_renders as number) || 0) > 0;
+
+  /* True when the DOM fallback must NOT render. The bridge and this fallback must
+     never both mount HomeShelves into the same root (that duplicates every shelf),
+     so once the bridge is rendering it owns the home — drop any fallback already
+     up. A registered bridge also gets a grace window to render before we fall back
+     (the fallback is only for a bridge that failed to register/render). */
+  const fallbackShouldYield = (doc: Document): boolean => {
+    if (bridgeIsRendering()) { if (fallbackRoot) teardownPreviousFallbackRoot(); return true; }
+    if (shouldSkipFallbackRender(doc)) return true;
+    if (!isHomeVisible()) { fallbackRetries = 0; return true; }
+    return bridgeRegistered && Date.now() - installedAt < BRIDGE_FALLBACK_GRACE_MS;
   };
 
   const tryFallbackRender = () => {
     try {
       const { win, doc } = getHostContext();
-      if (shouldSkipFallbackRender(doc)) return;
-      if (!isHomeVisible()) { fallbackRetries = 0; return; }
+      if (fallbackShouldYield(doc)) return;
       const mount = ensureFallbackMount();
       if (!mount || mount.dataset.deckShelvesRenderer === "react") return;
-      if (fallbackRoot && fallbackMountId === mount.id) return;
+      if (fallbackRoot && fallbackMountEl === mount && mount.isConnected) return;
       mountFallbackTo(win, mount);
     } catch (err) {
       logWarn("HOME", "fallback render error", String(err));

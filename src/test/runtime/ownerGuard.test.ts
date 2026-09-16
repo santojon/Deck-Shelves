@@ -26,10 +26,10 @@ describe("ownerGuard", () => {
     expect(scope().__DECK_SHELVES_OWNER__).toBe("decky");
   });
 
-  it("SHELVES_FORCE_OWNER hands the claim to ShelvesHub", () => {
+  it("SHELVES_FORCE_OWNER hands the claim to the neutral host", () => {
     scope().__SHELVES_FORCE_OWNER__ = "shelveshub";
     expect(claimHomeOwnership("decky")).toBe(false); // loader yields
-    expect(claimHomeOwnership("shelveshub")).toBe(true); // ShelvesHub owns
+    expect(claimHomeOwnership("shelveshub")).toBe(true); // neutral host owns
     expect(scope().__DECK_SHELVES_OWNER__).toBe("shelveshub");
   });
 

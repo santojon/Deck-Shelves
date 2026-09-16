@@ -34,13 +34,17 @@ export type FilterPanelProps = {
   onChange: (group: FilterGroup) => void;
   controller?: import("../features/settings/controller").SettingsController;
   allowOnlineFilters?: boolean;
+  /** Whether Online Features is on — gates genres/categories/franchise,
+   *  which need it on any source (unlike allowOnlineFilters' online-source
+   *  gate for discount/priceRange). */
+  onlineFeaturesOn?: boolean;
   /** Hide the AND/OR mode selector — used by composites that carry their own
    *  combining semantics (weighted / priority / exclusion), where a group mode
    *  is meaningless. */
   hideMode?: boolean;
 };
 
-export function FilterPanel({ group, onChange, controller, allowOnlineFilters = false, hideMode = false }: FilterPanelProps) {
+export function FilterPanel({ group, onChange, controller, allowOnlineFilters = false, onlineFeaturesOn = false, hideMode = false }: FilterPanelProps) {
   const t = i18n.t.bind(i18n);
   const items = group.items ?? [];
   const mode = group.mode ?? "and";
@@ -126,12 +130,14 @@ export function FilterPanel({ group, onChange, controller, allowOnlineFilters = 
                       onDelete={() => removeItem(index)}
                       shouldFocus={isNewlyAdded || isRestoredFocus}
                       allowOnlineFilters={allowOnlineFilters}
+                      onlineFeaturesOn={onlineFeaturesOn}
                     />
                     <FilterItemOptions
                       item={item}
                       onChange={(patch) => updateItem(index, { ...item, ...patch })}
                       controller={controller}
                       allowOnlineFilters={allowOnlineFilters}
+                      onlineFeaturesOn={onlineFeaturesOn}
                     />
                   </div>
                 </FilterSectionAccordion>

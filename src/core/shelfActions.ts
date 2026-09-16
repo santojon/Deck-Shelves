@@ -6,6 +6,7 @@ import {
   patchShelfInSettings,
 } from "../domain/settings";
 import { randomShelfId } from "../domain/defaults";
+import { getFrontendLib } from "../runtime/host/decky";
 import type { Shelf, SmartShelf } from "../types";
 
 function isSmartShelfId(id: string): boolean {
@@ -137,22 +138,29 @@ export function consumePendingShelfModalTab(): string | null {
   return v;
 }
 
+function resolveNavigationApi(): any {
+  // The host UI surface (loader OR neutral host) comes from the one central
+  // resolver; `Navigation` may also be a standalone global on some hosts.
+  const g = globalThis as any;
+  return getFrontendLib()?.Navigation ?? g.Navigation ?? g.window?.Navigation;
+}
+
+// Primary path: navigate to a dedicated route that mounts a standalone
+// SettingsController and opens the modal via DFL.showModal — no QAM
+// dependency. Route handlers are registered in src/index.tsx at boot.
+function tryNavigateToShelfModal(kind: ShelfModalKind, shelfId: string): boolean {
+  try {
+    const nav = resolveNavigationApi();
+    if (typeof nav?.Navigate !== "function") return false;
+    try { nav?.CloseSideMenus?.(); } catch {}
+    nav.Navigate(`/deck-shelves/${kind}/${encodeURIComponent(shelfId)}`);
+    return true;
+  } catch { return false; }
+}
+
 export function dispatchShelfModal(kind: ShelfModalKind, shelfId: string, opts?: { initialTab?: string }): void {
   if (opts?.initialTab) _pendingShelfModalTab = String(opts.initialTab);
-  /* Primary path: navigate to a dedicated route that mounts a standalone
-     SettingsController and opens the modal via DFL.showModal — no QAM
-     dependency. Uses a `Navigation.Navigate('/route/:id')` pattern. The
-     route handlers are registered in src/index.tsx at boot. */
-  try {
-    const nav: any = (globalThis as any).DFL?.Navigation
-      ?? (globalThis as any).Navigation
-      ?? (globalThis as any).window?.Navigation;
-    if (typeof nav?.Navigate === "function") {
-      try { nav?.CloseSideMenus?.(); } catch {}
-      nav.Navigate(`/deck-shelves/${kind}/${encodeURIComponent(shelfId)}`);
-      return;
-    }
-  } catch {}
+  if (tryNavigateToShelfModal(kind, shelfId)) return;
   // Fallback: if Navigation.Navigate isn't available (very old build),
   // queue the action and try the QAM modalHandler when it registers.
   if (modalHandler) {

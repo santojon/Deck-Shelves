@@ -87,7 +87,7 @@ function deriveProfilesState(settings: any, headerExtra: any) {
 function buildProfileDropdown(visible: any[], activeName: string | null, t: (k: string) => string) {
   const options = [
     { label: `+ ${t("profile_add_action" as any) || "Save current"}`, data: "__SAVE__" },
-    { label: FACTORY_PROFILE_NAME, data: FACTORY_PROFILE_ID },
+    { label: t("profile_factory_name" as any) || FACTORY_PROFILE_NAME, data: FACTORY_PROFILE_ID },
     { label: t("profile_none_option" as any) || "None", data: "__NONE__" },
     ...visible.map((p) => ({ label: p.name, data: p.id })),
   ];
@@ -163,7 +163,7 @@ export function ProfilesSection({ controller, hidden, headerExtra }: ProfilesSec
     <CollapsibleSection
       id="profiles"
       icon={<PersonIcon />}
-      title={t("profile_section_title" as any) || "Perfis"}
+      title={t("profile_section_title" as any) || "Profiles"}
       count={profiles.length}
       initialOpen={false}
       headerExtra={headerExtra}

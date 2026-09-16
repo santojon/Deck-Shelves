@@ -3,8 +3,9 @@ import { TextField } from "../../runtime/host/decky";
 import { getExternalSearchProviders, type SearchHit } from "../../core/pluginApi";
 import { isHomeRoute } from "../../components/home/mountUtils";
 import { getCurrentSettings, subscribeSettings } from "../../settingsStore";
-import { GamepadButton, subscribeHomeButton } from "../../runtime/homeInputBus";
+import { GamepadButton, subscribeHomeButton, subscribeHomeKey } from "../../runtime/homeInputBus";
 import { createMatcherState, matchEvent, parseCombo, parseRawCombo, resolveBindings } from "../../runtime/buttonBindings";
+import { resolveKeyboardBindings, parseKeyCombo, matchKeyEvent, createKeyMatcherState, isEditableKeyTarget } from "../../runtime/keyboardBindings";
 import { trackFeature } from "../../steam/usageTracking";
 import { subscribeControllerInput, Button as RawBtn } from "../../runtime/controllerInput";
 import { getPreferredSteamDocument, getAllSteamDocuments } from "../../runtime/steamHost";
@@ -256,6 +257,18 @@ export function SearchOverlay() {
       if (!navSearch) return;
       const combo = parseRawCombo(navSearch);
       if (!matchEvent({ button: e.button }, combo, rawMatcherStateRef.current)) return;
+      openSearch();
+    });
+  }, [enabled, open, openSearch]);
+  // Keyboard equivalent — independent trigger, same debounce via openSearch.
+  const keyMatcherStateRef = useRef(createKeyMatcherState());
+  useEffect(() => {
+    if (!enabled || open) return;
+    return subscribeHomeKey((e) => {
+      if (isEditableKeyTarget(e.tag)) return;
+      const navSearchKey = resolveKeyboardBindings(getCurrentSettings()?.keyboardBindings as any, (getCurrentSettings() as any)?.keyboardBindingsDisabled).navSearch;
+      if (!navSearchKey) return;
+      if (!matchKeyEvent(e.code ?? null, parseKeyCombo(navSearchKey), keyMatcherStateRef.current)) return;
       openSearch();
     });
   }, [enabled, open, openSearch]);

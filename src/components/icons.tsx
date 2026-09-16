@@ -458,6 +458,32 @@ export function GamepadIcon({ size = 14, style }: IconProps) {
   );
 }
 
+export function KeyboardIcon({ size = 14, style }: IconProps) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      style={{ flexShrink: 0, ...style }}
+    >
+      <rect x="2" y="6" width="20" height="12" rx="2" />
+      <line x1="6" y1="10" x2="6.01" y2="10" />
+      <line x1="9" y1="10" x2="9.01" y2="10" />
+      <line x1="12" y1="10" x2="12.01" y2="10" />
+      <line x1="15" y1="10" x2="15.01" y2="10" />
+      <line x1="18" y1="10" x2="18.01" y2="10" />
+      <path d="M6 14h12" />
+    </svg>
+  );
+}
+
 export function SteamIcon({ size = 14, style }: IconProps) {
   return (
     <svg
@@ -470,6 +496,14 @@ export function SteamIcon({ size = 14, style }: IconProps) {
       style={{ flexShrink: 0, ...style }}
     >
       <path d="M11.98 2C6.48 2 2.04 6.45 2.01 11.94L7.16 14.04a2.7 2.7 0 0 1 2.95-.6l2.3-3.34v-.05a3.61 3.61 0 0 1 7.22 0 3.61 3.61 0 0 1-3.62 3.6h-.09l-3.28 2.35c0 .1.02.2.02.3a2.72 2.72 0 0 1-5.39.5L3.5 15.27A9.97 9.97 0 0 0 22 12c0-5.52-4.48-10-10.02-10ZM8.3 17.14l-1.18-.49a2.05 2.05 0 0 0 3.71-.37 2.04 2.04 0 0 0-1.14-2.66 2.02 2.02 0 0 0-1.56.02l1.22.5a1.5 1.5 0 0 1-1.15 2.78l-.42-.17.52 1.39Zm7.69-7.67a2.4 2.4 0 0 0-2.41-2.4 2.4 2.4 0 0 0-2.41 2.4 2.4 2.4 0 0 0 2.41 2.4 2.4 2.4 0 0 0 2.41-2.4Zm-4.22 0a1.81 1.81 0 1 1 3.63-.01 1.81 1.81 0 0 1-3.63.01Z" />
+    </svg>
+  );
+}
+
+export function CloudIcon({ size = 14, style }: IconProps) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0, ...style }}>
+      <path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z" />
     </svg>
   );
 }

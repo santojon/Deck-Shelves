@@ -18,7 +18,7 @@ vi.mock('../../runtime/batteryState', () => ({
 vi.mock('../../store/settingsStore', () => ({ getCurrentSettings: () => settings.current }))
 vi.mock('../../runtime/host/decky', () => ({ call: async () => rpc.current }))
 
-import { evalDeviceRule, getDeviceState, isDeviceRuleKind, installDeviceState } from '../../runtime/deviceState'
+import { evalDeviceRule, getDeviceState, isDeviceRuleKind, installDeviceState, refreshControllerState } from '../../runtime/deviceState'
 
 describe('evalDeviceRule', () => {
   beforeEach(() => { battery.current = null; settings.current = {} })
@@ -125,6 +125,23 @@ describe('evalDeviceRule', () => {
       g.ControllerStore = { GetControllers: () => [{}], GetUnboundControllers: () => [{}] }
       installDeviceState()()
       expect(evalDeviceRule({ kind: 'controllerConnected' })).toBe(true)
+    } finally { g.ControllerStore = prev }
+  })
+
+  it('refreshControllerState: a controller connected while asleep produces no event — a resume handler forces this live read directly', () => {
+    const g = globalThis as any
+    const prev = g.ControllerStore
+    try {
+      g.ControllerStore = { GetControllers: () => [{}], GetUnboundControllers: () => [] }
+      const cleanup = installDeviceState()
+      expect(getDeviceState().controllerConnected).toBe(false)
+      // Simulate a controller having connected with no event firing (as if
+      // during sleep) — only a forced re-read should notice it.
+      g.ControllerStore = { GetControllers: () => [{}, {}], GetUnboundControllers: () => [] }
+      expect(getDeviceState().controllerConnected).toBe(false) // still stale
+      refreshControllerState()
+      expect(getDeviceState().controllerConnected).toBe(true)
+      cleanup()
     } finally { g.ControllerStore = prev }
   })
 

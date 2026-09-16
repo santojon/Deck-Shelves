@@ -1,6 +1,6 @@
 import { call } from './host/decky';
 
-/* Performance context for Visibility Rules v2 (Sprint 4), on-demand with NO
+/* Performance context for Visibility Rules v2, on-demand with NO
    background timer. `evalPerfRule` reads the last cached snapshot and, when stale
    (>30 s) with no fetch in flight, kicks one background refresh that updates the
    cache and notifies (a re-render re-evaluates). No consumer → never called → the

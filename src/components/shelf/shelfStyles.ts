@@ -229,6 +229,15 @@ function debouncedNotifyDims(_dims: NativeCardDims) {
 // notifyDimsNow kept as dead code — all paths now use debouncedNotifyDims
 // to avoid jarring full-screen re-renders when dims first arrive.
 
+/* Clamped both ways. Low: TiltedHome's skew fully merges adjacent cards at
+   a near-0 gap, so floor at 8px. High: the native measurement (webpackCompat.ts's
+   hidden-host probe) has no sanity check of its own — a bad read (Steam's DOM/
+   class names shifting under it) would otherwise reach the shelf as a huge
+   visible gap. Cap at half the card's own width — generous for any real theme. */
+export function clampCardGap(rawGap: number, cardWidth: number): number {
+  return Math.min(Math.max(rawGap, 8), cardWidth * 0.5);
+}
+
 export function getCachedCardRadius(): string { return cachedCardRadius; }
 export function getCachedNativeDims(): NativeCardDims | null { return cachedNativeDims; }
 export function onNativeDimsChange(cb: () => void): () => void {
@@ -297,7 +306,7 @@ function nativeDimVarEntries(): [string, string][] {
   return [
     ['--ds-native-card-w', `${w}px`],
     ['--ds-native-card-h', `${h}px`],
-    ['--ds-native-card-gap', `${nd?.gap ?? CARD_GAP}px`],
+    ['--ds-native-card-gap', `${nd ? clampCardGap(nd.gap, w) : CARD_GAP}px`],
     ['--ds-native-card-art-h', `${nd?.imgHeight ?? h}px`],
     ['--ds-native-feat-w', `${nd?.featuredWidth ?? Math.round(w * 3.21)}px`],
     ['--ds-native-feat-h', `${nd?.featuredHeight ?? h}px`],
@@ -616,7 +625,7 @@ function buildStylesheet(): string {
     cardW: dims?.width ?? CARD_W,
     cardH: dims?.height ?? CARD_ART_H,
     cardArtH: dims?.imgHeight ?? dims?.height ?? CARD_ART_H,
-    cardGap: dims?.gap ?? CARD_GAP,
+    cardGap: dims ? clampCardGap(dims.gap, dims.width ?? CARD_W) : CARD_GAP,
     featuredW: dims?.featuredWidth ?? Math.round((dims?.width ?? CARD_W) * 3.21),
     featuredH: dims?.featuredHeight ?? dims?.height ?? CARD_ART_H,
     featuredArtH: dims?.featuredImgHeight ?? dims?.featuredHeight ?? dims?.height ?? CARD_ART_H,

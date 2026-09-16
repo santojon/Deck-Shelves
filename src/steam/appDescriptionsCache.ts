@@ -16,6 +16,7 @@ const MAX_RETRIES = 2;
 const TIMEOUT_MS = 5000;
 const POLL_MS = 100;
 
+
 /* Descriptions come from Steam's store in the *current* Steam/device language,
    so scope the persistent cache by language: when the user switches the device
    language (which restarts Steam and reloads this module), the new language tag
@@ -117,7 +118,11 @@ function pollUntilReady(store: StoreShape, appid: number): void {
       return;
     }
     if (Date.now() - startedAt > TIMEOUT_MS) {
-      markFailure(appid);
+      // Local store gave nothing within the window — try the online fallback for
+      // this app (no-op unless the master online toggle is on). Per-app only, so a
+      // Deck where the local store works keeps serving the full local descriptions.
+      pending.delete(appid);
+      preloadFromOnlineStore(appid);
       return;
     }
     setTimeout(tick, POLL_MS);
@@ -125,11 +130,35 @@ function pollUntilReady(store: StoreShape, appid: number): void {
   setTimeout(tick, POLL_MS);
 }
 
+/* Online fallback for hosts whose local Steam client has no descriptions store
+   (e.g. macOS — `appDetailsStore.GetDescriptions` is absent): fetch the store
+   `short_description` (cached + master-online-toggle gated). Covers Steam appids;
+   non-Steam (matched by name) isn't reachable from this appid-only API. */
+function preloadFromOnlineStore(appid: number): void {
+  if (cache.has(appid) || pending.has(appid)) return;
+  if (!(Number.isFinite(appid) && appid > 0)) return;
+  pending.add(appid);
+  void (async () => {
+    try {
+      const om = await import("../core/onlineMetadata");
+      const snippet = await om.getStoreShortDescription(appid, "", false);
+      if (snippet) {
+        cache.set(appid, { snippet, fullHtml: "" });
+        saveToStorageDebounced();
+        pending.delete(appid);
+        failureCount.delete(appid);
+      } else {
+        markFailure(appid);
+      }
+    } catch { markFailure(appid); }
+  })();
+}
+
 export function preloadAppDescriptions(appid: number): void {
   if (cache.has(appid) || pending.has(appid)) return;
   if ((failureCount.get(appid) ?? 0) >= MAX_RETRIES) return;
   const store = getStore();
-  if (!store?.RequestDescriptionsData || !store.GetDescriptions) return;
+  if (!store?.RequestDescriptionsData || !store.GetDescriptions) { preloadFromOnlineStore(appid); return; }
   pending.add(appid);
   try {
     store.RequestDescriptionsData(appid);

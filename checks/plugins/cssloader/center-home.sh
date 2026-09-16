@@ -10,7 +10,7 @@ run_checks() {
   # Filter out approved detection (theme's own --center-home-padding var —
   # same pattern SLH/ArtHero use). Flag only hardcoded class names / style imports.
   local hits
-  hits="$(grep -Rin "center[-_ ]home\|centerhome" "$src" 2>/dev/null \
+  hits="$(grep -Rin "center[-_ ]home\|centerhome" "$src" --exclude-dir=__pycache__ 2>/dev/null \
     | grep -v -- '--center-home-padding' \
     | grep -v '^\s*//' \
     | grep -v '^\s*\*')" || true

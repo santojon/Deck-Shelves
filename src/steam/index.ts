@@ -8,7 +8,9 @@ import {
   toPublicAppMeta,
   resolveExternalSource,
   hasExternalSmartSource, resolveExternalSmartSource,
+  isContextAwareSource,
 } from "../core/pluginApi";
+import { resolveContextAwareShelf } from "../core/contextAwareShelves";
 import type { PlatformAppMeta, PlatformTab } from "../runtime/platform";
 import { logInfo, logWarn } from "../runtime/logger";
 import { getPreferredSteamDocument, getPreferredSteamWindow } from "../runtime/steamHost";
@@ -986,6 +988,7 @@ export type AppOverview = {
   is_hidden?: boolean;
   installed?: boolean;
   deck_compatibility_category?: number;
+  steamos_compatibility_category?: number;
   library_capsule?: string;
   library_capsule_filename?: string;
   rt_store_asset_mtime?: number;
@@ -1145,10 +1148,26 @@ function buildTimestampFields(node: any) {
   };
 }
 
+/* Confirmed live (2026-09-11): current clients expose `steam_deck_compat_category`
+   / `steam_os_compat_category` directly, already unpacked (plus two more for
+   Steam Machine/Frame). `steam_hw_compat_category_packed` now fits four
+   categories, not two, so the old nibble unpack below reads the wrong bits —
+   kept only for clients old enough to lack the named getters. */
+function deckCompatCategory(n: any): number {
+  return Number(n.steam_deck_compat_category ?? n.deck_compatibility_category ?? n.m_eDeckCompatibilityCategory
+    ?? ((Number(n.steam_hw_compat_category_packed ?? 0) & 0xF) || 0));
+}
+
+function steamosCompatCategory(n: any): number {
+  return Number(n.steam_os_compat_category ?? n.steamos_compatibility_category ?? n.m_eSteamOSCompatibilityCategory ??
+    ((((Number(n.steam_hw_compat_category_packed ?? 0) >> 4) & 0xF)) || 0));
+}
+
 function buildTypeFields(node: any) {
   const n = node ?? {};
   return {
-    deck_compatibility_category: Number(n.deck_compatibility_category ?? n.m_eDeckCompatibilityCategory ?? ((Number(n.steam_hw_compat_category_packed ?? 0) & 0xF) || 0)),
+    deck_compatibility_category: deckCompatCategory(n),
+    steamos_compatibility_category: steamosCompatCategory(n),
     app_type: firstNumber(n.app_type, n.appType, n.m_eAppType, n.eAppType) || undefined,
     controller_support: deriveControllerSupport(node),
   };
@@ -1963,6 +1982,13 @@ function isDeckCompatMatch(cat: number | undefined, allowed: string[] | undefine
   return cat != null && cats.includes(cat);
 }
 
+// SteamOS compat uses the SAME 0..3 category scale as Deck compat (verified=3,
+// playable=2, unsupported=1, unknown=0) — confirmed live against
+// `steam_os_compat_category` itself. Reuse the identical mapping.
+function isSteamOsCompatMatch(cat: number | undefined, allowed: string[] | undefined): boolean {
+  return isDeckCompatMatch(cat, allowed);
+}
+
 export type CustomFilter = {
   favorites?: boolean;
   hidden?: boolean | "only";
@@ -2164,6 +2190,23 @@ function filterGroupNeedsDevPubPreload(group: FilterGroup): { needsDev: boolean;
   };
   walk(group);
   return { needsDev, needsPub };
+}
+
+// Flattens a filter group's items (walking `merge` nesting, same as the
+// dev/pub preload above) — used to pre-warm genre/category/franchise data
+// before evaluation, the same reason dev/pub caches are warmed here.
+function collectFilterGroupItemsFlat(group: FilterGroup): any[] {
+  const out: any[] = [];
+  const walk = (g: FilterGroup) => {
+    for (const item of g.items ?? []) {
+      out.push(item);
+      if (item.type === "merge" && Array.isArray((item as any).params?.items)) {
+        walk({ mode: ((item as any).params.mode ?? "and") as "and" | "or", items: (item as any).params.items as FilterItem[] });
+      }
+    }
+  };
+  walk(group);
+  return out;
 }
 
 // Per-type filter evaluators (dispatch table).
@@ -2412,6 +2455,13 @@ function evalFriendsPlayedRecently(item: FilterItem, app: AppOverview): boolean 
   } catch { return false; }
 }
 
+/* Desktop Steam clients (macOS/Windows) never mark a non-native game's
+   `available_on_current_platform` as `false` — only `true` or undefined — so an
+   undefined value there is unreliable (unlike the Deck, where `false` IS given). */
+const PLATFORM_LOCAL_ONESIDED = (() => {
+  try { return /mac|win/i.test((globalThis as any).navigator?.platform ?? ""); } catch { return false; }
+})();
+
 const FILTER_EVALUATORS: Record<string, FilterEvaluator> = {
   installed:              (_i, app) => isInstalledOf(app),
   favorites:              (_i, app) => isFavoriteOf(app),
@@ -2421,6 +2471,7 @@ const FILTER_EVALUATORS: Record<string, FilterEvaluator> = {
   appStatus:              evalAppStatus,
   isNew:                  evalIsNew,
   deckCompatibility:      (item, app) => isDeckCompatMatch(app.deck_compatibility_category, item.params?.levels ?? []),
+  steamosCompatibility:   (item, app) => isSteamOsCompatMatch(app.steamos_compatibility_category, item.params?.levels ?? []),
   playedWithinDays:       evalPlayedWithinDays,
   playtimeRange:          evalPlaytimeRange,
   recentlyActive:         evalRecentlyActive,
@@ -2434,7 +2485,14 @@ const FILTER_EVALUATORS: Record<string, FilterEvaluator> = {
   appIdList:              evalAppIdList,
   cloudAvailable:         (_i, app) => app.cloud_available === true,
   controllerSupport:      evalControllerSupport,
-  systemCompatibility:    (_i, app) => app.available_on_current_platform !== false,
+  systemCompatibility:    (_i, app) => {
+    // Steam's own field first; then our private store-derived fill (macOS, where
+    // Steam leaves it undefined). We never write Steam's field — store pages read it.
+    let v = app.available_on_current_platform;
+    if (typeof v !== "boolean") v = (app as any).__ds_available_on_platform;
+    if (typeof v === "boolean") return v;
+    return !PLATFORM_LOCAL_ONESIDED; // undefined: include on the Deck, exclude on desktop
+  },
   remotePlayLocation:     evalRemotePlay,
   shortcutType:           evalShortcutType,
   discount:               evalDiscount,
@@ -2637,6 +2695,14 @@ function buildBaseComparator(key: string, priceMap?: PriceMap): Cmp {
   if (key === "price_low" || key === "discount_high" || key === "original_price_high") {
     return priceMap ? priceComparator(key, priceMap) : alphaCmp;
   }
+  /* first-party Sort v3 comparators (v3Extensions.ts) aren't in
+     KEY_COMPARATOR_BUILDERS above — without this, any multi-key chain using a
+     v3-only id (most_friends_owning, owned_games, ...) silently degrades to alphabetical. */
+  try {
+    const { SORT_V3_COMPARATORS } = require("./v3Extensions") as typeof import("./v3Extensions");
+    const v3 = SORT_V3_COMPARATORS[key];
+    if (v3) return v3;
+  } catch { /* fall through */ }
   // alphabetical OR unknown external key — degrade to alphabetical.
   return alphaCmp;
 }
@@ -2930,12 +2996,13 @@ async function resolveCollectionFallback(rawCollectionId: string, all: AppOvervi
   } catch { return []; }
 }
 
-function applyCollectionChildFilter(ids: number[], source: any, all: AppOverview[]): number[] {
+async function applyCollectionChildFilter(ids: number[], source: any, all: AppOverview[]): Promise<number[]> {
   const cf = source.childFilter as FilterGroup | undefined;
   if (!cf || !Array.isArray(cf.items) || cf.items.length === 0) return ids;
   const byId = new Map<number, AppOverview>();
   for (const a of all) { const aid = appIdOf(a); if (Number.isFinite(aid)) byId.set(aid, a); }
   const candidates = ids.map((id) => byId.get(id)).filter(Boolean) as AppOverview[];
+  await prefetchCatalogFilterData(collectFilterGroupItemsFlat(cf), ids, byId).catch(() => {});
   return evaluateFilterGroup(cf, candidates).map((a) => appIdOf(a)).filter(Number.isFinite);
 }
 
@@ -2977,7 +3044,7 @@ async function _resolveCollection(ctx: ResolverContext): Promise<number[]> {
   } else {
     logInfo("STEAM", "resolveShelfAppIds(collection) resolved", { collectionId: rawCollectionId, count: ids.length });
   }
-  ids = applyCollectionChildFilter(ids, source, all);
+  ids = await applyCollectionChildFilter(ids, source, all);
   if (sort) { await enrichForSort(sort, ids, all); ids = applySortToIds(ids, sort, all, shelfId, sortReverse); }
   ids = deduplicateNonSteam(ids, all);
   emitResolvedTotal(ctx, ids.length);
@@ -3222,6 +3289,34 @@ function applyLegacyFlatFilter(all: AppOverview[], f: CustomFilter): AppOverview
   return filtered;
 }
 
+function applyFilterGroupSort(
+  filtered: AppOverview[],
+  fSort: string | string[] | undefined,
+  f: CustomFilter,
+  all: AppOverview[],
+  shelfId: string | undefined,
+  sortReverse: boolean | boolean[] | undefined,
+): AppOverview[] {
+  if (Array.isArray(fSort)) {
+    /* Multi-key chain — sortAppsByFilterKey only understands a single string id
+       (an array would silently miss FILTER_SORT_DISPATCH and fall back to
+       alphabetical for every key). applySortToIds already handles per-key
+       reverse via applyMultiKeySort, so no separate reverse pass is needed. */
+    const preIds = filtered.map((a) => appIdOf(a)).filter(Number.isFinite);
+    const sortedIds = applySortToIds(preIds, fSort, all, shelfId, (f as any).sortReverse ?? sortReverse);
+    const byId = new Map(filtered.map((a) => [appIdOf(a), a] as const));
+    return sortedIds.map((id) => byId.get(id)).filter((a): a is AppOverview => !!a);
+  }
+  let sorted = sortAppsByFilterKey(filtered, fSort, shelfId);
+  /* Asc/desc inversion. Prefer the filter's own `sortReverse` (the editor writes
+     there on filter shelves; shelf-level `sortReverse` is never populated for
+     filter sources). Skipped for `manual` / `random`. */
+  if (resolveFilterReverse(f, sortReverse) && fSort !== "manual" && fSort !== "random") {
+    sorted = sorted.slice().reverse();
+  }
+  return sorted;
+}
+
 async function _resolveFilterGroupPath(
   ctx: ResolverContext,
   f: CustomFilter,
@@ -3242,23 +3337,30 @@ async function _resolveFilterGroupPath(
   // make those filter items match zero apps on the home (the editor
   // warms via its filter pickers; the home doesn't go through them).
   const needs = filterGroupNeedsDevPubPreload(filterGroup);
+  const allAppIds = all.map((a) => appIdOf(a)).filter(Number.isFinite);
   if (needs.needsDev || needs.needsPub) {
-    const allAppIds = all.map((a) => appIdOf(a)).filter(Number.isFinite);
     await Promise.all([
       needs.needsDev ? preloadDeveloperData(allAppIds).catch(() => {}) : Promise.resolve(),
       needs.needsPub ? preloadPublisherData(allAppIds).catch(() => {}) : Promise.resolve(),
     ]);
   }
-  let filtered = evaluateFilterGroup(filterGroup, all, evalCtx);
-  const fSort = (ctx.source.filter as any)?.sort as string | undefined;
-  await enrichAppsForMetaSort(fSort, filtered);
-  filtered = sortAppsByFilterKey(filtered, fSort, shelfId);
-  // Asc/desc inversion. Prefer the filter's own `sortReverse` (the editor
-  // writes there on filter shelves; shelf-level `sortReverse` is never
-  // populated for filter sources). Skipped for `manual` / `random`.
-  if (resolveFilterReverse(f, sortReverse) && fSort !== "manual" && fSort !== "random") {
-    filtered = filtered.slice().reverse();
+  // Same reasoning as dev/pub above: genres/categories/franchise have no
+  // usable local data even for games you own, so a genre/category/franchise
+  // filter on a plain library shelf needs this warmed first too.
+  const flatItems = collectFilterGroupItemsFlat(filterGroup);
+  const byIdAll = new Map(all.map((a) => [appIdOf(a), a] as const));
+  await prefetchCatalogFilterData(flatItems, allAppIds, byIdAll).catch(() => {});
+  // Hosts whose local Steam client omits per-platform availability leave
+  // `available_on_current_platform` undefined (the system-compatibility filter
+  // would then pass everything) — fill it from the store first when present.
+  if (flatItems.some((it: any) => it?.type === "systemCompatibility")) {
+    const om = await import("../core/onlineMetadata");
+    if (om.onlineStoreFallbackOn()) await om.enrichPlatformAvailability(all).catch(() => {});
   }
+  let filtered = evaluateFilterGroup(filterGroup, all, evalCtx);
+  const fSort = (ctx.source.filter as any)?.sort as string | string[] | undefined;
+  await enrichAppsForMetaSort(fSort, filtered);
+  filtered = applyFilterGroupSort(filtered, fSort, f, all, shelfId, sortReverse);
   const ids = deduplicateNonSteam(filtered.map((a) => appIdOf(a)).filter(Number.isFinite), all);
   if (!ids.length) logWarn("STEAM", "resolveShelfAppIds(filterGroup) empty", { filter: f, allCount: all.length });
   else logInfo("STEAM", "resolveShelfAppIds(filterGroup) resolved", { count: ids.length, allCount: all.length });
@@ -3330,8 +3432,15 @@ async function _resolveFilter(ctx: ResolverContext): Promise<number[]> {
 
 async function _resolveExternal(ctx: ResolverContext): Promise<number[]> {
   const { source, all, sort, shelfId, sortReverse, finish, overShootLimit, limit } = ctx;
+    const sourceId = String(source.sourceId ?? "");
     try {
-      let ids = await resolveExternalSource(String(source.sourceId ?? ""), limit);
+      /* Context-aware sources resolve through a dedicated orchestrator
+         (focus context, cancellation, a short cache — debounced
+         invalidation lives at the shelf-subscription level); everything
+         else about resolution (sort, dedupe, overshoot) is shared. */
+      let ids = isContextAwareSource(sourceId)
+        ? await resolveContextAwareShelf(sourceId, shelfId ?? sourceId, limit, undefined)
+        : await resolveExternalSource(sourceId, limit);
       logInfo("STEAM", "resolveShelfAppIds(external) resolved", { sourceId: source.sourceId, count: ids.length });
       if (sort) ids = applySortToIds(ids, sort, all, shelfId, sortReverse);
       ids = deduplicateNonSteam(ids, all);
@@ -3364,6 +3473,35 @@ function computeWishlistHideFlags(source: any, s: any): WishlistHideFlags {
 
 const PRICE_SORT_KEYS = new Set(["price_low", "discount_high", "original_price_high"]);
 
+// Pure catalog/store metadata (not personal play-history) — meaningful for
+// any appid, owned or not, once fetched via getCatalogMetaMap.
+const CATALOG_FILTER_TYPES = new Set(["genres", "categories", "franchise", "vrSupport", "multiplayerType"]);
+/* genres/categories: the local client never carries these as name strings,
+   even for owned games — always needs the fetch. vrSupport/multiplayerType
+   have a fast local path for owned games (see v3Extensions.ts) and only
+   need the fetch for ids the client has never seen. */
+const WEB_CATALOG_FILTER_TYPES = new Set(["genres", "categories"]);
+const LOCAL_FIRST_CATALOG_FILTER_TYPES = new Set(["vrSupport", "multiplayerType"]);
+
+async function prefetchCatalogFilterData(items: any[], ids: number[], byId: Map<number, AppOverview>): Promise<void> {
+  const needsWebCatalog = items.some((item) => WEB_CATALOG_FILTER_TYPES.has(item.type));
+  const needsLocalFirstCatalog = items.some((item) => LOCAL_FIRST_CATALOG_FILTER_TYPES.has(item.type));
+  const needsFranchise = items.some((item) => item.type === "franchise");
+  if (needsWebCatalog || needsLocalFirstCatalog) {
+    // genres/categories need every id (local never has the data); vrSupport/
+    // multiplayerType only need ids the client has never seen.
+    const targetIds = needsWebCatalog ? ids : ids.filter((id) => !byId.has(id));
+    if (targetIds.length) {
+      const { getCatalogMetaMap } = await import("../core/onlineStore");
+      await getCatalogMetaMap(targetIds);
+    }
+  }
+  if (needsFranchise) {
+    const { prefetchFranchise } = await import("./v3Extensions");
+    await prefetchFranchise(ids);
+  }
+}
+
 async function applyWishlistChildFilter(ids: number[], childFilter: any, all: AppOverview[]): Promise<number[]> {
   if (!childFilter || !Array.isArray(childFilter.items) || childFilter.items.length === 0) return ids;
   const hasPriceFilter = childFilter.items.some((item: any) => item.type === "discount" || item.type === "priceRange");
@@ -3372,6 +3510,7 @@ async function applyWishlistChildFilter(ids: number[], childFilter: any, all: Ap
     await getPriceMap(ids);
   }
   const byId = new Map(all.map((a) => [appIdOf(a), a] as const));
+  await prefetchCatalogFilterData(childFilter.items, ids, byId);
   return ids.filter((id) => {
     const app = byId.get(id);
     return childFilter.items.every((item: any) => evaluateWishlistChildItem(item, id, app));
@@ -3383,7 +3522,10 @@ function evaluateWishlistChildItem(item: any, id: number, app: AppOverview | und
   // game absent from the local library must still be checked against the cache —
   // never waved through, or unowned/free titles leak past a price bound.
   if (item.type === "discount" || item.type === "priceRange") return evaluateFilterItem(item, { appid: id } as any, undefined);
-  if (!app) return true;
+  // Catalog filters read v3Extensions' rawField, which falls back to fetched
+  // Store metadata for ids not in `all` — a bare `{ appid }` is enough.
+  if (CATALOG_FILTER_TYPES.has(item.type)) return evaluateFilterItem(item, (app ?? { appid: id }) as any, undefined);
+  if (!app) return true; // personal/play-history filters don't apply to unowned items
   return evaluateFilterItem(item, app, undefined);
 }
 
@@ -3516,10 +3658,11 @@ async function resolveSmartCompositeIds(
   return mergeCompositeResults(childResults, combine);
 }
 
-function applySmartFilterGroup(ids: number[], filterGroup: any, apps: AppOverview[]): number[] {
+async function applySmartFilterGroup(ids: number[], filterGroup: any, apps: AppOverview[]): Promise<number[]> {
   if (!filterGroup || !Array.isArray(filterGroup.items) || filterGroup.items.length === 0) return ids;
   const byId = new Map(apps.map((a) => [appIdOf(a), a] as const));
   const candidates = ids.map((id) => byId.get(id)).filter(Boolean) as AppOverview[];
+  await prefetchCatalogFilterData(collectFilterGroupItemsFlat(filterGroup), ids, byId).catch(() => {});
   return evaluateFilterGroup(filterGroup, candidates).map((a) => appIdOf(a)).filter(Number.isFinite);
 }
 
@@ -3546,7 +3689,7 @@ async function _resolveSmart(ctx: ResolverContext): Promise<number[]> {
     const rawIds = compositeModes.length > 0
       ? await resolveSmartCompositeIds(source, smartFetchLimit, smartParams, ttlMs, shelfId, deps)
       : await resolveSmartModeIds(source.mode, smartFetchLimit, smartParams, ttlMs, shelfId, deps);
-    let ids = applySmartFilterGroup(rawIds, smartFilterGroup, apps);
+    let ids = await applySmartFilterGroup(rawIds, smartFilterGroup, apps);
     if (sort && sort !== "manual") ids = applySortToIds(ids, sort, apps, shelfId, sortReverse);
     logInfo("STEAM", "resolveShelfAppIds(smart) resolved", { mode: source.mode, count: ids.length, hasFilter: !!smartFilterGroup, sort });
     return finish(ids.slice(0, overShootLimit));
@@ -3587,15 +3730,25 @@ function rebuildCompositeChildSources(rawChildSources: any[], compositeItems: an
   });
 }
 
+/* Each child sorts + truncates to its own limit before the union is merged
+   and re-sorted — a candidate outside one branch's own cutoff never reaches
+   the final ranking, even if it belonged in the true combined top-N (the
+   editor preview avoids this via its own much larger request). Cheap to
+   raise: local evaluation is synchronous, and enrichApps caps + caches its own lookups regardless of pool size. */
+function compositeChildLimit(overShootLimit: number): number {
+  return Math.min(Math.max(overShootLimit * 4, 200), 600);
+}
+
 async function resolveCompositeChildren(childSources: any[], ctx: ResolverContext): Promise<number[][]> {
   const { sort, shelfId, sortReverse, options, depth: _depth, overShootLimit } = ctx;
+  const childLimit = compositeChildLimit(overShootLimit);
   /* 15 s hard ceiling per child so a single hung online source (e.g. a
      wishlist RPC that doesn't time out cleanly) can't park the parent
      composite resolve forever. Returning `[]` for a misbehaving child
      still lets the union complete with the rest of the data. */
   return Promise.all(
     childSources.map((child) => {
-      const inner = resolveShelfAppIds(child, overShootLimit, sort, shelfId, sortReverse, options, _depth + 1);
+      const inner = resolveShelfAppIds(child, childLimit, sort, shelfId, sortReverse, options, _depth + 1);
       const fallback = new Promise<number[]>((resolve) => {
         setTimeout(() => {
           logWarn("STEAM", "composite child resolve timed out", { type: child?.type, shelfId });
@@ -3653,6 +3806,42 @@ const SOURCE_RESOLVERS: Record<string, (ctx: ResolverContext) => Promise<number[
   composite: _resolveComposite,
 };
 
+function computeOvershootLimit(source: { type: string }, limit: number, hiddenSet: Set<number> | undefined): number {
+  // Overshoot for render-time filters: hidden*2 for the picker, plus
+  // max(10, 50% of limit) for online owned/name matches. Capped at 3x.
+  const isOnlineShelf = source.type === "wishlist" || source.type === "store";
+  const ownedOvershoot = isOnlineShelf ? Math.max(10, Math.ceil(limit * 0.5)) : 0;
+  const hiddenOvershoot = hiddenSet ? hiddenSet.size * 2 : 0;
+  return Math.min(limit + hiddenOvershoot + ownedOvershoot, limit * 3);
+}
+
+/* first-party Shelf Source Ecosystem v3 lives in a sibling module. Each
+   resolver synchronously projects from the already-loaded `all` AppOverview
+   list. The resolver receives `all` and returns the filtered AppOverview[],
+   which we then map to ids + apply sort + finish overshoot trimming. */
+async function resolveViaV3Extension(
+  source: { type: string; [k: string]: any },
+  all: AppOverview[],
+  sort: string | string[] | undefined,
+  shelfId: string | undefined,
+  sortReverse: boolean | boolean[] | undefined,
+  finish: (ids: number[]) => number[],
+): Promise<number[]> {
+  try {
+    const { SOURCE_V3_RESOLVERS } = require("./v3Extensions") as typeof import("./v3Extensions");
+    // `builtin` wraps a v3 source id (the picker's shape); a bare v3 `type`
+    // is also honoured for power-users editing JSON directly.
+    const v3id = source.type === "builtin" ? String((source as any).sourceId ?? "") : source.type;
+    const v3 = SOURCE_V3_RESOLVERS[v3id];
+    if (!v3) return [];
+    const filtered = v3(all);
+    const ids = filtered.map((a) => appIdOf(a)).filter(Number.isFinite);
+    if (sort) await enrichForSort(sort, ids, all);
+    const sorted = sort ? applySortToIds(ids, sort, all, shelfId, sortReverse) : ids;
+    return finish(sorted);
+  } catch { return []; /* fall through to empty */ }
+}
+
 export async function resolveShelfAppIds(
   source: { type: string; [k: string]: any },
   limit: number,
@@ -3664,12 +3853,7 @@ export async function resolveShelfAppIds(
 ): Promise<number[]> {
   const { hiddenAppIds, dedupeByName, onResolveTotal } = options ?? {};
   const hiddenSet = hiddenAppIds?.length ? new Set(hiddenAppIds) : undefined;
-  // Overshoot for render-time filters: hidden*2 for the picker, plus
-  // max(10, 50% of limit) for online owned/name matches. Capped at 3x.
-  const isOnlineShelf = source.type === "wishlist" || source.type === "store";
-  const ownedOvershoot = isOnlineShelf ? Math.max(10, Math.ceil(limit * 0.5)) : 0;
-  const hiddenOvershoot = hiddenSet ? hiddenSet.size * 2 : 0;
-  const overShootLimit = Math.min(limit + hiddenOvershoot + ownedOvershoot, limit * 3);
+  const overShootLimit = computeOvershootLimit(source, limit, hiddenSet);
 
   let all = await getAllAppOverviews();
   // Startup readiness: if Steam hasn't loaded app data yet, retry once after a short delay
@@ -3692,26 +3876,7 @@ export async function resolveShelfAppIds(
   };
   const handler = SOURCE_RESOLVERS[source.type];
   if (handler) return handler(ctx);
-  /* first-party Shelf Source Ecosystem v3 lives
-     in a sibling module. Each resolver synchronously projects from
-     the already-loaded `all` AppOverview list. The resolver receives
-     `all` and returns the filtered AppOverview[], which we then map
-     to ids + apply sort + finish overshoot trimming. */
-  try {
-    const { SOURCE_V3_RESOLVERS } = require("./v3Extensions") as typeof import("./v3Extensions");
-    // `builtin` wraps a v3 source id (the picker's shape); a bare v3 `type`
-    // is also honoured for power-users editing JSON directly.
-    const v3id = source.type === "builtin" ? String((source as any).sourceId ?? "") : source.type;
-    const v3 = SOURCE_V3_RESOLVERS[v3id];
-    if (v3) {
-      const filtered = v3(all);
-      const ids = filtered.map((a) => appIdOf(a)).filter(Number.isFinite);
-      if (sort) await enrichForSort(sort, ids, all);
-      const sorted = sort ? applySortToIds(ids, sort, all, shelfId, sortReverse) : ids;
-      return finish(sorted);
-    }
-  } catch { /* fall through to empty */ }
-  return [];
+  return resolveViaV3Extension(source, all, sort, shelfId, sortReverse, finish);
 }
 
 // Per-client display_status + byte counters covering Steam's "update in

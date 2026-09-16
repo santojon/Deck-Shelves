@@ -80,7 +80,7 @@ export function ImportFromCustomFiltersModal({ closeModal, controller }: { close
       setLoading(false)
       setError(t('toast_failed_import'))
     }
-    loadTabs()
+    void loadTabs()
   }, [])
 
   const doImport = async (entry: ImportTab) => {

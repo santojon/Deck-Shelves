@@ -7,7 +7,7 @@ run_checks() {
   local fail=0
   local src="$root/src"
 
-  if grep -Riq "switch[-_ ]like\s*banner\|switchlikebanner\|switch[-_ ]banners" "$src" 2>/dev/null; then
+  if grep -Riq "switch[-_ ]like\s*banner\|switchlikebanner\|switch[-_ ]banners" "$src" --exclude-dir=__pycache__ 2>/dev/null; then
     echo "  ❌ Source references 'switch-like banners' (may indicate theme-specific coupling)"
     ((fail++))
   else

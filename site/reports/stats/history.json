@@ -1,0 +1,511 @@
+[
+  {
+    "date": "2026-03-27",
+    "githubDownloads": 23
+  },
+  {
+    "date": "2026-04-02",
+    "githubDownloads": 70
+  },
+  {
+    "date": "2026-04-04",
+    "githubDownloads": 90
+  },
+  {
+    "date": "2026-04-06",
+    "githubDownloads": 113
+  },
+  {
+    "date": "2026-04-07",
+    "githubDownloads": 176
+  },
+  {
+    "date": "2026-04-09",
+    "githubDownloads": 349
+  },
+  {
+    "date": "2026-04-11",
+    "githubDownloads": 473
+  },
+  {
+    "date": "2026-04-14",
+    "githubDownloads": 539
+  },
+  {
+    "date": "2026-04-16",
+    "githubDownloads": 607
+  },
+  {
+    "date": "2026-04-17",
+    "githubDownloads": 638
+  },
+  {
+    "date": "2026-04-18",
+    "githubDownloads": 682
+  },
+  {
+    "date": "2026-04-19",
+    "githubDownloads": 797
+  },
+  {
+    "date": "2026-04-21",
+    "githubDownloads": 840
+  },
+  {
+    "date": "2026-04-22",
+    "githubDownloads": 882
+  },
+  {
+    "date": "2026-04-24",
+    "githubDownloads": 948
+  },
+  {
+    "date": "2026-04-27",
+    "githubDownloads": 993
+  },
+  {
+    "date": "2026-04-28",
+    "githubDownloads": 1029
+  },
+  {
+    "date": "2026-04-29",
+    "githubDownloads": 1066
+  },
+  {
+    "date": "2026-04-30",
+    "githubDownloads": 1210
+  },
+  {
+    "date": "2026-05-06",
+    "githubDownloads": 1255
+  },
+  {
+    "date": "2026-05-08",
+    "githubDownloads": 1283
+  },
+  {
+    "date": "2026-05-09",
+    "githubDownloads": 1323
+  },
+  {
+    "date": "2026-05-14",
+    "githubDownloads": 1369
+  },
+  {
+    "date": "2026-05-15",
+    "githubDownloads": 1425
+  },
+  {
+    "date": "2026-05-24",
+    "githubDownloads": 1477
+  },
+  {
+    "date": "2026-05-27",
+    "githubDownloads": 1557
+  },
+  {
+    "date": "2026-06-03",
+    "githubDownloads": 1600
+  },
+  {
+    "date": "2026-06-06",
+    "githubDownloads": 1643
+  },
+  {
+    "date": "2026-06-10",
+    "githubDownloads": 1683
+  },
+  {
+    "date": "2026-06-12",
+    "githubDownloads": 1796
+  },
+  {
+    "date": "2026-06-17",
+    "npm": {
+      "api": 46
+    }
+  },
+  {
+    "date": "2026-06-24",
+    "npm": {
+      "api": 332
+    }
+  },
+  {
+    "date": "2026-06-30",
+    "githubDownloads": 1945
+  },
+  {
+    "date": "2026-07-01",
+    "npm": {
+      "api": 346
+    }
+  },
+  {
+    "date": "2026-07-05",
+    "githubDownloads": 1998
+  },
+  {
+    "date": "2026-07-08",
+    "npm": {
+      "api": 532
+    },
+    "githubDownloads": 2020
+  },
+  {
+    "date": "2026-07-09",
+    "githubDownloads": 2042
+  },
+  {
+    "date": "2026-07-10",
+    "githubDownloads": 2143
+  },
+  {
+    "date": "2026-07-12",
+    "npm": {
+      "host": 251
+    }
+  },
+  {
+    "date": "2026-07-15",
+    "npm": {
+      "api": 552
+    }
+  },
+  {
+    "date": "2026-07-19",
+    "npm": {
+      "host": 260
+    }
+  },
+  {
+    "date": "2026-07-20",
+    "githubDownloads": 2352
+  },
+  {
+    "date": "2026-07-22",
+    "npm": {
+      "api": 818
+    }
+  },
+  {
+    "date": "2026-07-26",
+    "npm": {
+      "host": 424
+    }
+  },
+  {
+    "date": "2026-07-29",
+    "npm": {
+      "api": 880
+    }
+  },
+  {
+    "date": "2026-08-02",
+    "npm": {
+      "host": 448
+    }
+  },
+  {
+    "date": "2026-08-05",
+    "npm": {
+      "api": 890
+    }
+  },
+  {
+    "date": "2026-08-09",
+    "npm": {
+      "host": 457
+    }
+  },
+  {
+    "date": "2026-08-12",
+    "npm": {
+      "api": 922
+    }
+  },
+  {
+    "date": "2026-08-14",
+    "githubDownloads": 2437
+  },
+  {
+    "date": "2026-08-15",
+    "githubDownloads": 2693
+  },
+  {
+    "date": "2026-08-16",
+    "npm": {
+      "host": 465
+    }
+  },
+  {
+    "date": "2026-08-19",
+    "npm": {
+      "api": 937
+    }
+  },
+  {
+    "date": "2026-08-23",
+    "npm": {
+      "host": 610
+    }
+  },
+  {
+    "date": "2026-08-26",
+    "npm": {
+      "api": 1099
+    }
+  },
+  {
+    "date": "2026-08-30",
+    "npm": {
+      "host": 647
+    }
+  },
+  {
+    "date": "2026-09-01",
+    "traffic": {
+      "main": {
+        "views": 453,
+        "viewsUniques": 162,
+        "clones": 225,
+        "clonesUniques": 63
+      },
+      "api": {
+        "views": 24,
+        "viewsUniques": 4,
+        "clones": 60,
+        "clonesUniques": 25
+      },
+      "host": {
+        "views": 29,
+        "viewsUniques": 1,
+        "clones": 85,
+        "clonesUniques": 31
+      }
+    },
+    "npm": {
+      "api": 1115,
+      "host": 647
+    },
+    "deckyStoreInstalls": 12173,
+    "githubDownloads": 2693
+  },
+  {
+    "date": "2026-09-02",
+    "traffic": {
+      "main": {
+        "views": 423,
+        "viewsUniques": 153,
+        "clones": 241,
+        "clonesUniques": 68
+      },
+      "api": {
+        "views": 25,
+        "viewsUniques": 5,
+        "clones": 60,
+        "clonesUniques": 26
+      },
+      "host": {
+        "views": 29,
+        "viewsUniques": 1,
+        "clones": 86,
+        "clonesUniques": 33
+      },
+      "shelveshub": {
+        "views": 0,
+        "viewsUniques": 0,
+        "clones": 6,
+        "clonesUniques": 1
+      }
+    },
+    "npm": {
+      "api": 1117,
+      "host": 652
+    },
+    "deckyStoreInstalls": 16692,
+    "githubDownloads": 2892
+  },
+  {
+    "date": "2026-09-10",
+    "traffic": {
+      "main": {
+        "views": 978,
+        "viewsUniques": 413,
+        "clones": 175,
+        "clonesUniques": 67
+      },
+      "api": {
+        "views": 7,
+        "viewsUniques": 5,
+        "clones": 34,
+        "clonesUniques": 20
+      },
+      "host": {
+        "views": 3,
+        "viewsUniques": 2,
+        "clones": 43,
+        "clonesUniques": 20
+      },
+      "shelveshub": {
+        "views": 1,
+        "viewsUniques": 1,
+        "clones": 6,
+        "clonesUniques": 1
+      }
+    },
+    "npm": {
+      "api": 1129,
+      "host": 658
+    },
+    "deckyStoreInstalls": 17761,
+    "deckyStoreUpdates": 1663,
+    "githubDownloads": 4473,
+    "versionDownloads": {
+      "stable": {
+        "v3.2.1": 412,
+        "v3.2.0": 120,
+        "v3.1.0": 245,
+        "v3.0.2": 136,
+        "v3.0.1": 88,
+        "v3.0.0": 185,
+        "v2.4.3": 148,
+        "v2.4.2": 75,
+        "v2.4.1": 78,
+        "v2.4.0": 78,
+        "v2.3.2": 95,
+        "v2.3.1": 55,
+        "v2.3.0": 87,
+        "v2.2.2": 91,
+        "v2.2.1": 60,
+        "v2.2.0": 56,
+        "v2.1.1": 75,
+        "v2.1.0": 63,
+        "v2.0.1": 80,
+        "v2.0.0": 179,
+        "v1.6.3": 72,
+        "v1.6.2": 71,
+        "v1.6.1": 80,
+        "v1.6.0": 101,
+        "v1.5.3": 77,
+        "v1.5.2": 78,
+        "v1.5.1": 96,
+        "v1.5.0": 90,
+        "v1.4.0": 79,
+        "v1.3.1": 66,
+        "v1.3.0": 80,
+        "v1.2.5": 58,
+        "v1.2.4": 101,
+        "v1.2.3": 159,
+        "v1.2.2": 111,
+        "v1.2.1": 62,
+        "v1.2.0": 105,
+        "v1.1.3": 77,
+        "v1.1.2": 56,
+        "v1.1.1": 58,
+        "v1.1.0": 55,
+        "v1.0.0": 60,
+        "v0.2.0": 57,
+        "v0.1.0": 58
+      },
+      "beta": {
+        "v3.2.2-beta.2": 7,
+        "v3.2.2-beta.1": 34,
+        "v3.0.2-beta.2": 57,
+        "v3.0.2-beta.1": 57
+      }
+    }
+  },
+  {
+    "date": "2026-09-11",
+    "traffic": {
+      "main": {
+        "views": 1048,
+        "viewsUniques": 440,
+        "clones": 178,
+        "clonesUniques": 66
+      },
+      "api": {
+        "views": 7,
+        "viewsUniques": 5,
+        "clones": 38,
+        "clonesUniques": 20
+      },
+      "host": {
+        "views": 3,
+        "viewsUniques": 2,
+        "clones": 41,
+        "clonesUniques": 20
+      },
+      "shelveshub": {
+        "views": 1,
+        "viewsUniques": 1,
+        "clones": 5,
+        "clonesUniques": 1
+      }
+    },
+    "npm": {
+      "api": 1139,
+      "host": 668
+    },
+    "deckyStoreInstalls": 17838,
+    "deckyStoreUpdates": 1669,
+    "githubDownloads": 4693,
+    "versionDownloads": {
+      "stable": {
+        "v3.2.1": 424,
+        "v3.2.0": 124,
+        "v3.1.0": 249,
+        "v3.0.2": 140,
+        "v3.0.1": 92,
+        "v3.0.0": 189,
+        "v2.4.3": 152,
+        "v2.4.2": 79,
+        "v2.4.1": 82,
+        "v2.4.0": 82,
+        "v2.3.2": 99,
+        "v2.3.1": 59,
+        "v2.3.0": 91,
+        "v2.2.2": 95,
+        "v2.2.1": 64,
+        "v2.2.0": 60,
+        "v2.1.1": 79,
+        "v2.1.0": 67,
+        "v2.0.1": 84,
+        "v2.0.0": 183,
+        "v1.6.3": 76,
+        "v1.6.2": 75,
+        "v1.6.1": 84,
+        "v1.6.0": 105,
+        "v1.5.3": 81,
+        "v1.5.2": 82,
+        "v1.5.1": 100,
+        "v1.5.0": 94,
+        "v1.4.0": 83,
+        "v1.3.1": 70,
+        "v1.3.0": 84,
+        "v1.2.5": 62,
+        "v1.2.4": 105,
+        "v1.2.3": 163,
+        "v1.2.2": 115,
+        "v1.2.1": 66,
+        "v1.2.0": 109,
+        "v1.1.3": 81,
+        "v1.1.2": 60,
+        "v1.1.1": 62,
+        "v1.1.0": 59,
+        "v1.0.0": 64,
+        "v0.2.0": 61,
+        "v0.1.0": 62
+      },
+      "beta": {
+        "v3.3.0-beta.2": 5,
+        "v3.3.0-beta.1": 3,
+        "v3.2.2-beta.2": 20,
+        "v3.2.2-beta.1": 38,
+        "v3.0.2-beta.2": 61,
+        "v3.0.2-beta.1": 61
+      }
+    }
+  }
+]

@@ -1,6 +1,8 @@
 
 import { invalidateAppOverviewCache } from '../steam';
 import { pauseShelfRefresh, resumeShelfRefresh } from '../core/shelfRefresh';
+import { refreshDisplay, refreshControllerState } from './deviceState';
+import { forceBatteryRefresh } from './batteryState';
 import { logInfo } from './logger';
 
 function getSteamClient(): any {
@@ -24,6 +26,11 @@ export function installSystemEvents(): () => void {
     logInfo('RUNTIME', 'system resume detected — invalidating cache and resuming refresh');
     invalidateAppOverviewCache();
     resumeShelfRefresh(); // triggers immediate refresh of all subscribed shelves
+    // None of these fire an event for a change that happened while asleep —
+    // force fresh reads so profile triggers see reality, not pre-sleep state.
+    void refreshDisplay();
+    refreshControllerState();
+    forceBatteryRefresh();
   };
 
   // Primary: SteamClient.System.RegisterForSuspendResumeEvents

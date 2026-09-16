@@ -14,7 +14,7 @@
 import { spawnSync } from "node:child_process";
 import {
   existsSync, mkdirSync, rmSync, cpSync, copyFileSync,
-  readFileSync, writeFileSync, readdirSync, statSync,
+  readFileSync, writeFileSync, readdirSync,
 } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -69,16 +69,19 @@ try {
 }
 mkdirSync(join(dest, "dist"), { recursive: true });
 
-// plugin.json (+ dev `debug` flag), package.json, main.py + every root *.py.
+// plugin.json (+ dev `debug` flag), package.json, main.py + every backend
+// module main.py depends on (staged at src/backend/, matching main.py's own
+// sys.path splice).
 const pluginJson = JSON.parse(readFileSync(join(ROOT, "plugin.json"), "utf8"));
 pluginJson.flags = Array.isArray(pluginJson.flags) ? pluginJson.flags : [];
 if (!pluginJson.flags.includes("debug")) pluginJson.flags.push("debug");
 writeFileSync(join(dest, "plugin.json"), JSON.stringify(pluginJson, null, 2) + "\n");
 copyFileSync(join(ROOT, "package.json"), join(dest, "package.json"));
-for (const f of readdirSync(ROOT)) {
-  if (f.endsWith(".py") && statSync(join(ROOT, f)).isFile()) {
-    copyFileSync(join(ROOT, f), join(dest, f));
-  }
+copyFileSync(join(ROOT, "main.py"), join(dest, "main.py"));
+const backendDest = join(dest, "src", "backend");
+mkdirSync(backendDest, { recursive: true });
+for (const f of readdirSync(join(ROOT, "src", "backend"))) {
+  if (f.endsWith(".py")) copyFileSync(join(ROOT, "src", "backend", f), join(backendDest, f));
 }
 
 // Frontend + optional asset trees.

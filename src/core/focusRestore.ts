@@ -59,6 +59,34 @@ function getMainNavTree(): any {
   return getNavTrees().find((t: any) => t.m_ID === "GamepadUI_Full_Root") ?? null;
 }
 
+function nodeElement(node: any): HTMLElement | null {
+  const el = node?.m_element ?? node?.Element ?? node?.m_pElement ?? node?.element;
+  // Not `instanceof HTMLElement` — this can run against an element from a
+  // different window/realm (BP's own document, read from the SJC realm),
+  // where that check silently fails on the prototype-chain mismatch.
+  return el?.nodeType === 1 ? (el as HTMLElement) : null;
+}
+
+/* The tree's own `m_lastFocusNode` is the reliable source of "what's really
+   focused" — confirmed live (2026-09-12) it tracks correctly on every
+   BTakeFocus call, unlike document.activeElement (moves inconsistently)
+   or the `gpfocus` class (never applied at all on this beta). */
+export function getLastFocusedElement(): HTMLElement | null {
+  const tree = getMainNavTree();
+  return nodeElement(tree?.m_lastFocusNode ?? tree?.m_LastFocusNode);
+}
+
+/* The gamepad-focused element in the ACTIVE nav context — the beta-safe stand-in
+   for `document.querySelector('.gpfocus')`, which this beta never applies (see the
+   note above). While the QAM is open its context is the active one, so this reads
+   QAM-internal focus, unlike getLastFocusedElement() which is pinned to the home
+   tree. Falls back to the last active context. */
+export function getActiveFocusedElement(): HTMLElement | null {
+  const ctrl = getFocusNavController();
+  const node = ctrl?.m_ActiveContext?.m_lastFocusNode ?? ctrl?.m_LastActiveContext?.m_lastFocusNode;
+  return nodeElement(node);
+}
+
 function findNavNodeForElement(el: HTMLElement): any {
   const walk = (node: any, target: HTMLElement): any => {
     // Cover property name variations across SteamOS versions
@@ -92,9 +120,18 @@ function takeNavFocus(navNode: any): boolean {
   return false;
 }
 
+/* Confirmed live (2026-09-11 beta): Steam's real nav tree has no entry for
+   our shelf content on this build. Raw DOM .focus() here would desync
+   document.activeElement from the node Steam's tree still tracks (e.g. the
+   search bar) — native elements with a real nav node keep the fallback. */
+function isUnintegratedDsElement(el: HTMLElement): boolean {
+  return !!el.closest?.(".ds-card, .deck-shelves-root");
+}
+
 export function focusElement(el: HTMLElement): boolean {
   const navNode = findNavNodeForElement(el);
   if (navNode && takeNavFocus(navNode)) return true;
+  if (isUnintegratedDsElement(el)) return false;
   try { el.focus?.(); } catch {}
   return false;
 }
@@ -141,17 +178,61 @@ export function tryRestoreFocus(): boolean {
   }
 
   const navNode = findNavNodeForElement(card);
-  if (navNode) {
-    takeNavFocus(navNode);
-  } else {
-    try {
-      card.focus?.();
-      card.scrollIntoView?.({ block: "center", behavior: "smooth" });
-    } catch {}
-  }
-  // Unconfirmed: keep the pending state so a later call retries once the
-  // rebuilt nav tree actually registers the node.
+  if (navNode) takeNavFocus(navNode);
+  // No navNode: skip the raw DOM-focus fallback (see focusElement above).
+  // Keep the pending state so a later call retries once the rebuilt nav
+  // tree actually registers the node.
   return false;
+}
+
+let coldBootAbort: AbortController | null = null;
+// 6s matches the post-restore loop's own overall settle window below — local
+// shelves (Steam library store hydration) have been observed taking ~4s on
+// cold boot, so a shorter window risks expiring just before they populate.
+const COLD_BOOT_GUARD_MS = 6000;
+
+/* Cold-boot default-focus fix: an online shelf reads a synchronous
+   localStorage cache and can render before an earlier LOCAL shelf finishes
+   loading Steam's own library store. Steam's "focus first card" boot reflex
+   ignores shelf order, so it lands wherever that race landed first — walk it
+   back once an earlier shelf has cards; no-op once it already landed right. */
+export function beginColdBootFocusGuard(orderedShelfIds: string[]): void {
+  if (hasPendingFocus() || orderedShelfIds.length < 2) return;
+  coldBootAbort?.abort();
+  const abort = new AbortController();
+  coldBootAbort = abort;
+
+  const doc = getPreferredSteamDocument();
+  if (!doc) return;
+
+  // A real directional press proves the user is in control — stand down for
+  // good so their own navigation is never fought (same gate as the
+  // post-restore confirmation loop below).
+  let userNavigated = false;
+  const onDirection = () => { userNavigated = true; };
+  doc.addEventListener("vgp_ondirection", onDirection, true);
+  const cleanup = () => doc.removeEventListener("vgp_ondirection", onDirection, true);
+  abort.signal.addEventListener("abort", cleanup, { once: true });
+
+  const start = Date.now();
+  const tick = () => {
+    if (abort.signal.aborted || userNavigated) { cleanup(); return; }
+    const gp = doc.querySelector(".ds-card.gpfocus") as HTMLElement | null;
+    const focusedShelfId = gp?.getAttribute("data-shelfid");
+    const focusedIdx = focusedShelfId ? orderedShelfIds.indexOf(focusedShelfId) : -1;
+    if (focusedIdx > 0) {
+      for (let i = 0; i < focusedIdx; i++) {
+        const earlier = doc.querySelector(`.ds-card[data-shelfid="${orderedShelfIds[i]}"]`) as HTMLElement | null;
+        if (!earlier) continue;
+        const navNode = findNavNodeForElement(earlier);
+        if (navNode) takeNavFocus(navNode);
+        break;
+      }
+    }
+    if (Date.now() - start < COLD_BOOT_GUARD_MS) { setTimeout(tick, 200); return; }
+    cleanup();
+  };
+  setTimeout(tick, 200);
 }
 
 let activeAbort: AbortController | null = null;
@@ -193,16 +274,27 @@ export function beginFocusRestoreLoop(): void {
      5 s + up to 5 re-takes. Steam's native focus-first-card reflex can
      fire as late as 3 s after the home remounts. */
   const scheduleConfirmation = () => {
+    /* A genuine directional press during this window proves the user is back
+       in control — any focus loss from here on is their own navigation, not
+       Steam's reflex, so this loop must stand down for good (reported live:
+       Down got fought and snapped back ~1.6s later). Scoped to this call's
+       own 5s lifetime. */
+    let userNavigated = false;
+    const onDirection = () => { userNavigated = true; };
+    doc.addEventListener("vgp_ondirection", onDirection, true);
+    const stopListening = () => doc.removeEventListener("vgp_ondirection", onDirection, true);
+
     let reTakes = 0;
     const start = Date.now();
     const check = () => {
-      if (activeAbort !== abort) return;
+      if (activeAbort !== abort || userNavigated) { stopListening(); return; }
       const card = findCard();
       if (card && !card.classList.contains("gpfocus") && reTakes < 5) {
         const navNode = findNavNodeForElement(card);
         if (navNode && takeNavFocus(navNode)) reTakes++;
       }
-      if (Date.now() - start < 5000) setTimeout(check, 200);
+      if (Date.now() - start < 5000) { setTimeout(check, 200); return; }
+      stopListening();
     };
     setTimeout(check, 150);
   };
@@ -227,14 +319,8 @@ export function beginFocusRestoreLoop(): void {
       // Not confirmed yet — let the next poll verify gpfocus landed.
       return false;
     }
-    // Nav tree never registered the node — last-resort DOM focus once the
-    // window is nearly spent. DOM focus won't sync the gamepad tree but beats
-    // Steam defaulting to the first card.
-    if (Date.now() >= DEADLINE - 200) {
-      try { card.focus?.(); card.scrollIntoView?.({ block: 'nearest' }); } catch {}
-      succeed();
-      return true;
-    }
+    // No navNode: skip the raw DOM-focus fallback (see focusElement above)
+    // and let the outer 6s hard timeout clear pending state.
     return false;
   };
 

@@ -20,9 +20,15 @@
   "view_more_store": "Voir plus\ndans la\nBoutique",
   "view_more_wishlist": "Voir plus\ndans la\nliste de souhaits",
   "download_update": "Télécharger la mise à jour",
+  "update_install": "Installer la mise à jour",
+  "update_installing": "Installation de la mise à jour {{version}}…",
+  "update_installed": "Mis à jour vers {{version}} — rechargement…",
+  "update_install_failed": "Échec de l'installation — retour au téléchargement.",
   "update_downloading": "Téléchargement de la mise à jour {{version}}…",
   "update_downloaded": "Enregistré dans {{path}} — installez-le manuellement.",
   "update_download_failed": "Échec du téléchargement — ouverture de la page de version.",
-  "shelf_type_normal": "Normal",
-  "shelf_type_smart": "Smart"
+  "shelf_type_normal": "Normale",
+  "shelf_type_smart": "Intelligente",
+  "update_installing_title": "Installation de la mise à jour",
+  "update_will_reload": "Steam redémarrera une fois terminé."
 }

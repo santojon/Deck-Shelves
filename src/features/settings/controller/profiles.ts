@@ -69,8 +69,9 @@ function normalizeImportedProfile(p: any, seenNames: Set<string>): ProfileRecord
   if (typeof p.snapshot !== "object" || !p.snapshot) return null;
   let name = p.name.trim().slice(0, 64);
   let n = 2;
+  const copyWord = i18next.t("profile_duplicate_suffix");
   while (seenNames.has(name.toLowerCase())) {
-    name = `${p.name.trim().slice(0, 56)} (cópia ${n})`.slice(0, 64);
+    name = `${p.name.trim().slice(0, 56)} (${copyWord} ${n})`.slice(0, 64);
     n++;
   }
   seenNames.add(name.toLowerCase());
@@ -169,10 +170,11 @@ export function createProfileActions(deps: ProfilesDeps) {
       const source = profiles.find((p) => p.id === id);
       if (!source) return null;
       // Suffix with a unique counter so duplicates of duplicates work.
-      let name = `${source.name} (cópia)`.slice(0, 64);
+      const copyWord = i18next.t("profile_duplicate_suffix");
+      let name = `${source.name} (${copyWord})`.slice(0, 64);
       let n = 2;
       while (isNameTaken(profiles, name)) {
-        const stem = `${source.name} (cópia ${n})`;
+        const stem = `${source.name} (${copyWord} ${n})`;
         name = stem.slice(0, 64);
         n++;
       }
@@ -442,6 +444,30 @@ export function createProfileActions(deps: ProfilesDeps) {
       else if (!disabled && has) next = list.filter((k) => k !== key);
       else return;
       await persist({ ...s, buttonBindingsDisabled: next } as Settings);
+    },
+    async setKeyboardBinding(key: "cardHideRemove" | "cardHighlightToggle" | "cardQuickLaunch" | "navSearch" | "navSideNav" | "navSidecarOpen" | "navSidecarClose", value: string | null) {
+      const s = liveSettings();
+      if (!s) return;
+      const current = (s as any).keyboardBindings ?? {};
+      const next = { ...current, [key]: value };
+      if (current[key] === next[key]) return;
+      await persist({ ...s, keyboardBindings: next } as Settings);
+    },
+    async resetKeyboardBindings() {
+      const s = liveSettings();
+      if (!s) return;
+      await persist({ ...s, keyboardBindings: {}, keyboardBindingsDisabled: [] } as Settings);
+    },
+    async setKeyboardBindingDisabled(key: string, disabled: boolean) {
+      const s = liveSettings();
+      if (!s) return;
+      const list = ((s as any).keyboardBindingsDisabled ?? []) as string[];
+      const has = list.includes(key);
+      let next: string[];
+      if (disabled && !has) next = [...list, key];
+      else if (!disabled && has) next = list.filter((k) => k !== key);
+      else return;
+      await persist({ ...s, keyboardBindingsDisabled: next } as Settings);
     },
   };
 }

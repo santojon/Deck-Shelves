@@ -1,5 +1,5 @@
-"""Settings page tabs — opened via the QAM gear icon (not a route nav, which
-lands on the library).
+"""Settings page tabs — reached by a direct route nav (`/deck-shelves/settings`,
+registered via `routerHook.addRoute` in `index.tsx`), not the QAM gear icon.
 
 Shelves, Profiles, Backup, Shortcuts, Suggestions and Statistics are visible by
 default (Shortcuts/Suggestions/Statistics hide in Light mode). Integrations and
@@ -8,6 +8,13 @@ is absent the scenario returns no file.
 
 Screenshots are captured with the UI forced to en-US (see the settings opener),
 so tab matching uses plain English labels.
+
+Previously went through the QAM (open panel → click Decky tab → click Deck
+Shelves plugin entry → click the gear icon) for the same reason `about.py`
+used to: `nav.py`'s own `navigate()` called an unconditional, unrelated
+`m_Navigator.LibraryTab()` before ever trying the route. Fixed there —
+`inst.Navigate('/deck-shelves/settings')` reaches this page directly, no
+QAM interaction (and its own unreliable tab-selection state) involved.
 """
 from __future__ import annotations
 
@@ -17,24 +24,22 @@ from pathlib import Path
 from typing import Dict
 
 from deckprobe.screenshots.lib.cdp import Session
-from deckprobe.screenshots.lib.nav import (
-    navigate_to_ds_qam, click_qam_button, _bp_eval, _dismiss_bp_modal,
-)
+from deckprobe.screenshots.lib.nav import navigate_settings, _bp_eval, _dismiss_bp_modal
 from deckprobe.screenshots.lib.capture import capture_bigpicture
 from deckprobe.screenshots.lib.registry import register
 from ._locale import force_english
 
-GEAR_ICON = "M19.4 15a1.65"  # Settings gear icon in the QAM title bar
+_LANDED_CHECK = "document.querySelectorAll('[role=\"tab\"]').length > 0"
 
 
 def _open_settings(sjc: Session, host: str, port: int) -> bool:
-    if not navigate_to_ds_qam(sjc, host, port):
-        return False
     force_english(sjc)
-    if not click_qam_button(host, port, GEAR_ICON):
-        return False
-    time.sleep(2.5)
-    return True
+    _dismiss_bp_modal(host, port)
+    navigate_settings(sjc, settle_ms=2000)
+    if _bp_eval(host, port, _LANDED_CHECK) is True:
+        return True
+    navigate_settings(sjc, settle_ms=1500)
+    return _bp_eval(host, port, _LANDED_CHECK) is True
 
 
 def _switch_tab(host: str, port: int, *substrings: str) -> str:

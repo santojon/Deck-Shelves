@@ -163,3 +163,43 @@ describe('containerToShelfSource', () => {
     expect((result as any).tab).toBe('')
   })
 })
+
+describe('TabMaster v2.10+ filter parity (import mapping)', () => {
+  it('maps current TabMaster filter types instead of falling back to nameIncludes', () => {
+    expect(mapFilterTypeToInternal('regex')).toBe('nameRegex')
+    expect(mapFilterTypeToInternal('tags')).toBe('storeTag')
+    expect(mapFilterTypeToInternal('time played')).toBe('playtimeRange')
+    expect(mapFilterTypeToInternal('size on disk')).toBe('installedSizeRange')
+    expect(mapFilterTypeToInternal('review score')).toBe('reviewScore')
+    expect(mapFilterTypeToInternal('release date')).toBe('releaseDate')
+    expect(mapFilterTypeToInternal('coming soon')).toBe('comingSoon')
+    expect(mapFilterTypeToInternal('demo')).toBe('demo')
+    expect(mapFilterTypeToInternal('streamable')).toBe('remotePlayLocation')
+    expect(mapFilterTypeToInternal('install folder')).toBe('storageDevice')
+  })
+
+  it('keeps SteamOS compatibility DISTINCT from system compatibility (divergent data)', () => {
+    expect(mapFilterTypeToInternal('steamos compatibility')).toBe('steamosCompatibility')
+    expect(mapFilterTypeToInternal('system compatibility')).toBe('systemCompatibility')
+  })
+
+  it('normalizes SteamOS/Deck { category } to our levels[]', () => {
+    expect(convertFilterToItem({ type: 'steamos compatibility', params: { category: 3 } }).params!.levels).toEqual(['verified'])
+    expect(convertFilterToItem({ type: 'deck compatibility', params: { category: 2 } }).params!.levels).toEqual(['playable'])
+  })
+
+  it('normalizes review score / release date / size params', () => {
+    const rs = convertFilterToItem({ type: 'review score', params: { scoreThreshold: 80, condition: 'below', type: 'steam' } })
+    expect(rs.params).toMatchObject({ value: 80, op: '<=', source: 'steam' })
+    const rd = convertFilterToItem({ type: 'release date', params: { date: 1600000000, condition: 'above' } })
+    expect(rd.params).toMatchObject({ ts: 1600000000, op: 'after' })
+    const sz = convertFilterToItem({ type: 'size on disk', params: { gbThreshold: 10, condition: 'above' } })
+    expect(sz.params!.minMB).toBe(10240)
+  })
+
+  it('inverts blacklist and non-coming-soon on import', () => {
+    expect(convertFilterToItem({ type: 'blacklist', params: { appIds: [1] } }).inverted).toBe(true)
+    expect(convertFilterToItem({ type: 'coming soon', params: { isComingSoon: false } }).inverted).toBe(true)
+    expect(convertFilterToItem({ type: 'coming soon', params: { isComingSoon: true } }).inverted).toBe(false)
+  })
+})

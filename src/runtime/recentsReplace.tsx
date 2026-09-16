@@ -205,7 +205,7 @@ function visibleCandidateShelves(): any[] {
   return [...normals, ...smarts];
 }
 
-function activeFirstShelf() {
+export function activeFirstShelf() {
   if (replaceFailed) return null;
   const s = getCurrentSettings();
   if (!s?.enabled || s.hideRecents !== true || s.recentsReplaceSource !== true) return null;

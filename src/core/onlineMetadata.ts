@@ -12,8 +12,29 @@ const META_TTL = 14 * 24 * 60 * 60 * 1000; // 14 days
 const NAME_TTL = 30 * 24 * 60 * 60 * 1000; // 30 days
 const MAX_ENRICH_PER_PASS = 40;            // never fan out the whole library
 
-export interface GameMetadata { metacritic?: number; reviewPct?: number; releaseTs?: number }
+export interface GameMetadata {
+  metacritic?: number;
+  reviewPct?: number;
+  releaseTs?: number;
+  /* Store `platforms` ({ windows, mac, linux }) — used to fill
+     `available_on_current_platform` on hosts whose local Steam client doesn't
+     expose it (e.g. macOS), so the system-compatibility filter works there. */
+  platforms?: { windows?: boolean; mac?: boolean; linux?: boolean };
+  /* Store `short_description` — the online fallback for the card/hero description
+     on hosts where `appStore.GetDescriptions` is absent (e.g. macOS). */
+  shortDescription?: string;
+}
 type Entry<T> = { ts: number; v: T };
+
+/** The current Steam platform key, to index a store `platforms` object. */
+export function currentPlatformKey(): "windows" | "mac" | "linux" {
+  try {
+    const p = (globalThis as any).navigator?.platform ?? "";
+    if (/mac/i.test(p)) return "mac";
+    if (/win/i.test(p)) return "windows";
+  } catch { /* fall through */ }
+  return "linux";
+}
 
 function readMap<T>(key: string): Record<string, Entry<T>> {
   try { return JSON.parse(localStorage.getItem(key) || "{}") as Record<string, Entry<T>>; }
@@ -37,17 +58,33 @@ function withTimeout(url: string, ms = 6000): Promise<Response> {
   return fetch(url, { credentials: "include", signal: ac.signal }).finally(() => clearTimeout(t));
 }
 
-async function fetchAppDetails(appid: number): Promise<{ metacritic?: number; releaseTs?: number }> {
+function parseMetacritic(d: any): number | undefined {
+  return typeof d.metacritic?.score === "number" ? d.metacritic.score : undefined;
+}
+function parseReleaseTs(d: any): number | undefined {
+  const t = d.release_date?.date ? Date.parse(d.release_date.date) : NaN;
+  return Number.isFinite(t) ? Math.floor(t / 1000) : undefined;
+}
+function parsePlatforms(d: any): GameMetadata["platforms"] {
+  if (!d.platforms || typeof d.platforms !== "object") return undefined;
+  return { windows: !!d.platforms.windows, mac: !!d.platforms.mac, linux: !!d.platforms.linux };
+}
+function parseShortDescription(d: any): string | undefined {
+  return typeof d.short_description === "string" && d.short_description ? d.short_description : undefined;
+}
+
+async function fetchAppDetails(appid: number): Promise<Pick<GameMetadata, "metacritic" | "releaseTs" | "platforms" | "shortDescription">> {
   try {
-    const r = await withTimeout(`https://store.steampowered.com/api/appdetails?appids=${appid}&filters=metacritic,release_date&l=en&cc=us`);
+    const r = await withTimeout(`https://store.steampowered.com/api/appdetails?appids=${appid}&filters=metacritic,release_date,platforms,basic&l=en&cc=us`);
     const j = await r.json();
     const d = j?.[String(appid)]?.data;
     if (!d) return {};
-    const metacritic = typeof d.metacritic?.score === "number" ? d.metacritic.score : undefined;
-    let releaseTs: number | undefined;
-    const t = d.release_date?.date ? Date.parse(d.release_date.date) : NaN;
-    if (Number.isFinite(t)) releaseTs = Math.floor(t / 1000);
-    return { metacritic, releaseTs };
+    return {
+      metacritic: parseMetacritic(d),
+      releaseTs: parseReleaseTs(d),
+      platforms: parsePlatforms(d),
+      shortDescription: parseShortDescription(d),
+    };
   } catch { return {}; }
 }
 
@@ -125,4 +162,73 @@ export async function enrichApps(apps: any[]): Promise<number> {
   }));
   if (n) logInfo("STEAM", `onlineMetadata enriched ${n}/${targets.length} apps`);
   return n;
+}
+
+/** On when the master online toggle is enabled. The store fallback for compat +
+ *  descriptions is a data-availability fill (for hosts like macOS whose local
+ *  Steam client omits those fields), not an "advanced" metadata feature — so it
+ *  gates on the master online toggle only, independent of `onlineMetadataEnabled`. */
+export function onlineStoreFallbackOn(): boolean {
+  try {
+    const s = getCurrentSettings() as any;
+    return !!(s && s.onlineFeaturesEnabled);
+  } catch { return false; }
+}
+
+/** The metadata cache id for an app — must match `getGameMetadata`. */
+function metaCacheId(a: any): string {
+  return a.is_non_steam
+    ? `name:${String(a.display_name ?? a.sort_as ?? "").trim().toLowerCase()}`
+    : `app:${Number(a.appid)}`;
+}
+
+/* Our own platform-availability field. We must NOT write the store result onto
+   Steam's `available_on_current_platform` — that overview is the SAME object
+   Steam's store/app pages read to gate "available on this platform", so writing
+   `false` there blacks those pages out. The system-compatibility filter reads
+   this private field first (see steam/index.ts). */
+export const DS_PLATFORM_AVAIL = "__ds_available_on_platform";
+
+/** Fill our private `__ds_available_on_platform` from the store `platforms` for
+ *  apps whose local client left `available_on_current_platform` undefined (macOS,
+ *  where it's never `false`, so the filter would otherwise pass every game).
+ *  Applies the persistent cache to every undefined app (no network), then fetches
+ *  only never-fetched ones (bounded). Never touches Steam's own field. */
+export async function enrichPlatformAvailability(apps: any[]): Promise<number> {
+  if (!onlineStoreFallbackOn()) return 0;
+  const key = currentPlatformKey();
+  const undefinedApps = apps.filter(
+    (a) => a && a.available_on_current_platform === undefined && a[DS_PLATFORM_AVAIL] === undefined,
+  );
+  if (!undefinedApps.length) return 0;
+  let n = 0;
+  // Apply already-cached platform data to ALL undefined apps first — no network.
+  // Read the persistent map ONCE (localStorage parse is costly) and look up
+  // in-memory; a cached miss (`{}`) counts as tried, never re-fetched.
+  const cache = readMap<GameMetadata>(META_KEY);
+  const now = Date.now();
+  const uncached: any[] = [];
+  for (const a of undefinedApps) {
+    const e = cache[metaCacheId(a)];
+    const cached = e && now - e.ts < META_TTL ? e.v : undefined;
+    if (cached === undefined) { uncached.push(a); continue; }
+    if (cached.platforms) { a[DS_PLATFORM_AVAIL] = !!cached.platforms[key]; n++; }
+  }
+  // Fetch the never-fetched ones, bounded so a resolve never fans out the library.
+  const targets = uncached.slice(0, MAX_ENRICH_PER_PASS);
+  await Promise.all(targets.map(async (a) => {
+    const meta = await getGameMetadata(Number(a.appid), String(a.display_name ?? a.sort_as ?? ""), !!a.is_non_steam);
+    if (meta?.platforms) { a[DS_PLATFORM_AVAIL] = !!meta.platforms[key]; n++; }
+  }));
+  if (n) logInfo("STEAM", `platform availability: ${n} apps (${key}); fetched ${targets.length}, ${uncached.length - targets.length} pending`);
+  return n;
+}
+
+/** The store `short_description` for one app (cached), or undefined — the online
+ *  fallback for the card/hero description where `appStore.GetDescriptions` is
+ *  absent (macOS). Gated by the master online toggle. */
+export async function getStoreShortDescription(appid: number, name: string, isNonSteam: boolean): Promise<string | undefined> {
+  if (!onlineStoreFallbackOn()) return undefined;
+  const meta = await getGameMetadata(appid, name, isNonSteam);
+  return meta?.shortDescription;
 }

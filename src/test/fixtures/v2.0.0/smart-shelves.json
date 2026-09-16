@@ -1,0 +1,85 @@
+{
+  "enabled": true,
+  "hideRecents": false,
+  "recentsReplaceSource": false,
+  "hideHomeTabs": false,
+  "shelfHeroBackground": false,
+  "globalMatchNativeSize": false,
+  "globalHighlightFirst": false,
+  "globalHighlightAll": false,
+  "globalHideStatusLine": false,
+  "globalHideNewBadge": false,
+  "globalHideCompatIcons": false,
+  "globalHideNonSteamBadge": false,
+  "globalHideShelfTitle": false,
+  "globalHideGameNames": false,
+  "globalHideInstallIndicator": false,
+  "shelves": [],
+  "smartShelvesEnabled": true,
+  "smartShelvesAtBottom": false,
+  "smartShelves": [
+    {
+      "id": "sm_11111111",
+      "title": "Spare Time",
+      "mode": "spare_time",
+      "enabled": true,
+      "hidden": false,
+      "limit": 12,
+      "visibleHours": [
+        { "start": 6, "end": 9 },
+        { "start": 12, "end": 14 },
+        { "start": 19, "end": 22 }
+      ],
+      "smartParams": { "maxPlaytimeMinutes": 120 }
+    },
+    {
+      "id": "sm_22222222",
+      "title": "Weekend Picks",
+      "mode": "daily_pick",
+      "enabled": true,
+      "hidden": false,
+      "limit": 8,
+      "visibleDaysOfWeek": [0, 6]
+    },
+    {
+      "id": "sm_33333333",
+      "title": "My Own Mix",
+      "mode": "custom",
+      "enabled": true,
+      "hidden": false,
+      "limit": 20,
+      "filterGroup": {
+        "mode": "or",
+        "items": [
+          { "type": "isNew" },
+          { "type": "updatePending" }
+        ]
+      }
+    },
+    {
+      "id": "sm_44444444",
+      "title": "Curated Order",
+      "mode": "on_deck",
+      "enabled": true,
+      "hidden": false,
+      "limit": 10,
+      "sort": "manual",
+      "manualOrder": [730, 570],
+      "manualBaseSort": "recent",
+      "highlightedAppIds": [730],
+      "matchNativeSize": true,
+      "hideGameNames": true
+    },
+    {
+      "id": "sm_55555555",
+      "title": "Long Sessions",
+      "mode": "long_session",
+      "enabled": false,
+      "hidden": true,
+      "limit": 10
+    }
+  ],
+  "smartSurpriseMe": false,
+  "smartSurpriseMeCount": 0,
+  "savedFilters": []
+}

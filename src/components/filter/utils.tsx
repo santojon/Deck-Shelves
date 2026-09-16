@@ -21,6 +21,7 @@ export const ALL_FILTER_TYPES: FilterItemType[] = [
   "cloudAvailable",
   "controllerSupport",
   "systemCompatibility",
+  "steamosCompatibility",
   "remotePlayLocation",
   "friends",
   "friendsPlayingNow",
@@ -32,6 +33,10 @@ export const ALL_FILTER_TYPES: FilterItemType[] = [
   "appStatus",
   "discount",
   "priceRange",
+  "reviewScore",
+  "releaseDate",
+  "comingSoon",
+  "demo",
   "familySharing",
   "vrSupport",
   "soundtrackOwned",
@@ -81,6 +86,9 @@ export function canBeInverted(_type: FilterItemType): boolean {
 const DEFAULT_PARAMS: Partial<Record<FilterItemType, () => Record<string, any>>> = {
   hidden: () => ({ mode: "exclude" }),
   deckCompatibility: () => ({ levels: ["verified", "playable"] }),
+  steamosCompatibility: () => ({ levels: ["verified", "playable"] }),
+  reviewScore: () => ({ op: ">=", value: 75, source: "metacritic" }),
+  releaseDate: () => ({ op: "after", ts: 0 }),
   playedWithinDays: () => ({ days: 30 }),
   playtimeRange: () => ({ minHours: undefined, maxHours: undefined }),
   recentlyActive: () => ({ minMinutes: 1 }),
@@ -143,6 +151,9 @@ function isValidRegex(pattern: any): boolean {
 const PARAM_VALIDATORS: Partial<Record<FilterItem["type"], (p: any) => boolean>> = {
   hidden: (p) => !!p.mode,
   deckCompatibility: (p) => nonEmptyArray(p.levels),
+  steamosCompatibility: (p) => nonEmptyArray(p.levels),
+  reviewScore: (p) => Number(p.value ?? -1) >= 0 && Number(p.value ?? 101) <= 100,
+  releaseDate: (p) => Number(p.ts ?? 0) > 0,
   playedWithinDays: (p) => Number(p.days ?? 0) > 0,
   nameIncludes: (p) => String(p.text ?? "").length > 0,
   nameRegex: (p) => isValidRegex(p.pattern),
@@ -192,12 +203,17 @@ export function getTypeLabel(type: FilterItemType): string {
     cloudAvailable: t("filter_type_cloud_available"),
     controllerSupport: t("filter_type_controller_support"),
     systemCompatibility: t("filter_type_system_compatibility"),
+    steamosCompatibility: t("filter_type_steamos_compatibility"),
     remotePlayLocation: t("filter_type_remote_play"),
     merge: t("filter_type_merge"),
     shortcutType: t("filter_type_shortcut_type"),
     appStatus: t("filter_type_app_status"),
     discount: t("filter_type_discount"),
     priceRange: t("filter_type_price_range"),
+    reviewScore: t("filter_type_review_score"),
+    releaseDate: t("filter_type_release_date"),
+    comingSoon: t("filter_type_coming_soon"),
+    demo: t("filter_type_demo"),
     familySharing: t("filter_type_family_sharing"),
     vrSupport: t("filter_type_vr_support"),
     soundtrackOwned: t("filter_type_soundtrack_owned"),
@@ -234,8 +250,24 @@ export function getTypeLabel(type: FilterItemType): string {
   return map[type] ?? type;
 }
 
+/* Only true store/wishlist-data filters — price and discount need the
+   online-store fetch. Friend-activity filters (playing now / played
+   recently) read Steam's local friend list instead, so they're always
+   offered rather than gated here. Gated by `allowOnlineFilters` (is the
+   current source itself online), not by the Online Features toggle. */
 export function isOnlineFilterType(type: FilterItemType): boolean {
-  return type === "discount" || type === "priceRange" || type === "friendsPlayingNow" || type === "friendsPlayedRecently";
+  return type === "discount" || type === "priceRange";
+}
+
+/* genres/categories/franchise have no usable local data — even on a library
+   shelf they need Online Features on to fetch and cache Store/client
+   details. Gated by the toggle itself, not source type: unlike discount/
+   priceRange these are meaningful on any source (v3Extensions.ts). */
+export function isOnlineFeatureFilterType(type: FilterItemType): boolean {
+  return type === "genres" || type === "categories" || type === "franchise"
+    // Review score / release date / coming soon read online-enriched fields
+    // (onlineMetadata.ts), absent locally on desktop — unlike demo/steamosCompatibility.
+    || type === "reviewScore" || type === "releaseDate" || type === "comingSoon";
 }
 
 export function capitalizeFirst(s: string): string {

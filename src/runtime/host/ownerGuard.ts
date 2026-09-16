@@ -1,8 +1,8 @@
-/* Single-owner guard for a Decky + ShelvesHub dual-install (both delivering the
+/* Single-owner guard for a dual-host install (two hosts both delivering the
    bundle into ONE renderer): the first instance claims it via
    `window.__DECK_SHELVES_OWNER__`; the other stands down — no home patch, no
-   settings writes (§5 single-writer). `__SHELVES_FORCE_OWNER__ === "shelveshub"`
-   hands the claim over. A single install always owns (fail-open). */
+   settings writes (single-writer). `__SHELVES_FORCE_OWNER__` hands the claim
+   to the non-Decky host. A single install always owns (fail-open). */
 
 export type HostKind = "decky" | "shelveshub";
 

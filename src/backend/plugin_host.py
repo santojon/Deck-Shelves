@@ -12,7 +12,7 @@ import sys
 
 try:
     import decky as _loader  # present only under the plugin loader
-except ImportError:  # neutral runner (e.g. ShelvesHub) — no loader module
+except ImportError:  # neutral runner — no loader module
     _loader = None
 
 

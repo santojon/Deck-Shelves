@@ -12,10 +12,12 @@
     "NEWS_SEL":               ".cE1SaW6jrVUDxcqRtyMo1",
     "COLLAPSIBLE_HEADER_SEL": ".ds-collapsible-header",
     "ABOUT_ROUTE":            "/deck-shelves/about",
+    "SETTINGS_ROUTE":         "/deck-shelves/settings",
     "CLASS_MAP_GLOBAL":       "__DS_CLASS_MAP",
     "CLASS_MAP_LS_KEY":       "ds_class_map",
     "PROJECT_LABEL":          "deck-shelves",
-    "SETTINGS_GLOBAL":        "__DECK_SHELVES_SHARED_SETTINGS__"
+    "SETTINGS_GLOBAL":        "__DECK_SHELVES_SHARED_SETTINGS__",
+    "QAM_SECTIONS":           "behavior,additional,navigation,online,experimental,shelves,smart,visual_global,saved_filters"
   },
   "diag_dirs": [
     "scripts/deckprobe-ext/diag"

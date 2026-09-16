@@ -64,7 +64,7 @@ run_checks() {
   # syntax error there breaks the whole plugin just as hard.
   local mod_fail=0
   local mod_count=0
-  for pyf in "$root"/*.py; do
+  for pyf in "$root"/*.py "$root"/src/backend/*.py; do
     [[ -f "$pyf" ]] || continue
     ((mod_count++))
     if ! python3 -c "import py_compile; py_compile.compile('$pyf', doraise=True)" 2>/dev/null; then
@@ -84,7 +84,7 @@ run_checks() {
 
   # New backend /proc + /sys probes must be READ-ONLY (never open a system path
   # for writing) — Decky store review + SteamOS safety.
-  if grep -rnE "open\([^)]*/(proc|sys)[^)]*['\"][wa]" "$root"/*.py 2>/dev/null | grep -q .; then
+  if grep -rnE "open\([^)]*/(proc|sys)[^)]*['\"][wa]" "$root"/*.py "$root"/src/backend/*.py 2>/dev/null | grep -q .; then
     echo "  ❌ A backend module opens /proc or /sys for writing"
     ((fail++))
   else

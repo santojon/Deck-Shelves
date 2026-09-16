@@ -56,7 +56,7 @@ export function SelectItemsModal({
 
   const handleOk = () => {
     setBusy(true);
-    (async () => {
+    void (async () => {
       try { await onConfirm(Array.from(selected)); }
       finally { setBusy(false); }
     })();

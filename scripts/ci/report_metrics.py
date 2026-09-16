@@ -190,6 +190,22 @@ def _read_decoupling(root: str) -> Optional[dict]:
     return _run_decoupling_metric(str(Path(root) / "src"), root)
 
 
+def _read_stats(root: str) -> Optional[dict]:
+    """Latest usage-stats snapshot (GitHub traffic, npm downloads, Decky Store
+    installs) written by fetch_stats.py, which runs on its own weekly
+    schedule — not re-fetched here. No backfill: unlike the code-derived
+    metrics above, these are live external numbers with no git history to
+    recompute them from, so the trend starts from whenever this first ran."""
+    path = Path(root) / "site" / "reports" / "stats" / "history.json"
+    if not path.is_file():
+        return None
+    try:
+        history = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    return history[-1] if isinstance(history, list) and history else None
+
+
 def _run_portability_metric(backend_dir: str, root: str) -> Optional[dict]:
     """Run the platform-portability metric (scripts/ci/platform-portability-metric.py)
     and return {coupled, guarded, unguarded, top}. None on any failure."""

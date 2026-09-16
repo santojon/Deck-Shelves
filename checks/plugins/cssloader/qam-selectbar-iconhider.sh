@@ -7,7 +7,7 @@ run_checks() {
   local fail=0
   local src="$root/src"
 
-  if grep -Riq "select[-_ ]bar.*icon|icon.*hider.*select[-_ ]bar|qam.*select" "$src" 2>/dev/null; then
+  if grep -Riq "select[-_ ]bar.*icon|icon.*hider.*select[-_ ]bar|qam.*select" "$src" --exclude-dir=__pycache__ 2>/dev/null; then
     echo "  ❌ Source references 'QAM selectbar icon hider' (may indicate theme-specific coupling)"
     ((fail++))
   else

@@ -13,7 +13,7 @@ export function RenameSavedFilterModal({ closeModal, controller, savedFilter }: 
   const handleOK = () => {
     if (!trimmed || trimmed === savedFilter.name) { closeModal?.(); return }
     closeModal?.()
-    ;(async () => { await actions.renameSavedFilter(savedFilter.id, trimmed) })()
+    void (async () => { await actions.renameSavedFilter(savedFilter.id, trimmed) })()
   }
 
   return (

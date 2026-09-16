@@ -89,6 +89,39 @@ def _require_qam(ctx):
         raise SkipTest("Deck Shelves not found in Decky plugin list")
 
 
+def _open_ds_panel(ctx) -> bool:
+    """Beyond `_require_qam` (which only confirms the plugin list ENTRY
+    exists): click it to actually mount DS's own React content inside the
+    Decky panel. Needed for anything that reads a marker/element DS's own
+    module sets, not just its presence in the list. Returns True once the
+    module-loaded marker appears.
+
+    The click + rendered DOM are on the `qam` target (that's where Decky's
+    panel itself lives), but `data-ds-module-loaded` is set on
+    `document.documentElement` from wherever the DS module's own code
+    executes — the SharedJSContext realm, same as `homePatch.tsx` and
+    everything it mounts (see `sidenav.py`) — so the marker must be polled
+    on `sjc`, not `qam`."""
+    ctx.eval_qam(f"""
+(function(){{
+    var p = document.getElementById("{_DECKY_PANEL}");
+    var btn = Array.from(p?.querySelectorAll("button") || [])
+        .find(b => (b.textContent||"").trim() === "Deck Shelves");
+    if (btn) btn.click();
+    return !!btn;
+}})()""")
+    return ctx.eval_sjc("""
+(async function(){
+    const deadline = Date.now() + 8000;
+    while (Date.now() < deadline) {
+        const marker = document.documentElement.getAttribute('data-ds-module-loaded');
+        if (marker) return true;
+        await new Promise(r => setTimeout(r, 300));
+    }
+    return false;
+})()""", timeout=10) is True
+
+
 # ── Import helper for sibling qam_* suites ────────────────────────────────
 # Suites loaded via importlib.util.spec_from_file_location can't use
 # `from .qam_shared import …` style relative imports. Each sibling instead

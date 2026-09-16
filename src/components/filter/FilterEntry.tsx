@@ -1,5 +1,5 @@
 import { Focusable, Dropdown, DialogButton, type SingleDropdownOption } from "../../runtime/host/decky";
-import { TrashIcon, ALL_FILTER_TYPES, canBeInverted, defaultParams, getTypeLabel, isOnlineFilterType } from "./utils";
+import { TrashIcon, ALL_FILTER_TYPES, canBeInverted, defaultParams, getTypeLabel, isOnlineFilterType, isOnlineFeatureFilterType } from "./utils";
 import { OnlineIcon } from '../icons';
 import type { FilterItem, FilterItemType } from "../../types";
 import i18n from "../../i18n";
@@ -15,7 +15,7 @@ const iconButtonStyle = {
   justifyContent: "center" as const,
 };
 
-export default function FilterEntry({ item, onChange, onDelete, allowOnlineFilters = false }: {
+export default function FilterEntry({ item, onChange, onDelete, allowOnlineFilters = false, onlineFeaturesOn = false }: {
   index?: number;
   item: FilterItem;
   allItems?: FilterItem[];
@@ -23,16 +23,18 @@ export default function FilterEntry({ item, onChange, onDelete, allowOnlineFilte
   onDelete: () => void;
   shouldFocus?: boolean;
   allowOnlineFilters?: boolean;
+  onlineFeaturesOn?: boolean;
 }) {
   const invertible = canBeInverted(item.type);
 
   // Localized labels (e.g. "Installed", "Favorites", "Combined", "Name contains")
   // sorted alphabetically by display label so the dropdown is browsable.
+  const needsOnlineIcon = (type: FilterItemType) => isOnlineFilterType(type) || isOnlineFeatureFilterType(type);
   const typeOptions: SingleDropdownOption[] = ALL_FILTER_TYPES
-    .filter((type) => allowOnlineFilters || !isOnlineFilterType(type as FilterItemType))
+    .filter((type) => (allowOnlineFilters || !isOnlineFilterType(type as FilterItemType)) && (onlineFeaturesOn || !isOnlineFeatureFilterType(type as FilterItemType)))
     .map((type) => ({
       data: type,
-      label: isOnlineFilterType(type as FilterItemType)
+      label: needsOnlineIcon(type as FilterItemType)
         ? (<span style={{ display:'inline-flex', alignItems:'center', gap:4 }}><OnlineIcon size={13} style={{ opacity:0.7 }} />{getTypeLabel(type as FilterItemType)}</span>) as any
         : getTypeLabel(type as FilterItemType),
     }))

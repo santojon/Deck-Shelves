@@ -21,6 +21,7 @@ interface OptCtx {
   onChange: (patch: Partial<FilterItem>) => void;
   controller?: SettingsController;
   allowOnlineFilters: boolean;
+  onlineFeaturesOn: boolean;
 }
 
 // Mirror Steam's EAppType — see the resolver's `shortcutType` branch. Ordered
@@ -196,6 +197,7 @@ const RENDERERS: Record<string, (c: OptCtx) => ReactNode> = {
     p.mode ?? "exclude", (v) => patchParams({ mode: v })),
   collection: collectionOptions,
   deckCompatibility: ({ t, p, patchParams }) => toggleSet(COMPAT_LEVELS, Array.isArray(p.levels) ? p.levels : [], (k) => t(`compat_${k}`), (next) => patchParams({ levels: next })),
+  steamosCompatibility: ({ t, p, patchParams }) => toggleSet(COMPAT_LEVELS, Array.isArray(p.levels) ? p.levels : [], (k) => t(`compat_${k}`), (next) => patchParams({ levels: next })),
   shortcutType: ({ t, p, patchParams }) => toggleSet(SHORTCUT_KINDS, Array.isArray(p.kinds) ? p.kinds : ["game"], (k) => t(`shortcut_kind_${k}` as any), (next) => patchParams({ kinds: next })),
   appStatus: ({ t, p, patchParams }) => toggleSet(APP_STATUS_GROUP_KEYS, Array.isArray(p.groups) ? p.groups : ["downloading", "queued"], (g) => t(`app_status_${g}` as any), (next) => patchParams({ groups: next })),
   playedWithinDays: ({ t, p, patchParams }) => daysSlider(t("filter_days"), Number(p.days ?? 30), 1, 365, (v) => patchParams({ days: v })),
@@ -224,6 +226,39 @@ const RENDERERS: Record<string, (c: OptCtx) => ReactNode> = {
   ),
   priceRange,
   discount: discountRange,
+  reviewScore: ({ t, p, patchParams }) => (
+    <>
+      {dropdownRow(t("filter_review_source"), undefined,
+        [
+          { data: "metacritic", label: t("filter_review_source_metacritic") },
+          { data: "steam", label: t("filter_review_source_steam") },
+        ],
+        String(p.source ?? "metacritic"), (v) => patchParams({ source: v }))}
+      {dropdownRow(t("filter_compare"), undefined,
+        [
+          { data: ">=", label: t("filter_op_gte") },
+          { data: "<=", label: t("filter_op_lte") },
+        ],
+        String(p.op ?? ">="), (v) => patchParams({ op: v }))}
+      <DSSliderField label={t("filter_review_value")} value={Number(p.value ?? 75)} unit="" min={0} max={100} step={5} bottomSeparator="none" onChange={(v: number) => patchParams({ value: v })} />
+    </>
+  ),
+  releaseDate: ({ t, p, patchParams }) => {
+    // Store `ts` in seconds; the field edits a YYYY-MM-DD string.
+    const toStr = (ts: any) => { const n = Number(ts ?? 0); if (!n) return ""; try { return new Date(n * 1000).toISOString().slice(0, 10); } catch { return ""; } };
+    const toTs = (raw: string) => { const ms = Date.parse((raw || "").trim()); return Number.isFinite(ms) ? Math.floor(ms / 1000) : 0; };
+    return (
+      <>
+        {dropdownRow(t("filter_compare"), undefined,
+          [
+            { data: "after", label: t("filter_date_after") },
+            { data: "before", label: t("filter_date_before") },
+          ],
+          String(p.op ?? "after"), (v) => patchParams({ op: v }))}
+        {textRow(t("filter_release_date_label"), t("filter_release_date_hint"), toStr(p.ts), (raw) => patchParams({ ts: toTs(raw) }))}
+      </>
+    );
+  },
   // ---- Filter v3 parameterized editors ------------------------------------
   genres: ({ t, p, patchParams }) => textRow(t("filter_type_genres"), t("filter_comma_hint"), (Array.isArray(p.genres) ? p.genres : []).join(", "), (raw) => patchParams({ genres: splitList(raw) })),
   categories: ({ t, p, patchParams }) => textRow(t("filter_type_categories"), t("filter_comma_hint"), (Array.isArray(p.categories) ? p.categories : []).join(", "), (raw) => patchParams({ categories: splitList(raw) })),
@@ -279,17 +314,17 @@ const RENDERERS: Record<string, (c: OptCtx) => ReactNode> = {
   launchOptionTags: ({ t, p, patchParams }) => textRow(t("filter_type_launch_option_tags"), t("filter_comma_hint"), (Array.isArray(p.tags) ? p.tags : []).join(", "), (raw) => patchParams({ tags: splitList(raw) })),
   customTags: ({ t, p, patchParams }) => textRow(t("filter_type_custom_tags"), t("filter_comma_hint"), (Array.isArray(p.tags) ? p.tags : []).join(", "), (raw) => patchParams({ tags: splitList(raw) })),
   parserCategories: ({ t, p, patchParams }) => textRow(t("filter_type_parser_categories"), t("filter_comma_hint"), (Array.isArray(p.tags) ? p.tags : []).join(", "), (raw) => patchParams({ tags: splitList(raw) })),
-  merge: ({ item, onChange, controller, allowOnlineFilters }) => <MergeFilterOptions item={item} onChange={onChange} controller={controller} allowOnlineFilters={allowOnlineFilters} />,
-  weightedFilter: ({ item, onChange, controller, allowOnlineFilters }) => <CompositeFilterOptions item={item} onChange={onChange} controller={controller} allowOnlineFilters={allowOnlineFilters} />,
-  priorityFilter: ({ item, onChange, controller, allowOnlineFilters }) => <CompositeFilterOptions item={item} onChange={onChange} controller={controller} allowOnlineFilters={allowOnlineFilters} />,
-  exclusionGroup: ({ item, onChange, controller, allowOnlineFilters }) => <CompositeFilterOptions item={item} onChange={onChange} controller={controller} allowOnlineFilters={allowOnlineFilters} />,
+  merge: ({ item, onChange, controller, allowOnlineFilters, onlineFeaturesOn }) => <MergeFilterOptions item={item} onChange={onChange} controller={controller} allowOnlineFilters={allowOnlineFilters} onlineFeaturesOn={onlineFeaturesOn} />,
+  weightedFilter: ({ item, onChange, controller, allowOnlineFilters, onlineFeaturesOn }) => <CompositeFilterOptions item={item} onChange={onChange} controller={controller} allowOnlineFilters={allowOnlineFilters} onlineFeaturesOn={onlineFeaturesOn} />,
+  priorityFilter: ({ item, onChange, controller, allowOnlineFilters, onlineFeaturesOn }) => <CompositeFilterOptions item={item} onChange={onChange} controller={controller} allowOnlineFilters={allowOnlineFilters} onlineFeaturesOn={onlineFeaturesOn} />,
+  exclusionGroup: ({ item, onChange, controller, allowOnlineFilters, onlineFeaturesOn }) => <CompositeFilterOptions item={item} onChange={onChange} controller={controller} allowOnlineFilters={allowOnlineFilters} onlineFeaturesOn={onlineFeaturesOn} />,
 };
 
-export default function FilterItemOptions({ item, onChange, controller, allowOnlineFilters = false }: { item: FilterItem; onChange: (patch: Partial<FilterItem>) => void; controller?: SettingsController; allowOnlineFilters?: boolean }) {
+export default function FilterItemOptions({ item, onChange, controller, allowOnlineFilters = false, onlineFeaturesOn = false }: { item: FilterItem; onChange: (patch: Partial<FilterItem>) => void; controller?: SettingsController; allowOnlineFilters?: boolean; onlineFeaturesOn?: boolean }) {
   const t = i18n.t.bind(i18n) as Tfn;
   const p = item.params ?? {};
   const patchParams = (patch: Record<string, any>) => onChange({ params: { ...p, ...patch } });
   const render = RENDERERS[item.type];
   if (!render) return null;
-  return <>{render({ item, p, t, patchParams, onChange, controller, allowOnlineFilters })}</>;
+  return <>{render({ item, p, t, patchParams, onChange, controller, allowOnlineFilters, onlineFeaturesOn })}</>;
 }

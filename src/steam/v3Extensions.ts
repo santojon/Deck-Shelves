@@ -1,4 +1,5 @@
 import type { AppOverview } from "./index";
+import { getCachedCatalogMeta } from "../core/onlineStore";
 
 function appIdOf(a: any): number {
   return Number(a?.appid ?? a?.m_unAppID ?? 0);
@@ -10,18 +11,85 @@ function isInstalledOf(a: any): boolean {
   return a?.installed === true || a?.is_installed === true;
 }
 
-function rawOverview(appid: number): any | null {
+/** Strictly local — used where "does the client have this app" is the actual
+ *  question (e.g. ownership), not just a data lookup. Never falls back to
+ *  fetched Store catalog metadata. */
+function rawLocalOverview(appid: number): any | null {
   try {
     const store = (globalThis as any).appStore;
     return store?.GetAppOverviewByAppID?.(appid) ?? null;
   } catch { return null; }
 }
 
+/* Franchise has no local AppOverview field at all — the only source, owned
+   or not, is the Steam client's own store-details cache. In-memory only:
+   GetCachedAppDetails is itself already cached client-side. Populated by
+   prefetchFranchise() before a franchise filter runs (see steam/index.ts). */
+const _franchiseCache = new Map<number, string | null>();
+
+export function getCachedFranchise(appid: number): string | undefined {
+  return _franchiseCache.has(appid) ? (_franchiseCache.get(appid) ?? undefined) : undefined;
+}
+
+function extractFranchiseName(raw: any): string | null {
+  const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+  const assoc = Array.isArray(parsed) ? parsed.find((s: any) => s?.[0] === "associations") : null;
+  const franchises = assoc?.[1]?.data?.rgFranchises;
+  return Array.isArray(franchises) && franchises[0]?.strName ? String(franchises[0].strName) : null;
+}
+
+async function fetchOneFranchise(appid: number): Promise<void> {
+  const client = (globalThis as any).SteamClient;
+  try {
+    const raw = await client?.Apps?.GetCachedAppDetails?.(appid);
+    _franchiseCache.set(appid, extractFranchiseName(raw));
+  } catch { _franchiseCache.set(appid, null); }
+}
+
+export async function prefetchFranchise(appids: number[]): Promise<void> {
+  const toFetch = appids.filter((id) => !_franchiseCache.has(id)).slice(0, 60);
+  await Promise.all(toFetch.map(fetchOneFranchise));
+}
+
+function namedList(values: string[] | undefined): Array<{ name: string }> {
+  return (values ?? []).map((name) => ({ name }));
+}
+
+/** A merged pool (wishlist/store, composite) mixes real local AppOverviews
+ *  with ids the client has never seen — for those, fall back to whatever
+ *  getCatalogMetaMap/prefetchFranchise have pre-fetched and cached (genres/
+ *  categories/VR/franchise only; never ownership or play-history fields). */
+function catalogFallbackOverview(appid: number): any | null {
+  try {
+    const meta = getCachedCatalogMeta(appid);
+    const franchise = getCachedFranchise(appid);
+    if (!meta && franchise === undefined) return null;
+    const categories = namedList(meta?.categories);
+    const genres = namedList(meta?.genres);
+    return {
+      categories, store_categories: categories, store_tags: categories,
+      genres, rt_genres: genres,
+      vr_supported: meta?.vrSupported, rt_vr_supported: meta?.vrSupported, vr_support: meta?.vrSupported,
+      franchise, rt_franchise: franchise,
+    };
+  } catch { return null; }
+}
+
+/* Per-field, not per-object: an OWNED game has a real local overview, but it
+   never carries genre/franchise data, and categories only as numeric ids —
+   so a missing field must fall back to fetched data individually, or these
+   lookups would stop at "local exists" and never check fetched data. */
 function rawField<T = unknown>(appid: number, ...keys: string[]): T | undefined {
-  const raw = rawOverview(appid);
-  if (!raw) return undefined;
+  const local = rawLocalOverview(appid);
+  if (local) {
+    for (const k of keys) {
+      if (local[k] !== undefined && local[k] !== null) return local[k] as T;
+    }
+  }
+  const fetched = catalogFallbackOverview(appid);
+  if (!fetched) return undefined;
   for (const k of keys) {
-    if (raw[k] !== undefined && raw[k] !== null) return raw[k] as T;
+    if (fetched[k] !== undefined && fetched[k] !== null) return fetched[k] as T;
   }
   return undefined;
 }
@@ -67,8 +135,27 @@ function evalVrSupport(_item: any, app: AppOverview): boolean {
   return raw === true || raw === 1;
 }
 
-function evalMultiplayerType(item: any, app: AppOverview): boolean {
-  const want = String(item.params?.kind ?? "any").toLowerCase();
+/* Steam's official store-category ids (stable, public taxonomy) — the local
+   AppOverview never exposes category *names*, only these numeric ids via
+   BHasStoreCategory(id), so "kind" is matched against ids here instead of
+   the name-string regexes the fetched-Store-metadata fallback path uses. */
+const MP_CATEGORY_IDS: Record<string, number[]> = {
+  single: [2],
+  multi: [1],
+  coop: [9, 38, 39, 48],
+  online: [27, 36, 38],
+  any: [1, 9, 27, 36, 38, 39, 48, 49],
+};
+
+function evalMultiplayerTypeLocal(app: AppOverview, want: string): boolean | null {
+  const local = rawLocalOverview(appIdOf(app));
+  if (!local || typeof local.BHasStoreCategory !== "function") return null; // not a real local overview
+  const ids = MP_CATEGORY_IDS[want];
+  if (!ids) return false;
+  return ids.some((id) => local.BHasStoreCategory(id));
+}
+
+function evalMultiplayerTypeFetched(app: AppOverview, want: string): boolean {
   const raw = rawField<any[]>(appIdOf(app), "categories", "store_categories");
   if (!Array.isArray(raw)) return false;
   const names = raw.map((c) => String((c as any)?.name ?? c).toLowerCase());
@@ -78,6 +165,12 @@ function evalMultiplayerType(item: any, app: AppOverview): boolean {
   if (want === "coop")   return names.some((n) => /co.?op/.test(n));
   if (want === "online") return names.some((n) => /online/.test(n));
   return false;
+}
+
+function evalMultiplayerType(item: any, app: AppOverview): boolean {
+  const want = String(item.params?.kind ?? "any").toLowerCase();
+  const local = evalMultiplayerTypeLocal(app, want);
+  return local != null ? local : evalMultiplayerTypeFetched(app, want);
 }
 
 function evalFamilySharing(_item: any, app: AppOverview): boolean {
@@ -281,6 +374,48 @@ function evalExclusionGroup(item: any, app: AppOverview, evalChild?: ChildEvalua
   return !childrenOf(item).some((c) => runChild(c, app, evalChild));
 }
 
+// ── TabMaster-parity filters (data confirmed present) ─────────────────────
+
+// Review score — metacritic (default) or Steam review %. Both are online-
+// enriched (onlineMetadata.ts); an app with no score never matches (so the
+// filter narrows to titles that actually have a rating meeting the bound).
+function reviewScoreOf(app: AppOverview, source: string): number | undefined {
+  const key = source === "steam" ? "review_percentage" : "metacritic_score";
+  const v = (app as any)[key];
+  return typeof v === "number" ? v : undefined;
+}
+function evalReviewScore(item: any, app: AppOverview): boolean {
+  const value = Number(item.params?.value ?? 0);
+  const op = String(item.params?.op ?? ">=");
+  const score = reviewScoreOf(app, String(item.params?.source ?? "metacritic"));
+  if (score == null) return false;
+  return op === "<=" ? score <= value : score >= value;
+}
+
+// Release date — `rt_original_release_date` is in SECONDS (native + enriched).
+// Param `ts` is a seconds timestamp; `op` after/before is inclusive.
+function releaseSecOf(app: AppOverview): number {
+  return Number((app as any).rt_original_release_date ?? (app as any).rt_steam_release_date ?? 0);
+}
+function evalReleaseDate(item: any, app: AppOverview): boolean {
+  const ts = Number(item.params?.ts ?? 0);
+  if (!ts) return true; // no date set yet → don't constrain
+  const rel = releaseSecOf(app);
+  if (!rel) return false;
+  return String(item.params?.op ?? "after") === "before" ? rel <= ts : rel >= ts;
+}
+
+// Coming soon — released in the future (or unreleased with a future date).
+function evalComingSoon(_item: any, app: AppOverview): boolean {
+  const rel = releaseSecOf(app);
+  return rel > Date.now() / 1000;
+}
+
+// Demo — Steam EAppType demo bit (8). Non-Steam shortcuts never qualify.
+function evalDemo(_item: any, app: AppOverview): boolean {
+  return Number((app as any).app_type) === 8;
+}
+
 export const FILTER_V3_EVALUATORS: Record<string, FilterEvaluator> = {
   genres: evalGenres,
   categories: evalCategories,
@@ -314,6 +449,10 @@ export const FILTER_V3_EVALUATORS: Record<string, FilterEvaluator> = {
   weightedFilter: evalWeighted,
   priorityFilter: evalPriority,
   exclusionGroup: evalExclusionGroup,
+  reviewScore: evalReviewScore,
+  releaseDate: evalReleaseDate,
+  comingSoon: evalComingSoon,
+  demo: evalDemo,
 };
 
 export type SortComparator = (a: AppOverview, b: AppOverview) => number;
@@ -361,15 +500,28 @@ function storageBitOf(app: AppOverview): 0 | 1 {
   return /\/run\/media\/mmcblk|\/mmcblk/i.test(folder) ? 1 : 0; // 1 = SD card
 }
 
+// Real per-app friend count (not just a 0/1 presence check) so "most
+// friends playing" actually ranks by how many, not just whether any do.
 function friendsPlayingCountOf(app: AppOverview): number {
   try {
-    const { getFriendsPlayingAppIds } = require("../runtime/friendsState");
-    return getFriendsPlayingAppIds().has(appIdOf(app)) ? 1 : 0;
+    const { getFriendsInApp } = require("../runtime/friendsState");
+    return getFriendsInApp(appIdOf(app), false).length;
   } catch { return 0; }
 }
 
 function friendsOwnCountOf(app: AppOverview): number {
   return rawField<number>(appIdOf(app), "rt_friends_owning_count", "friends_owning") ?? 0;
+}
+
+// A merged pool (wishlist/store, composite) mixes real AppOverviews with
+// bare `{ appid }` placeholders for unowned items — a fresh client lookup,
+// not the `app` param itself, is what distinguishes them here.
+function isOwnedLocally(app: AppOverview): boolean {
+  return rawLocalOverview(appIdOf(app)) !== null;
+}
+
+function isFamilyShared(app: AppOverview): boolean {
+  return rawField<boolean>(appIdOf(app), "family_sharing", "rt_family_sharing", "family_shareable") === true;
 }
 
 export const SORT_V3_COMPARATORS: Record<string, SortComparator> = {
@@ -411,6 +563,8 @@ export const SORT_V3_COMPARATORS: Record<string, SortComparator> = {
     friendsPlayingCountOf(a) * 10 + friendsOwnCountOf(a),
     friendsPlayingCountOf(b) * 10 + friendsOwnCountOf(b),
   ),
+  owned_games:             (a, b) => cmpDesc(isOwnedLocally(a) ? 1 : 0, isOwnedLocally(b) ? 1 : 0),
+  family_shared_games:     (a, b) => cmpDesc(isFamilyShared(a) ? 1 : 0, isFamilyShared(b) ? 1 : 0),
   weighted_random:         () => 0,
   smart_random:            () => 0,
   seeded_random:           () => 0,
@@ -623,6 +777,8 @@ export const V3_SORT_DESCRIPTORS: V3Descriptor[] = [
   { id: "friends_playing_now",    displayName: "Friends playing now" },
   { id: "most_friends_owning",    displayName: "Most friends owning" },
   { id: "trending_among_friends", displayName: "Trending among friends" },
+  { id: "owned_games",            displayName: "Games I own" },
+  { id: "family_shared_games",    displayName: "Family-shared games" },
   { id: "weighted_random",        displayName: "Weighted random" },
   { id: "smart_random",           displayName: "Smart random" },
   { id: "seeded_random",          displayName: "Seeded random" },

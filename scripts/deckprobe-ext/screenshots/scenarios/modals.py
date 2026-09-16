@@ -93,6 +93,9 @@ def _click_action(host: str, port: int, ok_description: str) -> bool:
         "reset_all_button":     "M3 12a9",
         "import_smart_shelves": "M12 3v12",
         "export_smart_shelves": "M12 21V9",
+        # Single-entry ImportMenuButton (TabMaster only registered importer on
+        # this device) — src/components/qam/icons.tsx `tabMaster`.
+        "import_tabmaster":     "M2 12h20",
     }
     svg = svg_map.get(desc, "")
     if svg:

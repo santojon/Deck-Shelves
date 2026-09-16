@@ -7,13 +7,18 @@
 
 [![CI](https://github.com/santojon/Deck-Shelves/actions/workflows/ci.yml/badge.svg)](https://github.com/santojon/Deck-Shelves/actions/workflows/ci.yml)
 [![Release](https://github.com/santojon/Deck-Shelves/actions/workflows/release.yml/badge.svg)](https://github.com/santojon/Deck-Shelves/actions/workflows/release.yml)
-[![Tests](https://img.shields.io/badge/vitest-749%20passed-brightgreen?logo=vitest&logoColor=white)](src/test/)
-[![pytest](https://img.shields.io/badge/pytest-147%20passed-brightgreen?logo=pytest&logoColor=white)](src/test/test_main.py)
+[![Tests](https://img.shields.io/badge/vitest-851%20passed-brightgreen?logo=vitest&logoColor=white)](src/test/)
+[![pytest](https://img.shields.io/badge/pytest-169%20passed-brightgreen?logo=pytest&logoColor=white)](src/test/test_main.py)
 [![TypeCheck](https://img.shields.io/badge/typecheck-clean-brightgreen?logo=typescript&logoColor=white)](tsconfig.json)
 [![Compatibility](https://img.shields.io/badge/checks-39%2F39-brightgreen?logo=steamdeck&logoColor=white)](scripts/build/validate-compat.mjs)
-[![Platform](https://img.shields.io/badge/platform-SteamOS%20%C2%B7%20Linux%20%C2%B7%20Windows-purple?logo=steamdeck&logoColor=white)](https://github.com/ValveSoftware/SteamOS)
+[![Platform](https://img.shields.io/badge/platform-SteamOS%20%C2%B7%20Linux%20%C2%B7%20macOS%20%C2%B7%20Windows-purple?logo=steamdeck&logoColor=white)](https://github.com/ValveSoftware/SteamOS)
 [![Downloads](https://img.shields.io/github/downloads/santojon/Deck-Shelves/total.svg?label=downloads&color=blue)](https://github.com/santojon/Deck-Shelves/releases/latest)
 [![GitHub release](https://img.shields.io/github/v/release/santojon/Deck-Shelves?label=latest&color=blue)](https://github.com/santojon/Deck-Shelves/releases/latest)
+[![Decky Store](https://img.shields.io/endpoint?url=https%3A%2F%2Fsantojon.github.io%2FDeck-Shelves%2Fstats%2Fdecky-store.json)](https://plugins.deckbrew.xyz/plugins)
+[![npm api](https://img.shields.io/npm/dt/@deck-shelves/api?label=api%20downloads&logo=npm&color=cb3837)](https://www.npmjs.com/package/@deck-shelves/api)
+[![npm host](https://img.shields.io/npm/dt/@deck-shelves/host?label=host%20downloads&logo=npm&color=cb3837)](https://www.npmjs.com/package/@deck-shelves/host)
+[![Forks](https://img.shields.io/github/forks/santojon/Deck-Shelves?style=flat&color=blue)](https://github.com/santojon/Deck-Shelves/network/members)
+[![Clones](https://img.shields.io/endpoint?url=https%3A%2F%2Fsantojon.github.io%2FDeck-Shelves%2Fstats%2Fclones-main.json)](https://github.com/santojon/Deck-Shelves/graphs/traffic)
 
 [![Discord](https://img.shields.io/badge/chat-on%20discord-7289da.svg?logo=discord&logoColor=white)](https://discord.gg/EChuVEDakk)
 [![Reddit](https://img.shields.io/badge/community-r%2FDeckShelves-FF4500?logo=reddit&logoColor=white)](https://www.reddit.com/r/DeckShelves/)
@@ -35,6 +40,7 @@
   - [Installation](#installation)
     - [From Decky Store](#from-decky-store)
     - [Manual Installation](#manual-installation)
+    - [Install from URL](#install-from-url)
   - [Documentation](#documentation)
   - [Development](#development)
   - [Architecture](#architecture)
@@ -114,6 +120,7 @@
 - **Usage profiles** — save the setup (every toggle, saved filter, and — if you tick **Link shelves to profile** — your shelves) as a named profile, switch in one tap, import / export to JSON. A **Default** profile restores factory settings while keeping the plugin on; it only clears your shelves if you opt in
 - **Profile auto-switch triggers** — give a saved profile a trigger (the same visibility conditions above) and turn on **auto-switch** so it applies itself when the trigger matches — a *Docked* profile when you dock, a *Battery saver* profile when the battery runs low. Each profile sets its own triggers; the master toggle sits in the QAM, the sidecar and Settings → Profiles, and triggers round-trip through export / import and the System information summary
 - **Customizable button shortcuts** — remap or disable the gamepad triggers for hide / highlight / quick-launch, and remap the chords for Quick Search and Side Navigation. Single, chord, and double-tap inputs are supported, including back-grip and stick-click buttons (`L3` / `R3` / `L4` / `R4` / `L5` / `R5`); reserved system buttons are rejected
+- **Independent keyboard shortcuts** — every button shortcut above also has its own keyboard key, bindable alongside the gamepad combo — either input fires the same action, neither replaces the other. Same single / chord / double-tap grammar, plus modifier chords (e.g. `Ctrl+F`); ignored while a text field has focus
 - **Unified shelf list + drag-and-drop reorder** — opt in to merge regular and smart shelves into a single ordered list and drag rows directly in the Shelves panel (gamepad `↑` / `↓` buttons stay as a fallback)
 - **External launcher discovery** — EmuDeck, RetroDECK, Heroic, Lutris, Moonlight, and Chiaki games surface through dedicated shelf sources; read-only, refreshed every 15 minutes in the background
 - **Integrations panel** — every registered descriptor (built-in or third-party) gets a per-row enable / disable; first-party entries carry a green BUILT-IN chip
@@ -124,6 +131,10 @@
 - **Exclude owned games** — per-shelf toggle on wishlist / store sources that hides any game whose appid or exact name matches a title in your local library; sub-toggle for non-Steam shortcuts (from other storefronts), and a further sub-toggle for cloud-play catalogue stubs (cloud-gaming services surfaced via Unifideck) so promotions on the cloud catalogue still surface
 - **Discount badges** — cards on online shelves show a green "% off" badge (mirrors the NEW badge slot, shown even on placeholder cards while artwork is still loading)
 - **Refresh action everywhere** — context-aware "Refresh cache" / "Refresh" available from the QAM action menu, the shelf-card context menu, and the trailing refresh tile
+- **Own Quick Access tab (experimental, opt-in)** — puts Deck Shelves in the Quick Access tab strip itself, next to Notifications and Settings, instead of only inside Decky's plugin list. Off by default; restart Steam after enabling
+- **Showcase mode (opt-in)** — while idle on the Home, slowly cycles through your shelves like a screensaver; any input stops it instantly. Configurable delay, time per shelf, and randomize order
+- **Screensaver (opt-in, experimental)** — a full-screen slideshow of everything your home screen shows, optionally mixing in your local screenshots too, in place of the built-in one. Your own start delay and time per image, plus an optional game-logo overlay you can resize and reposition to any corner
+- **Cross-device settings sync (opt-in, experimental)** — keep shelves, filters, profiles and every other preference in sync across every device on the same Steam account, using that account's own cloud storage — no extra sign-in, no cost
 - Import / export all shelves and smart shelf configuration as JSON
 - Persistent settings across plugin reinstalls
 - Crash protection with automatic retry
@@ -151,6 +162,14 @@ A full visual tour — home, QAM, shelf editor, smart shelves, About docs and mo
 2. In game mode, go to Decky config page -> Developer -> Install from zip file
 3. Select the downloaded zip file and confirm
 4. Restart Steam if prompted
+
+### Install from URL
+
+A Decky developer-mode option — works, but is less reliable than the zip above, since Decky derives the plugin name from the URL itself rather than the file. Prefer Manual Installation unless you specifically need this.
+
+1. In game mode, go to Decky config page -> General -> enable Developer mode
+2. Go to the new Developer tab -> Install from URL
+3. Paste the `deck-shelves-v*.zip` link from the [Releases page](https://github.com/santojon/Deck-Shelves/releases/latest) and confirm
 
 ## Documentation
 
@@ -194,7 +213,7 @@ bash scripts/build/validate-compat.sh
 
 ### Operating systems
 
-The plugin runs **wherever Decky Loader runs**. Decky installs as a **systemd service** that injects into Steam's CEF, so it is Linux-only at the OS level. Path discovery ([`paths.py`](paths.py)) and packaging ([`scripts/build/package.py`](scripts/build/package.py)) are OS-agnostic (stdlib only, no bash/`zip` CLI).
+The plugin runs **wherever Decky Loader runs**. Decky installs as a **systemd service** that injects into Steam's CEF, so it is Linux-only at the OS level. Path discovery ([`paths.py`](src/backend/paths.py)) and packaging ([`scripts/build/package.py`](scripts/build/package.py)) are OS-agnostic (stdlib only, no bash/`zip` CLI).
 
 | OS | Steam discovery | Runs the plugin? |
 |---|---|---|
