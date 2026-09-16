@@ -1,8 +1,8 @@
 /* Deck Shelves' own idle screensaver: replaces Steam's native one (idle
    timer disabled/restored via steamSettingsWriter, never left altered)
-   with a slideshow of native recents + shelf games (or shelves-only)
-   and, opt-in, local screenshots filtered the same way Steam's own
-   screensaver setting would. Experimental, off by default. */
+   with a slideshow of everything the home screen shows (native Recents +
+   shelf games) and, opt-in, local screenshots filtered the same way
+   Steam's own screensaver setting would. Experimental, off by default. */
 
 import { readIdleTimeoutSec, writeIdleTimeoutSec } from "./steamSettingsWriter";
 import { resolveShelfAppIds } from "../steam";
@@ -173,12 +173,13 @@ async function resolveScreenshotPool(): Promise<ScreensaverItem[]> {
   } catch { return []; }
 }
 
+// Always the full mix of whatever's shown on the home screen — shelf
+// games and native Recents alike — no "ours only" distinction.
 export async function buildScreensaverPool(settings: Settings | null): Promise<ScreensaverItem[]> {
-  const onlyOurs = (settings as any)?.screensaverShelvesOnlyOurs === true;
   const includeScreenshots = (settings as any)?.screensaverShelvesIncludeScreenshots === true;
 
   const shelfIds = await resolveShelfAppPool(settings);
-  const recentIds = onlyOurs ? [] : resolveNativeRecentAppIds();
+  const recentIds = resolveNativeRecentAppIds();
   const seen = new Set<number>();
   const apps: ScreensaverItem[] = [];
   for (const id of [...shelfIds, ...recentIds]) {
@@ -191,7 +192,7 @@ export async function buildScreensaverPool(settings: Settings | null): Promise<S
   const pool = [...apps, ...screenshots];
   try {
     (globalThis as any).__ds_screensaver_last_pool = {
-      t: Date.now(), onlyOurs, includeScreenshots,
+      t: Date.now(), includeScreenshots,
       shelfCount: shelfIds.length, recentCount: recentIds.length,
       appCount: apps.length, screenshotCount: screenshots.length,
     };

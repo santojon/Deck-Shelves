@@ -763,7 +763,6 @@ export const SettingsSchema = z.object({
      optionally shelves-only and/or including screenshots), replacing
      Steam's native one while active. Experimental — defaults off. */
   screensaverShelvesEnabled: z.boolean().nullable().optional().transform((v) => v ?? false),
-  screensaverShelvesOnlyOurs: z.boolean().nullable().optional().transform((v) => v ?? false),
   screensaverShelvesIncludeScreenshots: z.boolean().nullable().optional().transform((v) => v ?? false),
   /* Steam's own idle-screensaver timeout (seconds), cached here right
      before we override it so it can be restored exactly when the

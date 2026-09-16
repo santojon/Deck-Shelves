@@ -264,7 +264,6 @@ function experimentalSection(c: GCtx): ReactNode {
 function screensaverShelvesGroup(c: GCtx): ReactNode {
   const { t, settings, actions, row } = c
   const on = (settings as any).screensaverShelvesEnabled === true
-  const onlyOurs = (settings as any).screensaverShelvesOnlyOurs === true
   const logoOn = (settings as any).screensaverLogoEnabled !== false
   return (<>
     {row('screensaverShelvesEnabled', (
@@ -272,9 +271,6 @@ function screensaverShelvesGroup(c: GCtx): ReactNode {
     ))}
     {on && (
       <div style={{ paddingLeft: 14, fontSize: 12 }}>
-        {row('screensaverShelvesOnlyOurs', (
-          <ToggleField label={t('screensaver_shelves_only_ours' as any)} checked={onlyOurs} onChange={(v: boolean) => void (actions as any).setScreensaverShelvesOnlyOurs(v)} />
-        ))}
         {row('screensaverShelvesIncludeScreenshots', (
           <ToggleField label={t('screensaver_shelves_include_screenshots' as any)} checked={(settings as any).screensaverShelvesIncludeScreenshots === true} onChange={(v: boolean) => void (actions as any).setScreensaverShelvesIncludeScreenshots(v)} />
         ))}

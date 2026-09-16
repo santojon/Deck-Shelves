@@ -751,7 +751,6 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
           <ToggleField label={t('screensaver_shelves_enabled' as any)} checked={(settings as any).screensaverShelvesEnabled === true} onChange={(value: boolean) => void (actions as any).setScreensaverShelvesEnabled(value)} />
           {(settings as any).screensaverShelvesEnabled === true && (
             <div style={{ paddingLeft: 16 }}>
-              <ToggleField label={t('screensaver_shelves_only_ours' as any)} checked={(settings as any).screensaverShelvesOnlyOurs === true} onChange={(value: boolean) => void (actions as any).setScreensaverShelvesOnlyOurs(value)} />
               <ToggleField label={t('screensaver_shelves_include_screenshots' as any)} checked={(settings as any).screensaverShelvesIncludeScreenshots === true} onChange={(value: boolean) => void (actions as any).setScreensaverShelvesIncludeScreenshots(value)} />
               <DSSliderField label={t('screensaver_start_after_label' as any)} value={(settings as any).screensaverStartAfterSeconds ?? 60} min={15} max={600} step={15} unit='s' onChange={(value: number) => void (actions as any).setScreensaverStartAfterSeconds(value)} />
               <DSSliderField label={t('screensaver_dwell_label' as any)} value={(settings as any).screensaverDwellSeconds ?? 8} min={3} max={120} step={1} unit='s' onChange={(value: number) => void (actions as any).setScreensaverDwellSeconds(value)} />
