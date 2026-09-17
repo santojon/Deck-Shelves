@@ -92,6 +92,19 @@ body:
       required: true
 
   - type: dropdown
+    id: host
+    attributes:
+      label: Host / loader
+      description: What is loading Deck Shelves?
+      options:
+        - Decky Loader
+        - ShelvesHub
+        - Both (coexist)
+        - Other / Not sure
+    validations:
+      required: true
+
+  - type: dropdown
     id: os
     attributes:
       label: Operating system
