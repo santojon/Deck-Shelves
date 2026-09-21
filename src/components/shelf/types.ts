@@ -9,6 +9,7 @@ export type DeckRowItem = {
   onMenuButton?: (evt: any) => void;
   appid?: number;
   deckCompatCategory?: number;
+  controllerSupport?: number;
   playtimeMinutes?: number;
   isInstalled?: boolean;
   statusText?: string;

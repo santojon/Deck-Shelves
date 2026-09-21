@@ -5,13 +5,23 @@
    LWW-by-timestamp idea the dual-host canonical/loader mirror uses. */
 
 import { getCurrentSettings, saveSettings, subscribeSettings } from "../store/settingsStore";
+import { mergeSettings } from "../domain/settingsMerge";
 import { isHomeOwner } from "./host/ownerGuard";
 import { notifyUser } from "./notify";
 import i18n from "../i18n";
 import type { Settings } from "../types";
 
-const CLOUD_KEY = "deck-shelves-settings-sync-v1";
+/* v2 stores the snapshot as an OPAQUE JSON STRING via SetString/GetString. The
+   old SetObject/GetJSON path (v1) round-trips through Steam's object serializer,
+   which PascalCases `enabled`→`Enabled` and `hidden`→`Hidden` — so an adopted
+   shelf lost its lowercase `enabled` and rendered invisible, and the master
+   toggle silently read as disabled. A string is stored verbatim. */
+const CLOUD_KEY = "deck-shelves-settings-sync-v2";
 const PUSH_DEBOUNCE_MS = 4000;
+// Best-effort in-session refresh: RoamingStorage may only surface the other
+// device's snapshot on a Steam lifecycle event, so a running device polls the
+// cloud periodically and merges anything new in without waiting for a restart.
+const PULL_INTERVAL_MS = 3 * 60 * 1000;
 
 /* Fields describing THIS machine's own local state, never synced: the
    cloud-sync bookkeeping fields themselves, and the screensaver's cached
@@ -31,15 +41,13 @@ function isFeatureEnabled(settings: Settings | null): boolean {
 export function hasCloudSyncSupport(): boolean {
   try {
     const rs = (globalThis as any).SteamClient?.RoamingStorage;
-    return typeof rs?.SetObject === "function" && typeof rs?.GetJSON === "function";
+    return typeof rs?.SetString === "function" && typeof rs?.GetString === "function";
   } catch { return false; }
 }
 
-/* `SetObject` silently no-ops (resolves, but the next `GetJSON` throws
-   "Not found") on any payload containing `null`/`undefined` anywhere, at
-   any depth — confirmed live, and every real settings snapshot has some
-   (e.g. screensaverIdleBackupAcSec). Dropping those keys is the only way
-   to make the payload storable; a null-valued field just doesn't sync. */
+/* Drop null/undefined fields before serializing. Harmless with SetString (JSON
+   handles null), but it keeps the payload minimal and matches what round-trips —
+   a null-valued field carries no cross-device meaning. */
 function stripNullish(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(stripNullish);
   if (value && typeof value === "object") {
@@ -61,7 +69,7 @@ function preparePayload(settings: Settings): Record<string, unknown> {
 
 async function readCloud(): Promise<CloudPayload | null> {
   try {
-    const raw = await (globalThis as any).SteamClient.RoamingStorage.GetJSON(CLOUD_KEY);
+    const raw = await (globalThis as any).SteamClient.RoamingStorage.GetString(CLOUD_KEY);
     if (typeof raw !== "string" || !raw) return null;
     const parsed = JSON.parse(raw);
     if (!parsed || typeof parsed.updatedAt !== "number" || typeof parsed.settings !== "object") return null;
@@ -69,13 +77,13 @@ async function readCloud(): Promise<CloudPayload | null> {
   } catch { return null; }
 }
 
-// Never trust a write without a round-trip check — SetObject's own promise
-// resolving proves nothing (see stripNullish's own doc comment above).
+// Store the snapshot as an opaque JSON string (SetString) so Steam's object
+// serializer never rewrites the keys; verify with a round-trip read.
 async function writeCloud(settings: Settings): Promise<number | null> {
   const updatedAt = Date.now();
   try {
     const rs = (globalThis as any).SteamClient.RoamingStorage;
-    await rs.SetObject(CLOUD_KEY, { updatedAt, settings: preparePayload(settings) });
+    await rs.SetString(CLOUD_KEY, JSON.stringify({ updatedAt, settings: preparePayload(settings) }));
     const confirmed = await readCloud();
     return confirmed?.updatedAt === updatedAt ? updatedAt : null;
   } catch { return null; }
@@ -111,25 +119,46 @@ export function installCloudSync(): () => void {
   let wasEnabled = false;
   let unsub: (() => void) | null = null;
 
-  /* Runs once at boot (if already enabled) and again on every off→on
-     transition — never on a bare re-render — so turning the toggle on
-     mid-session always reconciles against the cloud before pushing,
-     instead of blindly overwriting a possibly-newer remote copy. */
-  async function reconcile(local: Settings): Promise<void> {
-    if (!isHomeOwner() || !hasCloudSyncSupport()) return;
+  // Apply a merged snapshot locally WITHOUT re-stamping it — it already carries
+  // the authoritative per-entity clocks from the merge (see settingsStore.saveSettings).
+  async function applyMerged(merged: Settings): Promise<void> {
+    await saveSettings(merged, { fromSync: true });
+  }
+
+  /* One sync pass: merge the local snapshot with the cloud copy per-entity
+     (settingsMerge), adopt the result locally if it changed, and push the merge
+     back so the cloud converges too. Runs at boot, on every debounced local
+     change, and on the periodic pull. Never a whole-doc overwrite — a device's
+     unique shelves survive and deletions propagate via tombstones. */
+  /* A snapshot with no shelves AND no smart shelves is almost always the
+     transient cold-boot default, not a real "user deleted everything" state.
+     Never sync it — pushing it would poison the cloud, and adopting a merge
+     that came out empty would wipe a healthy device. */
+  function isReal(s: Settings): boolean {
+    return ((s as any).shelves?.length ?? 0) > 0 || ((s as any).smartShelves?.length ?? 0) > 0;
+  }
+
+  function canSync(local: Settings): boolean {
+    return !disposed && isHomeOwner() && hasCloudSyncSupport() && isReal(local);
+  }
+
+  async function syncOnce(local: Settings): Promise<void> {
+    if (!canSync(local)) return;
     const cloud = await readCloud();
-    const lastKnownAt = (local as any).cloudSyncLastSyncedAt ?? 0;
-    if (cloud && cloud.updatedAt > lastKnownAt) {
-      const patch = { ...cloud.settings, cloudSyncLastSyncedAt: cloud.updatedAt };
-      const ok = await patchSettingsVerified(patch, (s) => (s as any).cloudSyncLastSyncedAt === cloud.updatedAt);
-      if (!ok) return;
-      lastKnownJson = JSON.stringify(preparePayload(getCurrentSettings() as Settings));
+    const remote = cloud ? (cloud.settings as unknown as Settings) : null;
+    const merged = remote ? mergeSettings(local, remote) : local;
+    if (!isReal(merged)) return;
+    const mergedPayload = JSON.stringify(preparePayload(merged));
+    if (mergedPayload !== JSON.stringify(preparePayload(local))) {
+      lastKnownJson = mergedPayload; // suppress the re-entrant push from applyMerged
+      await applyMerged(merged);
       notifyUser(i18n.t("plugin_name"), i18n.t("cloud_sync_applied"), "import", "cloudSync");
-      return;
     }
-    const at = await writeCloud(local);
+    // Cloud already holds the merged result → nothing to push.
+    if (remote && mergedPayload === JSON.stringify(preparePayload(remote))) { lastKnownJson = mergedPayload; return; }
+    const at = await writeCloud(merged);
     if (!at) return;
-    lastKnownJson = JSON.stringify(preparePayload(local));
+    lastKnownJson = mergedPayload;
     await patchSettingsVerified({ cloudSyncLastSyncedAt: at }, (s) => (s as any).cloudSyncLastSyncedAt === at);
   }
 
@@ -140,11 +169,7 @@ export function installCloudSync(): () => void {
     if (debounceTimer) clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => {
       debounceTimer = null;
-      void writeCloud(s).then(async (at) => {
-        if (!at) return;
-        lastKnownJson = json;
-        await patchSettingsVerified({ cloudSyncLastSyncedAt: at }, (s2) => (s2 as any).cloudSyncLastSyncedAt === at);
-      });
+      void syncOnce(getCurrentSettings() ?? s);
     }, PUSH_DEBOUNCE_MS);
   }
 
@@ -152,7 +177,7 @@ export function installCloudSync(): () => void {
     const enabled = isFeatureEnabled(s);
     if (enabled && !wasEnabled) {
       wasEnabled = true;
-      void reconcile(s);
+      void syncOnce(s);
       return;
     }
     wasEnabled = enabled;
@@ -164,15 +189,22 @@ export function installCloudSync(): () => void {
     const local = getCurrentSettings();
     if (local && isFeatureEnabled(local)) {
       wasEnabled = true;
-      await reconcile(local);
+      await syncOnce(local);
     }
     if (disposed) return;
     unsub = subscribeSettings(onSettingsChange);
   })();
 
+  const pullTimer = setInterval(() => {
+    if (disposed) return;
+    const s = getCurrentSettings();
+    if (s && isFeatureEnabled(s)) void syncOnce(s);
+  }, PULL_INTERVAL_MS);
+
   return () => {
     disposed = true;
     if (debounceTimer) clearTimeout(debounceTimer);
+    clearInterval(pullTimer);
     unsub?.();
   };
 }

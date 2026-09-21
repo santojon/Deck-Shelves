@@ -404,6 +404,31 @@ function buildMeasurementHost(doc: Document, rowToken: string): HTMLElement {
   return host;
 }
 
+/** Wraps the measurement host in the real container ancestor chain
+ *  (homeLayer0..N, grid → outward) so ancestor-scoped theme CSS (e.g. a
+ *  `.gamepadhome_RecentSection_*` selector) applies during measurement too
+ *  — otherwise the probe reads the theme-unaffected native size. Only the
+ *  outermost wrapper needs off-screen positioning. */
+function wrapHostInContainerChain(doc: Document, host: HTMLElement, map: Record<string, string>): HTMLElement {
+  const layers: string[] = [];
+  for (let i = 0; i < 10; i++) {
+    const cls = map[`homeLayer${i}`];
+    if (cls) layers.push(cls);
+  }
+  if (!layers.length) return host;
+  let outer: HTMLElement | null = null;
+  let innermost: HTMLElement | null = null;
+  for (let i = layers.length - 1; i >= 0; i--) {
+    const wrapper = doc.createElement('div');
+    wrapper.className = layers[i];
+    if (innermost) innermost.appendChild(wrapper); else outer = wrapper;
+    innermost = wrapper;
+  }
+  innermost!.appendChild(host);
+  outer!.style.cssText = 'position:absolute;top:-99999px;left:-99999px;visibility:hidden;pointer-events:none;';
+  return outer!;
+}
+
 function computeGapBetween(rect1: DOMRect, rect2: DOMRect, host: HTMLElement, cs1: CSSStyleDeclaration): number {
   const between = Math.max(0, Math.round(rect2.left - rect1.right));
   if (between > 0) return between;
@@ -448,11 +473,12 @@ function discoverNativeCardDimensionsViaClass(doc: Document): NativeCardDims | n
     card1.appendChild(img1);
     host.appendChild(card1);
     host.appendChild(card2);
-    doc.body.appendChild(host);
+    const root = wrapHostInContainerChain(doc, host, map ?? {});
+    doc.body.appendChild(root);
     try {
       return measureCardPair(card1, card2, host, img1);
     } finally {
-      doc.body.removeChild(host);
+      doc.body.removeChild(root);
     }
   } catch {}
   return null;

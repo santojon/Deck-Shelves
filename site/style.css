@@ -93,8 +93,8 @@ img, svg { display: block; }
 /* usage stats — one row of linked chips spanning the full width, same
    look as the .btn-ghost community buttons (white icon, soft rounded
    rectangle) but at chip height/spacing instead of full button size */
-.stats-row { display: flex; gap: 10px; margin-top: -8px; }
-.stat-chip { flex: 1 1 0; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 14px; border-radius: 10px; background: rgba(148, 163, 184, 0.06); border: 1px solid var(--border-strong); color: var(--text); font-size: 0.82rem; text-decoration: none; white-space: nowrap; transition: background .15s ease, border-color .15s ease; }
+.stats-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: -8px; }
+.stat-chip { flex: 1 1 auto; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 14px; border-radius: 10px; background: rgba(148, 163, 184, 0.06); border: 1px solid var(--border-strong); color: var(--text); font-size: 0.82rem; text-decoration: none; white-space: nowrap; transition: background .15s ease, border-color .15s ease; }
 .stat-chip:hover { background: rgba(148, 163, 184, 0.14); }
 .stat-chip .icon { width: 16px; height: 16px; color: currentColor; }
 .stat-chip b { font-weight: 700; }
@@ -323,4 +323,5 @@ hr.foot-rule { border: 0; border-top: 1px solid var(--border); margin: 34px 0 24
   .foot-grid { grid-template-columns: 1fr; }
   .lb-nav.prev { left: 6px; }
   .lb-nav.next { right: 6px; }
+  .stat-chip { flex: 1 1 calc(50% - 10px); padding: 8px 10px; font-size: 0.78rem; }
 }

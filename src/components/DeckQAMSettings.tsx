@@ -764,8 +764,16 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
               <ToggleField label={t('screensaver_shelves_include_screenshots' as any)} checked={(settings as any).screensaverShelvesIncludeScreenshots === true} onChange={(value: boolean) => void (actions as any).setScreensaverShelvesIncludeScreenshots(value)} />
               <DSSliderField label={t('screensaver_start_after_label' as any)} value={(settings as any).screensaverStartAfterSeconds ?? 60} min={15} max={600} step={15} unit='s' onChange={(value: number) => void (actions as any).setScreensaverStartAfterSeconds(value)} />
               <DSSliderField label={t('screensaver_dwell_label' as any)} value={(settings as any).screensaverDwellSeconds ?? 8} min={3} max={120} step={1} unit='s' onChange={(value: number) => void (actions as any).setScreensaverDwellSeconds(value)} />
+              <DSSliderField label={t('screensaver_shelf_batch_size_label' as any)} value={(settings as any).screensaverShelfBatchSize ?? 5} min={1} max={20} step={1} onChange={(value: number) => void (actions as any).setScreensaverShelfBatchSize(value)} />
               <ToggleField label={t('screensaver_logo_enabled' as any)} checked={(settings as any).screensaverLogoEnabled !== false} onChange={(value: boolean) => void (actions as any).setScreensaverLogoEnabled(value)} />
               {(settings as any).screensaverLogoEnabled !== false && screensaverLogoDetail(t, settings, actions)}
+              <ToggleField label={t('screensaver_description_enabled' as any)} checked={(settings as any).screensaverDescriptionEnabled === true} onChange={(value: boolean) => void (actions as any).setScreensaverDescriptionEnabled(value)} />
+              {(settings as any).screensaverDescriptionEnabled === true && (
+                <div style={{ paddingLeft: 16 }}>
+                  <ToggleField label={t('screensaver_description_above_logo' as any)} checked={(settings as any).screensaverDescriptionAboveLogo === true} onChange={(value: boolean) => void (actions as any).setScreensaverDescriptionAboveLogo(value)} />
+                  <DSSliderField label={t('screensaver_description_logo_gap_label' as any)} value={(settings as any).screensaverDescriptionLogoGap ?? 10} min={-40} max={80} step={5} unit='px' onChange={(value: number) => void (actions as any).setScreensaverDescriptionLogoGap(value)} />
+                </div>
+              )}
             </div>
           )}
         </>)

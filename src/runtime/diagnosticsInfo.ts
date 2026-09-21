@@ -120,6 +120,25 @@ export async function collectSystemInfo(): Promise<SystemInfo> {
   return out;
 }
 
+/* Cached "is this SteamOS / a Steam Deck" flag. The host OS never changes within
+   a session, so it is collected once (async) and read back synchronously — e.g.
+   by the card compat badge, which shows Deck compatibility on SteamOS and
+   controller support on desktop. `undefined` until primed (callers default safe). */
+let _isSteamOS: boolean | undefined;
+
+/** Kick off the one-time SteamOS detection; safe to call more than once. */
+export function primeSystemPlatform(): void {
+  if (_isSteamOS !== undefined) return;
+  void collectSystemInfo()
+    .then((s) => { if (typeof s.isSteamOS === "boolean") _isSteamOS = s.isSteamOS; })
+    .catch(() => { /* leave undefined; callers default safe */ });
+}
+
+/** The cached SteamOS flag, or `undefined` until `primeSystemPlatform` resolves. */
+export function isSteamOSCached(): boolean | undefined {
+  return _isSteamOS;
+}
+
 export interface HardwareInfo {
   model: string | null;
   product: string | null;

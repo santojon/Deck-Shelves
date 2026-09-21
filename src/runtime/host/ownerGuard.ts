@@ -1,3 +1,6 @@
+import pkg from "../../../package.json";
+import { OWNER_METADATA_GLOBAL, type HostOwnerMetadata } from "./contract";
+
 /* Single-owner guard for a dual-host install (two hosts both delivering the
    bundle into ONE renderer): the first instance claims it via
    `window.__DECK_SHELVES_OWNER__`; the other stands down — no home patch, no
@@ -26,6 +29,10 @@ export function claimHomeOwnership(kind: HostKind): boolean {
       w.__DECK_SHELVES_OWNER__ = kind; // first mount claims
     }
     _isOwner = w.__DECK_SHELVES_OWNER__ === kind;
+    const owner = w.__DECK_SHELVES_OWNER__;
+    if (owner === "decky" || owner === "shelveshub") {
+      w[OWNER_METADATA_GLOBAL] = { host: owner, dsVersion: pkg.version } satisfies HostOwnerMetadata;
+    }
   } catch {
     _isOwner = true;
   }
@@ -40,4 +47,15 @@ export function isHomeOwner(): boolean {
 
 export function getOwnerKind(): HostKind {
   return _kind;
+}
+
+export function getOwnerMetadata(): HostOwnerMetadata | null {
+  try {
+    const value = ownerScope()[OWNER_METADATA_GLOBAL];
+    return value?.host && typeof value.dsVersion === "string"
+      ? { host: value.host, dsVersion: value.dsVersion }
+      : null;
+  } catch {
+    return null;
+  }
 }

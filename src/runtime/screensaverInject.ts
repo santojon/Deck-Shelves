@@ -60,6 +60,13 @@ export function getDwellSeconds(settings: Settings | null): number {
   return typeof v === "number" && v > 0 ? v : 8;
 }
 
+// How many apps to draw per shelf per round-robin round (see
+// resolveShelfAppPool) before moving to the next shelf.
+export function getShelfBatchSize(settings: Settings | null): number {
+  const v = (settings as any)?.screensaverShelfBatchSize;
+  return typeof v === "number" && v > 0 ? v : 5;
+}
+
 function getMenuStore(): any {
   try {
     return (globalThis as any).SteamUIStore?.WindowStore?.GamepadUIMainWindowInstance?.m_MenuStore ?? null;
@@ -82,23 +89,37 @@ function getFocusableShelves(settings: Settings | null): Shelf[] {
   return shelves.filter((s) => s?.enabled !== false && s?.hidden !== true);
 }
 
-async function resolveShelfAppPool(settings: Settings | null): Promise<number[]> {
-  const shelves = getFocusableShelves(settings);
-  const ids: number[] = [];
+/* Round-robins across shelves in batches (default 5 apps per shelf per
+   round, `screensaverShelfBatchSize`) instead of filling the cap from
+   shelf order — a sequential fill let an early shelf starve every shelf
+   after it out of the pool entirely (confirmed live: effectively "first
+   shelf only" once that shelf's own count approached MAX_SHELF_APPS). */
+function interleaveShelfBatches(perShelfIds: number[][], batchSize: number): number[] {
   const seen = new Set<number>();
-  for (const shelf of shelves) {
-    if (ids.length >= MAX_SHELF_APPS) break;
-    try {
-      const shelfIds = await resolveShelfAppIds(shelf.source as any, shelf.limit ?? 20, shelf.sort, shelf.id, shelf.sortReverse as any);
-      for (const id of shelfIds) {
-        if (seen.has(id)) continue;
-        seen.add(id);
-        ids.push(id);
-        if (ids.length >= MAX_SHELF_APPS) break;
+  const ids: number[] = [];
+  const maxLen = Math.max(0, ...perShelfIds.map((l) => l.length));
+  for (let batchStart = 0; batchStart < maxLen && ids.length < MAX_SHELF_APPS; batchStart += batchSize) {
+    for (const list of perShelfIds) {
+      if (ids.length >= MAX_SHELF_APPS) break;
+      for (let i = batchStart; i < batchStart + batchSize && i < list.length && ids.length < MAX_SHELF_APPS; i++) {
+        if (seen.has(list[i])) continue;
+        seen.add(list[i]);
+        ids.push(list[i]);
       }
-    } catch { /* one bad shelf source shouldn't drop the rest */ }
+    }
   }
   return ids;
+}
+
+async function resolveShelfAppPool(settings: Settings | null): Promise<number[]> {
+  const shelves = getFocusableShelves(settings);
+  const perShelfIds: number[][] = [];
+  for (const shelf of shelves) {
+    try {
+      perShelfIds.push(await resolveShelfAppIds(shelf.source as any, shelf.limit ?? 20, shelf.sort, shelf.id, shelf.sortReverse as any));
+    } catch { perShelfIds.push([]); /* one bad shelf source shouldn't drop the rest */ }
+  }
+  return interleaveShelfBatches(perShelfIds, getShelfBatchSize(settings));
 }
 
 function resolveNativeRecentAppIds(): number[] {

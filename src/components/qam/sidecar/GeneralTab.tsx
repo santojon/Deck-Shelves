@@ -291,6 +291,9 @@ function screensaverShelvesGroup(c: GCtx): ReactNode {
         {row('screensaverDwellSeconds', (
           <DSSliderField label={t('screensaver_dwell_label' as any)} value={(settings as any).screensaverDwellSeconds ?? 8} min={3} max={120} step={1} unit='s' onChange={(v: number) => void (actions as any).setScreensaverDwellSeconds(v)} />
         ))}
+        {row('screensaverShelfBatchSize', (
+          <DSSliderField label={t('screensaver_shelf_batch_size_label' as any)} value={(settings as any).screensaverShelfBatchSize ?? 5} min={1} max={20} step={1} onChange={(v: number) => void (actions as any).setScreensaverShelfBatchSize(v)} />
+        ))}
         {row('screensaverLogoEnabled', (
           <ToggleField label={t('screensaver_logo_enabled' as any)} checked={logoOn} onChange={(v: boolean) => void (actions as any).setScreensaverLogoEnabled(v)} />
         ))}
@@ -317,6 +320,15 @@ function screensaverLogoPlacementGroup(c: GCtx): ReactNode {
     ))}
     {(settings as any).screensaverShelvesIncludeScreenshots === true && row('screensaverLogoOnScreenshots', (
       <ToggleField label={t('screensaver_logo_on_screenshots_label' as any)} checked={(settings as any).screensaverLogoOnScreenshots !== false} onChange={(v: boolean) => void (actions as any).setScreensaverLogoOnScreenshots(v)} />
+    ))}
+    {row('screensaverDescriptionEnabled', (
+      <ToggleField label={t('screensaver_description_enabled' as any)} checked={(settings as any).screensaverDescriptionEnabled === true} onChange={(v: boolean) => void (actions as any).setScreensaverDescriptionEnabled(v)} />
+    ))}
+    {(settings as any).screensaverDescriptionEnabled === true && row('screensaverDescriptionAboveLogo', (
+      <ToggleField label={t('screensaver_description_above_logo' as any)} checked={(settings as any).screensaverDescriptionAboveLogo === true} onChange={(v: boolean) => void (actions as any).setScreensaverDescriptionAboveLogo(v)} />
+    ))}
+    {(settings as any).screensaverDescriptionEnabled === true && row('screensaverDescriptionLogoGap', (
+      <DSSliderField label={t('screensaver_description_logo_gap_label' as any)} value={(settings as any).screensaverDescriptionLogoGap ?? 10} min={-40} max={80} step={5} unit='px' onChange={(v: number) => void (actions as any).setScreensaverDescriptionLogoGap(v)} />
     ))}
   </>)
 }

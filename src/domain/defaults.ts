@@ -126,7 +126,13 @@ export function defaultSettings(): Settings {
     screensaverLogoAtTop: false,
     screensaverLogoOffset: 8,
     screensaverLogoOnScreenshots: true,
+    screensaverShelfBatchSize: 5,
+    screensaverDescriptionEnabled: false,
+    screensaverDescriptionAboveLogo: false,
+    screensaverDescriptionLogoGap: 10,
     cloudSyncEnabled: false,
     cloudSyncLastSyncedAt: null,
+    syncTombstones: {},
+    preferencesUpdatedAt: 0,
   };
 }

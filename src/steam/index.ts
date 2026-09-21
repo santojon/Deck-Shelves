@@ -1076,7 +1076,11 @@ function deriveDisplayStatus(node: any): number | undefined {
 }
 
 function deriveControllerSupport(node: any): number | undefined {
-  const raw = node?.nControllerSupport ?? node?.controller_support ?? node?.n_controller_support;
+  // `xbox_controller_support` is what current clients expose on desktop (macOS /
+  // Windows / desktop Linux); the older fields cover other builds. 0/1/2 = none /
+  // partial / full — the same scale the controller-support filter uses.
+  const raw = node?.nControllerSupport ?? node?.controller_support
+    ?? node?.n_controller_support ?? node?.xbox_controller_support;
   const n = Number(raw);
   return Number.isFinite(n) ? n : undefined;
 }
@@ -4075,6 +4079,7 @@ function buildMetaFromOverview(appid: number, overview?: AppOverview, raw?: any)
     installed: overview?.installed,
     isSteam,
     deckCompatCategory: overview?.deck_compatibility_category,
+    controllerSupport: overview?.controller_support,
     playtimeMinutes: pickPlaytimeMinutes(overview),
     updatePending: resolveUpdatePending(appid, overview, raw),
     addedTimestamp: firstFiniteFromOverview(overview, META_ADDED_KEYS),

@@ -28,4 +28,20 @@ describe("settings schemaVersion migration (§4B)", () => {
     expect(out.schemaVersion).toBe(SCHEMA_VERSION);
     expect((out.shelves[0].source as any).type).toBe("filter");
   });
+
+  it("dedupes shelves and smart shelves by id, keeping the first", () => {
+    const dup = {
+      ...base(),
+      shelves: [
+        { id: "x", title: "First", enabled: true, source: { type: "filter" } },
+        { id: "y", title: "Other", enabled: true, source: { type: "filter" } },
+        { id: "x", title: "Duplicate", enabled: true, source: { type: "filter" } },
+      ],
+      smartShelves: [{ id: "s", title: "S" }, { id: "s", title: "S2" }],
+    } as any;
+    const out = migrate(dup);
+    expect(out.shelves.map((s: any) => s.id)).toEqual(["x", "y"]);
+    expect(out.shelves[0].title).toBe("First");
+    expect((out as any).smartShelves.map((s: any) => s.id)).toEqual(["s"]);
+  });
 });

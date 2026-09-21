@@ -6,6 +6,9 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 ## [Unreleased]
 
 - **New recommended way to install: ShelvesHub.** A standalone host, no Decky Loader needed — one-click installers for Steam Deck, Linux, macOS and Windows, with automatic updates for itself and Deck Shelves. The Decky Store, manual-zip and install-from-URL options are all still there and unchanged; ShelvesHub is simply the easiest path for anyone starting fresh.
+- **Screensaver improvements.** It now shows a fair mix from every shelf instead of mostly the first one, resumes where it left off instead of restarting each time, and can optionally show the game's description next to the logo (above or below, with an adjustable gap). A new setting also lets you control how many games it pulls from each shelf at a time.
+- **Compatibility icons that fit your device.** On a Steam Deck / SteamOS, cards still show the Steam Deck compatibility rating; on macOS, Windows and desktop Linux they now show controller-support icons (full or partial) — the same thing native Steam shows there — instead of a Deck rating that doesn't apply. It's the same "compatibility icons" toggle you already have, per shelf or globally.
+- **Settings sync across devices is much more reliable.** If you use the optional cross-device sync, two devices now merge their changes shelf by shelf instead of one overwriting the other, and a bug that could make synced shelves disappear (or the whole plugin read as turned off) is fixed. If the same shelf was created separately on each device, they'll show as two — delete the extra once and it stays gone.
 
 ## [3.3.0] - 2026-09-16
 

@@ -4,6 +4,7 @@ import { SettingsSchema, type Settings } from "../types";
 import { defaultSettings } from "../domain/defaults";
 import { logError, logInfo, logWarn, setVerboseLogging } from "../runtime/logger";
 import { applyQASettingsOverride, qaOverrideActive } from "../qa/harness";
+import { SYNC_LISTS, LOCAL_ONLY_FIELDS } from "../domain/settingsMerge";
 
 /* Bumping the cache key invalidates persisted localStorage entries from
    previous plugin versions in one shot. v3 forces a backend refetch on
@@ -126,11 +127,122 @@ function notify(raw: Settings) {
    added; older versions read a higher number and leave the doc untouched. */
 export const SCHEMA_VERSION = 1;
 
+function dedupeById<T extends { id?: string }>(arr: readonly T[]): T[] {
+  const seen = new Set<string>();
+  return arr.filter((x) => {
+    const k = x?.id;
+    if (!k) return true;
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+}
+
+/* Drop duplicate shelves / smart shelves by id. A cloud-sync or template path
+   can append an entry that already exists (same id), which renders the shelf
+   twice on the home — dedupe on every load so it self-heals (the next push
+   then writes the cleaned list back to the cloud). Keeps the first occurrence. */
+function dedupeShelves(s: Settings): Settings {
+  const shelves = dedupeById(s.shelves ?? []);
+  const smart = dedupeById((s as any).smartShelves ?? []);
+  const changed = shelves.length !== (s.shelves?.length ?? 0)
+    || smart.length !== ((s as any).smartShelves?.length ?? 0);
+  return changed ? ({ ...s, shelves, smartShelves: smart } as Settings) : s;
+}
+
+const TOMBSTONE_TTL_MS = 60 * 24 * 60 * 60 * 1000;
+// Backfilled entities get a fixed low clock — any genuine future edit (Date.now)
+// always beats it, and two devices' never-edited copies tie by content, not by
+// which device happened to load first.
+const BACKFILL_EPOCH = 1;
+
+function stripStamp(e: any): string {
+  const { updatedAt: _drop, ...rest } = e ?? {};
+  return JSON.stringify(rest);
+}
+
+// The scalar bag = every field except the per-id sync lists and the sync
+// bookkeeping / device-local fields. Serialized with sorted keys so key order
+// never registers as a change.
+function scalarBag(s: any): string {
+  const skip = new Set<string>([...SYNC_LISTS, "syncTombstones", "preferencesUpdatedAt", ...LOCAL_ONLY_FIELDS]);
+  const out: any = {};
+  for (const k of Object.keys(s).sort()) if (!skip.has(k)) out[k] = s[k];
+  return JSON.stringify(out);
+}
+
+/* Give any list entity that lacks a sync clock the fixed backfill epoch, and
+   ensure the sync bookkeeping fields exist — so a pre-sync document merges
+   deterministically without a one-time re-stamp on every device. Returns the
+   same reference when nothing needed backfilling (identity-preserving). */
+function backfillSyncStamps(s: Settings): Settings {
+  const out: any = { ...s };
+  let changed = false;
+  for (const key of SYNC_LISTS) {
+    const list: any[] = (s as any)[key] ?? [];
+    let listChanged = false;
+    const next = list.map((e) => {
+      if (typeof e?.updatedAt === "number") return e;
+      listChanged = true;
+      return { ...e, updatedAt: BACKFILL_EPOCH };
+    });
+    if (listChanged) { out[key] = next; changed = true; }
+  }
+  const st = (s as any).syncTombstones;
+  if (typeof st !== "object" || st === null) { out.syncTombstones = {}; changed = true; }
+  if (typeof (s as any).preferencesUpdatedAt !== "number") { out.preferencesUpdatedAt = BACKFILL_EPOCH; changed = true; }
+  return changed ? (out as Settings) : s;
+}
+
+function stampEntity(e: any, before: any, now: number): any {
+  if (before && stripStamp(before) === stripStamp(e)) {
+    return typeof e.updatedAt === "number" ? e : { ...e, updatedAt: before.updatedAt ?? now };
+  }
+  return { ...e, updatedAt: now };
+}
+
+// Stamp one list vs its previous version: fresh clock on changed/new entities,
+// a tombstone for every removed id, and clear the tombstone of a re-created one.
+function stampList(prevList: any[], nextList: any[], tombstones: Record<string, number>, now: number): any[] {
+  const prevById = new Map(prevList.map((e) => [e.id, e] as const));
+  const nextIds = new Set(nextList.map((e) => e.id));
+  const stamped = nextList.map((e) => stampEntity(e, prevById.get(e.id), now));
+  for (const e of prevList) if (!nextIds.has(e.id)) tombstones[e.id] = now;
+  for (const id of nextIds) if (id in tombstones) delete tombstones[id];
+  return stamped;
+}
+
+function pruneTombstones(tombstones: Record<string, number>, now: number): void {
+  for (const [id, t] of Object.entries(tombstones)) if (now - t > TOMBSTONE_TTL_MS) delete tombstones[id];
+}
+
+/* Central sync-stamping: bump `updatedAt` on every changed/new list entity,
+   tombstone every removed id (and clear the tombstone of a re-created one), and
+   bump `preferencesUpdatedAt` when any scalar changed — so settingsMerge can
+   converge devices per-entity. Runs on every user save; sync-applied saves pass
+   fromSync to skip it (they already carry authoritative stamps). */
+export function stampChanges(prev: Settings | null, next: Settings): Settings {
+  const now = Date.now();
+  const out: any = { ...next };
+  const tombstones: Record<string, number> = { ...((next as any).syncTombstones ?? {}) };
+  for (const key of SYNC_LISTS) {
+    out[key] = stampList((prev as any)?.[key] ?? [], (next as any)[key] ?? [], tombstones, now);
+  }
+  const scalarChanged = !prev || scalarBag(prev) !== scalarBag(next);
+  out.preferencesUpdatedAt = scalarChanged ? now : ((prev as any).preferencesUpdatedAt ?? (next as any).preferencesUpdatedAt ?? now);
+  pruneTombstones(tombstones, now);
+  out.syncTombstones = tombstones;
+  return out as Settings;
+}
+
 export function migrate(s: Settings): Settings {
   const stored = s.schemaVersion ?? 0;
-  // A NEWER version wrote this document — never migrate or downgrade it; its
-  // higher-schema fields already survive via the preserve-unknown sanitizer.
+  // A NEWER version wrote this document — never migrate or downgrade it (return
+  // untouched); its higher-schema fields survive via the preserve-unknown
+  // sanitizer, and it already carries its own sync bookkeeping.
   if (stored > SCHEMA_VERSION) return s;
+  s = dedupeShelves(s);
+  s = backfillSyncStamps(s);
   let mutated = false;
   const shelves = s.shelves.map((sh) => {
     /* "Recently Played" template used to emit { type: "tab", tab: "recent" },
@@ -169,6 +281,27 @@ function normalize(raw: unknown): Settings {
   return parsed.success ? migrate(parsed.data) : preserveOnParseFailure(candidate, parsed.error);
 }
 
+const COLD_RETRY_MAX = 10;
+let coldRetryTimer: ReturnType<typeof setTimeout> | null = null;
+let coldRetryAttempt = 0;
+
+/* Cold boot can mount the home before the backend RPC bridge attaches, so the
+   first get_settings throws "backend not ready" and the cold path below falls
+   back to empty defaults. Retry with backoff until the backend answers, then
+   notify — the home then populates on its own instead of only once the user
+   opens the QAM (the sole-host "no shelves until I open the QAM" bug). */
+function scheduleColdRetry(): void {
+  if (coldRetryTimer != null || coldRetryAttempt >= COLD_RETRY_MAX) return;
+  const delay = Math.min(500 * 2 ** coldRetryAttempt, 4000);
+  coldRetryTimer = setTimeout(() => {
+    coldRetryTimer = null;
+    coldRetryAttempt += 1;
+    call<[], unknown>("get_settings")
+      .then((raw) => { coldRetryAttempt = 0; notify(normalize(raw)); })
+      .catch(() => scheduleColdRetry());
+  }, delay);
+}
+
 export async function refreshSettings(): Promise<Settings> {
   const cached = current ?? readCache() ?? readSharedState();
   if (cached) {
@@ -203,7 +336,7 @@ export async function refreshSettings(): Promise<Settings> {
         }
         notify(fromServer);
       })
-      .catch((error) => logWarn("STORAGE", "background refresh failed", String(error)));
+      .catch((error) => { logWarn("STORAGE", "background refresh failed", String(error)); scheduleColdRetry(); });
     return cached;
   }
   try {
@@ -213,6 +346,7 @@ export async function refreshSettings(): Promise<Settings> {
     return next;
   } catch (error) {
     logWarn("STORAGE", "refreshSettings failed", String(error));
+    scheduleColdRetry();
     const next = current ?? readCache() ?? readSharedState() ?? defaultSettings();
     notify(next);
     return next;
@@ -241,24 +375,28 @@ async function flushPendingSave(): Promise<void> {
   }
 }
 
-export function saveSettings(next: Settings): Promise<boolean> {
+export function saveSettings(next: Settings, opts?: { fromSync?: boolean }): Promise<boolean> {
+  // Stamp per-entity sync clocks + tombstones from the diff vs the current state,
+  // unless this is a sync-applied write (which already carries authoritative
+  // stamps from the merge — re-stamping would clobber the other device's clocks).
+  const stamped = opts?.fromSync ? next : stampChanges(current, next);
   // Never let a QA-overridden session reach the real backend — see
   // `qaOverrideActive`'s doc comment for the incident this guards against.
   // Replaces a narrower, two-flag version of this same check.
   if (qaOverrideActive) {
     logInfo("STORAGE", "saveSettings skipped (QA override active)");
-    notify(next);
+    notify(stamped);
     return Promise.resolve(true);
   }
   // Always update local + cache + listeners immediately so the UI stays
   // responsive even while a slow backend write is pending.
-  notify(next);
+  notify(stamped);
   return new Promise<boolean>((resolve) => {
     if (pendingSave) {
-      pendingSave.next = next;
+      pendingSave.next = stamped;
       pendingSave.resolvers.push(resolve);
     } else {
-      pendingSave = { next, resolvers: [resolve] };
+      pendingSave = { next: stamped, resolvers: [resolve] };
     }
     void flushPendingSave();
   });
