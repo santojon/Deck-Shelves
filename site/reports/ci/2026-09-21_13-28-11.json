@@ -1,0 +1,215 @@
+{
+  "ts": "2026-09-21_13-28-11",
+  "stress": false,
+  "subdir": "ci",
+  "version": "3.3.0",
+  "overall": "PASS",
+  "passed": 6,
+  "failed": 0,
+  "skipped": 0,
+  "total": 6,
+  "per_suite": {},
+  "unit": {
+    "passed": 851,
+    "failed": 0,
+    "skipped": 0,
+    "total": 851
+  },
+  "pytest": {},
+  "ruff": {},
+  "lint": {},
+  "suppressions": 72,
+  "complexity": {
+    "level": 1875,
+    "count": 70,
+    "max": 105,
+    "avg": 26.8,
+    "top": [
+      {
+        "file": "src/components/shelf/GameCard.tsx",
+        "line": 190,
+        "fn": "GameCardImpl",
+        "score": 105
+      },
+      {
+        "file": "src/components/Shelf.tsx",
+        "line": 217,
+        "fn": "ShelfViewImpl",
+        "score": 99
+      },
+      {
+        "file": "src/components/DeckRow.tsx",
+        "line": 85,
+        "fn": "DeckRowImpl",
+        "score": 94
+      },
+      {
+        "file": "src/components/shelf/PerShelfHero.tsx",
+        "line": 275,
+        "fn": "PerShelfHero",
+        "score": 84
+      },
+      {
+        "file": "src/index.tsx",
+        "line": 145,
+        "fn": "(anonymous)",
+        "score": 59
+      },
+      {
+        "file": "src/components/HomeInject.tsx",
+        "line": 46,
+        "fn": "HomeShelves",
+        "score": 52
+      },
+      {
+        "file": "src/components/home/navPatches/reparent.ts",
+        "line": 3,
+        "fn": "reparentNavTreeNodes",
+        "score": 50
+      },
+      {
+        "file": "src/components/shelf/PlaceholderCard.tsx",
+        "line": 11,
+        "fn": "PlaceholderCard",
+        "score": 50
+      },
+      {
+        "file": "src/components/shelf/GameCard.tsx",
+        "line": 401,
+        "fn": "injectNativeClasses",
+        "score": 45
+      },
+      {
+        "file": "src/components/DeckRow.tsx",
+        "line": 484,
+        "fn": "(anonymous)",
+        "score": 42
+      }
+    ]
+  },
+  "decoupling": {
+    "leaks": 0,
+    "adapter": 130,
+    "ratio": 0,
+    "top": []
+  },
+  "portability": {
+    "coupled": 38,
+    "guarded": 38,
+    "unguarded": 0,
+    "top": []
+  },
+  "stats": {
+    "date": "2026-09-21",
+    "traffic": {
+      "main": {
+        "views": 1321,
+        "viewsUniques": 537,
+        "clones": 479,
+        "clonesUniques": 166
+      },
+      "api": {
+        "views": 38,
+        "viewsUniques": 2,
+        "clones": 181,
+        "clonesUniques": 50
+      },
+      "host": {
+        "views": 27,
+        "viewsUniques": 2,
+        "clones": 369,
+        "clonesUniques": 61
+      },
+      "shelveshub": {
+        "views": 202,
+        "viewsUniques": 34,
+        "clones": 363,
+        "clonesUniques": 57
+      }
+    },
+    "npm": {
+      "api": 1500,
+      "host": 995
+    },
+    "deckyStoreInstalls": 18432,
+    "deckyStoreUpdates": 1725,
+    "githubDownloads": 7198,
+    "shelvesHubDownloads": 91,
+    "versionDownloads": {
+      "stable": {
+        "v3.3.0": 217,
+        "v3.2.1": 509,
+        "v3.2.0": 165,
+        "v3.1.0": 293,
+        "v3.0.2": 182,
+        "v3.0.1": 134,
+        "v3.0.0": 234,
+        "v2.4.3": 194,
+        "v2.4.2": 121,
+        "v2.4.1": 124,
+        "v2.4.0": 124,
+        "v2.3.2": 141,
+        "v2.3.1": 100,
+        "v2.3.0": 133,
+        "v2.2.2": 137,
+        "v2.2.1": 106,
+        "v2.2.0": 102,
+        "v2.1.1": 121,
+        "v2.1.0": 109,
+        "v2.0.1": 126,
+        "v2.0.0": 225,
+        "v1.6.3": 118,
+        "v1.6.2": 117,
+        "v1.6.1": 125,
+        "v1.6.0": 146,
+        "v1.5.3": 123,
+        "v1.5.2": 124,
+        "v1.5.1": 142,
+        "v1.5.0": 135,
+        "v1.4.0": 125,
+        "v1.3.1": 112,
+        "v1.3.0": 126,
+        "v1.2.5": 104,
+        "v1.2.4": 147,
+        "v1.2.3": 205,
+        "v1.2.2": 157,
+        "v1.2.1": 108,
+        "v1.2.0": 150,
+        "v1.1.3": 123,
+        "v1.1.2": 102,
+        "v1.1.1": 104,
+        "v1.1.0": 101,
+        "v1.0.0": 106,
+        "v0.2.0": 103,
+        "v0.1.0": 104
+      },
+      "beta": {
+        "v3.3.0-beta.4": 27,
+        "v3.3.0-beta.3": 37,
+        "v3.3.0-beta.2": 65,
+        "v3.3.0-beta.1": 45,
+        "v3.2.2-beta.2": 62,
+        "v3.2.2-beta.1": 82,
+        "v3.0.2-beta.2": 103,
+        "v3.0.2-beta.1": 102
+      }
+    }
+  },
+  "step_names": [
+    "TypeScript typecheck",
+    "Build (production)",
+    "Unit tests (vitest)",
+    "Package (.zip)",
+    "Verify package",
+    "Compat validation"
+  ],
+  "step_durations_ms": [
+    6096,
+    1817,
+    6013,
+    2043,
+    46,
+    4100
+  ],
+  "total_duration_ms": 20115
+}
