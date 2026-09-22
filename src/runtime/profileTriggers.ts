@@ -86,7 +86,11 @@ function applyByName(name: string): void {
   const target = profiles.find((p: any) => p && p.name === name);
   if (target && target.id && target.snapshot) {
     const showcaseSeen = stickyShowcaseSeen(s, target.snapshot as any);
-    saveIfChanged({ ...(target.snapshot as any), profiles, activeProfileName: target.name, showcaseSeen } as Settings, () => triggerToast(name));
+    const next = { ...(target.snapshot as any), profiles, activeProfileName: target.name, showcaseSeen } as Settings;
+    // Shelf-link opt-in, same as the manual apply path (controller/profiles.ts):
+    // unlinked profiles change everything BUT the shelves.
+    if (!target.linkShelves) keepShelfFields(next, s);
+    saveIfChanged(next, () => triggerToast(name));
   }
 }
 
