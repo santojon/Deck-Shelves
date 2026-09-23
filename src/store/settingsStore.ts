@@ -375,11 +375,60 @@ async function flushPendingSave(): Promise<void> {
   }
 }
 
+/* Cloud-sync baseline: the user's settings with no profile override applied.
+   A profile (manual or trigger) is a DEVICE-LOCAL presentation — a docked/showcase
+   profile on one machine must not overwrite a handheld profile on another via
+   cloud sync. So the moment a profile becomes active we snapshot the pre-override
+   config here; cloud sync reads/writes THIS baseline (getSyncBasis), not the live
+   override, and adopts merges into it (applySyncedBasis) while an override is on.
+   In memory only — like the profile-trigger baseline, it does not survive a reload
+   (a persisted override then syncs until the next profile transition). */
+let syncBaseline: Settings | null = null;
+
+function profileOverrideActive(s: Settings | null): boolean {
+  return !!s && (s as any).activeProfileName != null;
+}
+
+export function setSyncBaseline(s: Settings | null): void {
+  syncBaseline = s ? (JSON.parse(JSON.stringify(s)) as Settings) : null;
+}
+
+export function getSyncBaseline(): Settings | null {
+  return syncBaseline;
+}
+
+/* What cloud sync operates on: the baseline while a profile override is active,
+   else the live config. */
+export function getSyncBasis(): Settings | null {
+  return syncBaseline ?? current;
+}
+
+/* Adopt a cloud-merged basis. While a profile override is active, update only the
+   baseline (the live override stays, so the device keeps showing its own profile);
+   otherwise adopt it as the live config. */
+export async function applySyncedBasis(merged: Settings): Promise<void> {
+  if (syncBaseline) {
+    setSyncBaseline(merged);
+    return;
+  }
+  await saveSettings(merged, { fromSync: true });
+}
+
 export function saveSettings(next: Settings, opts?: { fromSync?: boolean }): Promise<boolean> {
   // Stamp per-entity sync clocks + tombstones from the diff vs the current state,
   // unless this is a sync-applied write (which already carries authoritative
   // stamps from the merge — re-stamping would clobber the other device's clocks).
   const stamped = opts?.fromSync ? next : stampChanges(current, next);
+  // Track the profile-override baseline centrally so BOTH manual and trigger
+  // profile applies (which all set `activeProfileName` through here) keep the
+  // pre-override config as the cloud-sync basis. Snapshot it when a profile turns
+  // on; clear it when the last one turns off. Sync-applied writes never toggle it.
+  if (!opts?.fromSync) {
+    const wasOverride = profileOverrideActive(current);
+    const nowOverride = profileOverrideActive(stamped);
+    if (!wasOverride && nowOverride) setSyncBaseline(current);
+    else if (wasOverride && !nowOverride) setSyncBaseline(null);
+  }
   // Never let a QA-overridden session reach the real backend — see
   // `qaOverrideActive`'s doc comment for the incident this guards against.
   // Replaces a narrower, two-flag version of this same check.

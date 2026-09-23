@@ -17,6 +17,9 @@ export const SYNC_LISTS = ["shelves", "smartShelves", "savedFilters", "savedSmar
 export const LOCAL_ONLY_FIELDS = [
   "cloudSyncEnabled", "cloudSyncLastSyncedAt",
   "screensaverIdleBackupAcSec", "screensaverIdleBackupBatterySec",
+  // The active profile is a device-local presentation — a merge must keep the
+  // local one, never adopt the other device's (see cloudSync's matching list).
+  "activeProfileName",
 ] as const;
 
 function clk(e: Entity): number { return typeof e.updatedAt === "number" ? e.updatedAt : 0; }

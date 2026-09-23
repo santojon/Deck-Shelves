@@ -136,7 +136,7 @@
 - **Own Quick Access tab (experimental, opt-in)** — puts Deck Shelves in the Quick Access tab strip itself, next to Notifications and Settings, instead of only inside Decky's plugin list. Off by default; restart Steam after enabling
 - **Showcase mode (opt-in)** — while idle on the Home, slowly cycles through your shelves like a screensaver; any input stops it instantly. Configurable delay, time per shelf, and randomize order
 - **Screensaver (opt-in, experimental)** — a full-screen slideshow of everything your home screen shows, optionally mixing in your local screenshots too, in place of the built-in one. Your own start delay and time per image, plus an optional game-logo overlay you can resize and reposition to any corner
-- **Cross-device settings sync (opt-in, experimental)** — keep shelves, filters, profiles and every other preference in sync across every device on the same Steam account, using that account's own cloud storage — no extra sign-in, no cost
+- **Cross-device settings sync (opt-in, experimental)** — keep shelves, filters, profiles and every other preference in sync across every device on the same Steam account, using that account's own cloud storage — no extra sign-in, no cost. The **currently-active profile is device-local** (manual or trigger): a *Showcase* profile that docks one machine never flips a handheld device on the same account into it — each device keeps its own current profile while the underlying settings and the profile list still sync
 - Import / export all shelves and smart shelf configuration as JSON
 - Persistent settings across plugin reinstalls
 - Crash protection with automatic retry

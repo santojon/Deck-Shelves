@@ -39,6 +39,18 @@ describe("mergeSettings — cross-device convergence", () => {
     expect(out.shelves.map((s) => s.id).sort()).toEqual(["x", "y"]);
   });
 
+  it("keeps the active profile device-local — a merge never adopts the other device's", () => {
+    // This device is handheld (no profile); the other pushed a 'Showcase' profile.
+    // The merge must keep THIS device's activeProfileName, not cross it over.
+    const local = mk({ shelves: [sh("a", 5)], activeProfileName: null });
+    const remote = mk({ shelves: [sh("a", 9)], activeProfileName: "Showcase" });
+    expect((mergeSettings(local, remote) as any).activeProfileName).toBe(null);
+    // And symmetrically from the other side: the device on 'Showcase' keeps it.
+    expect((mergeSettings(remote, local) as any).activeProfileName).toBe("Showcase");
+    // Shelves still converge (per-id LWW) regardless of the local-only field.
+    expect((mergeSettings(local, remote).shelves.find((s) => s.id === "a") as any).updatedAt).toBe(9);
+  });
+
   it("a tombstone hides a deleted id and a delete beats a stale edit", () => {
     const local = mk({ shelves: [sh("a", 5)] });
     const remote = mk({ shelves: [], syncTombstones: { a: 8 } });
