@@ -14,6 +14,7 @@ import { resolveContextAwareShelf } from "../core/contextAwareShelves";
 import type { PlatformAppMeta, PlatformTab } from "../runtime/platform";
 import { logInfo, logWarn } from "../runtime/logger";
 import { getPreferredSteamDocument, getPreferredSteamWindow } from "../runtime/steamHost";
+import { getLibraryCategoryOf, isLibraryLocationsWarm, refreshLibraryLocations } from "../runtime/deviceState";
 import { getAppDescriptions as _getAppDescriptions } from "./appDescriptionsCache";
 
 export type SteamCollection = { id: string; name: string };
@@ -2239,6 +2240,11 @@ function evalRemotePlay(item: FilterItem, app: AppOverview): boolean {
   }
 }
 
+function evalLibraryLocation(item: FilterItem, app: AppOverview): boolean {
+  const category = String(item.params?.category ?? "internal");
+  return getLibraryCategoryOf(appIdOf(app)) === category;
+}
+
 function evalAppStatus(item: FilterItem, app: AppOverview): boolean {
   const groups: string[] = Array.isArray(item.params?.groups) ? item.params!.groups : [];
   let ds = (app as any).display_status as number | undefined;
@@ -2498,6 +2504,7 @@ const FILTER_EVALUATORS: Record<string, FilterEvaluator> = {
     return !PLATFORM_LOCAL_ONESIDED; // undefined: include on the Deck, exclude on desktop
   },
   remotePlayLocation:     evalRemotePlay,
+  libraryLocation:        evalLibraryLocation,
   shortcutType:           evalShortcutType,
   discount:               evalDiscount,
   priceRange:             evalPriceRange,
@@ -3503,6 +3510,12 @@ async function prefetchCatalogFilterData(items: any[], ids: number[], byId: Map<
   if (needsFranchise) {
     const { prefetchFranchise } = await import("./v3Extensions");
     await prefetchFranchise(ids);
+  }
+  // libraryLocation reads a cache kept warm by deviceState.ts's own event-driven
+  // refresh; only force a fetch here for the very first resolve, before that
+  // refresh has landed — later resolves reuse the already-warm cache.
+  if (!isLibraryLocationsWarm() && items.some((item) => item.type === "libraryLocation")) {
+    await refreshLibraryLocations();
   }
 }
 

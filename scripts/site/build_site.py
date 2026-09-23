@@ -329,6 +329,8 @@ _FEATURES_TEMPLATE = """<!DOCTYPE html>
 <meta name="description" content="The full Deck Shelves feature list.">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="stylesheet" href="style.css">
+<script src="i18n/pt-BR.js"></script>
+<script src="i18n.js"></script>
 </head>
 <body>
 <header class="nav"><div class="container nav-inner">
@@ -339,28 +341,41 @@ _FEATURES_TEMPLATE = """<!DOCTYPE html>
 <g fill="#fff"><path d="M 312.5,461.5 C 373.539,463.763 419.039,491.43 449,544.5C 475.648,600.403 473.314,655.069 442,708.5C 411.013,754.246 367.846,777.913 312.5,779.5C 312.333,760.497 312.5,741.497 313,722.5C 361.661,715.155 391.661,687.488 403,639.5C 408.643,596.312 394.143,561.812 359.5,536C 344.981,527.105 329.315,521.938 312.5,520.5C 312.5,500.833 312.5,481.167 312.5,461.5 Z"/>
 <rect rx="8" x="740" y="530" width="75" height="215"/><rect rx="8" x="840" y="470" width="75" height="275"/>
 <rect rx="8" x="500" y="750" width="570" height="25"/></g></svg>
-<div><div class="brand-name">DECK <b>SHELVES</b></div><div class="brand-tag">Your Steam Deck Home Screen. Your Way.</div></div>
+<div><div class="brand-name">DECK <b>SHELVES</b></div><div class="brand-tag" data-i18n="brand.tag">Your Steam Home. Your Way.</div></div>
 </a>
-<a class="nav-back" href="index.html">&larr; Back to home</a>
+<a class="nav-back" href="index.html" data-i18n="nav.backHome">&larr; Back to home</a>
 </div></header>
 
 <header class="page-hero"><div class="container">
-<span class="eyebrow">Everything Deck Shelves can do</span>
-<h1>All Features</h1>
-<p>The complete, always-current feature list — generated straight from the project README.</p>
+<span class="eyebrow" data-i18n="featuresPage.eyebrow">Everything Deck Shelves can do</span>
+<h1 data-i18n="featuresPage.title">All Features</h1>
+<p data-i18n="featuresPage.sub">The complete, always-current feature list — generated straight from the project README.</p>
 </div></header>
 
 <main class="block" style="padding-top:0"><div class="container">
 <div class="feature-rows">
 {showcase}
 </div>
-<h2 class="features-list-title">Complete feature list</h2>
+<h2 class="features-list-title" data-i18n="featuresPage.listTitle">Complete feature list</h2>
 <div class="panel-block">
 <ul class="features-list">
 {items}
 </ul>
 </div>
 </div></main>
+
+<section id="donate" class="block donate"><div class="container">
+<div class="donate-box">
+<div>
+<h2 data-i18n="donate.h">Enjoying Deck Shelves?</h2>
+<p data-i18n="donate.p">It's free and open source. If it's useful to you, a small tip helps keep it maintained — entirely optional.</p>
+</div>
+<a class="btn kofi" href="https://ko-fi.com/santojon" target="_blank" rel="noopener">
+<svg viewBox="0 0 24 24" fill="currentColor" style="width:18px;height:18px"><path d="M12 21.3 4.6 14a5 5 0 0 1 7-7.1l.4.4.4-.4a5 5 0 0 1 7 7.1z"/></svg>
+<span data-i18n="donate.btn">Support on Ko-fi</span>
+</a>
+</div>
+</div></section>
 
 {footer}
 </body>
@@ -455,6 +470,8 @@ _INTEGRATION_TEMPLATE = """<!DOCTYPE html>
 <meta name="description" content="How Deck Shelves works with {name}: {tagline}">
 <link rel="icon" type="image/svg+xml" href="../favicon.svg">
 <link rel="stylesheet" href="../style.css">
+<script src="../i18n/pt-BR.js"></script>
+<script src="../i18n.js"></script>
 </head>
 <body>
 <header class="nav"><div class="container nav-inner">
@@ -465,13 +482,13 @@ _INTEGRATION_TEMPLATE = """<!DOCTYPE html>
 <g fill="#fff"><path d="M 312.5,461.5 C 373.539,463.763 419.039,491.43 449,544.5C 475.648,600.403 473.314,655.069 442,708.5C 411.013,754.246 367.846,777.913 312.5,779.5C 312.333,760.497 312.5,741.497 313,722.5C 361.661,715.155 391.661,687.488 403,639.5C 408.643,596.312 394.143,561.812 359.5,536C 344.981,527.105 329.315,521.938 312.5,520.5C 312.5,500.833 312.5,481.167 312.5,461.5 Z"/>
 <rect rx="8" x="740" y="530" width="75" height="215"/><rect rx="8" x="840" y="470" width="75" height="275"/>
 <rect rx="8" x="500" y="750" width="570" height="25"/></g></svg>
-<div><div class="brand-name">DECK <b>SHELVES</b></div><div class="brand-tag">Your Steam Deck Home Screen. Your Way.</div></div>
+<div><div class="brand-name">DECK <b>SHELVES</b></div><div class="brand-tag" data-i18n="brand.tag">Your Steam Home. Your Way.</div></div>
 </a>
-<a class="nav-back" href="../index.html#ecosystem">&larr; Back to home</a>
+<a class="nav-back" href="../index.html#ecosystem" data-i18n="nav.backHome">&larr; Back to home</a>
 </div></header>
 
 <header class="page-hero"><div class="container">
-<span class="eyebrow">Works with your setup</span>
+<span class="eyebrow" data-i18n="ecosystem.title">Works with your setup</span>
 <h1>Deck Shelves + {name}</h1>
 <p>{tagline}</p>
 </div></header>
@@ -479,16 +496,29 @@ _INTEGRATION_TEMPLATE = """<!DOCTYPE html>
 <main class="block" style="padding-top:0"><div class="container">
 <div class="panel-block" style="max-width:820px;margin:0 auto">
 <img loading="lazy" src="{screenshot}" onerror="this.onerror=null;this.src='{screenshot_raw}'" alt="{screenshot_alt}" style="width:100%;border-radius:12px;border:1px solid var(--border);margin-bottom:28px">
-<h2 style="margin-top:0">How it works</h2>
+<h2 style="margin-top:0" data-i18n="integration.howItWorks">How it works</h2>
 <ol class="steps">
 {steps}
 </ol>
 <p style="color:var(--muted);font-size:0.9rem;border-top:1px solid var(--border);padding-top:16px;margin-top:24px">{note}</p>
-<p style="color:var(--muted);font-size:0.85rem">Learn more about {name} on its own
+<p style="color:var(--muted);font-size:0.85rem" data-i18n-html="integration.{slug}.learnMore">Learn more about {name} on its own
 <a href="{repo}" target="_blank" rel="noopener">GitHub page</a>. Deck Shelves is not affiliated
 with, endorsed by, or sponsored by {name} — see the disclaimer in the footer.</p>
 </div>
 </div></main>
+
+<section id="donate" class="block donate"><div class="container">
+<div class="donate-box">
+<div>
+<h2 data-i18n="donate.h">Enjoying Deck Shelves?</h2>
+<p data-i18n="donate.p">It's free and open source. If it's useful to you, a small tip helps keep it maintained — entirely optional.</p>
+</div>
+<a class="btn kofi" href="https://ko-fi.com/santojon" target="_blank" rel="noopener">
+<svg viewBox="0 0 24 24" fill="currentColor" style="width:18px;height:18px"><path d="M12 21.3 4.6 14a5 5 0 0 1 7-7.1l.4.4.4-.4a5 5 0 0 1 7 7.1z"/></svg>
+<span data-i18n="donate.btn">Support on Ko-fi</span>
+</a>
+</div>
+</div></section>
 
 {footer}
 </body>
@@ -528,6 +558,7 @@ def _write_integration_pages(root: Path, site: Path) -> None:
             generic += 1
         page = _INTEGRATION_TEMPLATE.format(
             name=entry["name"],
+            slug=entry["slug"],
             tagline=html.escape(entry["tagline"]),
             repo=entry["repo"],
             screenshot=screenshot,

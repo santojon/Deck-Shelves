@@ -88,6 +88,8 @@
   "own_qam_tab_desc": "Coloca o Deck Shelves na própria barra de separadores do Acesso Rápido. Reinicie o Steam para aplicar.",
   "screensaver_shelves_enabled": "Proteção de ecrã (experimental)",
   "screensaver_shelves_include_screenshots": "Incluir capturas de ecrã",
+  "screensaver_online_screenshots": "Incluir capturas de ecrã online",
+  "screensaver_online_screenshots_requires_online": "Requer que as funcionalidades online acima estejam ativadas.",
   "screensaver_start_after_label": "Iniciar após",
   "screensaver_dwell_label": "Tempo por item",
   "screensaver_shelf_batch_size_label": "Jogos por prateleira",

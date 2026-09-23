@@ -88,6 +88,8 @@
   "own_qam_tab_desc": "Розміщує Deck Shelves прямо на панелі вкладок Швидкого доступу. Перезапустіть Steam, щоб застосувати.",
   "screensaver_shelves_enabled": "Заставка (експериментально)",
   "screensaver_shelves_include_screenshots": "Додавати знімки екрана",
+  "screensaver_online_screenshots": "Додавати онлайн-знімки екрана",
+  "screensaver_online_screenshots_requires_online": "Потрібно увімкнути онлайн-функції вище.",
   "screensaver_start_after_label": "Почати через",
   "screensaver_dwell_label": "Час на елемент",
   "screensaver_shelf_batch_size_label": "Ігор на полицю",

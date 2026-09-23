@@ -116,6 +116,7 @@ export function defaultSettings(): Settings {
     keyboardBindingsDisabled: [],
     screensaverShelvesEnabled: false,
     screensaverShelvesIncludeScreenshots: false,
+    screensaverOnlineScreenshotsEnabled: false,
     screensaverIdleBackupAcSec: null,
     screensaverIdleBackupBatterySec: null,
     screensaverStartAfterSeconds: 60,

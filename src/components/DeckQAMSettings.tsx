@@ -149,6 +149,15 @@ function cloudSyncStatusText(t: any, lastSyncedAt: unknown): string {
   return t('cloud_sync_status_synced' as any, { time: new Date(lastSyncedAt).toLocaleString() });
 }
 
+function screensaverOnlineScreenshotsDetail(t: any, settings: any): ReactNode {
+  if (settings.screensaverOnlineScreenshotsEnabled !== true || settings.onlineFeaturesEnabled === true) return null;
+  return (
+    <div style={{ paddingLeft: 16, paddingRight: 8, paddingBottom: 4, fontSize: 11, opacity: 0.65, lineHeight: 1.4 }}>
+      {t('screensaver_online_screenshots_requires_online' as any)}
+    </div>
+  );
+}
+
 function screensaverLogoDetail(t: any, settings: any, actions: any): ReactNode {
   return (<>
     <DSSliderField label={t('screensaver_logo_size_label' as any)} value={settings.screensaverLogoSize ?? 100} min={50} max={200} step={5} unit='%' onChange={(value: number) => void actions.setScreensaverLogoSize(value)} />
@@ -762,6 +771,8 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
           {(settings as any).screensaverShelvesEnabled === true && (
             <div style={{ paddingLeft: 16 }}>
               <ToggleField label={t('screensaver_shelves_include_screenshots' as any)} checked={(settings as any).screensaverShelvesIncludeScreenshots === true} onChange={(value: boolean) => void (actions as any).setScreensaverShelvesIncludeScreenshots(value)} />
+              <ToggleField label={t('screensaver_online_screenshots' as any)} checked={(settings as any).screensaverOnlineScreenshotsEnabled === true} onChange={(value: boolean) => void (actions as any).setScreensaverOnlineScreenshotsEnabled(value)} />
+              {screensaverOnlineScreenshotsDetail(t, settings)}
               <DSSliderField label={t('screensaver_start_after_label' as any)} value={(settings as any).screensaverStartAfterSeconds ?? 60} min={15} max={600} step={15} unit='s' onChange={(value: number) => void (actions as any).setScreensaverStartAfterSeconds(value)} />
               <DSSliderField label={t('screensaver_dwell_label' as any)} value={(settings as any).screensaverDwellSeconds ?? 8} min={3} max={120} step={1} unit='s' onChange={(value: number) => void (actions as any).setScreensaverDwellSeconds(value)} />
               <DSSliderField label={t('screensaver_shelf_batch_size_label' as any)} value={(settings as any).screensaverShelfBatchSize ?? 5} min={1} max={20} step={1} onChange={(value: number) => void (actions as any).setScreensaverShelfBatchSize(value)} />

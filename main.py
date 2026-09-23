@@ -49,6 +49,7 @@ from display_state import read_display_state
 from perf_probe import read_perf_snapshot
 from host_os import get_host_os as _host_os
 from hardware_info import get_hardware_info as _hardware_info
+from library_location import get_library_locations as _library_locations
 from peripherals import get_bluetooth_state as _bt_state, get_audio_state as _audio_state
 from launchers import list_launcher_games as _list_launcher_games, list_available_launchers as _list_available_launchers
 
@@ -220,6 +221,12 @@ class Plugin:
         # /proc / platform (read-only, off-thread, fail-soft cross-OS). On-demand —
         # no background poll; feeds System information + the opt-in bug-report block.
         return await asyncio.to_thread(_hardware_info)
+
+    async def get_library_locations(self, *args, **kwargs) -> Dict[str, Any]:
+        # Parses `libraryfolders.vdf` (filesystem-level, renderer can't read it)
+        # into a library list + appid->library map for the Library Location
+        # filter/trigger. Read-only, off-thread, fail-soft, no background poll.
+        return await asyncio.to_thread(_library_locations)
 
     async def get_perf_snapshot(self, *args, **kwargs) -> Dict[str, Any]:
         # On-demand CPU / memory snapshot from /proc (read-only). Off-thread (the

@@ -8,9 +8,15 @@ import { readIdleTimeoutSec, writeIdleTimeoutSec } from "./steamSettingsWriter";
 import { activeFirstShelf } from "./recentsReplace";
 import { resolveShelfAppIds } from "../steam";
 import { getCurrentSettings, saveSettings, subscribeSettings } from "../store/settingsStore";
+import { DEFAULT_SHELF_LIMIT, SHELF_LIMIT_MAX } from "../domain/shelfLimits";
+import { getStoreScreenshots } from "../core/onlineStore";
 import type { Settings, Shelf } from "../types";
 
-const MAX_SHELF_APPS = 30;
+/* Scales with enabled-shelf count so each can reach its own `limit` — used
+   to flat-cap at a total regardless of shelf count, so 2+ shelves could
+   never individually reach it (confirmed live: 20-per-shelf never showed
+   20). Ceiling below bounds memory/perf with many shelves. */
+const MAX_SHELF_APPS_CEILING = 300;
 const MAX_SCREENSHOTS = 30;
 // Content-descriptor ids Steam's own "General" screenshot filter excludes
 // (confirmed live against the screensaver settings module).
@@ -92,16 +98,16 @@ function getFocusableShelves(settings: Settings | null): Shelf[] {
 /* Round-robins across shelves in batches (default 5 apps per shelf per
    round, `screensaverShelfBatchSize`) instead of filling the cap from
    shelf order — a sequential fill let an early shelf starve every shelf
-   after it out of the pool entirely (confirmed live: effectively "first
-   shelf only" once that shelf's own count approached MAX_SHELF_APPS). */
-function interleaveShelfBatches(perShelfIds: number[][], batchSize: number): number[] {
+   after it out of the pool entirely. `maxTotal` scales with shelf count
+   (see resolveShelfAppPool) so every shelf can reach its own `limit`. */
+function interleaveShelfBatches(perShelfIds: number[][], batchSize: number, maxTotal: number): number[] {
   const seen = new Set<number>();
   const ids: number[] = [];
   const maxLen = Math.max(0, ...perShelfIds.map((l) => l.length));
-  for (let batchStart = 0; batchStart < maxLen && ids.length < MAX_SHELF_APPS; batchStart += batchSize) {
+  for (let batchStart = 0; batchStart < maxLen && ids.length < maxTotal; batchStart += batchSize) {
     for (const list of perShelfIds) {
-      if (ids.length >= MAX_SHELF_APPS) break;
-      for (let i = batchStart; i < batchStart + batchSize && i < list.length && ids.length < MAX_SHELF_APPS; i++) {
+      if (ids.length >= maxTotal) break;
+      for (let i = batchStart; i < batchStart + batchSize && i < list.length && ids.length < maxTotal; i++) {
         if (seen.has(list[i])) continue;
         seen.add(list[i]);
         ids.push(list[i]);
@@ -116,10 +122,13 @@ async function resolveShelfAppPool(settings: Settings | null): Promise<number[]>
   const perShelfIds: number[][] = [];
   for (const shelf of shelves) {
     try {
-      perShelfIds.push(await resolveShelfAppIds(shelf.source as any, shelf.limit ?? 20, shelf.sort, shelf.id, shelf.sortReverse as any));
+      perShelfIds.push(await resolveShelfAppIds(shelf.source as any, shelf.limit ?? DEFAULT_SHELF_LIMIT, shelf.sort, shelf.id, shelf.sortReverse as any));
     } catch { perShelfIds.push([]); /* one bad shelf source shouldn't drop the rest */ }
   }
-  return interleaveShelfBatches(perShelfIds, getShelfBatchSize(settings));
+  // Enough room for every enabled shelf to reach its own limit, bounded for
+  // memory/perf once there are many shelves.
+  const maxTotal = Math.min(SHELF_LIMIT_MAX * Math.max(1, shelves.length), MAX_SHELF_APPS_CEILING);
+  return interleaveShelfBatches(perShelfIds, getShelfBatchSize(settings), maxTotal);
 }
 
 function resolveNativeRecentAppIds(): number[] {
@@ -140,7 +149,7 @@ async function resolveRecentsSlotAppIds(settings: Settings | null): Promise<numb
   const shelf = activeFirstShelf();
   if (!shelf) return [];
   try {
-    return await resolveShelfAppIds(shelf.source, shelf.limit ?? 20, shelf.sort, shelf.id, shelf.sortReverse);
+    return await resolveShelfAppIds(shelf.source, shelf.limit ?? DEFAULT_SHELF_LIMIT, shelf.sort, shelf.id, shelf.sortReverse);
   } catch { return []; }
 }
 
@@ -209,11 +218,43 @@ async function resolveScreenshotPool(): Promise<ScreensaverItem[]> {
   } catch { return []; }
 }
 
+// Per app, so one heavily-screenshotted game can't crowd out the rest —
+// bounded by MAX_SCREENSHOTS overall, same as the local-capture pool.
+const ONLINE_SCREENSHOTS_PER_APP = 2;
+
+function pushOnlineScreenshotsForApp(out: ScreensaverItem[], appid: number, urls: string[]): void {
+  for (const url of urls.slice(0, ONLINE_SCREENSHOTS_PER_APP)) {
+    if (out.length >= MAX_SCREENSHOTS) return;
+    out.push({ type: "screenshot", url, appid });
+  }
+}
+
+// Store screenshots for apps already in the pool (never the whole
+// library) — opt-in, requires `onlineFeaturesEnabled` too (see
+// buildScreensaverPool). Same mature-content filter as local screenshots.
+async function resolveOnlineScreenshotPool(appIds: number[]): Promise<ScreensaverItem[]> {
+  if (!appIds.length) return [];
+  const filterMode = getScreenshotFilterMode();
+  if (filterMode === "none") return [];
+  try {
+    const byApp = await getStoreScreenshots(appIds);
+    const out: ScreensaverItem[] = [];
+    for (const appid of appIds) {
+      if (out.length >= MAX_SCREENSHOTS) break;
+      if (filterMode === "general" && appHasMatureContent(appid)) continue;
+      pushOnlineScreenshotsForApp(out, appid, byApp.get(appid) ?? []);
+    }
+    return out;
+  } catch { return []; }
+}
+
 // Always the full mix of whatever's shown on the home screen — shelf
 // games and whatever's actually in the recents slot (native, promoted
 // shelf, or nothing) — no "ours only" distinction.
 export async function buildScreensaverPool(settings: Settings | null): Promise<ScreensaverItem[]> {
   const includeScreenshots = (settings as any)?.screensaverShelvesIncludeScreenshots === true;
+  const includeOnlineScreenshots = (settings as any)?.onlineFeaturesEnabled === true
+    && (settings as any)?.screensaverOnlineScreenshotsEnabled === true;
 
   const shelfIds = await resolveShelfAppPool(settings);
   const recentIds = await resolveRecentsSlotAppIds(settings);
@@ -226,12 +267,16 @@ export async function buildScreensaverPool(settings: Settings | null): Promise<S
   }
 
   const screenshots = includeScreenshots ? await resolveScreenshotPool() : [];
-  const pool = [...apps, ...screenshots];
+  const onlineScreenshots = includeOnlineScreenshots
+    ? await resolveOnlineScreenshotPool(apps.map((a) => (a as { appid: number }).appid))
+    : [];
+  const pool = [...apps, ...screenshots, ...onlineScreenshots];
   try {
     (globalThis as any).__ds_screensaver_last_pool = {
-      t: Date.now(), includeScreenshots,
+      t: Date.now(), includeScreenshots, includeOnlineScreenshots,
       shelfCount: shelfIds.length, recentCount: recentIds.length,
       appCount: apps.length, screenshotCount: screenshots.length,
+      onlineScreenshotCount: onlineScreenshots.length,
     };
   } catch { /* diagnostics must never throw */ }
   return pool;

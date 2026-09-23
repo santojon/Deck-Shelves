@@ -14,7 +14,7 @@
       "tabs",
       "filters"
     ],
-    "description": "Inject configurable shelves (Collections / Tabs / Filters) into the Steam Deck Home (library/home).",
+    "description": "Your Steam Home. Your way.",
     "image": "https://raw.githubusercontent.com/santojon/Deck-Shelves/main/assets/home.png"
   }
 }

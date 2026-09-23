@@ -13,6 +13,7 @@ import {
 } from '../../../runtime/host/decky'
 import { flowChildrenProps } from '../../../core/steamOSVersion'
 import { TIME_OF_DAY_WINDOWS, invalidateSmartShelfCache } from '../../../steam/smartShelves'
+import { SHELF_LIMIT_MAX } from '../../../domain/shelfLimits'
 import type { SettingsController } from '../../../features/settings/controller'
 import type { SmartShelf, SmartShelfMode } from '../../../types'
 import { FilterPanel } from '../../FilterPanel'
@@ -469,7 +470,7 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
                         label={t('limit')}
                         value={state.limit}
                         min={1}
-                        max={50}
+                        max={SHELF_LIMIT_MAX}
                         step={1}
                         bottomSeparator='thick'
                         onChange={(value: number) => setState((prev) => ({ ...prev, limit: value }))}

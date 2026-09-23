@@ -88,6 +88,8 @@
   "own_qam_tab_desc": "Place Deck Shelves dans la barre d'onglets de l'Accès rapide. Redémarrez Steam pour appliquer.",
   "screensaver_shelves_enabled": "Économiseur d'écran (expérimental)",
   "screensaver_shelves_include_screenshots": "Inclure les captures d'écran",
+  "screensaver_online_screenshots": "Inclure les captures d'écran en ligne",
+  "screensaver_online_screenshots_requires_online": "Nécessite l'activation des fonctions en ligne ci-dessus.",
   "screensaver_start_after_label": "Démarrer après",
   "screensaver_dwell_label": "Temps par élément",
   "screensaver_shelf_batch_size_label": "Jeux par étagère",

@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 
+let hardwareInfoResponse: any = null
+vi.mock('../../runtime/host/decky', () => ({
+  call: async () => hardwareInfoResponse,
+}))
+
 vi.mock('../../core/steamOSVersion', () => ({ getSteamOSVersion: () => '3.6.20' }))
 vi.mock('../../core/cssLoaderDetect', () => ({
   isCssLoaderActive: () => true,
@@ -16,7 +21,7 @@ vi.mock('../../integrations/registry', () => ({
   isNonSteamBadgesInstalled: () => false,
 }))
 
-import { collectRuntimeInfo, collectSystemInfo, listCoLoadedPlugins } from '../../runtime/diagnosticsInfo'
+import { collectRuntimeInfo, collectSystemInfo, listCoLoadedPlugins, collectHardwareInfo, hwExternalDiskText } from '../../runtime/diagnosticsInfo'
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -62,5 +67,28 @@ describe('diagnosticsInfo', () => {
     vi.stubGlobal('navigator', { userAgent: 'Mozilla/5.0 (Windows NT 10.0) Valve Steam Client' })
     const sys = await collectSystemInfo()
     expect(sys.osName).toBe('Windows')
+  })
+
+  it('collectHardwareInfo parses externalDisks from the backend probe', async () => {
+    hardwareInfoResponse = {
+      supported: true, model: 'Steam Deck (OLED)', diskTotalBytes: 512, diskFreeBytes: 128,
+      externalDisks: [{ label: 'SD_CARD', totalBytes: 256, freeBytes: 64 }, { label: 'BAD' }],
+    }
+    const hw = await collectHardwareInfo()
+    expect(hw?.externalDisks).toEqual([
+      { label: 'SD_CARD', totalBytes: 256, freeBytes: 64 },
+      { label: 'BAD', totalBytes: null, freeBytes: null },
+    ])
+  })
+
+  it('collectHardwareInfo defaults externalDisks to [] when the backend omits it', async () => {
+    hardwareInfoResponse = { supported: true }
+    const hw = await collectHardwareInfo()
+    expect(hw?.externalDisks).toEqual([])
+  })
+
+  it('hwExternalDiskText formats label + capacity, or just the label when unknown', () => {
+    expect(hwExternalDiskText({ label: 'SD_CARD', totalBytes: 64 * 1024 ** 3, freeBytes: 32 * 1024 ** 3 })).toBe('SD_CARD: 64 GB (32 GB free)')
+    expect(hwExternalDiskText({ label: 'MYSTERY', totalBytes: null, freeBytes: null })).toBe('MYSTERY')
   })
 })

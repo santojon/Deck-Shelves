@@ -62,7 +62,7 @@ img, svg { display: block; }
 .nav-links a:hover { color: var(--text); }
 .nav-back { margin-left: auto; color: var(--muted); font-size: 0.92rem; font-weight: 500; }
 .nav-back:hover { color: var(--text); }
-.btn { display: inline-flex; align-items: center; gap: 9px; padding: 11px 18px; border-radius: 12px; font-weight: 600; font-size: 0.92rem; border: 1px solid transparent; white-space: nowrap; cursor: pointer; transition: background .15s ease, border-color .15s ease, transform .15s ease; }
+.btn { display: inline-flex; align-items: center; gap: 9px; padding: 11px 18px; border-radius: 12px; font-weight: 600; font-size: 0.92rem; border: 1px solid transparent; text-align: center; cursor: pointer; transition: background .15s ease, border-color .15s ease, transform .15s ease; }
 .btn:active { transform: translateY(1px); }
 .btn-primary { background: var(--blue-btn); color: #f2f7ff; box-shadow: 0 12px 30px rgba(37, 99, 235, 0.32); }
 .btn-primary:hover { background: var(--blue-btn-hover); }
@@ -73,6 +73,7 @@ img, svg { display: block; }
 /* hero */
 .hero { padding: 64px 0 30px; }
 .hero-grid { display: grid; grid-template-columns: 0.7fr 1fr; gap: 48px; align-items: center; }
+.hero-grid > div:first-child { min-width: 0; }
 .hero h1 { margin: 8px 0 0; font-size: clamp(2.4rem, 4.6vw, 3.5rem); line-height: 1.06; letter-spacing: -0.03em; font-weight: 800; }
 .hero-hl { color: var(--blue); }
 .hero p.lead { margin: 20px 0 0; color: var(--muted); font-size: 1.05rem; max-width: 46ch; }
@@ -94,7 +95,7 @@ img, svg { display: block; }
    look as the .btn-ghost community buttons (white icon, soft rounded
    rectangle) but at chip height/spacing instead of full button size */
 .stats-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: -8px; }
-.stat-chip { flex: 1 1 auto; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 14px; border-radius: 10px; background: rgba(148, 163, 184, 0.06); border: 1px solid var(--border-strong); color: var(--text); font-size: 0.82rem; text-decoration: none; white-space: nowrap; transition: background .15s ease, border-color .15s ease; }
+.stat-chip { flex: 1 1 200px; max-width: 280px; display: inline-flex; align-items: center; justify-content: center; text-align: center; gap: 8px; padding: 10px 14px; border-radius: 10px; background: rgba(148, 163, 184, 0.06); border: 1px solid var(--border-strong); color: var(--text); font-size: 0.82rem; text-decoration: none; transition: background .15s ease, border-color .15s ease; }
 .stat-chip:hover { background: rgba(148, 163, 184, 0.14); }
 .stat-chip .icon { width: 16px; height: 16px; color: currentColor; }
 .stat-chip b { font-weight: 700; }
@@ -229,7 +230,9 @@ section { scroll-margin-top: 80px; }
 /* installation */
 /* auto-fit so a 3rd/4th install method wraps in cleanly without a CSS edit */
 .install-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; }
-.inst-card { border: 1px solid var(--border); border-radius: 20px; background: var(--panel); padding: 28px; }
+.inst-card { border: 1px solid var(--border); border-radius: 20px; background: var(--panel); padding: 28px; display: flex; flex-direction: column; }
+.inst-card-action { margin-top: auto; padding-top: 20px; display: flex; justify-content: center; }
+.inst-url { display: block; word-break: break-all; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.78rem; color: var(--muted); background: rgba(148, 163, 184, 0.08); border: 1px solid var(--border-strong); border-radius: 8px; padding: 10px 12px; user-select: all; }
 .inst-card.featured { border-color: var(--blue); background: linear-gradient(180deg, rgba(61, 139, 255, 0.1), var(--panel)); }
 .inst-card h3 { margin: 0 0 6px; font-size: 1.15rem; display: flex; align-items: center; gap: 10px; }
 .inst-card h3 .icon { color: var(--blue-soft); }
@@ -240,7 +243,6 @@ section { scroll-margin-top: 80px; }
 .steps li::before { counter-increment: step; content: counter(step); flex: none; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-size: 0.8rem; font-weight: 700; color: var(--blue-soft); background: rgba(61, 139, 255, 0.12); border: 1px solid rgba(61, 139, 255, 0.28); }
 .steps li span { color: var(--muted); font-size: 0.92rem; padding-top: 2px; }
 .steps li b { color: var(--text); font-weight: 600; }
-.install-actions { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; margin-top: 30px; }
 
 /* api band */
 .api-band { display: flex; align-items: center; justify-content: space-between; gap: 28px; flex-wrap: wrap; }
@@ -270,9 +272,28 @@ section { scroll-margin-top: 80px; }
 .cta-top p { color: #3a5488; }
 .cta-top .btn-primary { background: var(--blue-btn); color: #fff; box-shadow: 0 10px 24px rgba(37, 99, 235, 0.28); }
 .cta-top .btn-primary:hover { background: var(--blue-btn-hover); }
+/* .cta-top's light background needs dark text/border on its ghost button —
+   the page's default light-on-dark .btn-ghost is unreadable here. */
+.cta-top .btn-ghost { background: rgba(37, 99, 235, 0.08); border-color: rgba(37, 99, 235, 0.35); color: #0b1f47; }
+.cta-top .btn-ghost:hover { background: rgba(37, 99, 235, 0.16); }
 
 /* Nav social icon buttons */
 .nav-social { display: inline-flex; align-items: center; gap: 8px; }
+/* Fixed floating language pill, self-mounted by i18n.js at the top of
+   <body> on every page that loads it — same pattern as the ShelvesHub site. */
+.lang-switch { position: fixed; top: 93px; right: 14px; z-index: 39; display: inline-flex; gap: 2px; padding: 3px; border: 1px solid var(--border-strong); border-radius: 999px; background: var(--panel); box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35); }
+.lang-switch button { border: none; background: transparent; color: var(--muted); font: inherit; font-size: 0.8rem; font-weight: 700; letter-spacing: 0.03em; padding: 4px 10px; border-radius: 999px; cursor: pointer; line-height: 1; }
+.lang-switch button[aria-pressed="true"] { background: var(--blue); color: #fff; }
+.lang-switch button:hover[aria-pressed="false"] { color: var(--text); }
+
+/* Discreet donation section — heading + one-line pitch + a Ko-fi button. */
+.donate { padding: 8px 0 0; }
+.donate-box { display: flex; align-items: center; justify-content: space-between; gap: 18px; flex-wrap: wrap; padding: 22px 26px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel); }
+.donate-box h2 { margin: 0; font-size: 1.1rem; }
+.donate-box p { margin: 4px 0 0; color: var(--muted); font-size: 0.9rem; max-width: 46ch; }
+.btn.kofi { background: #ff5e5b; border-color: transparent; color: #fff; }
+.btn.kofi:hover { background: #ff7573; }
+.btn.kofi .icon { color: #fff; }
 .btn-icon { padding: 10px; }
 
 /* Community band — same card treatment as the other panel blocks. */
@@ -294,7 +315,7 @@ hr.foot-rule { border: 0; border-top: 1px solid var(--border); margin: 34px 0 24
 .foot-col h4 { margin: 0 0 14px; font-size: 0.78rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted-dim); }
 .foot-col a { display: block; color: var(--muted); font-size: 0.9rem; padding: 5px 0; }
 .foot-col a:hover { color: var(--text); }
-.foot-bottom { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; color: var(--muted-dim); font-size: 0.85rem; }
+.foot-bottom { text-align: center; color: var(--muted-dim); font-size: 0.85rem; }
 .heart { color: #ff5d7a; }
 .foot-simple { border-top: 1px solid var(--border); padding: 28px 0; text-align: center; color: var(--muted); font-size: 0.85rem; }
 .foot-simple a { color: var(--blue-soft); }
@@ -313,6 +334,7 @@ hr.foot-rule { border: 0; border-top: 1px solid var(--border); margin: 34px 0 24
   .foot-grid { grid-template-columns: 1fr 1fr; }
   .nav-inner { flex-wrap: wrap; }
   .nav-links { order: 3; width: 100%; justify-content: center; gap: 18px; font-size: 0.88rem; margin-left: 0; }
+  .lang-switch { top: 142px; }
   main table { display: block; overflow-x: auto; white-space: nowrap; }
 }
 @media (max-width: 560px) {

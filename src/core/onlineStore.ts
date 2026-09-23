@@ -557,6 +557,126 @@ async function fetchBatch(batch: number[]): Promise<Map<number, string>> {
   return out;
 }
 
+// ── Store screenshots (screensaver's opt-in "online screenshots") ──────────
+
+const SCREENSHOT_KEY = "ds-screenshot-cache-v1";
+const SCREENSHOT_TTL = 7 * 24 * 60 * 60 * 1000; // a store page's shots rarely change
+const SCREENSHOT_BATCH = 10;
+const SCREENSHOT_CONCURRENCY = 3;
+
+type ScreenshotCache = Record<number, { ts: number; data: string[] }>;
+
+let _screenshotCacheRaw: string | null = null;
+let _screenshotCacheParsed: ScreenshotCache | null = null;
+
+function getScreenshotCache(): ScreenshotCache {
+  const raw = localStorage.getItem(SCREENSHOT_KEY);
+  if (raw === _screenshotCacheRaw && _screenshotCacheParsed) return _screenshotCacheParsed;
+  try { _screenshotCacheParsed = raw ? JSON.parse(raw) : {}; } catch { _screenshotCacheParsed = {}; }
+  _screenshotCacheRaw = raw;
+  return _screenshotCacheParsed as ScreenshotCache;
+}
+
+function readScreenshotCache(appid: number): string[] | null {
+  const entry = getScreenshotCache()[appid];
+  if (entry && Date.now() - entry.ts < SCREENSHOT_TTL) return entry.data;
+  return null;
+}
+
+function writeScreenshotCacheEntry(appid: number, data: string[]): void {
+  try {
+    const raw = localStorage.getItem(SCREENSHOT_KEY);
+    const cache: ScreenshotCache = raw ? JSON.parse(raw) : {};
+    cache[appid] = { ts: Date.now(), data };
+    const cutoff = Date.now() - SCREENSHOT_TTL * 2;
+    for (const k of Object.keys(cache)) {
+      if ((cache[Number(k)]?.ts ?? 0) < cutoff) delete cache[Number(k)];
+    }
+    const next = JSON.stringify(cache);
+    localStorage.setItem(SCREENSHOT_KEY, next);
+    _screenshotCacheRaw = next;
+    _screenshotCacheParsed = cache;
+  } catch {}
+}
+
+function extractScreenshotRows(json: any, appid: number): any[] {
+  const entry = json && json[appid];
+  const rows = entry && entry.data && entry.data.screenshots;
+  return Array.isArray(rows) ? rows : [];
+}
+
+function parseScreenshotRows(rows: any[]): string[] {
+  const out: string[] = [];
+  for (const r of rows) {
+    const u = r && r.path_full;
+    if (typeof u === "string" && u) out.push(u);
+  }
+  return out;
+}
+
+async function fetchScreenshotEntry(batch: number[]): Promise<Map<number, string[]>> {
+  const out = new Map<number, string[]>();
+  const url = `https://store.steampowered.com/api/appdetails?appids=${batch.join(",")}&filters=screenshots`;
+  const ac = new AbortController();
+  const tid = setTimeout(() => ac.abort(), 5000);
+  try {
+    const resp = await fetch(url, { credentials: "include", signal: ac.signal });
+    if (resp.status === 429) { backoffUntil[SCREENSHOT_KEY] = Date.now() + 60 * 60 * 1000; return out; }
+    if (!resp.ok) return out;
+    if (!(resp.headers.get("content-type") || "").includes("json")) return out;
+    const json = await resp.json();
+    // empty array cached too — no screenshots is a real answer
+    for (const appid of batch) out.set(appid, parseScreenshotRows(extractScreenshotRows(json, appid)));
+  } catch { /* leave uncached, retried on a later call */ }
+  finally { clearTimeout(tid); }
+  return out;
+}
+
+function collectUncachedScreenshotIds(appids: number[], result: Map<number, string[]>): number[] {
+  const toFetch: number[] = [];
+  for (const id of appids) {
+    const c = readScreenshotCache(id);
+    if (c) result.set(id, c); else toFetch.push(id);
+  }
+  return toFetch;
+}
+
+function chunk<T>(arr: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+}
+
+async function fetchScreenshotBatches(ids: number[], result: Map<number, string[]>): Promise<void> {
+  const batches = chunk(ids, SCREENSHOT_BATCH);
+  for (let i = 0; i < batches.length; i += SCREENSHOT_CONCURRENCY) {
+    const group = batches.slice(i, i + SCREENSHOT_CONCURRENCY);
+    const results = await Promise.all(group.map(fetchScreenshotEntry));
+    for (const r of results) r.forEach((urls, appid) => { result.set(appid, urls); writeScreenshotCacheEntry(appid, urls); });
+  }
+}
+
+/** Store (official/community) screenshots per app, for the screensaver's
+ *  opt-in online-screenshots mode — distinct from the local-capture pool
+ *  in `screensaverInject.ts`. Cached 7 days; scoped to the caller's own
+ *  app list (the screensaver passes only apps already in its shelf pool,
+ *  never the whole library). */
+export async function getStoreScreenshots(appids: number[]): Promise<Map<number, string[]>> {
+  const result = new Map<number, string[]>();
+  if (!appids.length) return result;
+
+  const toFetch = collectUncachedScreenshotIds(appids, result);
+  if (!toFetch.length || Date.now() < (backoffUntil[SCREENSHOT_KEY] ?? 0)) return result;
+
+  try {
+    await fetchScreenshotBatches(toFetch.slice(0, 60), result);
+  } catch (e) {
+    logWarn("ONLINE", "store screenshot fetch failed", String(e));
+  }
+
+  return result;
+}
+
 export async function fetchGameNames(ids: number[]): Promise<Map<number, string>> {
   const limited = ids.slice(0, 60);
   const names = new Map<number, string>();

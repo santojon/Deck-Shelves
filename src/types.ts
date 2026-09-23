@@ -28,6 +28,7 @@ export const FilterItemTypeSchema = z.enum([
   "systemCompatibility",
   "steamosCompatibility",
   "remotePlayLocation",
+  "libraryLocation",
   "merge",
   "shortcutType",
   "appStatus",
@@ -771,6 +772,10 @@ export const SettingsSchema = z.object({
      Steam's native one while active. Experimental — defaults off. */
   screensaverShelvesEnabled: z.boolean().nullable().optional().transform((v) => v ?? false),
   screensaverShelvesIncludeScreenshots: z.boolean().nullable().optional().transform((v) => v ?? false),
+  // Store screenshots for apps already in the screensaver's pool, fetched
+  // online — separate from the local-capture toggle above. Requires
+  // `onlineFeaturesEnabled` too (see src/runtime/screensaverInject.ts).
+  screensaverOnlineScreenshotsEnabled: z.boolean().nullable().optional().transform((v) => v ?? false),
   /* Steam's own idle-screensaver timeout (seconds), cached here right
      before we override it so it can be restored exactly when the
      feature is turned off. null = not currently overridden. */

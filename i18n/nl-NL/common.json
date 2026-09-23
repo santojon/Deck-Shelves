@@ -88,6 +88,8 @@
   "own_qam_tab_desc": "Plaatst Deck Shelves rechtstreeks in de tabbalk van Snelle toegang. Herstart Steam om toe te passen.",
   "screensaver_shelves_enabled": "Schermbeveiliging (experimenteel)",
   "screensaver_shelves_include_screenshots": "Screenshots opnemen",
+  "screensaver_online_screenshots": "Online screenshots opnemen",
+  "screensaver_online_screenshots_requires_online": "Vereist dat Online functies hierboven zijn ingeschakeld.",
   "screensaver_start_after_label": "Starten na",
   "screensaver_dwell_label": "Tijd per item",
   "screensaver_shelf_batch_size_label": "Games per plank",

@@ -25,15 +25,16 @@ _LOGO_SVG = (
 
 def _report_nav(landing: str, reports_home: str, dash: str) -> str:
     """Landing-matching top bar so reports share the site's header + logo and
-    always offer a one-click path back to the home page."""
+    always offer a one-click path back to the home page. "Dashboard" stays
+    untranslated in pt-BR (common as a loanword) — no data-i18n on it."""
     return (
         '<div class="nav"><div class="container nav-inner">'
         f'<a class="brand" href="{landing}">{_LOGO_SVG}'
         '<div><div class="brand-name">DECK <b>SHELVES</b></div>'
-        '<div class="brand-tag">Your Steam Deck Home Screen. Your Way.</div></div></a>'
-        f'<nav class="nav-links"><a href="{reports_home}">All reports</a>'
+        '<div class="brand-tag" data-i18n="brand.tag">Your Steam Home. Your Way.</div></div></a>'
+        f'<nav class="nav-links"><a href="{reports_home}" data-i18n="reports.all">All reports</a>'
         f'<a href="{dash}">Dashboard</a></nav>'
-        f'<a class="btn btn-ghost" href="{landing}">&larr; Back to site</a>'
+        f'<a class="btn btn-ghost" href="{landing}" data-i18n="nav.backToSite">&larr; Back to site</a>'
         '</div></div>'
     )
 
@@ -41,35 +42,37 @@ def _report_nav(landing: str, reports_home: str, dash: str) -> str:
 def _site_footer(prefix: str) -> str:
     """The shared site footer — identical across the landing, features page and
     every report page. `prefix` is the relative path from the current page back
-    to the site root ('' landing/features, '../' reports/, '../../' reports/<scope>/)."""
+    to the site root ('' landing/features, '../' reports/, '../../' reports/<scope>/).
+    `data-i18n` tags are inert on pages that don't load i18n.js (the reports
+    pages) — only the landing/features/integration pages actually activate them."""
     p = prefix
     return (
         '<footer><div class="container"><div class="foot-grid">'
         f'<div class="foot-brand"><a class="brand" href="{p}index.html">{_LOGO_SVG}'
         '<div><div class="brand-name">DECK <b>SHELVES</b></div>'
-        '<div class="brand-tag">Your Steam Deck Home Screen. Your Way.</div></div></a>'
-        '<p>Built with <span class="heart">&hearts;</span> by '
+        '<div class="brand-tag" data-i18n="brand.tag">Your Steam Home. Your Way.</div></div></a>'
+        '<p data-i18n-html="footer.built">Built with <span class="heart">&hearts;</span> by '
         '<a href="https://github.com/santojon">Jonathan Santos</a>. An open source plugin '
-        'that gives you complete control over your Steam Deck home screen.</p></div>'
-        '<div class="foot-col"><h4>Explore</h4>'
-        f'<a href="{p}index.html#features">Features</a>'
-        f'<a href="{p}index.html#showcase">Screenshots</a>'
-        f'<a href="{p}index.html#install">Installation</a>'
-        '<a href="https://github.com/santojon/Deck-Shelves/tree/main/docs">Docs</a></div>'
-        '<div class="foot-col"><h4>Community</h4>'
+        'that gives you complete control over your Steam home.</p></div>'
+        '<div class="foot-col"><h4 data-i18n="footer.explore">Explore</h4>'
+        f'<a href="{p}index.html#features" data-i18n="nav.features">Features</a>'
+        f'<a href="{p}index.html#showcase" data-i18n="nav.screenshots">Screenshots</a>'
+        f'<a href="{p}index.html#install" data-i18n="nav.installation">Installation</a>'
+        '<a href="https://github.com/santojon/Deck-Shelves/tree/main/docs" data-i18n="nav.docs">Docs</a></div>'
+        '<div class="foot-col"><h4 data-i18n="footer.community">Community</h4>'
         '<a href="https://github.com/santojon/Deck-Shelves">GitHub</a>'
         '<a href="https://discord.gg/EChuVEDakk">Discord</a>'
         '<a href="https://www.reddit.com/r/DeckShelves/">Reddit</a>'
-        '<a href="https://ko-fi.com/santojon">Support on Ko-fi</a>'
-        '<a href="https://www.npmjs.com/package/@deck-shelves/api">API on npm</a></div>'
-        '<div class="foot-col"><h4>Reports</h4>'
-        f'<a href="{p}reports/index.html">Validation reports</a>'
-        f'<a href="{p}reports/dashboard.html">Reports dashboard</a>'
-        f'<a href="{p}reports/ci/index.html">CI reports</a>'
-        f'<a href="{p}reports/release/index.html">Release reports</a></div>'
+        '<a href="https://ko-fi.com/santojon" data-i18n="footer.kofi">Support on Ko-fi</a>'
+        '<a href="https://www.npmjs.com/package/@deck-shelves/api" data-i18n="footer.apiNpm">API on npm</a></div>'
+        '<div class="foot-col"><h4 data-i18n="footer.reports">Reports</h4>'
+        f'<a href="{p}reports/index.html" data-i18n="footer.reportsValidation">Validation reports</a>'
+        f'<a href="{p}reports/dashboard.html" data-i18n="footer.reportsDashboard">Reports dashboard</a>'
+        f'<a href="{p}reports/ci/index.html" data-i18n="footer.reportsCi">CI reports</a>'
+        f'<a href="{p}reports/release/index.html" data-i18n="footer.reportsRelease">Release reports</a></div>'
         '</div></div>'
         '<hr class="foot-rule">'
-        '<div class="container"><div class="foot-disclaimer">Steam Deck and Steam are trademarks '
+        '<div class="container"><div class="foot-disclaimer" data-i18n="footer.disclaimer">Steam Deck and Steam are trademarks '
         'and/or registered trademarks of Valve Corporation. Decky and Decky Loader are trademarks of '
         'their respective owners. Deck Shelves is an independent plugin and is not '
         'affiliated with, endorsed, or sponsored by Valve Corporation or the Decky Loader project. '

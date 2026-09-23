@@ -18,7 +18,7 @@ type T = (k: string, opts?: any) => string
 
 const HOURS = Array.from({ length: 24 }, (_, h) => ({ data: h, label: `${String(h).padStart(2, '0')}:00` }))
 const DAYS = [0, 1, 2, 3, 4, 5, 6]
-const KNOWN_KINDS = ['timeWindow', 'dayOfWeek', 'weekend', 'timeOfDayPeriod', 'season', 'holiday', 'lastGameSource', 'gameRunning', 'battery', 'charging', 'offline', 'externalDisplay', 'resolution', 'ultrawide', 'highCpu', 'lowMemory', 'lowFrameBudget', 'controllerConnected', 'headphonesConnected', 'bluetoothConnected']
+const KNOWN_KINDS = ['timeWindow', 'dayOfWeek', 'weekend', 'timeOfDayPeriod', 'season', 'holiday', 'lastGameSource', 'gameRunning', 'battery', 'charging', 'offline', 'libraryAvailable', 'externalDisplay', 'resolution', 'ultrawide', 'highCpu', 'lowMemory', 'lowFrameBudget', 'controllerConnected', 'headphonesConnected', 'bluetoothConnected']
 const BATTERY_LEVELS = [10, 15, 20, 25, 30, 40, 50].map((n) => ({ data: n, label: `${n}%` }))
 const RESOLUTION_WIDTHS = [
   { data: 1280, label: '1280 · HD' },
@@ -99,6 +99,19 @@ function EnumDropdown({ value, fallback, options, onPick }: { value: unknown; fa
     <div style={{ width: 150 }}>
       <Dropdown rgOptions={options} selectedOption={String(value ?? fallback)} onChange={(o: unknown) => onPick(String(optionData(o) ?? fallback))} />
     </div>
+  )
+}
+
+function LibraryAvailableRow({ rule, onUpdate, t }: { rule: Rule; onUpdate: (p: Partial<Rule>) => void; t: T }) {
+  const opts = [
+    { data: 'internal', label: t('filter_storage_internal') },
+    { data: 'external', label: t('filter_library_external') },
+    { data: 'network', label: t('filter_library_network') },
+  ]
+  return (
+    <Focusable {...flowChildrenProps('horizontal')} style={rowStyle}>
+      <EnumDropdown value={rule.category} fallback="external" options={opts} onPick={(v) => onUpdate({ category: v })} />
+    </Focusable>
   )
 }
 
@@ -239,6 +252,7 @@ const RULE_BODIES: Record<string, (p: { rule: Rule; onUpdate: (p: Partial<Rule>)
   lowMemory: LowMemoryRow,
   lowFrameBudget: FrameBudgetRow,
   bluetoothConnected: BluetoothRow,
+  libraryAvailable: LibraryAvailableRow,
 }
 
 function RuleBody({ rule, onUpdate, t }: { rule: Rule; onUpdate: (p: Partial<Rule>) => void; t: T }) {
@@ -287,6 +301,7 @@ const CATALOG: Cat[] = [
   ] },
   { id: 'connectivity', Icon: OnlineIcon, title: 'visibility_cat_connectivity', entries: [
     { kind: 'offline', Icon: OnlineIcon, invertible: true },
+    { kind: 'libraryAvailable', Icon: OnlineIcon, defaults: { category: 'external' }, invertible: true },
   ] },
   { id: 'display', Icon: MonitorIcon, title: 'visibility_cat_display', entries: [
     { kind: 'externalDisplay', Icon: MonitorIcon, invertible: true },

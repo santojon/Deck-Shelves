@@ -88,6 +88,8 @@
   "own_qam_tab_desc": "Inserisce Deck Shelves nella barra delle schede dell'Accesso rapido. Riavvia Steam per applicare.",
   "screensaver_shelves_enabled": "Salvaschermo (sperimentale)",
   "screensaver_shelves_include_screenshots": "Includi gli screenshot",
+  "screensaver_online_screenshots": "Includi screenshot online",
+  "screensaver_online_screenshots_requires_online": "Richiede l'abilitazione delle funzionalità online sopra.",
   "screensaver_start_after_label": "Avvia dopo",
   "screensaver_dwell_label": "Tempo per elemento",
   "screensaver_shelf_batch_size_label": "Giochi per scaffale",

@@ -285,6 +285,9 @@ function screensaverShelvesGroup(c: GCtx): ReactNode {
         {row('screensaverShelvesIncludeScreenshots', (
           <ToggleField label={t('screensaver_shelves_include_screenshots' as any)} checked={(settings as any).screensaverShelvesIncludeScreenshots === true} onChange={(v: boolean) => void (actions as any).setScreensaverShelvesIncludeScreenshots(v)} />
         ))}
+        {row('screensaverOnlineScreenshotsEnabled', (
+          <ToggleField label={t('screensaver_online_screenshots' as any)} checked={(settings as any).screensaverOnlineScreenshotsEnabled === true} onChange={(v: boolean) => void (actions as any).setScreensaverOnlineScreenshotsEnabled(v)} />
+        ))}
         {row('screensaverStartAfterSeconds', (
           <DSSliderField label={t('screensaver_start_after_label' as any)} value={(settings as any).screensaverStartAfterSeconds ?? 60} min={15} max={600} step={15} unit='s' onChange={(v: number) => void (actions as any).setScreensaverStartAfterSeconds(v)} />
         ))}

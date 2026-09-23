@@ -863,6 +863,8 @@ def _rebuild_dashboard(reports_root: Path) -> None:
 <title>Deck Shelves &mdash; Dashboard</title>
 <link rel="icon" type="image/svg+xml" href="../favicon.svg">
 <link rel="stylesheet" href="../style.css">
+<script src="../i18n/pt-BR.js"></script>
+<script src="../i18n.js"></script>
 <style>{_DASH_CSS}</style>
 </head>
 <body>

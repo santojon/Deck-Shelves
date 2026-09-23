@@ -187,6 +187,14 @@ const RENDERERS: Record<string, (c: OptCtx) => ReactNode> = {
       { data: "both", label: t("filter_remote_play_both") },
     ],
     p.mode ?? "remote-only", (v) => patchParams({ mode: v })),
+  libraryLocation: ({ t, p, patchParams }) => dropdownRow(
+    t("filter_type_library_location"), t("filter_library_location_hint"),
+    [
+      { data: "internal", label: t("filter_storage_internal") },
+      { data: "external", label: t("filter_library_external") },
+      { data: "network", label: t("filter_library_network") },
+    ],
+    String(p.category ?? "internal"), (v) => patchParams({ category: v })),
   hidden: ({ t, p, patchParams }) => dropdownRow(
     t("filter_type_hidden"), undefined,
     [

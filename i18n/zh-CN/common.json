@@ -88,6 +88,8 @@
   "own_qam_tab_desc": "将 Deck Shelves 直接放入快速访问的标签栏。重启 Steam 以生效。",
   "screensaver_shelves_enabled": "屏幕保护程序（实验性）",
   "screensaver_shelves_include_screenshots": "包含截图",
+  "screensaver_online_screenshots": "包含在线截图",
+  "screensaver_online_screenshots_requires_online": "需要先启用上方的在线功能。",
   "screensaver_start_after_label": "延迟启动时间",
   "screensaver_dwell_label": "每项停留时间",
   "screensaver_shelf_batch_size_label": "每个书架的游戏数",

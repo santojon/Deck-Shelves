@@ -381,6 +381,8 @@ def _rebuild_subfolder_index(subdir_path: Path) -> List[dict]:
 <title>Deck Shelves &mdash; {_html.escape(label)} Reports</title>
 <link rel="icon" type="image/svg+xml" href="../../favicon.svg">
 <link rel="stylesheet" href="../../style.css">
+<script src="../../i18n/pt-BR.js"></script>
+<script src="../../i18n.js"></script>
 <style>{_IDX_CSS}</style>
 </head>
 <body>
@@ -533,6 +535,8 @@ def _rebuild_top_index(reports_root: Path) -> None:
 <title>Deck Shelves &mdash; Validation Reports</title>
 <link rel="icon" type="image/svg+xml" href="../favicon.svg">
 <link rel="stylesheet" href="../style.css">
+<script src="../i18n/pt-BR.js"></script>
+<script src="../i18n.js"></script>
 <style>{_TOP_CSS}</style>
 </head>
 <body>
@@ -965,6 +969,8 @@ def generate(
 <title>Deck Shelves &mdash; {_html.escape(scope_label)} {_html.escape(ts)}</title>
 <link rel="icon" type="image/svg+xml" href="../../favicon.svg">
 <link rel="stylesheet" href="../../style.css">
+<script src="../../i18n/pt-BR.js"></script>
+<script src="../../i18n.js"></script>
 <style>{_CSS}</style>
 </head>
 <body>
