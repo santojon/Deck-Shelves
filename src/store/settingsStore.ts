@@ -375,14 +375,11 @@ async function flushPendingSave(): Promise<void> {
   }
 }
 
-/* Cloud-sync baseline: the user's settings with no profile override applied.
-   A profile (manual or trigger) is a DEVICE-LOCAL presentation — a docked/showcase
-   profile on one machine must not overwrite a handheld profile on another via
-   cloud sync. So the moment a profile becomes active we snapshot the pre-override
-   config here; cloud sync reads/writes THIS baseline (getSyncBasis), not the live
-   override, and adopts merges into it (applySyncedBasis) while an override is on.
-   In memory only — like the profile-trigger baseline, it does not survive a reload
-   (a persisted override then syncs until the next profile transition). */
+/* Cloud-sync baseline: settings with no profile override applied. A profile
+   is DEVICE-LOCAL — a docked profile on one machine must not overwrite a
+   handheld profile on another via sync — so once one activates we snapshot
+   the pre-override config here; sync reads/writes THIS (getSyncBasis), not
+   the live override. In memory only, like the trigger baseline. */
 let syncBaseline: Settings | null = null;
 
 function profileOverrideActive(s: Settings | null): boolean {
@@ -419,10 +416,9 @@ export function saveSettings(next: Settings, opts?: { fromSync?: boolean }): Pro
   // unless this is a sync-applied write (which already carries authoritative
   // stamps from the merge — re-stamping would clobber the other device's clocks).
   const stamped = opts?.fromSync ? next : stampChanges(current, next);
-  // Track the profile-override baseline centrally so BOTH manual and trigger
-  // profile applies (which all set `activeProfileName` through here) keep the
-  // pre-override config as the cloud-sync basis. Snapshot it when a profile turns
-  // on; clear it when the last one turns off. Sync-applied writes never toggle it.
+  // Tracks the profile-override baseline centrally, since every profile
+  // apply sets `activeProfileName` through here: snapshot on activation,
+  // clear on deactivation. Sync-applied writes never toggle it.
   if (!opts?.fromSync) {
     const wasOverride = profileOverrideActive(current);
     const nowOverride = profileOverrideActive(stamped);
