@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { claimHomeOwnership, isHomeOwner, getOwnerKind } from "../../runtime/host/ownerGuard";
+import { claimHomeOwnership, isHomeOwner, getOwnerKind, getOwnerMetadata } from "../../runtime/host/ownerGuard";
 
 function scope(): any {
   const g = globalThis as any;
@@ -10,6 +10,7 @@ describe("ownerGuard", () => {
   beforeEach(() => {
     const w = scope();
     delete w.__DECK_SHELVES_OWNER__;
+    delete w.__DECK_SHELVES_OWNER_META__;
     delete w.__SHELVES_FORCE_OWNER__;
   });
 
@@ -18,6 +19,7 @@ describe("ownerGuard", () => {
     expect(isHomeOwner()).toBe(true);
     expect(getOwnerKind()).toBe("decky");
     expect(scope().__DECK_SHELVES_OWNER__).toBe("decky");
+    expect(getOwnerMetadata()).toMatchObject({ host: "decky", dsVersion: expect.any(String) });
   });
 
   it("the second instance stands down when another already claimed", () => {
@@ -31,6 +33,7 @@ describe("ownerGuard", () => {
     expect(claimHomeOwnership("decky")).toBe(false); // loader yields
     expect(claimHomeOwnership("shelveshub")).toBe(true); // neutral host owns
     expect(scope().__DECK_SHELVES_OWNER__).toBe("shelveshub");
+    expect(getOwnerMetadata()).toMatchObject({ host: "shelveshub", dsVersion: expect.any(String) });
   });
 
   it("force-owner overrides an earlier loader claim", () => {

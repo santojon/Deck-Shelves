@@ -688,6 +688,7 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
         onActivate: () => { saveFocusTarget(appid, shelf.id); platform.navigateToApp(appid); },
         onMenuButton,
         deckCompatCategory: item.deckCompatCategory,
+        controllerSupport: item.controllerSupport,
         playtimeMinutes: item.playtimeMinutes,
         isInstalled: item.installed,
         updatePending: item.updatePending,

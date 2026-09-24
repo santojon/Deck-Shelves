@@ -18,6 +18,9 @@ import { getCurrentSettings, saveSettings } from "../../store/settingsStore";
 import { patchShelfInSettings } from "../../domain/settings";
 import { saveFocusTarget, beginFocusRestoreLoop } from "../../core/focusRestore";
 import { BTN, createMatcherState, matchEvent, parseCombo, parseRawCombo, resolveBindings } from "../../runtime/buttonBindings";
+import { currentPlatformKey } from "../../core/onlineMetadata";
+import { isSteamOSCached, primeSystemPlatform } from "../../runtime/diagnosticsInfo";
+import { getLocalLibraryAppIds } from "../../steam";
 import { resolveKeyboardBindings, parseKeyCombo, matchKeyEvent, createKeyMatcherState, isEditableKeyTarget, type KeyMatcherState } from "../../runtime/keyboardBindings";
 import { subscribeControllerInput } from "../../runtime/controllerInput";
 import { resolveQuickLaunchAction } from "../../steam/appDisplayStatus";
@@ -145,6 +148,47 @@ const xCircleSvg = (
   </svg>
 );
 
+// Native Steam input glyphs (viewBox 0 0 36 36), reproduced verbatim so the
+// desktop compat badge matches the native library exactly: a gamepad for
+// controller support, keyboard + mouse otherwise. `.ds-compat svg` sizes them.
+const nativeControllerSvg = (
+  <svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path fill="currentColor" d="M31.5,9.6c-0.3-0.3-0.7-0.6-1.1-1V8.4c0,0,0-0.6-0.6-1.1s-3.9-1.7-5.1-1.7c-0.7,0-0.9,0.2-1.2,0.4c-0.2,0.1-0.3,0.2-0.5,0.2H12.9c-0.2,0-0.4-0.1-0.5-0.2c-0.2-0.2-0.5-0.4-1.2-0.4c-1.1,0-4.5,1.1-5.1,1.7S5.6,8.4,5.6,8.4v0.1c-0.4,0.3-0.8,0.7-1.1,1C3.4,10.7,0,20.2,0,25.3s3.4,5.6,3.4,5.6c0.9,0,2.3-1.8,3.7-3.5c1.2-1.5,2.3-3,3.1-3.2c1.7-0.6,14.1-0.6,15.8,0c0.8,0.3,1.9,1.7,3.1,3.2c1.4,1.7,2.8,3.5,3.7,3.5c0,0,3.4-0.6,3.4-5.6S32.6,10.7,31.5,9.6z M8.4,14.6c-1.2,0-2.2-1-2.2-2.2s1-2.2,2.2-2.2s2.2,1,2.2,2.2S9.7,14.6,8.4,14.6z M15.8,18.8c0,0.3-0.3,0.6-0.6,0.6h-0.8v0.8c0,0.3-0.3,0.6-0.6,0.6h-1.1c-0.3,0-0.6-0.3-0.6-0.6v-0.8h-0.8c-0.3,0-0.6-0.3-0.6-0.6v-1.1c0-0.3,0.3-0.6,0.6-0.6h0.8v-0.8c0-0.3,0.3-0.6,0.6-0.6h1.1c0.3,0,0.6,0.3,0.6,0.6v0.8h0.8c0.3,0,0.6,0.3,0.6,0.6V18.8z M27.6,8.7c0.8,0,1.4,0.6,1.4,1.4s-0.6,1.4-1.4,1.4s-1.4-0.6-1.4-1.4S26.8,8.7,27.6,8.7z M23.1,20.2c-1.2,0-2.2-1-2.2-2.2s1-2.2,2.2-2.2s2.2,1,2.2,2.2S24.3,20.2,23.1,20.2z M25,14.1c-0.8,0-1.4-0.6-1.4-1.4c0-0.8,0.6-1.4,1.4-1.4s1.4,0.6,1.4,1.4C26.4,13.4,25.8,14.1,25,14.1z M27.6,16.6c-0.8,0-1.4-0.6-1.4-1.4s0.6-1.4,1.4-1.4s1.4,0.6,1.4,1.4S28.3,16.6,27.6,16.6z M30.1,14.1c-0.8,0-1.4-0.6-1.4-1.4c0-0.8,0.6-1.4,1.4-1.4s1.4,0.6,1.4,1.4C31.5,13.4,30.9,14.1,30.1,14.1z" />
+  </svg>
+);
+const nativeKbmSvg = (
+  <svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path fill="currentColor" fillRule="evenodd" clipRule="evenodd" d="M31.4096 7H1V23.5601H21.9066V19.8801H7.65209V18.0401H21.9066V17.7641C21.9066 17.2208 21.9876 16.6959 22.1387 16.2001H20.9563V14.36H22.8569V14.7117C23.7116 13.4671 25.0741 12.5776 26.6581 12.3204V10.68H28.5587V12.244H31.4096V7ZM5.75149 10.68H3.8509V12.52H5.75149V10.68ZM3.8509 18.0401H5.75149V19.8801H3.8509V18.0401ZM7.65209 14.36H3.8509V16.2001H7.65209V14.36ZM7.65209 10.68H9.55269V12.52H7.65209V10.68ZM11.4533 10.68H13.3539V12.52H11.4533V10.68ZM11.4533 14.36H9.55269V16.2001H11.4533V14.36ZM15.2545 10.68H17.1551V12.52H15.2545V10.68ZM15.2545 14.36H13.3539V16.2001H15.2545V14.36ZM17.1551 14.36H19.0557V16.2001H17.1551V14.36ZM20.9563 10.68H19.0557V12.52H20.9563V10.68ZM24.7575 10.68H22.8569V12.52H24.7575V10.68Z" />
+    <path fill="currentColor" fillRule="evenodd" clipRule="evenodd" d="M27.9783 15.4332C26.3164 15.4332 24.9691 16.7376 24.9691 18.3466V25.1444C24.9691 27.8261 27.2146 30 29.9845 30C32.7545 30 35 27.8261 35 25.1444V18.3466C35 16.7376 33.6527 15.4332 31.9907 15.4332H27.9783ZM29.9845 17.861C29.4305 17.861 28.9814 18.2958 28.9814 18.8321V20.7744C28.9814 21.3107 29.4305 21.7455 29.9845 21.7455C30.5385 21.7455 30.9876 21.3107 30.9876 20.7744V18.8321C30.9876 18.2958 30.5385 17.861 29.9845 17.861Z" />
+  </svg>
+);
+
+/* The card compat badge mirrors what native Steam shows for the current device:
+   Deck compatibility on SteamOS / a Steam Deck, controller support everywhere
+   else (macOS / Windows / desktop Linux). macOS and Windows are known desktop
+   synchronously; on Linux the cached SteamOS flag decides (Deck vs desktop),
+   defaulting to the Deck badge until primed so the Deck never regresses. */
+// Owned-library app ids, memoized briefly — the compat/input badge only shows
+// for owned games (store / wishlist cards, resolved from online sources, are not
+// in the library and get no badge, matching the native library).
+let _ownedSet: Set<number> | null = null;
+let _ownedAt = 0;
+function ownedLibraryAppIds(): Set<number> {
+  const now = Date.now();
+  if (!_ownedSet || now - _ownedAt > 30000) {
+    try { _ownedSet = getLocalLibraryAppIds(true, false); } catch { _ownedSet = new Set(); }
+    _ownedAt = now;
+  }
+  return _ownedSet;
+}
+
+function showsControllerCompat(): boolean {
+  const plat = currentPlatformKey();
+  if (plat === "mac" || plat === "windows") return true;
+  primeSystemPlatform(); // idempotent — Linux needs the async SteamOS flag
+  return isSteamOSCached() === false;
+}
+
 /* Classify a launched card by the most specific type available: store /
    wishlist (from its shelf's source), else non-Steam / game (from the app
    overview). Lets the stats break launches down beyond just game/non-Steam. */
@@ -205,7 +249,14 @@ function GameCardImpl({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHProp
      card keeps its prior prop-driven size. */
   const cssW = `var(${featured ? "--ds-eff-feat-w" : "--ds-eff-card-w"}, ${cardW}px)`;
   const cssH = `var(${featured ? "--ds-eff-feat-h" : "--ds-eff-card-h"}, ${cardH}px)`;
-  const cssArtH = `var(${featured ? "--ds-eff-feat-art-h" : "--ds-eff-card-art-h"}, ${artH}px)`;
+  /* Art height already covers the whole card (native theme with no reserved
+     label strip) — size off the card's own rendered box (100%) rather than
+     the --ds-eff-*-art-h var, which can end up shorter than the card's real
+     (flex-stretched) height and leave a gap below the art. */
+  const artFillsCard = artH >= cardH;
+  const cssArtH = artFillsCard
+    ? "100%"
+    : `var(${featured ? "--ds-eff-feat-art-h" : "--ds-eff-card-art-h"}, ${artH}px)`;
 
   const [nativeCardClass, setNativeCardClass] = useState('');
   const [imgFailed, setImgFailed] = useState(false);
@@ -619,12 +670,24 @@ function GameCardImpl({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHProp
   const playtime = formatPlaytime(item.playtimeMinutes);
 
   const isNonSteam = item.isSteam === false;
-  const suppressCompat = hideCompatIcons || (hideNonSteamBadge && isNonSteam);
-  const compatClass = suppressCompat ? "" :
-    compat === 3 ? "ds-compat ds-compat-verified"
-    : compat === 2 ? "ds-compat ds-compat-playable"
-    : compat === 1 ? "ds-compat ds-compat-unsupported"
-    : "";
+  // The compat / input badge is only for owned library games (matches native —
+  // store & wishlist cards, resolved from online sources, are not owned).
+  const suppressCompat = hideCompatIcons || (hideNonSteamBadge && isNonSteam)
+    || !ownedLibraryAppIds().has(appid);
+  // Desktop clients (macOS / Windows / desktop Linux) show controller support
+  // instead of Deck compatibility; reuse the badge slot + the verified/playable
+  // colour classes (full → green, partial → amber).
+  const useControllerCompat = showsControllerCompat();
+  const controllerSupport = item.controllerSupport ?? 0;
+  const compatClass = suppressCompat ? "" : useControllerCompat
+    // Desktop clients show an input glyph on every card — controller for
+    // controller support, keyboard + mouse otherwise. Neutral colour, one icon
+    // (`ds-compat--controller` narrows the pill and neutralises the tint).
+    ? "ds-compat ds-compat--controller"
+    : (compat === 3 ? "ds-compat ds-compat-verified"
+       : compat === 2 ? "ds-compat ds-compat-playable"
+       : compat === 1 ? "ds-compat ds-compat-unsupported"
+       : "");
   const showNewBadge = !hideNewBadge && item.isNew === true;
   const discount = item.discountPercent;
   const showDiscountBadge = !hideDiscountBadge && typeof discount === 'number' && discount > 0;
@@ -700,7 +763,9 @@ function GameCardImpl({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHProp
         flexShrink: 0,
         padding: 0,
         margin: 0,
-        background: "transparent",
+        // Matches .ds-card-art's idle placeholder tone so the reserved
+        // label strip below the art doesn't go fully transparent.
+        background: "var(--ds-card-bg, rgba(50, 50, 55, 0.55))",
         cursor: "pointer",
         overflow: "visible",
         ["--ds-card-art-h" as string]: cssArtH,
@@ -787,8 +852,9 @@ function GameCardImpl({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHProp
           <div className={`ds-card-shimmer${imgLoaded ? ' ds-card-shimmer--loaded' : ''}`} aria-hidden="true" />
           {compatClass && (
             <div className={compatClass}>
-              {deckLogoSvg}
-              {compat === 3 ? checkmarkSvg : compat === 2 ? infoCircleSvg : xCircleSvg}
+              {useControllerCompat
+                ? (controllerSupport >= 1 ? nativeControllerSvg : nativeKbmSvg)
+                : <>{deckLogoSvg}{compat === 3 ? checkmarkSvg : compat === 2 ? infoCircleSvg : xCircleSvg}</>}
             </div>
           )}
         </div>

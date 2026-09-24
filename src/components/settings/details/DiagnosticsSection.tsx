@@ -3,7 +3,7 @@ import { DialogButton, Focusable } from "../../../runtime/host/decky";
 import { CollapsibleSection } from "../../ui/CollapsibleSection";
 import {
   collectRuntimeInfo, collectSystemInfo, collectHardwareInfo, listCoLoadedPlugins,
-  summarizeConfig, formatSize, hwCpuText, hwDiskText,
+  summarizeConfig, formatSize, hwCpuText, hwDiskText, hwExternalDiskText,
   type SystemInfo, type HardwareInfo,
 } from "../../../runtime/diagnosticsInfo";
 import { refreshCssLoaderThemes } from "../../../core/cssLoaderDetect";
@@ -100,6 +100,9 @@ function HardwareBlock({ hw, t }: { hw: HardwareInfo | null; t: Tr }) {
         <SpecTile label={t("hw_ram")} value={formatSize(hw.memTotalBytes)} />
         {hw.gpu ? <SpecTile label={t("hw_gpu")} value={hw.gpu} /> : null}
         {hw.diskTotalBytes ? <SpecTile label={t("hw_storage")} value={hwDiskText(hw)} /> : null}
+        {hw.externalDisks.map((d) => (
+          <SpecTile key={d.label} label={d.label} value={d.totalBytes ? `${formatSize(d.totalBytes)} (${formatSize(d.freeBytes)} free)` : DASH} />
+        ))}
       </Focusable>
     </SectionCard>
   );
@@ -194,6 +197,7 @@ export function DiagnosticsSection({ t }: { t: Tr }) {
       `  ${t("hw_ram")}: ${formatSize(hw.memTotalBytes)}`,
       ...(hw.gpu ? [`  ${t("hw_gpu")}: ${hw.gpu}`] : []),
       ...(hw.diskTotalBytes ? [`  ${t("hw_storage")}: ${hwDiskText(hw)}`] : []),
+      ...hw.externalDisks.map((d) => `  ${hwExternalDiskText(d)}`),
     ];
   };
 

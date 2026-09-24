@@ -9,7 +9,8 @@ optional: a probe that can't read returns None and the panel shows a dash.
 import os
 import platform
 import shutil
-from typing import Any, Dict, Optional, Tuple
+import string
+from typing import Any, Dict, List, Optional, Tuple
 
 # Valve DMI product_name -> friendly Steam Deck model.
 _DECK_MODELS = {
@@ -115,6 +116,118 @@ def _disk() -> Tuple[Optional[int], Optional[int]]:
         return None, None
 
 
+def _home_dev() -> Optional[int]:
+    try:
+        return os.stat(os.path.expanduser("~")).st_dev
+    except OSError:
+        return None
+
+
+def _disk_entry(path: str, label: str, seen: set) -> Optional[Dict[str, Any]]:
+    try:
+        dev = os.stat(path).st_dev
+    except OSError:
+        return None
+    if dev in seen:
+        return None
+    seen.add(dev)
+    try:
+        usage = shutil.disk_usage(path)
+    except OSError:
+        return None
+    return {"label": label, "totalBytes": usage.total, "freeBytes": usage.free}
+
+
+def _external_disks_linux(roots: Tuple[str, ...] = ("/run/media", "/media")) -> List[Dict[str, Any]]:
+    # SD cards / USB drives / external SSDs auto-mount here on SteamOS and
+    # most desktop Linux (udisks2); each is its own subdirectory per user.
+    # `roots` is overridable so tests can point at a fake mount layout.
+    out: List[Dict[str, Any]] = []
+    seen = {_home_dev()} - {None}
+    for root in roots:
+        try:
+            users = list(os.scandir(root))
+        except OSError:
+            continue
+        for user in users:
+            try:
+                mounts = list(os.scandir(user.path)) if user.is_dir() else []
+            except OSError:
+                continue
+            for entry in mounts:
+                if not entry.is_dir():
+                    continue
+                found = _disk_entry(entry.path, entry.name, seen)
+                if found:
+                    out.append(found)
+    return out
+
+
+def _external_disks_macos(root: str = "/Volumes") -> List[Dict[str, Any]]:
+    out: List[Dict[str, Any]] = []
+    seen = {_home_dev()} - {None}
+    try:
+        volumes = list(os.scandir(root))
+    except OSError:
+        return out
+    for entry in volumes:
+        if not entry.is_dir():
+            continue
+        found = _disk_entry(entry.path, entry.name, seen)
+        if found:
+            out.append(found)
+    return out
+
+
+def _external_disks_windows() -> List[Dict[str, Any]]:
+    import ctypes
+
+    out: List[Dict[str, Any]] = []
+    home_drive = os.path.splitdrive(os.path.expanduser("~"))[0].upper()
+    try:
+        bitmask = ctypes.windll.kernel32.GetLogicalDrives()  # type: ignore[attr-defined]
+    except Exception:
+        return out
+    for i, letter in enumerate(string.ascii_uppercase):
+        if not (bitmask >> i) & 1:
+            continue
+        drive = f"{letter}:\\"
+        if drive.rstrip("\\").upper() == home_drive:
+            continue
+        try:
+            # DRIVE_REMOVABLE=2, DRIVE_FIXED=3 — skip network/CD-ROM/unknown.
+            if ctypes.windll.kernel32.GetDriveTypeW(drive) not in (2, 3):  # type: ignore[attr-defined]
+                continue
+        except Exception:
+            continue
+        label_buf = ctypes.create_unicode_buffer(261)
+        try:
+            ctypes.windll.kernel32.GetVolumeInformationW(  # type: ignore[attr-defined]
+                drive, label_buf, 260, None, None, None, None, 0)
+        except Exception:
+            pass
+        try:
+            usage = shutil.disk_usage(drive)
+        except OSError:
+            continue
+        out.append({"label": label_buf.value or drive, "totalBytes": usage.total, "freeBytes": usage.free})
+    return out
+
+
+def _external_disks() -> List[Dict[str, Any]]:
+    """SD card / USB / external SSD volumes, alongside the internal figure
+    from `_disk()` above — never raises, empty list when none are found."""
+    try:
+        system = platform.system()
+        if system == "Windows":
+            return _external_disks_windows()
+        if system == "Darwin":
+            return _external_disks_macos()
+        return _external_disks_linux()
+    except Exception:
+        return []
+
+
 def get_hardware_info() -> Dict[str, Any]:
     """Static machine specs. Never raises — unknown fields come back None."""
     model, product = _model()
@@ -131,5 +244,6 @@ def get_hardware_info() -> Dict[str, Any]:
         "gpu": _gpu(),
         "diskTotalBytes": total,
         "diskFreeBytes": free,
+        "externalDisks": _external_disks(),
         "supported": True,
     }

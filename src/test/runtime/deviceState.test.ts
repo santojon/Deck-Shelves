@@ -1,10 +1,11 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
 // Mutable state the mocked modules read (hoisted so vi.mock factories can use it).
-const { battery, settings, rpc } = vi.hoisted(() => ({
+const { battery, settings, rpc, libraryRpc } = vi.hoisted(() => ({
   battery: { current: null as any },
   settings: { current: {} as any },
   rpc: { current: null as any },
+  libraryRpc: { current: null as any },
 }))
 
 vi.mock('../../runtime/batteryState', () => ({
@@ -16,9 +17,11 @@ vi.mock('../../runtime/batteryState', () => ({
   subscribeBattery: () => () => {},
 }))
 vi.mock('../../store/settingsStore', () => ({ getCurrentSettings: () => settings.current }))
-vi.mock('../../runtime/host/decky', () => ({ call: async () => rpc.current }))
+vi.mock('../../runtime/host/decky', () => ({
+  call: async (method: string) => (method === 'get_library_locations' ? libraryRpc.current : rpc.current),
+}))
 
-import { evalDeviceRule, getDeviceState, isDeviceRuleKind, installDeviceState, refreshControllerState } from '../../runtime/deviceState'
+import { evalDeviceRule, getDeviceState, isDeviceRuleKind, installDeviceState, refreshControllerState, refreshLibraryLocations, getLibraryCategoryOf, getLibraries } from '../../runtime/deviceState'
 
 describe('evalDeviceRule', () => {
   beforeEach(() => { battery.current = null; settings.current = {} })
@@ -152,5 +155,82 @@ describe('evalDeviceRule', () => {
     expect(st.batteryLevel).toBe(0.42)
     expect(st.charging).toBe(true)
     expect(st.offline).toBe(true)
+  })
+})
+
+describe('libraryAvailable / library locations', () => {
+  beforeEach(() => { libraryRpc.current = null })
+
+  it('libraryAvailable: matches when a library of the given category is mounted', async () => {
+    libraryRpc.current = {
+      supported: true,
+      libraries: [
+        { id: 'a', label: 'Steam', path: '/x', category: 'internal', mounted: true },
+        { id: 'b', label: 'SD_CARD', path: '/y', category: 'external', mounted: true },
+      ],
+      appLibrary: { '228980': 'a', '99999': 'b' },
+    }
+    await refreshLibraryLocations()
+    expect(evalDeviceRule({ kind: 'libraryAvailable', category: 'external' })).toBe(true)
+    expect(evalDeviceRule({ kind: 'libraryAvailable', category: 'network' })).toBe(false)
+  })
+
+  it('libraryAvailable: false when the matching library exists but is unmounted', async () => {
+    libraryRpc.current = {
+      supported: true,
+      libraries: [{ id: 'b', label: 'SD_CARD', path: '/y', category: 'external', mounted: false }],
+      appLibrary: {},
+    }
+    await refreshLibraryLocations()
+    expect(evalDeviceRule({ kind: 'libraryAvailable', category: 'external' })).toBe(false)
+  })
+
+  it('libraryAvailable: can target a specific library id instead of a category', async () => {
+    libraryRpc.current = {
+      supported: true,
+      libraries: [
+        { id: 'b', label: 'SD_CARD', path: '/y', category: 'external', mounted: true },
+        { id: 'c', label: 'USB', path: '/z', category: 'external', mounted: false },
+      ],
+      appLibrary: {},
+    }
+    await refreshLibraryLocations()
+    expect(evalDeviceRule({ kind: 'libraryAvailable', libraryId: 'b' })).toBe(true)
+    expect(evalDeviceRule({ kind: 'libraryAvailable', libraryId: 'c' })).toBe(false)
+  })
+
+  it('libraryAvailable fails open when the backend is unsupported', async () => {
+    libraryRpc.current = { supported: false }
+    await refreshLibraryLocations()
+    expect(evalDeviceRule({ kind: 'libraryAvailable', category: 'external' })).toBe(true)
+  })
+
+  it('isDeviceRuleKind recognises libraryAvailable', () => {
+    expect(isDeviceRuleKind('libraryAvailable')).toBe(true)
+  })
+
+  it('getLibraryCategoryOf / getLibraries reflect the refreshed cache', async () => {
+    libraryRpc.current = {
+      supported: true,
+      libraries: [{ id: 'a', label: 'Steam', path: '/x', category: 'internal', mounted: true }],
+      appLibrary: { '228980': 'a' },
+    }
+    await refreshLibraryLocations()
+    expect(getLibraryCategoryOf(228980)).toBe('internal')
+    expect(getLibraryCategoryOf(999)).toBeNull()
+    expect(getLibraries()).toHaveLength(1)
+  })
+
+  it('malformed backend entries are dropped, not thrown', async () => {
+    libraryRpc.current = {
+      supported: true,
+      libraries: [{ label: 'no id' }, { id: 'a', category: 'bogus', mounted: true }],
+      appLibrary: { notanumber: 'a', '5': 42 },
+    }
+    await refreshLibraryLocations()
+    const libs = getLibraries()
+    expect(libs).toHaveLength(1)
+    expect(libs[0].category).toBe('external') // unknown category normalizes to external
+    expect(getLibraryCategoryOf(5)).toBeNull() // non-string value dropped
   })
 })

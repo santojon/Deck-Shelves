@@ -11,6 +11,22 @@ describe('steam helpers', () => {
     expect((norm as AppOverview).installed).toBeUndefined();
   });
 
+  it('normalizeAppOverview reads controller support from xbox_controller_support (desktop clients)', () => {
+    // Desktop clients (macOS / Windows / desktop Linux) expose controller support
+    // as `xbox_controller_support` (0/1/2) rather than the older `controller_support`.
+    const full = normalizeAppOverview({ appid: 100, display_name: 'Full', xbox_controller_support: 2 });
+    const partial = normalizeAppOverview({ appid: 101, display_name: 'Partial', xbox_controller_support: 1 });
+    const none = normalizeAppOverview({ appid: 102, display_name: 'None', xbox_controller_support: 0 });
+    expect((full as AppOverview).controller_support).toBe(2);
+    expect((partial as AppOverview).controller_support).toBe(1);
+    expect((none as AppOverview).controller_support).toBe(0);
+  });
+
+  it('normalizeAppOverview prefers the explicit controller_support field over xbox_controller_support', () => {
+    const norm = normalizeAppOverview({ appid: 103, display_name: 'Both', controller_support: 2, xbox_controller_support: 0 });
+    expect((norm as AppOverview).controller_support).toBe(2);
+  });
+
   it('normalizeAppOverview marks installed when per_client_data has explicit installed:true', () => {
     // Real Steam data: ds=11 games have an explicit `installed` field in pcd
     const raw = { appid: 9003, display_name: 'Installed Game', per_client_data: [{ display_status: 11, installed: true }] };

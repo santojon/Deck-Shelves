@@ -80,12 +80,119 @@ function subscribeDisplayManager(): void {
     const dm = (globalThis as any).SteamClient?.System?.DisplayManager;
     const reg = dm?.RegisterForStateChanges?.(() => {
       if (_displayDebounce) clearTimeout(_displayDebounce);
-      _displayDebounce = setTimeout(() => { _displayDebounce = null; void refreshDisplay(); }, 600);
+      // Dock/undock also re-checks removable-library mount state — no
+      // hotplug event exists here, so this piggybacks on one that fires.
+      _displayDebounce = setTimeout(() => { _displayDebounce = null; void refreshDisplay(); void refreshLibraryLocations(); }, 600);
     });
     if (reg && typeof reg.unregister === 'function') {
       _displayUnsub = () => { try { reg.unregister(); } catch {} };
     }
   } catch {}
+}
+
+/* Steam Library Location — reads `libraryfolders.vdf` via the backend
+   (filesystem-level, so it can't run in the renderer) to know which library
+   (Internal / External / Network) each installed app lives in, and whether
+   each library is currently mounted. Powers the `libraryLocation` filter
+   (steam/index.ts) and the `libraryAvailable` trigger/visibility kind below. */
+export type LibraryEntry = {
+  id: string;
+  label: string;
+  path: string;
+  category: 'internal' | 'external' | 'network';
+  mounted: boolean;
+};
+
+let _libraries: LibraryEntry[] = [];
+let _appLibrary: Map<number, string> = new Map();
+let _librarySupported = false;
+
+function normalizeLibraryCategory(raw: unknown): LibraryEntry['category'] {
+  return raw === 'internal' || raw === 'network' ? raw : 'external';
+}
+
+function parseLibraryEntry(l: any): LibraryEntry | null {
+  const id = String(l?.id ?? '');
+  if (!id) return null;
+  const label = String(l?.label ?? id);
+  const path = String(l?.path ?? '');
+  return { id, label, path, category: normalizeLibraryCategory(l?.category), mounted: l?.mounted === true };
+}
+
+function parseLibraryEntries(raw: unknown): LibraryEntry[] {
+  const list = Array.isArray(raw) ? raw : [];
+  return list.map(parseLibraryEntry).filter((l): l is LibraryEntry => l !== null);
+}
+
+function parseAppLibraryMap(raw: unknown): Map<number, string> {
+  const appLibrary = new Map<number, string>();
+  const obj = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
+  for (const key of Object.keys(obj)) {
+    const appid = Number(key);
+    if (Number.isFinite(appid) && typeof obj[key] === 'string') appLibrary.set(appid, obj[key] as string);
+  }
+  return appLibrary;
+}
+
+function parseLibraryResponse(res: any): { supported: boolean; libraries: LibraryEntry[]; appLibrary: Map<number, string> } {
+  if (!res || res.supported === false) return { supported: false, libraries: [], appLibrary: new Map() };
+  return { supported: true, libraries: parseLibraryEntries(res.libraries), appLibrary: parseAppLibraryMap(res.appLibrary) };
+}
+
+const libraryFingerprint = (libs: LibraryEntry[]): string => libs.map((l) => `${l.id}:${l.mounted}`).join(',');
+
+let _libraryInFlight: Promise<void> | null = null;
+let _libraryFetchedOnce = false;
+
+export async function refreshLibraryLocations(): Promise<void> {
+  if (_libraryInFlight) return _libraryInFlight;
+  _libraryInFlight = (async () => {
+    try {
+      const res = await call<[], any>('get_library_locations');
+      const parsed = parseLibraryResponse(res);
+      const changed = libraryFingerprint(parsed.libraries) !== libraryFingerprint(_libraries);
+      _libraries = parsed.libraries;
+      _appLibrary = parsed.appLibrary;
+      _librarySupported = parsed.supported;
+      _libraryFetchedOnce = true;
+      if (changed) notify();
+    } catch {
+      // keep previous cached state on RPC failure
+    } finally {
+      _libraryInFlight = null;
+    }
+  })();
+  return _libraryInFlight;
+}
+
+/** True once `refreshLibraryLocations` has completed at least once — lets a
+ *  one-off caller (the `libraryLocation` filter's shelf-resolve prefetch)
+ *  skip an extra RPC call when `installDeviceState`'s own refresh already
+ *  warmed the cache, instead of re-fetching on every resolve. */
+export function isLibraryLocationsWarm(): boolean {
+  return _libraryFetchedOnce;
+}
+
+/** Synchronous — reads whatever `refreshLibraryLocations` has already
+ *  cached. Never fetches; callers that need a fresh read must await
+ *  `refreshLibraryLocations` first. */
+export function getLibraries(): LibraryEntry[] {
+  return _libraries;
+}
+
+export function getLibraryCategoryOf(appid: number): LibraryEntry['category'] | null {
+  const libId = _appLibrary.get(appid);
+  if (!libId) return null;
+  return _libraries.find((l) => l.id === libId)?.category ?? null;
+}
+
+function evalLibraryAvailable(rule: any): boolean {
+  if (!_librarySupported) return true; // fail open — unsupported platform/read failure
+  const libraryId = rule?.libraryId ? String(rule.libraryId) : null;
+  const category = String(rule?.category ?? 'external');
+  const matches = libraryId ? _libraries.filter((l) => l.id === libraryId) : _libraries.filter((l) => l.category === category);
+  if (!matches.length) return false; // configured library/category doesn't exist right now
+  return matches.some((l) => l.mounted);
 }
 
 /* External controller ("controller connected", invertible). Device-agnostic so
@@ -143,6 +250,7 @@ export function installDeviceState(): () => void {
   subscribeDisplayManager();
   subscribeControllers();
   void refreshDisplay();
+  void refreshLibraryLocations();
   return () => {
     try { unsubBattery(); } catch {}
     if (_displayUnsub) { try { _displayUnsub(); } catch {} _displayUnsub = null; }
@@ -204,12 +312,13 @@ export function evalDeviceRule(rule: any): boolean {
   if (kind === 'charging') return getDeviceState().charging;
   if (kind === 'offline') return getDeviceState().offline;
   if (kind === 'controllerConnected') return getDeviceState().controllerConnected;
+  if (kind === 'libraryAvailable') return evalLibraryAvailable(rule);
   return evalDisplayRule(rule); // externalDisplay/resolution/ultrawide + unknown→true
 }
 
 export const DEVICE_RULE_KINDS = [
   'battery', 'charging', 'offline', 'externalDisplay', 'resolution', 'ultrawide',
-  'controllerConnected',
+  'controllerConnected', 'libraryAvailable',
 ] as const;
 export function isDeviceRuleKind(kind: string): boolean {
   return (DEVICE_RULE_KINDS as readonly string[]).includes(kind);

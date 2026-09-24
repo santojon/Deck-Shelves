@@ -551,6 +551,7 @@ export function ShelfPreview({
         isInstalled: m.installed,
         isSteam: m.isSteam,
         deckCompatCategory: m.deckCompatCategory,
+        controllerSupport: m.controllerSupport,
         playtimeMinutes: m.playtimeMinutes,
         updatePending: m.updatePending,
         isNew,

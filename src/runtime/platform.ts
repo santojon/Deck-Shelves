@@ -13,6 +13,7 @@ export type PlatformAppMeta = {
   installed?: boolean;
   isSteam?: boolean;
   deckCompatCategory?: number;
+  controllerSupport?: number;
   playtimeMinutes?: number;
   addedTimestamp?: number;
   updatePending?: boolean;

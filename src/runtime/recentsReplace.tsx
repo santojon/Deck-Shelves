@@ -361,10 +361,22 @@ function shouldShowFeatured(shelf: any, s: any): boolean {
   return !!(shelf.highlightFirst || shelf.highlightAll || s?.globalHighlightFirst || s?.globalHighlightAll);
 }
 
-function setRecentsTitle(ret3: any, title: string): void {
+/* The fixed props.children[1].children[0]... index path only matched one
+   native layout; a Steam layout change silently broke it (caught by the
+   try/catch, no error — title just never updates). Search for it instead:
+   a lone string-child element here is the header text, not a game card
+   (cards render via holder.props.games, not inline string children). */
+function findRecentsTitleNode(ret3: any): any | null {
   try {
-    if (title) ret3.props.children[1].props.children[0].props.children[0].props.children = title;
-  } catch {}
+    return findInReactTree(ret3, (x: any) => x?.props && typeof x.props.children === "string" && x.props.children.trim().length > 0) ?? null;
+  } catch { return null; }
+}
+
+function setRecentsTitle(ret3: any, title: string): void {
+  if (!title) return;
+  try { ret3.props.children[1].props.children[0].props.children[0].props.children = title; } catch {}
+  const node = findRecentsTitleNode(ret3);
+  if (node) { try { node.props.children = title; } catch {} }
 }
 
 function mutateRecentsElement(ret3: any, shelf: any, appIds: number[]): boolean {

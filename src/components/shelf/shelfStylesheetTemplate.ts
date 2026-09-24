@@ -93,6 +93,14 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
       flex-direction: column;
     }
 
+    /* SLH's absolute/bottom:0 recents grid anchors to a 0px-height parent,
+       pushing the (correctly DS-populated) grid above the viewport. */
+    [data-ds-slh="1"] .ReactVirtualized__Grid[aria-label="grid"] {
+      position: relative !important;
+      bottom: auto !important;
+      top: auto !important;
+    }
+
     /* ── Centered Home shim (data-ds-centered="1") ─────────────────────────
        The Centered Home theme (by Morz) shifts the library home content into
        a centered column using a left padding defined by --center-home-padding.
@@ -184,11 +192,15 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
       border-radius: var(--ds-card-radius, ${ctx.cardRadius}) !important;
       /* overflow:visible so the badge band can extend above the card. */
       overflow: visible;
-      /* Native-recents baseline shadow (CDP-measured). */
-      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
       scroll-margin-top: 90px;
       scroll-margin-bottom: 52px;
       scroll-margin-inline-end: 2.8vw;
+    }
+    /* Native-recents baseline shadow, scoped to the art box (.ds-card-art)
+       — .ds-card's own box is taller than the artwork (room for the label
+       below), so a shadow on .ds-card looked mismatched under the art. */
+    .ds-card-art {
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
     }
     /* Card transitions: mirror native cards (CDP-measured: filter +
        box-shadow + transform at 0.4s cubic-bezier(0, 0.73, 0.48, 1)).
@@ -255,23 +267,23 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
     #deck-shelves-home-root .deck-shelves-root[data-ds-theme-focus-round-compat="true"] .ds-card:hover {
       box-shadow: none !important;
     }
-    /* Synthetic decoration cards with placeholder=false (the default)
-       render no background fill - the native card class still carries
-       a baseline drop shadow from the theme, which paints against
-       nothing and looks like a floating shadow with no card. Suppress
-       it across every state (idle / focus / hover) for transparent
-       decoration slots; placeholder=true keeps the shadow so the
-       grey card panel reads as a real card. */
+    /* Synthetic decoration cards (placeholder=false, the default) render no
+       background fill, so the baseline drop shadow paints against nothing —
+       suppress it in every state; placeholder=true keeps it so the grey
+       panel reads as a real card. Covers both .ds-card (focus-state shadow)
+       and .ds-card-art (idle-state shadow, scoped to the art box above). */
     #deck-shelves-home-root .ds-card--synthetic-noshadow,
     #deck-shelves-home-root .ds-card--synthetic-noshadow:focus,
     #deck-shelves-home-root .ds-card--synthetic-noshadow.gpfocus,
-    #deck-shelves-home-root .ds-card--synthetic-noshadow:hover {
+    #deck-shelves-home-root .ds-card--synthetic-noshadow:hover,
+    #deck-shelves-home-root .ds-card--synthetic-noshadow .ds-card-art {
       box-shadow: none !important;
     }
     /* Shadow-only-on-focus mode: suppress drop shadow at idle, restore it
        on focus/hover. Mirrors the native focus shadow so the framed look
        only kicks in when the user actually navigates to the card. */
-    #deck-shelves-home-root .ds-card--synthetic-shadow-focus-only {
+    #deck-shelves-home-root .ds-card--synthetic-shadow-focus-only,
+    #deck-shelves-home-root .ds-card--synthetic-shadow-focus-only .ds-card-art {
       box-shadow: none !important;
     }
     #deck-shelves-home-root .ds-card--synthetic-shadow-focus-only:focus,
@@ -671,6 +683,11 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
     .ds-compat-playable .ds-compat-verdict-icon { color: var(--custom-compat-icons-playable, rgb(255, 200, 44)); }
     .ds-compat-unsupported .ds-compat-verdict-icon { color: var(--custom-compat-icons-unsupported, rgb(220, 222, 223)); }
     .ds-compat-unknown .ds-compat-verdict-icon { color: var(--custom-compat-icons-unknown, rgba(255,255,255,0.4)); }
+    /* Input-glyph variant (desktop clients): a single native controller /
+       keyboard+mouse glyph, so narrow the pill to one icon and tint it neutral
+       like the native library (not the Deck verdict colours). */
+    .ds-compat--controller { width: 24px; justify-content: center; background: var(--custom-compat-icons-bg, rgb(14, 20, 27)); border-radius: 10px; }
+    .ds-compat--controller svg { color: var(--custom-compat-icons-deck, rgba(255,255,255,0.84)); }
     body.ds-hide-non-steam-badges .nonsteam-badge,
     .ds-card--hide-non-steam-badge .nonsteam-badge { display: none !important; }
     .ds-new-badge-band {

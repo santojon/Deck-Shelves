@@ -1,5 +1,7 @@
  # Webpack classmap — discovery & runtime mapping
 
+*[Leia em português](pt-BR/webpack-classmap.md)*
+
  A short guide to discover Steam's webpack-hashed classes (viewport / shelf / cards / native sections) and inject a runtime mapping the plugin uses to locate scroll/focus elements and to mirror native styling on injected shelves.
 
  ## Purpose

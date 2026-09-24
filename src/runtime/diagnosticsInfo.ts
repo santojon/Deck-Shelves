@@ -120,6 +120,31 @@ export async function collectSystemInfo(): Promise<SystemInfo> {
   return out;
 }
 
+/* Cached "is this SteamOS / a Steam Deck" flag. The host OS never changes within
+   a session, so it is collected once (async) and read back synchronously — e.g.
+   by the card compat badge, which shows Deck compatibility on SteamOS and
+   controller support on desktop. `undefined` until primed (callers default safe). */
+let _isSteamOS: boolean | undefined;
+
+/** Kick off the one-time SteamOS detection; safe to call more than once. */
+export function primeSystemPlatform(): void {
+  if (_isSteamOS !== undefined) return;
+  void collectSystemInfo()
+    .then((s) => { if (typeof s.isSteamOS === "boolean") _isSteamOS = s.isSteamOS; })
+    .catch(() => { /* leave undefined; callers default safe */ });
+}
+
+/** The cached SteamOS flag, or `undefined` until `primeSystemPlatform` resolves. */
+export function isSteamOSCached(): boolean | undefined {
+  return _isSteamOS;
+}
+
+export interface ExternalDisk {
+  label: string;
+  totalBytes: number | null;
+  freeBytes: number | null;
+}
+
 export interface HardwareInfo {
   model: string | null;
   product: string | null;
@@ -132,9 +157,21 @@ export interface HardwareInfo {
   gpu: string | null;
   diskTotalBytes: number | null;
   diskFreeBytes: number | null;
+  externalDisks: ExternalDisk[];
 }
 
 const numOrNull = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);
+
+function parseExternalDisks(raw: unknown): ExternalDisk[] {
+  if (!Array.isArray(raw)) return [];
+  const out: ExternalDisk[] = [];
+  for (const d of raw) {
+    const label = strOrNull(d?.label);
+    if (!label) continue;
+    out.push({ label, totalBytes: numOrNull(d?.totalBytes), freeBytes: numOrNull(d?.freeBytes) });
+  }
+  return out;
+}
 
 /** Static machine specs from the backend probe (Deck model, CPU, RAM, GPU,
     storage). Fail-soft: null when the backend is unavailable or unsupported. */
@@ -147,6 +184,7 @@ export async function collectHardwareInfo(): Promise<HardwareInfo | null> {
       board: strOrNull(h.board), cpu: strOrNull(h.cpu), cpuCores: numOrNull(h.cpuCores),
       arch: strOrNull(h.arch), memTotalBytes: numOrNull(h.memTotalBytes), gpu: strOrNull(h.gpu),
       diskTotalBytes: numOrNull(h.diskTotalBytes), diskFreeBytes: numOrNull(h.diskFreeBytes),
+      externalDisks: parseExternalDisks(h.externalDisks),
     };
   } catch { return null; }
 }
@@ -170,6 +208,11 @@ export function hwCpuText(hw: HardwareInfo): string {
 export function hwDiskText(hw: HardwareInfo): string {
   if (!hw.diskTotalBytes) return "—";
   return `${formatSize(hw.diskTotalBytes)} (${formatSize(hw.diskFreeBytes)} free)`;
+}
+
+export function hwExternalDiskText(d: ExternalDisk): string {
+  if (!d.totalBytes) return d.label;
+  return `${d.label}: ${formatSize(d.totalBytes)} (${formatSize(d.freeBytes)} free)`;
 }
 
 export function collectRuntimeInfo(): RuntimeInfo {

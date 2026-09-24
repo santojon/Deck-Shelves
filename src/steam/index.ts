@@ -14,6 +14,7 @@ import { resolveContextAwareShelf } from "../core/contextAwareShelves";
 import type { PlatformAppMeta, PlatformTab } from "../runtime/platform";
 import { logInfo, logWarn } from "../runtime/logger";
 import { getPreferredSteamDocument, getPreferredSteamWindow } from "../runtime/steamHost";
+import { getLibraryCategoryOf, isLibraryLocationsWarm, refreshLibraryLocations } from "../runtime/deviceState";
 import { getAppDescriptions as _getAppDescriptions } from "./appDescriptionsCache";
 
 export type SteamCollection = { id: string; name: string };
@@ -1076,7 +1077,11 @@ function deriveDisplayStatus(node: any): number | undefined {
 }
 
 function deriveControllerSupport(node: any): number | undefined {
-  const raw = node?.nControllerSupport ?? node?.controller_support ?? node?.n_controller_support;
+  // `xbox_controller_support` is what current clients expose on desktop (macOS /
+  // Windows / desktop Linux); the older fields cover other builds. 0/1/2 = none /
+  // partial / full — the same scale the controller-support filter uses.
+  const raw = node?.nControllerSupport ?? node?.controller_support
+    ?? node?.n_controller_support ?? node?.xbox_controller_support;
   const n = Number(raw);
   return Number.isFinite(n) ? n : undefined;
 }
@@ -2235,6 +2240,11 @@ function evalRemotePlay(item: FilterItem, app: AppOverview): boolean {
   }
 }
 
+function evalLibraryLocation(item: FilterItem, app: AppOverview): boolean {
+  const category = String(item.params?.category ?? "internal");
+  return getLibraryCategoryOf(appIdOf(app)) === category;
+}
+
 function evalAppStatus(item: FilterItem, app: AppOverview): boolean {
   const groups: string[] = Array.isArray(item.params?.groups) ? item.params!.groups : [];
   let ds = (app as any).display_status as number | undefined;
@@ -2494,6 +2504,7 @@ const FILTER_EVALUATORS: Record<string, FilterEvaluator> = {
     return !PLATFORM_LOCAL_ONESIDED; // undefined: include on the Deck, exclude on desktop
   },
   remotePlayLocation:     evalRemotePlay,
+  libraryLocation:        evalLibraryLocation,
   shortcutType:           evalShortcutType,
   discount:               evalDiscount,
   priceRange:             evalPriceRange,
@@ -3500,6 +3511,12 @@ async function prefetchCatalogFilterData(items: any[], ids: number[], byId: Map<
     const { prefetchFranchise } = await import("./v3Extensions");
     await prefetchFranchise(ids);
   }
+  // libraryLocation reads a cache kept warm by deviceState.ts's own event-driven
+  // refresh; only force a fetch here for the very first resolve, before that
+  // refresh has landed — later resolves reuse the already-warm cache.
+  if (!isLibraryLocationsWarm() && items.some((item) => item.type === "libraryLocation")) {
+    await refreshLibraryLocations();
+  }
 }
 
 async function applyWishlistChildFilter(ids: number[], childFilter: any, all: AppOverview[]): Promise<number[]> {
@@ -4075,6 +4092,7 @@ function buildMetaFromOverview(appid: number, overview?: AppOverview, raw?: any)
     installed: overview?.installed,
     isSteam,
     deckCompatCategory: overview?.deck_compatibility_category,
+    controllerSupport: overview?.controller_support,
     playtimeMinutes: pickPlaytimeMinutes(overview),
     updatePending: resolveUpdatePending(appid, overview, raw),
     addedTimestamp: firstFiniteFromOverview(overview, META_ADDED_KEYS),

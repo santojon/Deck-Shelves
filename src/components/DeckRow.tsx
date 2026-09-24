@@ -158,13 +158,18 @@ function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = fa
   const autoCollapsed = forceCollapsed || (autoCollapseWhenEmpty && items.length === 0);
   const collapsed = visuallyForced ? false : (collapsedState || autoCollapsed);
   const [nativeRowClass, setNativeRowClass] = useState('');
+  /* Bumped by the onNativeDimsChange subscription below so `dims` recomputes
+     with a fresh getCachedNativeDims() read once a measurement lands after
+     this row's own mount — GameCard reads these JS values directly (e.g. its
+     artFillsCard check), so a stale post-mount snapshot left them out of
+     sync with the real dims even though the CSS vars stayed live. */
+  const [dimsVersion, setDimsVersion] = useState(0);
 
-  // Effective dimensions, computed once at mount from whatever native dims are
-  /* already cached. These feed the cards only as the *fallback* of their
-     --ds-eff-* CSS variables — the live value comes from those vars (set on
-     the shelf div, resolved from the root --ds-native-* vars that ensureStyles
-     keeps current). So a dims discovery after mount reflows the cards through
-     CSS alone, with no React re-render of the 800+ GameCards on the home. */
+  // Effective dimensions, recomputed from the freshest cached native dims
+  /* whenever a new measurement lands (dimsVersion). These also feed the
+     cards as the *fallback* of their --ds-eff-* CSS variables — the live
+     value normally comes from those vars (set on the shelf div, resolved
+     from the root --ds-native-* vars that ensureStyles keeps current). */
   const dims = useMemo(() => {
     const nd = getCachedNativeDims();
     const w = matchNativeSize && nd ? nd.width : CARD_W;
@@ -184,7 +189,7 @@ function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = fa
     const featH = h;
     const featArtH = artH;
     return { w, h, gap, featW, featH, artH, featArtH };
-  }, [matchNativeSize]);
+  }, [matchNativeSize, dimsVersion]);
   const { w: effectiveW, h: effectiveH, gap: effectiveGap, featW: effectiveFeaturedW, featH: effectiveFeaturedH, artH: effectiveArtH, featArtH: effectiveFeaturedArtH } = dims;
 
   /* Per-shelf effective-dimension vars. When matchNativeSize is on, the cards
@@ -220,8 +225,9 @@ function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = fa
     globalStylesStart();
     try { requestAnimationFrame(() => { try { measure?.(`deckRow.render:${shelfId ?? 'unknown'}`, `deckRow.render:${shelfId ?? 'unknown'}:start`); } catch (e) { logInfo("HOME", "measure failed", String(e)); } }); } catch (e) { logInfo("HOME", "rAF measure failed", String(e)); }
     const unsub = onNativeDimsChange(() => {
-      // The cards resize through CSS (--ds-eff-* vars) with no re-render.
-      /* After that reflow the focused card's offsetLeft shifts because
+      setDimsVersion((v) => v + 1);
+      // The cards resize through CSS (--ds-eff-* vars) too, ahead of this
+      /* row's own re-render. After that reflow the focused card's offsetLeft shifts because
          preceding cards resized — the row's scrollLeft (set for the old
          layout) leaves the focused card off-center, making the focus look
          misplaced. Re-center on the next frame, only if a card in THIS row
@@ -243,8 +249,7 @@ function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = fa
       } catch {}
     });
     // No race-condition guard needed: a shelf that mounts before dims are
-    // cached still sizes correctly once they arrive — the cards follow the
-    // root --ds-native-* vars through CSS, no listener or re-render required.
+    // cached still sizes correctly once they arrive, via the dimsVersion bump.
     return () => {
       globalStylesStop();
       unsub();

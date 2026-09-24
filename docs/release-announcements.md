@@ -1,5 +1,7 @@
 # Release announcements
 
+*[Leia em português](pt-BR/release-announcements.md)*
+
 Community post copy for each release — Reddit first, reusable for Discord.
 This is *not* the changelog: [CHANGELOG.md](../CHANGELOG.md) is the complete,
 per-change technical record and [RELEASE_NOTES.md](../RELEASE_NOTES.md) is

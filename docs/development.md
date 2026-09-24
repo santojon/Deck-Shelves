@@ -1,5 +1,7 @@
 # Development Guide
 
+*[Leia em português](pt-BR/development.md)*
+
 ## Prerequisites
 
 - Node.js 20+, pnpm 10+, Python 3

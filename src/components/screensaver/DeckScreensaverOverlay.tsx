@@ -4,6 +4,7 @@ import { getCurrentSettings, subscribeSettings } from "../../store/settingsStore
 import { subscribeControllerInput } from "../../runtime/controllerInput";
 import { getHeroUrls, getLogoUrls } from "../../core/steamAssets";
 import { getHotCachedImageSrc } from "../../core/imageCache";
+import { getAppDescriptions, preloadAppDescriptions } from "../../steam/appDescriptionsCache";
 import {
   buildScreensaverPool, getStartAfterSeconds, getDwellSeconds, isQamOrMenuOpen, closeQamOrMenu,
   type ScreensaverItem,
@@ -60,9 +61,9 @@ function logoPlacementStyle(position: LogoPosition, atTop: boolean, offsetPct: n
   };
 }
 
-function LogoImage({ appid, scale, position, atTop, offsetPct }: {
-  appid: number; scale: number; position: LogoPosition; atTop: boolean; offsetPct: number;
-}) {
+// Un-positioned — the caller anchors the group (logo + optional description)
+// as a single flex column via logoPlacementStyle on a shared wrapper.
+function LogoImage({ appid, scale }: { appid: number; scale: number }) {
   const urls = getLogoUrls(appid);
   const [idx, setIdx] = useState(0);
   useEffect(() => setIdx(0), [appid]);
@@ -74,7 +75,7 @@ function LogoImage({ appid, scale, position, atTop, offsetPct }: {
       src={src}
       onError={() => setIdx((i) => i + 1)}
       style={{
-        position: "absolute", ...logoPlacementStyle(position, atTop, offsetPct),
+        display: "block",
         maxWidth: `${BASE_LOGO_WIDTH_PCT * scale}%`,
         maxHeight: `${BASE_LOGO_HEIGHT_PCT * scale}%`,
         objectFit: "contain",
@@ -84,14 +85,68 @@ function LogoImage({ appid, scale, position, atTop, offsetPct }: {
   );
 }
 
+function getDescriptionConfig(settings: Settings | null): { enabled: boolean; aboveLogo: boolean; gapPx: number } {
+  const s = settings as any;
+  return {
+    enabled: s?.screensaverDescriptionEnabled === true,
+    aboveLogo: s?.screensaverDescriptionAboveLogo === true,
+    gapPx: s?.screensaverDescriptionLogoGap ?? 10,
+  };
+}
+
+// Mirrors PerShelfHero.tsx's own logo-overlay description text (snippet,
+// 3-line clamp, same polling fetch via appDescriptionsCache).
+function DescriptionText({ appid, gapPx, isAbove }: { appid: number; gapPx: number; isAbove: boolean }) {
+  const [text, setText] = useState<string | null>(null);
+  useEffect(() => {
+    setText(null);
+    preloadAppDescriptions(appid);
+    const tick = (): boolean => {
+      const d = getAppDescriptions(appid);
+      if (d?.snippet) { setText(d.snippet); return true; }
+      return false;
+    };
+    if (tick()) return;
+    const id = window.setInterval(() => { if (tick()) window.clearInterval(id); }, 400);
+    const stop = window.setTimeout(() => window.clearInterval(id), 6000);
+    return () => { window.clearInterval(id); window.clearTimeout(stop); };
+  }, [appid]);
+  if (!text) return null;
+  return (
+    <div
+      style={{
+        marginTop: isAbove ? 0 : gapPx,
+        marginBottom: isAbove ? gapPx : 0,
+        maxWidth: "min(60vw, 700px)",
+        fontSize: "1.15em",
+        lineHeight: 1.35,
+        color: "rgba(255,255,255,0.85)",
+        textShadow: "0 2px 8px rgba(0,0,0,0.7)",
+        display: "-webkit-box",
+        WebkitBoxOrient: "vertical" as any,
+        WebkitLineClamp: 3,
+        overflow: "hidden",
+        textOverflow: "ellipsis",
+      }}
+    >
+      {text}
+    </div>
+  );
+}
+
+function logoGroupAlign(position: LogoPosition): CSSProperties["alignItems"] {
+  return position === "left" ? "flex-start" : position === "right" ? "flex-end" : "center";
+}
+
 /* Cycles through every real candidate URL (loopback/custom-art first,
    external CDN last) via onError, matching PerShelfHero.tsx's own
    fallback pattern. Calls `onExhausted` once every candidate has failed,
    so the parent can skip to the next pool item instead of showing
    nothing (or a broken image) for the rest of the dwell time. */
-function Slide({ item, logoEnabled, logoOnScreenshots, logoScale, logoPosition, logoAtTop, logoOffsetPct, onExhausted }: {
+function Slide({ item, logoEnabled, logoOnScreenshots, logoScale, logoPosition, logoAtTop, logoOffsetPct, descEnabled, descAboveLogo, descGapPx, onExhausted }: {
   item: ScreensaverItem; logoEnabled: boolean; logoOnScreenshots: boolean; logoScale: number;
-  logoPosition: LogoPosition; logoAtTop: boolean; logoOffsetPct: number; onExhausted: () => void;
+  logoPosition: LogoPosition; logoAtTop: boolean; logoOffsetPct: number;
+  descEnabled: boolean; descAboveLogo: boolean; descGapPx: number; onExhausted: () => void;
 }) {
   const urls = backgroundCandidates(item);
   const [idx, setIdx] = useState(0);
@@ -110,7 +165,19 @@ function Slide({ item, logoEnabled, logoOnScreenshots, logoScale, logoPosition, 
         onError={() => setIdx((i) => i + 1)}
         style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
       />
-      {showLogo && <LogoImage appid={item.appid} scale={logoScale} position={logoPosition} atTop={logoAtTop} offsetPct={logoOffsetPct} />}
+      {showLogo && (
+        <div
+          style={{
+            position: "absolute", display: "flex", flexDirection: "column",
+            alignItems: logoGroupAlign(logoPosition),
+            ...logoPlacementStyle(logoPosition, logoAtTop, logoOffsetPct),
+          }}
+        >
+          {descEnabled && descAboveLogo && <DescriptionText appid={item.appid} gapPx={descGapPx} isAbove />}
+          <LogoImage appid={item.appid} scale={logoScale} />
+          {descEnabled && !descAboveLogo && <DescriptionText appid={item.appid} gapPx={descGapPx} isAbove={false} />}
+        </div>
+      )}
     </div>
   );
 }
@@ -129,6 +196,11 @@ export function DeckScreensaverOverlay() {
   const lastActivityRef = useRef(Date.now());
   const activeRef = useRef(false);
   activeRef.current = active;
+  // Survives a wake→idle-again cycle so a re-trigger resumes instead of
+  // restarting — updated on every index change, read (not reset) when the
+  // pool rebuilds on re-activation.
+  const indexRef = useRef(0);
+  indexRef.current = index;
   // Every item in the current pool failed in a row — stop instead of
   // spinning through a fully-broken/offline pool forever.
   const brokenStreakRef = useRef(0);
@@ -175,7 +247,9 @@ export function DeckScreensaverOverlay() {
         if (!items.length) return;
         brokenStreakRef.current = 0;
         setPool(items);
-        setIndex(0);
+        // Resume from the last position instead of restarting (clamped —
+        // the resolved pool's size can differ run to run).
+        setIndex(indexRef.current % items.length);
         setActive(true);
       });
     }, IDLE_CHECK_MS);
@@ -204,6 +278,7 @@ export function DeckScreensaverOverlay() {
   if (!targetBody) return anchor;
 
   const { enabled: logoEnabled, scale: logoScale, position: logoPosition, atTop: logoAtTop, offsetPct: logoOffsetPct, onScreenshots: logoOnScreenshots } = getLogoConfig(getCurrentSettings());
+  const { enabled: descEnabled, aboveLogo: descAboveLogo, gapPx: descGapPx } = getDescriptionConfig(getCurrentSettings());
 
   return (
     <>
@@ -213,7 +288,7 @@ export function DeckScreensaverOverlay() {
           onClick={wake}
           style={{ position: "fixed", inset: 0, zIndex: 999999, background: "#000", overflow: "hidden" }}
         >
-          <Slide key={`${pool[index].type}-${index}`} item={pool[index]} logoEnabled={logoEnabled} logoOnScreenshots={logoOnScreenshots} logoScale={logoScale} logoPosition={logoPosition} logoAtTop={logoAtTop} logoOffsetPct={logoOffsetPct} onExhausted={advanceOrGiveUp} />
+          <Slide key={`${pool[index].type}-${index}`} item={pool[index]} logoEnabled={logoEnabled} logoOnScreenshots={logoOnScreenshots} logoScale={logoScale} logoPosition={logoPosition} logoAtTop={logoAtTop} logoOffsetPct={logoOffsetPct} descEnabled={descEnabled} descAboveLogo={descAboveLogo} descGapPx={descGapPx} onExhausted={advanceOrGiveUp} />
           <style>{`@keyframes ds-screensaver-fade { from { opacity: 0; } to { opacity: 1; } }`}</style>
         </div>,
         targetBody,

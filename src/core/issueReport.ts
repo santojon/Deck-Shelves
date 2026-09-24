@@ -12,6 +12,7 @@ import {
   formatSize,
   hwCpuText,
   hwDiskText,
+  hwExternalDiskText,
   type RuntimeInfo,
   type SystemInfo,
   type HardwareInfo,
@@ -63,6 +64,7 @@ function hardwareText(hw: HardwareInfo): string[] {
   ];
   if (hw.gpu) lines.push(`  GPU: ${hw.gpu}`);
   if (hw.diskTotalBytes) lines.push(`  Storage: ${hwDiskText(hw)}`);
+  for (const d of hw.externalDisks) lines.push(`  ${hwExternalDiskText(d)}`);
   return lines;
 }
 

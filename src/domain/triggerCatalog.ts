@@ -41,6 +41,7 @@ export const TRIGGER_CATALOG: readonly TriggerCategory[] = [
   ] },
   { id: "connectivity", titleKey: "visibility_cat_connectivity", entries: [
     { kind: "offline", invertible: true },
+    { kind: "libraryAvailable", defaults: { category: "external" }, invertible: true },
   ] },
   { id: "display", titleKey: "visibility_cat_display", entries: [
     { kind: "externalDisplay", invertible: true },

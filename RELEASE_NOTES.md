@@ -1,11 +1,24 @@
 # Release Notes
 
+*[Leia em português](docs/pt-BR/RELEASE_NOTES.md)*
+
 User-facing highlights for each Deck Shelves release. For the full technical
 changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+- **A profile switched on automatically (by a trigger like docking or charging) could revert a Smart Shelf's settings even when you'd chosen not to link shelves to that profile.** Fixed — auto-switched profiles now leave your shelves exactly as they are, same as switching manually.
+- **Card shadows and theme compatibility improvements.** The drop shadow under each card now matches the artwork exactly instead of extending past it. Fixed a couple of related visual issues that showed up with certain CSS Loader themes (Switch Like Home / Switch-like Banners): cards now correctly match the theme's resized native look, and "Use shelf as Recents" no longer renders invisibly off-screen or leaves the row's title stuck on the default text under the SLH theme.
 - **New recommended way to install: ShelvesHub.** A standalone host, no Decky Loader needed — one-click installers for Steam Deck, Linux, macOS and Windows, with automatic updates for itself and Deck Shelves. The Decky Store, manual-zip and install-from-URL options are all still there and unchanged; ShelvesHub is simply the easiest path for anyone starting fresh.
+- **Screensaver improvements.** It now shows a fair mix from every shelf instead of mostly the first one, resumes where it left off instead of restarting each time, and can optionally show the game's description next to the logo (above or below, with an adjustable gap). A new setting also lets you control how many games it pulls from each shelf at a time. Fixed a bug where, with 2 or more shelves enabled, none of them could ever show their own full configured number of games. It can also now optionally include each game's official online screenshots, not just ones you've captured yourself (requires Online features to be on).
+- **Compatibility icons that fit your device.** On a Steam Deck / SteamOS, cards still show the Steam Deck compatibility rating; on macOS, Windows and desktop Linux they now show controller-support icons (full or partial) — the same thing native Steam shows there — instead of a Deck rating that doesn't apply. It's the same "compatibility icons" toggle you already have, per shelf or globally.
+- **Settings sync across devices is much more reliable.** If you use the optional cross-device sync, two devices now merge their changes shelf by shelf instead of one overwriting the other, and a bug that could make synced shelves disappear (or the whole plugin read as turned off) is fixed. If the same shelf was created separately on each device, they'll show as two — delete the extra once and it stays gone.
+- **Your active profile now stays on the device it belongs to.** With cross-device sync on, a profile that switches on automatically for that machine — a *Showcase* profile when you dock, say — no longer follows the sync over to your other devices and flips them into it too. Each device keeps its own current profile (whether it switched by a trigger or you picked it by hand), while your underlying settings and the profile list still sync as before.
+- **System information and bug reports now show your SD card and USB/external drives too, not just internal storage.** Each detected external drive gets its own free/total space readout.
+- **New filter: Steam library location.** Build a shelf from games installed on internal storage, an external drive (SD card / USB / external SSD), or a network library. Pairs with a new Visibility Rules / auto-switch trigger condition — e.g. auto-pin a shelf or switch profile the moment your SD card is connected.
+- **New shelf action: Compose with.** Open a shelf's "…" menu — or right-click any game and open its "Shelf" submenu — and pick "Compose with" to merge another shelf's games straight into it — the two become one shelf, and the one you merged from is removed. A backup is saved automatically first.
+- **The site now shows release notes and the full feature list in Portuguese too**, switching live with the existing language toggle — automatically falling back to English for anything not translated yet. The README, changelog and every guide page also now have a Brazilian-Portuguese version, linked from each English page.
+- **Fixed a brief visual flash when pressing down past the last shelf.** It could momentarily show a sliver of the first shelf's background art before snapping back — that flash and snap no longer happens.
 
 ## [3.3.0] - 2026-09-16
 

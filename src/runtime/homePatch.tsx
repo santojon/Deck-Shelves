@@ -706,6 +706,12 @@ class HomeBoundary extends React.Component<{ children: React.ReactNode }, { cras
 }
 
 function HomeDomBridge() {
+  /* Sole host: the home lives in the Big Picture window while this component
+     runs in the plugin's own window, so its cross-window portal into ROOT_ID is
+     unreliable — the same-window fallback owns the home there and sets this flag.
+     Stand down so the two never both mount HomeShelves into ROOT_ID (the double
+     shelves the user saw). On a loader (same window) the flag stays unset. */
+  if ((globalThis as any).__ds_sole_home_owned) return null;
   try { (globalThis as any).__ds_bridge_renders = (((globalThis as any).__ds_bridge_renders ?? 0) + 1); } catch {}
   getHostContext();
   return React.createElement(
@@ -1030,11 +1036,6 @@ export function installHomePatch(_routerHook?: any) {
     return null;
   };
 
-  const shouldSkipFallbackRender = (doc: Document): boolean => {
-    const existing = doc.getElementById(ROOT_ID);
-    return existing?.dataset?.deckShelvesRenderer === "react";
-  };
-
   const teardownPreviousFallbackRoot = (): void => {
     if (!fallbackRoot) return;
     try { fallbackRoot.unmount(); } catch {}
@@ -1046,42 +1047,40 @@ export function installHomePatch(_routerHook?: any) {
     const ReactDOM = resolveReactDOM(win);
     if (!ReactDOM) { logWarn("HOME", "fallback: ReactDOM unavailable"); return; }
     const rendered = renderWithReactDOM(ReactDOM, mount);
-    if (rendered) { fallbackRoot = rendered; fallbackMountEl = mount; }
-    else logWarn("HOME", "fallback: no working render path found (global or webpack)");
+    if (rendered) {
+      fallbackRoot = rendered;
+      fallbackMountEl = mount;
+      // Cross-window fallback = sole host: tell the router-hook bridge to stand
+      // down so it never double-mounts HomeShelves into the same root.
+      try { if (win !== window) (globalThis as any).__ds_sole_home_owned = true; } catch {}
+    } else logWarn("HOME", "fallback: no working render path found (global or webpack)");
   };
 
-  // The bridge is rendering the home once its component has rendered at least
-  // once (`__ds_bridge_renders` > 0) — earlier than the post-mount marker.
-  const bridgeIsRendering = (): boolean =>
-    bridgeRegistered && (((globalThis as any).__ds_bridge_renders as number) || 0) > 0;
+  /* The bridge OWNS the home only once real shelf DOM is in the root. Counter and
+     marker both flip when its component merely runs — but on a sole host it renders
+     in one window and portals cross-realm into the Big Picture root, which never
+     attaches (marked-but-empty). Gate on content so that empty state doesn't block
+     the fallback; on a loader the bridge fills the root same-realm (no regression). */
+  /* "Owns" = a real shelf panel (`.deck-shelves-root`) is mounted in the root,
+     not just the bridge overlays' lone empty span. The panel appears as soon as
+     shelves render (before card images load), so this yields the instant the
+     bridge fills the root on a loader (no double render), yet stays false for the
+     empty span so the sole-host fallback can still step in. */
+  const bridgeOwnsHome = (doc: Document): boolean =>
+    doc.getElementById(ROOT_ID)?.querySelector(".deck-shelves-root") != null;
 
-  /* True when the DOM fallback must NOT render. The bridge and this fallback must
-     never both mount HomeShelves into the same root (that duplicates every shelf),
-     so once the bridge is rendering it owns the home — drop any fallback already
-     up. A registered bridge also gets a grace window to render before we fall back
-     (the fallback is only for a bridge that failed to register/render). */
+  /* True when the DOM fallback must NOT render. Never mount both into a root that
+     already has shelf content (that duplicates every shelf); a freshly-registered
+     bridge also gets a grace window to fill the root before we step in. */
   const fallbackShouldYield = (doc: Document): boolean => {
-    if (bridgeIsRendering()) { if (fallbackRoot) teardownPreviousFallbackRoot(); return true; }
-    if (shouldSkipFallbackRender(doc)) return true;
     if (!isHomeVisible()) { fallbackRetries = 0; return true; }
+    if (bridgeOwnsHome(doc)) {
+      if (fallbackRoot && fallbackMountEl !== doc.getElementById(ROOT_ID)) teardownPreviousFallbackRoot();
+      return true;
+    }
     return bridgeRegistered && Date.now() - installedAt < BRIDGE_FALLBACK_GRACE_MS;
   };
 
-  const tryFallbackRender = () => {
-    try {
-      const { win, doc } = getHostContext();
-      if (fallbackShouldYield(doc)) return;
-      const mount = ensureFallbackMount();
-      if (!mount || mount.dataset.deckShelvesRenderer === "react") return;
-      if (fallbackRoot && fallbackMountEl === mount && mount.isConnected) return;
-      mountFallbackTo(win, mount);
-    } catch (err) {
-      logWarn("HOME", "fallback render error", String(err));
-    }
-  };
-
-  const { win: hostWin, doc: hostDoc } = getHostContext();
-  observer?.disconnect();
   /* rAF-throttle: a body+subtree observer fires hundreds of times per
      second at boot while Steam's UI hydrates. Coalescing to one call per
      frame keeps the early-mount path responsive without losing coverage
@@ -1094,11 +1093,54 @@ export function installHomePatch(_routerHook?: any) {
       tryFallbackRender();
     });
   };
-  observer = new MutationObserver(scheduleFallback);
-  observer.observe(hostDoc.body, { childList: true, subtree: true });
+  /* Keep the observer attached to the CURRENT host window's body. The right
+     window (the Big Picture home) can appear after install or change on a
+     renderer reload; re-attaching here means the mount reacts to that window's
+     DOM on its own, instead of only when a route signal (e.g. opening the QAM)
+     happens to fire — the sole-host "no shelves until I open the QAM" bug. */
+  let observedDoc: Document | null = null;
+  const attachObserver = (doc: Document): void => {
+    if (!doc || !doc.body || observedDoc === doc) return;
+    observer?.disconnect();
+    observedDoc = doc;
+    observer = new MutationObserver(scheduleFallback);
+    try { observer.observe(doc.body, { childList: true, subtree: true }); } catch {}
+  };
 
+  const tryFallbackRender = () => {
+    try {
+      const { win, doc } = getHostContext();
+      attachObserver(doc);
+      if (fallbackShouldYield(doc)) return;
+      const mount = ensureFallbackMount();
+      if (!mount) return;
+      // The "react" marker is set by ANY HomeShelves that claims the mount —
+      // including the empty cross-realm bridge — so it cannot gate us. Our own
+      // idempotency comes from the fallbackRoot bookkeeping below.
+      if (fallbackRoot && fallbackMountEl === mount && mount.isConnected) return;
+      mountFallbackTo(win, mount);
+    } catch (err) {
+      logWarn("HOME", "fallback render error", String(err));
+    }
+  };
+
+  const { win: hostWin, doc: hostDoc } = getHostContext();
+  observer?.disconnect();
+  observedDoc = null;
+  attachObserver(hostDoc);
+
+  /* Poll fast for the first ~15s (renderer reload / cold boot) so the mount
+     lands promptly on its own, then back off to a calm 2s idle cadence. */
   if (timer) window.clearInterval(timer);
-  timer = window.setInterval(tryFallbackRender, 2000);
+  let fastTicks = 30;
+  const poll = (): void => {
+    tryFallbackRender();
+    if (fastTicks > 0 && --fastTicks === 0 && timer) {
+      window.clearInterval(timer);
+      timer = window.setInterval(tryFallbackRender, 2000);
+    }
+  };
+  timer = window.setInterval(poll, 500);
 
   const onRouteSignal = () => tryFallbackRender();
   hostWin.addEventListener("hashchange", onRouteSignal);

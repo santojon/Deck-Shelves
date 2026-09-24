@@ -28,6 +28,7 @@ export const FilterItemTypeSchema = z.enum([
   "systemCompatibility",
   "steamosCompatibility",
   "remotePlayLocation",
+  "libraryLocation",
   "merge",
   "shortcutType",
   "appStatus",
@@ -109,6 +110,9 @@ export const SavedFilterSchema = z.object({
   id: z.string().min(1).max(64),
   name: z.string().min(1).max(64),
   group: FilterGroupSchema,
+  // Per-entity sync clock (ms). Stamped centrally on edit; drives the
+  // per-id last-writer-wins merge across devices. See settingsMerge.ts.
+  updatedAt: z.number().int().nonnegative().optional(),
 });
 export type SavedFilter = z.infer<typeof SavedFilterSchema>;
 
@@ -119,6 +123,7 @@ export type SavedFilter = z.infer<typeof SavedFilterSchema>;
    can reuse them. */
 export const SavedSmartFilterSchema = z.object({
   id: z.string().min(1).max(64),
+  updatedAt: z.number().int().nonnegative().optional(),
   name: z.string().min(1).max(64),
   mode: z.string().min(1).max(64),
   smartParams: z.record(z.string(), z.number()).optional(),
@@ -239,6 +244,7 @@ export type SmartShelfMode = z.infer<typeof SmartShelfModeSchema>;
 
 export const SmartShelfSchema = z.object({
   id: z.string().min(1).max(64),
+  updatedAt: z.number().int().nonnegative().optional(),
   title: z.string().min(1).max(64),
   mode: SmartShelfModeSchema,
   enabled: z.boolean().default(true),
@@ -419,6 +425,7 @@ function sanitizeCardLink(out: any, hasContent: boolean): void {
 
 export const ShelfSchema = z.object({
   id: z.string().min(1).max(64),
+  updatedAt: z.number().int().nonnegative().optional(),
   title: z.string().min(1).max(64),
   enabled: z.boolean().default(true),
   hidden: z.boolean().default(false),
@@ -714,6 +721,7 @@ export const SettingsSchema = z.object({
   showcaseSeen: z.boolean().optional(),
   profiles: z.array(z.object({
     id: z.string(),
+    updatedAt: z.number().int().nonnegative().optional(),
     name: z.string(),
     createdAt: z.string(),
     snapshot: z.record(z.string(), z.unknown()),
@@ -764,6 +772,10 @@ export const SettingsSchema = z.object({
      Steam's native one while active. Experimental — defaults off. */
   screensaverShelvesEnabled: z.boolean().nullable().optional().transform((v) => v ?? false),
   screensaverShelvesIncludeScreenshots: z.boolean().nullable().optional().transform((v) => v ?? false),
+  // Store screenshots for apps already in the screensaver's pool, fetched
+  // online — separate from the local-capture toggle above. Requires
+  // `onlineFeaturesEnabled` too (see src/runtime/screensaverInject.ts).
+  screensaverOnlineScreenshotsEnabled: z.boolean().nullable().optional().transform((v) => v ?? false),
   /* Steam's own idle-screensaver timeout (seconds), cached here right
      before we override it so it can be restored exactly when the
      feature is turned off. null = not currently overridden. */
@@ -778,10 +790,24 @@ export const SettingsSchema = z.object({
   screensaverLogoAtTop: z.boolean().nullable().optional().transform((v) => v ?? false),
   screensaverLogoOffset: z.number().int().min(0).max(50).nullable().optional().transform((v) => v ?? 8),
   screensaverLogoOnScreenshots: z.boolean().nullable().optional().transform((v) => v ?? true),
+  // How many apps to draw per shelf per round-robin round before moving to
+  // the next shelf (then screenshots, if enabled) — see buildScreensaverPool.
+  screensaverShelfBatchSize: z.number().int().min(1).max(20).nullable().optional().transform((v) => v ?? 5),
+  // Description overlay, positioned above/below the logo — mirrors the
+  // home's globalEnableDescription / globalDescriptionBelowLogo / gap.
+  screensaverDescriptionEnabled: z.boolean().nullable().optional().transform((v) => v ?? false),
+  screensaverDescriptionAboveLogo: z.boolean().nullable().optional().transform((v) => v ?? false),
+  screensaverDescriptionLogoGap: z.number().int().min(-40).max(80).nullable().optional().transform((v) => v ?? 10),
   cloudSyncEnabled: z.boolean().nullable().optional().transform((v) => v ?? false),
   // Timestamp of the last cloud snapshot this device pushed or applied —
   // internal LWW bookkeeping, never synced itself (see cloudSync.ts).
   cloudSyncLastSyncedAt: z.number().nullable().optional().transform((v) => v ?? null),
+  /* Cross-device sync bookkeeping (synced). `syncTombstones` maps a deleted
+     entity id → deletion time (ms) so a delete propagates and a stale copy
+     can't resurrect it; pruned by TTL. `preferencesUpdatedAt` is the LWW clock
+     for the scalar/global toggle bag (the non-list settings). */
+  syncTombstones: z.record(z.string(), z.number()).nullish(),
+  preferencesUpdatedAt: z.number().nullish(),
 });
 
 export type Settings = z.infer<typeof SettingsSchema>;

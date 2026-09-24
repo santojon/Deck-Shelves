@@ -1,5 +1,7 @@
 # Deck Shelves — Manual QA Scenarios
 
+*[Leia em português](pt-BR/qa-manual.md)*
+
 Manual test checklist for regression testing on a real Steam Deck (SteamOS Stable or Beta).
 
 ## Prerequisites

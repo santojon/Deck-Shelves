@@ -1,5 +1,7 @@
 # Filter System
 
+*[Leia em português](pt-BR/filters.md)*
+
 Deck Shelves supports advanced game filtering with AND/OR logic using filter groups.
 
 <p align="center">
@@ -71,6 +73,7 @@ flowchart LR
 | `neglected` | Not played for N days | `days`: number |
 | `systemCompatibility` | Runs natively / via compatibility layer | — |
 | `remotePlayLocation` | Remote Play availability | `mode`: `"local"` \| `"remote"` \| `"remote-only"` \| `"both"` |
+| `libraryLocation` | Which Steam library the game is installed in | `category`: `"internal"` \| `"external"` \| `"network"` |
 | `appStatus` | Download / update activity | `groups`: `("downloading" \| "queued" \| …)[]` |
 | `friendsPlayingNow` | Friends currently in-game | — |
 | `friendsPlayedRecently` | Friends played within N days | `days`: number |
@@ -114,8 +117,12 @@ flowchart LR
 
 | Type | Description | Parameters |
 |------|-------------|------------|
-| `storageDevice` | Installed on internal storage or SD card | `device`: `"ssd"` \| `"sd"` |
+| `storageDevice` | Installed on internal storage or SD card (path-pattern heuristic) | `device`: `"ssd"` \| `"sd"` |
 | `installedSizeRange` | Installed size in a range | `minMB`, `maxMB`: number (the editor shows GB) |
+
+`libraryLocation` reads Steam's own library records instead of guessing from the
+install path — it also distinguishes network libraries and has a matching
+"Library available" condition in Visibility Rules / profile triggers.
 
 ### Non-Steam shortcuts
 

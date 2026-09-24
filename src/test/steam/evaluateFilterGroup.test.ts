@@ -1,4 +1,10 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
+
+const { libraryRpc } = vi.hoisted(() => ({ libraryRpc: { current: null as any } }))
+vi.mock('../../runtime/host/decky', () => ({
+  call: async (method: string) => (method === 'get_library_locations' ? libraryRpc.current : null),
+}))
+
 import { evaluateFilterGroup, type AppOverview } from '../../steam'
 import type { FilterGroup, FilterItem } from '../../types'
 
@@ -419,6 +425,27 @@ describe('remotePlayLocation filter', () => {
   it('remote = installed on another client', () => expect(run('remote')).toEqual([2, 3]))
   it('remote-only = elsewhere and not here (play-from-remote shelf)', () => expect(run('remote-only')).toEqual([2]))
   it('both = installed here and elsewhere', () => expect(run('both')).toEqual([3]))
+})
+
+describe('libraryLocation filter', () => {
+  it('matches apps against their Steam library category', async () => {
+    const { refreshLibraryLocations } = await import('../../runtime/deviceState')
+    libraryRpc.current = {
+      supported: true,
+      libraries: [
+        { id: 'a', label: 'Steam', path: '/internal', category: 'internal', mounted: true },
+        { id: 'b', label: 'SD_CARD', path: '/external', category: 'external', mounted: true },
+      ],
+      appLibrary: { '1': 'a', '2': 'b' },
+    }
+    await refreshLibraryLocations()
+    const apps = [app({ appid: 1 }), app({ appid: 2 }), app({ appid: 3 })] // 3: not in any library
+    const run = (category: string) =>
+      evaluateFilterGroup(group([{ type: 'libraryLocation', params: { category } }]), apps).map((a) => a.appid)
+    expect(run('internal')).toEqual([1])
+    expect(run('external')).toEqual([2])
+    expect(run('network')).toEqual([])
+  })
 })
 
 describe('priceRange filter', () => {

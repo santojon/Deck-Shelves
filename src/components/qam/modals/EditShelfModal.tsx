@@ -12,6 +12,7 @@ import {
 import type { SettingsController } from '../../../features/settings/controller'
 import type { FilterGroup, Shelf, ShelfFilter } from '../../../types'
 import { normalizeFilter } from '../../../domain/settings'
+import { SHELF_LIMIT_MAX } from '../../../domain/shelfLimits'
 import { consumePendingShelfModalTab } from '../../../core/shelfActions'
 import { FilterPanel } from '../../FilterPanel'
 import { FieldContainer, ModalShell , DSSliderField} from '../../ui'
@@ -819,7 +820,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
                       label={t('limit')}
                       value={state.limit}
                       min={1}
-                      max={50}
+                      max={SHELF_LIMIT_MAX}
                       step={1}
                       bottomSeparator='none'
                       onChange={(value: number) => setState((prev) => ({ ...prev, limit: value }))}

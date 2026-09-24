@@ -78,6 +78,58 @@ describe('installProfileTriggers', () => {
     un()
   })
 
+  it('keeps the live shelves/smartShelves when the triggered profile is unlinked', () => {
+    // Regression: applyByName used to apply the full snapshot verbatim,
+    // ignoring linkShelves entirely — unlike the manual apply path
+    // (controller/profiles.ts), which already respected it.
+    const unlinked = {
+      id: 'p2',
+      name: 'Unlinked',
+      linkShelves: false,
+      snapshot: { enabled: true, shelves: [{ id: 'snapshot-shelf' }], smartShelves: [{ id: 'snapshot-smart' }], allShelvesOrder: ['snapshot-shelf'] },
+    }
+    store.current = {
+      profileTriggersEnabled: true,
+      profiles: [unlinked],
+      activeProfileName: null,
+      shelves: [{ id: 'live-shelf' }],
+      smartShelves: [{ id: 'live-smart' }],
+      allShelvesOrder: ['live-shelf'],
+    }
+    resolved.current = 'Unlinked'
+    const un = installProfileTriggers()
+    expect(saved.list.length).toBe(1)
+    const applied = saved.list[0]
+    expect(applied.shelves).toEqual([{ id: 'live-shelf' }])
+    expect(applied.smartShelves).toEqual([{ id: 'live-smart' }])
+    expect(applied.allShelvesOrder).toEqual(['live-shelf'])
+    expect(applied.enabled).toBe(true) // non-shelf fields still come from the snapshot
+    un()
+  })
+
+  it('applies the snapshot shelves/smartShelves when the triggered profile is linked', () => {
+    const linked = {
+      id: 'p3',
+      name: 'Linked',
+      linkShelves: true,
+      snapshot: { enabled: true, shelves: [{ id: 'snapshot-shelf' }], smartShelves: [{ id: 'snapshot-smart' }] },
+    }
+    store.current = {
+      profileTriggersEnabled: true,
+      profiles: [linked],
+      activeProfileName: null,
+      shelves: [{ id: 'live-shelf' }],
+      smartShelves: [{ id: 'live-smart' }],
+    }
+    resolved.current = 'Linked'
+    const un = installProfileTriggers()
+    expect(saved.list.length).toBe(1)
+    const applied = saved.list[0]
+    expect(applied.shelves).toEqual([{ id: 'snapshot-shelf' }])
+    expect(applied.smartShelves).toEqual([{ id: 'snapshot-smart' }])
+    un()
+  })
+
   it('reverts to the pre-trigger profile when the trigger is denied', () => {
     const home = { id: 'p0', name: 'Home', snapshot: { enabled: true, shelves: [] } }
     store.current = { profileTriggersEnabled: true, profiles: [home, profile], activeProfileName: 'Home' }

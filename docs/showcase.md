@@ -1,5 +1,7 @@
 # Screenshots
 
+*[Leia em português](pt-BR/showcase.md)*
+
 A visual tour of Deck Shelves. Captures are produced by the CDP screenshot
 automation (see the [Development Guide](development.md#screenshots)) and live
 in [`assets/screenshots/`](../assets/screenshots/).

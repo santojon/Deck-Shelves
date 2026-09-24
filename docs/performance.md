@@ -1,5 +1,7 @@
 # Performance audit
 
+*[Leia em português](pt-BR/performance.md)*
+
 Steam Deck has a tight CPU/battery envelope shared with the running game. This document tracks the measured baselines for the rendering paths that run in our hot loop and the optimizations applied on top.
 
 Optimizations always ship paired with a before/after number, captured from a real Steam Deck OLED (SteamOS 3.7+ stable).

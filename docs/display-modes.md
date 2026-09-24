@@ -1,5 +1,7 @@
 # Display modes — Normal / Light / Advanced
 
+*[Leia em português](pt-BR/display-modes.md)*
+
 Deck Shelves exposes three "display modes" that change how much of the
 plugin's surface is visible — and, for **Light**, how much actually
 renders on the home. Two QAM toggles drive it, **Light mode** and

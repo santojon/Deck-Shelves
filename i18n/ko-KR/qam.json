@@ -50,6 +50,7 @@
   "toast_shelf_saved": "셸프 저장됨",
   "toast_shelf_deleted": "셸프 삭제됨",
   "toast_shelf_duplicated": "셸프 복제됨",
+  "toast_shelf_composed": "선반이 결합되었습니다",
   "toast_profile_created": "프로필 생성됨",
   "toast_profile_saved": "프로필 저장됨",
   "toast_profile_deleted": "프로필 삭제됨",
