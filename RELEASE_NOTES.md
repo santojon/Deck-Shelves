@@ -1,5 +1,7 @@
 # Release Notes
 
+*[Leia em português](docs/pt-BR/RELEASE_NOTES.md)*
+
 User-facing highlights for each Deck Shelves release. For the full technical
 changelog, see [CHANGELOG.md](CHANGELOG.md).
 
@@ -14,6 +16,9 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 - **Your active profile now stays on the device it belongs to.** With cross-device sync on, a profile that switches on automatically for that machine — a *Showcase* profile when you dock, say — no longer follows the sync over to your other devices and flips them into it too. Each device keeps its own current profile (whether it switched by a trigger or you picked it by hand), while your underlying settings and the profile list still sync as before.
 - **System information and bug reports now show your SD card and USB/external drives too, not just internal storage.** Each detected external drive gets its own free/total space readout.
 - **New filter: Steam library location.** Build a shelf from games installed on internal storage, an external drive (SD card / USB / external SSD), or a network library. Pairs with a new Visibility Rules / auto-switch trigger condition — e.g. auto-pin a shelf or switch profile the moment your SD card is connected.
+- **New shelf action: Compose with.** Open a shelf's "…" menu — or right-click any game and open its "Shelf" submenu — and pick "Compose with" to merge another shelf's games straight into it — the two become one shelf, and the one you merged from is removed. A backup is saved automatically first.
+- **The site now shows release notes and the full feature list in Portuguese too**, switching live with the existing language toggle — automatically falling back to English for anything not translated yet. The README, changelog and every guide page also now have a Brazilian-Portuguese version, linked from each English page.
+- **Fixed a brief visual flash when pressing down past the last shelf.** It could momentarily show a sliver of the first shelf's background art before snapping back — that flash and snap no longer happens.
 
 ## [3.3.0] - 2026-09-16
 

@@ -123,3 +123,43 @@ def test_inject_stats_row_is_re_runnable_across_snapshots():
 def test_inject_stats_row_returns_none_without_a_snapshot():
     # No history.json yet (fetch_stats.py hasn't run) — keep the row hidden.
     assert build_site._inject_stats_row(_stats_row(), None) is None
+
+
+def _release_page():
+    return (
+        '<span data-rn-version>v0.0.0</span>'
+        '<span data-rn-date>placeholder</span>'
+        '<ul class="rn-list" data-rn-list></ul>'
+    )
+
+
+def test_inject_release_tags_english_items_when_no_translation_given():
+    out = build_site._inject_release(_release_page(), "3.3.0", "2026-09-16", [("Title", "Desc.")])
+    assert 'data-lang-variant="en"' in out
+    assert 'data-lang-variant="pt-BR"' not in out
+
+
+def test_inject_release_adds_pt_br_variant_when_translation_given():
+    out = build_site._inject_release(
+        _release_page(), "3.3.0", "2026-09-16",
+        [("Title", "Desc.")], [("Título", "Descrição.")],
+    )
+    assert 'data-lang-variant="en"><b>Title</b>' in out.replace("\n", "").replace(" ", "")
+    assert "Título" in out and 'data-lang-variant="pt-BR"' in out
+
+
+def test_features_list_html_tags_top_level_items_with_lang():
+    out = build_site._features_list_html([(0, "Item one"), (0, "Item two")], "pt-BR")
+    assert out.count('data-lang-variant="pt-BR"') == 2
+
+
+def test_features_list_html_defaults_to_english():
+    out = build_site._features_list_html([(0, "Item one")])
+    assert 'data-lang-variant="en"' in out
+
+
+def test_parse_features_accepts_a_custom_heading_and_path(tmp_path):
+    readme = tmp_path / "README.pt.md"
+    readme.write_text("## Funcionalidades\n\n- Um recurso\n- Outro recurso\n", encoding="utf-8")
+    feats = build_site._parse_features(tmp_path, readme, "Funcionalidades")
+    assert feats == [(0, "Um recurso"), (0, "Outro recurso")]

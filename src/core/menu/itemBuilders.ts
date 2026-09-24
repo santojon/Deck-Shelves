@@ -11,6 +11,7 @@ import {
   duplicateShelfById,
   setShelfCollapsed,
   dispatchShelfModal,
+  dispatchComposeModal,
   clearOnlineShelfCache,
 } from "../shelfActions";
 import { patchShelfInSettings } from "../../domain/settings";
@@ -298,6 +299,16 @@ function buildDecorationItem(ctx: Ctx, mk: Mk): any[] {
   return [mk.item("ds-decoration", tLabel("menu_decoration", "Decoration"), () => dispatchShelfModal("edit", ctx.shelfId, { initialTab: "decoration" }))];
 }
 
+function buildComposeGroup(ctx: Ctx, mk: Mk): any[] {
+  if (ctx.isSmart) return [];
+  const others = (ctx.settings.shelves ?? []).filter((sh: any) => sh.id !== ctx.shelfId);
+  if (!others.length) return [];
+  const items = others.map((other: any) =>
+    mk.item(`ds-compose-${other.id}`, other.title ?? other.id, () => dispatchComposeModal(ctx.shelfId, other.id)),
+  );
+  return [mk.group("ds-compose", tLabel("compose_with", "Compose with"), ...items)];
+}
+
 function deriveCtx(ctx: Omit<Ctx, "isCollapsed" | "isHidden" | "isOnline" | "isRandomOrSmart">): Ctx {
   return {
     ...ctx,
@@ -338,6 +349,7 @@ export function buildDeckShelvesMenuItems(
       mk.group("ds-display", tLabel("menu_display", "Display"), ...buildDisplay(ctx, mk)),
       mk.group("ds-visual", tLabel("menu_visual", "Visual"), ...buildVisual(ctx, mk)),
       ...buildDecorationItem(ctx, mk),
+      ...buildComposeGroup(ctx, mk),
     ),
   ];
 }

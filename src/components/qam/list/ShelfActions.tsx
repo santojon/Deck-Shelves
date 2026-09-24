@@ -1,9 +1,10 @@
-import { Menu, MenuItem, DialogButton, showContextMenu } from '../../../runtime/host/decky'
+import { Menu, MenuGroup, MenuItem, DialogButton, showContextMenu } from '../../../runtime/host/decky'
 import { icons } from '../icons'
 import type { SettingsController } from '../../../features/settings/controller'
 import type { Shelf } from '../../../types'
 import { DeleteConfirmModal } from '../modals/DeleteConfirmModal'
 import { EditShelfModal } from '../modals/EditShelfModal'
+import { confirmAction } from '../modals/ConfirmActionModal'
 import { openManagedModal } from '../common/openManagedModal'
 import { clearOnlineShelfCache } from '../../../core/shelfActions'
 import { invalidateRandomSortCache } from '../../../steam'
@@ -38,10 +39,22 @@ export function showEditShelfModal(controller: SettingsController, shelf: Shelf)
   openManagedModal((close) => <EditShelfModal closeModal={close} controller={controller} shelf={shelf} />)
 }
 
+export function showComposeConfirm(controller: SettingsController, source: Shelf, target: Shelf) {
+  const { t, actions } = controller
+  confirmAction({
+    title: t('compose_with_confirm_title'),
+    body: t('compose_with_confirm_body', { source: source.title, target: target.title }),
+    okText: t('compose_with'),
+    cancelText: t('cancel'),
+    onConfirm: () => void actions.composeShelfWith(source.id, target.id),
+  })
+}
+
 export function ShelfActionsContextMenu({ controller, shelf }: { controller: SettingsController; shelf: Shelf }) {
   const { t, shelves, actions } = controller
   const index = shelves.findIndex((s) => s.id === shelf.id)
   const showRefresh = isOnlineSource(shelf.source) || isRandomOrSmart(shelf)
+  const otherShelves = shelves.filter((s) => s.id !== shelf.id)
   return (
     <Menu label={shelf.title || t('actions')}>
       <MenuItem onSelected={() => showEditShelfModal(controller, shelf)}>{t('edit_shelf')}</MenuItem>
@@ -53,6 +66,13 @@ export function ShelfActionsContextMenu({ controller, shelf }: { controller: Set
         <MenuItem onSelected={() => refreshShelfCache(shelf)}>
           {isOnlineSource(shelf.source) ? t('refresh_cache') : t('refresh')}
         </MenuItem>
+      )}
+      {otherShelves.length > 0 && (
+        <MenuGroup label={t('compose_with')}>
+          {otherShelves.map((other) => (
+            <MenuItem key={other.id} onSelected={() => showComposeConfirm(controller, shelf, other)}>{other.title}</MenuItem>
+          ))}
+        </MenuGroup>
       )}
       <MenuItem onSelected={() => showDeleteConfirm(controller, shelf)}>{t('delete_shelf')}</MenuItem>
     </Menu>

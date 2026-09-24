@@ -2,8 +2,12 @@
    No build step: english lives directly in the HTML as the fallback, and
    translations are plain key->string dictionaries applied over `[data-i18n]`
    (text) / `[data-i18n-attr]` (attributes, "attr:key;attr2:key2") elements.
-   Dynamic content (release notes, live stats numbers) is never tagged, so it
-   always stays in its source language regardless of the selected site language. */
+   Build-time dynamic content (release notes, the features list) is rendered
+   in both languages by build_site.py and tagged `[data-lang-variant]` —
+   applyLangVariants() below shows only the matching set per DOM parent,
+   falling back to the "en" set when a pt-BR sibling wasn't generated (e.g.
+   the translation hasn't caught up to the latest release yet). Live stats
+   numbers stay untagged — plain numbers don't need translation. */
 (function () {
   "use strict";
 
@@ -58,6 +62,33 @@
     }
   }
 
+  // Build-time dual-language blocks: every [data-lang-variant] element is
+  // grouped by its DOM parent (so a release-notes <ul> and a features <ul>
+  // group independently), then within each group the set matching `lang` is
+  // shown and every other set is hidden — falling back to "en" when no
+  // element in that group matches `lang` (translation not generated yet).
+  function applyLangVariants(lang) {
+    var variants = document.querySelectorAll("[data-lang-variant]");
+    var parents = [];
+    for (var i = 0; i < variants.length; i++) {
+      if (parents.indexOf(variants[i].parentElement) === -1) parents.push(variants[i].parentElement);
+    }
+    for (var p = 0; p < parents.length; p++) {
+      var children = [];
+      for (var c = 0; c < parents[p].children.length; c++) {
+        if (parents[p].children[c].hasAttribute("data-lang-variant")) children.push(parents[p].children[c]);
+      }
+      var hasMatch = false;
+      for (var m = 0; m < children.length; m++) {
+        if (children[m].getAttribute("data-lang-variant") === lang) { hasMatch = true; break; }
+      }
+      var showLang = hasMatch ? lang : "en";
+      for (var n = 0; n < children.length; n++) {
+        children[n].hidden = children[n].getAttribute("data-lang-variant") !== showLang;
+      }
+    }
+  }
+
   function syncSwitcher(lang) {
     var btns = document.querySelectorAll(".lang-switch [data-lang]");
     for (var i = 0; i < btns.length; i++) {
@@ -71,6 +102,7 @@
     applyTextNodes(dict);
     applyHtmlNodes(dict);
     applyAttrNodes(dict);
+    applyLangVariants(lang);
     syncSwitcher(lang);
   }
 

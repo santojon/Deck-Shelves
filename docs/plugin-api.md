@@ -1,5 +1,7 @@
 # Plugin API — Deck Shelves runtime notes
 
+*[Leia em português](pt-BR/plugin-api.md)*
+
 The **public API contract** — every `register*` method, descriptor shape, the
 capability matrix, install + quick-start, and the version policy — lives in the
 separate **`@deck-shelves/api`** package and its repository:

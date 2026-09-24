@@ -1,5 +1,7 @@
 # CDP CLI
 
+*[Leia em português](pt-BR/cdp.md)*
+
 `deckprobe/cdp.py` is a small wrapper around Chrome DevTools Protocol that covers the day-to-day debugging loop against a live Steam client: pick a target, run a probe, inspect the result. It replaces the ad-hoc `cdp_eval.py` / `cdp_probe.py` pair under `tools/` for the common cases, and works the same way whether the target is a Steam Deck, a desktop Big Picture session, or a local dev client — on SteamOS, Linux, macOS, or Windows.
 
 ## Prerequisites

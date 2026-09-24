@@ -65,9 +65,14 @@ def _fmt_date(iso: str) -> str:
 
 # ── Release notes ────────────────────────────────────────────────────────────
 
-def _parse_release(root: Path):
-    """Return (version, iso_date, [(title, desc), ...]) for the latest release."""
-    notes = root / "RELEASE_NOTES.md"
+def _parse_release(root: Path, notes: Path | None = None):
+    """Return (version, iso_date, [(title, desc), ...]) for the latest release.
+
+    `notes` defaults to the English RELEASE_NOTES.md; pass the pt-BR path to
+    parse that translation instead (same `## [x.y.z] - date` shape either way,
+    since versions/dates aren't translated).
+    """
+    notes = notes or (root / "RELEASE_NOTES.md")
     if not notes.is_file():
         return None
     text = notes.read_text(encoding="utf-8")
@@ -104,13 +109,22 @@ def _parse_release(root: Path):
     return version, iso, items
 
 
-def _inject_release(page: str, version: str, iso: str, items) -> str:
-    date_str = _fmt_date(iso)
-    li = "\n".join(
-        f"          <li>\n            <b>{html.escape(t)}</b>\n"
+def _release_items_html(items, lang: str) -> str:
+    return "\n".join(
+        f'          <li data-lang-variant="{lang}">\n            <b>{html.escape(t)}</b>\n'
         f"            <p>{_md_inline(d)}</p>\n          </li>"
         for t, d in items
     )
+
+
+def _inject_release(page: str, version: str, iso: str, items, items_pt=None) -> str:
+    date_str = _fmt_date(iso)
+    li = _release_items_html(items, "en")
+    # Only render a pt-BR variant when the translation has caught up to this
+    # exact version — otherwise the block is omitted entirely and the site's
+    # i18n.js falls back to showing the English variant even in pt-BR mode.
+    if items_pt:
+        li += "\n" + _release_items_html(items_pt, "pt-BR")
 
     page = re.sub(r"(<span data-rn-version>).*?(</span>)",
                   lambda mo: mo.group(1) + f"v{version}" + mo.group(2), page, flags=re.DOTALL)
@@ -273,12 +287,12 @@ def _showcase_html() -> str:
     return "\n".join(rows)
 
 
-def _parse_features(root: Path):
-    readme = root / "README.md"
+def _parse_features(root: Path, readme: Path | None = None, heading: str = "Features"):
+    readme = readme or (root / "README.md")
     if not readme.is_file():
         return None
     text = readme.read_text(encoding="utf-8")
-    m = re.search(r"^##\s+Features\s*$", text, re.MULTILINE)
+    m = re.search(rf"^##\s+{re.escape(heading)}\s*$", text, re.MULTILINE)
     if not m:
         return None
     body = text[m.end():]
@@ -298,8 +312,10 @@ def _parse_features(root: Path):
     return html_items or None
 
 
-def _features_list_html(items) -> str:
-    """Render one level of nesting from (indent, html) tuples."""
+def _features_list_html(items, lang: str = "en") -> str:
+    """Render one level of nesting from (indent, html) tuples. Each top-level
+    `<li>` carries `data-lang-variant` so the two languages' full lists can
+    share one `<ul>` and site/i18n.js picks which set to show."""
     out = []
     i = 0
     n = len(items)
@@ -313,9 +329,9 @@ def _features_list_html(items) -> str:
             j += 1
         if children:
             sub = "".join(f"<li>{c}</li>" for _, c in children)
-            out.append(f'<li>{content}<ul class="sub">{sub}</ul></li>')
+            out.append(f'<li data-lang-variant="{lang}">{content}<ul class="sub">{sub}</ul></li>')
         else:
-            out.append(f"<li>{content}</li>")
+            out.append(f'<li data-lang-variant="{lang}">{content}</li>')
         i = j if children else i + 1
     return "".join(out)
 
@@ -609,8 +625,13 @@ def main() -> int:
     version = None
     if rel:
         version, iso, items = rel
-        page = _inject_release(page, version, iso, items)
-        print(f"[build_site] release: v{version} ({iso}), {len(items)} highlights")
+        items_pt = None
+        rel_pt = _parse_release(root, root / "docs" / "pt-BR" / "RELEASE_NOTES.md")
+        if rel_pt and rel_pt[0] == version:
+            items_pt = rel_pt[2]
+        page = _inject_release(page, version, iso, items, items_pt)
+        pt_note = f" + {len(items_pt)} pt-BR" if items_pt else " (pt-BR not caught up yet, falls back to English)"
+        print(f"[build_site] release: v{version} ({iso}), {len(items)} highlights{pt_note}")
     else:
         print("[build_site] WARN: could not parse RELEASE_NOTES.md; kept existing block")
 
@@ -633,12 +654,17 @@ def main() -> int:
 
     feats = _parse_features(root)
     if feats:
-        html_list = _features_list_html(feats)
+        html_list = _features_list_html(feats, "en")
+        feats_pt = _parse_features(root, root / "docs" / "pt-BR" / "README.md", "Funcionalidades")
+        pt_note = ""
+        if feats_pt:
+            html_list += _features_list_html(feats_pt, "pt-BR")
+            pt_note = f" + {len(feats_pt)} pt-BR"
         (site / "features.html").write_text(
             _FEATURES_TEMPLATE.format(showcase=_showcase_html(), items=html_list,
                                       footer=_site_footer("")),
             encoding="utf-8")
-        print(f"[build_site] features.html: {len(feats)} lines + {len(_SHOWCASE)} showcases")
+        print(f"[build_site] features.html: {len(feats)} lines{pt_note} + {len(_SHOWCASE)} showcases")
     else:
         print("[build_site] WARN: could not parse README Features section")
 

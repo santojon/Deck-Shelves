@@ -1,5 +1,7 @@
 # Filter System
 
+*[Leia em português](pt-BR/filters.md)*
+
 Deck Shelves supports advanced game filtering with AND/OR logic using filter groups.
 
 <p align="center">

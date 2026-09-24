@@ -1,5 +1,7 @@
 # Architecture
 
+*[Leia em português](pt-BR/architecture.md)*
+
 Deck Shelves is a plugin that injects custom game shelves into the Steam Deck home screen. This document describes the project structure and how the main systems connect.
 
 <p align="center">

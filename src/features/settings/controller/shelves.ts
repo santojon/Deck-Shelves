@@ -4,6 +4,7 @@ import { addShelfToSettings, deleteShelfFromSettings, moveShelf, normalizeFilter
 import { createDefaultShelf, createDefaultSource, randomShelfId } from "../../../domain/defaults";
 import { DEFAULT_SHELF_TEMPLATES } from "../../../domain/templates";
 import { writeJsonFile, readJsonFile } from "../../../settingsStore";
+import { createSnapshot } from "../../../store/settingsStore";
 import { notify } from "../../../components/notify";
 import { trackFeature } from "../../../steam/usageTracking";
 import { buildSnapshot, applySnapshot, type SnapshotConcept } from "../../../domain/snapshot";
@@ -194,6 +195,26 @@ export function createShelfActions(deps: ShelvesDeps) {
       // selectedId is captured per-render so the caller passes the
       // current value through `deps`. Snapshot semantics preserved.
       if (deps.selectedId === id) setSelectedId(next.shelves[0]?.id ?? null);
+    },
+    /* Folds `sourceId`'s games into `targetId` via a composite (union) source
+       and deletes `sourceId` — `targetId` keeps its own id/title/decoration,
+       just gains the source's games too. A backup snapshot is taken first
+       since the source shelf's own settings (filters, decorations, etc.)
+       are lost once it's deleted. */
+    async composeShelfWith(sourceId: string, targetId: string) {
+      const s = liveSettings();
+      if (!s) return;
+      const sourceShelf = s.shelves.find((sh) => sh.id === sourceId);
+      const targetShelf = s.shelves.find((sh) => sh.id === targetId);
+      if (!sourceShelf || !targetShelf) return;
+      try { await createSnapshot(); } catch {}
+      const composite: ShelfSource = { type: "composite", combine: "union", sources: [targetShelf.source, sourceShelf.source] };
+      let next = patchShelfInSettings(s, targetId, { source: composite });
+      next = deleteShelfFromSettings(next, sourceId);
+      await persist(next);
+      try { trackFeature("shelf_compose"); } catch {}
+      notify("success", { body: t("toast_shelf_composed"), area: "shelves" });
+      setSelectedId(targetId);
     },
     async moveShelf(id: string, dir: -1 | 1) {
       const s = liveSettings();

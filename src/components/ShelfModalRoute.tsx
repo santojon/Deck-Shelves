@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from "react";
 import { Navigation } from "../runtime/host/decky";
 import { useSettingsController } from "../features/settings/controller";
 import { PlatformProvider, getPlatform } from "../runtime/platformContext";
-import { showEditShelfModal, showDeleteConfirm } from "./qam/list/ShelfActions";
+import { showEditShelfModal, showDeleteConfirm, showComposeConfirm } from "./qam/list/ShelfActions";
 import { openManagedModal } from "./qam/common/openManagedModal";
 import { EditSmartShelfModal } from "./qam/modals/EditSmartShelfModal";
 import { DeleteConfirmSmartModal } from "./qam/modals/DeleteConfirmSmartModal";
@@ -13,6 +13,14 @@ function getShelfIdFromLocation(): string {
     const m = p.match(/\/deck-shelves\/(?:edit|delete)\/([^\/?#]+)/);
     return m?.[1] ? decodeURIComponent(m[1]) : "";
   } catch { return ""; }
+}
+
+function getComposeIdsFromLocation(): { sourceId: string; targetId: string } {
+  try {
+    const p = (globalThis as any).window?.location?.pathname ?? "";
+    const m = p.match(/\/deck-shelves\/compose\/([^\/?#]+)\/([^\/?#]+)/);
+    return { sourceId: m?.[1] ? decodeURIComponent(m[1]) : "", targetId: m?.[2] ? decodeURIComponent(m[2]) : "" };
+  } catch { return { sourceId: "", targetId: "" }; }
 }
 
 function resolveShelf(controller: ReturnType<typeof useSettingsController>, shelfId: string) {
@@ -74,4 +82,33 @@ export function ShelfEditRoute({ shelfId }: { shelfId: string }) {
 
 export function ShelfDeleteRoute({ shelfId }: { shelfId: string }) {
   return withPlatform(<ShelfModalRouteImpl kind="delete" shelfId={shelfId} />);
+}
+
+function ShelfComposeRouteImpl({ sourceId: sourceIdProp, targetId: targetIdProp }: { sourceId: string; targetId: string }) {
+  const controller = useSettingsController();
+  const triggeredRef = useRef(false);
+  const fromLocation = (!sourceIdProp || !targetIdProp) ? getComposeIdsFromLocation() : null;
+  const sourceId = sourceIdProp || fromLocation?.sourceId || "";
+  const targetId = targetIdProp || fromLocation?.targetId || "";
+
+  useEffect(() => {
+    if (triggeredRef.current) return;
+    triggeredRef.current = true;
+    const source = controller.shelves.find((s) => s.id === sourceId);
+    const target = controller.shelves.find((s) => s.id === targetId);
+    if (!source || !target) {
+      try { (Navigation as any).NavigateBack?.(); } catch {}
+      return;
+    }
+    try { showComposeConfirm(controller, source, target); } catch {}
+    try {
+      setTimeout(() => { try { (Navigation as any).NavigateBack?.(); } catch {} }, 50);
+    } catch {}
+  }, [sourceId, targetId, controller]);
+
+  return null;
+}
+
+export function ShelfComposeRoute({ sourceId, targetId }: { sourceId: string; targetId: string }) {
+  return withPlatform(<ShelfComposeRouteImpl sourceId={sourceId} targetId={targetId} />);
 }

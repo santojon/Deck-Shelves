@@ -1,5 +1,7 @@
 # Online shelves & online features
 
+*[Leia em português](pt-BR/online-shelves.md)*
+
 Reference for the network-backed shelf sources and the caches / refresh
 mechanics that support them. Companion to [architecture.md](architecture.md)
 (network module) and [filters.md](filters.md) (`discount` filter).

@@ -1,5 +1,7 @@
 # Shelf Templates
 
+*[Leia em português](pt-BR/shelf-templates.md)*
+
 Shelf templates are preset configurations available in the template picker when creating a new shelf. Each template has a predefined source (library tab or filter) and a suggested title. The user can rename and edit any shelf after creation — templates are just starting points.
 
 <p align="center">

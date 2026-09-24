@@ -1,5 +1,7 @@
 # Documentation
 
+*[Leia em português](pt-BR/docs-index.md)*
+
 Reference material for Deck Shelves. Start with the [project README](../README.md)
 for what the plugin does and how to install it.
 

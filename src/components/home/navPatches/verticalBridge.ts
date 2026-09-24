@@ -18,7 +18,11 @@ function resolveVerticalBridgeContext(doc: Document): VBridgeCtx | null {
 // Bug A: last-shelf DOWN press must not wrap focus back into the shelf
 // itself — schedules a check that un-wraps if Steam's own nav looped.
 function guardLastShelfWrapAround(mount: HTMLElement, doc: Document, before: HTMLElement, beforeRect: DOMRect): void {
-  const lastShelf = mount.querySelector<HTMLElement>(".ds-shelf:last-child");
+  // `:last-child` misses the real last shelf when Steam re-injects a
+  // trailing empty-state div as .deck-shelves-root's final child (same
+  // issue already fixed this way in edgeNavigation.ts's DOWN guard).
+  const shelves = mount.querySelectorAll<HTMLElement>(".ds-shelf");
+  const lastShelf = shelves[shelves.length - 1] ?? null;
   if (!lastShelf?.contains(before)) return;
   requestAnimationFrame(() => {
     try {

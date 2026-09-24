@@ -50,6 +50,7 @@
   "toast_shelf_saved": "书架已保存",
   "toast_shelf_deleted": "书架已删除",
   "toast_shelf_duplicated": "书架已复制",
+  "toast_shelf_composed": "书架已合并",
   "toast_profile_created": "配置已创建",
   "toast_profile_saved": "配置已保存",
   "toast_profile_deleted": "配置已删除",

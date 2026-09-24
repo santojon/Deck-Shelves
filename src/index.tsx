@@ -45,7 +45,7 @@ import { resolveHost, hostProvidesNativeTab, shouldUseForcedHost, awaitInjectedH
 import { claimHomeOwnership } from "./runtime/host/ownerGuard";
 import { AboutPage } from "./components/AboutPage";
 import { SettingsPage } from "./components/SettingsPage";
-import { ShelfEditRoute, ShelfDeleteRoute } from "./components/ShelfModalRoute";
+import { ShelfEditRoute, ShelfDeleteRoute, ShelfComposeRoute } from "./components/ShelfModalRoute";
 import { ShelfManageRoute } from "./components/ShelfManageRoute";
 import { isForcedOwner, getInjectedHost, type HostApi, type QamPanel } from "./runtime/host/contract";
 initI18n();
@@ -63,6 +63,7 @@ const SETTINGS_ROUTE = "/deck-shelves/settings";
 const EDIT_ROUTE = "/deck-shelves/edit/:shelfId";
 const DELETE_ROUTE = "/deck-shelves/delete/:shelfId";
 const MANAGE_ROUTE = "/deck-shelves/manage/:shelfId";
+const COMPOSE_ROUTE = "/deck-shelves/compose/:sourceId/:targetId";
 
 // Decky plugin-tab / QAM icon. Simplified single-colour (tintable) glyph — the
 // same mark shipped as assets/tab-icon.svg (the designated plugin icon); keep
@@ -205,6 +206,9 @@ const __ds_entry = definePlugin((serverAPI?: any) => {
     // disappear after the first menu open.
     routerHook?.addRoute?.(MANAGE_ROUTE, () => (
       <ShelfManageRoute shelfId="" />
+    ), { exact: true });
+    routerHook?.addRoute?.(COMPOSE_ROUTE, () => (
+      <ShelfComposeRoute sourceId="" targetId="" />
     ), { exact: true });
   } catch (e) { logInfo("RUNTIME", "shelf modal route addRoute failed", String(e)); }
 
@@ -415,6 +419,7 @@ const __ds_entry = definePlugin((serverAPI?: any) => {
         routerHook?.removeRoute?.(EDIT_ROUTE);
         routerHook?.removeRoute?.(DELETE_ROUTE);
         routerHook?.removeRoute?.(MANAGE_ROUTE);
+        routerHook?.removeRoute?.(COMPOSE_ROUTE);
         uninstallRefresh();
         uninstallSystemEvents();
         uninstallBatteryState();
