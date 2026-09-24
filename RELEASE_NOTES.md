@@ -7,6 +7,8 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+## [3.3.1] - 2026-09-24
+
 - **A profile switched on automatically (by a trigger like docking or charging) could revert a Smart Shelf's settings even when you'd chosen not to link shelves to that profile.** Fixed — auto-switched profiles now leave your shelves exactly as they are, same as switching manually.
 - **Card shadows and theme compatibility improvements.** The drop shadow under each card now matches the artwork exactly instead of extending past it. Fixed a couple of related visual issues that showed up with certain CSS Loader themes (Switch Like Home / Switch-like Banners): cards now correctly match the theme's resized native look, and "Use shelf as Recents" no longer renders invisibly off-screen or leaves the row's title stuck on the default text under the SLH theme.
 - **New recommended way to install: ShelvesHub.** A standalone host, no Decky Loader needed — one-click installers for Steam Deck, Linux, macOS and Windows, with automatic updates for itself and Deck Shelves. The Decky Store, manual-zip and install-from-URL options are all still there and unchanged; ShelvesHub is simply the easiest path for anyone starting fresh.
