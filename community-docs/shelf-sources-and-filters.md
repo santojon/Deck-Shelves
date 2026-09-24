@@ -1,5 +1,7 @@
 # Shelf sources & filters
 
+*[Leia em português](pt-BR/shelf-sources-and-filters.md)*
+
 Every shelf needs a **source** — where its games come from — and, if you
 want more control, **filters** on top of that source to narrow it down.
 This is the deepest part of Deck Shelves; here's the map of what's

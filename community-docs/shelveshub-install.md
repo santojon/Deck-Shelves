@@ -1,5 +1,7 @@
 # ShelvesHub: the new recommended way to install Deck Shelves
 
+*[Leia em português](pt-BR/shelveshub-install.md)*
+
 **No Decky Loader required.**
 
 Up until now, the only way to run Deck Shelves was through Decky Loader —

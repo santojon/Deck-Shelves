@@ -1,5 +1,7 @@
 # Quick Search & Side Nav
 
+*[Leia em português](pt-BR/quick-search-and-side-nav.md)*
+
 Two fast-navigation tools for jumping around a big shelf setup without
 scrolling forever.
 

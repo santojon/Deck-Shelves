@@ -1,5 +1,7 @@
 # Profiles, auto-switching & context-aware shelves
 
+*[Leia em português](pt-BR/profiles-and-triggers.md)*
+
 Save whole configurations as **profiles**, switch between them automatically
 based on real conditions (docked, low battery, a specific controller
 connected, time of day, and more), and make individual shelves react to

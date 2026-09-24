@@ -1,5 +1,7 @@
 # Getting started with Deck Shelves
 
+*[Leia em português](pt-BR/getting-started.md)*
+
 Deck Shelves adds your own custom rows ("shelves") to the Steam Deck Home
 screen — built from your collections, library tabs, filters, or online
 sources like your wishlist — configured entirely on the Deck itself,

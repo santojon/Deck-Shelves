@@ -1,5 +1,7 @@
 # Power-user tools
 
+*[Leia em português](pt-BR/power-user-tools.md)*
+
 A set of diagnostic, backup, and insight tools for people who want to look
 under the hood or keep tighter control over their setup. Most of this lives
 behind [Advanced mode](display-modes.md) — turn that on first.

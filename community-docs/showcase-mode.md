@@ -1,5 +1,7 @@
 # Showcase / Dynamic Idle Mode
 
+*[Leia em português](pt-BR/showcase-mode.md)*
+
 A self-cycling "demo mode" for your Home screen — while you're idle, it
 automatically pans across your shelves and their games, on your real Home
 screen, instead of taking over with a separate overlay. Nice for showing

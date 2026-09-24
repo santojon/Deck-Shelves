@@ -1,5 +1,7 @@
 # Online features
 
+*[Leia em português](pt-BR/online-features.md)*
+
 Wishlist rows, "On Sale" shelves, price sorting, and a handful of
 store-metadata filters (genre, review score, release date, and more) —
 all opt-in, all off until you turn them on.

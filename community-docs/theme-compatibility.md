@@ -1,5 +1,7 @@
 # CSS Loader theme compatibility
 
+*[Leia em português](pt-BR/theme-compatibility.md)*
+
 Deck Shelves works alongside [CSS Loader](https://github.com/DeckThemes/CSSLoader) themes — it detects the popular ones at runtime and adjusts its own layout to match, rather than fighting them for control of the Home screen.
 
 ## What's supported today

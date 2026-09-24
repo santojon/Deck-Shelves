@@ -1,5 +1,7 @@
 # Community docs — ready to post
 
+*[Leia em português](pt-BR/README.md)*
+
 One file per feature, written for GitHub Discussions, Discord announcements,
 and Reddit posts — not internal planning docs. Each one explains what the
 feature does, why you'd want it, exactly how to turn it on/off, and how to

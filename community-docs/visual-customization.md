@@ -1,5 +1,7 @@
 # Visual customization
 
+*[Leia em português](pt-BR/visual-customization.md)*
+
 Deck Shelves gives you control over how your shelves and cards look, from
 small per-card tweaks to full-shelf treatments. Everything here can be set
 **globally** (applies to every shelf) or **per-shelf** (overrides just that

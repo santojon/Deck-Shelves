@@ -1,5 +1,7 @@
 # Keyboard bindings
 
+*[Leia em português](pt-BR/keyboard-bindings.md)*
+
 Every gamepad shortcut in Deck Shelves — hiding/highlighting a card,
 quick-launching a game, opening Quick Search, opening the Side Nav, opening
 or closing the sidecar panel — can now also be bound to a keyboard key.

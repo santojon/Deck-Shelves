@@ -1,5 +1,7 @@
 # Deck Shelves' own idle screensaver
 
+*[Leia em português](pt-BR/idle-screensaver.md)*
+
 Instead of Steam's built-in idle screensaver, Deck Shelves can show its own
 full-screen slideshow — built from the same games your shelves and Home
 screen already show, optionally mixed with your own local screenshots.

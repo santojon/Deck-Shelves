@@ -1,5 +1,7 @@
 # Deck Shelves' own Quick Access tab (experimental)
 
+*[Leia em português](pt-BR/own-qam-tab.md)*
+
 If you're on Decky Loader and wish Deck Shelves had its own tab in the
 Quick Access Menu — like a first-party Steam feature, not a plugin buried
 in Decky's own tab — you can turn that on now.

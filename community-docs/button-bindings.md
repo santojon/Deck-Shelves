@@ -1,5 +1,7 @@
 # Gamepad button bindings
 
+*[Leia em português](pt-BR/button-bindings.md)*
+
 Every card action and navigation shortcut in Deck Shelves is remappable to
 whichever gamepad button (or combo) you'd rather use — not locked to the
 defaults.

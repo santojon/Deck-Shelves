@@ -1,5 +1,7 @@
 # Native Home integration
 
+*[Leia em português](pt-BR/native-home-integration.md)*
+
 How Deck Shelves fits alongside (or replaces parts of) Steam's own Home
 screen — hiding/replacing the native Recents row, hiding the tab strip, and
 reordering your shelves and cards by hand.

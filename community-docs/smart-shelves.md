@@ -1,5 +1,7 @@
 # Smart Shelves
 
+*[Leia em português](pt-BR/smart-shelves.md)*
+
 Smart Shelves pick their own games automatically, based on your library —
 no manual curation needed. The defining trait: **a smart shelf only shows
 up when it actually has something to show.** No empty row, no placeholder

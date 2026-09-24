@@ -1,5 +1,7 @@
 # Sync your settings across devices (experimental)
 
+*[Leia em português](pt-BR/cloud-sync.md)*
+
 Got Deck Shelves on more than one device logged into the same Steam
 account — a Deck and a gaming PC, say? You can now keep your shelves,
 filters, profiles, and every other setting in sync between them, no extra

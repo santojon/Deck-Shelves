@@ -1,5 +1,7 @@
 # Display modes: Normal, Light, Advanced
 
+*[Leia em português](pt-BR/display-modes.md)*
+
 Three modes that control how much of Deck Shelves you see and use — not
 different apps, just different amounts of the same settings surface
 exposed. Switch anytime from settings, under Additional features.

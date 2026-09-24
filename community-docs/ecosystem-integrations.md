@@ -1,5 +1,7 @@
 # Works alongside your other plugins
 
+*[Leia em português](pt-BR/ecosystem-integrations.md)*
+
 Deck Shelves is built to coexist with the rest of the Decky ecosystem, not
 replace it. A few specific plugins get direct integration:
 
