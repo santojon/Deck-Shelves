@@ -15,7 +15,7 @@ export const SETTINGS_CATEGORIES: ReadonlyArray<SettingsCategory> = [
   { id: "smart",            labelKey: "settings_category_smart",            keys: ["smartShelves", "smartShelvesEnabled", "smartShelvesAtBottom", "smartSurpriseMe", "smartSurpriseMeCount"] },
   { id: "saved_filters",    labelKey: "settings_category_saved_filters",    keys: ["savedFilters", "savedSmartFilters"] },
   { id: "profiles",         labelKey: "settings_category_profiles",         keys: ["profiles", "activeProfileName"] },
-  { id: "button_bindings",  labelKey: "settings_category_button_bindings",  keys: ["buttonBindings", "buttonBindingsDisabled", "keyboardBindings", "keyboardBindingsDisabled"] },
+  { id: "button_bindings",  labelKey: "settings_category_button_bindings",  keys: ["buttonBindings", "buttonBindingsDisabled", "keyboardBindings", "keyboardBindingsDisabled", "cardActionShortcutsEnabled"] },
   { id: "integrations",     labelKey: "settings_category_integrations",     keys: ["integrationsEnabled", "featureToggles"] },
   { id: "visual_global",    labelKey: "settings_category_visual_global",    keys: [
     "globalMatchNativeSize", "globalHighlightFirst", "globalHighlightAll", "globalHighlightRandom",

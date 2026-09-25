@@ -803,6 +803,7 @@
   "settings_card_bindings_title": "Sneltoetsen",
   "settings_card_bindings_group": "Kaartacties",
   "settings_nav_bindings_title": "Navigatie",
+  "card_action_shortcuts_enabled": "Kaartactie-snelkoppelingen inschakelen",
   "binding_help": "Pas de knopcombinaties aan die Deck Shelves-acties activeren. Gereserveerde knoppen (A/B/Menu/Steam/...) kunnen niet worden toegewezen — zelfs niet in combinatie. Elke actie heeft ook een onafhankelijke sneltoets-sleuf eronder; beide invoertypen activeren de actie. Schakel een toewijzing volledig uit met “Uitschakelen” waar toegestaan.",
   "binding_card_hide_remove": "Kaart verbergen / verwijderen",
   "binding_card_highlight": "Kaart accentueren",

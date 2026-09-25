@@ -762,7 +762,7 @@ export function makeApi(): DeckShelvesPublicAPI {
     },
     listKeyboardShortcuts() {
       const s = getCurrentSettings() as any;
-      const resolved = resolveKeyboardBindings(s?.keyboardBindings, s?.keyboardBindingsDisabled);
+      const resolved = resolveKeyboardBindings(s?.keyboardBindings, s?.keyboardBindingsDisabled, s?.cardActionShortcutsEnabled !== false);
       return (Object.keys(DEFAULT_KEYBOARD_BINDINGS) as Array<keyof typeof DEFAULT_KEYBOARD_BINDINGS>).map((action) => ({
         action, combo: resolved[action],
       }));

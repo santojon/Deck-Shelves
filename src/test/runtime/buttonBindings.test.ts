@@ -170,4 +170,16 @@ describe("resolveBindings", () => {
     const r = resolveBindings({ cardQuickLaunch: "L2" });
     expect(r.cardQuickLaunch).toBe("L2");
   });
+  it("nulls out only the card fields when cardActionsEnabled is false", () => {
+    const r = resolveBindings({ cardQuickLaunch: "L2" }, [], false);
+    expect(r.cardHideRemove).toBeNull();
+    expect(r.cardHighlightToggle).toBeNull();
+    expect(r.cardQuickLaunch).toBeNull();
+    expect(r.navSearch).toBe(DEFAULT_BINDINGS.navSearch);
+    expect(r.navSideNav).toBe(DEFAULT_BINDINGS.navSideNav);
+  });
+  it("cardActionsEnabled defaults to true when omitted", () => {
+    const r = resolveBindings({ cardQuickLaunch: "L2" }, []);
+    expect(r.cardQuickLaunch).toBe("L2");
+  });
 });

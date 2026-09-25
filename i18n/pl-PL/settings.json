@@ -803,6 +803,7 @@
   "settings_card_bindings_title": "Skróty",
   "settings_card_bindings_group": "Akcje karty",
   "settings_nav_bindings_title": "Nawigacja",
+  "card_action_shortcuts_enabled": "Włącz skróty akcji karty",
   "binding_help": "Dostosuj kombinacje przycisków wyzwalające akcje Deck Shelves. Zarezerwowanych przycisków (A/B/Menu/Steam/...) nie można przypisać — nawet w kombinacji. Każda akcja ma też niezależne pole skrótu klawiaturowego poniżej — dowolne z tych dwóch wejść uruchamia akcję. Całkowicie wyłącz przypisanie za pomocą „Wyłącz” tam, gdzie jest to dozwolone.",
   "binding_card_hide_remove": "Ukryj / usuń kartę",
   "binding_card_highlight": "Przełącz wyróżnienie",

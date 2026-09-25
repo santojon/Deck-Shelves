@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { DialogButton, Focusable } from "../../../runtime/host/decky";
+import { DialogButton, Focusable, ToggleField } from "../../../runtime/host/decky";
 import type { useSettingsController } from "../../../features/settings/controller";
 import { subscribeControllerInput, Button as RawBtn } from "../../../runtime/controllerInput";
 import { DEFAULT_BINDINGS, findCollisions, resolveBindings, validateCombo } from "../../../runtime/buttonBindings";
@@ -107,9 +107,10 @@ function renderKeyCombo(raw: string | null | undefined): React.ReactNode {
 export function ButtonBindingsDetail({ controller, t }: ButtonBindingsDetailProps) {
   const settings = controller.settings;
   if (!settings) return null;
+  const cardActionsEnabled = (settings as any).cardActionShortcutsEnabled !== false;
   const disabledList: string[] = ((settings as any).buttonBindingsDisabled ?? []) as string[];
   const rawBindings: ButtonBindings = (settings as any).buttonBindings ?? {};
-  const bindings: Required<ButtonBindings> = resolveBindings(rawBindings, disabledList);
+  const bindings: Required<ButtonBindings> = resolveBindings(rawBindings, disabledList, cardActionsEnabled);
   const collisions = findCollisions(bindings);
   const collisionTokens = new Set(collisions.flat());
   const keyDisabledList: string[] = ((settings as any).keyboardBindingsDisabled ?? []) as string[];
@@ -144,7 +145,7 @@ export function ButtonBindingsDetail({ controller, t }: ButtonBindingsDetailProp
     </DialogButton>
   );
 
-  const renderRows = (rows: BindingRow[]) => (
+  const renderRows = (rows: BindingRow[], masterOff: boolean = false) => (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       {rows.map((row) => (
         <BindingRowView
@@ -152,10 +153,10 @@ export function ButtonBindingsDetail({ controller, t }: ButtonBindingsDetailProp
           row={row}
           rawValue={(rawBindings as any)[row.key] ?? null}
           effectiveValue={(bindings as any)[row.key] ?? null}
-          disabled={disabledList.includes(row.key)}
+          disabled={masterOff || disabledList.includes(row.key)}
           colliding={collisionTokens.has(row.key)}
           rawKeyValue={(rawKeyBindings as any)[row.key] ?? null}
-          keyDisabled={keyDisabledList.includes(row.key)}
+          keyDisabled={masterOff || keyDisabledList.includes(row.key)}
           controller={controller}
           t={t}
         />
@@ -173,8 +174,13 @@ export function ButtonBindingsDetail({ controller, t }: ButtonBindingsDetailProp
         initialOpen
         headerExtra={resetButton(CARD_ROWS)}
       >
+        <ToggleField
+          label={t("card_action_shortcuts_enabled" as any)}
+          checked={cardActionsEnabled}
+          onChange={(value: boolean) => void (controller.actions as any).setCardActionShortcutsEnabled?.(value)}
+        />
         <div style={{ fontSize: 12, opacity: 0.6, margin: "2px 0 10px" }}>{t("binding_help")}</div>
-        {renderRows(CARD_ROWS)}
+        {renderRows(CARD_ROWS, !cardActionsEnabled)}
       </CollapsibleSection>
       <CollapsibleSection
         id="bindings-nav"

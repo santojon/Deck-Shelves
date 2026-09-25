@@ -144,9 +144,16 @@ export const DEFAULT_KEYBOARD_BINDINGS: Required<KeyboardBindings> = {
   navSidecarClose: null,
 };
 
-export function resolveKeyboardBindings(b: KeyboardBindings | null | undefined, disabled?: ReadonlyArray<string>): Required<KeyboardBindings> {
+const CARD_BINDING_KEYS = new Set(["cardHideRemove", "cardHighlightToggle", "cardQuickLaunch"]);
+
+export function resolveKeyboardBindings(
+  b: KeyboardBindings | null | undefined,
+  disabled?: ReadonlyArray<string>,
+  cardActionsEnabled: boolean = true,
+): Required<KeyboardBindings> {
   const ds = new Set(disabled ?? []);
-  const pick = (key: keyof KeyboardBindings, raw: string | null | undefined) => (ds.has(key) ? null : (raw ?? null));
+  const pick = (key: keyof KeyboardBindings, raw: string | null | undefined) =>
+    (!cardActionsEnabled && CARD_BINDING_KEYS.has(key)) || ds.has(key) ? null : (raw ?? null);
   return {
     cardHideRemove: pick("cardHideRemove", b?.cardHideRemove),
     cardHighlightToggle: pick("cardHighlightToggle", b?.cardHighlightToggle),

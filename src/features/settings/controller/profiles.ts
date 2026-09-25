@@ -445,6 +445,11 @@ export function createProfileActions(deps: ProfilesDeps) {
       else return;
       await persist({ ...s, buttonBindingsDisabled: next } as Settings);
     },
+    async setCardActionShortcutsEnabled(cardActionShortcutsEnabled: boolean) {
+      const s = liveSettings();
+      if (!s || (s as any).cardActionShortcutsEnabled === cardActionShortcutsEnabled) return;
+      await persist({ ...s, cardActionShortcutsEnabled } as Settings);
+    },
     async setKeyboardBinding(key: "cardHideRemove" | "cardHighlightToggle" | "cardQuickLaunch" | "navSearch" | "navSideNav" | "navSidecarOpen" | "navSidecarClose", value: string | null) {
       const s = liveSettings();
       if (!s) return;

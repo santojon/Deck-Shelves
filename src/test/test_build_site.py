@@ -163,3 +163,45 @@ def test_parse_features_accepts_a_custom_heading_and_path(tmp_path):
     readme.write_text("## Funcionalidades\n\n- Um recurso\n- Outro recurso\n", encoding="utf-8")
     feats = build_site._parse_features(tmp_path, readme, "Funcionalidades")
     assert feats == [(0, "Um recurso"), (0, "Outro recurso")]
+
+
+def _write_pt_br_dict(site, keys):
+    (site / "i18n").mkdir(parents=True, exist_ok=True)
+    body = "".join(f'  "{k}": "x",\n' for k in keys)
+    (site / "i18n" / "pt-BR.js").write_text(
+        "window.__DS_I18N_PT_BR__ = {\n" + body + "};\n", encoding="utf-8")
+
+
+def test_i18n_refs_in_html_collects_all_three_attribute_forms():
+    html_text = (
+        '<h1 data-i18n="a.title">T</h1>'
+        '<p data-i18n-html="a.body">B</p>'
+        '<img data-i18n-attr="alt:a.alt;title:a.title2">'
+    )
+    assert build_site._i18n_refs_in_html(html_text) == {"a.title", "a.body", "a.alt", "a.title2"}
+
+
+def test_validate_i18n_coverage_passes_when_every_key_resolves(tmp_path):
+    site = tmp_path / "site"
+    _write_pt_br_dict(site, ["a.title"])
+    page = site / "index.html"
+    page.write_text('<h1 data-i18n="a.title">T</h1>', encoding="utf-8")
+    assert build_site._validate_i18n_coverage(site, [page]) == []
+
+
+def test_validate_i18n_coverage_reports_a_missing_key(tmp_path):
+    site = tmp_path / "site"
+    _write_pt_br_dict(site, ["a.title"])
+    page = site / "features.html"
+    page.write_text('<p data-i18n="a.body">B</p>', encoding="utf-8")
+    problems = build_site._validate_i18n_coverage(site, [page])
+    assert len(problems) == 1
+    assert "a.body" in problems[0]
+
+
+def test_validate_i18n_coverage_is_a_noop_without_a_pt_br_dictionary(tmp_path):
+    site = tmp_path / "site"
+    site.mkdir()
+    page = site / "index.html"
+    page.write_text('<p data-i18n="whatever">B</p>', encoding="utf-8")
+    assert build_site._validate_i18n_coverage(site, [page]) == []

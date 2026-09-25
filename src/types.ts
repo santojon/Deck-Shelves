@@ -746,6 +746,12 @@ export const SettingsSchema = z.object({
      is "enabled" — entries are only persisted when the user flips
      one off. */
   integrationsEnabled: z.record(z.string(), z.boolean()).nullable().optional().transform((v) => v ?? {}),
+  /* Master switch for the card-action shortcuts (cardHideRemove/
+     cardHighlightToggle/cardQuickLaunch, gamepad and keyboard alike) below —
+     off means resolveBindings()/resolveKeyboardBindings() return null for
+     those three regardless of the individual combo/disabled-list state.
+     Navigation shortcuts (navSearch/navSideNav/navSidecar*) are unaffected. */
+  cardActionShortcutsEnabled: z.boolean().default(true),
   buttonBindings: z.object({
     cardHideRemove:  z.string().nullable().optional(),
     cardHighlightToggle: z.string().nullable().optional(),

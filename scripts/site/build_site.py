@@ -595,6 +595,55 @@ def _write_integration_pages(root: Path, site: Path) -> None:
           f"({len(_INTEGRATIONS) - generic} with a dedicated screenshot, {generic} on the generic fallback)")
 
 
+# ── i18n coverage check ──────────────────────────────────────────────────────
+#
+# Catches the class of bug where a `data-i18n*` attribute references a key
+# that doesn't exist in site/i18n/pt-BR.js (typo, or the key was never added)
+# — the page still renders (site/i18n.js just leaves the English fallback
+# text in place), so this never shows up by eye, only by grepping. It does
+# NOT catch the other class — a hardcoded string with no data-i18n attribute
+# at all — since there's no key to check; that one needs a human adding the
+# attribute when writing new template content (see the comment on _SHOWCASE
+# and _INTEGRATIONS below for the convention to follow).
+
+_I18N_ATTR_RE = re.compile(r'data-i18n(?:-html)?="([^"]+)"')
+_I18N_ATTR_ATTR_RE = re.compile(r'data-i18n-attr="([^"]+)"')
+_PT_BR_KEY_RE = re.compile(r'^\s*"([^"]+)"\s*:', re.MULTILINE)
+
+
+def _load_pt_br_keys(site: Path) -> set[str] | None:
+    path = site / "i18n" / "pt-BR.js"
+    if not path.is_file():
+        return None
+    return set(_PT_BR_KEY_RE.findall(path.read_text(encoding="utf-8")))
+
+
+def _i18n_refs_in_html(text: str) -> set[str]:
+    refs = set(_I18N_ATTR_RE.findall(text))
+    for pairs in _I18N_ATTR_ATTR_RE.findall(text):
+        for pair in pairs.split(";"):
+            if ":" in pair:
+                refs.add(pair.split(":", 1)[1].strip())
+    return refs
+
+
+def _validate_i18n_coverage(site: Path, pages: list[Path]) -> list[str]:
+    """Returns one message per `data-i18n*` key referenced in a generated page
+    that has no matching entry in site/i18n/pt-BR.js. Empty when everything
+    resolves (or pt-BR.js itself is missing, which is reported separately)."""
+    pt_keys = _load_pt_br_keys(site)
+    if pt_keys is None:
+        return []
+    problems = []
+    for page in pages:
+        if not page.is_file():
+            continue
+        missing = sorted(_i18n_refs_in_html(page.read_text(encoding="utf-8")) - pt_keys)
+        for key in missing:
+            problems.append(f"{page.relative_to(site.parent)}: no pt-BR translation for \"{key}\"")
+    return problems
+
+
 # ── Main ─────────────────────────────────────────────────────────────────────
 
 def _copy_shared_assets(root: Path, site: Path) -> None:
@@ -675,6 +724,15 @@ def main() -> int:
         print("[build_site] WARN: could not parse README Features section")
 
     _write_integration_pages(root, site)
+
+    pages = [index, site / "features.html", *sorted((site / "integrations").glob("*.html"))]
+    problems = _validate_i18n_coverage(site, pages)
+    if problems:
+        print(f"[build_site] ERROR: {len(problems)} data-i18n key(s) with no pt-BR translation:", file=sys.stderr)
+        for problem in problems:
+            print(f"  - {problem}", file=sys.stderr)
+        return 1
+    print(f"[build_site] i18n coverage: {len(pages)} page(s) checked, every data-i18n key resolves")
 
     return 0
 

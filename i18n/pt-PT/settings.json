@@ -803,6 +803,7 @@
   "settings_card_bindings_title": "Atalhos",
   "settings_card_bindings_group": "Ações do cartão",
   "settings_nav_bindings_title": "Navegação",
+  "card_action_shortcuts_enabled": "Ativar atalhos de ações do cartão",
   "binding_help": "Personalize as combinações de botões que disparam ações do Deck Shelves. Botões reservados (A / B / Menu / Steam / ...) não podem ser usados — nem em chord. Cada ação também tem um atalho de teclado independente logo abaixo; qualquer uma das entradas dispara a ação. Desabilite um atalho com “Desabilitar” quando permitido.",
   "binding_card_hide_remove": "Ocultar / remover card",
   "binding_card_highlight": "Alternar destaque do card",

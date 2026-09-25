@@ -803,6 +803,7 @@
   "settings_card_bindings_title": "Raccourcis",
   "settings_card_bindings_group": "Actions de carte",
   "settings_nav_bindings_title": "Navigation",
+  "card_action_shortcuts_enabled": "Activer les raccourcis d'actions de carte",
   "binding_help": "Personnalisez les combinaisons de boutons qui déclenchent les actions Deck Shelves. Les boutons réservés (A/B/Menu/Steam/...) ne peuvent pas être assignés — même en combinaison. Chaque action dispose aussi d'un raccourci clavier indépendant juste en dessous ; l'une ou l'autre entrée déclenche l'action. Désactivez complètement un raccourci avec « Désactiver » là où c'est permis.",
   "binding_card_hide_remove": "Masquer / retirer la carte",
   "binding_card_highlight": "Basculer la mise en évidence",

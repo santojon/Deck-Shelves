@@ -39,7 +39,7 @@ pnpm run deploy:local:hard   # + recarrega o plugin_loader e reinicia a Steam (L
   outro lugar, defina `DECKY_PLUGINS_DIR=/caminho/para/homebrew/plugins` (ou
   `DECKY_HOME=/caminho/para/homebrew`) no `.env` ou no ambiente.
 - Depois de um `deploy:local` simples, recarregue pelo Decky (Desenvolvedor →
-  Recarregar deck-prateleiras) ou reinicie a Steam. O `:hard` tenta fazer isso
+  Recarregar deck-shelves) ou reinicie a Steam. O `:hard` tenta fazer isso
   para você no Linux (precisa de `sudo` sem senha ou de `DECK_SUDO_PASS`).
 - **CDP contra a Steam local:** o `deckprobe` usa por padrão a porta LAN do
   Deck (`8081`). Para apontar para a Steam local, defina

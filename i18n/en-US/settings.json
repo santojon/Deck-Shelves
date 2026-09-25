@@ -803,6 +803,7 @@
   "settings_card_bindings_title": "Shortcuts",
   "settings_card_bindings_group": "Card actions",
   "settings_nav_bindings_title": "Navigation",
+  "card_action_shortcuts_enabled": "Enable card action shortcuts",
   "binding_help": "Customize the button combos that trigger Deck Shelves actions. Reserved buttons (A / B / Menu / Steam / ...) cannot be bound — even in chord. Each action also has an independent keyboard shortcut slot below it; either input fires the action. Disable a binding entirely with “Disable” where allowed.",
   "binding_card_hide_remove": "Hide / remove card",
   "binding_card_highlight": "Toggle card highlight",

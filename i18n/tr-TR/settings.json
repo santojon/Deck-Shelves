@@ -803,6 +803,7 @@
   "settings_card_bindings_title": "Kısayollar",
   "settings_card_bindings_group": "Kart işlemleri",
   "settings_nav_bindings_title": "Gezinme",
+  "card_action_shortcuts_enabled": "Kart eylemi kısayollarını etkinleştir",
   "binding_help": "Deck Shelves eylemlerini tetikleyen düğme kombinasyonlarını özelleştir. Ayrılmış düğmeler (A/B/Menü/Steam/...) atanamaz — bir kombinasyonda bile. Her eylemin altında bağımsız bir klavye kısayolu alanı da vardır; her iki giriş de eylemi tetikler. İzin verilen yerlerde bir atamayı tamamen devre dışı bırakmak için „Devre dışı bırak” kullan.",
   "binding_card_hide_remove": "Kartı gizle / kaldır",
   "binding_card_highlight": "Kart vurgusunu değiştir",

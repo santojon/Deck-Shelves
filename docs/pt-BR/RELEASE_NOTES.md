@@ -8,6 +8,7 @@ técnico completo, veja [CHANGELOG.md](CHANGELOG.md).
 ## [Unreleased]
 
 - **Nova configuração para ocultar as opções de prateleira do menu de botão direito de cada jogo.** Se você só quer as ações rápidas por card ali, agora dá para desativar o grupo mais completo de Ordenar/Gerenciamento/Exibição/Visual/Decoração/Combinar com — vem ativado por padrão, então nada muda a menos que você desative.
+- **Nova chave para desativar os atalhos de ações do card.** Os atalhos de gamepad/teclado para ocultar, destacar ou iniciar rapidamente um card agora podem ser desativados de uma vez, para quem só quer essas ações pelo próprio menu do card. Vem ativado por padrão; os atalhos de Busca Rápida e Navegação Lateral não são afetados.
 
 ## [3.3.1] - 2026-09-24
 

@@ -101,6 +101,13 @@ describe("resolveKeyboardBindings", () => {
   it("nulls out a disabled key even if set", () => {
     expect(resolveKeyboardBindings({ cardQuickLaunch: "KeyF" }, ["cardQuickLaunch"]).cardQuickLaunch).toBeNull();
   });
+  it("nulls out only the card fields when cardActionsEnabled is false", () => {
+    const r = resolveKeyboardBindings({ cardQuickLaunch: "KeyF", navSearch: "KeyG" }, [], false);
+    expect(r.cardQuickLaunch).toBeNull();
+    expect(r.cardHideRemove).toBeNull();
+    expect(r.cardHighlightToggle).toBeNull();
+    expect(r.navSearch).toBe("KeyG");
+  });
 });
 
 describe("findKeyCollisions", () => {

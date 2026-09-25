@@ -803,6 +803,7 @@
   "settings_card_bindings_title": "Scorciatoie",
   "settings_card_bindings_group": "Azioni carta",
   "settings_nav_bindings_title": "Navigazione",
+  "card_action_shortcuts_enabled": "Abilita le scorciatoie per le azioni sulla card",
   "binding_help": "Personalizza le combinazioni di pulsanti che attivano le azioni di Deck Shelves. I pulsanti riservati (A/B/Menu/Steam/...) non possono essere assegnati — nemmeno in combinazione. Ogni azione ha anche uno slot per una scorciatoia da tastiera indipendente qui sotto; entrambi gli input attivano l'azione. Disattiva completamente una scorciatoia con “Disattiva” dove consentito.",
   "binding_card_hide_remove": "Nascondi / rimuovi scheda",
   "binding_card_highlight": "Evidenzia scheda",

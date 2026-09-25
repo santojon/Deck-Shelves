@@ -8,10 +8,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
-˜
+
 ### Added
 
 - **New setting to hide the "Shelf" group from each game's own context menu.** The Sort/Management/Display/Visual/Decoration/Compose-with options that Deck Shelves adds to a game's native right-click menu can now be turned off globally, for players who only want the per-card actions (highlight/hide/add-remove) there (`gameContextMenuEnabled`, on by default) ([`itemBuilders.ts`](src/core/menu/itemBuilders.ts)).
+- **New master switch to disable card-action shortcuts.** The gamepad/keyboard shortcuts for hide-remove, highlight-toggle and quick-launch — the three per-card bindings in Settings → Shortcuts — can now be turned off all at once, for players who only want to trigger those actions via the card's own menu. Navigation shortcuts (Quick Search, Side Navigation, sidecar open/close) are unaffected (`cardActionShortcutsEnabled`, on by default) ([`buttonBindings.ts`](src/runtime/buttonBindings.ts), [`keyboardBindings.ts`](src/runtime/keyboardBindings.ts), [`ButtonBindingsDetail.tsx`](src/components/settings/details/ButtonBindingsDetail.tsx)).
 
 ## [3.3.1] - 2026-09-24
 

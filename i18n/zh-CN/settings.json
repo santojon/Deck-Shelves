@@ -803,6 +803,7 @@
   "settings_card_bindings_title": "快捷键",
   "settings_card_bindings_group": "卡片操作",
   "settings_nav_bindings_title": "导航",
+  "card_action_shortcuts_enabled": "启用卡片操作快捷键",
   "binding_help": "自定义触发 Deck Shelves 操作的按键组合。保留按键(A/B/Menu/Steam 等)无法分配 — 即使在组合键中也不行。每个操作下方也有一个独立的键盘快捷键位置；两种输入方式中任意一种都能触发该操作。在允许的地方,使用「禁用」可完全关闭某项分配。",
   "binding_card_hide_remove": "隐藏 / 移除卡片",
   "binding_card_highlight": "切换卡片高亮",

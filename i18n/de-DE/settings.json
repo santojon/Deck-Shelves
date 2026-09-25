@@ -803,6 +803,7 @@
   "settings_card_bindings_title": "Tastenkürzel",
   "settings_card_bindings_group": "Kartenaktionen",
   "settings_nav_bindings_title": "Navigation",
+  "card_action_shortcuts_enabled": "Kartenaktions-Tastenkombinationen aktivieren",
   "binding_help": "Passe die Tastenkombinationen an, die Deck-Shelves-Aktionen auslösen. Reservierte Tasten (A/B/Menü/Steam/...) können nicht belegt werden — auch nicht in Kombination. Jede Aktion hat zudem eine unabhängige Tastenkürzel-Option darunter; jede der beiden Eingaben löst die Aktion aus. Deaktiviere eine Belegung vollständig mit „Deaktivieren“, wo erlaubt.",
   "binding_card_hide_remove": "Karte ausblenden / entfernen",
   "binding_card_highlight": "Karten-Hervorhebung",

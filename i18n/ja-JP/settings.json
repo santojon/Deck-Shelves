@@ -803,6 +803,7 @@
   "settings_card_bindings_title": "ショートカット",
   "settings_card_bindings_group": "カード操作",
   "settings_nav_bindings_title": "ナビゲーション",
+  "card_action_shortcuts_enabled": "カードアクションのショートカットを有効にする",
   "binding_help": "Deck Shelvesのアクションをトリガーするボタンの組み合わせをカスタマイズします。予約済みボタン(A/B/Menu/Steamなど)は組み合わせ内でも割り当てられません。各アクションには、その下に独立したキーボードショートカットの枠もあります。どちらの入力でもアクションが発生します。許可されている場合は「無効化」で割り当てを完全に無効にできます。",
   "binding_card_hide_remove": "カードを隠す / 削除",
   "binding_card_highlight": "カードのハイライト切替",

@@ -803,6 +803,7 @@
   "settings_card_bindings_title": "快速鍵",
   "settings_card_bindings_group": "卡片操作",
   "settings_nav_bindings_title": "導覽",
+  "card_action_shortcuts_enabled": "啟用卡片操作快捷鍵",
   "binding_help": "自訂觸發 Deck Shelves 動作的按鍵組合。保留按鍵(A/B/Menu/Steam 等)無法指派 — 即使在組合鍵中也不行。每個動作下方也有一個獨立的鍵盤快捷鍵位置；兩種輸入方式中任一種都能觸發該動作。在允許的地方,用「停用」可完全關閉某項指派。",
   "binding_card_hide_remove": "隱藏 / 移除卡片",
   "binding_card_highlight": "切換卡片強調",
