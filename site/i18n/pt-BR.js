@@ -28,8 +28,27 @@ window.__DS_I18N_PT_BR__ = {
   "featRow.shortcuts.d": "Mude ou desative os botões de gamepad para esconder, destacar, iniciar rápido, Busca Rápida e Navegação Lateral — toque simples, combo ou duplo.",
 
   "integration.howItWorks": "Como funciona",
+
+  "integration.tabmaster.tagline": "Use suas abas do TabMaster — inclusive as baseadas em filtro — como fontes de prateleira, ou importe-as como prateleiras independentes com um clique.",
+  "integration.tabmaster.step0": "<strong>Instale o TabMaster</strong><p>Pegue-o na Decky Store se ainda não tiver.</p>",
+  "integration.tabmaster.step1": "<strong>Opção A — fonte ao vivo</strong><p>Crie uma prateleira, defina a fonte dela como \"Seção da biblioteca\" e escolha a aba do TabMaster na lista. Ela fica sincronizada com o TabMaster para sempre — sem etapa de sincronização separada, sem configuração duplicada.</p>",
+  "integration.tabmaster.step2": "<strong>Opção B — importação com um clique</strong><p>Abra o menu Importar → \"Importar do TabMaster\" e clique em qualquer aba (inclusive as ocultas, listadas separadamente) para criar instantaneamente uma prateleira independente do Deck Shelves a partir dela. Uma aba baseada em filtro tem seus filtros convertidos em um grupo de filtros equivalente do Deck Shelves; uma aba simples é importada como uma prateleira com fonte ao vivo, igual à Opção A.</p>",
+  "integration.tabmaster.step3": "<strong>Escolha o que fizer mais sentido</strong><p>A fonte ao vivo sempre espelha o TabMaster; uma prateleira importada é sua para personalizar ainda mais com os próprios filtros, ordenações e decorações do Deck Shelves, com ou sem o TabMaster ainda instalado.</p>",
+  "integration.tabmaster.note": "O Deck Shelves lê a lista de abas do TabMaster em tempo real através do seu contexto público (ou do arquivo de configurações dele, para a importação) — ele nunca modifica as configurações ou os dados do próprio TabMaster.",
   "integration.tabmaster.learnMore": "Saiba mais sobre o TabMaster no <a href=\"https://github.com/Tormak9970/TabMaster\" target=\"_blank\" rel=\"noopener\">GitHub</a>. O Deck Shelves não é afiliado, endossado ou patrocinado pelo TabMaster — veja o aviso no rodapé.",
+
+  "integration.unifideck.tagline": "Traga sua biblioteca unificada — Steam, Epic, GOG, Amazon, Ubisoft e mais — para a sua Home personalizada.",
+  "integration.unifideck.step0": "<strong>Instale e configure o UnifiDeck</strong><p>Siga a própria configuração do UnifiDeck para unificar suas lojas na sua biblioteca Steam.</p>",
+  "integration.unifideck.step1": "<strong>Aponte uma prateleira para uma das abas dele</strong><p>Crie uma prateleira com fonte \"Seção da biblioteca\" e escolha qualquer aba do UnifiDeck (Todos, Instalados, Steam, Epic, GOG, e assim por diante) — o Deck Shelves detecta essas abas do mesmo jeito que detecta qualquer outra seção da biblioteca.</p>",
+  "integration.unifideck.step2": "<strong>Opcional: exclua o que você já possui</strong><p>Numa prateleira de lista de desejos ou loja, ative \"Ignorar jogos que já tenho\" → a opção secundária para não-Steam. Ela também verifica os atalhos não-Steam unificados pelo UnifiDeck, então um jogo que você já tem em outra loja não aparece como promoção.</p>",
+  "integration.unifideck.note": "O Deck Shelves também reconhece os atalhos de catálogo de jogos em nuvem do UnifiDeck, então promoções de serviços de nuvem não são confundidas com jogos que você já possui.",
   "integration.unifideck.learnMore": "Saiba mais sobre o UnifiDeck no <a href=\"https://github.com/mubaraknumann/unifideck\" target=\"_blank\" rel=\"noopener\">GitHub</a>. O Deck Shelves não é afiliado, endossado ou patrocinado pelo UnifiDeck — veja o aviso no rodapé.",
+
+  "integration.css-loader.tagline": "Mantenha suas prateleiras visualmente consistentes com os temas do CSS Loader que você já tem instalados.",
+  "integration.css-loader.step0": "<strong>Instale o CSS Loader e aplique um tema</strong><p>Qualquer tema do catálogo da DeckThemes.</p>",
+  "integration.css-loader.step1": "<strong>Nada mais para configurar</strong><p>O Deck Shelves detecta o tema ativo automaticamente e ajusta o visual das prateleiras para combinar com ele — nenhuma opção é necessária para a compatibilidade básica.</p>",
+  "integration.css-loader.step2": "<strong>Opcional: Forçar temas do CSS Loader</strong><p>Em Configurações → Experimental, isso promove todas as prateleiras para o mesmo espaço de seletor da primeira, para que o tema se aplique de forma consistente em todas elas, não só na primeira.</p>",
+  "integration.css-loader.note": "Detectados hoje: ArtHero, TiltedHome / Renaissance, SLH (“Switch Like Home”) e Centered Home. Outros temas também funcionam — esses quatro recebem ajustes visuais extras, específicos para cada tema.",
   "integration.css-loader.learnMore": "Saiba mais sobre o CSS Loader no <a href=\"https://github.com/DeckThemes/SDH-CssLoader\" target=\"_blank\" rel=\"noopener\">GitHub</a>. O Deck Shelves não é afiliado, endossado ou patrocinado pelo CSS Loader — veja o aviso no rodapé.",
 
   "donate.h": "Curtindo o Deck Shelves?",

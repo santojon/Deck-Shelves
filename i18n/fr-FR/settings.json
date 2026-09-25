@@ -338,6 +338,7 @@
   "first_run_desc": "Créez des étagères de jeux personnalisées sur votre écran d'accueil. Commencez avec les modèles par défaut ou ajoutez des étagères manuellement.",
   "first_run_title": "Bienvenue dans Deck Shelves !",
   "full_page_shelf_label": "Étagère pleine page",
+  "game_context_menu_enabled": "Afficher les options d'étagère dans le menu du jeu",
   "hide_compat_icons": "Masquer les icônes de compatibilité",
   "hide_discount_badge": "Masquer le badge \"remise\"",
   "hide_from_shelf": "Masquer de l'étagère",

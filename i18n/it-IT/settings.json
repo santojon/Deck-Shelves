@@ -338,6 +338,7 @@
   "first_run_desc": "Crea scaffali di giochi personalizzati sulla tua schermata principale. Inizia con quelli predefiniti o aggiungi scaffali manualmente.",
   "first_run_title": "Benvenuto in Deck Shelves!",
   "full_page_shelf_label": "Scaffale a pagina intera",
+  "game_context_menu_enabled": "Mostra le opzioni scaffale nel menu di gioco",
   "hide_compat_icons": "Nascondi icone di compatibilità",
   "hide_discount_badge": "Nascondi badge \"sconto\"",
   "hide_from_shelf": "Nascondi dallo scaffale",

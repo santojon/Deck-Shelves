@@ -342,15 +342,17 @@ export function buildDeckShelvesMenuItems(
 
   return [
     ...buildCardActions(ctx, mk),
-    mk.group(
-      "ds-shelf-root", tLabel("menu_shelf", "Shelf"),
-      buildSortToggle(ctx, mk),
-      mk.group("ds-mgmt", tLabel("menu_management", "Management"), ...buildMgmt(ctx, mk)),
-      mk.group("ds-display", tLabel("menu_display", "Display"), ...buildDisplay(ctx, mk)),
-      mk.group("ds-visual", tLabel("menu_visual", "Visual"), ...buildVisual(ctx, mk)),
-      ...buildDecorationItem(ctx, mk),
-      ...buildComposeGroup(ctx, mk),
-    ),
+    ...(settings.gameContextMenuEnabled === false ? [] : [
+      mk.group(
+        "ds-shelf-root", tLabel("menu_shelf", "Shelf"),
+        buildSortToggle(ctx, mk),
+        mk.group("ds-mgmt", tLabel("menu_management", "Management"), ...buildMgmt(ctx, mk)),
+        mk.group("ds-display", tLabel("menu_display", "Display"), ...buildDisplay(ctx, mk)),
+        mk.group("ds-visual", tLabel("menu_visual", "Visual"), ...buildVisual(ctx, mk)),
+        ...buildDecorationItem(ctx, mk),
+        ...buildComposeGroup(ctx, mk),
+      ),
+    ]),
   ];
 }
 

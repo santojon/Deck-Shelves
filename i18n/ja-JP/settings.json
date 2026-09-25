@@ -338,6 +338,7 @@
   "first_run_desc": "ホーム画面にカスタムゲームシェルフを作成しましょう。デフォルトで始めるか、手動でシェルフを追加できます。",
   "first_run_title": "Deck Shelvesへようこそ！",
   "full_page_shelf_label": "フルページの棚",
+  "game_context_menu_enabled": "ゲームメニューに棚のオプションを表示",
   "hide_compat_icons": "互換性アイコンを非表示",
   "hide_discount_badge": "「割引」バッジを非表示",
   "hide_from_shelf": "シェルフから非表示",

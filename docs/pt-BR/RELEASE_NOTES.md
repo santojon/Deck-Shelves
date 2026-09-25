@@ -7,6 +7,10 @@ técnico completo, veja [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+- **Nova configuração para ocultar as opções de prateleira do menu de botão direito de cada jogo.** Se você só quer as ações rápidas por card ali, agora dá para desativar o grupo mais completo de Ordenar/Gerenciamento/Exibição/Visual/Decoração/Combinar com — vem ativado por padrão, então nada muda a menos que você desative.
+
+## [3.3.1] - 2026-09-24
+
 - **Um perfil ativado automaticamente (por um trigger como conectar na doca ou carregar) podia reverter as configurações de uma Prateleira Inteligente mesmo quando você havia escolhido não vincular prateleiras a esse perfil.** Corrigido — perfis trocados automaticamente agora deixam suas prateleiras exatamente como estão, igual a quando você troca manualmente.
 - **Sombras dos cards e melhorias de compatibilidade com temas.** A sombra projetada sob cada card agora acompanha exatamente a arte em vez de se estender além dela. Corrigidos alguns problemas visuais relacionados que apareciam com certos temas do CSS Loader (Switch Like Home / Switch-like Banners): os cards agora combinam corretamente com o visual nativo redimensionado do tema, e "Usar prateleira como Recents" não renderiza mais invisível fora da tela nem deixa o título da linha preso no texto padrão sob o tema SLH.
 - **Nova forma recomendada de instalação: ShelvesHub.** Um host independente, sem necessidade do Decky Loader — instaladores de um clique para Steam Deck, Linux, macOS e Windows, com atualizações automáticas para si mesmo e para o Deck Shelves. As opções de Decky Store, zip manual e instalação por URL continuam todas disponíveis e inalteradas; o ShelvesHub é simplesmente o caminho mais fácil para quem está começando do zero.
@@ -16,7 +20,9 @@ técnico completo, veja [CHANGELOG.md](CHANGELOG.md).
 - **Seu perfil ativo agora permanece no dispositivo ao qual pertence.** Com a sincronização entre dispositivos ativada, um perfil que troca automaticamente naquela máquina — um perfil *Modo Vitrine* quando você conecta na doca, por exemplo — não segue mais a sincronização para seus outros dispositivos nem os troca para esse perfil também. Cada dispositivo mantém seu próprio perfil atual (seja por ter trocado via trigger ou por você ter escolhido manualmente), enquanto suas configurações subjacentes e a lista de perfis continuam sincronizando como antes.
 - **As informações do sistema e os relatórios de bug agora mostram também seu cartão SD e drives USB/externos, não só o armazenamento interno.** Cada drive externo detectado ganha sua própria leitura de espaço livre/total.
 - **Novo filtro: local da biblioteca Steam.** Monte uma prateleira com jogos instalados no armazenamento interno, em um drive externo (cartão SD / USB / SSD externo) ou em uma biblioteca de rede. Combina com uma nova condição de Regras de Visibilidade / troca automática — por exemplo, fixar automaticamente uma prateleira ou trocar de perfil no momento em que seu cartão SD é conectado.
-- **Nova ação de prateleira: Compor com.** Abra o menu "…" de uma prateleira e escolha "Compor com" para mesclar os jogos de outra prateleira diretamente nela — as duas viram uma só prateleira, e a prateleira de origem é removida. Um backup é salvo automaticamente antes.
+- **Nova ação de prateleira: Compor com.** Abra o menu "…" de uma prateleira — ou clique com o botão direito em qualquer jogo e abra o submenu "Prateleira" dele — e escolha "Compor com" para mesclar direto nela os jogos de outra prateleira — as duas viram uma só, e a prateleira de origem é removida. Um backup é salvo automaticamente antes.
+- **O site agora também mostra as notas de versão e a lista completa de recursos em português**, alternando ao vivo com o seletor de idioma já existente — voltando automaticamente para o inglês em qualquer trecho ainda não traduzido. O README, o changelog e todas as páginas de guias também já têm uma versão em português, com link a partir de cada página em inglês.
+- **Corrigido um flash visual rápido ao pressionar para baixo depois da última prateleira.** Podia mostrar por um instante um pedaço da arte de fundo da primeira prateleira antes de voltar de repente — esse flash e esse salto não acontecem mais.
 
 ## [3.3.0] - 2026-09-16
 

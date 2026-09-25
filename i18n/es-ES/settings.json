@@ -338,6 +338,7 @@
   "first_run_desc": "Crea estanterías de juegos personalizadas en tu pantalla de inicio. Empieza con las predeterminadas o añade estanterías manualmente.",
   "first_run_title": "¡Bienvenido a Deck Shelves!",
   "full_page_shelf_label": "Estante de página completa",
+  "game_context_menu_enabled": "Mostrar opciones de estantería en el menú del juego",
   "hide_compat_icons": "Ocultar iconos de compatibilidad",
   "hide_discount_badge": "Ocultar insignia \"descuento\"",
   "hide_from_shelf": "Ocultar del estante",

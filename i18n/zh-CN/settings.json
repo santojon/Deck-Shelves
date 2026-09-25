@@ -338,6 +338,7 @@
   "first_run_desc": "在主页上创建自定义游戏书架。使用默认设置开始，或手动添加书架。",
   "first_run_title": "欢迎使用Deck Shelves！",
   "full_page_shelf_label": "整页书架",
+  "game_context_menu_enabled": "在游戏菜单中显示书架选项",
   "hide_compat_icons": "隐藏兼容性图标",
   "hide_discount_badge": "隐藏\"折扣\"徽章",
   "hide_from_shelf": "从书架隐藏",

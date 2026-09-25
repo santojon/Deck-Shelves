@@ -338,6 +338,7 @@
   "first_run_desc": "Create custom game shelves on your Home screen. Start with defaults or add shelves manually.",
   "first_run_title": "Welcome to Deck Shelves!",
   "full_page_shelf_label": "Full-page shelf",
+  "game_context_menu_enabled": "Show shelf options in game menu",
   "hide_compat_icons": "Hide compatibility icons",
   "hide_discount_badge": "Hide \"discount\" badge",
   "hide_from_shelf": "Hide from shelf",

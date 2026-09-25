@@ -52,6 +52,8 @@
     "uitests": "pnpm --filter deckprobe uitests",
     "uitests:list": "pnpm --filter deckprobe uitests:list",
     "uitests:stress": "pnpm --filter deckprobe uitests -- --only stress",
+    "uitests:record": "pnpm --filter deckprobe uitests -- --record bp",
+    "uitests:record:qam": "pnpm --filter deckprobe uitests -- --record qam",
     "perf:bench": "pnpm --filter deckprobe perf:bench",
     "package": "node scripts/build/py.mjs scripts/build/package.py",
     "dist": "pnpm run package",

@@ -338,6 +338,7 @@
   "first_run_desc": "Erstelle benutzerdefinierte Spiele-Regale auf deinem Startbildschirm. Beginne mit Standardregalen oder füge manuell Regale hinzu.",
   "first_run_title": "Willkommen bei Deck Shelves!",
   "full_page_shelf_label": "Ganzseitiges Regal",
+  "game_context_menu_enabled": "Regal-Optionen im Spielmenü anzeigen",
   "hide_compat_icons": "Kompatibilitätssymbole ausblenden",
   "hide_discount_badge": "Abzeichen \"Rabatt\" ausblenden",
   "hide_from_shelf": "Aus Regal ausblenden",

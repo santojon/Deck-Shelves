@@ -12,6 +12,7 @@ from deckprobe.screenshots.lib.cdp import Session
 from deckprobe.screenshots.lib.nav import navigate_to_ds_qam, close_qam, _qam_eval, expand_qam_sections
 from deckprobe.screenshots.lib.capture import capture_qam
 from deckprobe.screenshots.lib.registry import register
+from ._locale import force_locale
 
 
 def _scroll_qam_to_section(host: str, port: int, section_id: str) -> str:
@@ -87,6 +88,7 @@ def _scroll_qam_to_text(host: str, port: int, *needles: str) -> str:
 @register("qam")
 def qam(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Path]:
     """QAM at the top of the Deck Shelves panel."""
+    force_locale(sjc)
     navigate_to_ds_qam(sjc, host, port)
     expand_qam_sections(host, port)
     out = out_dir / "qam.png"
@@ -98,6 +100,7 @@ def qam(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Path]:
 @register("smart_shelves_qam")
 def smart_shelves_qam(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Path]:
     """QAM scrolled to the Smart Shelves section (expanded)."""
+    force_locale(sjc)
     navigate_to_ds_qam(sjc, host, port)
     expand_qam_sections(host, port)
     # Scroll to the smart section header (data-ds-section="smart").
@@ -112,6 +115,7 @@ def smart_shelves_qam(sjc: Session, host: str, port: int, out_dir: Path) -> Dict
 @register("global_toggles")
 def global_toggles(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Path]:
     """QAM scrolled to the Apply globally / Visual section."""
+    force_locale(sjc)
     navigate_to_ds_qam(sjc, host, port)
     expand_qam_sections(host, port)
     _scroll_qam_to_section(host, port, "visual_global")
@@ -125,6 +129,7 @@ def global_toggles(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[st
 @register("saved_filters_qam")
 def saved_filters_qam(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Path]:
     """QAM scrolled to Saved Filters (when at least one filter exists)."""
+    force_locale(sjc)
     navigate_to_ds_qam(sjc, host, port)
     expand_qam_sections(host, port)
     # The Saved Filters section only exists when the user has saved a filter.
@@ -155,6 +160,7 @@ def sidecar(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Path
     where the hook is undefined. The sidecar DOM, however, lives in the QAM
     target, so we verify/capture there. Skips cleanly on release builds (no
     hook) instead of capturing a non-expanded panel."""
+    force_locale(sjc)
     navigate_to_ds_qam(sjc, host, port)
     expand_qam_sections(host, port)
     time.sleep(1.0)

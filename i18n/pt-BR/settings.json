@@ -338,6 +338,7 @@
   "first_run_desc": "Crie prateleiras de jogos personalizadas na tela inicial. Comece com os padrões ou adicione prateleiras manualmente.",
   "first_run_title": "Bem-vindo ao Deck Shelves!",
   "full_page_shelf_label": "Prateleira de página inteira",
+  "game_context_menu_enabled": "Mostrar opções de prateleira no menu do jogo",
   "hide_compat_icons": "Ocultar ícones de compatibilidade",
   "hide_discount_badge": "Ocultar selo \"desconto\"",
   "hide_from_shelf": "Ocultar da prateleira",

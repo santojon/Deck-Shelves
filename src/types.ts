@@ -566,6 +566,9 @@ export const SettingsSchema = z.object({
   recentsReplaceSource: z.boolean().default(false),
   hideHomeTabs: z.boolean().default(false),
   shelfHeroBackground: z.boolean().default(false),
+  // Gates the "Shelf" group (sort/management/display/visual/decoration/
+  // compose-with) in each game's native right-click context menu.
+  gameContextMenuEnabled: z.boolean().default(true),
   globalMatchNativeSize: z.boolean().default(false),
   globalHighlightFirst: z.boolean().default(false),
   globalHighlightAll: z.boolean().default(false),

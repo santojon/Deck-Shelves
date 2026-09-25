@@ -338,6 +338,7 @@
   "first_run_desc": "Twórz niestandardowe półki z grami na ekranie głównym. Zacznij z ustawieniami domyślnymi lub dodaj półki ręcznie.",
   "first_run_title": "Witaj w Deck Shelves!",
   "full_page_shelf_label": "Pełnostronicowa półka",
+  "game_context_menu_enabled": "Pokaż opcje półki w menu gry",
   "hide_compat_icons": "Ukryj ikony zgodności",
   "hide_discount_badge": "Ukryj odznakę \"zniżka\"",
   "hide_from_shelf": "Ukryj z półki",

@@ -7,6 +7,8 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+- **New setting to hide the shelf options from each game's right-click menu.** If you only want the quick per-card actions there, you can now turn off the fuller Sort/Management/Display/Visual/Decoration/Compose-with group — it's on by default so nothing changes unless you turn it off.
+
 ## [3.3.1] - 2026-09-24
 
 - **A profile switched on automatically (by a trigger like docking or charging) could revert a Smart Shelf's settings even when you'd chosen not to link shelves to that profile.** Fixed — auto-switched profiles now leave your shelves exactly as they are, same as switching manually.

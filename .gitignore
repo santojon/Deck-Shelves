@@ -66,6 +66,10 @@ site/integrations/
 site/favicon.svg
 site/img/steam-deck.png
 
+# uitests output (deckprobe/uitests/run.py's default --out) — screenshots
+# and, since the --record flag, per-test MP4s. Local-only, never committed.
+/tmp/
+
 # Hidden folders
 /.*/
 !.github/

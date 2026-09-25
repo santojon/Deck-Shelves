@@ -50,6 +50,7 @@ export function defaultSettings(): Settings {
     recentsReplaceSource: false,
     hideHomeTabs: false,
     shelfHeroBackground: false,
+    gameContextMenuEnabled: true,
     globalMatchNativeSize: false,
     globalHighlightFirst: false,
     globalHighlightAll: false,

@@ -229,16 +229,16 @@ bash scripts/build/validate-compat.sh
 
 ### Sistemas operacionais
 
-O plugin roda **onde quer que o Decky Loader rode**. O Decky se instala como um **serviço systemd** que injeta no CEF da Steam, então ele é exclusivo de Linux no nível do sistema operacional. A descoberta de caminhos ([`src/backend/paths.py`](../../src/backend/paths.py)) e o empacotamento ([`scripts/build/package.py`](../../scripts/build/package.py)) são agnósticos ao sistema operacional (só stdlib, sem CLI de bash/`zip`).
+O Deck Shelves roda de duas formas: de forma independente via **[ShelvesHub](https://github.com/santojon/ShelvesHub)** (instalador próprio por sistema operacional, sem precisar de plugin loader) ou como plugin sob o **Decky Loader**, que se instala como um serviço systemd e é exclusivo de Linux no nível do sistema operacional. O mesmo pacote do plugin roda sem alterações sob qualquer um dos dois hosts. A descoberta de caminhos ([`src/backend/paths.py`](../../src/backend/paths.py)) e o empacotamento ([`scripts/build/package.py`](../../scripts/build/package.py)) são agnósticos ao sistema operacional (só stdlib, sem CLI de bash/`zip`).
 
-| SO | Descoberta da Steam | Roda o plugin? |
+| SO | Via ShelvesHub | Via Decky Loader |
 |---|---|---|
-| SteamOS / Steam Deck | `~/.local/share/Steam` | ✅ oficial (alvo principal) |
-| Linux — similares a SteamOS (Bazzite, ChimeraOS, HoloISO, Nobara) + desktop (nativo / Flatpak) | nativo + `~/.var/app/...Steam` | ✅ não-oficial — a instalação via systemd do Decky funciona |
-| Windows | registro (`winreg`) → `Program Files` → `%LOCALAPPDATA%` | ⚠️ não-oficial — via um instalador comunitário para Windows; instável |
-| macOS | `~/Library/Application Support/Steam` | ⚠️ ainda não via Decky (sem systemd / sem porta remota). A descoberta de caminho da Steam já está pronta, então o suporte a macOS está sendo considerado e será compatível assim que um host tornar isso possível |
+| SteamOS / Steam Deck | ✅ oficial (alvo principal) — x86_64 e ARM64 | ✅ oficial (alvo principal) |
+| Linux — similares a SteamOS (Bazzite, ChimeraOS, HoloISO, Nobara) + desktop (nativo / Flatpak) | ✅ x86_64 e ARM64, com instalador de um clique ou pacote | ✅ não-oficial — a instalação via systemd do Decky funciona |
+| Windows | ✅ estável, com instalador de um clique | ⚠️ não-oficial — via um instalador comunitário para Windows; instável |
+| macOS | ✅ binário universal — nativo em Apple Silicon e Intel | ❌ sem suporte — sem systemd / sem porta remota de debug |
 
-> O Decky Loader suporta oficialmente **apenas SteamOS / Steam Deck**; Linux desktop e Windows são mantidos pela comunidade e podem quebrar. O macOS ainda não é alcançável pelo Decky hoje, mas o código já resolve os caminhos da Steam no macOS, então o suporte pode chegar assim que houver um host disponível.
+> O Decky Loader suporta oficialmente **apenas SteamOS / Steam Deck**; seu suporte a Linux desktop e Windows é mantido pela comunidade e pode quebrar, e ele não alcança o macOS de forma alguma. O [ShelvesHub](https://github.com/santojon/ShelvesHub) cobre essas lacunas com instaladores próprios para cada plataforma — veja [Instalação](#instalação).
 
 ### Ambientes validados
 

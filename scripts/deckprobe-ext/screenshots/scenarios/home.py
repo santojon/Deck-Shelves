@@ -9,11 +9,13 @@ from deckprobe.screenshots.lib.cdp import Session
 from deckprobe.screenshots.lib.nav import ensure_bp_clean, _bp_eval
 from deckprobe.screenshots.lib.capture import capture_bigpicture
 from deckprobe.screenshots.lib.registry import register
+from ._locale import force_locale
 
 
 @register("home")
 def home(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Path]:
     """Plain home screen — no QAM, no modal."""
+    force_locale(sjc)
     ensure_bp_clean(sjc, host, port)
     # Scroll to top via JS (no mouse events → no hover state in capture)
     _bp_eval(host, port, """
@@ -42,6 +44,7 @@ def home(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Path]:
 @register("home_shelves")
 def home_shelves(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Path]:
     """Home with DS shelves visible — second card focused after ArrowRight."""
+    force_locale(sjc)
     ensure_bp_clean(sjc, host, port)
     # Scroll to second shelf via JS scrollTop (no mouse events → no hover)
     _bp_eval(host, port, """
