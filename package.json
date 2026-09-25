@@ -79,6 +79,8 @@
     "validate:compat": "node scripts/build/validate-compat.mjs",
     "screenshots": "pnpm --filter deckprobe screenshots",
     "screenshots:validate": "node scripts/build/validate-screenshots.mjs",
+    "videos": "pnpm --filter deckprobe videos",
+    "videos:list": "pnpm --filter deckprobe videos:list",
     "devtools:cli": "pnpm --filter deckprobe cli --",
     "devtools:screenshots": "pnpm --filter deckprobe screenshots",
     "devtools:diag": "pnpm --filter deckprobe diag",

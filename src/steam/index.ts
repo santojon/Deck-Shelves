@@ -14,7 +14,7 @@ import { resolveContextAwareShelf } from "../core/contextAwareShelves";
 import type { PlatformAppMeta, PlatformTab } from "../runtime/platform";
 import { logInfo, logWarn } from "../runtime/logger";
 import { getPreferredSteamDocument, getPreferredSteamWindow } from "../runtime/steamHost";
-import { getLibraryCategoryOf, isLibraryLocationsWarm, refreshLibraryLocations } from "../runtime/deviceState";
+import { getLibraryCategoryOf, getLibraryIdOf, isLibraryLocationsWarm, refreshLibraryLocations } from "../runtime/deviceState";
 import { getAppDescriptions as _getAppDescriptions } from "./appDescriptionsCache";
 
 export type SteamCollection = { id: string; name: string };
@@ -2227,20 +2227,34 @@ function evalHidden(item: FilterItem, app: AppOverview): boolean {
 /* Remote Play install location. `remote-only` (installed elsewhere, not here)
    powers a "play-from-remote" shelf. Steam apps only — non-Steam shortcuts have
    no per-client data (installed_remote undefined), so they only match `local`. */
+const REMOTE_PLAY_MODES: Record<string, (local: boolean, remote: boolean) => boolean> = {
+  "local":       (local) => local,
+  "local-only":  (local, remote) => local && !remote,
+  "remote":      (_local, remote) => remote,
+  "remote-only": (local, remote) => remote && !local,
+  "both":        (local, remote) => local && remote,
+};
+
 function evalRemotePlay(item: FilterItem, app: AppOverview): boolean {
   const mode = String(item.params?.mode ?? "remote-only");
   const local = app.installed === true;
   const remote = app.installed_remote === true;
-  switch (mode) {
-    case "local":       return local;
-    case "remote":      return remote;
-    case "remote-only": return remote && !local;
-    case "both":        return local && remote;
-    default:            return remote && !local;
-  }
+  const check = REMOTE_PLAY_MODES[mode] ?? REMOTE_PLAY_MODES["remote-only"];
+  return check(local, remote);
 }
 
 function evalLibraryLocation(item: FilterItem, app: AppOverview): boolean {
+  /* New shape: `libraryIds` (multi-select of specific libraries, mixing
+     e.g. one SD card + one USB drive) — present (even empty) means the
+     item was saved by the granular editor. Empty = not yet narrowed down,
+     so no restriction rather than matching nothing. Absent entirely means
+     an older single-`category` save (pre-granularity) — kept working as-is. */
+  const libraryIds = Array.isArray(item.params?.libraryIds) ? (item.params!.libraryIds as string[]) : null;
+  if (libraryIds) {
+    if (!libraryIds.length) return true;
+    const libId = getLibraryIdOf(appIdOf(app));
+    return libId !== null && libraryIds.includes(libId);
+  }
   const category = String(item.params?.category ?? "internal");
   return getLibraryCategoryOf(appIdOf(app)) === category;
 }

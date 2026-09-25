@@ -186,6 +186,14 @@ export function getLibraryCategoryOf(appid: number): LibraryEntry['category'] | 
   return _libraries.find((l) => l.id === libId)?.category ?? null;
 }
 
+/** The specific library id (not just category) an app is installed in —
+ *  powers the `libraryLocation` filter's multi-library selection, so a
+ *  shelf can mix e.g. "this SD card" + "that USB drive" instead of only
+ *  the coarser internal/external/network bucket. */
+export function getLibraryIdOf(appid: number): string | null {
+  return _appLibrary.get(appid) ?? null;
+}
+
 function evalLibraryAvailable(rule: any): boolean {
   if (!_librarySupported) return true; // fail open — unsupported platform/read failure
   const libraryId = rule?.libraryId ? String(rule.libraryId) : null;

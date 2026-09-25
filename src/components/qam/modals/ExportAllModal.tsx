@@ -7,8 +7,10 @@ import { SelectItemsModal } from "./SelectItemsModal";
 import {
   SETTINGS_CATEGORIES,
   pickCategoriesFromSettings,
+  buildExportPayload,
 } from "../../../features/settings/settingsCategories";
 import { writeJsonFile, getCurrentSettings } from "../../../settingsStore";
+import pkg from "../../../../package.json";
 
 async function pickFolder(startPath: string) {
   return await tryPickerCalls([
@@ -72,7 +74,11 @@ export function ExportAllModal({ closeModal, controller, folderPath }: { closeMo
           return;
         }
         const target = `${folder}/${filenameWithJson(name)}`;
-        const ok = await writeJsonFile(target, JSON.stringify({ state: payload }, null, 2));
+        const wrapped = buildExportPayload(payload, selectedIds, {
+          appVersion: typeof pkg?.version === "string" ? pkg.version : "0.0.0",
+          schemaVersion: s.schemaVersion ?? 0,
+        });
+        const ok = await writeJsonFile(target, JSON.stringify(wrapped, null, 2));
         notify(ok ? "export" : "error", { body: ok ? t("toast_exported_file") : t("toast_failed_export") });
         if (ok) closeModal?.();
       }}

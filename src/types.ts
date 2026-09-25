@@ -367,7 +367,7 @@ export const SmartShelfSchema = z.object({
   autoPin: VisibilitySchema.optional(),
   autoCollapse: VisibilitySchema.optional(),
   autoCollapseWhenEmpty: z.boolean().optional(),
-});
+}).passthrough();
 export type SmartShelf = z.infer<typeof SmartShelfSchema>;
 
 // `composite` is recursive (a composite source contains other sources,
@@ -553,7 +553,7 @@ export const ShelfSchema = z.object({
   // header. Gated by the global `autoCollapseEnabled` toggle.
   autoCollapse: VisibilitySchema.optional(),
   autoCollapseWhenEmpty: z.boolean().optional(),
-});
+}).passthrough();
 
 export type Shelf = z.infer<typeof ShelfSchema>;
 
@@ -561,7 +561,12 @@ export const SettingsSchema = z.object({
   // Document schema version (§4B). Stamped by migrate(); older versions never
   // downgrade it, so a newer version's higher-schema fields are preserved.
   schemaVersion: z.number().int().nonnegative().nullish(),
-  enabled: z.boolean().default(true),
+  /* `false` matches the Python sanitizer + `domain/defaults.ts` — the
+     plugin ships disabled until the user turns it on. Was `true` here,
+     diverging from both: a document reaching `.parse()` without an
+     `enabled` key (partial import, cross-host document) would silently
+     auto-enable on the frontend while staying disabled on the backend. */
+  enabled: z.boolean().default(false),
   hideRecents: z.boolean().default(false),
   recentsReplaceSource: z.boolean().default(false),
   hideHomeTabs: z.boolean().default(false),
@@ -817,7 +822,7 @@ export const SettingsSchema = z.object({
      for the scalar/global toggle bag (the non-list settings). */
   syncTombstones: z.record(z.string(), z.number()).nullish(),
   preferencesUpdatedAt: z.number().nullish(),
-});
+}).passthrough();
 
 export type Settings = z.infer<typeof SettingsSchema>;
 

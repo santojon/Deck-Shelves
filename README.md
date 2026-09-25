@@ -9,10 +9,10 @@
 
 [![CI](https://github.com/santojon/Deck-Shelves/actions/workflows/ci.yml/badge.svg)](https://github.com/santojon/Deck-Shelves/actions/workflows/ci.yml)
 [![Release](https://github.com/santojon/Deck-Shelves/actions/workflows/release.yml/badge.svg)](https://github.com/santojon/Deck-Shelves/actions/workflows/release.yml)
-[![Tests](https://img.shields.io/badge/vitest-896%20passed-brightgreen?logo=vitest&logoColor=white)](src/test/)
-[![pytest](https://img.shields.io/badge/pytest-191%20passed-brightgreen?logo=pytest&logoColor=white)](src/test/test_main.py)
+[![Tests](https://img.shields.io/badge/vitest-910%20passed-brightgreen?logo=vitest&logoColor=white)](src/test/)
+[![pytest](https://img.shields.io/badge/pytest-208%20passed-brightgreen?logo=pytest&logoColor=white)](src/test/test_main.py)
 [![TypeCheck](https://img.shields.io/badge/typecheck-clean-brightgreen?logo=typescript&logoColor=white)](tsconfig.json)
-[![Compatibility](https://img.shields.io/badge/checks-39%2F39-brightgreen?logo=steamdeck&logoColor=white)](scripts/build/validate-compat.mjs)
+[![Compatibility](https://img.shields.io/badge/checks-40%2F40-brightgreen?logo=steamdeck&logoColor=white)](scripts/build/validate-compat.mjs)
 [![Platform](https://img.shields.io/badge/platform-SteamOS%20%C2%B7%20Linux%20%C2%B7%20macOS%20%C2%B7%20Windows-purple?logo=steamdeck&logoColor=white)](https://github.com/ValveSoftware/SteamOS)
 [![Downloads](https://img.shields.io/github/downloads/santojon/Deck-Shelves/total.svg?label=downloads&color=blue)](https://github.com/santojon/Deck-Shelves/releases/latest)
 [![ShelvesHub downloads](https://img.shields.io/github/downloads/santojon/ShelvesHub/total.svg?label=shelveshub%20downloads&color=blue)](https://github.com/santojon/ShelvesHub/releases/latest)
@@ -240,7 +240,7 @@ Deck Shelves runs two ways: standalone via **[ShelvesHub](https://github.com/san
 
 ### Validated environments
 
-The compatibility suite green-lights the build toolchain (Vite/ESM, TypeScript/Node), Decky Loader 3.x (API v1) + Decky Store publishing, SteamOS 3.5–3.9 (incl. GamepadUI), i18n, and the Python backend — see the [`checks 39/39`](scripts/build/validate-compat.mjs) badge and run `pnpm run validate:compat` to reproduce.
+The compatibility suite green-lights the build toolchain (Vite/ESM, TypeScript/Node), Decky Loader 3.x (API v1) + Decky Store publishing, SteamOS 3.5–3.10 (incl. GamepadUI), i18n, and the Python backend — see the [`checks 40/40`](scripts/build/validate-compat.mjs) badge and run `pnpm run validate:compat` to reproduce.
 
 ## Developer Tools
 

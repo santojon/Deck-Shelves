@@ -1,5 +1,6 @@
 """Unit tests for the versioned-backup helpers (storage.py) and the
 restore RPC guards (main.Plugin). `decky` is mocked before importing."""
+import asyncio
 import json
 import os
 import sys
@@ -147,6 +148,24 @@ def test_clear_backups_removes_all(monkeypatch, tmp_path):
             f.write("{}")
     assert storage._clear_backups() == 3
     assert storage._list_backups() == []
+
+
+def test_create_pre_import_backup_ignores_auto_throttle(monkeypatch, tmp_path):
+    d = _use_dir(monkeypatch, tmp_path)
+    os.makedirs(d, exist_ok=True)
+    settings_path = os.path.join(d, "settings.json")
+    with open(settings_path, "w", encoding="utf-8") as f:
+        json.dump({"state": {"shelves": []}}, f)
+    # An auto snapshot just now would normally block another auto snapshot
+    # for 24h — the pre-import backup must ignore that cooldown entirely.
+    storage._write_versioned_backup(settings_path)
+    p = Plugin()
+    result = asyncio.run(p.create_pre_import_backup())
+    assert result["ok"] is True
+    names = [b["name"] for b in storage._list_backups()]
+    assert any(n.endswith("-pre-import.json") for n in names)
+    # Tagged, so it's excluded from the auto-only pruning/throttle bookkeeping.
+    assert not storage._is_auto_backup(next(n for n in names if "pre-import" in n))
 
 
 def test_restore_round_trip(monkeypatch, tmp_path):

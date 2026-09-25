@@ -29,6 +29,9 @@ export function UpdateBanner({ controller }: { controller: SettingsController })
   const prevEnabledRef = useRef<boolean>(enabled);
   useEffect(() => {
     if (!enabled) { prevEnabledRef.current = false; return; }
+    // A self-install host already polls this same release feed and shows
+    // its own update notice — skip the duplicate check (see index.tsx).
+    if (canSelfInstallUpdate()) return;
     const wasOff = !prevEnabledRef.current;
     prevEnabledRef.current = true;
     let cancelled = false;

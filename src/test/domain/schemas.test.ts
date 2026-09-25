@@ -98,3 +98,33 @@ describe('SettingsSchema with new templates', () => {
     }
   })
 })
+
+// A newer build's field (added after an older backend/frontend build shipped)
+// must round-trip through `.parse()` instead of vanishing — cross-device sync,
+// a downgrade, or a mixed hub/Decky-loader install otherwise silently drops it
+// on the very next save (CRITICAL-NOW.md item 3). `.passthrough()` on the
+// schema is the frontend half; `_preserve_unknown` in sanitizer.py is the
+// backend half (see test_main.py's mirroring test).
+describe('unknown-field round-trip (.passthrough())', () => {
+  it('keeps an unrecognised root-level field', () => {
+    const r = SettingsSchema.parse({ futureRootField: 'z' } as any)
+    expect((r as any).futureRootField).toBe('z')
+  })
+
+  it('keeps an unrecognised field on a regular shelf', () => {
+    const r = SettingsSchema.parse({
+      shelves: [{
+        id: 's', title: 'Shelf', source: { type: 'tab', tab: 'all' },
+        futureShelfField: 'y',
+      }],
+    } as any)
+    expect((r.shelves[0] as any).futureShelfField).toBe('y')
+  })
+
+  it('keeps an unrecognised field on a smart shelf', () => {
+    const r = SettingsSchema.parse({
+      smartShelves: [{ id: 'ss', title: 'Smart', mode: 'quick_play', futureSmartField: 'x' }],
+    } as any)
+    expect((r.smartShelves[0] as any).futureSmartField).toBe('x')
+  })
+})

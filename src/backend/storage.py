@@ -179,6 +179,60 @@ def _safe_read_json(path: str) -> Dict[str, Any]:
         return {}
 
 
+def _is_corrupt_json(path: str) -> bool:
+    """True only when `path` exists but fails to parse as JSON — a missing
+    file is normal (fresh install), not corruption. Used by the primary
+    settings read/write path to tell "nothing here yet" apart from "there
+    IS something here and it's broken", which need very different
+    responses: the former is fine with defaults, the latter must never let
+    the broken file overwrite a good `.bak` on the next save."""
+    if not path or not os.path.exists(path):
+        return False
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            json.load(f)
+        return False
+    except Exception:
+        return True
+
+
+def _recover_wrapped(primary_path: str) -> Optional[Dict[str, Any]]:
+    """Primary is corrupted — try `.bak`, then every `backups/*` snapshot
+    newest-first, returning the first one that actually parses and carries
+    a non-empty `state`. None if nothing is recoverable (falls back to
+    defaults, same as before this existed)."""
+    candidates = [primary_path + ".bak"]
+    try:
+        bdir = _backups_dir()
+        if os.path.isdir(bdir):
+            named = [f for f in os.listdir(bdir) if _is_backup_file(f)]
+            named.sort(key=lambda f: os.path.getmtime(os.path.join(bdir, f)), reverse=True)
+            candidates += [os.path.join(bdir, f) for f in named]
+    except Exception:
+        pass
+    for cand in candidates:
+        wrapped = _read_wrapped(cand)
+        if wrapped and isinstance(wrapped.get("state"), dict) and wrapped["state"]:
+            return wrapped
+    return None
+
+
+def _quarantine_corrupt_primary(primary_path: str) -> None:
+    """Copy an unreadable primary aside as forensic evidence instead of
+    silently discarding it — never into `.bak` (that slot is for the last
+    known-GOOD write) and never blocking the caller (best-effort)."""
+    try:
+        if not primary_path or not os.path.exists(primary_path):
+            return
+        bdir = _backups_dir()
+        os.makedirs(bdir, exist_ok=True)
+        stamp = time.strftime("%Y%m%d-%H%M%S")
+        dest = os.path.join(bdir, "settings-" + stamp + "-corrupt.json")
+        shutil.copy(primary_path, dest)
+    except Exception:
+        pass
+
+
 # Versioned settings backups: a rolling history under `<settings>/backups/` so a
 # bad edit or a destructive action can be rolled back. Auto snapshots are heavily
 # throttled and capped (the plugin runs for months, so we must not accumulate);

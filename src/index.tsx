@@ -31,11 +31,11 @@ import { logDiagnostic } from "./runtime/diagnostics";
 import { prefetchSteamOSVersion } from "./core/steamOSVersion";
 import { prewarmUserPaths } from "./core/userPaths";
 import { checkForUpdate, __resetUpdateCheckCache } from "./core/updateNotifier";
-import { installOrDownloadUpdate } from "./runtime/updateDownload";
+import { installOrDownloadUpdate, canSelfInstallUpdate } from "./runtime/updateDownload";
 import { invalidateRandomSortCache } from "./steam";
 import { pruneCache as pruneImageCache, hydrateHotCacheFromStorage } from "./core/imageCache";
 import { isOnline } from "./core/connectivity";
-import { getCurrentSettings, subscribeSettings } from "./store/settingsStore";
+import { getCurrentSettings, subscribeSettings, wasSettingsRecovered } from "./store/settingsStore";
 import { setPendingSettingsTab } from "./runtime/settingsNav";
 import { pickNewSuggestions } from "./runtime/suggestionNotifier";
 import { notify } from "./components/notify";
@@ -120,6 +120,17 @@ function TitleView() {
 
 const __ds_entry = definePlugin((serverAPI?: any) => {
   logInfo("RUNTIME", "plugin bootstrap start");
+  /* A hot-swap (same host re-evaluating this bundle) skips the OLD
+     instance's onDismount, leaving its patches/listeners/timers live
+     alongside the new ones. `window` survives the swap where module state
+     doesn't — dispose whatever's left (registered by boot(), below)
+     first. First-ever boot finds nothing here — inert no-op. */
+  try {
+    const w = globalThis as any;
+    w.__DECK_SHELVES_INSTANCE__?.dispose?.();
+  } catch (error) {
+    logError("RUNTIME", "failed to dispose previous instance before hot-swap boot", String(error));
+  }
   const platform = createDeckyPlatform();
   setPlatform(platform);
   // Image cache pre-hydration + pruning, both deferred to idle so they
@@ -292,7 +303,10 @@ const __ds_entry = definePlugin((serverAPI?: any) => {
       if (!probed) scheduleBootProbe();
     }, delay);
   };
-  scheduleBootProbe();
+  // A self-install host already polls this same release feed to update
+  // itself and the bundle — checking again here would just duplicate that
+  // request. The host owns the check and shows its own update notice.
+  if (!canSelfInstallUpdate()) scheduleBootProbe();
 
   /* One-shot, ~18 s after boot (library + stats settled): if the user opted
      into suggestions and there's a suggestion they haven't been told about,
@@ -308,11 +322,25 @@ const __ds_entry = definePlugin((serverAPI?: any) => {
     }).catch(() => {});
   }, 18000);
 
+  /* One-shot: the backend flags this the moment it recovers settings.json
+     from a `.bak`/backups snapshot after finding the primary file corrupted
+     (truncated write, disk error). Reading the flag clears it server-side,
+     so this only ever fires once per actual recovery, never on a normal boot. */
+  const corruptionCheckTimer = setTimeout(() => {
+    void wasSettingsRecovered().then((recovered) => {
+      if (!recovered) return;
+      notify("warning", {
+        body: i18next.t("settings_recovered_toast_body" as any),
+        onClick: () => openSettingsPage(),
+      });
+    }).catch(() => {});
+  }, 5000);
+
   // Re-probe on the upward edge of the notify toggle (OFF → ON).
   let lastToggle = getCurrentSettings()?.updateNotifyEnabled !== false;
   const unsubUpdateNotify = subscribeSettings((s) => {
     const now = s?.updateNotifyEnabled !== false;
-    if (!lastToggle && now) void runUpdateProbe('toggle-on');
+    if (!lastToggle && now && !canSelfInstallUpdate()) void runUpdateProbe('toggle-on');
     lastToggle = now;
   });
 
@@ -404,42 +432,49 @@ const __ds_entry = definePlugin((serverAPI?: any) => {
   let uninstallCloudSync: (() => void) | null = null;
   try { uninstallCloudSync = installCloudSync(); } catch { uninstallCloudSync = null; }
 
+  // Named (not inline in onDismount) so it can ALSO be stashed on `window`
+  // for the next hot-swap's own instance to call first — see the
+  // dispose-previous-instance check at the top of this function.
+  const dispose = () => {
+    try {
+      logInfo("RUNTIME", "plugin dismount");
+      patch?.uninstall?.();
+      recentsReplacePatch?.uninstall?.();
+      routerHook?.removeRoute?.(ABOUT_ROUTE);
+      routerHook?.removeRoute?.(EDIT_ROUTE);
+      routerHook?.removeRoute?.(DELETE_ROUTE);
+      routerHook?.removeRoute?.(MANAGE_ROUTE);
+      routerHook?.removeRoute?.(COMPOSE_ROUTE);
+      uninstallRefresh();
+      uninstallSystemEvents();
+      uninstallBatteryState();
+      uninstallDeviceState();
+      uninstallSessionState();
+      uninstallProfileTriggers();
+      uninstallFriendsState();
+      uninstallPluginApi();
+      uninstallLauncherCache();
+      uninstallOwnQamTab?.();
+      uninstallShowcaseMode?.();
+      uninstallScreensaverInject?.();
+      uninstallCloudSync?.();
+      unsubUpdateNotify();
+      if (updateBootTimer !== null) { clearTimeout(updateBootTimer); updateBootTimer = null; }
+      clearTimeout(suggestTimer);
+      clearTimeout(corruptionCheckTimer);
+    } catch (error) {
+      logError("RUNTIME", "failed to remove patch", String(error));
+    }
+  };
+  try { (globalThis as any).__DECK_SHELVES_INSTANCE__ = { dispose }; } catch {}
+
   return {
     name: "Deck Shelves",
     title: <></>,
     titleView: <TitleView />,
     content: renderSettingsContent(),
     icon: <DeckShelvesIcon />,
-    onDismount() {
-      try {
-        logInfo("RUNTIME", "plugin dismount");
-        patch?.uninstall?.();
-        recentsReplacePatch?.uninstall?.();
-        routerHook?.removeRoute?.(ABOUT_ROUTE);
-        routerHook?.removeRoute?.(EDIT_ROUTE);
-        routerHook?.removeRoute?.(DELETE_ROUTE);
-        routerHook?.removeRoute?.(MANAGE_ROUTE);
-        routerHook?.removeRoute?.(COMPOSE_ROUTE);
-        uninstallRefresh();
-        uninstallSystemEvents();
-        uninstallBatteryState();
-        uninstallDeviceState();
-        uninstallSessionState();
-        uninstallProfileTriggers();
-        uninstallFriendsState();
-        uninstallPluginApi();
-        uninstallLauncherCache();
-        uninstallOwnQamTab?.();
-        uninstallShowcaseMode?.();
-        uninstallScreensaverInject?.();
-        uninstallCloudSync?.();
-        unsubUpdateNotify();
-        if (updateBootTimer !== null) { clearTimeout(updateBootTimer); updateBootTimer = null; }
-        clearTimeout(suggestTimer);
-      } catch (error) {
-        logError("RUNTIME", "failed to remove patch", String(error));
-      }
-    },
+    onDismount: dispose,
   };
   };
   /* Cooperative force with the host not yet injected: wait for it, then boot on

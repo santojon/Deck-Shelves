@@ -51,6 +51,19 @@ describe("mergeSettings — cross-device convergence", () => {
     expect((mergeSettings(local, remote).shelves.find((s) => s.id === "a") as any).updatedAt).toBe(9);
   });
 
+  it("keeps showcaseSeen and dev/debug fields device-local — a merge never adopts the other device's", () => {
+    const local = mk({ shelves: [sh("a", 5)], showcaseSeen: false, devModeEnabled: false, debugOverlayEnabled: false });
+    const remote = mk({ shelves: [sh("a", 9)], showcaseSeen: true, devModeEnabled: true, debugOverlayEnabled: true });
+    const out = mergeSettings(local, remote) as any;
+    expect(out.showcaseSeen).toBe(false);
+    expect(out.devModeEnabled).toBe(false);
+    expect(out.debugOverlayEnabled).toBe(false);
+    // Symmetrically: merging from the other side keeps ITS local values.
+    const outRev = mergeSettings(remote, local) as any;
+    expect(outRev.showcaseSeen).toBe(true);
+    expect(outRev.devModeEnabled).toBe(true);
+  });
+
   it("a tombstone hides a deleted id and a delete beats a stale edit", () => {
     const local = mk({ shelves: [sh("a", 5)] });
     const remote = mk({ shelves: [], syncTombstones: { a: 8 } });

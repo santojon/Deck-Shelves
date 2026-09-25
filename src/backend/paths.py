@@ -89,7 +89,7 @@ def _windows_registry_steam_roots() -> List[str]:
     return roots
 
 
-def _normalize_path(path: Any) -> str:
+def _normalize_path(path: Any, *, reject_symlinks: bool = False) -> str:
     """Validate + normalize a user-supplied path so the plugin can only
     read/write inside the user's home directory.
 
@@ -97,6 +97,15 @@ def _normalize_path(path: Any) -> str:
     expansion, and realpath-flattens `..` so traversal attempts can't
     escape the home root. Returns "" on any non-conforming input —
     callers should treat empty as "reject".
+
+    `reject_symlinks=True` (opt-in, existing callers are unaffected)
+    additionally rejects the path if a symlink was dereferenced anywhere
+    while resolving it — a pre-placed symlink under an otherwise-valid
+    directory could otherwise redirect a seemingly-safe path to a
+    sensitive file outside the intended target. Detected by comparing the
+    lexically-normalized path (`abspath`, never follows symlinks) against
+    the fully-resolved one (`realpath`, follows every symlink in the
+    chain) — a mismatch means a symlink was involved.
     """
     if isinstance(path, dict):
         path = path.get("dest_path") or path.get("src_path") or path.get("path") or path.get("file")
@@ -108,9 +117,16 @@ def _normalize_path(path: Any) -> str:
     if not path:
         return ""
     try:
-        resolved = os.path.realpath(os.path.expanduser(path))
+        expanded = os.path.expanduser(path)
+        resolved = os.path.realpath(expanded)
     except Exception:
         return ""
+    if reject_symlinks:
+        try:
+            if os.path.abspath(expanded) != resolved:
+                return ""
+        except Exception:
+            return ""
     # Confine to the user's home directory. Realpath collapses `..` so a
     # traversal like `~/../../../etc/passwd` resolves to `/etc/passwd` and
     # gets rejected here. Absolute system paths fall into the same branch.
@@ -118,3 +134,27 @@ def _normalize_path(path: Any) -> str:
     if resolved != home and not resolved.startswith(home + os.sep):
         return ""
     return resolved
+
+
+def _validate_json_export_path(path: Any, allowed_roots: List[str]) -> str:
+    """Stricter validator for the JSON-shaped read/write/backup RPCs
+    (`write_json_file`, `read_json_file`, `export_backup`, `import_backup`):
+    home-confined and symlink-free (see `_normalize_path`), must end in
+    `.json`, and must resolve under one of `allowed_roots` (the plugin's
+    own settings directory/ies, or a standard user folder such as
+    Downloads/Desktop/Documents — never an arbitrary dotfile or config
+    path like `~/.ssh/id_rsa` or `~/.config/autostart/x.desktop`).
+    Returns "" on any violation."""
+    resolved = _normalize_path(path, reject_symlinks=True)
+    if not resolved or not resolved.lower().endswith(".json"):
+        return ""
+    for root in allowed_roots:
+        if not root:
+            continue
+        try:
+            root_real = os.path.realpath(root)
+        except Exception:
+            continue
+        if resolved == root_real or resolved.startswith(root_real + os.sep):
+            return resolved
+    return ""

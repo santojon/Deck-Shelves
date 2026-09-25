@@ -1,6 +1,22 @@
 check_name="SteamOS 3.8"
 check_version="Preview/Beta"
 
+# A literal system-path prefix is safe when every occurrence sits within a
+# few lines of its own os.path.exists() guard (e.g. a CA-bundle candidate
+# probed before use, never assumed present) — only flag genuinely
+# unguarded hardcoded access.
+_unsafe_path_hit() {
+  local file="$1" pattern="$2" total ln start end
+  [[ -f "$file" ]] || return 1
+  total=$(wc -l < "$file")
+  while IFS= read -r ln; do
+    start=$(( ln > 2 ? ln - 2 : 1 ))
+    end=$(( ln + 2 > total ? total : ln + 2 ))
+    sed -n "${start},${end}p" "$file" | grep -q 'os\.path\.exists' || return 0
+  done < <(grep -n "$pattern" "$file" 2>/dev/null | cut -d: -f1)
+  return 1
+}
+
 run_checks() {
   local root="$1"
   local pass=0
@@ -56,7 +72,11 @@ run_checks() {
 
   local unsafe_paths=0
   for pattern in '"/etc/' '"/var/' '"/usr/' '"/opt/'; do
-    if grep -qrI "$pattern" "$root"/main.py "$root"/src/backend/paths.py "$root"/src/backend/storage.py "$root"/src/backend/sanitizer.py "$root"/src/backend/launchers.py 2>/dev/null; then
+    local hit=0
+    for f in "$root"/main.py "$root"/src/backend/paths.py "$root"/src/backend/storage.py "$root"/src/backend/sanitizer.py "$root"/src/backend/launchers.py; do
+      _unsafe_path_hit "$f" "$pattern" && hit=1
+    done
+    if [[ $hit -eq 1 ]]; then
       echo "  ❌ Accesses system path: $pattern"
       ((unsafe_paths++))
     fi

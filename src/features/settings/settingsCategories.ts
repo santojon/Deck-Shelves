@@ -8,13 +8,16 @@ export interface SettingsCategory {
   keys: ReadonlyArray<string>;
 }
 
-// Categories the Export / Import / Reset modals expose as user-selectable
-// toggles. Order here is the order shown in the UI.
+/* Categories the Export / Import / Reset modals expose as user-selectable
+   toggles (order = UI order). Every top-level `Settings` field must live in
+   exactly one category — "Export All" is just every category selected, so
+   a field missing from all of them silently never exports/imports/resets
+   (CRITICAL-NOW.md item 6). `settingsCategories.test.ts` asserts full coverage. */
 export const SETTINGS_CATEGORIES: ReadonlyArray<SettingsCategory> = [
   { id: "shelves",          labelKey: "settings_category_shelves",          keys: ["shelves", "allShelvesOrder"] },
   { id: "smart",            labelKey: "settings_category_smart",            keys: ["smartShelves", "smartShelvesEnabled", "smartShelvesAtBottom", "smartSurpriseMe", "smartSurpriseMeCount"] },
   { id: "saved_filters",    labelKey: "settings_category_saved_filters",    keys: ["savedFilters", "savedSmartFilters"] },
-  { id: "profiles",         labelKey: "settings_category_profiles",         keys: ["profiles", "activeProfileName"] },
+  { id: "profiles",         labelKey: "settings_category_profiles",         keys: ["profiles", "activeProfileName", "profileTriggersEnabled", "factoryProfileTrigger"] },
   { id: "button_bindings",  labelKey: "settings_category_button_bindings",  keys: ["buttonBindings", "buttonBindingsDisabled", "keyboardBindings", "keyboardBindingsDisabled", "cardActionShortcutsEnabled"] },
   { id: "integrations",     labelKey: "settings_category_integrations",     keys: ["integrationsEnabled", "featureToggles"] },
   { id: "visual_global",    labelKey: "settings_category_visual_global",    keys: [
@@ -25,19 +28,42 @@ export const SETTINGS_CATEGORIES: ReadonlyArray<SettingsCategory> = [
     "globalEnableLogo", "globalEnableIcon", "globalEnableDescription", "globalDescriptionBelowLogo",
     "globalLogoPosition", "globalDescriptionPosition", "globalLogoSize", "globalLogoTopOffset",
     "globalFullPageShelf", "globalIconVerticalAlign", "globalShelfTitlePosition", "globalGameNamePosition",
-    "globalPlaytimePosition", "globalDescriptionHeight",
+    "globalPlaytimePosition", "globalDescriptionHeight", "globalDescriptionScale", "globalLogoBelowShelf",
+    "globalDescriptionLogoGap", "globalGameInfoAbove", "globalFriendsPlayingOverlay", "globalFriendsPlayingOverlayRecent",
   ] },
   { id: "online",           labelKey: "settings_category_online",           keys: [
     "onlineFeaturesEnabled", "onlineWishlistEnabled", "onlinePriceSortEnabled", "onlinePrivacyAccepted",
-    "onlineHideOwnedGames", "onlineHideOwnedNonSteam", "onlineHideOwnedNonSteamCloud",
+    "onlineHideOwnedGames", "onlineHideOwnedNonSteam", "onlineHideOwnedNonSteamCloud", "onlineMetadataEnabled",
   ] },
   { id: "behaviour",        labelKey: "settings_category_behaviour",        keys: [
     "enabled", "hideRecents", "recentsReplaceSource", "hideHomeTabs", "shelfHeroBackground",
     "forceCssLoaderThemes", "lightModeEnabled", "offlineModeEnabled", "updateNotifyEnabled", "sideNavEnabled",
     "betaChannelEnabled", "updateNotifyDismissedVersion",
     "contextSearchEnabled", "contextSearchKeyboardEnabled", "contextSearchOnEnter",
+    "gameContextMenuEnabled", "settingsPageEnabled", "ownQamTabEnabled", "advancedModeEnabled",
+    "templateSuggestionsEnabled", "removalSuggestionsEnabled", "autoCollapseEnabled",
+    "notificationsDisabled", "notificationsDisabledAreas", "showcaseSeen",
+    "cloudSyncEnabled", "cloudSyncLastSyncedAt",
+    "schemaVersion", "syncTombstones", "preferencesUpdatedAt",
   ] },
   { id: "qam_visibility",   labelKey: "settings_category_qam_visibility",   keys: ["qamHiddenToggles", "qamHiddenSections", "unifiedListEnabled"] },
+  { id: "showcase",         labelKey: "settings_category_showcase",         keys: [
+    "showcaseModeEnabled", "showcaseStartAfterSeconds", "showcaseDwellSeconds", "showcaseRandomize",
+    "showcaseStopOnInteraction", "showcaseShelfIds", "showcasePanCards", "showcaseCardsPerShelf",
+    "showcaseCardDwellSeconds",
+  ] },
+  { id: "screensaver",      labelKey: "settings_category_screensaver",      keys: [
+    "screensaverShelvesEnabled", "screensaverShelvesIncludeScreenshots", "screensaverOnlineScreenshotsEnabled",
+    "screensaverIdleBackupAcSec", "screensaverIdleBackupBatterySec", "screensaverStartAfterSeconds",
+    "screensaverDwellSeconds", "screensaverLogoEnabled", "screensaverLogoSize", "screensaverLogoPosition",
+    "screensaverLogoAtTop", "screensaverLogoOffset", "screensaverLogoOnScreenshots", "screensaverShelfBatchSize",
+    "screensaverDescriptionEnabled", "screensaverDescriptionAboveLogo", "screensaverDescriptionLogoGap",
+  ] },
+  { id: "developer",        labelKey: "settings_category_developer",        keys: [
+    "verboseLoggingEnabled", "devModeEnabled", "debugOverlayEnabled", "debugOverlayCorner",
+    "debugOverlayVertical", "debugOverlayFps", "debugOverlayStats", "debugOverlayPerShelf",
+    "debugOverlayOutlines", "debugOverlayFocus", "debugOverlayTransparent",
+  ] },
 ];
 
 export type CategoryId = (typeof SETTINGS_CATEGORIES)[number]["id"];
@@ -112,6 +138,29 @@ export function detectCategoriesInPayload(payload: unknown): Set<string> {
     }
   }
   return present;
+}
+
+/* "Export All" wrapper (CRITICAL-NOW.md item 6). `unwrapPayload` /
+   `detectCategoriesInPayload` only ever look at `state`, so a pre-wrapper
+   export (bare `{ state: {...} }`, no format/version fields) still imports
+   unchanged through the same path. */
+export const EXPORT_FORMAT = "deck-shelves-settings";
+export const EXPORT_FORMAT_VERSION = 1;
+
+export function buildExportPayload(
+  state: Record<string, unknown>,
+  scope: ReadonlyArray<string>,
+  opts: { appVersion: string; schemaVersion: number },
+): Record<string, unknown> {
+  return {
+    format: EXPORT_FORMAT,
+    formatVersion: EXPORT_FORMAT_VERSION,
+    appVersion: opts.appVersion,
+    schemaVersion: opts.schemaVersion,
+    createdAt: new Date().toISOString(),
+    scope: [...scope],
+    state,
+  };
 }
 
 /** Normalises a payload that may wrap settings under `state`. Returns

@@ -72,8 +72,8 @@ flowchart LR
 | `recentlyActive` | Played in the current session window | `minMinutes`: number |
 | `neglected` | Not played for N days | `days`: number |
 | `systemCompatibility` | Runs natively / via compatibility layer | — |
-| `remotePlayLocation` | Remote Play availability | `mode`: `"local"` \| `"remote"` \| `"remote-only"` \| `"both"` |
-| `libraryLocation` | Which Steam library the game is installed in | `category`: `"internal"` \| `"external"` \| `"network"` |
+| `remotePlayLocation` | Remote Play availability | `mode`: `"local"` \| `"local-only"` \| `"remote"` \| `"remote-only"` \| `"both"` |
+| `libraryLocation` | Which Steam libraries the game is installed in — mix specific ones (an SD card + a USB drive, say) | `libraryIds`: string[] (device-specific library ids; empty = no restriction). Legacy saves without `libraryIds` fall back to `category`: `"internal"` \| `"external"` \| `"network"` |
 | `appStatus` | Download / update activity | `groups`: `("downloading" \| "queued" \| …)[]` |
 | `friendsPlayingNow` | Friends currently in-game | — |
 | `friendsPlayedRecently` | Friends played within N days | `days`: number |
@@ -122,7 +122,11 @@ flowchart LR
 
 `libraryLocation` reads Steam's own library records instead of guessing from the
 install path — it also distinguishes network libraries and has a matching
-"Library available" condition in Visibility Rules / profile triggers.
+"Library available" condition in Visibility Rules / profile triggers. The
+editor shows one toggle per detected library (labelled, e.g. "SD_CARD",
+"Steam", a NAS share's own label) rather than a category dropdown, so a
+shelf can mix any combination — every external drive but not the network
+share, say, or two specific SD cards but not a third.
 
 ### Non-Steam shortcuts
 

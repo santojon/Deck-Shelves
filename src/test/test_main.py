@@ -19,6 +19,7 @@ decky_mock.DECKY_PLUGIN_SETTINGS_DIR = "/tmp/test-deck-shelves-settings"
 sys.modules["decky"] = decky_mock
 
 from main import _sanitize_settings, _normalize_path, Plugin, DEFAULT_SETTINGS  # noqa: E402
+from paths import _validate_json_export_path  # noqa: E402
 
 
 # ─── _sanitize_settings ────────────────────────────────────────────────────────
@@ -71,6 +72,39 @@ def test_sanitize_settings_valid_shelf_passes_through():
     assert shelf["limit"] == 10
     assert shelf["hidden"] is False
     assert shelf["enabled"] is True
+
+
+# A newer frontend build's field (added after this backend version shipped)
+# must round-trip through `_sanitize_settings` instead of vanishing on the
+# next save — cross-device sync, a downgrade, or a mixed hub/Decky-loader
+# install otherwise silently drops it (CRITICAL-NOW.md item 3). Mirrors
+# schemas.test.ts's ".passthrough()" round-trip tests on the TS side.
+
+def test_sanitize_settings_preserves_unknown_root_field():
+    result = _sanitize_settings({"futureRootField": "z"})
+    assert result.get("futureRootField") == "z"
+
+
+def test_sanitize_settings_preserves_unknown_shelf_field():
+    result = _sanitize_settings({
+        "shelves": [{
+            "id": "my-shelf",
+            "title": "My Shelf",
+            "source": {"type": "tab", "tab": "all"},
+            "futureShelfField": "y",
+        }],
+    })
+    assert result["shelves"][0].get("futureShelfField") == "y"
+
+
+def test_sanitize_settings_preserves_unknown_smart_shelf_field():
+    result = _sanitize_settings({
+        "smartShelves": [{
+            "id": "ss", "title": "Smart", "mode": "quick_play",
+            "futureSmartField": "x",
+        }],
+    })
+    assert result["smartShelves"][0].get("futureSmartField") == "x"
 
 
 def test_sanitize_settings_rejects_shelf_with_empty_id():
@@ -206,6 +240,84 @@ def test_normalize_path_non_string_non_dict_returns_empty():
     assert _normalize_path(12345) == ""
     assert _normalize_path(None) == ""
     assert _normalize_path([]) == ""
+
+
+# ─── _normalize_path(reject_symlinks=True) ─────────────────────────────────────
+
+import tempfile as _tempfile  # noqa: E402
+
+
+def test_normalize_path_reject_symlinks_allows_plain_path():
+    p = _os.path.join(_HOME, "Downloads", "file.json")
+    assert _normalize_path(p, reject_symlinks=True) == _os.path.realpath(p)
+
+
+def test_normalize_path_reject_symlinks_rejects_symlinked_file():
+    with _tempfile.TemporaryDirectory(dir=_HOME) as d:
+        real = _os.path.join(d, "real.json")
+        link = _os.path.join(d, "link.json")
+        with open(real, "w") as f:
+            f.write("{}")
+        _os.symlink(real, link)
+        assert _normalize_path(link, reject_symlinks=True) == ""
+        # Without the flag, the existing (pre-security-audit) behavior —
+        # dereferencing to the real, still-in-home target — is unchanged.
+        assert _normalize_path(link) == _os.path.realpath(real)
+
+
+def test_normalize_path_reject_symlinks_rejects_symlinked_ancestor_dir():
+    with _tempfile.TemporaryDirectory(dir=_HOME) as d:
+        real_dir = _os.path.join(d, "real_dir")
+        _os.makedirs(real_dir)
+        link_dir = _os.path.join(d, "link_dir")
+        _os.symlink(real_dir, link_dir)
+        target = _os.path.join(link_dir, "file.json")
+        assert _normalize_path(target, reject_symlinks=True) == ""
+
+
+# ─── _validate_json_export_path ────────────────────────────────────────────────
+
+def _roots():
+    return [_os.path.join(_HOME, "Downloads"), _os.path.join(_HOME, "Desktop"), _os.path.join(_HOME, "Documents")]
+
+
+def test_validate_json_export_path_accepts_json_under_allowed_root():
+    p = _os.path.join(_HOME, "Downloads", "deck-shelves-export.json")
+    assert _validate_json_export_path(p, _roots()) == _os.path.realpath(p)
+
+
+def test_validate_json_export_path_rejects_non_json_extension():
+    for suffix in (".desktop", ".sh", ".bashrc", ""):
+        p = _os.path.join(_HOME, "Downloads", f"file{suffix}")
+        assert _validate_json_export_path(p, _roots()) == ""
+
+
+def test_validate_json_export_path_rejects_outside_allowed_roots():
+    # Under home (so `_normalize_path` alone would accept these) but
+    # outside every allowed root — the class of bug this closes.
+    assert _validate_json_export_path(_os.path.join(_HOME, ".bashrc"), _roots()) == ""
+    assert _validate_json_export_path(_os.path.join(_HOME, ".ssh", "id_rsa"), _roots()) == ""
+    assert _validate_json_export_path(_os.path.join(_HOME, ".config", "autostart", "x.desktop"), _roots()) == ""
+    assert _validate_json_export_path("/etc/passwd", _roots()) == ""
+
+
+def test_validate_json_export_path_rejects_json_named_file_outside_roots():
+    # A `.json`-named file is not enough on its own if it's outside every
+    # allowed root (e.g. disguised as `~/.config/autostart/x.desktop.json`).
+    p = _os.path.join(_HOME, ".config", "autostart", "x.desktop.json")
+    assert _validate_json_export_path(p, _roots()) == ""
+
+
+def test_validate_json_export_path_rejects_symlink_escape():
+    with _tempfile.TemporaryDirectory(dir=_os.path.join(_HOME, "Downloads")) as d:
+        outside = _os.path.join(_HOME, ".ssh")
+        link = _os.path.join(d, "escape.json")
+        try:
+            _os.symlink(outside, link)
+            assert _validate_json_export_path(link, _roots()) == ""
+        finally:
+            if _os.path.islink(link):
+                _os.remove(link)
 
 
 # ─── updateNotify* sanitizer (regression for null-on-load bug) ────────────────
