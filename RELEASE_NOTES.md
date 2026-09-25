@@ -15,6 +15,7 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 - **"Export All" now actually exports everything.** Around 60 settings — Showcase Mode, the screensaver, developer options and a few others — were silently left out of Export/Import/Reset even when selected; every setting is now covered. Exports also carry a version stamp for future compatibility, though older export files still import fine, and importing now takes a safety-net snapshot of your current settings first.
 - **Developer/debug settings and the "own QAM tab" toggle are now device-only.** Switching profiles, an automatic profile switch, a factory reset, or a cross-device settings sync used to be able to flip these — they no longer do, since they're specific to this install, not something a profile or another device should carry.
 - **Fewer redundant update checks when running through the standalone host.** It already checks for updates and lets you know on its own, so the plugin no longer also checks and shows its own banner there — only when running through a plugin loader, where nothing else is checking.
+- **Fixed: a smart shelf's per-day hour overrides (e.g. Spare Time open all day on weekends instead of its usual short windows) turned into a plain everyday time window the moment you saved**, and the "allow day overrides" switch looked like it had turned itself off. Saving now keeps the day restriction.
 
 ## [3.3.1] - 2026-09-24
 

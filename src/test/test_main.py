@@ -309,7 +309,12 @@ def test_validate_json_export_path_rejects_json_named_file_outside_roots():
 
 
 def test_validate_json_export_path_rejects_symlink_escape():
-    with _tempfile.TemporaryDirectory(dir=_os.path.join(_HOME, "Downloads")) as d:
+    # A bare CI runner has no ~/Downloads yet (unlike a real desktop) — the
+    # temp dir below must nest inside a real allowed root to test the
+    # escape, so ensure it exists rather than assuming it already does.
+    downloads = _os.path.join(_HOME, "Downloads")
+    _os.makedirs(downloads, exist_ok=True)
+    with _tempfile.TemporaryDirectory(dir=downloads) as d:
         outside = _os.path.join(_HOME, ".ssh")
         link = _os.path.join(d, "escape.json")
         try:
@@ -842,6 +847,44 @@ def test_sanitize_visibility_round_trips_on_saved_smart_filter():
         "savedSmartFilters": [{"id": "sf1", "name": "F", "mode": "recently_played", "visibility": _VIS}]
     })
     assert result["savedSmartFilters"][0].get("visibility") == _VIS
+
+
+def test_sanitize_visible_hours_round_trips_plain_range_on_smart_shelf():
+    result = _sanitize_settings({
+        "smartShelves": [{"id": "sm1", "title": "S", "mode": "spare_time",
+                          "visibleHours": [{"start": 6, "end": 9}]}]
+    })
+    assert result["smartShelves"][0].get("visibleHours") == [{"start": 6, "end": 9}]
+
+
+def test_sanitize_visible_hours_preserves_days_on_smart_shelf():
+    # Regression: the per-day "override hours" editor tags a range with
+    # `days` — the sanitizer used to silently drop it on every save,
+    # turning a Saturday/Sunday override into an indistinguishable
+    # always-on range (and the editor's "allow day overrides" toggle would
+    # then read back as off, since nothing was left carrying `days`).
+    result = _sanitize_settings({
+        "smartShelves": [{"id": "sm1", "title": "S", "mode": "spare_time", "visibleHours": [
+            {"start": 6, "end": 9},
+            {"start": 6, "end": 22, "days": [6]},
+            {"start": 6, "end": 22, "days": [0]},
+        ]}]
+    })
+    hours = result["smartShelves"][0].get("visibleHours")
+    assert hours == [
+        {"start": 6, "end": 9},
+        {"start": 6, "end": 22, "days": [6]},
+        {"start": 6, "end": 22, "days": [0]},
+    ]
+
+
+def test_sanitize_visible_hours_drops_invalid_days():
+    result = _sanitize_settings({
+        "smartShelves": [{"id": "sm1", "title": "S", "mode": "spare_time", "visibleHours": [
+            {"start": 6, "end": 22, "days": [6, 9, "bad", -1]},
+        ]}]
+    })
+    assert result["smartShelves"][0].get("visibleHours") == [{"start": 6, "end": 22, "days": [6]}]
 
 
 def test_sanitize_autopin_round_trips_on_shelves():

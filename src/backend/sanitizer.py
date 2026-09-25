@@ -612,7 +612,15 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:  # noqa: C90
                     ws = int(r.get("start"))
                     we = int(r.get("end"))
                     if 0 <= ws <= 23 and 0 <= we <= 23:
-                        cleaned_ranges.append({"start": ws, "end": we})
+                        cleaned_range: Dict[str, Any] = {"start": ws, "end": we}
+                        # Per-range day restriction (the editor's "day overrides"
+                        # tab) — dropping this here silently turned an override
+                        # into a plain always-on range on the very next save.
+                        if isinstance(r.get("days"), list):
+                            days = [int(d) for d in r["days"] if isinstance(d, (int, float)) and 0 <= int(d) <= 6]
+                            if days:
+                                cleaned_range["days"] = days
+                        cleaned_ranges.append(cleaned_range)
                 except Exception:
                     continue
             if cleaned_ranges:
