@@ -7,6 +7,7 @@ import DeveloperFilterOptions from "./DeveloperFilterOptions";
 import PublisherFilterOptions from "./PublisherFilterOptions";
 import MergeFilterOptions from "./MergeFilterOptions";
 import CompositeFilterOptions from "./CompositeFilterOptions";
+import LibraryLocationOptions from "./LibraryLocationOptions";
 import { COMPAT_LEVELS } from "./utils";
 import { APP_STATUS_GROUP_KEYS } from "../../steam/appDisplayStatus";
 import { DSSliderField } from '../ui'
@@ -182,19 +183,21 @@ const RENDERERS: Record<string, (c: OptCtx) => ReactNode> = {
     t("filter_type_remote_play"), t("filter_remote_play_hint"),
     [
       { data: "local", label: t("filter_remote_play_local") },
+      { data: "local-only", label: t("filter_remote_play_local_only" as any) },
       { data: "remote", label: t("filter_remote_play_remote") },
       { data: "remote-only", label: t("filter_remote_play_remote_only") },
       { data: "both", label: t("filter_remote_play_both") },
     ],
     p.mode ?? "remote-only", (v) => patchParams({ mode: v })),
-  libraryLocation: ({ t, p, patchParams }) => dropdownRow(
-    t("filter_type_library_location"), t("filter_library_location_hint"),
-    [
-      { data: "internal", label: t("filter_storage_internal") },
-      { data: "external", label: t("filter_library_external") },
-      { data: "network", label: t("filter_library_network") },
-    ],
-    String(p.category ?? "internal"), (v) => patchParams({ category: v })),
+  libraryLocation: ({ t, p, patchParams }) => (
+    <>
+      <Field label={t("filter_type_library_location")} description={t("filter_library_location_hint")} bottomSeparator="none" />
+      <LibraryLocationOptions
+        selected={Array.isArray(p.libraryIds) ? p.libraryIds : []}
+        onChange={(ids) => patchParams({ libraryIds: ids })}
+      />
+    </>
+  ),
   hidden: ({ t, p, patchParams }) => dropdownRow(
     t("filter_type_hidden"), undefined,
     [

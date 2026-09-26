@@ -50,6 +50,7 @@ export function defaultSettings(): Settings {
     recentsReplaceSource: false,
     hideHomeTabs: false,
     shelfHeroBackground: false,
+    gameContextMenuEnabled: true,
     globalMatchNativeSize: false,
     globalHighlightFirst: false,
     globalHighlightAll: false,
@@ -104,6 +105,7 @@ export function defaultSettings(): Settings {
     featureToggles: {},
     profiles: [],
     integrationsEnabled: {},
+    cardActionShortcutsEnabled: true,
     buttonBindings: {
       cardHideRemove: "X",
       cardHighlightToggle: "Y",

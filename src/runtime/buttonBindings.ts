@@ -202,9 +202,16 @@ export function formatComboForDisplay(combo: string | null | undefined): string 
   return tokens.join(" + ");
 }
 
-export function resolveBindings(b: ButtonBindings | null | undefined, disabled?: ReadonlyArray<string>): Required<ButtonBindings> {
+const CARD_BINDING_KEYS = new Set(["cardHideRemove", "cardHighlightToggle", "cardQuickLaunch"]);
+
+export function resolveBindings(
+  b: ButtonBindings | null | undefined,
+  disabled?: ReadonlyArray<string>,
+  cardActionsEnabled: boolean = true,
+): Required<ButtonBindings> {
   const ds = new Set(disabled ?? []);
   const pick = <K extends keyof Required<ButtonBindings>>(key: K, raw: any, fallback: Required<ButtonBindings>[K]) => {
+    if (!cardActionsEnabled && CARD_BINDING_KEYS.has(key as string)) return null as any;
     if (ds.has(key as string)) return null as any;
     if (raw === undefined) return fallback;
     return raw;

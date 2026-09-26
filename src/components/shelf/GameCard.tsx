@@ -25,6 +25,15 @@ import { resolveKeyboardBindings, parseKeyCombo, matchKeyEvent, createKeyMatcher
 import { subscribeControllerInput } from "../../runtime/controllerInput";
 import { resolveQuickLaunchAction } from "../../steam/appDisplayStatus";
 
+/* Master switch for cardHideRemove/cardHighlightToggle/cardQuickLaunch —
+   gates resolveBindings()/resolveKeyboardBindings() below regardless of the
+   per-binding disabled list. Split out as its own function (rather than
+   inlined at each call site) to keep the optional-chaining branch out of
+   the already-complex functions that call it. */
+function cardActionsEnabled(): boolean {
+  return getCurrentSettings()?.cardActionShortcutsEnabled !== false;
+}
+
 // Build a {buttonId: label} map for Decky's Focusable `actionDescriptionMap`.
 // Only single-button bindings get a legend; chords/doubles silently drop.
 function buildActionDescriptionMap(args: {
@@ -36,7 +45,7 @@ function buildActionDescriptionMap(args: {
   hideable: boolean;
   hiddenNow: boolean;
 }): Record<number, string> | undefined {
-  const b = resolveBindings(getCurrentSettings()?.buttonBindings as any, (getCurrentSettings() as any)?.buttonBindingsDisabled);
+  const b = resolveBindings(getCurrentSettings()?.buttonBindings as any, (getCurrentSettings() as any)?.buttonBindingsDisabled, cardActionsEnabled());
   const TOKEN_TO_BTN: Record<string, number> = {
     X: BTN.SECONDARY, Y: BTN.OPTIONS,
     L1: BTN.L1, R1: BTN.R1, L2: BTN.L2, R2: BTN.R2,
@@ -224,7 +233,7 @@ function handleCardKeyEvent(
   actions: { quickLaunch: () => void; removeOrHide: () => void; toggleHighlight: () => void },
 ): void {
   try {
-    const kb = resolveKeyboardBindings(getCurrentSettings()?.keyboardBindings as any, (getCurrentSettings() as any)?.keyboardBindingsDisabled);
+    const kb = resolveKeyboardBindings(getCurrentSettings()?.keyboardBindings as any, (getCurrentSettings() as any)?.keyboardBindingsDisabled, cardActionsEnabled());
     if (kb.cardQuickLaunch && matchKeyEvent(code, parseKeyCombo(kb.cardQuickLaunch), state)) { actions.quickLaunch(); return; }
     if (kb.cardHideRemove && matchKeyEvent(code, parseKeyCombo(kb.cardHideRemove), state)) { actions.removeOrHide(); return; }
     if (kb.cardHighlightToggle && matchKeyEvent(code, parseKeyCombo(kb.cardHighlightToggle), state)) actions.toggleHighlight();
@@ -382,7 +391,7 @@ function GameCardImpl({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHProp
     try { dispatchHomeButtonDown(evt); } catch {}
     if (!appid) return;
     try {
-      const b = resolveBindings(getCurrentSettings()?.buttonBindings as any, (getCurrentSettings() as any)?.buttonBindingsDisabled);
+      const b = resolveBindings(getCurrentSettings()?.buttonBindings as any, (getCurrentSettings() as any)?.buttonBindingsDisabled, cardActionsEnabled());
       const state = matcherRef.current;
       if (matchEvent(evt, parseCombo(b.cardQuickLaunch), state)) { quickLaunch(); return; }
       if (matchEvent(evt, parseCombo(b.cardHideRemove), state)) {
@@ -415,7 +424,7 @@ function GameCardImpl({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHProp
       const el = cardRef.current;
       if (!el || !el.classList.contains("gpfocus")) return;
       try {
-        const b = resolveBindings(getCurrentSettings()?.buttonBindings as any, (getCurrentSettings() as any)?.buttonBindingsDisabled);
+        const b = resolveBindings(getCurrentSettings()?.buttonBindings as any, (getCurrentSettings() as any)?.buttonBindingsDisabled, cardActionsEnabled());
         const state = rawMatcherRef.current;
         const evtLike = { button: e.button };
         if (usesRawOnly(b.cardQuickLaunch) && matchEvent(evtLike, parseRawCombo(b.cardQuickLaunch), state)) { quickLaunch(); return; }

@@ -25,5 +25,6 @@
   "uitests_suites_dir": "scripts/deckprobe-ext/uitests/suites",
   "screenshots_scenarios_dir": "scripts/deckprobe-ext/screenshots/scenarios",
   "screenshots_dir":    "assets/screenshots",
+  "videos_scenarios_dir": "scripts/deckprobe-ext/videos/scenarios",
   "perf_bench_config":  "scripts/deckprobe-ext/perf-bench.config.json"
 }

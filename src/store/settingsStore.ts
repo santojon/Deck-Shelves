@@ -561,6 +561,17 @@ export async function createSnapshot(): Promise<BackupEntry[]> {
   }
 }
 
+/* Best-effort safety net before a category import merges into live settings
+   — always untagged-throttle-exempt (server-side tag, no frontend input) so
+   it never collides with the 24h auto-snapshot cooldown. */
+export async function createPreImportSnapshot(): Promise<void> {
+  try {
+    await withTimeout(call<[], unknown>("create_pre_import_backup"), 8000);
+  } catch (error) {
+    logError("STORAGE", "createPreImportSnapshot failed", String(error));
+  }
+}
+
 export async function exportBackupToFile(name: string, dest: string): Promise<boolean> {
   try {
     return !!(await withTimeout(call<[unknown], boolean>("export_backup", { name, dest }), 15000));
@@ -618,6 +629,19 @@ export async function readJsonFile(path: string): Promise<string | null> {
   } catch (error) {
     logError("STORAGE", "readJsonFile failed", String(error));
     return null;
+  }
+}
+
+/* One-shot: true exactly once, the first time this is called after the
+   backend recovered settings.json from a `.bak`/backups snapshot because
+   the primary file was corrupted. The backend clears its own flag on read,
+   so a later unrelated boot never re-fires this. */
+export async function wasSettingsRecovered(): Promise<boolean> {
+  try {
+    return !!(await withTimeout(call<[], boolean>("was_settings_recovered"), 8000));
+  } catch (error) {
+    logError("STORAGE", "wasSettingsRecovered failed", String(error));
+    return false;
   }
 }
 

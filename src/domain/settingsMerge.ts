@@ -13,6 +13,16 @@ type Tombstones = Record<string, number>;
 // scalar bag, chosen whole by preferencesUpdatedAt.
 export const SYNC_LISTS = ["shelves", "smartShelves", "savedFilters", "savedSmartFilters", "profiles"] as const;
 
+// Dev/debug tooling + the per-device QAM tab: never part of a profile switch
+// or a cross-device sync, only ever local to this install. Shared with the
+// profile controller (controller/profiles.ts, runtime/profileTriggers.ts).
+export const DEVICE_LOCAL_FIELDS = [
+  "devModeEnabled", "verboseLoggingEnabled", "ownQamTabEnabled",
+  "debugOverlayEnabled", "debugOverlayCorner", "debugOverlayVertical",
+  "debugOverlayFps", "debugOverlayStats", "debugOverlayPerShelf",
+  "debugOverlayOutlines", "debugOverlayFocus", "debugOverlayTransparent",
+] as const;
+
 // Per-device, never synced — always kept from the local (first) argument.
 export const LOCAL_ONLY_FIELDS = [
   "cloudSyncEnabled", "cloudSyncLastSyncedAt",
@@ -20,6 +30,10 @@ export const LOCAL_ONLY_FIELDS = [
   // The active profile is a device-local presentation — a merge must keep the
   // local one, never adopt the other device's (see cloudSync's matching list).
   "activeProfileName",
+  // The first-run tour flag: per-device, same reasoning as above (profiles
+  // already keep it sticky via stickyShowcaseSeen; a sync merge must too).
+  "showcaseSeen",
+  ...DEVICE_LOCAL_FIELDS,
 ] as const;
 
 function clk(e: Entity): number { return typeof e.updatedAt === "number" ? e.updatedAt : 0; }

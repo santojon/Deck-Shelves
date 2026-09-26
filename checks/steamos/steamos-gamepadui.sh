@@ -1,5 +1,5 @@
 check_name="SteamOS GamepadUI"
-check_version="3.5–3.9"
+check_version="3.5–3.10"
 
 run_checks() {
   local root="$1"

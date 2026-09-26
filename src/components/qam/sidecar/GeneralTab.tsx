@@ -77,9 +77,12 @@ function behaviorSection(c: GCtx): ReactNode {
       id='behavior'
       icon={<SlidersIcon />}
       title={t('section_behavior')}
-      count={[settings.hideRecents === true, settings.hideHomeTabs === true, settings.shelfHeroBackground === true, settings.recentsReplaceSource === true].filter(Boolean).length}
+      count={[settings.hideRecents === true, settings.hideHomeTabs === true, settings.shelfHeroBackground === true, settings.recentsReplaceSource === true, settings.gameContextMenuEnabled === false].filter(Boolean).length}
       headerExtra={eye(c, 'behavior')}
     >
+      {row('gameContextMenuEnabled', (
+        <ToggleField label={t('game_context_menu_enabled')} checked={settings.gameContextMenuEnabled !== false} onChange={(v: boolean) => actions.setGameContextMenuEnabled?.(v)} />
+      ))}
       {row('hideRecents', (
         <ToggleField label={t('hide_recents')} checked={settings.hideRecents === true} onChange={(v: boolean) => actions.setHideRecents(v)} />
       ))}

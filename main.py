@@ -12,12 +12,31 @@ import urllib.error
 import urllib.parse
 from typing import Any, Dict, List, Optional
 
-# SteamOS ships with an incomplete CA bundle; urllib fails SSL verification
-# for steam.* and steamcommunity.* URLs. Since we only call trusted
-# first-party Steam endpoints, disabling cert verification is acceptable here.
-_SSL_CTX = ssl.create_default_context()
-_SSL_CTX.check_hostname = False
-_SSL_CTX.verify_mode = ssl.CERT_NONE
+def _build_ssl_context() -> ssl.SSLContext:
+    """Verified TLS context for the Steam API calls this file makes.
+
+    SteamOS's default CA search can come up empty inside the plugin's
+    sandboxed process, which used to make cert verification for
+    steam.*/steamcommunity.* fail — that was previously "fixed" by
+    disabling verification outright (`check_hostname=False`,
+    `CERT_NONE`), which instead let ANY certificate through: a hostile
+    Wi-Fi network could MITM the connection and steal the Steam session
+    token or swap the downloaded update zip for a malicious one.
+    Supplementing (never replacing — `load_verify_locations` adds to the
+    existing trust store) with the distro's own CA bundle keeps
+    verification on."""
+    ctx = ssl.create_default_context()
+    for candidate in ("/etc/ssl/certs/ca-certificates.crt", "/etc/ssl/cert.pem"):
+        if os.path.exists(candidate):
+            try:
+                ctx.load_verify_locations(cafile=candidate)
+            except Exception:
+                pass
+            break
+    return ctx
+
+
+_SSL_CTX = _build_ssl_context()
 
 import sys
 # Decky's sandboxed plugin loader doesn't put the plugin's own directory
@@ -41,8 +60,8 @@ from plugin_host import logger
 # settings.json read helpers — extracted into sibling modules. Re-exported
 # by name so `from main import _sanitize_settings, _normalize_path`
 # continues to work for existing pytest suites + any external callers.
-from paths import _steam_install_candidates, _normalize_path
-from storage import _settings_dir, _primary_file, _safe_read_json, _backups_dir, _write_versioned_backup, _list_backups, _is_safe_backup_name, _export_backup, _import_backup, _delete_backup, _clear_backups, AUTO_THROTTLE_SECONDS, _read_wrapped, sync_mirror, reconcile_settings
+from paths import _steam_install_candidates, _normalize_path, _validate_json_export_path
+from storage import _settings_dir, _primary_file, _safe_read_json, _backups_dir, _write_versioned_backup, _list_backups, _is_safe_backup_name, _export_backup, _import_backup, _delete_backup, _clear_backups, AUTO_THROTTLE_SECONDS, _read_wrapped, sync_mirror, reconcile_settings, _canonical_settings_dir, _loader_settings_dir, _is_corrupt_json, _recover_wrapped, _quarantine_corrupt_primary
 from sanitizer import _sanitize_settings
 from css_themes import read_css_loader_themes
 from display_state import read_display_state
@@ -54,6 +73,33 @@ from peripherals import get_bluetooth_state as _bt_state, get_audio_state as _au
 from launchers import list_launcher_games as _list_launcher_games, list_available_launchers as _list_available_launchers
 
 DEFAULT_SETTINGS: Dict[str, Any] = {"enabled": False, "hideRecents": False, "recentsReplaceSource": False, "hideHomeTabs": False, "shelfHeroBackground": False, "globalMatchNativeSize": False, "globalHighlightFirst": False, "globalHighlightAll": False, "globalHideStatusLine": False, "globalHideNewBadge": False, "globalHideDiscountBadge": False, "globalHideCompatIcons": False, "globalHideNonSteamBadge": False, "globalHideShelfTitle": False, "globalHideGameNames": False, "globalHideInstallIndicator": False, "globalHideSeeMore": False, "globalHideRefreshCard": False, "shelves": [], "smartShelvesEnabled": False, "smartShelvesAtBottom": False, "smartShelves": [], "smartSurpriseMe": False, "smartSurpriseMeCount": 0}
+
+
+def _json_export_roots() -> List[str]:
+    """Where the JSON-shaped read/write/backup RPCs are allowed to touch:
+    the plugin's own settings directory (every host variant, so mirroring
+    between a plugin loader and a standalone host keeps working) plus the
+    standard folders the export/import file picker actually offers —
+    never an arbitrary path like `~/.ssh` or `~/.config/autostart`."""
+    roots = []
+    try:
+        roots.append(_settings_dir())
+    except Exception:
+        pass
+    try:
+        roots.append(_canonical_settings_dir())
+    except Exception:
+        pass
+    try:
+        roots.append(_loader_settings_dir())
+    except Exception:
+        pass
+    roots += [
+        os.path.expanduser("~/Downloads"),
+        os.path.expanduser("~/Desktop"),
+        os.path.expanduser("~/Documents"),
+    ]
+    return roots
 
 
 def _redact_secrets(text: str) -> str:
@@ -112,6 +158,11 @@ class Plugin:
         Plugin.settings_dir = _settings_dir()
         os.makedirs(Plugin.settings_dir, exist_ok=True)
 
+    # One-shot flag: set when `_read_state` recovers from a corrupted
+    # primary, read (and cleared) once by `was_settings_recovered` so the
+    # frontend can show a single toast instead of polling continuously.
+    _corruption_recovered: bool = False
+
     def _read_state(self) -> Dict[str, Any]:
         self._ensure_dirs()
         reconciled = reconcile_settings()
@@ -119,6 +170,25 @@ class Plugin:
             return _sanitize_settings(reconciled["state"])
         path = _primary_file()
         if not path or not os.path.exists(path):
+            return dict(DEFAULT_SETTINGS)
+        if _is_corrupt_json(path):
+            # The primary is unreadable — never let this be what the next
+            # save rotates into `.bak` (that used to destroy the last known
+            # GOOD backup). Try `.bak`, then the newest `backups/*`
+            # snapshot; quarantine the broken file either way so it isn't
+            # just silently lost, and surface it once to the frontend.
+            recovered = _recover_wrapped(path)
+            try:
+                logger.error(
+                    f"Deck Shelves: primary settings file is corrupted ({path}); "
+                    + ("recovered from a backup" if recovered else "no backup was recoverable, using defaults")
+                )
+            except Exception:
+                pass
+            _quarantine_corrupt_primary(path)
+            Plugin._corruption_recovered = True
+            if recovered is not None:
+                return _sanitize_settings(recovered["state"])
             return dict(DEFAULT_SETTINGS)
         data = _safe_read_json(path)
         state = data.get("state") if isinstance(data.get("state"), dict) else data
@@ -156,12 +226,20 @@ class Plugin:
                 os.fsync(f.fileno())
             # Keep a backup of the previous good write before replacing it:
             # a rolling versioned snapshot (restore picker) + the single `.bak`.
+            # If the CURRENT primary is itself unreadable (e.g. `_read_state`
+            # never got a chance to run first, or it was corrupted after its
+            # own read), it must never become the new `.bak` — that would
+            # destroy the one file this recovery path depends on. Quarantine
+            # it instead and leave the existing `.bak` exactly as it was.
             if os.path.exists(path):
-                _write_versioned_backup(path, throttle_seconds=AUTO_THROTTLE_SECONDS)
-                try:
-                    os.replace(path, bak_path)
-                except Exception:
-                    pass
+                if _is_corrupt_json(path):
+                    _quarantine_corrupt_primary(path)
+                else:
+                    _write_versioned_backup(path, throttle_seconds=AUTO_THROTTLE_SECONDS)
+                    try:
+                        os.replace(path, bak_path)
+                    except Exception:
+                        pass
             os.replace(tmp_path, path)
         except Exception as e:
             try:
@@ -200,6 +278,15 @@ class Plugin:
         # it off the event loop so a slow read doesn't block every other
         # plugin RPC behind it.
         return await asyncio.to_thread(self._read_state)
+
+    async def was_settings_recovered(self, *args, **kwargs) -> bool:
+        # One-shot: `_read_state` sets this the moment it recovers from a
+        # corrupted primary settings file. The frontend polls this once at
+        # boot to show a single toast — reading it clears it, so a later
+        # unrelated boot never re-shows a stale notice.
+        was = Plugin._corruption_recovered
+        Plugin._corruption_recovered = False
+        return was
 
     async def get_css_loader_themes(self, *args, **kwargs) -> Dict[str, Any]:
         # Actual active/installed CSS Loader theme names off disk (read-only).
@@ -315,10 +402,28 @@ class Plugin:
             return {"ok": True, "backups": _list_backups()}
         return await asyncio.to_thread(_do)
 
+    async def create_pre_import_backup(self, *args, **kwargs) -> Dict[str, Any]:
+        # Safety net before a category import merges into live settings — no
+        # frontend-supplied tag (avoids item 1's filename-injection class of
+        # bug), and no throttle_seconds so it's never skipped by the 24h
+        # auto-snapshot cooldown.
+        def _do():
+            _write_versioned_backup(_primary_file(), tag="pre-import")
+            return {"ok": True, "backups": _list_backups()}
+        return await asyncio.to_thread(_do)
+
     async def export_backup(self, name: Any = "", *args, **kwargs) -> bool:
         payload = name if isinstance(name, dict) else {"name": name, **kwargs}
         nm = str(payload.get("name", "") or "")
-        dest = str(payload.get("dest") or payload.get("dest_path") or "")
+        dest_raw = str(payload.get("dest") or payload.get("dest_path") or "")
+        # `_export_backup` itself never validated `dest` at all (unlike
+        # write_json_file's home confinement) — it could copy our own
+        # settings backup over an arbitrary file the process can write to,
+        # anywhere on disk. Same allowlist + `.json`-only + symlink-free
+        # validation as the other JSON export/import RPCs.
+        dest = _validate_json_export_path(dest_raw, _json_export_roots())
+        if not dest:
+            return False
         return await asyncio.to_thread(_export_backup, nm, dest)
 
     async def delete_backup(self, name: Any = "", *args, **kwargs) -> Dict[str, Any]:
@@ -335,9 +440,16 @@ class Plugin:
 
     async def import_backup(self, src_path: Any = "", *args, **kwargs) -> Dict[str, Any]:
         payload = src_path if isinstance(src_path, dict) else {"src_path": src_path, **kwargs}
-        src = str(payload.get("src_path") or payload.get("src") or "")
+        src_raw = str(payload.get("src_path") or payload.get("src") or "")
+        # `_import_backup` itself never validated `src` either — it could
+        # read any file the process has access to (content is checked for
+        # an `enabled`/`shelves` shape afterward, but that's not a path
+        # restriction). Same validation as export.
+        src = _validate_json_export_path(src_raw, _json_export_roots())
 
         def _do():
+            if not src:
+                return {"ok": False, "backups": _list_backups()}
             return {"ok": _import_backup(src), "backups": _list_backups()}
         return await asyncio.to_thread(_do)
 
@@ -461,7 +573,7 @@ class Plugin:
             return []
 
     async def export_settings(self, dest_path: Any = None, *args, **kwargs) -> bool:
-        path = _normalize_path(dest_path if dest_path is not None else (args[0] if args else kwargs))
+        path = _validate_json_export_path(dest_path if dest_path is not None else (args[0] if args else kwargs), _json_export_roots())
         if not path:
             return False
         try:
@@ -478,7 +590,7 @@ class Plugin:
             return False
 
     async def import_settings(self, src_path: Any = None, *args, **kwargs) -> Dict[str, Any]:
-        path = _normalize_path(src_path if src_path is not None else (args[0] if args else kwargs))
+        path = _validate_json_export_path(src_path if src_path is not None else (args[0] if args else kwargs), _json_export_roots())
         if not path or not os.path.exists(path):
             return self._read_state()
         try:
@@ -497,13 +609,21 @@ class Plugin:
         # The frontend sends a single { path, content } object. Depending on how
         # Decky delivers it, `content` can arrive bundled inside the first
         # positional dict (leaving the `content` param empty) — recover it so we
-        # never write a 0-byte file. `_normalize_path` extracts the path itself.
+        # never write a 0-byte file. `_validate_json_export_path` extracts and
+        # confines the path itself: must be a `.json` file under the settings
+        # dir or a standard export folder (Downloads/Desktop/Documents), with
+        # no symlink involved — never an arbitrary path like an autostart
+        # entry or a dotfile.
         if isinstance(path, dict) and not content:
             content = path.get("content", "")
         if not content and isinstance(kwargs.get("content"), str):
             content = kwargs.get("content")
-        path = _normalize_path(path if path else (args[0] if args else kwargs.get("path")))
+        path = _validate_json_export_path(path if path else (args[0] if args else kwargs.get("path")), _json_export_roots())
         if not path or not isinstance(content, str):
+            return False
+        try:
+            json.loads(content)  # reject anything that isn't actually JSON, even with a .json path
+        except (json.JSONDecodeError, ValueError):
             return False
         try:
             d = os.path.dirname(path)
@@ -524,7 +644,7 @@ class Plugin:
             return False
 
     async def read_json_file(self, path: str = "", *args, **kwargs) -> Dict[str, Any]:
-        path = _normalize_path(path if path else (args[0] if args else kwargs.get("path")))
+        path = _validate_json_export_path(path if path else (args[0] if args else kwargs.get("path")), _json_export_roots())
         if not path or not os.path.exists(path):
             return {"ok": False}
         try:
@@ -547,7 +667,12 @@ class Plugin:
         # Size cap: 8 MiB — anything larger is almost certainly a
         # mistake (Steam Deck card art ranges 30-300 KiB).
         import base64
-        path = _normalize_path(path if path else (args[0] if args else kwargs.get("path")))
+        # Stays home-wide (not folder-restricted) to keep "pick any image
+        # from ~/Pictures etc." working — but now rejects a symlinked path,
+        # so a pre-placed symlink can't redirect this into reading a
+        # non-image file elsewhere under home (the extension/mime allowlist
+        # below is the other half of that defense).
+        path = _normalize_path(path if path else (args[0] if args else kwargs.get("path")), reject_symlinks=True)
         if not path or not os.path.exists(path) or not os.path.isfile(path):
             return {"ok": False}
         try:

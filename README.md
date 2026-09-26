@@ -9,10 +9,10 @@
 
 [![CI](https://github.com/santojon/Deck-Shelves/actions/workflows/ci.yml/badge.svg)](https://github.com/santojon/Deck-Shelves/actions/workflows/ci.yml)
 [![Release](https://github.com/santojon/Deck-Shelves/actions/workflows/release.yml/badge.svg)](https://github.com/santojon/Deck-Shelves/actions/workflows/release.yml)
-[![Tests](https://img.shields.io/badge/vitest-893%20passed-brightgreen?logo=vitest&logoColor=white)](src/test/)
-[![pytest](https://img.shields.io/badge/pytest-187%20passed-brightgreen?logo=pytest&logoColor=white)](src/test/test_main.py)
+[![Tests](https://img.shields.io/badge/vitest-910%20passed-brightgreen?logo=vitest&logoColor=white)](src/test/)
+[![pytest](https://img.shields.io/badge/pytest-211%20passed-brightgreen?logo=pytest&logoColor=white)](src/test/test_main.py)
 [![TypeCheck](https://img.shields.io/badge/typecheck-clean-brightgreen?logo=typescript&logoColor=white)](tsconfig.json)
-[![Compatibility](https://img.shields.io/badge/checks-39%2F39-brightgreen?logo=steamdeck&logoColor=white)](scripts/build/validate-compat.mjs)
+[![Compatibility](https://img.shields.io/badge/checks-40%2F40-brightgreen?logo=steamdeck&logoColor=white)](scripts/build/validate-compat.mjs)
 [![Platform](https://img.shields.io/badge/platform-SteamOS%20%C2%B7%20Linux%20%C2%B7%20macOS%20%C2%B7%20Windows-purple?logo=steamdeck&logoColor=white)](https://github.com/ValveSoftware/SteamOS)
 [![Downloads](https://img.shields.io/github/downloads/santojon/Deck-Shelves/total.svg?label=downloads&color=blue)](https://github.com/santojon/Deck-Shelves/releases/latest)
 [![ShelvesHub downloads](https://img.shields.io/github/downloads/santojon/ShelvesHub/total.svg?label=shelveshub%20downloads&color=blue)](https://github.com/santojon/ShelvesHub/releases/latest)
@@ -227,20 +227,20 @@ bash scripts/build/validate-compat.sh
 
 ### Operating systems
 
-The plugin runs **wherever Decky Loader runs**. Decky installs as a **systemd service** that injects into Steam's CEF, so it is Linux-only at the OS level. Path discovery ([`paths.py`](src/backend/paths.py)) and packaging ([`scripts/build/package.py`](scripts/build/package.py)) are OS-agnostic (stdlib only, no bash/`zip` CLI).
+Deck Shelves runs two ways: standalone via **[ShelvesHub](https://github.com/santojon/ShelvesHub)** (its own per-OS installer, no plugin loader needed) or as a plugin under **Decky Loader**, which installs as a systemd service and is Linux-only at the OS level. The same plugin bundle runs unmodified under either host. Path discovery ([`paths.py`](src/backend/paths.py)) and packaging ([`scripts/build/package.py`](scripts/build/package.py)) are OS-agnostic (stdlib only, no bash/`zip` CLI).
 
-| OS | Steam discovery | Runs the plugin? |
+| OS | Via ShelvesHub | Via Decky Loader |
 |---|---|---|
-| SteamOS / Steam Deck | `~/.local/share/Steam` | ✅ official (primary target) |
-| Linux — SteamOS-like (Bazzite, ChimeraOS, HoloISO, Nobara) + desktop (native / Flatpak) | native + `~/.var/app/...Steam` | ✅ unofficial — Decky's systemd install works |
-| Windows | registry (`winreg`) → `Program Files` → `%LOCALAPPDATA%` | ⚠️ unofficial — via a community Windows installer; unstable |
-| macOS | `~/Library/Application Support/Steam` | ⚠️ not via Decky yet (no systemd / no remote port). Steam path discovery is already in place, so macOS support is being considered and will be compatible once a host makes it possible |
+| SteamOS / Steam Deck | ✅ official (primary target) — x86_64 and ARM64 | ✅ official (primary target) |
+| Linux — SteamOS-like (Bazzite, ChimeraOS, HoloISO, Nobara) + desktop (native / Flatpak) | ✅ x86_64 and ARM64, one-click or package | ✅ unofficial — Decky's systemd install works |
+| Windows | ✅ stable, one-click installer | ⚠️ unofficial — via a community Windows installer; unstable |
+| macOS | ✅ universal binary — native on Apple Silicon and Intel | ❌ not supported — no systemd / no remote debug port |
 
-> Decky Loader officially supports **SteamOS / Steam Deck only**; Linux-desktop and Windows are community-driven and may break. macOS isn't reachable through Decky today, but the codebase already resolves macOS Steam paths so support can land as soon as a host is available.
+> Decky Loader officially supports **SteamOS / Steam Deck only**; its Linux-desktop and Windows support is community-driven and may break, and it doesn't reach macOS at all. [ShelvesHub](https://github.com/santojon/ShelvesHub) closes those gaps with its own installers for every platform — see [Installation](#installation).
 
 ### Validated environments
 
-The compatibility suite green-lights the build toolchain (Vite/ESM, TypeScript/Node), Decky Loader 3.x (API v1) + Decky Store publishing, SteamOS 3.5–3.9 (incl. GamepadUI), i18n, and the Python backend — see the [`checks 39/39`](scripts/build/validate-compat.mjs) badge and run `pnpm run validate:compat` to reproduce.
+The compatibility suite green-lights the build toolchain (Vite/ESM, TypeScript/Node), Decky Loader 3.x (API v1) + Decky Store publishing, SteamOS 3.5–3.10 (incl. GamepadUI), i18n, and the Python backend — see the [`checks 40/40`](scripts/build/validate-compat.mjs) badge and run `pnpm run validate:compat` to reproduce.
 
 ## Developer Tools
 

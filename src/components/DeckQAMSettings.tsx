@@ -546,8 +546,11 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
       {(() => {
         if (isSecHid('behavior')) return null;
         return (
-      <CollapsibleSection id='behavior' icon={<SlidersIcon />} title={t('section_behavior')} count={[settings.hideRecents === true, settings.hideHomeTabs === true, settings.shelfHeroBackground === true, settings.recentsReplaceSource === true].filter(Boolean).length}>
+      <CollapsibleSection id='behavior' icon={<SlidersIcon />} title={t('section_behavior')} count={[settings.hideRecents === true, settings.hideHomeTabs === true, settings.shelfHeroBackground === true, settings.recentsReplaceSource === true, settings.gameContextMenuEnabled === false].filter(Boolean).length}>
         {(() => (<>
+        {!isHid('gameContextMenuEnabled') && (
+          <ToggleField label={t('game_context_menu_enabled' as any)} checked={settings.gameContextMenuEnabled !== false} disabled={mountCrashed} onChange={(value: boolean) => (actions as any).setGameContextMenuEnabled?.(value)} />
+        )}
         {settings.enabled && !isHid('hideRecents') && (
           <ToggleField label={t('hide_recents')} checked={settings.hideRecents === true} disabled={mountCrashed || disableHideRecents} onChange={(value: boolean) => actions.setHideRecents(value)} />
         )}

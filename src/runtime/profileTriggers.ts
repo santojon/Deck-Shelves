@@ -4,7 +4,7 @@ import { subscribeSessionState } from './sessionState';
 import { resolveTriggeredProfile, nextProfileTriggerFlip } from '../steam/smartShelves';
 import { notifyUser } from './notify';
 import { defaultSettings } from '../domain/defaults';
-import { keepShelfFields, stickyShowcaseSeen, FACTORY_PROFILE_ID, FACTORY_PROFILE_NAME } from '../features/settings/controller/profiles';
+import { keepShelfFields, keepDeviceLocalFields, stickyShowcaseSeen, FACTORY_PROFILE_ID, FACTORY_PROFILE_NAME } from '../features/settings/controller/profiles';
 import i18n from '../i18n';
 import type { Settings } from '../types';
 
@@ -68,6 +68,7 @@ function applyFactory(): void {
   const defaults = defaultSettings();
   const next = { ...defaults, enabled: true, profiles: s.profiles ?? [], activeProfileName: FACTORY_PROFILE_NAME, showcaseSeen: stickyShowcaseSeen(s, defaults as any) } as Settings;
   keepShelfFields(next, s);
+  keepDeviceLocalFields(next, s);
   saveIfChanged(next, () => triggerToast(FACTORY_PROFILE_NAME));
 }
 
@@ -90,6 +91,7 @@ function applyByName(name: string): void {
     // Shelf-link opt-in, same as the manual apply path (controller/profiles.ts):
     // unlinked profiles change everything BUT the shelves.
     if (!target.linkShelves) keepShelfFields(next, s);
+    keepDeviceLocalFields(next, s);
     saveIfChanged(next, () => triggerToast(name));
   }
 }

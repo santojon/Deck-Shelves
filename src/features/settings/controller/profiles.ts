@@ -2,6 +2,7 @@ import type { Settings } from "../../../types";
 import { writeJsonFile, readJsonFile } from "../../../settingsStore";
 import { trackFeature } from "../../../steam/usageTracking";
 import { notify } from "../../../components/notify";
+import { DEVICE_LOCAL_FIELDS } from "../../../domain/settingsMerge";
 import i18next from "i18next";
 
 export const FACTORY_PROFILE_ID = "__factory__";
@@ -32,15 +33,23 @@ export function keepShelfFields(next: Settings, from: Settings): void {
   for (const f of SHELF_LINK_FIELDS) (next as any)[f] = (from as any)[f];
 }
 
+// Dev/debug tooling + the per-device QAM tab (DEVICE_LOCAL_FIELDS): a profile
+// switch or factory reset must never touch them, same reasoning as shelves.
+export function keepDeviceLocalFields(next: Settings, from: Settings): void {
+  for (const f of DEVICE_LOCAL_FIELDS) (next as any)[f] = (from as any)[f];
+}
+
 function randomProfileId(): string {
   return `prof_${Math.random().toString(36).slice(2, 10)}`;
 }
 
-// `showcaseSeen` is an installation-level flag, not a per-profile one — a
-// profile saved before the tour was completed would otherwise re-trigger it
-// on every later switch to that profile.
+/* `showcaseSeen` is an installation-level flag, not a per-profile one — a
+   profile saved before the tour was completed would otherwise re-trigger it
+   on every later switch. DEVICE_LOCAL_FIELDS excluded for the same reason
+   (`keepDeviceLocalFields` restores them on apply). */
 function takeSnapshot(s: Settings): Record<string, unknown> {
   const { profiles: _p, activeProfileName: _n, showcaseSeen: _s, ...rest } = s as any;
+  for (const f of DEVICE_LOCAL_FIELDS) delete (rest as any)[f];
   return rest as Record<string, unknown>;
 }
 
@@ -143,6 +152,7 @@ export function createProfileActions(deps: ProfilesDeps) {
       };
       // Shelf-link opt-in: unlinked profiles change everything BUT the shelves.
       if (!profile.linkShelves) keepShelfFields(next, s);
+      keepDeviceLocalFields(next, s);
       await persist(next);
       return true;
     },
@@ -385,6 +395,7 @@ export function createProfileActions(deps: ProfilesDeps) {
         showcaseSeen: stickyShowcaseSeen(s, defaults as any),
       } as Settings;
       if (!resetShelves) keepShelfFields(next, s);
+      keepDeviceLocalFields(next, s);
       await persist(next);
     },
     // per-integration enable. Stored only when the user
@@ -444,6 +455,11 @@ export function createProfileActions(deps: ProfilesDeps) {
       else if (!disabled && has) next = list.filter((k) => k !== key);
       else return;
       await persist({ ...s, buttonBindingsDisabled: next } as Settings);
+    },
+    async setCardActionShortcutsEnabled(cardActionShortcutsEnabled: boolean) {
+      const s = liveSettings();
+      if (!s || (s as any).cardActionShortcutsEnabled === cardActionShortcutsEnabled) return;
+      await persist({ ...s, cardActionShortcutsEnabled } as Settings);
     },
     async setKeyboardBinding(key: "cardHideRemove" | "cardHighlightToggle" | "cardQuickLaunch" | "navSearch" | "navSideNav" | "navSidecarOpen" | "navSidecarClose", value: string | null) {
       const s = liveSettings();

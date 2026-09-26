@@ -1,4 +1,4 @@
-check_name="SteamOS 3.9"
+check_name="SteamOS 3.10"
 check_version="Stable"
 
 # A literal system-path prefix is safe when every occurrence sits within a
@@ -26,7 +26,7 @@ run_checks() {
     echo "  ✅ Modern ES target (ES2020+)"
     ((pass++))
   else
-    echo "  ❌ Build target may not be ES2020+ (required for 3.9)"
+    echo "  ❌ Build target may not be ES2020+ (required for 3.10)"
     ((fail++))
   fi
 
@@ -42,7 +42,7 @@ run_checks() {
     echo "  ✅ No legacy ServerAPI imports"
     ((pass++))
   else
-    echo "  ❌ Legacy ServerAPI imports found (incompatible with 3.9)"
+    echo "  ❌ Legacy ServerAPI imports found (incompatible with 3.10)"
     ((fail++))
   fi
 
@@ -50,7 +50,7 @@ run_checks() {
     echo "  ✅ Duck-typing / optional chaining used for API detection"
     ((pass++))
   else
-    echo "  ⚠️  No duck-typing patterns detected (recommended for 3.9 API changes)"
+    echo "  ⚠️  No duck-typing patterns detected (recommended for 3.10 API changes)"
     ((pass++))
   fi
 
@@ -66,7 +66,7 @@ run_checks() {
     echo "  ✅ vgp_* event patterns used"
     ((pass++))
   else
-    echo "  ⚠️  No vgp_* events detected (may be needed for gamepad nav in 3.9)"
+    echo "  ⚠️  No vgp_* events detected (may be needed for gamepad nav in 3.10)"
     ((pass++))
   fi
 
@@ -95,8 +95,10 @@ run_checks() {
   fi
 
   local hardcoded_versions=0
-  # Only flag string comparisons using a SteamOS version — excludes SVG/JSX attrs and comments
-  if grep -rE '(===|!==|==|!=|>=|<=)\s*["'"'"']3\.[5-9]["'"'"']|["'"'"']3\.[5-9]["'"'"']\s*(===|!==|==|!=|>=|<=)' "$root/src/" 2>/dev/null | grep -qvE '^\s*//' ; then
+  # Only flag string comparisons using a SteamOS version — excludes SVG/JSX
+  # attrs and comments. Covers both single-digit minors (3.5-3.9) and the
+  # first two-digit one (3.10).
+  if grep -rE '(===|!==|==|!=|>=|<=)\s*["'"'"']3\.(1[0-9]|[5-9])["'"'"']|["'"'"']3\.(1[0-9]|[5-9])["'"'"']\s*(===|!==|==|!=|>=|<=)' "$root/src/" 2>/dev/null | grep -qvE '^\s*//' ; then
     echo "  ❌ Hardcoded SteamOS version comparisons found in src/"
     ((hardcoded_versions++))
     ((fail++))

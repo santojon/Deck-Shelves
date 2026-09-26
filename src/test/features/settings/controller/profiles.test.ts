@@ -46,6 +46,19 @@ describe('createProfile', () => {
     expect(profile!.snapshot).not.toHaveProperty('activeProfileName')
     expect(persisted[0].activeProfileName).toBe('Docked')
   })
+
+  it('snapshots settings without any device-local field (dev/debug tooling, own QAM tab)', async () => {
+    const { deps } = makeDeps({
+      enabled: true, shelves: [], profiles: [], activeProfileName: null,
+      devModeEnabled: true, verboseLoggingEnabled: true, ownQamTabEnabled: false, debugOverlayEnabled: true,
+    })
+    const actions = createProfileActions(deps)
+    const profile = await actions.createProfile('Docked')
+    expect(profile!.snapshot).not.toHaveProperty('devModeEnabled')
+    expect(profile!.snapshot).not.toHaveProperty('verboseLoggingEnabled')
+    expect(profile!.snapshot).not.toHaveProperty('ownQamTabEnabled')
+    expect(profile!.snapshot).not.toHaveProperty('debugOverlayEnabled')
+  })
 })
 
 describe('applyProfile', () => {
@@ -97,6 +110,18 @@ describe('applyProfile', () => {
     expect(ok).toBe(false)
     expect(persisted.length).toBe(0)
   })
+
+  it('keeps device-local fields from live, even when the profile snapshot carries different values', async () => {
+    const withDebug = { id: 'p2', name: 'Debug', createdAt: 't', snapshot: { enabled: true, devModeEnabled: false, debugOverlayEnabled: false } }
+    const { deps, persisted } = makeDeps({
+      enabled: false, shelves: [], profiles: [withDebug], activeProfileName: null,
+      devModeEnabled: true, debugOverlayEnabled: true,
+    })
+    const actions = createProfileActions(deps)
+    await actions.applyProfile('p2')
+    expect(persisted[0].devModeEnabled).toBe(true)
+    expect(persisted[0].debugOverlayEnabled).toBe(true)
+  })
 })
 
 describe('applyFactoryProfile', () => {
@@ -134,5 +159,17 @@ describe('applyFactoryProfile', () => {
 
   it('names the synthetic factory profile "Padrão"', () => {
     expect(FACTORY_PROFILE_NAME).toBe('Padrão')
+  })
+
+  it('keeps device-local fields through a factory reset instead of resetting them to defaults', async () => {
+    const { deps, persisted } = makeDeps({
+      enabled: true, shelves: [], profiles: [], activeProfileName: null,
+      devModeEnabled: true, verboseLoggingEnabled: true, ownQamTabEnabled: false,
+    })
+    const actions = createProfileActions(deps)
+    await actions.applyFactoryProfile()
+    expect(persisted[0].devModeEnabled).toBe(true)
+    expect(persisted[0].verboseLoggingEnabled).toBe(true)
+    expect(persisted[0].ownQamTabEnabled).toBe(false)
   })
 })

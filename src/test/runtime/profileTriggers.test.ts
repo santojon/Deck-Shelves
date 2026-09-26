@@ -78,6 +78,33 @@ describe('installProfileTriggers', () => {
     un()
   })
 
+  it('does not reset device-local fields (dev/debug tooling) when a profile is auto-triggered', () => {
+    store.current = {
+      profileTriggersEnabled: true, profiles: [profile], activeProfileName: null,
+      devModeEnabled: true, debugOverlayEnabled: true,
+    }
+    resolved.current = 'Docked'
+    const un = installProfileTriggers()
+    expect(saved.list.length).toBe(1)
+    expect(saved.list[0].devModeEnabled).toBe(true)
+    expect(saved.list[0].debugOverlayEnabled).toBe(true)
+    un()
+  })
+
+  it('does not reset device-local fields when the factory profile is auto-triggered', () => {
+    const ft = { rules: [{ kind: 'charging' }] }
+    store.current = {
+      profileTriggersEnabled: true, profiles: [], activeProfileName: null, factoryProfileTrigger: ft,
+      devModeEnabled: true, verboseLoggingEnabled: true,
+    }
+    resolved.current = 'Padrão'
+    const un = installProfileTriggers()
+    expect(saved.list.length).toBe(1)
+    expect(saved.list[0].devModeEnabled).toBe(true)
+    expect(saved.list[0].verboseLoggingEnabled).toBe(true)
+    un()
+  })
+
   it('keeps the live shelves/smartShelves when the triggered profile is unlinked', () => {
     // Regression: applyByName used to apply the full snapshot verbatim,
     // ignoring linkShelves entirely — unlike the manual apply path

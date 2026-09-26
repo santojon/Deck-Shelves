@@ -255,34 +255,39 @@ _SCREENS = ("https://raw.githubusercontent.com/santojon/Deck-Shelves/main/"
 # and hand-picked so the screenshots stay relevant; the full, always-current
 # list is generated from the README below them.
 _SHOWCASE = [
-    ("shelf-edit-filters.png", "Advanced filter groups",
+    ("shelf-edit-filters.png", "filters", "Advanced filter groups",
      "Build precise queries with AND/OR logic across playtime, genre, status, "
      "achievements, friends, tags and dozens more criteria — saved and reused."),
-    ("home-shelves.png", "Multiple sources per shelf",
+    ("home-shelves.png", "sources", "Multiple sources per shelf",
      "Stack collections, library tabs, wishlist and store into one shelf via "
      "Union or Intersection, with online-only filters on merged results."),
-    ("smart-shelf-modal.png", "Smart shelves",
+    ("smart-shelf-modal.png", "smart", "Smart shelves",
      "30+ heuristic shelves like Deck Picks, Never Played or Time of Day that "
      "appear automatically when they're relevant and disappear when they're not."),
-    ("settings-statistics.png", "Statistics & suggestions",
+    ("settings-statistics.png", "stats", "Statistics & suggestions",
      "Real charts for activity, most-played games and library breakdowns, plus "
      "one-tap suggestions to create or clean up shelves."),
-    ("shelf-edit-visual.png", "Decoration cards & visuals",
+    ("shelf-edit-visual.png", "decor", "Decoration cards & visuals",
      "Pin banners, logos, URL shortcuts or gaps, set your own hero art, and "
      "fine-tune position and sizing per shelf in a live preview."),
-    ("settings-shortcuts.png", "Remappable shortcuts",
+    ("settings-shortcuts.png", "shortcuts", "Remappable shortcuts",
      "Change or disable the gamepad buttons for hide, highlight, quick-launch, "
      "Quick Search and Side Navigation — single, chord or double-tap."),
 ]
 
 
 def _showcase_html() -> str:
+    # title/desc are the English fallback baked into the HTML; data-i18n
+    # swaps them for the featRow.<key>.t/.d strings in site/i18n/pt-BR.js
+    # when the page is switched to Portuguese (see site/i18n.js).
     rows = []
-    for img, title, desc in _SHOWCASE:
+    for img, key, title, desc in _SHOWCASE:
         rows.append(
             '<div class="feature-row">'
-            f'<div class="fr-media"><img loading="lazy" src="{_SCREENS}{img}" alt="{html.escape(title)}"></div>'
-            f'<div class="fr-text"><h3>{html.escape(title)}</h3><p>{html.escape(desc)}</p></div>'
+            f'<div class="fr-media"><img loading="lazy" src="{_SCREENS}{img}" alt="{html.escape(title)}" '
+            f'data-i18n-attr="alt:featRow.{key}.t"></div>'
+            f'<div class="fr-text"><h3 data-i18n="featRow.{key}.t">{html.escape(title)}</h3>'
+            f'<p data-i18n="featRow.{key}.d">{html.escape(desc)}</p></div>'
             '</div>')
     return "\n".join(rows)
 
@@ -506,7 +511,7 @@ _INTEGRATION_TEMPLATE = """<!DOCTYPE html>
 <header class="page-hero"><div class="container">
 <span class="eyebrow" data-i18n="ecosystem.title">Works with your setup</span>
 <h1>Deck Shelves + {name}</h1>
-<p>{tagline}</p>
+<p data-i18n="integration.{slug}.tagline">{tagline}</p>
 </div></header>
 
 <main class="block" style="padding-top:0"><div class="container">
@@ -516,7 +521,7 @@ _INTEGRATION_TEMPLATE = """<!DOCTYPE html>
 <ol class="steps">
 {steps}
 </ol>
-<p style="color:var(--muted);font-size:0.9rem;border-top:1px solid var(--border);padding-top:16px;margin-top:24px">{note}</p>
+<p style="color:var(--muted);font-size:0.9rem;border-top:1px solid var(--border);padding-top:16px;margin-top:24px" data-i18n="integration.{slug}.note">{note}</p>
 <p style="color:var(--muted);font-size:0.85rem" data-i18n-html="integration.{slug}.learnMore">Learn more about {name} on its own
 <a href="{repo}" target="_blank" rel="noopener">GitHub page</a>. Deck Shelves is not affiliated
 with, endorsed by, or sponsored by {name} — see the disclaimer in the footer.</p>
@@ -542,10 +547,11 @@ with, endorsed by, or sponsored by {name} — see the disclaimer in the footer.<
 """
 
 
-def _integration_steps_html(steps) -> str:
+def _integration_steps_html(slug: str, steps) -> str:
     return "".join(
-        f"<li><strong>{html.escape(title)}</strong><p>{html.escape(body)}</p></li>"
-        for title, body in steps
+        f'<li data-i18n-html="integration.{slug}.step{i}">'
+        f"<strong>{html.escape(title)}</strong><p>{html.escape(body)}</p></li>"
+        for i, (title, body) in enumerate(steps)
     )
 
 
@@ -580,13 +586,62 @@ def _write_integration_pages(root: Path, site: Path) -> None:
             screenshot=screenshot,
             screenshot_raw=screenshot_raw,
             screenshot_alt=screenshot_alt,
-            steps=_integration_steps_html(entry["steps"]),
+            steps=_integration_steps_html(entry["slug"], entry["steps"]),
             note=html.escape(entry["note"]),
             footer=_site_footer("../"),
         )
         (out_dir / f"{entry['slug']}.html").write_text(page, encoding="utf-8")
     print(f"[build_site] integrations/: {len(_INTEGRATIONS)} pages "
           f"({len(_INTEGRATIONS) - generic} with a dedicated screenshot, {generic} on the generic fallback)")
+
+
+# ── i18n coverage check ──────────────────────────────────────────────────────
+#
+# Catches the class of bug where a `data-i18n*` attribute references a key
+# that doesn't exist in site/i18n/pt-BR.js (typo, or the key was never added)
+# — the page still renders (site/i18n.js just leaves the English fallback
+# text in place), so this never shows up by eye, only by grepping. It does
+# NOT catch the other class — a hardcoded string with no data-i18n attribute
+# at all — since there's no key to check; that one needs a human adding the
+# attribute when writing new template content (see the comment on _SHOWCASE
+# and _INTEGRATIONS below for the convention to follow).
+
+_I18N_ATTR_RE = re.compile(r'data-i18n(?:-html)?="([^"]+)"')
+_I18N_ATTR_ATTR_RE = re.compile(r'data-i18n-attr="([^"]+)"')
+_PT_BR_KEY_RE = re.compile(r'^\s*"([^"]+)"\s*:', re.MULTILINE)
+
+
+def _load_pt_br_keys(site: Path) -> set[str] | None:
+    path = site / "i18n" / "pt-BR.js"
+    if not path.is_file():
+        return None
+    return set(_PT_BR_KEY_RE.findall(path.read_text(encoding="utf-8")))
+
+
+def _i18n_refs_in_html(text: str) -> set[str]:
+    refs = set(_I18N_ATTR_RE.findall(text))
+    for pairs in _I18N_ATTR_ATTR_RE.findall(text):
+        for pair in pairs.split(";"):
+            if ":" in pair:
+                refs.add(pair.split(":", 1)[1].strip())
+    return refs
+
+
+def _validate_i18n_coverage(site: Path, pages: list[Path]) -> list[str]:
+    """Returns one message per `data-i18n*` key referenced in a generated page
+    that has no matching entry in site/i18n/pt-BR.js. Empty when everything
+    resolves (or pt-BR.js itself is missing, which is reported separately)."""
+    pt_keys = _load_pt_br_keys(site)
+    if pt_keys is None:
+        return []
+    problems = []
+    for page in pages:
+        if not page.is_file():
+            continue
+        missing = sorted(_i18n_refs_in_html(page.read_text(encoding="utf-8")) - pt_keys)
+        for key in missing:
+            problems.append(f"{page.relative_to(site.parent)}: no pt-BR translation for \"{key}\"")
+    return problems
 
 
 # ── Main ─────────────────────────────────────────────────────────────────────
@@ -669,6 +724,15 @@ def main() -> int:
         print("[build_site] WARN: could not parse README Features section")
 
     _write_integration_pages(root, site)
+
+    pages = [index, site / "features.html", *sorted((site / "integrations").glob("*.html"))]
+    problems = _validate_i18n_coverage(site, pages)
+    if problems:
+        print(f"[build_site] ERROR: {len(problems)} data-i18n key(s) with no pt-BR translation:", file=sys.stderr)
+        for problem in problems:
+            print(f"  - {problem}", file=sys.stderr)
+        return 1
+    print(f"[build_site] i18n coverage: {len(pages)} page(s) checked, every data-i18n key resolves")
 
     return 0
 

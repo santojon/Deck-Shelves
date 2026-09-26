@@ -367,7 +367,7 @@ export const SmartShelfSchema = z.object({
   autoPin: VisibilitySchema.optional(),
   autoCollapse: VisibilitySchema.optional(),
   autoCollapseWhenEmpty: z.boolean().optional(),
-});
+}).passthrough();
 export type SmartShelf = z.infer<typeof SmartShelfSchema>;
 
 // `composite` is recursive (a composite source contains other sources,
@@ -553,7 +553,7 @@ export const ShelfSchema = z.object({
   // header. Gated by the global `autoCollapseEnabled` toggle.
   autoCollapse: VisibilitySchema.optional(),
   autoCollapseWhenEmpty: z.boolean().optional(),
-});
+}).passthrough();
 
 export type Shelf = z.infer<typeof ShelfSchema>;
 
@@ -561,11 +561,19 @@ export const SettingsSchema = z.object({
   // Document schema version (§4B). Stamped by migrate(); older versions never
   // downgrade it, so a newer version's higher-schema fields are preserved.
   schemaVersion: z.number().int().nonnegative().nullish(),
-  enabled: z.boolean().default(true),
+  /* `false` matches the Python sanitizer + `domain/defaults.ts` — the
+     plugin ships disabled until the user turns it on. Was `true` here,
+     diverging from both: a document reaching `.parse()` without an
+     `enabled` key (partial import, cross-host document) would silently
+     auto-enable on the frontend while staying disabled on the backend. */
+  enabled: z.boolean().default(false),
   hideRecents: z.boolean().default(false),
   recentsReplaceSource: z.boolean().default(false),
   hideHomeTabs: z.boolean().default(false),
   shelfHeroBackground: z.boolean().default(false),
+  // Gates the "Shelf" group (sort/management/display/visual/decoration/
+  // compose-with) in each game's native right-click context menu.
+  gameContextMenuEnabled: z.boolean().default(true),
   globalMatchNativeSize: z.boolean().default(false),
   globalHighlightFirst: z.boolean().default(false),
   globalHighlightAll: z.boolean().default(false),
@@ -743,6 +751,12 @@ export const SettingsSchema = z.object({
      is "enabled" — entries are only persisted when the user flips
      one off. */
   integrationsEnabled: z.record(z.string(), z.boolean()).nullable().optional().transform((v) => v ?? {}),
+  /* Master switch for the card-action shortcuts (cardHideRemove/
+     cardHighlightToggle/cardQuickLaunch, gamepad and keyboard alike) below —
+     off means resolveBindings()/resolveKeyboardBindings() return null for
+     those three regardless of the individual combo/disabled-list state.
+     Navigation shortcuts (navSearch/navSideNav/navSidecar*) are unaffected. */
+  cardActionShortcutsEnabled: z.boolean().default(true),
   buttonBindings: z.object({
     cardHideRemove:  z.string().nullable().optional(),
     cardHighlightToggle: z.string().nullable().optional(),
@@ -808,7 +822,7 @@ export const SettingsSchema = z.object({
      for the scalar/global toggle bag (the non-list settings). */
   syncTombstones: z.record(z.string(), z.number()).nullish(),
   preferencesUpdatedAt: z.number().nullish(),
-});
+}).passthrough();
 
 export type Settings = z.infer<typeof SettingsSchema>;
 

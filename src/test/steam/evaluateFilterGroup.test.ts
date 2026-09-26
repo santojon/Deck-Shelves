@@ -422,6 +422,7 @@ describe('remotePlayLocation filter', () => {
     evaluateFilterGroup(group([{ type: 'remotePlayLocation', params: { mode } }]), apps()).map((a) => a.appid)
 
   it('local = installed here', () => expect(run('local')).toEqual([1, 3]))
+  it('local-only = here and not elsewhere', () => expect(run('local-only')).toEqual([1]))
   it('remote = installed on another client', () => expect(run('remote')).toEqual([2, 3]))
   it('remote-only = elsewhere and not here (play-from-remote shelf)', () => expect(run('remote-only')).toEqual([2]))
   it('both = installed here and elsewhere', () => expect(run('both')).toEqual([3]))
@@ -445,6 +446,33 @@ describe('libraryLocation filter', () => {
     expect(run('internal')).toEqual([1])
     expect(run('external')).toEqual([2])
     expect(run('network')).toEqual([])
+  })
+
+  it('libraryIds mixes specific libraries together, independent of category', async () => {
+    const { refreshLibraryLocations } = await import('../../runtime/deviceState')
+    libraryRpc.current = {
+      supported: true,
+      libraries: [
+        { id: 'a', label: 'Steam', path: '/internal', category: 'internal', mounted: true },
+        { id: 'b', label: 'SD_CARD', path: '/sd', category: 'external', mounted: true },
+        { id: 'c', label: 'USB_DRIVE', path: '/usb', category: 'external', mounted: true },
+        { id: 'd', label: 'NAS', path: '/nas', category: 'network', mounted: true },
+      ],
+      appLibrary: { '1': 'a', '2': 'b', '3': 'c', '4': 'd' },
+    }
+    await refreshLibraryLocations()
+    const apps = [app({ appid: 1 }), app({ appid: 2 }), app({ appid: 3 }), app({ appid: 4 }), app({ appid: 5 })]
+    const run = (libraryIds: string[]) =>
+      evaluateFilterGroup(group([{ type: 'libraryLocation', params: { libraryIds } }]), apps).map((a) => a.appid)
+    // Mixes an SD card (external) with the internal drive — categories are
+    // irrelevant once specific libraries are picked.
+    expect(run(['a', 'b'])).toEqual([1, 2])
+    // Mixes two external libraries (SD card + USB drive) but not the internal one.
+    expect(run(['b', 'c'])).toEqual([2, 3])
+    // A specific network share.
+    expect(run(['d'])).toEqual([4])
+    // Empty selection = not yet narrowed down = no restriction.
+    expect(run([])).toEqual([1, 2, 3, 4, 5])
   })
 })
 

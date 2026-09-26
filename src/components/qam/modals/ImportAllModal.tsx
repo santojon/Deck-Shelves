@@ -10,7 +10,7 @@ import {
   mergeCategoriesIntoSettings,
   unwrapPayload,
 } from "../../../features/settings/settingsCategories";
-import { readJsonFile, saveSettings, getCurrentSettings } from "../../../settingsStore";
+import { readJsonFile, saveSettings, getCurrentSettings, migrate, createPreImportSnapshot } from "../../../settingsStore";
 
 async function pickJsonFile(startPath: string) {
   return await tryPickerCalls([
@@ -99,7 +99,11 @@ export function ImportAllModal({ closeModal, controller, initialPath }: { closeM
           notify("error", { body: t("toast_failed_save") });
           return;
         }
-        const next = mergeCategoriesIntoSettings(cur, unwrapPayload(payload), selectedIds);
+        // Safety net before the merge overwrites live settings — best-effort,
+        // never blocks the import itself.
+        await createPreImportSnapshot();
+        const merged = mergeCategoriesIntoSettings(cur, unwrapPayload(payload), selectedIds);
+        const next = migrate(merged);
         const ok = await saveSettings(next);
         notify(ok ? "import" : "error", { body: ok ? `${t("toast_imported")}: ${path}` : t("toast_failed_save") });
         if (ok) closeModal?.();
