@@ -7,6 +7,8 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+## [3.3.2] - 2026-09-26
+
 - **New setting to hide the shelf options from each game's right-click menu.** If you only want the quick per-card actions there, you can now turn off the fuller Sort/Management/Display/Visual/Decoration/Compose-with group — it's on by default so nothing changes unless you turn it off.
 - **New switch to turn off card-action shortcuts.** The gamepad/keyboard shortcuts for hiding, highlighting or quick-launching a card can now be disabled all at once, for anyone who only wants those actions through the card's own menu. On by default; Quick Search and Side Navigation shortcuts aren't affected.
 - **The Steam library location filter can now mix specific storage devices, not just Internal/External/Network.** Pick exactly which libraries a shelf pulls from — an SD card and a USB drive, say, but not the network share — instead of one broad category.

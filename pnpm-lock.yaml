@@ -82,7 +82,7 @@ importers:
   api:
     devDependencies:
       '@typescript-eslint/parser':
-        specifier: ^8.70.1
+        specifier: ^8.70.0
         version: 8.70.1(eslint@9.39.5)(typescript@5.9.3)
       eslint:
         specifier: ^9.39.5
@@ -105,7 +105,7 @@ importers:
   host:
     devDependencies:
       '@typescript-eslint/parser':
-        specifier: ^8.70.1
+        specifier: ^8.70.0
         version: 8.70.1(eslint@9.39.5)(typescript@5.9.3)
       eslint:
         specifier: ^9.39.5

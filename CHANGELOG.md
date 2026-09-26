@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.3.2] - 2026-09-26
+
 ### Added
 
 - **New setting to hide the "Shelf" group from each game's own context menu.** The Sort/Management/Display/Visual/Decoration/Compose-with options that Deck Shelves adds to a game's native right-click menu can now be turned off globally, for players who only want the per-card actions (highlight/hide/add-remove) there (`gameContextMenuEnabled`, on by default) ([`itemBuilders.ts`](src/core/menu/itemBuilders.ts)).
