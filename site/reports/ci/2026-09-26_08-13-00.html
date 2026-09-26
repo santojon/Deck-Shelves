@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Deck Shelves &mdash; CI / Automated 2026-09-26_08-13-00</title>
+<link rel="icon" type="image/svg+xml" href="../../favicon.svg">
+<link rel="stylesheet" href="../../style.css">
+<script src="../../i18n/pt-BR.js"></script>
+<script src="../../i18n.js"></script>
+<style>:root{--card:#0e1626;--pass:#4ade80;--fail:#f87171;--skip:#94a3b8;--warn:#fbbf24;--link:var(--blue-soft);--accent:var(--blue)}
+a{color:var(--link);text-decoration:none}a:hover{text-decoration:underline}
+header{background:var(--card);border-bottom:1px solid var(--border);padding:16px 0}
+header .container{display:flex;align-items:center;gap:12px}
+header h1{margin:0;font-size:18px;font-weight:700;flex:1}
+.hbadge{padding:4px 14px;border-radius:99px;font-size:12px;font-weight:700}
+.hbadge.pass{background:#14532d;color:var(--pass)}.hbadge.fail{background:#7f1d1d;color:var(--fail)}
+.meta{color:var(--muted);font-size:11px;margin-top:2px}
+.back{font-size:12px;color:var(--link);margin-right:10px}
+main{max-width:1060px;margin:0 auto;padding:20px 28px}
+.summary{display:flex;gap:12px;margin-bottom:22px;flex-wrap:wrap}
+.sc{flex:1;min-width:100px;background:var(--card);border:1px solid var(--border);
+  border-radius:9px;padding:13px 16px;text-align:center}
+.sc .n{font-size:32px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1}
+.sc .l{font-size:10px;color:var(--muted);margin-top:4px;text-transform:uppercase;letter-spacing:.06em}
+.n.p{color:var(--pass)}.n.f{color:var(--fail)}.n.s{color:var(--skip)}.n.t{color:var(--muted)}
+.step{background:var(--card);border:1px solid var(--border);border-radius:9px;
+  margin-bottom:10px}
+.step-hdr{display:flex;align-items:center;gap:10px;padding:12px 16px;
+  cursor:pointer;user-select:none;border-radius:9px;list-style:none}
+.step-hdr::-webkit-details-marker{display:none}
+.step-hdr:hover{background:#273548}
+.dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.dot.pass{background:var(--pass)}.dot.fail{background:var(--fail);box-shadow:0 0 5px var(--fail)}
+.dot.skip{background:var(--skip)}
+.sname{font-weight:600;font-size:13.5px;flex:1}
+.slabel{font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;margin-right:4px}
+.slabel.pass{background:#14532d44;color:var(--pass)}
+.slabel.fail{background:#7f1d1d44;color:var(--fail)}
+.slabel.skip{background:#1e293b;color:var(--skip)}
+.chevron{font-size:11px;color:var(--muted);display:inline-block;transition:transform .15s}
+.step[open] .chevron{transform:rotate(90deg)}
+.step-body{border-top:1px solid var(--border);border-radius:0 0 9px 9px}
+.test-bar{display:flex;align-items:center;gap:10px;padding:8px 16px;
+  background:#0d1b2a;border-bottom:1px solid var(--border);font-size:12px}
+.test-bar .tp{color:var(--pass)}.test-bar .tf{color:var(--fail)}
+.issues{padding:9px 16px;background:#1a0f0f;border-bottom:1px solid #3d1515}
+.issues h4{margin:0 0 6px;font-size:11px;color:var(--fail);text-transform:uppercase;letter-spacing:.05em}
+.issue{font-size:11px;padding:5px 8px;background:#1f1010;border-radius:4px;
+  border-left:3px solid var(--fail);margin-bottom:4px}
+pre.log{margin:0;padding:12px 16px;font-size:11px;line-height:1.65;
+  white-space:pre-wrap;word-break:break-all;background:var(--bg);color:var(--muted);
+  max-height:440px;overflow-y:auto}
+pre.log .e{color:var(--fail)}pre.log .w{color:var(--warn)}pre.log .g{color:var(--pass)}
+a.fl{color:var(--link)}
+.stress-tag{font-size:10px;color:#a5b4fc;background:#1e1b4b;
+  padding:1px 6px;border-radius:4px;margin-left:6px;vertical-align:middle}
+.sdur{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;margin-right:6px}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:9px;padding:14px 16px;margin-bottom:18px}
+.panel h2{margin:0 0 12px;font-size:13px;font-weight:700;color:var(--text)}
+.bm{display:flex;flex-direction:column;gap:6px}
+.bm-row{display:grid;grid-template-columns:minmax(120px,1fr) 3fr 70px;align-items:center;gap:10px;font-size:11.5px}
+.bm-name{color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bm-bar-wrap{background:#0d1b2a;border-radius:4px;height:10px;overflow:hidden}
+.bm-bar{height:100%;border-radius:4px;transition:width .2s ease}
+.bm-dur{color:var(--muted);font-variant-numeric:tabular-nums;text-align:right}
+</style>
+</head>
+<body>
+<div class="nav"><div class="container nav-inner"><a class="brand" href="../../index.html"><svg class="brand-mark" viewBox="217 444 854 378"><g fill="#0080FF"><circle cx="300" cy="620" r="80"/><rect rx="8" x="550" y="460" width="80" height="285"/><rect rx="8" x="645" y="500" width="75" height="245"/></g><g fill="#fff"><path d="M 312.5,461.5 C 373.539,463.763 419.039,491.43 449,544.5C 475.648,600.403 473.314,655.069 442,708.5C 411.013,754.246 367.846,777.913 312.5,779.5C 312.333,760.497 312.5,741.497 313,722.5C 361.661,715.155 391.661,687.488 403,639.5C 408.643,596.312 394.143,561.812 359.5,536C 344.981,527.105 329.315,521.938 312.5,520.5C 312.5,500.833 312.5,481.167 312.5,461.5 Z"/><rect rx="8" x="740" y="530" width="75" height="215"/><rect rx="8" x="840" y="470" width="75" height="275"/><rect rx="8" x="500" y="750" width="570" height="25"/></g></svg><div><div class="brand-name">DECK <b>SHELVES</b></div><div class="brand-tag" data-i18n="brand.tag">Your Steam Home. Your Way.</div></div></a><nav class="nav-links"><a href="../index.html" data-i18n="reports.all">All reports</a><a href="../dashboard.html">Dashboard</a></nav><a class="btn btn-ghost" href="../../index.html" data-i18n="nav.backToSite">&larr; Back to site</a></div></div>
+<header><div class="container">
+  <a class="back" href="index.html">&larr;</a>
+  <div style="flex:1">
+    <h1>CI / Automated<span class="stress-tag" style="background:#0c2a4d;color:#7dd3fc">v3.3.1</span></h1>
+    <div class="meta">September 26, 2026 at 08:13:00 &nbsp;&middot;&nbsp; 6 steps</div>
+  </div>
+  <span class="hbadge pass">PASS</span>
+</div></header>
+<main>
+  <div class="summary">
+    <div class="sc"><div class="n p">6</div><div class="l">Passed</div></div>
+    <div class="sc"><div class="n f">0</div><div class="l">Failed</div></div>
+    <div class="sc"><div class="n s">0</div><div class="l">Skipped</div></div>
+    <div class="sc"><div class="n t">6</div><div class="l">Total</div></div>
+    <div class="sc"><div class="n t">20.2s</div><div class="l">Duration</div></div>
+  </div>
+  <div class="panel"><h2>Step durations</h2><div class="bm"><div class="bm-row"><span class="bm-name">TypeScript typecheck</span><div class="bm-bar-wrap"><div class="bm-bar" style="width:26.4%;background:#4ade80"></div></div><span class="bm-dur">3.0s</span></div><div class="bm-row"><span class="bm-name">Build (production)</span><div class="bm-bar-wrap"><div class="bm-bar" style="width:11.3%;background:#4ade80"></div></div><span class="bm-dur">1.3s</span></div><div class="bm-row"><span class="bm-name">Unit tests (vitest)</span><div class="bm-bar-wrap"><div class="bm-bar" style="width:22.4%;background:#4ade80"></div></div><span class="bm-dur">2.6s</span></div><div class="bm-row"><span class="bm-name">Package (.zip)</span><div class="bm-bar-wrap"><div class="bm-bar" style="width:14.0%;background:#4ade80"></div></div><span class="bm-dur">1.6s</span></div><div class="bm-row"><span class="bm-name">Verify package</span><div class="bm-bar-wrap"><div class="bm-bar" style="width:2.0%;background:#4ade80"></div></div><span class="bm-dur">78 ms</span></div><div class="bm-row"><span class="bm-name">Compat validation</span><div class="bm-bar-wrap"><div class="bm-bar" style="width:100.0%;background:#4ade80"></div></div><span class="bm-dur">11.5s</span></div></div></div>
+<details class="step" id="s0"><summary class="step-hdr"><div class="dot pass"></div><span class="sname">TypeScript typecheck</span><span class="sdur" title="3039 ms">3.0s</span><span class="slabel pass">PASS</span><span class="chevron">▶</span></summary><div class="step-body" id="b0"><pre class="log">(no output)</pre></div></details>
+<details class="step" id="s1"><summary class="step-hdr"><div class="dot pass"></div><span class="sname">Build (production)</span><span class="sdur" title="1306 ms">1.3s</span><span class="slabel pass">PASS</span><span class="chevron">▶</span></summary><div class="step-body" id="b1"><pre class="log">vite v8.3.1 building client environment for production...
+transforming...
+<span class="g">✓ 533 modules transformed.</span>
+rendering chunks...
+computing gzip size...
+dist<a class="fl" href="vscode://file//chunks/rolldown-runtime-BrULcNsR.js">/chunks/rolldown-runtime-BrULcNsR.js</a>      1.00 kB │ gzip:   0.51 kB
+dist<a class="fl" href="vscode://file//chunks/steamHost-CN1-fhon.js">/chunks/steamHost-CN1-fhon.js</a>             1.01 kB │ gzip:   0.47 kB
+dist<a class="fl" href="vscode://file//chunks/home-D793_rsC.js">/chunks/home-D793_rsC.js</a>                  1.83 kB │ gzip:   0.99 kB
+dist<a class="fl" href="vscode://file//chunks/home-B7DwuKiJ.js">/chunks/home-B7DwuKiJ.js</a>                  1.83 kB │ gzip:   0.84 kB
+dist<a class="fl" href="vscode://file//chunks/home-Dy8cqTNF.js">/chunks/home-Dy8cqTNF.js</a>                  1.84 kB │ gzip:   1.01 kB
+dist<a class="fl" href="vscode://file//chunks/home-J5VJNXiL.js">/chunks/home-J5VJNXiL.js</a>                  1.92 kB │ gzip:   0.92 kB
+dist<a class="fl" href="vscode://file//chunks/home-B3ztiXb3.js">/chunks/home-B3ztiXb3.js</a>                  1.92 kB │ gzip:   0.93 kB
+dist<a class="fl" href="vscode://file//chunks/home-DTnKXfFl.js">/chunks/home-DTnKXfFl.js</a>                  1.95 kB │ gzip:   0.93 kB
+dist<a class="fl" href="vscode://file//chunks/home-6znkAobf.js">/chunks/home-6znkAobf.js</a>                  1.95 kB │ gzip:   0.92 kB
+dist<a class="fl" href="vscode://file//chunks/home-B35rKN98.js">/chunks/home-B35rKN98.js</a>                  1.95 kB │ gzip:   0.92 kB
+dist<a class="fl" href="vscode://file//chunks/home-BSRVq5h9.js">/chunks/home-BSRVq5h9.js</a>                  1.97 kB │ gzip:   0.94 kB
+dist<a class="fl" href="vscode://file//chunks/home-BpxU67ot.js">/chunks/home-BpxU67ot.js</a>                  1.97 kB │ gzip:   0.97 kB
+dist<a class="fl" href="vscode://file//chunks/home-DLGj2-zG.js">/chunks/home-DLGj2-zG.js</a>                  1.97 kB │ gzip:   0.96 kB
+dist<a class="fl" href="vscode://file//chunks/home-CTyl2O1_.js">/chunks/home-CTyl2O1_.js</a>                  1.98 kB │ gzip:   0.92 kB
+dist<a class="fl" href="vscode://file//chunks/home-CxHp4nsi.js">/chunks/home-CxHp4nsi.js</a>                  1.99 kB │ gzip:   1.06 kB
+dist<a class="fl" href="vscode://file//chunks/home-CtjMYweS.js">/chunks/home-CtjMYweS.js</a>                  2.01 kB │ gzip:   0.93 kB
+dist<a class="fl" href="vscode://file//chunks/home-DrslqUxW.js">/chunks/home-DrslqUxW.js</a>                  2.01 kB │ gzip:   0.93 kB
+dist<a class="fl" href="vscode://file//chunks/home-CVqVyeNx.js">/chunks/home-CVqVyeNx.js</a>                  2.22 kB │ gzip:   1.11 kB
+dist<a class="fl" href="vscode://file//chunks/home-BVLY9ldN.js">/chunks/home-BVLY9ldN.js</a>                  2.38 kB │ gzip:   1.09 kB
+dist<a class="fl" href="vscode://file//chunks/home-Bf5vl_aT.js">/chunks/home-Bf5vl_aT.js</a>                  2.45 kB │ gzip:   1.10 kB
+dist<a class="fl" href="vscode://file//chunks/qam-btpE-_p_.js">/chunks/qam-btpE-_p_.js</a>                   3.99 kB │ gzip:   1.96 kB
+dist<a class="fl" href="vscode://file//chunks/qam-DpsmHeyK.js">/chunks/qam-DpsmHeyK.js</a>                   4.09 kB │ gzip:   1.99 kB
+dist<a class="fl" href="vscode://file//chunks/qam-CF-HelK6.js">/chunks/qam-CF-HelK6.js</a>                   4.09 kB │ gzip:   1.65 kB
+dist<a class="fl" href="vscode://file//chunks/qam-BNRb7OuR.js">/chunks/qam-BNRb7OuR.js</a>                   4.33 kB │ gzip:   1.80 kB
+dist<a class="fl" href="vscode://file//chunks/qam-DZ3SOXaT.js">/chunks/qam-DZ3SOXaT.js</a>                   4.36 kB │ gzip:   1.87 kB
+dist<a class="fl" href="vscode://file//chunks/qam-p1V4yJAX.js">/chunks/qam-p1V4yJAX.js</a>                   4.38 kB │ gzip:   1.79 kB
+dist<a class="fl" href="vscode://file//chunks/qam-DJZarrHp.js">/chunks/qam-DJZarrHp.js</a>                   4.41 kB │ gzip:   1.83 kB
+dist<a class="fl" href="vscode://file//chunks/qam-CgeQQWf0.js">/chunks/qam-CgeQQWf0.js</a>                   4.41 kB │ gzip:   1.83 kB
+dist<a class="fl" href="vscode://file//chunks/qam-Br2WVKSJ.js">/chunks/qam-Br2WVKSJ.js</a>                   4.43 kB │ gzip:   1.83 kB
+dist<a class="fl" href="vscode://file//chunks/qam-jB8CHlFb.js">/chunks/qam-jB8CHlFb.js</a>                   4.43 kB │ gzip:   1.83 kB
+dist<a class="fl" href="vscode://file//chunks/qam-Xu2IClOS.js">/chunks/qam-Xu2IClOS.js</a>                   4.44 kB │ gzip:   1.92 kB
+dist<a class="fl" href="vscode://file//chunks/qam-1Uoq33Y1.js">/chunks/qam-1Uoq33Y1.js</a>                   4.52 kB │ gzip:   2.02 kB
+dist<a class="fl" href="vscode://file//chunks/qam-BUxDHlAj.js">/chunks/qam-BUxDHlAj.js</a>                   4.53 kB │ gzip:   1.86 kB
+dist<a class="fl" href="vscode://file//chunks/qam-B0fkXZtf.js">/chunks/qam-B0fkXZtf.js</a>                   4.56 kB │ gzip:   1.89 kB
+dist<a class="fl" href="vscode://file//chunks/qam-Cl1VJ55i.js">/chunks/qam-Cl1VJ55i.js</a>                   4.56 kB │ gzip:   1.89 kB
+dist<a class="fl" href="vscode://file//chunks/defaults-Ch6RCDJD.js">/chunks/defaults-Ch6RCDJD.js</a>              4.57 kB │ gzip:   1.54 kB
+dist<a class="fl" href="vscode://file//chunks/qam-o6qBd7GV.js">/chunks/qam-o6qBd7GV.js</a>                   4.93 kB │ gzip:   2.08 kB
+dist<a class="fl" href="vscode://file//chunks/integrations-JBQ6M8R8.js">/chunks/integrations-JBQ6M8R8.js</a>          5.25 kB │ gzip:   2.29 kB
+dist<a class="fl" href="vscode://file//chunks/integrations-LE5gkxTl.js">/chunks/integrations-LE5gkxTl.js</a>          5.27 kB │ gzip:   2.29 kB
+dist<a class="fl" href="vscode://file//chunks/integrations-D-VBEleW.js">/chunks/integrations-D-VBEleW.js</a>          5.29 kB │ gzip:   1.93 kB
+dist<a class="fl" href="vscode://file//chunks/integrations-CLqj19uh.js">/chunks/integrations-CLqj19uh.js</a>          5.47 kB │ gzip:   2.10 kB
+dist<a class="fl" href="vscode://file//chunks/customfilters-yhpdN7nk.js">/chunks/customfilters-yhpdN7nk.js</a>         5.52 kB │ gzip:   1.81 kB
+dist<a class="fl" href="vscode://file//chunks/integrations-CW9mrIMN.js">/chunks/integrations-CW9mrIMN.js</a>          5.54 kB │ gzip:   2.16 kB
+dist<a class="fl" href="vscode://file//chunks/integrations--PaAVRgi.js">/chunks/integrations--PaAVRgi.js</a>          5.56 kB │ gzip:   2.11 kB
+dist<a class="fl" href="vscode://file//chunks/integrations-D9vEcspi.js">/chunks/integrations-D9vEcspi.js</a>          5.56 kB │ gzip:   2.11 kB
+dist<a class="fl" href="vscode://file//chunks/integrations-C2_aCbe1.js">/chunks/integrations-C2_aCbe1.js</a>          5.57 kB │ gzip:   2.22 kB
+dist<a class="fl" href="vscode://file//chunks/integrations-1I5h3QDW.js">/chunks/integrations-1I5h3QDW.js</a>          5.58 kB │ gzip:   2.08 kB
+dist<a class="fl" href="vscode://file//chunks/integrations-C0_TOy0Y.js">/chunks/integrations-C0_TOy0Y.js</a>          5.59 kB │ gzip:   2.35 kB
+dist<a class="fl" href="vscode://file//chunks/integrations-VQyEMzft.js">/chunks/integrations-VQyEMzft.js</a>          5.61 kB │ gzip:   2.19 kB
+dist<a class="fl" href="vscode://file//chunks/onlineMetadata-CK1KLqqj.js">/chunks/onlineMetadata-CK1KLqqj.js</a>        5.62 kB │ gzip:   2.14 kB
+dist<a class="fl" href="vscode://file//chunks/qam-CLahjaqE.js">/chunks/qam-CLahjaqE.js</a>                   5.64 kB │ gzip:   2.19 kB
+dist<a class="fl" href="vscode://file//chunks/integrations-CBl4z6b2.js">/chunks/integrations-CBl4z6b2.js</a>          5.65 kB │ gzip:   2.12 kB
+dist<a class="fl" href="vscode://file//chunks/integrations-CXFxNuuU.js">/chunks/integrations-CXFxNuuU.js</a>          5.65 kB │ gzip:   2.12 kB
+dist<a class="fl" href="vscode://file//chunks/integrations-B9iip7kp.js">/chunks/integrations-B9iip7kp.js</a>          5.66 kB │ gzip:   2.14 kB
+dist<a class="fl" href="vscode://file//chunks/integrations-D_a9jYMZ.js">/chunks/integrations-D_a9jYMZ.js</a>          5.66 kB │ gzip:   2.14 kB
+dist<a class="fl" href="vscode://file//chunks/qam-BHw1tXGH.js">/chunks/qam-BHw1tXGH.js</a>                   5.73 kB │ gzip:   2.20 kB
+dist<a class="fl" href="vscode://file//chunks/integrations-Cu91TY95.js">/chunks/integrations-Cu91TY95.js</a>          5.76 kB │ gzip:   2.36 kB
+dist<a class="fl" href="vscode://file//chunks/integrations-Ba8KLQLN.js">/chunks/integrations-Ba8KLQLN.js</a>          6.66 kB │ gzip:   2.52 kB
+dist<a class="fl" href="vscode://file//chunks/integrations-BuYYtD4D.js">/chunks/integrations-BuYYtD4D.js</a>          6.80 kB │ gzip:   2.57 kB
+dist<a class="fl" href="vscode://file//chunks/common-CIWwcn3a.js">/chunks/common-CIWwcn3a.js</a>                7.86 kB │ gzip:   3.11 kB
+dist<a class="fl" href="vscode://file//chunks/common-DuoHImQA.js">/chunks/common-DuoHImQA.js</a>                7.86 kB │ gzip:   3.62 kB
+dist<a class="fl" href="vscode://file//chunks/common-DMRzA8Tm.js">/chunks/common-DMRzA8Tm.js</a>                7.94 kB │ gzip:   3.67 kB
+dist<a class="fl" href="vscode://file//chunks/common-tg_AoI7Y.js">/chunks/common-tg_AoI7Y.js</a>                8.23 kB │ gzip:   3.32 kB
+dist<a class="fl" href="vscode://file//chunks/common-kjRrMf4k.js">/chunks/common-kjRrMf4k.js</a>                8.35 kB │ gzip:   3.30 kB
+dist<a class="fl" href="vscode://file//chunks/common-BCY27cvd.js">/chunks/common-BCY27cvd.js</a>                8.38 kB │ gzip:   3.53 kB
+dist<a class="fl" href="vscode://file//chunks/common-BEC2kZv-.js">/chunks/common-BEC2kZv-.js</a>                8.40 kB │ gzip:   3.44 kB
+dist<a class="fl" href="vscode://file//chunks/common-DXELey7y.js">/chunks/common-DXELey7y.js</a>                8.46 kB │ gzip:   3.36 kB
+dist<a class="fl" href="vscode://file//chunks/common-CVDa5VN1.js">/chunks/common-CVDa5VN1.js</a>                8.47 kB │ gzip:   3.44 kB
+dist<a class="fl" href="vscode://file//chunks/common-DHQnBd91.js">/chunks/common-DHQnBd91.js</a>                8.53 kB │ gzip:   3.38 kB
+dist<a class="fl" href="vscode://file//chunks/common-BbZZ4EZl.js">/chunks/common-BbZZ4EZl.js</a>                8.54 kB │ gzip:   3.38 kB
+dist<a class="fl" href="vscode://file//chunks/common-D0CrhcXv.js">/chunks/common-D0CrhcXv.js</a>                8.59 kB │ gzip:   3.42 kB
+dist<a class="fl" href="vscode://file//chunks/common-Da-eDPlj.js">/chunks/common-Da-eDPlj.js</a>                8.60 kB │ gzip:   3.68 kB
+dist<a class="fl" href="vscode://file//chunks/common-wP_Nxikl.js">/chunks/common-wP_Nxikl.js</a>                8.61 kB │ gzip:   3.43 kB
+dist<a class="fl" href="vscode://file//chunks/common-DPadl-xa.js">/chunks/common-DPadl-xa.js</a>                8.62 kB │ gzip:   3.43 kB
+dist<a class="fl" href="vscode://file//chunks/common-CDNRLJxm.js">/chunks/common-CDNRLJxm.js</a>                9.35 kB │ gzip:   3.82 kB
+dist<a class="fl" href="vscode://file//chunks/decky-B7iT1G3s.js">/chunks/decky-B7iT1G3s.js</a>                 9.72 kB │ gzip:   3.48 kB
+dist<a class="fl" href="vscode://file//chunks/common-DE4FPwx_.js">/chunks/common-DE4FPwx_.js</a>               10.58 kB │ gzip:   3.96 kB
+dist<a class="fl" href="vscode://file//chunks/about-DtdyrqXd.js">/chunks/about-DtdyrqXd.js</a>                10.69 kB │ gzip:   5.42 kB
+dist<a class="fl" href="vscode://file//chunks/common-D9l2UfW-.js">/chunks/common-D9l2UfW-.js</a>               10.74 kB │ gzip:   3.97 kB
+dist<a class="fl" href="vscode://file//chunks/about-BUZkfr6Y.js">/chunks/about-BUZkfr6Y.js</a>                10.99 kB │ gzip:   5.53 kB
+dist<a class="fl" href="vscode://file//chunks/about-DDPwUnSY.js">/chunks/about-DDPwUnSY.js</a>                11.08 kB │ gzip:   4.72 kB
+dist<a class="fl" href="vscode://file//chunks/about-cpZ_zKVX.js">/chunks/about-cpZ_zKVX.js</a>                11.91 kB │ gzip:   5.05 kB
+dist<a class="fl" href="vscode://file//chunks/about-aOobEZTd.js">/chunks/about-aOobEZTd.js</a>                12.18 kB │ gzip:   5.13 kB
+dist<a class="fl" href="vscode://file//chunks/about-CXLqPkfd.js">/chunks/about-CXLqPkfd.js</a>                12.26 kB │ gzip:   5.15 kB
+dist<a class="fl" href="vscode://file//chunks/about-D375jROM.js">/chunks/about-D375jROM.js</a>                12.35 kB │ gzip:   5.31 kB
+dist<a class="fl" href="vscode://file//chunks/about-B4vBeU4G.js">/chunks/about-B4vBeU4G.js</a>                12.40 kB │ gzip:   5.09 kB
+dist<a class="fl" href="vscode://file//chunks/about-kJUzcATf.js">/chunks/about-kJUzcATf.js</a>                12.43 kB │ gzip:   5.43 kB
+dist<a class="fl" href="vscode://file//chunks/about-QShX0wMQ.js">/chunks/about-QShX0wMQ.js</a>                12.47 kB │ gzip:   5.22 kB
+dist<a class="fl" href="vscode://file//chunks/about--VKeJIl0.js">/chunks/about--VKeJIl0.js</a>                12.68 kB │ gzip:   5.19 kB
+dist<a class="fl" href="vscode://file//chunks/about-CSInLvqX.js">/chunks/about-CSInLvqX.js</a>                12.70 kB │ gzip:   5.52 kB
+dist<a class="fl" href="vscode://file//chunks/about-3-NSqCbD.js">/chunks/about-3-NSqCbD.js</a>                12.71 kB │ gzip:   5.19 kB
+dist<a class="fl" href="vscode://file//chunks/about-CEuYMrOY.js">/chunks/about-CEuYMrOY.js</a>                12.99 kB │ gzip:   5.33 kB
+dist<a class="fl" href="vscode://file//chunks/about-fAMckQez.js">/chunks/about-fAMckQez.js</a>                12.99 kB │ gzip:   5.34 kB
+dist<a class="fl" href="vscode://file//chunks/about-BlhLP53S.js">/chunks/about-BlhLP53S.js</a>                14.44 kB │ gzip:   5.84 kB
+dist<a class="fl" href="vscode://file//chunks/about-oqt37gOC.js">/chunks/about-oqt37gOC.js</a>                18.65 kB │ gzip:   6.34 kB
+dist<a class="fl" href="vscode://file//chunks/about-BXHqlj8V.js">/chunks/about-BXHqlj8V.js</a>                19.01 kB │ gzip:   6.40 kB
+dist<a class="fl" href="vscode://file//chunks/onlineStore-BKzxsdUS.js">/chunks/onlineStore-BKzxsdUS.js</a>          19.90 kB │ gzip:   5.92 kB
+dist<a class="fl" href="vscode://file//chunks/v3Extensions-D9t0C8BF.js">/chunks/v3Extensions-D9t0C8BF.js</a>         31.96 kB │ gzip:   7.70 kB
+dist<a class="fl" href="vscode://file//chunks/settings-CAYroMq1.js">/chunks/settings-CAYroMq1.js</a>             93.55 kB │ gzip:  31.41 kB
+dist<a class="fl" href="vscode://file//chunks/settings-BF0HgYIF.js">/chunks/settings-BF0HgYIF.js</a>             94.36 kB │ gzip:  31.58 kB
+dist<a class="fl" href="vscode://file//chunks/settings-C_R3C2tz.js">/chunks/settings-C_R3C2tz.js</a>             95.08 kB │ gzip:  29.81 kB
+dist<a class="fl" href="vscode://file//chunks/settings-CFIeK5LQ.js">/chunks/settings-CFIeK5LQ.js</a>            100.33 kB │ gzip:  31.21 kB
+dist<a class="fl" href="vscode://file//chunks/settings-BkPP5Pg_.js">/chunks/settings-BkPP5Pg_.js</a>            101.38 kB │ gzip:  30.93 kB
+dist<a class="fl" href="vscode://file//chunks/settings-BOS4SFnj.js">/chunks/settings-BOS4SFnj.js</a>            101.49 kB │ gzip:  32.10 kB
+dist<a class="fl" href="vscode://file//chunks/settings-BEtImM15.js">/chunks/settings-BEtImM15.js</a>            101.96 kB │ gzip:  31.09 kB
+dist<a class="fl" href="vscode://file//chunks/settings-C7L46X14.js">/chunks/settings-C7L46X14.js</a>            101.99 kB │ gzip:  30.96 kB
+dist<a class="fl" href="vscode://file//chunks/settings-DmUXtTcJ.js">/chunks/settings-DmUXtTcJ.js</a>            102.45 kB │ gzip:  31.45 kB
+dist<a class="fl" href="vscode://file//chunks/settings-CKTW_9mu.js">/chunks/settings-CKTW_9mu.js</a>            102.66 kB │ gzip:  31.83 kB
+dist<a class="fl" href="vscode://file//chunks/settings-CyOVsixV.js">/chunks/settings-CyOVsixV.js</a>            103.38 kB │ gzip:  31.22 kB
+dist<a class="fl" href="vscode://file//chunks/settings-C6MU1CXn.js">/chunks/settings-C6MU1CXn.js</a>            103.63 kB │ gzip:  31.25 kB
+dist<a class="fl" href="vscode://file//chunks/settings-DN-hFe_G.js">/chunks/settings-DN-hFe_G.js</a>            103.74 kB │ gzip:  31.48 kB
+dist<a class="fl" href="vscode://file//chunks/settings-OW47mtRo.js">/chunks/settings-OW47mtRo.js</a>            104.94 kB │ gzip:  31.76 kB
+dist<a class="fl" href="vscode://file//chunks/settings-CsMgulSN.js">/chunks/settings-CsMgulSN.js</a>            105.00 kB │ gzip:  31.75 kB
+dist<a class="fl" href="vscode://file//chunks/settings-BEeoqZeM.js">/chunks/settings-BEeoqZeM.js</a>            113.09 kB │ gzip:  32.66 kB
+dist<a class="fl" href="vscode://file//chunks/settings-CfMZEyUB.js">/chunks/settings-CfMZEyUB.js</a>            132.38 kB │ gzip:  34.88 kB
+dist<a class="fl" href="vscode://file//chunks/settings-BT9lULFM.js">/chunks/settings-BT9lULFM.js</a>            133.42 kB │ gzip:  35.38 kB
+dist<a class="fl" href="vscode://file//chunks/settingsStore-CJSVjCQ6.js">/chunks/settingsStore-CJSVjCQ6.js</a>       183.79 kB │ gzip:  42.03 kB
+dist<a class="fl" href="vscode://file//chunks/steam-DRNQx2Yk.js">/chunks/steam-DRNQx2Yk.js</a>               366.09 kB │ gzip: 101.64 kB
+dist<a class="fl" href="vscode://file//index.js">/index.js</a>                             1,327.54 kB │ gzip: 292.00 kB
+
+transforming...
+<span class="g">✓ 533 modules transformed.</span>
+rendering chunks...
+computing gzip size...
+dist<a class="fl" href="vscode://file//index.iife.js">/index.iife.js</a>  4,614.07 kB │ gzip: 1,368.25 kB
+
+<span class="g">✓ built in 938ms</span>
+</pre></div></details>
+<details class="step" id="s2"><summary class="step-hdr"><div class="dot pass"></div><span class="sname">Unit tests (vitest)</span><span class="sdur" title="2585 ms">2.6s</span><span class="slabel pass">PASS</span><span class="chevron">▶</span></summary><div class="step-body" id="b2"><div class="test-bar"><span class="tp">✓ 71 passed</span></div><pre class="log">
+ RUN  v4.1.11 /Users/santojon/Projects/Deck-Shelves
+
+
+<span class="g"> Test Files  71 passed (71)</span>
+<span class="g">      Tests  910 passed (910)</span>
+   Start at  08:13:05
+   Duration  2.16s (transform 2.73s, setup 0ms, import 6.41s, tests 694ms, environment 447ms)
+
+</pre></div></details>
+<details class="step" id="s3"><summary class="step-hdr"><div class="dot pass"></div><span class="sname">Package (.zip)</span><span class="sdur" title="1616 ms">1.6s</span><span class="slabel pass">PASS</span><span class="chevron">▶</span></summary><div class="step-body" id="b3"><pre class="log">vite v8.3.1 building client environment for production...
+transforming...
+<span class="g">✓ 533 modules transformed.</span>
+rendering chunks...
+computing gzip size...
+dist<a class="fl" href="vscode://file//chunks/rolldown-runtime-BrULcNsR.js">/chunks/rolldown-runtime-BrULcNsR.js</a>      1.00 kB │ gzip:   0.51 kB
+dist<a class="fl" href="vscode://file//chunks/steamHost-CN1-fhon.js">/chunks/steamHost-CN1-fhon.js</a>             1.01 kB │ gzip:   0.47 kB
+dist<a class="fl" href="vscode://file//chunks/home-D793_rsC.js">/chunks/home-D793_rsC.js</a>                  1.83 kB │ gzip:   0.99 kB
+dist<a class="fl" href="vscode://file//chunks/home-B7DwuKiJ.js">/chunks/home-B7DwuKiJ.js</a>                  1.83 kB │ gzip:   0.84 kB
+dist<a class="fl" href="vscode://file//chunks/home-Dy8cqTNF.js">/chunks/home-Dy8cqTNF.js</a>                  1.84 kB │ gzip:   1.01 kB
+dist<a class="fl" href="vscode://file//chunks/home-J5VJNXiL.js">/chunks/home-J5VJNXiL.js</a>                  1.92 kB │ gzip:   0.92 kB
+dist<a class="fl" href="vscode://file//chunks/home-B3ztiXb3.js">/chunks/home-B3ztiXb3.js</a>                  1.92 kB │ gzip:   0.93 kB
+dist<a class="fl" href="vscode://file//chunks/home-DTnKXfFl.js">/chunks/home-DTnKXfFl.js</a>                  1.95 kB │ gzip:   0.93 kB
+dist<a class="fl" href="vscode://file//chunks/home-6znkAobf.js">/chunks/home-6znkAobf.js</a>                  1.95 kB │ gzip:   0.92 kB
+dist<a class="fl" href="vscode://file//chunks/home-B35rKN98.js">/chunks/home-B35rKN98.js</a>                  1.95 kB │ gzip:   0.92 kB
+dist<a class="fl" href="vscode://file//chunks/home-BSRVq5h9.js">/chunks/home-BSRVq5h9.js</a>                  1.97 kB │ gzip:   0.94 kB
+dist<a class="fl" href="vscode://file//chunks/home-BpxU67ot.js">/chunks/home-BpxU67ot.js</a>                  1.97 kB │ gzip:   0.97 kB
+dist<a class="fl" href="vscode://file//chunks/home-DLGj2-zG.js">/chunks/home-DLGj2-zG.js</a>                  1.97 kB │ gzip:   0.96 kB
+dist<a class="fl" href="vscode://file//chunks/home-CTyl2O1_.js">/chunks/home-CTyl2O1_.js</a>                  1.98 kB │ gzip:   0.92 kB
+dist<a class="fl" href="vscode://file//chunks/home-CxHp4nsi.js">/chunks/home-CxHp4nsi.js</a>                  1.99 kB │ gzip:   1.06 kB
+dist<a class="fl" href="vscode://file//chunks/home-CtjMYweS.js">/chunks/home-CtjMYweS.js</a>                  2.01 kB │ gzip:   0.93 kB
+dist<a class="fl" href="vscode://file//chunks/home-DrslqUxW.js">/chunks/home-DrslqUxW.js</a>                  2.01 kB │ gzip:   0.93 kB
+dist<a class="fl" href="vscode://file//chunks/home-CVqVyeNx.js">/chunks/home-CVqVyeNx.js</a>                  2.22 kB │ gzip:   1.11 kB
+dist<a class="fl" href="vscode://file//chunks/home-BVLY9ldN.js">/chunks/home-BVLY9ldN.js</a>                  2.38 kB │ gzip:   1.09 kB
+dist<a class="fl" href="vscode://file//chunks/home-Bf5vl_aT.js">/chunks/home-Bf5vl_aT.js</a>                  2.45 kB │ gzip:   1.10 kB
+dist<a class="fl" href="vscode://file//chunks/qam-btpE-_p_.js">/chunks/qam-btpE-_p_.js</a>                   3.99 kB │ gzip:   1.96 kB
+dist<a class="fl" href="vscode://file//chunks/qam-DpsmHeyK.js">/chunks/qam-DpsmHeyK.js</a>                   4.09 kB │ gzip:   1.99 kB
+dist<a class="fl" href="vscode://file//chunks/qam-CF-HelK6.js">/chunks/qam-CF-HelK6.js</a>                   4.09 kB │ gzip:   1.65 kB
+dist<a class="fl" href="vscode://file//chunks/qam-BNRb7OuR.js">/chunks/qam-BNRb7OuR.js</a>                   4.33 kB │ gzip:   1.80 kB
+dist<a class="fl" href="vscode://file//chunks/qam-DZ3SOXaT.js">/chunks/qam-DZ3SOXaT.js</a>                   4.36 kB │ gzip:   1.87 kB
+dist<a class="fl" href="vscode://file//chunks/qam-p1V4yJAX.js">/chunks/qam-p1V4yJAX.js</a>                   4.38 kB │ gzip:   1.79 kB
+dist<a class="fl" href="vscode://file//chunks/qam-DJZarrHp.js">/chunks/qam-DJZarrHp.js</a>                   4.41 kB │ gzip:   1.83 kB
+dist<a class="fl" href="vscode://file//chunks/qam-CgeQQWf0.js">/chunks/qam-CgeQQWf0.js</a>                   4.41 kB │ gzip:   1.83 kB
+dist<a class="fl" href="vscode://file//chunks/qam-Br2WVKSJ.js">/chunks/qam-Br2WVKSJ.js</a>                   4.43 kB │ gzip:   1.83 kB
+dist<a class="fl" href="vscode://file//chunks/qam-jB8CHlFb.js">/chunks/qam-jB8CHlFb.js</a>                   4.43 kB │ gzip:   1.83 kB
+dist<a class="fl" href="vscode://file//chunks/qam-Xu2IClOS.js">/chunks/qam-Xu2IClOS.js</a>                   4.44 kB │ gzip:   1.92 kB
+dist<a class="fl" href="vscode://file//chunks/qam-1Uoq33Y1.js">/chunks/qam-1Uoq33Y1.js</a>                   4.52 kB │ gzip:   2.02 kB
+dist<a class="fl" href="vscode://file//chunks/qam-BUxDHlAj.js">/chunks/qam-BUxDHlAj.js</a>                   4.53 kB │ gzip:   1.86 kB
+dist<a class="fl" href="vscode://file//chunks/qam-B0fkXZtf.js">/chunks/qam-B0fkXZtf.js</a>                   4.56 kB │ gzip:   1.89 kB
+dist<a class="fl" href="vscode://file//chunks/qam-Cl1VJ55i.js">/chunks/qam-Cl1VJ55i.js</a>                   4.56 kB │ gzip:   1.89 kB
+dist<a class="fl" href="vscode://file//chunks/defaults-Ch6RCDJD.js">/chunks/defaults-Ch6RCDJD.js</a>              4.57 kB │ gzip:   1.54 kB
+dist<a class="fl" href="vscode://file//chunks/qam-o6qBd7GV.js">/chunks/qam-o6qBd7GV.js</a>                   4.93 kB │ gzip:   2.08 kB
+dist<a class="fl" href="vscode://file//chunks/integrations-JBQ6M8R8.js">/chunks/integrations-JBQ6M8R8.js</a>          5.25 kB │ gzip:   2.29 kB
+dist<a class="fl" href="vscode://file//chunks/integrations-LE5gkxTl.js">/chunks/integrations-LE5gkxTl.js</a>          5.27 kB │ gzip:   2.29 kB
+dist<a class="fl" href="vscode://file//chunks/integrations-D-VBEleW.js">/chunks/integrations-D-VBEleW.js</a>          5.29 kB │ gzip:   1.93 kB
+dist<a class="fl" href="vscode://file//chunks/integrations-CLqj19uh.js">/chunks/integrations-CLqj19uh.js</a>          5.47 kB │ gzip:   2.10 kB
+dist<a class="fl" href="vscode://file//chunks/customfilters-yhpdN7nk.js">/chunks/customfilters-yhpdN7nk.js</a>         5.52 kB │ gzip:   1.81 kB
+dist<a class="fl" href="vscode://file//chunks/integrations-CW9mrIMN.js">/chunks/integrations-CW9mrIMN.js</a>          5.54 kB │ gzip:   2.16 kB
+dist<a class="fl" href="vscode://file//chunks/integrations--PaAVRgi.js">/chunks/integrations--PaAVRgi.js</a>          5.56 kB │ gzip:   2.11 kB
+dist<a class="fl" href="vscode://file//chunks/integrations-D9vEcspi.js">/chunks/integrations-D9vEcspi.js</a>          5.56 kB │ gzip:   2.11 kB
+dist<a class="fl" href="vscode://file//chunks/integrations-C2_aCbe1.js">/chunks/integrations-C2_aCbe1.js</a>          5.57 kB │ gzip:   2.22 kB
+dist<a class="fl" href="vscode://file//chunks/integrations-1I5h3QDW.js">/chunks/integrations-1I5h3QDW.js</a>          5.58 kB │ gzip:   2.08 kB
+dist<a class="fl" href="vscode://file//chunks/integrations-C0_TOy0Y.js">/chunks/integrations-C0_TOy0Y.js</a>          5.59 kB │ gzip:   2.35 kB
+dist<a class="fl" href="vscode://file//chunks/integrations-VQyEMzft.js">/chunks/integrations-VQyEMzft.js</a>          5.61 kB │ gzip:   2.19 kB
+dist<a class="fl" href="vscode://file//chunks/onlineMetadata-CK1KLqqj.js">/chunks/onlineMetadata-CK1KLqqj.js</a>        5.62 kB │ gzip:   2.14 kB
+dist<a class="fl" href="vscode://file//chunks/qam-CLahjaqE.js">/chunks/qam-CLahjaqE.js</a>                   5.64 kB │ gzip:   2.19 kB
+dist<a class="fl" href="vscode://file//chunks/integrations-CBl4z6b2.js">/chunks/integrations-CBl4z6b2.js</a>          5.65 kB │ gzip:   2.12 kB
+dist<a class="fl" href="vscode://file//chunks/integrations-CXFxNuuU.js">/chunks/integrations-CXFxNuuU.js</a>          5.65 kB │ gzip:   2.12 kB
+dist<a class="fl" href="vscode://file//chunks/integrations-B9iip7kp.js">/chunks/integrations-B9iip7kp.js</a>          5.66 kB │ gzip:   2.14 kB
+dist<a class="fl" href="vscode://file//chunks/integrations-D_a9jYMZ.js">/chunks/integrations-D_a9jYMZ.js</a>          5.66 kB │ gzip:   2.14 kB
+dist<a class="fl" href="vscode://file//chunks/qam-BHw1tXGH.js">/chunks/qam-BHw1tXGH.js</a>                   5.73 kB │ gzip:   2.20 kB
+dist<a class="fl" href="vscode://file//chunks/integrations-Cu91TY95.js">/chunks/integrations-Cu91TY95.js</a>          5.76 kB │ gzip:   2.36 kB
+dist<a class="fl" href="vscode://file//chunks/integrations-Ba8KLQLN.js">/chunks/integrations-Ba8KLQLN.js</a>          6.66 kB │ gzip:   2.52 kB
+dist<a class="fl" href="vscode://file//chunks/integrations-BuYYtD4D.js">/chunks/integrations-BuYYtD4D.js</a>          6.80 kB │ gzip:   2.57 kB
+dist<a class="fl" href="vscode://file//chunks/common-CIWwcn3a.js">/chunks/common-CIWwcn3a.js</a>                7.86 kB │ gzip:   3.11 kB
+dist<a class="fl" href="vscode://file//chunks/common-DuoHImQA.js">/chunks/common-DuoHImQA.js</a>                7.86 kB │ gzip:   3.62 kB
+dist<a class="fl" href="vscode://file//chunks/common-DMRzA8Tm.js">/chunks/common-DMRzA8Tm.js</a>                7.94 kB │ gzip:   3.67 kB
+dist<a class="fl" href="vscode://file//chunks/common-tg_AoI7Y.js">/chunks/common-tg_AoI7Y.js</a>                8.23 kB │ gzip:   3.32 kB
+dist<a class="fl" href="vscode://file//chunks/common-kjRrMf4k.js">/chunks/common-kjRrMf4k.js</a>                8.35 kB │ gzip:   3.30 kB
+dist<a class="fl" href="vscode://file//chunks/common-BCY27cvd.js">/chunks/common-BCY27cvd.js</a>                8.38 kB │ gzip:   3.53 kB
+dist<a class="fl" href="vscode://file//chunks/common-BEC2kZv-.js">/chunks/common-BEC2kZv-.js</a>                8.40 kB │ gzip:   3.44 kB
+dist<a class="fl" href="vscode://file//chunks/common-DXELey7y.js">/chunks/common-DXELey7y.js</a>                8.46 kB │ gzip:   3.36 kB
+dist<a class="fl" href="vscode://file//chunks/common-CVDa5VN1.js">/chunks/common-CVDa5VN1.js</a>                8.47 kB │ gzip:   3.44 kB
+dist<a class="fl" href="vscode://file//chunks/common-DHQnBd91.js">/chunks/common-DHQnBd91.js</a>                8.53 kB │ gzip:   3.38 kB
+dist<a class="fl" href="vscode://file//chunks/common-BbZZ4EZl.js">/chunks/common-BbZZ4EZl.js</a>                8.54 kB │ gzip:   3.38 kB
+dist<a class="fl" href="vscode://file//chunks/common-D0CrhcXv.js">/chunks/common-D0CrhcXv.js</a>                8.59 kB │ gzip:   3.42 kB
+dist<a class="fl" href="vscode://file//chunks/common-Da-eDPlj.js">/chunks/common-Da-eDPlj.js</a>                8.60 kB │ gzip:   3.68 kB
+dist<a class="fl" href="vscode://file//chunks/common-wP_Nxikl.js">/chunks/common-wP_Nxikl.js</a>                8.61 kB │ gzip:   3.43 kB
+dist<a class="fl" href="vscode://file//chunks/common-DPadl-xa.js">/chunks/common-DPadl-xa.js</a>                8.62 kB │ gzip:   3.43 kB
+dist<a class="fl" href="vscode://file//chunks/common-CDNRLJxm.js">/chunks/common-CDNRLJxm.js</a>                9.35 kB │ gzip:   3.82 kB
+dist<a class="fl" href="vscode://file//chunks/decky-B7iT1G3s.js">/chunks/decky-B7iT1G3s.js</a>                 9.72 kB │ gzip:   3.48 kB
+dist<a class="fl" href="vscode://file//chunks/common-DE4FPwx_.js">/chunks/common-DE4FPwx_.js</a>               10.58 kB │ gzip:   3.96 kB
+dist<a class="fl" href="vscode://file//chunks/about-DtdyrqXd.js">/chunks/about-DtdyrqXd.js</a>                10.69 kB │ gzip:   5.42 kB
+dist<a class="fl" href="vscode://file//chunks/common-D9l2UfW-.js">/chunks/common-D9l2UfW-.js</a>               10.74 kB │ gzip:   3.97 kB
+dist<a class="fl" href="vscode://file//chunks/about-BUZkfr6Y.js">/chunks/about-BUZkfr6Y.js</a>                10.99 kB │ gzip:   5.53 kB
+dist<a class="fl" href="vscode://file//chunks/about-DDPwUnSY.js">/chunks/about-DDPwUnSY.js</a>                11.08 kB │ gzip:   4.72 kB
+dist<a class="fl" href="vscode://file//chunks/about-cpZ_zKVX.js">/chunks/about-cpZ_zKVX.js</a>                11.91 kB │ gzip:   5.05 kB
+dist<a class="fl" href="vscode://file//chunks/about-aOobEZTd.js">/chunks/about-aOobEZTd.js</a>                12.18 kB │ gzip:   5.13 kB
+dist<a class="fl" href="vscode://file//chunks/about-CXLqPkfd.js">/chunks/about-CXLqPkfd.js</a>                12.26 kB │ gzip:   5.15 kB
+dist<a class="fl" href="vscode://file//chunks/about-D375jROM.js">/chunks/about-D375jROM.js</a>                12.35 kB │ gzip:   5.31 kB
+dist<a class="fl" href="vscode://file//chunks/about-B4vBeU4G.js">/chunks/about-B4vBeU4G.js</a>                12.40 kB │ gzip:   5.09 kB
+dist<a class="fl" href="vscode://file//chunks/about-kJUzcATf.js">/chunks/about-kJUzcATf.js</a>                12.43 kB │ gzip:   5.43 kB
+dist<a class="fl" href="vscode://file//chunks/about-QShX0wMQ.js">/chunks/about-QShX0wMQ.js</a>                12.47 kB │ gzip:   5.22 kB
+dist<a class="fl" href="vscode://file//chunks/about--VKeJIl0.js">/chunks/about--VKeJIl0.js</a>                12.68 kB │ gzip:   5.19 kB
+dist<a class="fl" href="vscode://file//chunks/about-CSInLvqX.js">/chunks/about-CSInLvqX.js</a>                12.70 kB │ gzip:   5.52 kB
+dist<a class="fl" href="vscode://file//chunks/about-3-NSqCbD.js">/chunks/about-3-NSqCbD.js</a>                12.71 kB │ gzip:   5.19 kB
+dist<a class="fl" href="vscode://file//chunks/about-CEuYMrOY.js">/chunks/about-CEuYMrOY.js</a>                12.99 kB │ gzip:   5.33 kB
+dist<a class="fl" href="vscode://file//chunks/about-fAMckQez.js">/chunks/about-fAMckQez.js</a>                12.99 kB │ gzip:   5.34 kB
+dist<a class="fl" href="vscode://file//chunks/about-BlhLP53S.js">/chunks/about-BlhLP53S.js</a>                14.44 kB │ gzip:   5.84 kB
+dist<a class="fl" href="vscode://file//chunks/about-oqt37gOC.js">/chunks/about-oqt37gOC.js</a>                18.65 kB │ gzip:   6.34 kB
+dist<a class="fl" href="vscode://file//chunks/about-BXHqlj8V.js">/chunks/about-BXHqlj8V.js</a>                19.01 kB │ gzip:   6.40 kB
+dist<a class="fl" href="vscode://file//chunks/onlineStore-BKzxsdUS.js">/chunks/onlineStore-BKzxsdUS.js</a>          19.90 kB │ gzip:   5.92 kB
+dist<a class="fl" href="vscode://file//chunks/v3Extensions-D9t0C8BF.js">/chunks/v3Extensions-D9t0C8BF.js</a>         31.96 kB │ gzip:   7.70 kB
+dist<a class="fl" href="vscode://file//chunks/settings-CAYroMq1.js">/chunks/settings-CAYroMq1.js</a>             93.55 kB │ gzip:  31.41 kB
+dist<a class="fl" href="vscode://file//chunks/settings-BF0HgYIF.js">/chunks/settings-BF0HgYIF.js</a>             94.36 kB │ gzip:  31.58 kB
+dist<a class="fl" href="vscode://file//chunks/settings-C_R3C2tz.js">/chunks/settings-C_R3C2tz.js</a>             95.08 kB │ gzip:  29.81 kB
+dist<a class="fl" href="vscode://file//chunks/settings-CFIeK5LQ.js">/chunks/settings-CFIeK5LQ.js</a>            100.33 kB │ gzip:  31.21 kB
+dist<a class="fl" href="vscode://file//chunks/settings-BkPP5Pg_.js">/chunks/settings-BkPP5Pg_.js</a>            101.38 kB │ gzip:  30.93 kB
+dist<a class="fl" href="vscode://file//chunks/settings-BOS4SFnj.js">/chunks/settings-BOS4SFnj.js</a>            101.49 kB │ gzip:  32.10 kB
+dist<a class="fl" href="vscode://file//chunks/settings-BEtImM15.js">/chunks/settings-BEtImM15.js</a>            101.96 kB │ gzip:  31.09 kB
+dist<a class="fl" href="vscode://file//chunks/settings-C7L46X14.js">/chunks/settings-C7L46X14.js</a>            101.99 kB │ gzip:  30.96 kB
+dist<a class="fl" href="vscode://file//chunks/settings-DmUXtTcJ.js">/chunks/settings-DmUXtTcJ.js</a>            102.45 kB │ gzip:  31.45 kB
+dist<a class="fl" href="vscode://file//chunks/settings-CKTW_9mu.js">/chunks/settings-CKTW_9mu.js</a>            102.66 kB │ gzip:  31.83 kB
+dist<a class="fl" href="vscode://file//chunks/settings-CyOVsixV.js">/chunks/settings-CyOVsixV.js</a>            103.38 kB │ gzip:  31.22 kB
+dist<a class="fl" href="vscode://file//chunks/settings-C6MU1CXn.js">/chunks/settings-C6MU1CXn.js</a>            103.63 kB │ gzip:  31.25 kB
+dist<a class="fl" href="vscode://file//chunks/settings-DN-hFe_G.js">/chunks/settings-DN-hFe_G.js</a>            103.74 kB │ gzip:  31.48 kB
+dist<a class="fl" href="vscode://file//chunks/settings-OW47mtRo.js">/chunks/settings-OW47mtRo.js</a>            104.94 kB │ gzip:  31.76 kB
+dist<a class="fl" href="vscode://file//chunks/settings-CsMgulSN.js">/chunks/settings-CsMgulSN.js</a>            105.00 kB │ gzip:  31.75 kB
+dist<a class="fl" href="vscode://file//chunks/settings-BEeoqZeM.js">/chunks/settings-BEeoqZeM.js</a>            113.09 kB │ gzip:  32.66 kB
+dist<a class="fl" href="vscode://file//chunks/settings-CfMZEyUB.js">/chunks/settings-CfMZEyUB.js</a>            132.38 kB │ gzip:  34.88 kB
+dist<a class="fl" href="vscode://file//chunks/settings-BT9lULFM.js">/chunks/settings-BT9lULFM.js</a>            133.42 kB │ gzip:  35.38 kB
+dist<a class="fl" href="vscode://file//chunks/settingsStore-CJSVjCQ6.js">/chunks/settingsStore-CJSVjCQ6.js</a>       183.79 kB │ gzip:  42.03 kB
+dist<a class="fl" href="vscode://file//chunks/steam-DRNQx2Yk.js">/chunks/steam-DRNQx2Yk.js</a>               366.09 kB │ gzip: 101.64 kB
+dist<a class="fl" href="vscode://file//index.js">/index.js</a>                             1,327.54 kB │ gzip: 292.00 kB
+
+transforming...
+<span class="g">✓ 533 modules transformed.</span>
+rendering chunks...
+computing gzip size...
+dist<a class="fl" href="vscode://file//index.iife.js">/index.iife.js</a>  4,614.07 kB │ gzip: 1,368.25 kB
+
+<span class="g">✓ built in 947ms</span>
+[verify] Found: plugin.json
+[verify] Found: package.json
+[verify] Found: main.py
+[verify] Found: <a class="fl" href="vscode://file//Users/santojon/Projects/Deck-Shelves/src/backend/paths.py">src/backend/paths.py</a>
+[verify] Found: <a class="fl" href="vscode://file//Users/santojon/Projects/Deck-Shelves/src/backend/storage.py">src/backend/storage.py</a>
+[verify] Found: <a class="fl" href="vscode://file//Users/santojon/Projects/Deck-Shelves/src/backend/sanitizer.py">src/backend/sanitizer.py</a>
+[verify] Found: <a class="fl" href="vscode://file//Users/santojon/Projects/Deck-Shelves/src/backend/launchers.py">src/backend/launchers.py</a>
+[verify] Found: dist<a class="fl" href="vscode://file//index.js">/index.js</a>
+[verify] Found: i18n<a class="fl" href="vscode://file//en-US/settings.js">/en-US/settings.js</a>on
+[verify] Found: assets/tab-icon.svg
+[verify] main.py is executable
+<span class="g">[verify] plugin.json flags OK (no debug)</span>
+[verify] plugin.json icon resolves (assets/tab-icon.svg)
+[verify] package.json matches repo
+[verify] Package OK: deck-shelves-v3.3.1.zip
+[package] Created installable archive: deck-shelves-v3.3.1.zip
+</pre></div></details>
+<details class="step" id="s4"><summary class="step-hdr"><div class="dot pass"></div><span class="sname">Verify package</span><span class="sdur" title="78 ms">78 ms</span><span class="slabel pass">PASS</span><span class="chevron">▶</span></summary><div class="step-body" id="b4"><pre class="log">[verify] Found: plugin.json
+[verify] Found: package.json
+[verify] Found: main.py
+[verify] Found: <a class="fl" href="vscode://file//Users/santojon/Projects/Deck-Shelves/src/backend/paths.py">src/backend/paths.py</a>
+[verify] Found: <a class="fl" href="vscode://file//Users/santojon/Projects/Deck-Shelves/src/backend/storage.py">src/backend/storage.py</a>
+[verify] Found: <a class="fl" href="vscode://file//Users/santojon/Projects/Deck-Shelves/src/backend/sanitizer.py">src/backend/sanitizer.py</a>
+[verify] Found: <a class="fl" href="vscode://file//Users/santojon/Projects/Deck-Shelves/src/backend/launchers.py">src/backend/launchers.py</a>
+[verify] Found: dist<a class="fl" href="vscode://file//index.js">/index.js</a>
+[verify] Found: i18n<a class="fl" href="vscode://file//en-US/settings.js">/en-US/settings.js</a>on
+[verify] Found: assets/tab-icon.svg
+[verify] main.py is executable
+<span class="g">[verify] plugin.json flags OK (no debug)</span>
+[verify] plugin.json icon resolves (assets/tab-icon.svg)
+[verify] package.json matches repo
+[verify] Package OK: deck-shelves-v3.3.1.zip
+</pre></div></details>
+<details class="step" id="s5"><summary class="step-hdr"><div class="dot pass"></div><span class="sname">Compat validation</span><span class="sdur" title="11531 ms">11.5s</span><span class="slabel pass">PASS</span><span class="chevron">▶</span></summary><div class="step-body" id="b5"><div class="test-bar"><span class="tp">✓ 5 passed</span></div><pre class="log">╔══════════════════════════════════════════════╗
+║     Deck Shelves — Compatibility Checks      ║
+╚══════════════════════════════════════════════╝
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Build Output (Vite/ESM)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ dist<a class="fl" href="vscode://file//index.js">/index.js</a> exists</span>
+<span class="g">  ✅ dist<a class="fl" href="vscode://file//index.js">/index.js</a> is non-empty (1327548 bytes)</span>
+<span class="g">  ✅ dist<a class="fl" href="vscode://file//index.js">/index.js</a> size under 2.5MB</span>
+<span class="g">  ✅ dist<a class="fl" href="vscode://file//index.js">/index.js</a> has ESM exports</span>
+<span class="g">  ✅ No node_modules imports in bundle</span>
+
+<span class="e">  Result: 5 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  TypeScript / Node (Build Toolchain)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ tsconfig.json exists</span>
+<span class="g">  ✅ package.json exists</span>
+<span class="g">  ✅ pnpm-lock.yaml exists (lockfile)</span>
+<span class="g">  ✅ Node.js v26.0.0</span>
+<span class="g">  ✅ pnpm 10.33.0</span>
+<span class="g">  ✅ node_modules installed</span>
+<span class="g">  ✅ Vite config exists</span>
+
+<span class="e">  Result: 7 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Decky Loader 3.x (API v1)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ api_version == 1 (Decky 3.x compatible)</span>
+<span class="g">  ✅ host-api shim talks to Decky&#x27;s runtime API (DFL)</span>
+<span class="g">  ✅ host-ui shim talks to Decky&#x27;s runtime UI (DFL)</span>
+<span class="g">  ✅ Plugin._main lifecycle method</span>
+<span class="g">  ✅ Plugin._unload lifecycle method</span>
+<span class="g">  ✅ Uses &#x27;import decky&#x27; (v3 style)</span>
+<span class="g">  ✅ No legacy decky_plugin imports</span>
+
+<span class="e">  Result: 7 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Decky Loader (API v1)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ plugin.json api_version == 1</span>
+<span class="g">  ✅ plugin.json has name</span>
+<span class="g">  ✅ plugin.json has author</span>
+<span class="g">  ✅ main.py exists</span>
+<span class="g">  ✅ main.py has Plugin class</span>
+<span class="g">  ✅ host-api shim exists</span>
+<span class="g">  ✅ host-ui shim exists</span>
+
+<span class="e">  Result: 7 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Decky Store (Publishing)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ plugin.json has publish tags</span>
+<span class="g">  ✅ plugin.json has publish description</span>
+<span class="g">  ✅ LICENSE file exists</span>
+<span class="g">  ✅ README.md exists</span>
+<span class="g">  ✅ assets/ directory exists</span>
+<span class="g">  ✅ package.json has version</span>
+
+<span class="e">  Result: 6 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Decky Store Submission (Review Checklist)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ plugin.json is valid JSON</span>
+<span class="g">  ✅ package.json name and version conform to npm standard</span>
+<span class="g">  ✅ pnpm-lock.yaml lockfileVersion: 9.0</span>
+<span class="g">  ✅ LICENSE file present</span>
+<span class="g">  ✅ No unused backend/ directory</span>
+<span class="g">  ✅ No unused defaults/ directory</span>
+<span class="g">  ✅ No remote code execution patterns in source</span>
+<span class="g">  ✅ Built output is not heavily obfuscated (43717 lines)</span>
+<span class="g">  ✅ No private/local dependencies</span>
+<span class="g">  ✅ assets/icon.png not required (store uses publish.image)</span>
+<span class="g">  ✅ No debug flag in plugin.json</span>
+
+<span class="e">  Result: 11 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CheatDeck (Coexistence)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ No CheatDeck namespace collision (no references)</span>
+<span class="g">  ✅ No high z-index values that would cover CheatDeck overlay (portal-scoped badge excluded)</span>
+<span class="g">  ✅ DOM mount uses unique &#x27;deck-shelves-&#x27; prefixed ID</span>
+<span class="g">  ✅ No global-level input event listeners</span>
+<span class="g">  ✅ Apps API uses safe access patterns</span>
+<span class="g">  ✅ MutationObservers are scoped (not on document.body)</span>
+
+<span class="e">  Result: 6 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CSS Loader (ArtHero Coexistence)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ cssLoaderDetect helper present</span>
+<span class="g">  ✅ Detection helper exports isCssLoaderActive + isArtHeroActive</span>
+<span class="g">  ✅ HeroBackground render gated by replaceInjecting (no duplicate hero)</span>
+<span class="g">  ✅ First ds-shelf promoted to recents slot when CSS Loader active</span>
+<span class="g">  ✅ Class promotion is additive (does not strip ds-*)</span>
+<span class="g">  ✅ Native recents class read from runtime DOM (no hardcoded token)</span>
+<span class="g">  ✅ Detection probes &lt;style class=&quot;css-loader-style&quot;&gt; tags</span>
+<span class="g">  ✅ ArtHero detected by structural signature (heroInner + mask-image)</span>
+<span class="g">  ✅ Invariant 1: promotion requires hideRecentsSetting</span>
+<span class="g">  ✅ Invariant 2: promotion targets only the first visible shelf</span>
+<span class="g">  ✅ Invariant 3: promotion requires CSS Loader active</span>
+<span class="g">  ✅ HeroBackground only renders when hideRecents is true</span>
+
+<span class="e">  Result: 12 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CSS Loader Theme (Center Home)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ No unsafe &#x27;center home&#x27; coupling (CSS custom-property detection is allowed)</span>
+
+<span class="e">  Result: 1 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Clean Game View (CSS Loader Theme)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ Card dimensions defined as explicit constants</span>
+<span class="g">  ✅ Card backgrounds are explicitly set or use the --ds-shell-bg variable</span>
+<span class="g">  ✅ No reliance on native Steam card hover/focus classes</span>
+<span class="g">  ✅ Focus indicator uses scoped .ds-card classes</span>
+<span class="g">  ✅ Border-radius uses --ds-card-radius custom property with fallback</span>
+<span class="g">  ✅ Card shadow defined on own .ds-card-art class</span>
+<span class="g">  ✅ Image sizing uses explicit object-fit</span>
+
+<span class="e">  Result: 7 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CSS Loader (Coexistence)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ Injected styles are in files with scoped selectors</span>
+<span class="g">  ✅ Style elements use unique &#x27;deck-shelves-&#x27; prefixed IDs</span>
+<span class="g">  ✅ Style injection checks for existing element (no duplicates)</span>
+<span class="g">  ✅ All !important declarations are within files using scoped selectors</span>
+<span class="g">  ✅ All className values are namespaced or from Decky UI</span>
+<span class="g">  ✅ No direct document.styleSheets manipulation</span>
+<span class="g">  ✅ Root mount element has unique deck-shelves-* ID</span>
+
+<span class="e">  Result: 7 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CSS Loader Theme (Colored Compatibility Icons)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ No colored compatibility-icon references found</span>
+
+<span class="e">  Result: 1 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CSS Loader Theme (Delly Footer)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ No &#x27;Delly Footer&#x27; references found</span>
+
+<span class="e">  Result: 1 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CSS Loader Theme (Delly Volume)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ No &#x27;Delly Volume&#x27; references found</span>
+
+<span class="e">  Result: 1 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CSS Loader Theme (Focus Highlight Color)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ isFocusRoundCompatActive() detection present</span>
+<span class="g">  ✅ Detection uses unique keyframe signature (appportrait_blinker + flangrande)</span>
+<span class="g">  ✅ Round Compat flag set on .deck-shelves-root / &lt;html&gt;</span>
+<span class="g">  ✅ Round Compat suppression rule present in shelfStyles</span>
+<span class="g">  ✅ Theme variables read-only (no flangrande writes)</span>
+
+<span class="e">  Result: 5 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CSS Loader Theme (Fullscreen Menus)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ No &#x27;Fullscreen Menus&#x27; references found</span>
+
+<span class="e">  Result: 1 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CSS Loader Theme (Game Cover Shine Animation Color)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ Native card class promoted onto .ds-card (shine reaches DS cards)</span>
+<span class="g">  ✅ ::after opacity left to the theme (no forced opacity 1)</span>
+<span class="g">  ✅ Shine ::after suppressed under Round Compat flag</span>
+<span class="g">  ✅ Theme variable read-only</span>
+
+<span class="e">  Result: 4 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CSS Loader Theme (Main Menu Hide Tabs)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ No &#x27;main menu hide tabs&#x27; references found</span>
+
+<span class="e">  Result: 1 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Obsidian Theme (CSS Loader Theme)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ Custom styles scoped under #deck-shelves-home-root</span>
+<span class="g">  ✅ Font sizes inside scoped selectors or using relative units</span>
+<span class="g">  ✅ Explicit color values (15) — not dependent on theme variables</span>
+<span class="g">  ✅ Explicit background colors in components</span>
+<span class="g">  ✅ No reliance on generic Steam panel class styling</span>
+<span class="g">  ✅ z-index values are reasonable (≤ 100; portal-scoped badge excluded)</span>
+<span class="g">  ✅ Modal styles scoped under .deck-shelves-modal-scope</span>
+
+<span class="e">  Result: 7 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CSS Loader Theme (Outrun)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ No &#x27;outrun&#x27; references in code (comments OK)</span>
+
+<span class="e">  Result: 1 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CSS Loader Theme (QAM Hide Tabs)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ No &#x27;QAM hide tabs&#x27; references found</span>
+
+<span class="e">  Result: 1 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CSS Loader Theme (QAM Select Bar Icon Hider)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ No &#x27;QAM selectbar icon hider&#x27; references found</span>
+
+<span class="e">  Result: 1 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Round (CSS Loader Theme)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ Runtime border-radius detection from native Steam cards</span>
+<span class="g">  ✅ --ds-card-radius CSS variable allows theme override</span>
+<span class="g">  ✅ Card art border-radius reads from CSS variable</span>
+<span class="g">  ✅ Card containers use overflow:hidden (content clipped to border-radius)</span>
+<span class="g">  ✅ No hardcoded borderRadius: 0 overriding theme</span>
+<span class="g">  ✅ Radius detection uses 7 selector references for broad theme support</span>
+<span class="g">  ✅ Detected radius is cached (no repeated DOM queries)</span>
+
+<span class="e">  Result: 7 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CSS Loader Theme (Switch-Like Banners)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ No &#x27;switch-like banners&#x27; references found</span>
+
+<span class="e">  Result: 1 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CSS Loader Theme (Switch-Like Home)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ No &#x27;switch-like home&#x27; references found</span>
+
+<span class="e">  Result: 1 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CSS Loader Theme (Top Bar Transparency)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ No &#x27;top bar transparency&#x27; references found</span>
+
+<span class="e">  Result: 1 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  HLTB (Coexistence)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ No HLTB namespace collision</span>
+<span class="g">  ✅ AppOverview playtime fields read-only</span>
+<span class="g">  ✅ No app detail page modifications</span>
+<span class="g">  ✅ Shelf DOM elements use unique &#x27;deck-shelves-&#x27; prefix</span>
+<span class="g">  ✅ AppOverview access patterns reviewed</span>
+<span class="g">  ✅ Playtime field access is guarded</span>
+<span class="g">  ✅ No ServerAPI fetch calls (no API contention with HLTB)</span>
+
+<span class="e">  Result: 7 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Non-Steam Badges (Coexistence)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ NonSteamBadge(s) global uses optional chaining</span>
+<span class="g">  ✅ No hard dependency on nonsteam module outside integrations/</span>
+<span class="g">  ✅ No NonSteamBadges namespace collision</span>
+<span class="g">  ✅ Shortcuts/shortcutsStore access is guarded by try/catch</span>
+<span class="g">  ✅ Dynamic probing includes shortcuts/shortcutsStore</span>
+
+<span class="e">  Result: 5 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SteamGridDB (Coexistence)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ No SteamGridDB namespace collision</span>
+<span class="g">  ✅ Image fallback includes /customimages/ path (SteamGridDB writes here)</span>
+<span class="g">  ✅ Multiple image candidates per app (resilient to art replacements)</span>
+<span class="g">  ✅ Reads library_capsule from AppOverview (picks up SteamGridDB changes)</span>
+<span class="g">  ✅ Steam CDN URLs used only as final fallback (SteamGridDB custom art checked first)</span>
+<span class="g">  ✅ AppOverview art fields not mutated</span>
+<span class="e">  ✅ Image loading has error fallback</span>
+
+<span class="e">  Result: 7 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  TabMaster (Coexistence)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ TabMasterStore uses optional chaining</span>
+<span class="g">  ✅ TabMaster global uses optional chaining</span>
+<span class="g">  ✅ TabMaster access in files with try/catch guards</span>
+<span class="g">  ✅ No hard dependency on TabMaster outside integrations/</span>
+<span class="g">  ✅ Dynamic tab store probing includes TabMasterStore</span>
+<span class="g">  ✅ No TabMaster namespace collision</span>
+<span class="g">  ✅ Collection fallback aware of TabMaster</span>
+
+<span class="e">  Result: 7 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  UnifiDeck (Coexistence)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ UnifiDeckStore uses optional chaining</span>
+<span class="g">  ✅ UnifiDeck global uses optional chaining</span>
+<span class="g">  ✅ UnifiDeck access in files with try/catch guards</span>
+<span class="g">  ✅ No hard dependency on UnifiDeck</span>
+<span class="g">  ✅ Handles both UnifiDeck and UnifyDeck spellings</span>
+<span class="g">  ✅ No UnifiDeck namespace collision</span>
+<span class="g">  ✅ Dynamic collection store probing includes UnifiDeck</span>
+
+<span class="e">  Result: 7 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Internationalization (i18n)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ i18n/ directory exists</span>
+<span class="g">  ✅ en-US base locale exists</span>
+<span class="g">  ✅ All locale slice files are valid JSON</span>
+<span class="g">  ✅ Base locale has 1606 keys</span>
+<span class="g">  ✅ All locales have consistent keys</span>
+
+<span class="e">  Result: 5 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Python Backend (Decky Python)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ main.py syntax valid</span>
+<span class="g">  ✅ Plugin class defined</span>
+<span class="g">  ✅ _main lifecycle method found</span>
+<span class="g">  ✅ _unload lifecycle method found</span>
+<span class="g">  ✅ No dangerous module imports</span>
+<span class="w">  ⚠️  hardware_info.py imports subprocess/shutil (review security)</span>
+<span class="w">  ⚠️  perf_probe.py imports subprocess/shutil (review security)</span>
+<span class="w">  ⚠️  peripherals.py imports subprocess/shutil (review security)</span>
+<span class="w">  ⚠️  storage.py imports subprocess/shutil (review security)</span>
+<span class="g">  ✅ All 13 backend modules compile</span>
+<span class="g">  ✅ Backend /proc + /sys access is read-only</span>
+
+<span class="e">  Result: 7 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SteamOS 3.10 (Stable)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ Modern ES target (ES2020+)</span>
+<span class="g">  ✅ Uses @host/api (v3 API)</span>
+<span class="g">  ✅ No legacy ServerAPI imports</span>
+<span class="g">  ✅ Duck-typing / optional chaining used for API detection</span>
+<span class="g">  ✅ FocusNavController/GamepadUI pattern referenced</span>
+<span class="g">  ✅ vgp_* event patterns used</span>
+<span class="g">  ✅ Decky patcher utilities used (afterPatch/findInReactTree)</span>
+<span class="g">  ✅ Settings use DECKY_PLUGIN_SETTINGS_DIR</span>
+<span class="g">  ✅ Python 3.10+ match/case syntax available</span>
+<span class="g">  ✅ No hardcoded SteamOS version comparisons</span>
+<span class="g">  ✅ No system path access from backend</span>
+
+<span class="e">  Result: 11 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SteamOS 3.5 (Stable)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ Build target compatible with SteamOS 3.5 CEF</span>
+<span class="g">  ✅ No top-level await in bundle</span>
+<span class="g">  ✅ No Python 3.10+ match/case syntax</span>
+<span class="g">  ✅ main.py parses as valid Python</span>
+
+<span class="e">  Result: 4 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SteamOS 3.6 (Stable)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ React shim uses GamepadUI shared React</span>
+<span class="g">  ✅ ESM output format</span>
+<span class="g">  ✅ No direct window.location manipulation</span>
+<span class="g">  ✅ SP_REACTDOM used as shim fallback (backward compat)</span>
+
+<span class="e">  Result: 4 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SteamOS 3.7 (Stable)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ Platform abstraction layer exists</span>
+<span class="e">  ✅ Error boundary pattern found</span>
+<span class="g">  ✅ No hardcoded obfuscated CSS class selectors in components</span>
+<span class="g">  ✅ Home route detection present</span>
+
+<span class="e">  Result: 4 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SteamOS 3.8 (Preview/Beta)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ Modern ES target</span>
+<span class="g">  ✅ Chunk splitting configured</span>
+<span class="g">  ✅ Uses @host/api (v3 API)</span>
+<span class="g">  ✅ No legacy ServerAPI imports</span>
+<span class="g">  ✅ Diagnostics module for cross-version debugging</span>
+<span class="g">  ✅ Settings use DECKY_PLUGIN_SETTINGS_DIR</span>
+<span class="g">  ✅ No system path access from backend</span>
+
+<span class="e">  Result: 7 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SteamOS 3.9 (Stable)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ Modern ES target (ES2020+)</span>
+<span class="g">  ✅ Uses @host/api (v3 API)</span>
+<span class="g">  ✅ No legacy ServerAPI imports</span>
+<span class="g">  ✅ Duck-typing / optional chaining used for API detection</span>
+<span class="g">  ✅ FocusNavController/GamepadUI pattern referenced</span>
+<span class="g">  ✅ vgp_* event patterns used</span>
+<span class="g">  ✅ Decky patcher utilities used (afterPatch/findInReactTree)</span>
+<span class="g">  ✅ Settings use DECKY_PLUGIN_SETTINGS_DIR</span>
+<span class="g">  ✅ Python 3.10+ match/case syntax available</span>
+<span class="g">  ✅ No hardcoded SteamOS version comparisons</span>
+<span class="g">  ✅ No system path access from backend</span>
+
+<span class="e">  Result: 11 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SteamOS GamepadUI (3.5–3.10)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ shims/ directory exists</span>
+<span class="g">  ✅ shim: react.ts</span>
+<span class="g">  ✅ shim: react-dom.ts</span>
+<span class="g">  ✅ shim: react-dom-client.ts</span>
+<span class="g">  ✅ shim: react-jsx-runtime.ts</span>
+<span class="g">  ✅ Vite config isolates React (shims or externals)</span>
+<span class="g">  ✅ Vite config targets ES module format</span>
+<span class="g">  ✅ No direct DOM manipulation in components</span>
+<span class="g">  ✅ Platform abstraction layer exists</span>
+<span class="g">  ✅ Diagnostics module exists</span>
+
+<span class="e">  Result: 10 passed, 0 failed</span>
+
+╔══════════════════════════════════════════════╗
+║                   Summary                    ║
+╚══════════════════════════════════════════════╝
+
+<span class="g">  ✅ Build Output (Vite/ESM)</span>
+<span class="g">  ✅ TypeScript / Node (Build Toolchain)</span>
+<span class="g">  ✅ Decky Loader 3.x (API v1)</span>
+<span class="g">  ✅ Decky Loader (API v1)</span>
+<span class="g">  ✅ Decky Store (Publishing)</span>
+<span class="g">  ✅ Decky Store Submission (Review Checklist)</span>
+<span class="g">  ✅ CheatDeck (Coexistence)</span>
+<span class="g">  ✅ CSS Loader (ArtHero Coexistence)</span>
+<span class="g">  ✅ CSS Loader Theme (Center Home)</span>
+<span class="g">  ✅ Clean Game View (CSS Loader Theme)</span>
+<span class="g">  ✅ CSS Loader (Coexistence)</span>
+<span class="g">  ✅ CSS Loader Theme (Colored Compatibility Icons)</span>
+<span class="g">  ✅ CSS Loader Theme (Delly Footer)</span>
+<span class="g">  ✅ CSS Loader Theme (Delly Volume)</span>
+<span class="g">  ✅ CSS Loader Theme (Focus Highlight Color)</span>
+<span class="g">  ✅ CSS Loader Theme (Fullscreen Menus)</span>
+<span class="g">  ✅ CSS Loader Theme (Game Cover Shine Animation Color)</span>
+<span class="g">  ✅ CSS Loader Theme (Main Menu Hide Tabs)</span>
+<span class="g">  ✅ Obsidian Theme (CSS Loader Theme)</span>
+<span class="g">  ✅ CSS Loader Theme (Outrun)</span>
+<span class="g">  ✅ CSS Loader Theme (QAM Hide Tabs)</span>
+<span class="g">  ✅ CSS Loader Theme (QAM Select Bar Icon Hider)</span>
+<span class="g">  ✅ Round (CSS Loader Theme)</span>
+<span class="g">  ✅ CSS Loader Theme (Switch-Like Banners)</span>
+<span class="g">  ✅ CSS Loader Theme (Switch-Like Home)</span>
+<span class="g">  ✅ CSS Loader Theme (Top Bar Transparency)</span>
+<span class="g">  ✅ HLTB (Coexistence)</span>
+<span class="g">  ✅ Non-Steam Badges (Coexistence)</span>
+<span class="g">  ✅ SteamGridDB (Coexistence)</span>
+<span class="g">  ✅ TabMaster (Coexistence)</span>
+<span class="g">  ✅ UnifiDeck (Coexistence)</span>
+<span class="g">  ✅ Internationalization (i18n)</span>
+<span class="g">  ✅ Python Backend (Decky Python)</span>
+<span class="g">  ✅ SteamOS 3.10 (Stable)</span>
+<span class="g">  ✅ SteamOS 3.5 (Stable)</span>
+<span class="g">  ✅ SteamOS 3.6 (Stable)</span>
+<span class="g">  ✅ SteamOS 3.7 (Stable)</span>
+<span class="g">  ✅ SteamOS 3.8 (Preview/Beta)</span>
+<span class="g">  ✅ SteamOS 3.9 (Stable)</span>
+<span class="g">  ✅ SteamOS GamepadUI (3.5–3.10)</span>
+
+<span class="g">  🎉 All 40 compatibility checks passed!</span>
+</pre></div></details>
+
+</main>
+<footer><div class="container"><div class="foot-grid"><div class="foot-brand"><a class="brand" href="../../index.html"><svg class="brand-mark" viewBox="217 444 854 378"><g fill="#0080FF"><circle cx="300" cy="620" r="80"/><rect rx="8" x="550" y="460" width="80" height="285"/><rect rx="8" x="645" y="500" width="75" height="245"/></g><g fill="#fff"><path d="M 312.5,461.5 C 373.539,463.763 419.039,491.43 449,544.5C 475.648,600.403 473.314,655.069 442,708.5C 411.013,754.246 367.846,777.913 312.5,779.5C 312.333,760.497 312.5,741.497 313,722.5C 361.661,715.155 391.661,687.488 403,639.5C 408.643,596.312 394.143,561.812 359.5,536C 344.981,527.105 329.315,521.938 312.5,520.5C 312.5,500.833 312.5,481.167 312.5,461.5 Z"/><rect rx="8" x="740" y="530" width="75" height="215"/><rect rx="8" x="840" y="470" width="75" height="275"/><rect rx="8" x="500" y="750" width="570" height="25"/></g></svg><div><div class="brand-name">DECK <b>SHELVES</b></div><div class="brand-tag" data-i18n="brand.tag">Your Steam Home. Your Way.</div></div></a><p data-i18n-html="footer.built">Built with <span class="heart">&hearts;</span> by <a href="https://github.com/santojon">Jonathan Santos</a>. An open source plugin that gives you complete control over your Steam home.</p></div><div class="foot-col"><h4 data-i18n="footer.explore">Explore</h4><a href="../../index.html#features" data-i18n="nav.features">Features</a><a href="../../index.html#showcase" data-i18n="nav.screenshots">Screenshots</a><a href="../../index.html#install" data-i18n="nav.installation">Installation</a><a href="https://github.com/santojon/Deck-Shelves/tree/main/docs" data-i18n="nav.docs">Docs</a></div><div class="foot-col"><h4 data-i18n="footer.community">Community</h4><a href="https://github.com/santojon/Deck-Shelves">GitHub</a><a href="https://discord.gg/EChuVEDakk">Discord</a><a href="https://www.reddit.com/r/DeckShelves/">Reddit</a><a href="https://ko-fi.com/santojon" data-i18n="footer.kofi">Support on Ko-fi</a><a href="https://www.npmjs.com/package/@deck-shelves/api" data-i18n="footer.apiNpm">API on npm</a></div><div class="foot-col"><h4 data-i18n="footer.reports">Reports</h4><a href="../../reports/index.html" data-i18n="footer.reportsValidation">Validation reports</a><a href="../../reports/dashboard.html" data-i18n="footer.reportsDashboard">Reports dashboard</a><a href="../../reports/ci/index.html" data-i18n="footer.reportsCi">CI reports</a><a href="../../reports/release/index.html" data-i18n="footer.reportsRelease">Release reports</a></div></div></div><hr class="foot-rule"><div class="container"><div class="foot-disclaimer" data-i18n="footer.disclaimer">Steam Deck and Steam are trademarks and/or registered trademarks of Valve Corporation. Decky and Decky Loader are trademarks of their respective owners. Deck Shelves is an independent plugin and is not affiliated with, endorsed, or sponsored by Valve Corporation or the Decky Loader project. The same applies to every other plugin and theme mentioned on this site — including TabMaster, UnifiDeck, SteamGridDB, Non-Steam Badges, and any CSS Loader theme Deck Shelves detects or interoperates with: mentions are for interoperability only, not a claim of affiliation or endorsement by their respective authors.</div></div><hr class="foot-rule"><div class="container"><div class="foot-bottom"><span>&copy; 2026 Deck Shelves &middot; BSD 3-Clause &middot; by <a href="https://github.com/santojon">Jonathan Santos</a></span><span>Made for Steam Deck.</span></div></div></footer>
+</body>
+</html>
