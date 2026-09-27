@@ -67,6 +67,30 @@ export interface SystemInfo {
   machine?: string | null;
   isSteamOS?: boolean;
   distroId?: string | null;
+  /** "Stable" or the raw branch name (Beta/Preview/…) — SteamOS only; null
+   *  wherever `SteamClient.Updates.GetCurrentOSBranch` doesn't exist (desktop). */
+  steamBranch?: string | null;
+}
+
+/* SteamOS's own branch selector (Settings > System > System Updates) also
+   picks which Steam client build ships — "main"/"rel" are the stable
+   default, everything else (beta/bc/preview/pc/rc) is a pre-release channel. */
+const STABLE_BRANCH_NAMES = new Set(["main", "rel"]);
+
+function branchLabel(rawName: string): string {
+  if (STABLE_BRANCH_NAMES.has(rawName)) return "Stable";
+  return rawName.charAt(0).toUpperCase() + rawName.slice(1);
+}
+
+async function collectSteamBranch(): Promise<string | null> {
+  try {
+    const sc: any = (globalThis as any).SteamClient;
+    const r = await sc?.Updates?.GetCurrentOSBranch?.();
+    const raw = typeof r?.sRawName === "string" ? r.sRawName : null;
+    return raw ? branchLabel(raw) : null;
+  } catch {
+    return null;
+  }
 }
 
 function strOrNull(v: unknown): string | null {
@@ -117,6 +141,7 @@ export async function collectSystemInfo(): Promise<SystemInfo> {
     const ua = (globalThis as any).navigator?.userAgent as string | undefined;
     if (ua && !out.osName) out.osName = uaOsName(ua);
   } catch { /* no navigator */ }
+  out.steamBranch = await collectSteamBranch();
   return out;
 }
 

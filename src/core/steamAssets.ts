@@ -1,10 +1,11 @@
 
 import { getAssetRevision } from "./assetRevision";
+import { STEAM_CDN_AKAMAI, STEAM_CDN_CLOUDFLARE } from "../constants";
 
 const LOOPBACK_ORIGIN = "https://steamloopback.host";
-const STEAMSTATIC_ORIGIN = "https://shared.cloudflare.steamstatic.com";
-const AKAMAI_ORIGIN = "https://cdn.akamai.steamstatic.com";
-const STEAMCOMMUNITY_ORIGIN = "https://cdn.akamai.steamstatic.com/steamcommunity/public/images";
+const STEAMSTATIC_ORIGIN = STEAM_CDN_CLOUDFLARE;
+const AKAMAI_ORIGIN = STEAM_CDN_AKAMAI;
+const STEAMCOMMUNITY_ORIGIN = `${STEAM_CDN_AKAMAI}/steamcommunity/public/images`;
 
 // App overview helpers
 

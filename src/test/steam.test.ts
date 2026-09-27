@@ -58,6 +58,22 @@ describe('steam helpers', () => {
     expect((norm as AppOverview).installed).toBe(false);
   });
 
+  it('normalizeAppOverview reports installed_local:false for a Remote Play source with no local client entry', () => {
+    // Real Steam data: top-level `installed` can be true from a remote
+    // client alone, with no clientid "0" entry at all — installed_local must
+    // not be fooled by that, even though the top-level flag stays true.
+    const raw = {
+      appid: 1222680, display_name: 'Need for Speed Heat', installed: true,
+      per_client_data: [{ clientid: '4528256343885615079', client_name: 'steamdeck', display_status: 11, installed: true }],
+      remote_per_client_data: [{ clientid: '4528256343885615079', client_name: 'steamdeck', display_status: 11, installed: true }],
+    };
+    const norm = normalizeAppOverview(raw) as AppOverview;
+    expect(norm).not.toBeNull();
+    expect(norm.installed).toBe(true);
+    expect((norm as any).installed_local).toBe(false);
+    expect(norm.installed_remote).toBe(true);
+  });
+
   it('enrichAppStateFlags defaults non-Steam to NOT installed when appStore has no data', async () => {
     const items: AppOverview[] = [{ appid: 789, display_name: 'No Data Shortcut', is_non_steam: true }];
     const mockWin: any = {

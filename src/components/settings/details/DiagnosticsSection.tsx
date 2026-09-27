@@ -170,7 +170,7 @@ export function DiagnosticsSection({ t }: { t: Tr }) {
 
   const softwareRows: Array<[string, string]> = [
     ["diag_os", osLine(sys, info.steamOS)],
-    ["diag_steam", sys?.steamVersion ?? DASH],
+    ["diag_steam", sys?.steamVersion ? `${sys.steamVersion}${sys.steamBranch ? ` (${sys.steamBranch})` : ""}` : DASH],
     ["diag_theme", info.theme ?? DASH],
   ];
   const integrations: Integration[] = [

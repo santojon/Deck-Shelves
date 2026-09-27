@@ -7,6 +7,11 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+- **The System Info panel (Settings → Advanced) now shows whether your Steam client is on the Stable, Beta, or Preview channel**, next to its version number.
+- **Fixed a shelf-positioning issue under the Switch Like Home theme on newer Steam builds with a redesigned library layout**, where a shelf could sit too high or overlap other elements instead of sitting in the native Recents row's place.
+- **Fixed a smart shelf's descending sort order not applying on the actual Home shelf**, even though it showed correctly in the editor's preview.
+- **A game installed only on another device (via Remote Play) now correctly shows "Stream" as its card action**, instead of the wrong hint it could show before.
+
 ## [3.3.2] - 2026-09-26
 
 - **New setting to hide the shelf options from each game's right-click menu.** If you only want the quick per-card actions there, you can now turn off the fuller Sort/Management/Display/Visual/Decoration/Compose-with group — it's on by default so nothing changes unless you turn it off.

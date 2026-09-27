@@ -23,7 +23,7 @@ import { isSteamOSCached, primeSystemPlatform } from "../../runtime/diagnosticsI
 import { getLocalLibraryAppIds } from "../../steam";
 import { resolveKeyboardBindings, parseKeyCombo, matchKeyEvent, createKeyMatcherState, isEditableKeyTarget, type KeyMatcherState } from "../../runtime/keyboardBindings";
 import { subscribeControllerInput } from "../../runtime/controllerInput";
-import { resolveQuickLaunchAction } from "../../steam/appDisplayStatus";
+import { resolveQuickLaunchAction, EAppDisplayStatus } from "../../steam/appDisplayStatus";
 
 /* Master switch for cardHideRemove/cardHighlightToggle/cardQuickLaunch —
    gates resolveBindings()/resolveKeyboardBindings() below regardless of the
@@ -310,7 +310,23 @@ function GameCardImpl({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHProp
     try {
       const overview = (globalThis as any).appStore?.GetAppOverviewByAppID?.(appid);
       if (!overview) return { label: undefined, action: 'run' };
-      if (overview.installed !== true) return { label: i18n.t('menu_install'), action: 'run' };
+      /* `overview.installed` alone can't tell "installed HERE" — Steam sets
+         it true for a Remote-Play-only title too. Clientid "0" is the local
+         client; missing that but another client installed is "Stream"
+         (mirrors `installed_remote` in `buildClientFields`, steam/index.ts). */
+      const pcdRaw: any[] = Array.isArray(overview.per_client_data)
+        ? overview.per_client_data
+        : (Array.isArray(overview.local_per_client_data) ? overview.local_per_client_data : []);
+      const localEntry = pcdRaw.find((c: any) => String(c?.clientid) === "0");
+      const locallyInstalled = pcdRaw.length > 0 ? !!localEntry?.installed : overview.installed === true;
+      if (!locallyInstalled) {
+        const remotePcd: any[] = Array.isArray(overview.remote_per_client_data)
+          ? overview.remote_per_client_data
+          : pcdRaw.filter((c: any) => String(c?.clientid) !== "0");
+        const installedRemote = remotePcd.some((c: any) => !!c?.installed || Number(c?.display_status) === EAppDisplayStatus.Installed);
+        if (installedRemote) return { label: i18n.t('menu_stream'), action: 'run' };
+        return { label: i18n.t('menu_install'), action: 'run' };
+      }
       const ds = (() => {
         if (typeof overview.display_status === 'number') return overview.display_status;
         const pcd = overview.per_client_data ?? overview.local_per_client_data;

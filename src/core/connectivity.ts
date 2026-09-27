@@ -1,4 +1,6 @@
-const PROBE_URL = "https://store.steampowered.com/favicon.ico";
+import { STEAM_STORE_BASE } from "../constants";
+
+const PROBE_URL = `${STEAM_STORE_BASE}/favicon.ico`;
 const PROBE_TIMEOUT_MS = 3000;
 const TTL_MS = 10 * 1000; // 10s — short enough to recover from startup false-negative
 

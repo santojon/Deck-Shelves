@@ -1,5 +1,6 @@
 
 import { Spinner, getFrontendLib } from "../runtime/host/decky";
+import { STEAM_STORE_BASE, STEAM_CDN_AKAMAI } from "../constants";
 import { memo, useEffect, useMemo, useState, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import type { Shelf } from "../types";
@@ -23,7 +24,7 @@ import { getCurrentSettings } from "../store/settingsStore";
 import { publishShelf, unpublishShelf } from "../features/search/shelfRegistry";
 
 function openSteamStorePage(appid: number) {
-  openSteamStoreUrl(`https://store.steampowered.com/app/${appid}/`, `steam://store/${appid}`);
+  openSteamStoreUrl(`${STEAM_STORE_BASE}/app/${appid}/`, `steam://store/${appid}`);
 }
 
 function openSteamStoreUrl(url: string, steamUrl?: string) {
@@ -639,8 +640,8 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
          than the Cloudflare edge for in-client requests. Clicking opens the Steam
          Store page for the game (works natively in Big Picture via /library/app/). */
       if (isStoreFallback && isOnlineSource) {
-        const cdnPortrait = `https://cdn.akamai.steamstatic.com/steam/apps/${appid}/library_600x900.jpg`;
-        const cdnHero = `https://cdn.akamai.steamstatic.com/steam/apps/${appid}/header.jpg`;
+        const cdnPortrait = `${STEAM_CDN_AKAMAI}/steam/apps/${appid}/library_600x900.jpg`;
+        const cdnHero = `${STEAM_CDN_AKAMAI}/steam/apps/${appid}/header.jpg`;
         const gameName = storeNames.get(appid) ?? `#${appid}`;
         const discountPct = getCachedDiscount(appid);
         // Online card menu: DS shelf actions only — no native Steam menu.
@@ -750,8 +751,8 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
         ? () => {
             const url = shelf.source.type === 'wishlist'
               ? ((globalThis as any).urlStore?.m_steamUrls?.userwishlist?.url
-                  ?? 'https://store.steampowered.com/wishlist/')
-              : 'https://store.steampowered.com/specials/';
+                  ?? `${STEAM_STORE_BASE}/wishlist/`)
+              : `${STEAM_STORE_BASE}/specials/`;
             openSteamStoreUrl(url, `steam://openurl/${url}`);
           }
         : () => platform.navigateToShelfSource?.(shelf.source, shelf.title);

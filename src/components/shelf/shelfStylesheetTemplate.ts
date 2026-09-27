@@ -94,8 +94,10 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
     }
 
     /* SLH's absolute/bottom:0 recents grid anchors to a 0px-height parent,
-       pushing the (correctly DS-populated) grid above the viewport. */
-    [data-ds-slh="1"] .ReactVirtualized__Grid[aria-label="grid"] {
+       pushing the grid above the viewport. Scoped to the real sibling
+       (marked [data-ds-native-recents] by HomeInject) — the bare aria-label
+       alone also matches unrelated grids (e.g. a Big Art hero carousel). */
+    [data-ds-slh="1"] [data-ds-native-recents="true"] .ReactVirtualized__Grid[aria-label="grid"] {
       position: relative !important;
       bottom: auto !important;
       top: auto !important;

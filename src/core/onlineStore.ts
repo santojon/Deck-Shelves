@@ -1,5 +1,6 @@
 
 import { call } from "../shims/host-api";
+import { STEAM_STORE_BASE } from "../constants";
 import { logInfo, logWarn } from "../runtime/logger";
 
 const WISHLIST_KEY = "ds-wishlist-cache-v1";
@@ -195,13 +196,13 @@ export async function getStoreGameIds(): Promise<number[] | null> {
         freeResp, freeWeekendIntersectionResp, freeWeekendCategoryResp,
         popularResp,
       ] = await Promise.allSettled([
-        withTimeout(`https://store.steampowered.com/search/results/?specials=1&json=1&count=100&start=0&cc=${cc}`),
-        withTimeout(`https://store.steampowered.com/search/results/?specials=1&json=1&count=100&start=100&cc=${cc}`),
-        withTimeout(`https://store.steampowered.com/search/results/?specials=1&json=1&count=100&start=200&cc=${cc}`),
-        withTimeout(`https://store.steampowered.com/search/results/?maxprice=free&json=1&count=200&cc=${cc}`),
-        withTimeout(`https://store.steampowered.com/search/results/?specials=1&maxprice=free&json=1&count=200&cc=${cc}`),
-        withTimeout(`https://store.steampowered.com/search/results/?category2=18&json=1&count=200&cc=${cc}`),
-        withTimeout(`https://store.steampowered.com/search/results/?json=1&count=100&cc=${cc}`),
+        withTimeout(`${STEAM_STORE_BASE}/search/results/?specials=1&json=1&count=100&start=0&cc=${cc}`),
+        withTimeout(`${STEAM_STORE_BASE}/search/results/?specials=1&json=1&count=100&start=100&cc=${cc}`),
+        withTimeout(`${STEAM_STORE_BASE}/search/results/?specials=1&json=1&count=100&start=200&cc=${cc}`),
+        withTimeout(`${STEAM_STORE_BASE}/search/results/?maxprice=free&json=1&count=200&cc=${cc}`),
+        withTimeout(`${STEAM_STORE_BASE}/search/results/?specials=1&maxprice=free&json=1&count=200&cc=${cc}`),
+        withTimeout(`${STEAM_STORE_BASE}/search/results/?category2=18&json=1&count=200&cc=${cc}`),
+        withTimeout(`${STEAM_STORE_BASE}/search/results/?json=1&count=100&cc=${cc}`),
       ]);
 
       const ids = new Set<number>();
@@ -354,7 +355,7 @@ export async function getPriceMap(appids: number[]): Promise<Map<number, PriceDa
     for (let i = 0; i < limited.length; i += BATCH) {
       if (Date.now() > deadline) break;
       const batch = limited.slice(i, i + BATCH);
-      const url = `https://store.steampowered.com/api/appdetails?appids=${batch.join(",")}&filters=price_overview`;
+      const url = `${STEAM_STORE_BASE}/api/appdetails?appids=${batch.join(",")}&filters=price_overview`;
       const ac = new AbortController();
       const tid = setTimeout(() => ac.abort(), 5000);
       let resp: Response;
@@ -482,7 +483,7 @@ function parseCatalogEntry(entry: any): CatalogMeta {
  *  so it's retried later. Anything else (including `undefined`, Steam simply
  *  having no entry for this appid) is a real response, safe to cache empty. */
 async function fetchCatalogEntry(appid: number): Promise<any | false> {
-  const url = `https://store.steampowered.com/api/appdetails?appids=${appid}&filters=genres,categories&l=english`;
+  const url = `${STEAM_STORE_BASE}/api/appdetails?appids=${appid}&filters=genres,categories&l=english`;
   const ac = new AbortController();
   const tid = setTimeout(() => ac.abort(), 5000);
   let resp: Response;
@@ -544,7 +545,7 @@ async function fetchBatch(batch: number[]): Promise<Map<number, string>> {
   const ac = new AbortController();
   const tid = setTimeout(() => ac.abort(), NAME_TIMEOUT_MS);
   try {
-    const url = `https://store.steampowered.com/api/appdetails?appids=${batch.join(',')}&l=english`;
+    const url = `${STEAM_STORE_BASE}/api/appdetails?appids=${batch.join(',')}&l=english`;
     const resp = await fetch(url, { credentials: 'include', signal: ac.signal });
     clearTimeout(tid);
     if (!resp.ok) return out;
@@ -616,7 +617,7 @@ function parseScreenshotRows(rows: any[]): string[] {
 
 async function fetchScreenshotEntry(batch: number[]): Promise<Map<number, string[]>> {
   const out = new Map<number, string[]>();
-  const url = `https://store.steampowered.com/api/appdetails?appids=${batch.join(",")}&filters=screenshots`;
+  const url = `${STEAM_STORE_BASE}/api/appdetails?appids=${batch.join(",")}&filters=screenshots`;
   const ac = new AbortController();
   const tid = setTimeout(() => ac.abort(), 5000);
   try {

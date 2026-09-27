@@ -1,5 +1,6 @@
 
 import { logInfo } from './logger';
+import { STEAM_AVATARS_BASE } from '../constants';
 import { triggerShelfRefresh } from '../core/shelfRefresh';
 
 function setsEqual(a: Set<number>, b: Set<number>): boolean {
@@ -36,7 +37,7 @@ export function subscribeFriendsChanged(cb: () => void): () => void {
 
 function avatarUrl(hash: unknown): string {
   const h = typeof hash === "string" ? hash : "";
-  return h ? `https://avatars.steamstatic.com/${h}_medium.jpg` : "";
+  return h ? `${STEAM_AVATARS_BASE}/${h}_medium.jpg` : "";
 }
 
 function pushFriend(map: Map<number, FriendBrief[]>, appId: number, brief: FriendBrief): void {

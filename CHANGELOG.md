@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **The Advanced → Diagnostics panel's Steam version line now also shows the update channel** (Stable, or the raw branch name — Beta, Preview, …) next to the version number, read from `SteamClient.Updates.GetCurrentOSBranch` (SteamOS only; blank elsewhere) ([`diagnosticsInfo.ts`](src/runtime/diagnosticsInfo.ts), [`DiagnosticsSection.tsx`](src/components/settings/details/DiagnosticsSection.tsx)).
+
+### Fixed
+
+- **Shelves could sit at the wrong vertical position under the Switch Like Home CSS Loader theme, on Steam builds with a redesigned library layout.** The 3.3.1 fix for a related SLH positioning bug (a shelf rendering invisibly off-screen) used a selector broad enough to also catch an unrelated native grid that a newer layout introduces, repositioning it by mistake. The fix now only targets the actual native-recents container, marked explicitly rather than matched by a generic attribute ([`HomeInject.tsx`](src/components/HomeInject.tsx), [`shelfStylesheetTemplate.ts`](src/components/shelf/shelfStylesheetTemplate.ts)).
+- **A smart shelf's descending sort order (e.g. "Spare Time" set to reverse) showed correctly in the editor's live preview but stayed in its natural order on the actual Home shelf.** The `sortReverse` / `manualBaseSortReverse` fields were dropped while converting a smart shelf into its on-screen form — the sort key itself forwarded fine, only the asc/desc flag never reached Home ([`HomeInject.tsx`](src/components/HomeInject.tsx)).
+- **A card for a game installed only on another device (a Remote Play source, not installed locally) could show the wrong status and quick-launch hint** — Steam's own "installed" flag doesn't distinguish "installed here" from "installed elsewhere," so the card showed the local-install status (playtime, Resume/Play) instead of a not-installed one, and the quick-launch hint said the wrong thing instead of "Stream". Fixed at the shared source: a per-client entry for the current client is now required before trusting "installed", with the same per-client data already used for the Remote Play filter ([`index.ts`](src/steam/index.ts), [`GameCard.tsx`](src/components/shelf/GameCard.tsx)).
+
 ## [3.3.2] - 2026-09-26
 
 ### Added

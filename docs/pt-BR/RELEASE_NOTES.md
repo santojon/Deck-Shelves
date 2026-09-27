@@ -7,6 +7,13 @@ técnico completo, veja [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+- **O painel de Informações do Sistema (Configurações → Avançado) agora mostra se seu cliente Steam está no canal Stable, Beta ou Preview**, ao lado do número da versão.
+- **Corrigido um problema de posicionamento de prateleira no tema Switch Like Home em versões mais novas do Steam com um layout de biblioteca redesenhado**, em que uma prateleira podia ficar alta demais ou sobrepor outros elementos em vez de ocupar o lugar da linha nativa de Recentes.
+- **Corrigida a ordem decrescente de uma prateleira inteligente, que não era aplicada na prateleira real da Home** mesmo aparecendo certo na prévia do editor.
+- **Um jogo instalado só em outro dispositivo (via Remote Play) agora mostra corretamente "Transmitir" como ação do card**, em vez da dica errada que podia aparecer antes.
+
+## [3.3.2] - 2026-09-26
+
 - **Nova configuração para ocultar as opções de prateleira do menu de botão direito de cada jogo.** Se você só quer as ações rápidas por card ali, agora dá para desativar o grupo mais completo de Ordenar/Gerenciamento/Exibição/Visual/Decoração/Combinar com — vem ativado por padrão, então nada muda a menos que você desative.
 - **Nova chave para desativar os atalhos de ações do card.** Os atalhos de gamepad/teclado para ocultar, destacar ou iniciar rapidamente um card agora podem ser desativados de uma vez, para quem só quer essas ações pelo próprio menu do card. Vem ativado por padrão; os atalhos de Busca Rápida e Navegação Lateral não são afetados.
 - **O filtro de local da biblioteca Steam agora pode combinar armazenamentos específicos, não só Interna/Externa/Rede.** Escolha exatamente de quais bibliotecas uma prateleira puxa jogos — um cartão SD e um pendrive USB, por exemplo, mas não o compartilhamento de rede — em vez de uma categoria ampla só.
