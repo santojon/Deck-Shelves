@@ -13,7 +13,9 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 - **A game installed only on another device (via Remote Play) now correctly shows "Stream" as its card action**, instead of the wrong hint it could show before.
 - **The screensaver's "include online screenshots" toggle is now handled the same reliable way as every other screensaver setting.**
 - **Fixed a cleanup gap that could leave a stale third-party integration registered after a hot-swap** (e.g. a standalone-host update applying without a full restart).
-- **Fixed the View-button hint showing "Install" on a card for a game that has no build at all for your platform** (e.g. a Windows-only game on macOS) — the hint no longer appears when there's nothing Steam can actually install there.
+- **Fixed shelves staying visible after switching from Big Picture to the regular desktop view.** They're built for the gamepad Home and now correctly disappear the moment you leave it, instead of lingering behind.
+- **Fixed Showcase mode continuing to run after you switched to another app.** It now also stops when the window loses focus, not just on real interaction with Steam itself.
+- **Fixed the View-button hint disagreeing with the game's own right-click menu.** A game also installed on another device could show "Stream" even though it's perfectly installable on this platform too (should've said "Install", like the right-click menu does) — and a game the right-click menu has no install option for at all could still show "Install" on the View button. Both now match the right-click menu's own first action.
 
 ## [3.3.2] - 2026-09-26
 

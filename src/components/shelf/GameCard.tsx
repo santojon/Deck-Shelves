@@ -320,17 +320,26 @@ function GameCardImpl({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHProp
       const localEntry = pcdRaw.find((c: any) => String(c?.clientid) === "0");
       const locallyInstalled = pcdRaw.length > 0 ? !!localEntry?.installed : overview.installed === true;
       if (!locallyInstalled) {
+        /* "Install" only for the clean not-installed state Steam reports on
+           the LOCAL client (no platform flag against it) — what the native
+           menu's first item also checks. Installed elsewhere alone isn't
+           reason to skip it: same platform, not installed here, still Install. */
+        const platformIncompatible = localEntry?.is_invalid_os_type === true
+          || localEntry?.is_available_on_current_platform === false;
+        const cleanlyInstallable = localEntry?.display_status === EAppDisplayStatus.NotInstalled && !platformIncompatible;
+        if (cleanlyInstallable) return { label: i18n.t('menu_install'), action: 'run' };
         const remotePcd: any[] = Array.isArray(overview.remote_per_client_data)
           ? overview.remote_per_client_data
           : pcdRaw.filter((c: any) => String(c?.clientid) !== "0");
         const installedRemote = remotePcd.some((c: any) => !!c?.installed || Number(c?.display_status) === EAppDisplayStatus.Installed);
         if (installedRemote) return { label: i18n.t('menu_stream'), action: 'run' };
-        /* Some titles have no build for this OS at all (e.g. a Windows-only
-           game on macOS) — Steam flags that on the local per_client_data
-           entry. No install is actually possible here, so hide the hint
-           instead of promising an "Install" the View button can't do. */
-        if (localEntry?.is_invalid_os_type === true) return { label: undefined, action: 'run' };
-        return { label: i18n.t('menu_install'), action: 'run' };
+        /* No local per-client entry at all — Steam hasn't given us anything
+           to judge compatibility from, so keep the old default rather than
+           guess it's unsupported. A local entry that DID resolve, just not
+           to a clean not-installed state (e.g. a stale/unclassified status,
+           or an explicit wrong-OS flag) means neither action applies. */
+        if (!localEntry) return { label: i18n.t('menu_install'), action: 'run' };
+        return { label: undefined, action: 'run' };
       }
       const ds = (() => {
         if (typeof overview.display_status === 'number') return overview.display_status;

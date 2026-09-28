@@ -81,6 +81,24 @@ export function isNativeScreensaverActive(): boolean {
   } catch { return false; }
 }
 
+/* Window blur/focus DOM events are unreliable in GamepadUI (confirmed live —
+   `blur` never fires switching away to another app; `focus` on return arrives
+   late, with `document.hidden` still stale) — same gotcha already known from
+   the QAM sidecar's `hasFocus()` poll. Querying `hidden`/`hasFocus()` directly
+   on the existing step()/idle cadence is reliable and needs no extra timer. */
+function isWindowUnfocused(): boolean {
+  const doc = getPreferredSteamDocument();
+  if (!doc) return false;
+  try { return doc.hidden || !doc.hasFocus(); } catch { return false; }
+}
+
+// Nobody's watching right now — pause rather than stop for good; either
+// condition can clear on its own (screensaver dismissed, window refocused)
+// without the user interacting, so the caller re-arms instead of waiting.
+function shouldYieldToInattention(): boolean {
+  return isNativeScreensaverActive() || isWindowUnfocused();
+}
+
 export function installShowcaseMode(): () => void {
   let disposed = false;
   let running = false;
@@ -140,9 +158,10 @@ export function installShowcaseMode(): () => void {
     if (disposed || !running) return;
     const s = getCurrentSettings();
     if (!s?.showcaseModeEnabled) { stopShowcase(); return; }
-    // Yield the instant Steam's own screensaver takes the screen — it can
-    // engage mid-cycle, on its own independent idle timer.
-    if (isNativeScreensaverActive()) { stopShowcase(); armIdle(); return; }
+    // Yield the instant Steam's own screensaver takes the screen, or the
+    // window loses focus (switched to another app) — either can engage/clear
+    // mid-cycle on its own, so re-arm instead of waiting for interaction.
+    if (shouldYieldToInattention()) { stopShowcase(); armIdle(); return; }
     const ids = eligibleShelfIds(s);
     if (ids.length === 0) { stopShowcase(); return; }
     const pick = s.showcaseRandomize ? Math.floor(Math.random() * ids.length) : idx % ids.length;
@@ -168,7 +187,7 @@ export function installShowcaseMode(): () => void {
     if (running || disposed) return;
     const s = getCurrentSettings();
     if (!s?.showcaseModeEnabled) return;
-    if (isNativeScreensaverActive()) { armIdle(); return; } // native screensaver has it; retry later
+    if (shouldYieldToInattention()) { armIdle(); return; } // not visible / screensaver up; retry later
     if (eligibleShelfIds(s).length === 0) { armIdle(); return; } // nothing to show yet; retry later
     running = true;
     idx = 0;

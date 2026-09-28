@@ -7,6 +7,7 @@ import { type DeckRowItem, CARD_W, CARD_ART_H } from "./types";
 import { getCachedCardRadius } from "./shelfStyles";
 import { resolveNativeCardClass, retryWithIntervals, applyNativeAfterAnimation } from "./cardUtils";
 import { toggleCardHighlight } from "./GameCard";
+import { EAppDisplayStatus } from "../../steam/appDisplayStatus";
 
 export function PlaceholderCard({
   item,
@@ -62,15 +63,26 @@ export function PlaceholderCard({
       const overview = (globalThis as any).appStore?.GetAppOverviewByAppID?.(appid);
       if (!overview) return { label: undefined, action: 'run' };
       if (overview.installed !== true) {
-        // Mirrors GameCard: a title with no build for this OS (e.g. a
-        // Windows-only game on macOS) can't actually be installed here —
-        // suppress the hint instead of promising an "Install" that can't work.
+        /* Mirrors GameCard's cardState: "Install" only for the clean
+           not-installed state Steam reports on the local client, with no
+           platform-incompatibility flag — installed-elsewhere-only titles get
+           "Stream" instead, and anything else (a stale/unclassified status)
+           shows no hint, since neither action applies. */
         const pcd: any[] = Array.isArray(overview.per_client_data)
           ? overview.per_client_data
           : (Array.isArray(overview.local_per_client_data) ? overview.local_per_client_data : []);
         const localEntry = pcd.find((c: any) => String(c?.clientid) === "0");
-        if (localEntry?.is_invalid_os_type === true) return { label: undefined, action: 'run' };
-        return { label: i18n.t('menu_install'), action: 'run' };
+        const platformIncompatible = localEntry?.is_invalid_os_type === true
+          || localEntry?.is_available_on_current_platform === false;
+        const cleanlyInstallable = localEntry?.display_status === EAppDisplayStatus.NotInstalled && !platformIncompatible;
+        if (cleanlyInstallable) return { label: i18n.t('menu_install'), action: 'run' };
+        const remotePcd: any[] = Array.isArray(overview.remote_per_client_data)
+          ? overview.remote_per_client_data
+          : pcd.filter((c: any) => String(c?.clientid) !== "0");
+        const installedRemote = remotePcd.some((c: any) => !!c?.installed || Number(c?.display_status) === EAppDisplayStatus.Installed);
+        if (installedRemote) return { label: i18n.t('menu_stream'), action: 'run' };
+        if (!localEntry) return { label: i18n.t('menu_install'), action: 'run' };
+        return { label: undefined, action: 'run' };
       }
       const ds = (() => {
         if (typeof overview.display_status === 'number') return overview.display_status;

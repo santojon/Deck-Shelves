@@ -13,7 +13,9 @@ técnico completo, veja [CHANGELOG.md](CHANGELOG.md).
 - **Um jogo instalado só em outro dispositivo (via Remote Play) agora mostra corretamente "Transmitir" como ação do card**, em vez da dica errada que podia aparecer antes.
 - **A alternância "incluir capturas de tela online" do protetor de tela agora é tratada da mesma forma confiável que toda outra configuração do protetor de tela.**
 - **Corrigida uma falha de limpeza que podia deixar uma integração de terceiros registrada depois de um hot-swap** (ex.: quando uma atualização do host standalone é aplicada sem um reinício completo).
-- **Corrigida a dica do botão View mostrando "Instalar" num card de jogo sem build nenhuma para a sua plataforma** (ex.: um jogo exclusivo de Windows no macOS) — a dica não aparece mais quando não há nada que o Steam possa de fato instalar ali.
+- **Corrigidas as prateleiras ficando visíveis depois de trocar do Big Picture pra visão normal do desktop.** Elas são feitas pra Home com controle e agora somem corretamente no momento em que você sai dela, em vez de continuar aparecendo por trás.
+- **Corrigido o Modo Showcase continuando a rodar depois que você trocava para outro app.** Agora também para quando a janela perde o foco, não só com interação real no Steam.
+- **Corrigida a dica do botão View divergindo do próprio menu de clique direito do jogo.** Um jogo também instalado em outro dispositivo podia mostrar "Transmitir" mesmo sendo perfeitamente instalável nesta plataforma também (deveria dizer "Instalar", como o menu de clique direito diz) — e um jogo para o qual o menu de clique direito não tem nenhuma opção de instalação ainda podia mostrar "Instalar" no botão View. Ambos agora correspondem à primeira ação do próprio menu de clique direito.
 
 ## [3.3.2] - 2026-09-26
 

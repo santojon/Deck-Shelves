@@ -510,8 +510,17 @@ function hrefIsHomeLike(href: string): boolean {
   return href.includes("/library") && !href.includes("/library/app/") && !href.includes("/library/collections");
 }
 
+/* The desktop client and GamepadUI/Big Picture now share the same
+   `/routes/library/home` URL and DOM shape (confirmed live, 2026-09-28) — only
+   this body class tells them apart. Without this, the fallback happily anchors
+   into the desktop client's Home too, since nothing else about it looks different. */
+function isDesktopUiActive(doc: Document): boolean {
+  try { return !!doc.body?.classList?.contains("DesktopUI"); } catch { return false; }
+}
+
 function isHomeVisible(): boolean {
   const { win, doc } = getHostContext();
+  if (isDesktopUiActive(doc)) return false;
   const href = `${win.location?.pathname ?? ""}${win.location?.hash ?? ""}`.toLowerCase();
   if (hrefIsHomeLike(href)) return true;
   if (safeMatch(doc, LIBRARY_HOME_QS)) return true;
@@ -1073,6 +1082,15 @@ export function installHomePatch(_routerHook?: any) {
      already has shelf content (that duplicates every shelf); a freshly-registered
      bridge also gets a grace window to fill the root before we step in. */
   const fallbackShouldYield = (doc: Document): boolean => {
+    /* Unlike a normal navigate-away-from-home (Steam tears down that DOM
+       region itself, so the old root self-heals away), switching to the
+       desktop client keeps the same DOM alive under a different skin — our
+       mount survives untouched, so it needs an explicit teardown here. */
+    if (isDesktopUiActive(doc)) {
+      if (fallbackRoot) teardownPreviousFallbackRoot();
+      fallbackRetries = 0;
+      return true;
+    }
     if (!isHomeVisible()) { fallbackRetries = 0; return true; }
     if (bridgeOwnsHome(doc)) {
       if (fallbackRoot && fallbackMountEl !== doc.getElementById(ROOT_ID)) teardownPreviousFallbackRoot();
