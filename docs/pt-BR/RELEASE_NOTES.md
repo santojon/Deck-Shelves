@@ -11,6 +11,9 @@ técnico completo, veja [CHANGELOG.md](CHANGELOG.md).
 - **Corrigido um problema de posicionamento de prateleira no tema Switch Like Home em versões mais novas do Steam com um layout de biblioteca redesenhado**, em que uma prateleira podia ficar alta demais ou sobrepor outros elementos em vez de ocupar o lugar da linha nativa de Recentes.
 - **Corrigida a ordem decrescente de uma prateleira inteligente, que não era aplicada na prateleira real da Home** mesmo aparecendo certo na prévia do editor.
 - **Um jogo instalado só em outro dispositivo (via Remote Play) agora mostra corretamente "Transmitir" como ação do card**, em vez da dica errada que podia aparecer antes.
+- **A alternância "incluir capturas de tela online" do protetor de tela agora é tratada da mesma forma confiável que toda outra configuração do protetor de tela.**
+- **Corrigida uma falha de limpeza que podia deixar uma integração de terceiros registrada depois de um hot-swap** (ex.: quando uma atualização do host standalone é aplicada sem um reinício completo).
+- **Corrigida a dica do botão View mostrando "Instalar" num card de jogo sem build nenhuma para a sua plataforma** (ex.: um jogo exclusivo de Windows no macOS) — a dica não aparece mais quando não há nada que o Steam possa de fato instalar ali.
 
 ## [3.3.2] - 2026-09-26
 

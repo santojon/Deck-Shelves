@@ -325,6 +325,11 @@ function GameCardImpl({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHProp
           : pcdRaw.filter((c: any) => String(c?.clientid) !== "0");
         const installedRemote = remotePcd.some((c: any) => !!c?.installed || Number(c?.display_status) === EAppDisplayStatus.Installed);
         if (installedRemote) return { label: i18n.t('menu_stream'), action: 'run' };
+        /* Some titles have no build for this OS at all (e.g. a Windows-only
+           game on macOS) — Steam flags that on the local per_client_data
+           entry. No install is actually possible here, so hide the hint
+           instead of promising an "Install" the View button can't do. */
+        if (localEntry?.is_invalid_os_type === true) return { label: undefined, action: 'run' };
         return { label: i18n.t('menu_install'), action: 'run' };
       }
       const ds = (() => {

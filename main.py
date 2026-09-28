@@ -1015,6 +1015,7 @@ class Plugin:
             base_url = f"https://api.steampowered.com/IWishlistService/GetWishlist/v1/?steamid={steam_id64}"
 
             for attempt, url in enumerate([base_url, None]):
+                headers = {"Accept": "application/json", "User-Agent": "Mozilla/5.0"}
                 if attempt == 1:
                     # Second attempt: try with JWT from cookie (for private wishlists)
                     raw_cookie = self._get_steam_cookie("steamLoginSecure")
@@ -1030,12 +1031,13 @@ class Plugin:
                     jwt = parts[1].strip() if len(parts) > 1 else ""
                     if not jwt:
                         break
-                    url = f"{base_url}&access_token={jwt}"
+                    # Header, not a query param — a query string can end up in
+                    # server-side access logs (this repo's own `_redact_secrets`
+                    # only scrubs OUR logs, not Steam's); a header doesn't.
+                    url = base_url
+                    headers["Authorization"] = f"Bearer {jwt}"
 
-                req = urllib.request.Request(
-                    url,
-                    headers={"Accept": "application/json", "User-Agent": "Mozilla/5.0"},
-                )
+                req = urllib.request.Request(url, headers=headers)
                 with urllib.request.urlopen(req, timeout=15, context=_SSL_CTX) as resp:
                     if resp.status != 200:
                         continue

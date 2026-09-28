@@ -11,6 +11,9 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 - **Fixed a shelf-positioning issue under the Switch Like Home theme on newer Steam builds with a redesigned library layout**, where a shelf could sit too high or overlap other elements instead of sitting in the native Recents row's place.
 - **Fixed a smart shelf's descending sort order not applying on the actual Home shelf**, even though it showed correctly in the editor's preview.
 - **A game installed only on another device (via Remote Play) now correctly shows "Stream" as its card action**, instead of the wrong hint it could show before.
+- **The screensaver's "include online screenshots" toggle is now handled the same reliable way as every other screensaver setting.**
+- **Fixed a cleanup gap that could leave a stale third-party integration registered after a hot-swap** (e.g. a standalone-host update applying without a full restart).
+- **Fixed the View-button hint showing "Install" on a card for a game that has no build at all for your platform** (e.g. a Windows-only game on macOS) — the hint no longer appears when there's nothing Steam can actually install there.
 
 ## [3.3.2] - 2026-09-26
 

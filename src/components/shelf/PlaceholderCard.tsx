@@ -61,7 +61,17 @@ export function PlaceholderCard({
     try {
       const overview = (globalThis as any).appStore?.GetAppOverviewByAppID?.(appid);
       if (!overview) return { label: undefined, action: 'run' };
-      if (overview.installed !== true) return { label: i18n.t('menu_install'), action: 'run' };
+      if (overview.installed !== true) {
+        // Mirrors GameCard: a title with no build for this OS (e.g. a
+        // Windows-only game on macOS) can't actually be installed here —
+        // suppress the hint instead of promising an "Install" that can't work.
+        const pcd: any[] = Array.isArray(overview.per_client_data)
+          ? overview.per_client_data
+          : (Array.isArray(overview.local_per_client_data) ? overview.local_per_client_data : []);
+        const localEntry = pcd.find((c: any) => String(c?.clientid) === "0");
+        if (localEntry?.is_invalid_os_type === true) return { label: undefined, action: 'run' };
+        return { label: i18n.t('menu_install'), action: 'run' };
+      }
       const ds = (() => {
         if (typeof overview.display_status === 'number') return overview.display_status;
         const pcd = overview.per_client_data ?? overview.local_per_client_data;
