@@ -49,11 +49,29 @@ describe('installProfileTriggers', () => {
     un()
   })
 
-  it('does not re-apply the already-active profile', () => {
-    store.current = { profileTriggersEnabled: true, profiles: [profile], activeProfileName: 'Docked' }
+  it('does not re-save once the active profile genuinely already matches', () => {
+    // Apply for real once, then feed the exact reflected result back as the
+    // live settings — a second resolution of the same profile must no-op.
+    store.current = { profileTriggersEnabled: true, profiles: [profile], activeProfileName: null }
     resolved.current = 'Docked'
     const un = installProfileTriggers()
+    expect(saved.list.length).toBe(1)
+    store.current = saved.list[0]
+    saved.list = []
+    cb.settings!(store.current)
     expect(saved.list.length).toBe(0)
+    un()
+  })
+
+  it('reconciles real values when activeProfileName already names the profile but the settings were never actually applied', () => {
+    // e.g. `activeProfileName` reflects an earlier local trigger fire, but a
+    // later cross-device merge pulled in other fields that no longer match
+    // the profile's own snapshot — the label alone must not be trusted.
+    store.current = { profileTriggersEnabled: true, profiles: [profile], activeProfileName: 'Docked', enabled: false }
+    resolved.current = 'Docked'
+    const un = installProfileTriggers()
+    expect(saved.list.length).toBe(1)
+    expect(saved.list[0].enabled).toBe(true) // reconciled from the snapshot
     un()
   })
 

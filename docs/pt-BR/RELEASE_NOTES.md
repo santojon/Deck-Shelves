@@ -8,6 +8,7 @@ técnico completo, veja [CHANGELOG.md](CHANGELOG.md).
 ## [Unreleased]
 
 - **O painel de Informações do Sistema (Configurações → Avançado) agora mostra se seu cliente Steam está no canal Stable, Beta ou Preview**, ao lado do número da versão.
+- **A primeira prateleira agora fica correta sob o layout nativo "Big Art" beta do Steam**, do mesmo jeito que já se adapta ao tema ArtHero do CSS Loader — arte hero completa atrás da fileira e as informações do jogo focado mostradas acima dela — se você ocultou a prateleira nativa sem colocar uma prateleira de estilo nativo no lugar dela.
 - **Corrigido um problema de posicionamento de prateleira no tema Switch Like Home em versões mais novas do Steam com um layout de biblioteca redesenhado**, em que uma prateleira podia ficar alta demais ou sobrepor outros elementos em vez de ocupar o lugar da linha nativa de Recentes.
 - **Corrigida a ordem decrescente de uma prateleira inteligente, que não era aplicada na prateleira real da Home** mesmo aparecendo certo na prévia do editor.
 - **Um jogo instalado só em outro dispositivo (via Remote Play) agora mostra corretamente "Transmitir" como ação do card**, em vez da dica errada que podia aparecer antes.
@@ -15,6 +16,7 @@ técnico completo, veja [CHANGELOG.md](CHANGELOG.md).
 - **Corrigida uma falha de limpeza que podia deixar uma integração de terceiros registrada depois de um hot-swap** (ex.: quando uma atualização do host standalone é aplicada sem um reinício completo).
 - **Corrigidas as prateleiras ficando visíveis depois de trocar do Big Picture pra visão normal do desktop.** Elas são feitas pra Home com controle e agora somem corretamente no momento em que você sai dela, em vez de continuar aparecendo por trás.
 - **Corrigido o Modo Showcase continuando a rodar depois que você trocava para outro app.** Agora também para quando a janela perde o foco, não só com interação real no Steam.
+- **Corrigido um gatilho de perfil (ex.: "conectar numa tela externa") que podia resolver o perfil certo mas não reaplicar de fato**, se `activeProfileName` já nomeasse aquele perfil de antes — mais provável depois que suas configurações sincronizaram de outro dispositivo. O gatilho agora sempre reconcilia as configurações reais, não só o nome do perfil.
 - **Corrigida a dica do botão View divergindo do próprio menu de clique direito do jogo.** Um jogo também instalado em outro dispositivo podia mostrar "Transmitir" mesmo sendo perfeitamente instalável nesta plataforma também (deveria dizer "Instalar", como o menu de clique direito diz) — e um jogo para o qual o menu de clique direito não tem nenhuma opção de instalação ainda podia mostrar "Instalar" no botão View. Ambos agora correspondem à primeira ação do próprio menu de clique direito.
 
 ## [3.3.2] - 2026-09-26
