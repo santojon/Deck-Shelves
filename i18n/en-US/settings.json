@@ -991,6 +991,7 @@
   "dev_overlay_desc": "Show FPS and shelf/render stats over the home screen.",
   "diag_os": "OS",
   "diag_steam": "Steam",
+  "diag_host": "Host",
   "diag_copy": "Copy",
   "diag_copied": "Diagnostics copied",
   "description_size_label": "Description text size",

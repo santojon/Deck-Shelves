@@ -43,6 +43,7 @@ import { logError, logInfo } from "./runtime/logger";
 import { Navigation, Focusable, DialogButton, quickAccessMenuClasses } from "./runtime/host/decky";
 import { resolveHost, hostProvidesNativeTab, shouldUseForcedHost, awaitInjectedHost } from "./runtime/host/resolve";
 import { claimHomeOwnership } from "./runtime/host/ownerGuard";
+import { setHostHandshake } from "./runtime/hostHandshake";
 import { AboutPage } from "./components/AboutPage";
 import { SettingsPage } from "./components/SettingsPage";
 import { ShelfEditRoute, ShelfDeleteRoute, ShelfComposeRoute } from "./components/ShelfModalRoute";
@@ -165,6 +166,10 @@ const __ds_entry = definePlugin((serverAPI?: any) => {
   // Host selection lives entirely in resolveHost() — loader vs injected host,
   // by launch signal, producing the same HostApi contract either way.
   _hostApi = resolveHost(serverAPI, loaderRouterHook);
+  // Optional on the contract (absent hosts, e.g. Decky, are read via direct
+  // feature detection elsewhere) — cache once so diagnostics/bug-report can
+  // read it without a direct HostApi import (see hostHandshake.ts).
+  try { setHostHandshake(_hostApi.handshake?.() ?? null); } catch { setHostHandshake(null); }
   // The router hook used for our screens + home patch: the loader's when a loader
   // launched us, or — as sole host — the injected host's own hook.
   const routerHook = loaderRouterHook

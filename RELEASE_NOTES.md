@@ -8,6 +8,8 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 ## [Unreleased]
 
 - **The System Info panel (Settings → Advanced) now shows whether your Steam client is on the Stable, Beta, or Preview channel**, next to its version number.
+- **The Diagnostics panel and bug-report text now show which standalone host is running the plugin**, with its version, when the host supports reporting it.
+- **Releases now include a `SHA256SUMS` file** so you can verify a download wasn't corrupted or tampered with. Also fixed the site's "Install from URL" link getting stuck on an old version.
 - **The first shelf now looks right under Steam's native "Big Art" beta home layout**, the same way it already adapts to the ArtHero CSS Loader theme — full hero art behind the row and the focused game's info shown above it — if you've hidden the native shelf without a native-style shelf of your own in its place.
 - **Fixed a shelf-positioning issue under the Switch Like Home theme on newer Steam builds with a redesigned library layout**, where a shelf could sit too high or overlap other elements instead of sitting in the native Recents row's place.
 - **Fixed a smart shelf's descending sort order not applying on the actual Home shelf**, even though it showed correctly in the editor's preview.
@@ -16,8 +18,13 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 - **Fixed a cleanup gap that could leave a stale third-party integration registered after a hot-swap** (e.g. a standalone-host update applying without a full restart).
 - **Fixed shelves staying visible after switching from Big Picture to the regular desktop view.** They're built for the gamepad Home and now correctly disappear the moment you leave it, instead of lingering behind.
 - **Fixed Showcase mode continuing to run after you switched to another app.** It now also stops when the window loses focus, not just on real interaction with Steam itself.
+- **Fixed shelves occasionally rendering twice on Home after navigating away and back.** Only happened on some setups when the plugin's two mounting paths raced each other; the second copy is now caught and removed automatically.
+- **Fixed a rare, hard-to-hit case where the SteamOS compatibility badge could read the wrong value** on very old Steam clients without the newer compatibility getters.
 - **Fixed a profile trigger (e.g. "dock to an external display") that could resolve the right profile but not actually reapply it**, if `activeProfileName` already named that profile from before — most likely after your settings synced from another device. The trigger now always reconciles the real settings, not just the profile's name.
 - **Fixed the View-button hint disagreeing with the game's own right-click menu.** A game also installed on another device could show "Stream" even though it's perfectly installable on this platform too (should've said "Install", like the right-click menu does) — and a game the right-click menu has no install option for at all could still show "Install" on the View button. Both now match the right-click menu's own first action.
+- **Fixed shelves sometimes staying absent after a slow restart, showing regular Steam content in their place until you manually turned the plugin off and back on.** The plugin now keeps trying instead of giving up too early on a boot that's taking a bit longer than usual.
+- **Fixed shelves getting stuck fully hidden on a Steam beta build's reworked home layout, even across restarts, if Hide Recents was on.** A one-time detection mistake could end up treating the shelves' own container as if it were the native recents row and collapsing it right along with recents. It's now caught and corrected automatically.
+- **Fixed the gamepad sometimes landing on the native search field on boot instead of your shelves, on the same Steam beta's Big Art home**, with no way to dpad into your games at all. The plugin now claims the first card itself if Steam's own boot focus doesn't land on one of yours shortly after starting up.
 
 ## [3.3.2] - 2026-09-26
 

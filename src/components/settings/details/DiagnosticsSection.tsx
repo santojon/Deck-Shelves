@@ -4,7 +4,7 @@ import { CollapsibleSection } from "../../ui/CollapsibleSection";
 import {
   collectRuntimeInfo, collectSystemInfo, collectHardwareInfo, listCoLoadedPlugins,
   summarizeConfig, formatSize, hwCpuText, hwDiskText, hwExternalDiskText,
-  type SystemInfo, type HardwareInfo,
+  type SystemInfo, type HardwareInfo, type RuntimeInfo,
 } from "../../../runtime/diagnosticsInfo";
 import { refreshCssLoaderThemes } from "../../../core/cssLoaderDetect";
 import { getCurrentSettings } from "../../../settingsStore";
@@ -27,6 +27,11 @@ function osLine(sys: SystemInfo | null, steamOS: string | null): string {
     : (steamOS ? `SteamOS ${steamOS}` : null);
   if (!base) return DASH;
   return sys?.machine ? `${base} (${sys.machine})` : base;
+}
+
+function hostLine(handshake: RuntimeInfo["hostHandshake"]): string {
+  if (!handshake) return DASH;
+  return `${handshake.hostKind} ${handshake.hostVersion} (contract ${handshake.hostApiVersion})`;
 }
 
 /** A titled, tinted block — one per System-information section, for a uniform
@@ -172,6 +177,7 @@ export function DiagnosticsSection({ t }: { t: Tr }) {
     ["diag_os", osLine(sys, info.steamOS)],
     ["diag_steam", sys?.steamVersion ? `${sys.steamVersion}${sys.steamBranch ? ` (${sys.steamBranch})` : ""}` : DASH],
     ["diag_theme", info.theme ?? DASH],
+    ["diag_host", hostLine(info.hostHandshake)],
   ];
   const integrations: Integration[] = [
     { key: "diag_decky", icon: <PuzzleIcon size={16} />, active: info.decky },

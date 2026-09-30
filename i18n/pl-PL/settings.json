@@ -983,6 +983,7 @@
   "dev_overlay_desc": "Pokazuje FPS i statystyki półek/renderowania na ekranie głównym.",
   "diag_os": "System",
   "diag_steam": "Steam",
+  "diag_host": "Host",
   "diag_copy": "Kopiuj",
   "diag_copied": "Skopiowano diagnostykę",
   "description_size_label": "Rozmiar tekstu opisu",

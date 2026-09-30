@@ -11,6 +11,16 @@ describe('steam helpers', () => {
     expect((norm as AppOverview).installed).toBeUndefined();
   });
 
+  it('normalizeAppOverview unpacks steam_hw_compat_category_packed correctly when the named getters are absent', () => {
+    // Real value from a live Deck (appid 242820, "140"): deck=3, os=2 (confirmed
+    // via the named getters), packed=227. Bits: 0-1 deck, 2-3 unused, 4-5 os,
+    // 6-7 machine, 8-9 frame. The OLD fallback (`>> 4 & 0xF`) read machine's bits
+    // too and computed os=14 instead of 2 — this pins the corrected math.
+    const norm = normalizeAppOverview({ appid: 242820, display_name: '140', steam_hw_compat_category_packed: 227 }) as AppOverview;
+    expect(norm.deck_compatibility_category).toBe(3);
+    expect(norm.steamos_compatibility_category).toBe(2);
+  });
+
   it('normalizeAppOverview reads controller support from xbox_controller_support (desktop clients)', () => {
     // Desktop clients (macOS / Windows / desktop Linux) expose controller support
     // as `xbox_controller_support` (0/1/2) rather than the older `controller_support`.

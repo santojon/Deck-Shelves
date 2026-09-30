@@ -983,6 +983,7 @@
   "dev_overlay_desc": "Показує FPS та статистику полиць/рендера поверх головного екрана.",
   "diag_os": "ОС",
   "diag_steam": "Steam",
+  "diag_host": "Хост",
   "diag_copy": "Копіювати",
   "diag_copied": "Діагностику скопійовано",
   "description_size_label": "Розмір тексту опису",

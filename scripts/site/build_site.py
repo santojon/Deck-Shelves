@@ -172,6 +172,21 @@ def _inject_download(page: str, version: str) -> str:
     return pattern.sub(f'href="{direct}" download', page)
 
 
+def _inject_install_url(page: str, version: str) -> str:
+    """Same fix as `_inject_download`, for the "Install from URL" code
+    snippet — a separate element (`<code data-install-url>`) the download
+    injector's `href`-only regex never touched, so it stayed stuck on
+    whichever version first generated the page."""
+    direct = f'{REPO}/releases/latest/download/deck-shelves-v{version}.zip'
+    pattern = re.compile(
+        r'(<code class="inst-url" data-install-url>)' +
+        re.escape(f'{REPO}/releases/latest') +
+        r'(?:/download/deck-shelves-v[^<]+)?' +
+        r'(</code>)'
+    )
+    return pattern.sub(rf'\g<1>{direct}\g<2>', page)
+
+
 # ── Usage stats ──────────────────────────────────────────────────────────────
 
 def _parse_stats(root: Path):
@@ -693,6 +708,7 @@ def main() -> int:
     version = version or _pkg_version(root)
     if version:
         page = _inject_download(page, version)
+        page = _inject_install_url(page, version)
         print(f"[build_site] download links point to deck-shelves-v{version}.zip")
     else:
         print("[build_site] WARN: no version found; download links kept as release page")

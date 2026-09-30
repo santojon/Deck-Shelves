@@ -85,10 +85,18 @@ export function applyReplaceActiveMargin(active: boolean): void {
 const RECENTS_LABEL_FRAGMENTS = ["jogos recentes", "recent games", "recently played", "played recently", "jogados recentemente"];
 
 function reseedCachedRecentsEl(): void {
-  if (cachedRecentsEl && cachedRecentsEl.isConnected) return;
+  const { doc } = getHostContext();
+  const mount = doc.getElementById(ROOT_ID) as HTMLElement | null;
+  if (cachedRecentsEl && cachedRecentsEl.isConnected) {
+    /* A later ensureMount() reparent (anchor drift — confirmed live on a
+       Steam beta's redesigned home layout) can leave a still-connected,
+       previously-valid cache now wrapping the mount itself. Collapsing an
+       ancestor of our own mount hides every shelf, not real native recents
+       — never trust the cache once that happens. */
+    if (!mount || !cachedRecentsEl.contains(mount)) return;
+    releaseWronglyCollapsedRecentsEl(cachedRecentsEl);
+  }
   try {
-    const { doc } = getHostContext();
-    const mount = doc.getElementById(ROOT_ID) as HTMLElement | null;
     if (mount) cachedRecentsEl = findRecentsEl(doc as Document, mount);
   } catch (e) { logInfo("HOME", "applyHideRecents: findRecentsEl failed", String(e)); }
 }
@@ -170,6 +178,16 @@ function setRecentsCollapsedStyle(el: HTMLElement, hidden: boolean): void {
     for (const p of ["display", "visibility", "height", "min-height", "max-height", "overflow"]) s.removeProperty(p);
     el.removeAttribute("data-ds-hidden-collapse");
   }
+}
+
+/** Undo a collapse applied to an element the cache later turns out to wrap
+ *  our own mount — nothing else ever reverts it once it stops being
+ *  `cachedRecentsEl`, so without this it stays hidden (and unfocusable)
+ *  forever even after the cache is corrected. */
+function releaseWronglyCollapsedRecentsEl(el: HTMLElement): void {
+  setRecentsCollapsedStyle(el, false);
+  const focusables = el.querySelectorAll<HTMLElement>('[tabindex], button, a, input, [role="button"], .Focusable');
+  for (const f of Array.from(focusables)) setFocusableTabindex(f, false);
 }
 
 function applyRecentsCollapse(hidden: boolean): void {
@@ -664,7 +682,11 @@ function applyPendingRecentsToFoundEl(mount: HTMLElement): void {
 }
 
 function refreshCachedRecentsEl(doc: Document, mount: HTMLElement): void {
-  if (cachedRecentsEl && cachedRecentsEl.isConnected) return;
+  if (cachedRecentsEl && cachedRecentsEl.isConnected) {
+    // Same anchor-drift guard as reseedCachedRecentsEl — see its comment.
+    if (!cachedRecentsEl.contains(mount)) return;
+    releaseWronglyCollapsedRecentsEl(cachedRecentsEl);
+  }
   cachedRecentsEl = findRecentsEl(doc, mount);
   if (!cachedRecentsEl) return;
   logInfo("HOME", "recents element found", { cls: cachedRecentsEl.className.substring(0, 60) });
@@ -906,10 +928,20 @@ export function installHomePatch(_routerHook?: any) {
   let fallbackRetries = 0;
   const MAX_FALLBACK_RETRIES = 6;
 
+  /* A slow cold boot (Steam still hydrating home right after a restart) can
+     burn through MAX_FALLBACK_RETRIES in as little as 3s of fast-polling,
+     well before the real anchor appears. Back off instead of stopping
+     outright — a hard stop left a user with no shelves until they manually
+     toggled the plugin, since nothing else was left to retry it. */
+  const FALLBACK_BACKOFF_MS = 15000;
   const giveUpFallback = () => {
-    logWarn("HOME", "fallback: giving up after max retries", { retries: fallbackRetries });
-    if (timer) { window.clearInterval(timer); timer = 0; }
-    observer?.disconnect();
+    logWarn("HOME", "fallback: anchor not found after repeated attempts — backing off", { retries: fallbackRetries });
+    fallbackRetries = 0;
+    if (timer) window.clearInterval(timer);
+    timer = window.setInterval(tryFallbackRender, FALLBACK_BACKOFF_MS);
+    // Leave the mutation observer attached: a later DOM change (Steam
+    // finishing home hydration) still reaches tryFallbackRender via
+    // scheduleFallback instead of the fallback staying fully silent.
   };
 
   const resolveReactDOM = (win: Window): any => {
@@ -1078,6 +1110,14 @@ export function installHomePatch(_routerHook?: any) {
   const bridgeOwnsHome = (doc: Document): boolean =>
     doc.getElementById(ROOT_ID)?.querySelector(".deck-shelves-root") != null;
 
+  /* Unambiguous signal both the bridge and our own fallback ended up live
+     at once (a slow bridge can still win the race after the fallback's
+     grace window gave up first) — TWO copies of `.deck-shelves-root`, not
+     one. A single copy is ambiguous (could be ours alone) and must not
+     trigger a teardown of our only content when no bridge is involved. */
+  const homeHasDuplicateContent = (doc: Document): boolean =>
+    (doc.getElementById(ROOT_ID)?.querySelectorAll(".deck-shelves-root").length ?? 0) > 1;
+
   /* True when the DOM fallback must NOT render. Never mount both into a root that
      already has shelf content (that duplicates every shelf); a freshly-registered
      bridge also gets a grace window to fill the root before we step in. */
@@ -1093,7 +1133,9 @@ export function installHomePatch(_routerHook?: any) {
     }
     if (!isHomeVisible()) { fallbackRetries = 0; return true; }
     if (bridgeOwnsHome(doc)) {
-      if (fallbackRoot && fallbackMountEl !== doc.getElementById(ROOT_ID)) teardownPreviousFallbackRoot();
+      if (fallbackRoot && (fallbackMountEl !== doc.getElementById(ROOT_ID) || homeHasDuplicateContent(doc))) {
+        teardownPreviousFallbackRoot();
+      }
       return true;
     }
     return bridgeRegistered && Date.now() - installedAt < BRIDGE_FALLBACK_GRACE_MS;

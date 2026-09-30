@@ -983,6 +983,7 @@
   "dev_overlay_desc": "ホーム画面上にFPSとシェルフ/描画の統計を表示します。",
   "diag_os": "OS",
   "diag_steam": "Steam",
+  "diag_host": "ホスト",
   "diag_copy": "コピー",
   "diag_copied": "診断をコピーしました",
   "description_size_label": "説明テキストのサイズ",

@@ -983,6 +983,7 @@
   "dev_overlay_desc": "Muestra FPS y estadísticas de estantería/render sobre el inicio.",
   "diag_os": "SO",
   "diag_steam": "Steam",
+  "diag_host": "Host",
   "diag_copy": "Copiar",
   "diag_copied": "Diagnóstico copiado",
   "description_size_label": "Tamaño del texto de descripción",

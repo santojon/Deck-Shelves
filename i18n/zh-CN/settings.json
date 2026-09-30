@@ -983,6 +983,7 @@
   "dev_overlay_desc": "在主页上显示 FPS 和货架/渲染统计。",
   "diag_os": "操作系统",
   "diag_steam": "Steam",
+  "diag_host": "宿主",
   "diag_copy": "复制",
   "diag_copied": "已复制诊断",
   "description_size_label": "描述文字大小",

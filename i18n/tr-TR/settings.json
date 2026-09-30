@@ -983,6 +983,7 @@
   "dev_overlay_desc": "Ana ekranın üzerinde FPS ve raf/işleme istatistiklerini gösterir.",
   "diag_os": "OS",
   "diag_steam": "Steam",
+  "diag_host": "Host",
   "diag_copy": "Kopyala",
   "diag_copied": "Tanılama kopyalandı",
   "description_size_label": "Açıklama metni boyutu",

@@ -983,6 +983,7 @@
   "dev_overlay_desc": "Mostra FPS e statistiche di scaffale/render sopra la home.",
   "diag_os": "SO",
   "diag_steam": "Steam",
+  "diag_host": "Host",
   "diag_copy": "Copia",
   "diag_copied": "Diagnostica copiata",
   "description_size_label": "Dimensione testo descrizione",

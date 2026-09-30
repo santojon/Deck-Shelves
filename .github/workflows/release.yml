@@ -83,6 +83,11 @@ jobs:
       - name: Package backend archive
         run: tar -czf deck-shelves-backend.tar.gz --exclude='__pycache__' main.py src/backend
 
+      # Lets anyone (or the hub, before it installs a download) verify the
+      # release assets weren't corrupted or tampered with in transit.
+      - name: Generate SHA256SUMS
+        run: sha256sum deck-shelves-v*.zip dist/index.iife.js deck-shelves-backend.tar.gz > SHA256SUMS
+
       - name: Resolve release tag
         id: tag
         run: |
@@ -131,3 +136,4 @@ jobs:
             deck-shelves-v*.zip
             dist/index.iife.js
             deck-shelves-backend.tar.gz
+            SHA256SUMS

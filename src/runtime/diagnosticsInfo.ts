@@ -15,6 +15,7 @@ import {
   cssLoaderStyleCount,
 } from "../core/cssLoaderDetect";
 import * as pluginRegistry from "../integrations/registry";
+import { getHostHandshake } from "./hostHandshake";
 
 export interface RuntimeInfo {
   version: string;
@@ -25,6 +26,9 @@ export interface RuntimeInfo {
   tabMaster: boolean;
   unifiDeck: boolean;
   nonSteamBadges: boolean;
+  /** From the host's optional `handshake()` — null on a host that doesn't
+   *  implement it (e.g. Decky), not just an empty/missing value. */
+  hostHandshake: { hostKind: string; hostVersion: string; hostApiVersion: string; capabilities: string[] } | null;
 }
 
 function deckyLoader(): unknown {
@@ -241,6 +245,7 @@ export function hwExternalDiskText(d: ExternalDisk): string {
 }
 
 export function collectRuntimeInfo(): RuntimeInfo {
+  const hs = getHostHandshake();
   return {
     version: (pkg as any).version ?? "0.0.0",
     steamOS: getSteamOSVersion(),
@@ -250,6 +255,12 @@ export function collectRuntimeInfo(): RuntimeInfo {
     tabMaster: pluginRegistry.isTabMasterInstalled(),
     unifiDeck: pluginRegistry.isUnifiDeckInstalled(),
     nonSteamBadges: pluginRegistry.isNonSteamBadgesInstalled(),
+    hostHandshake: hs ? {
+      hostKind: hs.hostKind,
+      hostVersion: hs.hostVersion,
+      hostApiVersion: hs.hostApiVersion,
+      capabilities: Object.keys(hs.capabilities).filter((k) => hs.capabilities[k]).sort(),
+    } : null,
   };
 }
 

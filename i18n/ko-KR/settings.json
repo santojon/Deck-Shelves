@@ -983,6 +983,7 @@
   "dev_overlay_desc": "홈 화면 위에 FPS 및 선반/렌더 통계를 표시합니다.",
   "diag_os": "OS",
   "diag_steam": "Steam",
+  "diag_host": "호스트",
   "diag_copy": "복사",
   "diag_copied": "진단을 복사했습니다",
   "description_size_label": "설명 텍스트 크기",

@@ -77,6 +77,7 @@ function diagnosticsText(runtime: RuntimeInfo, sys: SystemInfo | null, hw: Hardw
     `OS: ${osLine(sys, runtime.steamOS)}`,
     `Steam: ${sys?.steamVersion ?? DASH}`,
     `Theme: ${runtime.theme ?? DASH}`,
+    `Host: ${runtime.hostHandshake ? `${runtime.hostHandshake.hostKind} ${runtime.hostHandshake.hostVersion} (contract ${runtime.hostHandshake.hostApiVersion})` : DASH}`,
     ...(hw ? hardwareText(hw) : []),
     `Decky: ${yn(runtime.decky)}`,
     `CSS Loader: ${yn(runtime.cssLoader)}`,

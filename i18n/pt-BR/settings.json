@@ -983,6 +983,7 @@
   "dev_overlay_desc": "Mostra FPS e estatísticas de shelf/render sobre a home.",
   "diag_os": "SO",
   "diag_steam": "Steam",
+  "diag_host": "Host",
   "diag_copy": "Copiar",
   "diag_copied": "Diagnóstico copiado",
   "description_size_label": "Tamanho do texto de descrição",

@@ -1156,19 +1156,19 @@ function buildTimestampFields(node: any) {
   };
 }
 
-/* Confirmed live (2026-09-11): current clients expose `steam_deck_compat_category`
-   / `steam_os_compat_category` directly, already unpacked (plus two more for
-   Steam Machine/Frame). `steam_hw_compat_category_packed` now fits four
-   categories, not two, so the old nibble unpack below reads the wrong bits —
-   kept only for clients old enough to lack the named getters. */
+/* Confirmed live: current clients expose `steam_deck_compat_category` /
+   `steam_os_compat_category` directly, already unpacked (plus two more for
+   Steam Machine/Frame). `steam_hw_compat_category_packed` packs four 2-bit
+   fields — bits 0-1 deck, 2-3 unused, 4-5 os, 6-7 machine, 8-9 frame — the
+   fallback below only matters for clients too old for the named getters. */
 function deckCompatCategory(n: any): number {
   return Number(n.steam_deck_compat_category ?? n.deck_compatibility_category ?? n.m_eDeckCompatibilityCategory
-    ?? ((Number(n.steam_hw_compat_category_packed ?? 0) & 0xF) || 0));
+    ?? ((Number(n.steam_hw_compat_category_packed ?? 0) & 0x3) || 0));
 }
 
 function steamosCompatCategory(n: any): number {
   return Number(n.steam_os_compat_category ?? n.steamos_compatibility_category ?? n.m_eSteamOSCompatibilityCategory ??
-    ((((Number(n.steam_hw_compat_category_packed ?? 0) >> 4) & 0xF)) || 0));
+    ((((Number(n.steam_hw_compat_category_packed ?? 0) >> 4) & 0x3)) || 0));
 }
 
 function buildTypeFields(node: any) {

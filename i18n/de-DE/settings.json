@@ -983,6 +983,7 @@
   "dev_overlay_desc": "Zeigt FPS und Regal-/Render-Statistiken über der Startseite.",
   "diag_os": "OS",
   "diag_steam": "Steam",
+  "diag_host": "Host",
   "diag_copy": "Kopieren",
   "diag_copied": "Diagnose kopiert",
   "description_size_label": "Größe des Beschreibungstexts",

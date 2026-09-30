@@ -983,6 +983,7 @@
   "dev_overlay_desc": "Affiche les FPS et les stats d'étagère/rendu sur l'accueil.",
   "diag_os": "SE",
   "diag_steam": "Steam",
+  "diag_host": "Hôte",
   "diag_copy": "Copier",
   "diag_copied": "Diagnostic copié",
   "description_size_label": "Taille du texte de description",

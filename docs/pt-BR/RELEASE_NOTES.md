@@ -8,6 +8,8 @@ técnico completo, veja [CHANGELOG.md](CHANGELOG.md).
 ## [Unreleased]
 
 - **O painel de Informações do Sistema (Configurações → Avançado) agora mostra se seu cliente Steam está no canal Stable, Beta ou Preview**, ao lado do número da versão.
+- **O painel de Diagnóstico e o texto do relatório de bug agora mostram qual host independente está rodando o plugin**, com sua versão, quando o host suporta reportar isso.
+- **Releases agora incluem um arquivo `SHA256SUMS`** pra você verificar que um download não foi corrompido ou adulterado. Também corrigido o link "Instalar por URL" do site que ficava preso numa versão antiga.
 - **A primeira prateleira agora fica correta sob o layout nativo "Big Art" beta do Steam**, do mesmo jeito que já se adapta ao tema ArtHero do CSS Loader — arte hero completa atrás da fileira e as informações do jogo focado mostradas acima dela — se você ocultou a prateleira nativa sem colocar uma prateleira de estilo nativo no lugar dela.
 - **Corrigido um problema de posicionamento de prateleira no tema Switch Like Home em versões mais novas do Steam com um layout de biblioteca redesenhado**, em que uma prateleira podia ficar alta demais ou sobrepor outros elementos em vez de ocupar o lugar da linha nativa de Recentes.
 - **Corrigida a ordem decrescente de uma prateleira inteligente, que não era aplicada na prateleira real da Home** mesmo aparecendo certo na prévia do editor.
@@ -16,8 +18,13 @@ técnico completo, veja [CHANGELOG.md](CHANGELOG.md).
 - **Corrigida uma falha de limpeza que podia deixar uma integração de terceiros registrada depois de um hot-swap** (ex.: quando uma atualização do host standalone é aplicada sem um reinício completo).
 - **Corrigidas as prateleiras ficando visíveis depois de trocar do Big Picture pra visão normal do desktop.** Elas são feitas pra Home com controle e agora somem corretamente no momento em que você sai dela, em vez de continuar aparecendo por trás.
 - **Corrigido o Modo Showcase continuando a rodar depois que você trocava para outro app.** Agora também para quando a janela perde o foco, não só com interação real no Steam.
+- **Corrigidas as prateleiras às vezes renderizando duas vezes na Home depois de navegar pra longe e voltar.** Só acontecia em algumas configurações quando os dois caminhos de montagem do plugin competiam entre si; a segunda cópia agora é detectada e removida automaticamente.
+- **Corrigido um caso raro e difícil de reproduzir onde o selo de compatibilidade do SteamOS podia ler o valor errado** em clientes Steam bem antigos, sem os getters de compatibilidade mais novos.
 - **Corrigido um gatilho de perfil (ex.: "conectar numa tela externa") que podia resolver o perfil certo mas não reaplicar de fato**, se `activeProfileName` já nomeasse aquele perfil de antes — mais provável depois que suas configurações sincronizaram de outro dispositivo. O gatilho agora sempre reconcilia as configurações reais, não só o nome do perfil.
 - **Corrigida a dica do botão View divergindo do próprio menu de clique direito do jogo.** Um jogo também instalado em outro dispositivo podia mostrar "Transmitir" mesmo sendo perfeitamente instalável nesta plataforma também (deveria dizer "Instalar", como o menu de clique direito diz) — e um jogo para o qual o menu de clique direito não tem nenhuma opção de instalação ainda podia mostrar "Instalar" no botão View. Ambos agora correspondem à primeira ação do próprio menu de clique direito.
+- **Corrigidas as prateleiras às vezes ficando ausentes depois de uma reinicialização mais lenta, mostrando o conteúdo normal do Steam no lugar delas até você desligar e religar o plugin manualmente.** O plugin agora continua tentando em vez de desistir cedo demais numa inicialização que está demorando um pouco mais que o normal.
+- **Corrigidas as prateleiras ficando presas totalmente ocultas num layout de Home remodelado de uma versão beta do Steam, mesmo depois de reiniciar, quando Ocultar Recentes estava ativado.** Um engano pontual de detecção podia tratar o próprio contêiner das prateleiras como se fosse a linha nativa de recentes e ocultá-lo junto. Agora isso é identificado e corrigido automaticamente.
+- **Corrigido o foco do controle às vezes caindo no campo de busca nativo ao iniciar, em vez das suas prateleiras, no mesmo layout de Home Big Art dessa versão beta do Steam**, sem nenhum jeito de navegar até seus jogos pelo direcional. O plugin agora assume o foco no primeiro card se o foco inicial do próprio Steam não cair em nenhum dos seus logo depois de iniciar.
 
 ## [3.3.2] - 2026-09-26
 

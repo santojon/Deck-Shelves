@@ -983,6 +983,7 @@
   "dev_overlay_desc": "在主畫面上顯示 FPS 和書架/繪製統計。",
   "diag_os": "作業系統",
   "diag_steam": "Steam",
+  "diag_host": "宿主",
   "diag_copy": "複製",
   "diag_copied": "已複製診斷",
   "description_size_label": "描述文字大小",

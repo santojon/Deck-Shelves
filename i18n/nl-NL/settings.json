@@ -983,6 +983,7 @@
   "dev_overlay_desc": "Toont FPS en plank-/renderstatistieken over de home.",
   "diag_os": "OS",
   "diag_steam": "Steam",
+  "diag_host": "Host",
   "diag_copy": "Kopiëren",
   "diag_copied": "Diagnostiek gekopieerd",
   "description_size_label": "Grootte beschrijvingstekst",
