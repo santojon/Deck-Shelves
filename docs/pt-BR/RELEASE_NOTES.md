@@ -25,6 +25,10 @@ técnico completo, veja [CHANGELOG.md](CHANGELOG.md).
 - **Corrigidas as prateleiras às vezes ficando ausentes depois de uma reinicialização mais lenta, mostrando o conteúdo normal do Steam no lugar delas até você desligar e religar o plugin manualmente.** O plugin agora continua tentando em vez de desistir cedo demais numa inicialização que está demorando um pouco mais que o normal.
 - **Corrigidas as prateleiras ficando presas totalmente ocultas num layout de Home remodelado de uma versão beta do Steam, mesmo depois de reiniciar, quando Ocultar Recentes estava ativado.** Um engano pontual de detecção podia tratar o próprio contêiner das prateleiras como se fosse a linha nativa de recentes e ocultá-lo junto. Agora isso é identificado e corrigido automaticamente.
 - **Corrigido o foco do controle às vezes caindo no campo de busca nativo ao iniciar, em vez das suas prateleiras, no mesmo layout de Home Big Art dessa versão beta do Steam**, sem nenhum jeito de navegar até seus jogos pelo direcional. O plugin agora assume o foco no primeiro card se o foco inicial do próprio Steam não cair em nenhum dos seus logo depois de iniciar.
+- **Corrigida a primeira prateleira promovida ficando bem abaixo do topo da tela no Big Art nativo**, em vez do layout de hero em tela cheia que ela já recebe no tema ArtHero do CSS Loader.
+- **Corrigido o próprio fundo do Big Art nativo às vezes ficando visível sobre tudo mesmo com Ocultar Recentes ativado.**
+- **Corrigido o título da prateleira promovida ficando espremido logo abaixo dos ícones do topo no Big Art nativo**, em vez da mesma folga que o conteúdo nativo mantém ali.
+- **Corrigida a prateleira promovida ficando empilhada perto do topo com um vão vazio grande abaixo dela, tanto no ArtHero quanto no Big Art** — agora ela fica ancorada embaixo do jeito que o conteúdo nativo fica, igual já funcionava numa combinação específica de tema.
 
 ## [3.3.2] - 2026-09-26
 

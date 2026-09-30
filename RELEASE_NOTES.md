@@ -25,6 +25,10 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 - **Fixed shelves sometimes staying absent after a slow restart, showing regular Steam content in their place until you manually turned the plugin off and back on.** The plugin now keeps trying instead of giving up too early on a boot that's taking a bit longer than usual.
 - **Fixed shelves getting stuck fully hidden on a Steam beta build's reworked home layout, even across restarts, if Hide Recents was on.** A one-time detection mistake could end up treating the shelves' own container as if it were the native recents row and collapsing it right along with recents. It's now caught and corrected automatically.
 - **Fixed the gamepad sometimes landing on the native search field on boot instead of your shelves, on the same Steam beta's Big Art home**, with no way to dpad into your games at all. The plugin now claims the first card itself if Steam's own boot focus doesn't land on one of yours shortly after starting up.
+- **Fixed the promoted first shelf sitting well below the top of the screen under native Big Art**, instead of the full-screen hero layout it already gets under the ArtHero CSS Loader theme.
+- **Fixed native Big Art's own background sometimes staying visible over everything even with Hide Recents turned on.**
+- **Fixed the promoted shelf's title crowding right under the top icons under native Big Art**, instead of the same clearance native content keeps there.
+- **Fixed the promoted shelf sitting stacked near the top with a large empty gap below it, on ArtHero as much as on Big Art** — it now sits anchored to the bottom the way native content does, matching what already worked for one specific theme combination.
 
 ## [3.3.2] - 2026-09-26
 

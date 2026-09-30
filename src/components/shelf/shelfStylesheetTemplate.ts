@@ -992,20 +992,19 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
       animation: none !important;
     }
 
-    /* Hero Fullscreen — the promoted (recents-slot) shelf takes the full
-       viewport under a hero-fullscreen theme. This is the theme's own
-       full-page intent on the first shelf (or all promoted shelves under
-       force-CSS-Loader); independent of the gameInfoAbove label band. */
+    /* Hero Fullscreen: promoted shelf fills viewport, flex-end bottom-anchors title/row (was SLH-only, left ArtHero/Big Art floating). */
     .deck-shelves-root[data-ds-theme-hero-fullscreen="true"] .ds-shelf[data-ds-recents-slot="true"] {
-      height: 100vh !important;
-      --ds-hero-top: 0px;
-      --ds-hero-h: 100vh;
+      height: 100vh !important; --ds-hero-top: 0px; --ds-hero-h: 100vh;
+      display: flex !important; flex-direction: column; justify-content: flex-end;
     }
-    /* Hero-fullscreen THEME: the promoted first shelf is a full-page hero with
-       its cards anchored to the bottom, so pulling the whole box up -56 to fill
-       the transparent header band is correct here. */
-    .deck-shelves-root[data-ds-theme-hero-fullscreen="true"][data-ds-recents-hidden="true"] > .ds-shelf[data-ds-recents-slot="true"]:first-child {
+    /* ArtHero header-band pull; Big Art excluded (no such clearance there). */
+    .deck-shelves-root[data-ds-theme-hero-fullscreen="true"]:not([data-ds-theme-big-art="true"])[data-ds-recents-hidden="true"] > .ds-shelf[data-ds-recents-slot="true"]:first-child {
       margin-top: -56px;
+    }
+    /* Big Art keeps the mount's own +56 push (no pull above) so the BOX is shrunk by 56 to avoid overflowing the viewport — but the ART still bleeds the full 56px back up over that gap (native's own hero reaches the very top, behind the icons) instead of leaving it a flat, art-less band. */
+    .deck-shelves-root[data-ds-theme-big-art="true"] .ds-shelf[data-ds-recents-slot="true"] {
+      height: calc(100vh - 56px) !important;
+      --ds-hero-top: -56px; --ds-hero-h: 100vh;
     }
     /* DS hero-background (compact promoted first shelf, recents hidden): bleed
        only the ART up under the header (like the non-slot rule below) instead of

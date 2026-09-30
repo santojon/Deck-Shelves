@@ -109,6 +109,10 @@ export function isNoHeroGradientActive(): boolean {
 }
 
 export function isHeroFullscreenActive(): boolean {
+  // Native Big Art has no injected stylesheet to scan (not a CSS Loader
+  // theme) but lays its hero out full-viewport the same way — confirmed
+  // live the compact treatment left the promoted shelf below the fold.
+  if (isBigArtModeActive()) return true;
   const text = getAllStyleText();
   const sectionTokens = tokensForKey("shelfSection", "gamepadhomerecentgames_RecentGamesInnerContainer");
   const rootTokens = tokensForKey("heroRoot", "gamepadhomerecentgames_RecentGamesBackgroundContainer");

@@ -29,7 +29,7 @@ import { subscribeSessionState } from "../runtime/sessionState";
 import { subscribePerfState, stopFrameSampler } from "../runtime/perfState";
 import { subscribePeripheralsState } from "../runtime/peripheralsState";
 import { flowChildrenProps } from "../core/steamOSVersion";
-import { isCssLoaderActive, getNativeRecentsClassName, isArtHeroActive, isNoHeroGradientActive, isHeroFullscreenActive, isNoHomeTextActive, isFocusRoundCompatActive, isTiltedHomeActive, getTiltedHomeMode } from "../core/cssLoaderDetect";
+import { isCssLoaderActive, getNativeRecentsClassName, isArtHeroActive, isNoHeroGradientActive, isHeroFullscreenActive, isNoHomeTextActive, isFocusRoundCompatActive, isTiltedHomeActive, getTiltedHomeMode, isBigArtModeActive } from "../core/cssLoaderDetect";
 import { BadgeFocusOverlay } from "./shelf/BadgeFocusOverlay";
 import { FriendsAvatarOverlay } from "./shelf/FriendsAvatarOverlay";
 
@@ -946,6 +946,11 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
         // data-ds-recents-slot (first shelf or all under force).
         setFlag('data-ds-theme-no-hero-gradient', isNoHeroGradientActive());
         setFlag('data-ds-theme-hero-fullscreen', isHeroFullscreenActive());
+        /* Separate from hero-fullscreen: some of its CSS (the ArtHero-tuned
+           -56px pull-up) assumes ArtHero's own native clearance under the
+           header — native Big Art doesn't have that same clearance, so the
+           same pull crowds the shelf title into the icon row there. */
+        setFlag('data-ds-theme-big-art', isBigArtModeActive());
         setFlag('data-ds-theme-no-home-text', isNoHomeTextActive());
         /* TiltedHome flag — when set, the shelfStyles.ts CSS gates a
            perspective + rotateY transform onto DS cards using the
@@ -1017,6 +1022,7 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
         root.removeAttribute('data-ds-hero-label');
         root.removeAttribute('data-ds-theme-no-hero-gradient');
         root.removeAttribute('data-ds-theme-hero-fullscreen');
+        root.removeAttribute('data-ds-theme-big-art');
         root.removeAttribute('data-ds-theme-no-home-text');
         root.removeAttribute('data-ds-theme-tilted-home');
         root.removeAttribute('data-ds-theme-focus-round-compat');

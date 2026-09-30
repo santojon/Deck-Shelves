@@ -11,6 +11,7 @@ import { logDiagnostic } from "./diagnostics";
 import { logError, logInfo, logWarn } from "./logger";
 import { setPreferredSteamWindow, getAllSteamDocuments } from "./steamHost";
 import { getRuntimeClassMap } from "../core/webpackCompat";
+import { isBigArtModeActive } from "../core/cssLoaderDetect";
 import { notify } from "../components/notify";
 import { findModuleByExport } from "./host/decky";
 
@@ -84,6 +85,12 @@ export function applyReplaceActiveMargin(active: boolean): void {
 
 const RECENTS_LABEL_FRAGMENTS = ["jogos recentes", "recent games", "recently played", "played recently", "jogados recentemente"];
 
+// Under Big Art the structural previous-sibling is ground truth (see
+// bigArtStructuralRecents) — a cache pointing elsewhere is stale too.
+function cacheStaleUnderBigArt(mount: HTMLElement | null): boolean {
+  return !!mount && isBigArtModeActive() && cachedRecentsEl !== mount.previousElementSibling;
+}
+
 function reseedCachedRecentsEl(): void {
   const { doc } = getHostContext();
   const mount = doc.getElementById(ROOT_ID) as HTMLElement | null;
@@ -93,7 +100,7 @@ function reseedCachedRecentsEl(): void {
        previously-valid cache now wrapping the mount itself. Collapsing an
        ancestor of our own mount hides every shelf, not real native recents
        — never trust the cache once that happens. */
-    if (!mount || !cachedRecentsEl.contains(mount)) return;
+    if (!(mount != null && cachedRecentsEl.contains(mount)) && !cacheStaleUnderBigArt(mount)) return;
     releaseWronglyCollapsedRecentsEl(cachedRecentsEl);
   }
   try {
@@ -380,12 +387,23 @@ function recentsFromAriaScan(doc: Document, mountEl: HTMLElement, mountParent: H
   return null;
 }
 
+/* Native Big Art's single-hero "Jogo atual" state can render with no
+   aria-label/ReactVirtualized signal — the label checks above then find
+   nothing, leaving the native hero showing over everything uncollapsed.
+   Trust our own mount's direct previous sibling under Big Art specifically
+   (confirmed live: always exactly where it anchors there). */
+function bigArtStructuralRecents(prev: HTMLElement | null, mountEl: HTMLElement): HTMLElement | null {
+  if (!prev || !isBigArtModeActive() || isDsOwn(prev, mountEl)) return null;
+  return prev;
+}
+
 function findRecentsEl(doc: Document, mountEl: HTMLElement): HTMLElement | null {
   const labels = RECENTS_LABEL_FRAGMENTS;
   const mountParent = mountEl.parentElement;
   if (!mountParent) return null;
-  const prev = previousSiblingIsRecents(mountEl.previousElementSibling as HTMLElement | null, mountEl, labels);
-  return prev ?? recentsFromAriaScan(doc, mountEl, mountParent, labels);
+  const prevEl = mountEl.previousElementSibling as HTMLElement | null;
+  const prev = previousSiblingIsRecents(prevEl, mountEl, labels);
+  return prev ?? recentsFromAriaScan(doc, mountEl, mountParent, labels) ?? bigArtStructuralRecents(prevEl, mountEl);
 }
 
 function getFocusNavController(): any {
@@ -683,8 +701,8 @@ function applyPendingRecentsToFoundEl(mount: HTMLElement): void {
 
 function refreshCachedRecentsEl(doc: Document, mount: HTMLElement): void {
   if (cachedRecentsEl && cachedRecentsEl.isConnected) {
-    // Same anchor-drift guard as reseedCachedRecentsEl — see its comment.
-    if (!cachedRecentsEl.contains(mount)) return;
+    // Same anchor-drift + Big Art staleness guards as reseedCachedRecentsEl.
+    if (!cachedRecentsEl.contains(mount) && !cacheStaleUnderBigArt(mount)) return;
     releaseWronglyCollapsedRecentsEl(cachedRecentsEl);
   }
   cachedRecentsEl = findRecentsEl(doc, mount);
