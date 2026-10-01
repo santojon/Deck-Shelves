@@ -3,6 +3,7 @@ import { invalidateAppOverviewCache } from '../steam';
 import { pauseShelfRefresh, resumeShelfRefresh } from '../core/shelfRefresh';
 import { refreshDisplay, refreshControllerState } from './deviceState';
 import { forceBatteryRefresh } from './batteryState';
+import { requestPeripheralsRefresh } from './peripheralsState';
 import { logInfo } from './logger';
 
 function getSteamClient(): any {
@@ -31,6 +32,9 @@ export function installSystemEvents(): () => void {
     void refreshDisplay();
     refreshControllerState();
     forceBatteryRefresh();
+    // Bluetooth has no native change-event (see deviceHistoryTracker.ts) — a
+    // device paired/connected while asleep needs this same forced check.
+    requestPeripheralsRefresh();
   };
 
   // Primary: SteamClient.System.RegisterForSuspendResumeEvents

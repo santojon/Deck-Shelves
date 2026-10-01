@@ -17,6 +17,7 @@ import { installShelfRefreshEmitter } from "./core/shelfRefresh";
 import { installSystemEvents } from "./runtime/systemEvents";
 import { installBatteryState } from "./runtime/batteryState";
 import { installDeviceState, getDeviceState } from "./runtime/deviceState";
+import { installDeviceHistoryTracker } from "./runtime/deviceHistoryTracker";
 import { installSessionState } from "./runtime/sessionState";
 import { installProfileTriggers } from "./runtime/profileTriggers";
 import { installFriendsState } from "./runtime/friendsState";
@@ -189,6 +190,7 @@ const __ds_entry = definePlugin((serverAPI?: any) => {
   const uninstallSystemEvents = installSystemEvents();
   const uninstallBatteryState = installBatteryState();
   const uninstallDeviceState = installDeviceState();
+  const uninstallDeviceHistoryTracker = installDeviceHistoryTracker();
   const uninstallSessionState = installSessionState();
   const uninstallProfileTriggers = installProfileTriggers();
   // Dev-only: expose the live device snapshot for on-device CDP inspection.
@@ -454,6 +456,7 @@ const __ds_entry = definePlugin((serverAPI?: any) => {
       uninstallSystemEvents();
       uninstallBatteryState();
       uninstallDeviceState();
+      uninstallDeviceHistoryTracker();
       uninstallSessionState();
       uninstallProfileTriggers();
       uninstallFriendsState();

@@ -7,6 +7,7 @@ técnico completo, veja [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+- **Corrigida uma lista de desejos privada da Steam que sempre carregava vazia, sem mostrar nenhum erro.** Uma melhoria de segurança anterior quebrou isso sem querer pra quem tem lista de desejos privada — já está corrigido, com a mesma proteção pra garantir que o token nunca apareça num log.
 - **O painel de Informações do Sistema (Configurações → Avançado) agora mostra se seu cliente Steam está no canal Stable, Beta ou Preview**, ao lado do número da versão.
 - **O painel de Diagnóstico e o texto do relatório de bug agora mostram qual host independente está rodando o plugin**, com sua versão, quando o host suporta reportar isso.
 - **Releases agora incluem um arquivo `SHA256SUMS`** pra você verificar que um download não foi corrompido ou adulterado. Também corrigido o link "Instalar por URL" do site que ficava preso numa versão antiga.
