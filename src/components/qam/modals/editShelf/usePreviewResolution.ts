@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { STEAM_CDN_AKAMAI } from '../../../../constants';
 import { resolveShelfAppIds, getAllAppOverviews, getLocalLibraryAppIds } from '../../../../steam';
 import { getCurrentSettings } from '../../../../store/settingsStore';
 import { fetchGameNames } from '../../../../core/onlineStore';
@@ -128,7 +129,7 @@ function enrichOnlineNames(rawResults: Array<[number, PlatformAppMeta]>): { meta
   for (const [id, m] of rawResults) {
     const overviewName = m?.name && !/^App \d+$/.test(m.name) ? m.name : undefined;
     const cachedName = nameCache[id];
-    const portraitUrl = `https://cdn.akamai.steamstatic.com/steam/apps/${id}/library_600x900.jpg`;
+    const portraitUrl = `${STEAM_CDN_AKAMAI}/steam/apps/${id}/library_600x900.jpg`;
     meta.set(id, { appid: id, name: overviewName ?? cachedName ?? `#${id}`, portraitUrl });
     if (!overviewName && !cachedName) toFetch.push(id);
   }

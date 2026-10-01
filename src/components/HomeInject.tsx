@@ -29,7 +29,7 @@ import { subscribeSessionState } from "../runtime/sessionState";
 import { subscribePerfState, stopFrameSampler } from "../runtime/perfState";
 import { subscribePeripheralsState } from "../runtime/peripheralsState";
 import { flowChildrenProps } from "../core/steamOSVersion";
-import { isCssLoaderActive, getNativeRecentsClassName, isArtHeroActive, isNoHeroGradientActive, isHeroFullscreenActive, isNoHomeTextActive, isFocusRoundCompatActive, isTiltedHomeActive, getTiltedHomeMode } from "../core/cssLoaderDetect";
+import { isCssLoaderActive, getNativeRecentsClassName, isArtHeroActive, isNoHeroGradientActive, isHeroFullscreenActive, isNoHomeTextActive, isFocusRoundCompatActive, isTiltedHomeActive, getTiltedHomeMode, isBigArtModeActive } from "../core/cssLoaderDetect";
 import { BadgeFocusOverlay } from "./shelf/BadgeFocusOverlay";
 import { FriendsAvatarOverlay } from "./shelf/FriendsAvatarOverlay";
 
@@ -458,11 +458,16 @@ export function HomeShelves() {
              appStore metadata as usual. */
           includesNonOwned: s.mode === 'friends_playing' || Array.isArray((s as any).compositeModes) && (s as any).compositeModes.includes('friends_playing'),
         } as any,
-        // Surface user-configured overrides so resolveShelfAppIds +
-        // Shelf.tsx can apply them on top of the mode's candidates.
+        /* Overrides for resolveShelfAppIds + Shelf.tsx on top of the mode's
+           candidates. `sortReverse`/`manualBaseSortReverse` were missing —
+           the sort key forwarded fine, but asc/desc never reached Home, so a
+           descending smart shelf kept its natural order there while the
+           modal's own preview showed it correctly. */
         sort: (s as any).sort,
+        sortReverse: (s as any).sortReverse,
         manualOrder: (s as any).manualOrder,
         manualBaseSort: (s as any).manualBaseSort,
+        manualBaseSortReverse: (s as any).manualBaseSortReverse,
       } as any));
   }, [settings?.smartShelvesEnabled, settings?.smartSurpriseMe, settings?.smartSurpriseMeCount, settings?.smartShelves, t, visibilityTick]);
 
@@ -866,6 +871,12 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
     if (!rootEl) return;
     const nativeClass = getNativeRecentsClassName(mountEl);
     if (!nativeClass) return;
+    /* Mark the native-recents sibling itself (not just its class) so the SLH
+       shim can scope its grid override to THIS container — the bare
+       aria-label also matches unrelated grids elsewhere (e.g. a Big Art
+       hero carousel). */
+    const nativeRecentsEl = mountEl.previousElementSibling as HTMLElement | null;
+    nativeRecentsEl?.setAttribute('data-ds-native-recents', 'true');
 
     /* forceCssLoaderThemes ON: promote EVERY shelf — native wrapper class +
        data-ds-recents-slot — so theme rules (Obsidian, TiltedHome, ArtHero
@@ -891,6 +902,7 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
       for (const t of rootEl.querySelectorAll<HTMLElement>('.ds-shelf[data-shelfid]')) {
         try { t.removeAttribute('data-ds-recents-slot'); t.classList.remove(nativeClass); } catch {}
       }
+      try { nativeRecentsEl?.removeAttribute('data-ds-native-recents'); } catch {}
     };
   }, [hideRecentsSetting, firstVisibleId, mountEl, forceCssLoaderThemes, shelves, cssLoaderTick]);
 
@@ -934,6 +946,11 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
         // data-ds-recents-slot (first shelf or all under force).
         setFlag('data-ds-theme-no-hero-gradient', isNoHeroGradientActive());
         setFlag('data-ds-theme-hero-fullscreen', isHeroFullscreenActive());
+        /* Separate from hero-fullscreen: some of its CSS (the ArtHero-tuned
+           -56px pull-up) assumes ArtHero's own native clearance under the
+           header — native Big Art doesn't have that same clearance, so the
+           same pull crowds the shelf title into the icon row there. */
+        setFlag('data-ds-theme-big-art', isBigArtModeActive());
         setFlag('data-ds-theme-no-home-text', isNoHomeTextActive());
         /* TiltedHome flag — when set, the shelfStyles.ts CSS gates a
            perspective + rotateY transform onto DS cards using the
@@ -1005,6 +1022,7 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
         root.removeAttribute('data-ds-hero-label');
         root.removeAttribute('data-ds-theme-no-hero-gradient');
         root.removeAttribute('data-ds-theme-hero-fullscreen');
+        root.removeAttribute('data-ds-theme-big-art');
         root.removeAttribute('data-ds-theme-no-home-text');
         root.removeAttribute('data-ds-theme-tilted-home');
         root.removeAttribute('data-ds-theme-focus-round-compat');

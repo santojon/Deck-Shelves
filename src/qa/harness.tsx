@@ -27,6 +27,7 @@ const sourcesFixture = __DEV__ && typeof __QA_SOURCES_FIXTURE__ !== "undefined" 
 const templatesFixture = __DEV__ && typeof __QA_TEMPLATES_FIXTURE__ !== "undefined" && __QA_TEMPLATES_FIXTURE__;
 const decorationFixture = __DEV__ && typeof __QA_DECORATION_FIXTURE__ !== "undefined" && __QA_DECORATION_FIXTURE__;
 const stressFixture = __DEV__ && typeof __QA_STRESS_FIXTURE__ !== "undefined" && __QA_STRESS_FIXTURE__;
+const videoFixture = __DEV__ && typeof __QA_VIDEO_FIXTURE__ !== "undefined" && __QA_VIDEO_FIXTURE__;
 
 // Stable fake version surfaced by the update notifier when `qa:update-available`
 // is set. Picked far above any real release so semver compare always reports
@@ -51,7 +52,7 @@ export const qaOverrideActive = __DEV__ && (
   || !!forceTabMaster || !!forceUnifiDeck || !!forceNonSteamBadges || smartShelvesFixture || savedFiltersFixture
   || forceHidden || surpriseMe || forceCrash || forceReplaceFailed || updateAvailable || updateDismissed
   || updateOffline || collectionEmpty || collectionInverted || sourcesFixture || templatesFixture
-  || decorationFixture || stressFixture
+  || decorationFixture || stressFixture || videoFixture
 );
 
 if (qaOverrideActive) {
@@ -61,7 +62,7 @@ if (qaOverrideActive) {
     forceTabMaster, forceUnifiDeck, forceNonSteamBadges,
     smartShelvesFixture, savedFiltersFixture, forceHidden, surpriseMe, forceCrash, forceReplaceFailed,
     updateAvailable, updateDismissed, updateOffline, collectionEmpty, collectionInverted,
-    sourcesFixture, templatesFixture, decorationFixture, stressFixture,
+    sourcesFixture, templatesFixture, decorationFixture, stressFixture, videoFixture,
   });
 }
 
@@ -570,6 +571,78 @@ function qaDecorationFixture(): { shelves: Shelf[] } {
   return { shelves };
 }
 
+// ─── Fixture: content-script recording base (5 feature-highlight videos) ──────
+// Deliberately presentable (no "QA:" prefixes) — this is what ends up on
+// camera. One clean example per script: custom shelf, filters stacked, visual
+// style, smart shelf, profile + trigger. Never persisted — see the guard doc
+// comment on `qaOverrideActive` above.
+function qaVideoFixture(): { shelves: Shelf[]; smartShelves: SmartShelf[]; profiles: any[] } {
+  const b = { enabled: true, hidden: false, limit: 20, matchNativeSize: false, highlightFirst: false, highlightAll: false, hideStatusLine: false, hideNewBadge: false, hideDiscountBadge: false, hideCompatIcons: false, hideNonSteamBadge: false, hideShelfTitle: false, hideGameNames: false, hideInstallIndicator: false, hideSeeMore: false, hideRefreshCard: false };
+
+  const shelves: Shelf[] = [
+    // Script 1 — custom shelves: a plain library-backed shelf. Deliberately
+    // "installed" (not a collection like Favorites) so it's never empty on
+    // an arbitrary recording device — a collection depends on data (which
+    // games the account happens to have favorited) that varies per device.
+    { ...b, id: "vid_favorites", title: "My Library", source: { type: "tab", tab: "installed" } },
+    // Script 3 — filters: two conditions stacked (installed AND played at
+    // least once), sorted by playtime. Deliberately broad (not e.g.
+    // Deck-verified + achievements) — needs to resolve to something on
+    // whatever Steam library happens to be on the recording device.
+    {
+      ...b, id: "vid_acclaimed", title: "Most Played",
+      source: {
+        type: "filter",
+        filter: {
+          sort: "playtime",
+          filterGroup: {
+            mode: "and",
+            items: [
+              { type: "installed", inverted: false, params: {} },
+              { type: "playtimeRange", inverted: false, params: { minMinutes: 1 } },
+            ],
+          },
+        },
+      },
+    },
+    // Script 4 — visual customization: same "installed" pool as vid_favorites
+    // (guaranteed non-empty on any device) but sorted by release date instead
+    // of a raw tab — a visibly different card order, so the two shelves
+    // don't look like duplicates of each other in the recording.
+    {
+      ...b, id: "vid_now_playing", title: "Now Playing",
+      source: {
+        type: "filter",
+        filter: {
+          sort: "release_date",
+          filterGroup: { mode: "and", items: [{ type: "installed", inverted: false, params: {} }] },
+        },
+      },
+    },
+  ];
+
+  const smartShelves: SmartShelf[] = [
+    // Script 2 — smart shelves: fills itself, no upkeep.
+    { id: "vid_sm_quick", title: "Quick Play", mode: "quick_play", enabled: true, hidden: false },
+    { id: "vid_sm_deck",  title: "Deck Picks", mode: "deck_picks", enabled: true, hidden: false },
+  ];
+
+  // Script 6 — profiles + triggers: switches on charging, hides native Recents
+  // so the effect reads clearly on camera.
+  const profiles = [
+    {
+      id: "vid_prof_docked",
+      name: "Docked",
+      createdAt: new Date().toISOString(),
+      snapshot: { hideRecents: true },
+      trigger: { mode: "any", rules: [{ kind: "charging" }] },
+      linkShelves: false,
+    },
+  ];
+
+  return { shelves, smartShelves, profiles };
+}
+
 export function applyQASettingsOverride(s: Settings): Settings {
   const wantsHomeOverride = allShelvesHide || allShelvesShow || allShelvesHideTabs || allShelvesShowTabs || forceHidden;
   const wantsSmartOverride = smartShelvesFixture || surpriseMe;
@@ -580,7 +653,7 @@ export function applyQASettingsOverride(s: Settings): Settings {
   if (
     !wantsHomeOverride && !wantsSmartOverride && !wantsFiltersOverride
     && !wantsCollectionEmpty && !wantsCollectionInverted && !wantsUpdateDismissed
-    && !sourcesFixture && !templatesFixture && !decorationFixture && !stressFixture
+    && !sourcesFixture && !templatesFixture && !decorationFixture && !stressFixture && !videoFixture
   ) return s;
 
   /* Every override below is placeholder data that must never be mistaken
@@ -610,6 +683,18 @@ export function applyQASettingsOverride(s: Settings): Settings {
   if (decorationFixture) {
     const f = qaDecorationFixture();
     return tag({ ...s, enabled: true, shelves: f.shelves });
+  }
+  if (videoFixture) {
+    const f = qaVideoFixture();
+    return tag({
+      ...s, enabled: true, smartShelvesEnabled: true, hideRecents: false,
+      // Forced true regardless of the real account's own value: a recording
+      // session must never race the first-run tour (it gates on this exact
+      // field — see useFirstRunShowcase.tsx).
+      showcaseSeen: true,
+      shelves: f.shelves, smartShelves: f.smartShelves,
+      profiles: f.profiles, activeProfileName: null, profileTriggersEnabled: true,
+    } as Settings);
   }
 
   // Collection-fixture overrides are exclusive — only one shelf set wins,

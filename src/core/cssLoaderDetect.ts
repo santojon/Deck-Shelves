@@ -51,6 +51,18 @@ export function isArtHeroActive(): boolean {
   return getCssLoaderStyleNodes().some((node) => nodeMatchesArtHero(node, heroToken));
 }
 
+/* Unlike the CSS Loader themes above, this isn't a third-party style — it's
+   Steam's own native Big Art beta home layout (SteamOS/Deck beta, confirmed
+   live 2026-09-28: a literal, non-hashed `BigArtMode` class on an ancestor of
+   the native recents hero). Same visual family as ArtHero (full hero art +
+   title overlay), so it drives the same `needsHeroLabel` treatment. */
+export function isBigArtModeActive(): boolean {
+  try {
+    const doc = getPreferredSteamDocument();
+    return !!doc?.querySelector(".BigArtMode");
+  } catch { return false; }
+}
+
 // Aggregated CSS Loader style text — cached briefly so multiple `is*Active`
 // callers in the same render pass don't each rebuild the concatenated text.
 let _styleTextCache: { text: string; ts: number } | null = null;
@@ -97,6 +109,10 @@ export function isNoHeroGradientActive(): boolean {
 }
 
 export function isHeroFullscreenActive(): boolean {
+  // Native Big Art has no injected stylesheet to scan (not a CSS Loader
+  // theme) but lays its hero out full-viewport the same way — confirmed
+  // live the compact treatment left the promoted shelf below the fold.
+  if (isBigArtModeActive()) return true;
   const text = getAllStyleText();
   const sectionTokens = tokensForKey("shelfSection", "gamepadhomerecentgames_RecentGamesInnerContainer");
   const rootTokens = tokensForKey("heroRoot", "gamepadhomerecentgames_RecentGamesBackgroundContainer");

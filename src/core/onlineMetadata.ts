@@ -4,6 +4,7 @@
    locally; persist-cached. Non-Steam is matched to a Steam appid by name search,
    bounded per pass so a shelf never fans out network calls across the library. */
 import { getCurrentSettings } from "../store/settingsStore";
+import { STEAM_STORE_BASE } from "../constants";
 import { logInfo } from "../runtime/logger";
 
 const META_KEY = "ds-metadata-cache-v1";
@@ -75,7 +76,7 @@ function parseShortDescription(d: any): string | undefined {
 
 async function fetchAppDetails(appid: number): Promise<Pick<GameMetadata, "metacritic" | "releaseTs" | "platforms" | "shortDescription">> {
   try {
-    const r = await withTimeout(`https://store.steampowered.com/api/appdetails?appids=${appid}&filters=metacritic,release_date,platforms,basic&l=en&cc=us`);
+    const r = await withTimeout(`${STEAM_STORE_BASE}/api/appdetails?appids=${appid}&filters=metacritic,release_date,platforms,basic&l=en&cc=us`);
     const j = await r.json();
     const d = j?.[String(appid)]?.data;
     if (!d) return {};
@@ -90,7 +91,7 @@ async function fetchAppDetails(appid: number): Promise<Pick<GameMetadata, "metac
 
 async function fetchReviewPct(appid: number): Promise<number | undefined> {
   try {
-    const r = await withTimeout(`https://store.steampowered.com/appreviews/${appid}?json=1&language=all&purchase_type=all&num_per_page=0`);
+    const r = await withTimeout(`${STEAM_STORE_BASE}/appreviews/${appid}?json=1&language=all&purchase_type=all&num_per_page=0`);
     const s = (await r.json())?.query_summary;
     const total = Number(s?.total_reviews ?? 0);
     const pos = Number(s?.total_positive ?? 0);
@@ -110,7 +111,7 @@ async function resolveNameToAppId(name: string): Promise<number | undefined> {
   if (cached !== undefined) return cached || undefined;
   let resolved = 0;
   try {
-    const r = await withTimeout(`https://store.steampowered.com/api/storesearch/?term=${encodeURIComponent(name)}&cc=us&l=en`);
+    const r = await withTimeout(`${STEAM_STORE_BASE}/api/storesearch/?term=${encodeURIComponent(name)}&cc=us&l=en`);
     resolved = firstStoreAppId((await r.json())?.items);
   } catch { /* leave 0 */ }
   cacheSet(NAME_KEY, key, resolved);              // cache misses too (0) to avoid re-hammering

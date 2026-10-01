@@ -948,11 +948,20 @@ export function installPluginApi(): () => void {
     try { delete (window as unknown as Record<string, unknown>).deckShelves; } catch {}
     try { uninstallInternals(); } catch {}
     shelfSources.clear();
+    contextAwareShelfSources.clear();
     smartSources.clear();
     filterTypes.clear();
     sortOptions.clear();
     importTypes.clear();
+    searchProviders.clear();
+    sideMenuProviders.clear();
+    contextProviders.clear();
+    widgetProviders.clear();
+    shelfRenderers.clear();
+    metadataProviders.clear();
     statisticsProviders.clear();
     recommendationProviders.clear();
+    exportHandlers.clear();
+    importHandlers.clear();
   };
 }

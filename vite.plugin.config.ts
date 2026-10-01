@@ -40,6 +40,7 @@ export default defineConfig(({ mode }) => {
       __QA_TEMPLATES_FIXTURE__: JSON.stringify(!isProd && process.env.DS_QA_TEMPLATES_FIXTURE === "1"),
       __QA_DECORATION_FIXTURE__: JSON.stringify(!isProd && process.env.DS_QA_DECORATION_FIXTURE === "1"),
       __QA_STRESS_FIXTURE__: JSON.stringify(!isProd && process.env.DS_QA_STRESS_FIXTURE === "1"),
+      __QA_VIDEO_FIXTURE__: JSON.stringify(!isProd && process.env.DS_QA_VIDEO_FIXTURE === "1"),
     },
     resolve: {
       alias: [

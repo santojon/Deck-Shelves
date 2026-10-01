@@ -69,6 +69,24 @@ describe('diagnosticsInfo', () => {
     expect(sys.osName).toBe('Windows')
   })
 
+  it('collectSystemInfo reports "Stable" for the main/rel OS branches', async () => {
+    vi.stubGlobal('SteamClient', { Updates: { GetCurrentOSBranch: async () => ({ eBranch: 7, sRawName: 'main' }) } })
+    const sys = await collectSystemInfo()
+    expect(sys.steamBranch).toBe('Stable')
+  })
+
+  it('collectSystemInfo reports the capitalized raw name for a non-stable OS branch', async () => {
+    vi.stubGlobal('SteamClient', { Updates: { GetCurrentOSBranch: async () => ({ eBranch: 3, sRawName: 'beta' }) } })
+    const sys = await collectSystemInfo()
+    expect(sys.steamBranch).toBe('Beta')
+  })
+
+  it('collectSystemInfo leaves steamBranch null when GetCurrentOSBranch is unavailable (desktop)', async () => {
+    vi.stubGlobal('SteamClient', {})
+    const sys = await collectSystemInfo()
+    expect(sys.steamBranch).toBeNull()
+  })
+
   it('collectHardwareInfo parses externalDisks from the backend probe', async () => {
     hardwareInfoResponse = {
       supported: true, model: 'Steam Deck (OLED)', diskTotalBytes: 512, diskFreeBytes: 128,

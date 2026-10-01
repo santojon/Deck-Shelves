@@ -34,7 +34,7 @@ h.step("lint", "Lint (eslint + ruff)", pnpm("lint"));
 h.step("i18n", "i18n key validation", `node ${q(join(ROOT, "scripts", "build", "validate.mjs"))}`);
 h.buildOk = h.step("build", "Build (production)", pnpm("build:release"));
 h.step("tests", "Unit tests (vitest)", pnpm("test"));
-h.step("pytest", "Backend tests (pytest)", py(`-m pytest ${q(join(ROOT, "src", "test", "test_main.py"))} -q`));
+h.step("pytest", "Backend tests (pytest)", py(`-m pytest ${q(join(ROOT, "src", "test"))} -q`));
 h.step("package", "Package (.zip)", py(q(join(ROOT, "scripts", "build", "package.py"))));
 h.step("verify_pkg", "Verify package", py(q(join(ROOT, "scripts", "build", "verify-package.py"))));
 h.step("compat", "Compat validation", pnpm("validate:compat"));

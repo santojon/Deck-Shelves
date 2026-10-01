@@ -1007,6 +1007,9 @@ export type AppOverview = {
   // Whether the app runs on the CURRENT platform (from the local client's
   // per_client_data). undefined when there's no client data (e.g. non-Steam).
   available_on_current_platform?: boolean;
+  // Whether THIS client (clientid "0") has the app installed. Absent for
+  // non-Steam (no per_client_data) — `installed` is authoritative there.
+  installed_local?: boolean;
   // Whether the app is installed on any REMOTE client (Remote Play source).
   // undefined for non-Steam (no per_client_data); false when no remote install.
   installed_remote?: boolean;
@@ -1153,19 +1156,19 @@ function buildTimestampFields(node: any) {
   };
 }
 
-/* Confirmed live (2026-09-11): current clients expose `steam_deck_compat_category`
-   / `steam_os_compat_category` directly, already unpacked (plus two more for
-   Steam Machine/Frame). `steam_hw_compat_category_packed` now fits four
-   categories, not two, so the old nibble unpack below reads the wrong bits —
-   kept only for clients old enough to lack the named getters. */
+/* Confirmed live: current clients expose `steam_deck_compat_category` /
+   `steam_os_compat_category` directly, already unpacked (plus two more for
+   Steam Machine/Frame). `steam_hw_compat_category_packed` packs four 2-bit
+   fields — bits 0-1 deck, 2-3 unused, 4-5 os, 6-7 machine, 8-9 frame — the
+   fallback below only matters for clients too old for the named getters. */
 function deckCompatCategory(n: any): number {
   return Number(n.steam_deck_compat_category ?? n.deck_compatibility_category ?? n.m_eDeckCompatibilityCategory
-    ?? ((Number(n.steam_hw_compat_category_packed ?? 0) & 0xF) || 0));
+    ?? ((Number(n.steam_hw_compat_category_packed ?? 0) & 0x3) || 0));
 }
 
 function steamosCompatCategory(n: any): number {
   return Number(n.steam_os_compat_category ?? n.steamos_compatibility_category ?? n.m_eSteamOSCompatibilityCategory ??
-    ((((Number(n.steam_hw_compat_category_packed ?? 0) >> 4) & 0xF)) || 0));
+    ((((Number(n.steam_hw_compat_category_packed ?? 0) >> 4) & 0x3)) || 0));
 }
 
 function buildTypeFields(node: any) {
@@ -1176,6 +1179,13 @@ function buildTypeFields(node: any) {
     app_type: firstNumber(n.app_type, n.appType, n.m_eAppType, n.eAppType) || undefined,
     controller_support: deriveControllerSupport(node),
   };
+}
+
+// Whether a per-client-data entry itself reports the app as installed —
+// distinct from the overview's top-level `installed` flag, which Steam can
+// set true purely from a Remote Play source on ANOTHER client.
+function pcdEntryInstalled(entry: any): boolean {
+  return !!(entry?.installed ?? (Number(entry?.display_status) === EAppDisplayStatus.Installed));
 }
 
 /* Per-client signals for the system-compatibility + Remote Play filters: the
@@ -1191,9 +1201,10 @@ function buildClientFields(node: any) {
   const local = pcd.find((c) => String(c?.clientid) === "0");
   const available = local && typeof local.is_available_on_current_platform === "boolean"
     ? local.is_available_on_current_platform : undefined;
+  const installedLocal = local ? pcdEntryInstalled(local) : false;
   const remoteList = remote.length ? remote : pcd.filter((c) => String(c?.clientid) !== "0");
   const installedRemote = remoteList.some((c) => Number(c?.display_status) === EAppDisplayStatus.Installed);
-  return { available_on_current_platform: available, installed_remote: installedRemote };
+  return { available_on_current_platform: available, installed_local: installedLocal, installed_remote: installedRemote };
 }
 
 export function normalizeAppOverview(node: any): AppOverview | null {
@@ -4093,17 +4104,33 @@ function readOverviewExtras(overview?: AppOverview): { releaseTimestamp?: number
   };
 }
 
+/* Derived straight from the RAW overview (not the possibly-unnormalized
+   `overview` a caller passes) so this works from every `buildMetaFromOverview`
+   call site — `getAppMetaBatch`'s catalog walk never runs raw entries through
+   `normalizeAppOverview`. undefined (no per-client data) defers to the
+   top-level flag as before. */
+function deriveLocalInstalled(raw: any): boolean | undefined {
+  const pcd: any[] = Array.isArray(raw?.per_client_data) ? raw.per_client_data : [];
+  if (pcd.length === 0) return undefined;
+  const local = pcd.find((c: any) => String(c?.clientid) === "0");
+  return local ? pcdEntryInstalled(local) : false;
+}
+
 function buildMetaFromOverview(appid: number, overview?: AppOverview, raw?: any): PlatformAppMeta {
   const isSteam = overview?.is_steam !== false;
   const { heroUrl, portraitUrl } = computeAssetUrls(appid, overview, isSteam);
   const { description, fullDescription } = readAppDetailsEnrichment(appid);
   const { releaseTimestamp, metacriticScore } = readOverviewExtras(overview);
+  const localInstalled = deriveLocalInstalled(raw);
   return {
     appid,
     name: String(overview?.display_name ?? `App ${appid}`),
     heroUrl,
     portraitUrl,
-    installed: overview?.installed,
+    // Steam can report the top-level `installed` flag true from a Remote
+    // Play source on another client alone, with nothing local at all — a
+    // real per-client check (when we have one) overrides that.
+    installed: localInstalled !== undefined ? localInstalled : overview?.installed,
     isSteam,
     deckCompatCategory: overview?.deck_compatibility_category,
     controllerSupport: overview?.controller_support,

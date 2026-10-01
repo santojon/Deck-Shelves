@@ -1,11 +1,12 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
 // Mutable state the mocked modules read (hoisted so vi.mock factories can use it).
-const { battery, settings, rpc, libraryRpc } = vi.hoisted(() => ({
+const { battery, settings, rpc, libraryRpc, deviceIdentityRpc } = vi.hoisted(() => ({
   battery: { current: null as any },
   settings: { current: {} as any },
   rpc: { current: null as any },
   libraryRpc: { current: null as any },
+  deviceIdentityRpc: { current: null as any },
 }))
 
 vi.mock('../../runtime/batteryState', () => ({
@@ -18,10 +19,19 @@ vi.mock('../../runtime/batteryState', () => ({
 }))
 vi.mock('../../store/settingsStore', () => ({ getCurrentSettings: () => settings.current }))
 vi.mock('../../runtime/host/decky', () => ({
-  call: async (method: string) => (method === 'get_library_locations' ? libraryRpc.current : rpc.current),
+  call: async (method: string) => {
+    if (method === 'get_library_locations') return libraryRpc.current
+    if (method === 'get_device_identity') return deviceIdentityRpc.current
+    return rpc.current
+  },
 }))
 
-import { evalDeviceRule, getDeviceState, isDeviceRuleKind, installDeviceState, refreshControllerState, refreshLibraryLocations, getLibraryCategoryOf, getLibraries } from '../../runtime/deviceState'
+import {
+  evalDeviceRule, getDeviceState, isDeviceRuleKind, installDeviceState, refreshControllerState,
+  refreshLibraryLocations, getLibraryCategoryOf, getLibraries, subscribeDeviceState,
+  setSimulatedDevice, getSimulatedDevice,
+  getInputMode, setSimulatedInputMode, getSimulatedInputMode,
+} from '../../runtime/deviceState'
 
 describe('evalDeviceRule', () => {
   beforeEach(() => { battery.current = null; settings.current = {} })
@@ -232,5 +242,100 @@ describe('libraryAvailable / library locations', () => {
     expect(libs).toHaveLength(1)
     expect(libs[0].category).toBe('external') // unknown category normalizes to external
     expect(getLibraryCategoryOf(5)).toBeNull() // non-string value dropped
+  })
+})
+
+describe('device identity classification', () => {
+  afterEach(() => { delete (globalThis as any).SteamClient })
+
+  it('classifies deck via sOSVariantId, independent of DMI', async () => {
+    vi.resetModules()
+    ;(globalThis as any).SteamClient = { System: { GetSystemInfo: async () => ({ sOSVariantId: 'steamdeck' }) } }
+    deviceIdentityRpc.current = { vendor: null, product: null, arch: 'x86_64', model: null, supported: true }
+    const fresh = await import('../../runtime/deviceState')
+    await fresh.primeDeviceIdentity()
+    expect(fresh.getDeviceIdentity()).toEqual({ device: 'deck', arch: 'x86_64', model: null })
+  })
+
+  it('classifies deck via DMI vendor+product when the OS variant getter is unavailable', async () => {
+    vi.resetModules()
+    ;(globalThis as any).SteamClient = { System: { GetSystemInfo: async () => ({}) } }
+    deviceIdentityRpc.current = { vendor: 'Valve', product: 'galileo', arch: 'x86_64', model: 'Steam Deck (OLED)', supported: true }
+    const fresh = await import('../../runtime/deviceState')
+    await fresh.primeDeviceIdentity()
+    expect(fresh.getDeviceIdentity()).toEqual({ device: 'deck', arch: 'x86_64', model: 'Steam Deck (OLED)' })
+  })
+
+  it('stays unknown with no confirmed signal, but still fills arch/model from DMI', async () => {
+    vi.resetModules()
+    ;(globalThis as any).SteamClient = { System: { GetSystemInfo: async () => ({}) } }
+    deviceIdentityRpc.current = { vendor: 'ACME', product: 'widget', arch: 'aarch64', model: 'ACME Widget', supported: true }
+    const fresh = await import('../../runtime/deviceState')
+    await fresh.primeDeviceIdentity()
+    expect(fresh.getDeviceIdentity()).toEqual({ device: 'unknown', arch: 'aarch64', model: 'ACME Widget' })
+  })
+
+  it('falls back to the unknown identity when the backend probe fails', async () => {
+    vi.resetModules()
+    ;(globalThis as any).SteamClient = { System: { GetSystemInfo: async () => ({}) } }
+    deviceIdentityRpc.current = null
+    const fresh = await import('../../runtime/deviceState')
+    await fresh.primeDeviceIdentity()
+    expect(fresh.getDeviceIdentity()).toEqual({ device: 'unknown', arch: null, model: null })
+  })
+})
+
+describe('device + inputMode visibility rules and the developer simulator', () => {
+  beforeEach(() => { setSimulatedDevice(null); setSimulatedInputMode(null) })
+  afterEach(() => { setSimulatedDevice(null); setSimulatedInputMode(null) })
+
+  it('isDeviceRuleKind recognises device and inputMode', () => {
+    expect(isDeviceRuleKind('device')).toBe(true)
+    expect(isDeviceRuleKind('inputMode')).toBe(true)
+  })
+
+  it('device rule matches the simulated kind when the simulator is active', () => {
+    setSimulatedDevice('frame')
+    expect(evalDeviceRule({ kind: 'device', value: 'frame' })).toBe(true)
+    expect(evalDeviceRule({ kind: 'device', value: 'deck' })).toBe(false)
+  })
+
+  it('device rule defaults to deck when no value is given', () => {
+    setSimulatedDevice('deck')
+    expect(evalDeviceRule({ kind: 'device' })).toBe(true)
+  })
+
+  it('getSimulatedDevice reflects the override and clears back to null', () => {
+    expect(getSimulatedDevice()).toBeNull()
+    setSimulatedDevice('machine')
+    expect(getSimulatedDevice()).toBe('machine')
+    setSimulatedDevice(null)
+    expect(getSimulatedDevice()).toBeNull()
+  })
+
+  it('inputMode rule starts at gamepad (the default) and flips under simulation', () => {
+    expect(getInputMode()).toBe('gamepad')
+    expect(evalDeviceRule({ kind: 'inputMode', value: 'gamepad' })).toBe(true)
+    setSimulatedInputMode('pointer')
+    expect(getInputMode()).toBe('pointer')
+    expect(evalDeviceRule({ kind: 'inputMode', value: 'pointer' })).toBe(true)
+    expect(getSimulatedInputMode()).toBe('pointer')
+  })
+
+  it('inputMode rule defaults to pointer when no value is given', () => {
+    setSimulatedInputMode('pointer')
+    expect(evalDeviceRule({ kind: 'inputMode' })).toBe(true)
+  })
+
+  it('setSimulatedDevice/setSimulatedInputMode notify subscribers only on real change', () => {
+    const cb = vi.fn()
+    const unsub = subscribeDeviceState(cb)
+    setSimulatedDevice('desktop')
+    expect(cb).toHaveBeenCalledTimes(1)
+    setSimulatedDevice('desktop') // same value — no-op, no extra notify
+    expect(cb).toHaveBeenCalledTimes(1)
+    setSimulatedInputMode('pointer')
+    expect(cb).toHaveBeenCalledTimes(2)
+    unsub()
   })
 })

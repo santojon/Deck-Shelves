@@ -15,6 +15,7 @@ import {
   cssLoaderStyleCount,
 } from "../core/cssLoaderDetect";
 import * as pluginRegistry from "../integrations/registry";
+import { getHostHandshake } from "./hostHandshake";
 
 export interface RuntimeInfo {
   version: string;
@@ -25,6 +26,9 @@ export interface RuntimeInfo {
   tabMaster: boolean;
   unifiDeck: boolean;
   nonSteamBadges: boolean;
+  /** From the host's optional `handshake()` — null on a host that doesn't
+   *  implement it (e.g. Decky), not just an empty/missing value. */
+  hostHandshake: { hostKind: string; hostVersion: string; hostApiVersion: string; capabilities: string[] } | null;
 }
 
 function deckyLoader(): unknown {
@@ -67,6 +71,30 @@ export interface SystemInfo {
   machine?: string | null;
   isSteamOS?: boolean;
   distroId?: string | null;
+  /** "Stable" or the raw branch name (Beta/Preview/…) — SteamOS only; null
+   *  wherever `SteamClient.Updates.GetCurrentOSBranch` doesn't exist (desktop). */
+  steamBranch?: string | null;
+}
+
+/* SteamOS's own branch selector (Settings > System > System Updates) also
+   picks which Steam client build ships — "main"/"rel" are the stable
+   default, everything else (beta/bc/preview/pc/rc) is a pre-release channel. */
+const STABLE_BRANCH_NAMES = new Set(["main", "rel"]);
+
+function branchLabel(rawName: string): string {
+  if (STABLE_BRANCH_NAMES.has(rawName)) return "Stable";
+  return rawName.charAt(0).toUpperCase() + rawName.slice(1);
+}
+
+async function collectSteamBranch(): Promise<string | null> {
+  try {
+    const sc: any = (globalThis as any).SteamClient;
+    const r = await sc?.Updates?.GetCurrentOSBranch?.();
+    const raw = typeof r?.sRawName === "string" ? r.sRawName : null;
+    return raw ? branchLabel(raw) : null;
+  } catch {
+    return null;
+  }
 }
 
 function strOrNull(v: unknown): string | null {
@@ -117,6 +145,7 @@ export async function collectSystemInfo(): Promise<SystemInfo> {
     const ua = (globalThis as any).navigator?.userAgent as string | undefined;
     if (ua && !out.osName) out.osName = uaOsName(ua);
   } catch { /* no navigator */ }
+  out.steamBranch = await collectSteamBranch();
   return out;
 }
 
@@ -216,6 +245,7 @@ export function hwExternalDiskText(d: ExternalDisk): string {
 }
 
 export function collectRuntimeInfo(): RuntimeInfo {
+  const hs = getHostHandshake();
   return {
     version: (pkg as any).version ?? "0.0.0",
     steamOS: getSteamOSVersion(),
@@ -225,6 +255,12 @@ export function collectRuntimeInfo(): RuntimeInfo {
     tabMaster: pluginRegistry.isTabMasterInstalled(),
     unifiDeck: pluginRegistry.isUnifiDeckInstalled(),
     nonSteamBadges: pluginRegistry.isNonSteamBadgesInstalled(),
+    hostHandshake: hs ? {
+      hostKind: hs.hostKind,
+      hostVersion: hs.hostVersion,
+      hostApiVersion: hs.hostApiVersion,
+      capabilities: Object.keys(hs.capabilities).filter((k) => hs.capabilities[k]).sort(),
+    } : null,
   };
 }
 

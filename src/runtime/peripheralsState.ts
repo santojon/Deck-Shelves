@@ -64,6 +64,12 @@ export function getBluetoothPaired(): BtDevice[] {
   return _bt?.paired ?? [];
 }
 
+/** Currently-connected device MACs (subset of paired) — e.g. for history tracking. */
+export function getBluetoothConnected(): string[] {
+  ensureFresh();
+  return _bt?.connected ?? [];
+}
+
 export function requestPeripheralsRefresh(): void {
   ensureFresh();
 }

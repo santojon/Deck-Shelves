@@ -94,8 +94,10 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
     }
 
     /* SLH's absolute/bottom:0 recents grid anchors to a 0px-height parent,
-       pushing the (correctly DS-populated) grid above the viewport. */
-    [data-ds-slh="1"] .ReactVirtualized__Grid[aria-label="grid"] {
+       pushing the grid above the viewport. Scoped to the real sibling
+       (marked [data-ds-native-recents] by HomeInject) — the bare aria-label
+       alone also matches unrelated grids (e.g. a Big Art hero carousel). */
+    [data-ds-slh="1"] [data-ds-native-recents="true"] .ReactVirtualized__Grid[aria-label="grid"] {
       position: relative !important;
       bottom: auto !important;
       top: auto !important;
@@ -990,20 +992,19 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
       animation: none !important;
     }
 
-    /* Hero Fullscreen — the promoted (recents-slot) shelf takes the full
-       viewport under a hero-fullscreen theme. This is the theme's own
-       full-page intent on the first shelf (or all promoted shelves under
-       force-CSS-Loader); independent of the gameInfoAbove label band. */
+    /* Hero Fullscreen: promoted shelf fills viewport, flex-end bottom-anchors title/row (was SLH-only, left ArtHero/Big Art floating). */
     .deck-shelves-root[data-ds-theme-hero-fullscreen="true"] .ds-shelf[data-ds-recents-slot="true"] {
-      height: 100vh !important;
-      --ds-hero-top: 0px;
-      --ds-hero-h: 100vh;
+      height: 100vh !important; --ds-hero-top: 0px; --ds-hero-h: 100vh;
+      display: flex !important; flex-direction: column; justify-content: flex-end;
     }
-    /* Hero-fullscreen THEME: the promoted first shelf is a full-page hero with
-       its cards anchored to the bottom, so pulling the whole box up -56 to fill
-       the transparent header band is correct here. */
-    .deck-shelves-root[data-ds-theme-hero-fullscreen="true"][data-ds-recents-hidden="true"] > .ds-shelf[data-ds-recents-slot="true"]:first-child {
+    /* ArtHero header-band pull; Big Art excluded (no such clearance there). */
+    .deck-shelves-root[data-ds-theme-hero-fullscreen="true"]:not([data-ds-theme-big-art="true"])[data-ds-recents-hidden="true"] > .ds-shelf[data-ds-recents-slot="true"]:first-child {
       margin-top: -56px;
+    }
+    /* Big Art: BOX shrinks by the top +56 (icon clearance) AND a further ~64 at the bottom (the button-legend overlay, outside the DOM — measured from a live screenshot, not a hard constant) so card labels clear it; the ART still bleeds the full height, since native's own hero runs behind both bars. */
+    .deck-shelves-root[data-ds-theme-big-art="true"] .ds-shelf[data-ds-recents-slot="true"] {
+      height: calc(100vh - 120px) !important;
+      --ds-hero-top: -56px; --ds-hero-h: 100vh;
     }
     /* DS hero-background (compact promoted first shelf, recents hidden): bleed
        only the ART up under the header (like the non-slot rule below) instead of

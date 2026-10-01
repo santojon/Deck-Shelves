@@ -24,7 +24,7 @@ let _baselineSettings: Settings | null = null;
 let _flipTimer: ReturnType<typeof setTimeout> | null = null;
 let _installed = false;
 
-function currentContext(): { profiles: any[]; active: unknown } | null {
+function currentContext(): { profiles: any[] } | null {
   const s = getCurrentSettings() as any;
   if (!s || s.profileTriggersEnabled !== true) return null;
   const profiles = Array.isArray(s.profiles) ? [...s.profiles] : [];
@@ -35,7 +35,7 @@ function currentContext(): { profiles: any[]; active: unknown } | null {
     profiles.push({ id: FACTORY_PROFILE_ID, name: FACTORY_PROFILE_NAME, trigger: ft });
   }
   if (profiles.length === 0) return null;
-  return { profiles, active: s.activeProfileName };
+  return { profiles };
 }
 
 function triggerToast(name: string): void {
@@ -116,12 +116,17 @@ function revertToBaseline(deactivated: string): void {
   });
 }
 
-function applyTransition(resolved: string | null, prevTriggered: string | null | undefined, active: unknown): void {
+function applyTransition(resolved: string | null, prevTriggered: string | null | undefined): void {
   if (resolved) {
     // Trigger became active: snapshot the user's baseline the first time we take
     // over (prevTriggered null/undefined = we weren't already triggered).
     if (prevTriggered == null) captureBaseline();
-    if (resolved !== active) applyByName(resolved);
+    /* Always go through applyByName, even if `activeProfileName` already
+       names this profile — that's a synced field like any other, so a
+       cross-device sync can set it without the underlying values matching
+       the snapshot (label right, values not). saveIfChanged inside
+       applyByName still no-ops when they already genuinely match. */
+    applyByName(resolved);
   } else if (typeof prevTriggered === "string") {
     // Trigger denied after having taken over: restore the pre-trigger state.
     revertToBaseline(prevTriggered);
@@ -137,7 +142,7 @@ function applyTriggeredProfile(): void {
   if (resolved === _lastTriggered) return; // only act on a transition
   const prevTriggered = _lastTriggered;
   _lastTriggered = resolved;
-  applyTransition(resolved, prevTriggered, ctx.active);
+  applyTransition(resolved, prevTriggered);
 }
 
 export function installProfileTriggers(): () => void {

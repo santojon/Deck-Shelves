@@ -11,6 +11,16 @@ describe('steam helpers', () => {
     expect((norm as AppOverview).installed).toBeUndefined();
   });
 
+  it('normalizeAppOverview unpacks steam_hw_compat_category_packed correctly when the named getters are absent', () => {
+    // Real value from a live Deck (appid 242820, "140"): deck=3, os=2 (confirmed
+    // via the named getters), packed=227. Bits: 0-1 deck, 2-3 unused, 4-5 os,
+    // 6-7 machine, 8-9 frame. The OLD fallback (`>> 4 & 0xF`) read machine's bits
+    // too and computed os=14 instead of 2 — this pins the corrected math.
+    const norm = normalizeAppOverview({ appid: 242820, display_name: '140', steam_hw_compat_category_packed: 227 }) as AppOverview;
+    expect(norm.deck_compatibility_category).toBe(3);
+    expect(norm.steamos_compatibility_category).toBe(2);
+  });
+
   it('normalizeAppOverview reads controller support from xbox_controller_support (desktop clients)', () => {
     // Desktop clients (macOS / Windows / desktop Linux) expose controller support
     // as `xbox_controller_support` (0/1/2) rather than the older `controller_support`.
@@ -56,6 +66,22 @@ describe('steam helpers', () => {
     const norm = normalizeAppOverview(raw);
     expect(norm).not.toBeNull();
     expect((norm as AppOverview).installed).toBe(false);
+  });
+
+  it('normalizeAppOverview reports installed_local:false for a Remote Play source with no local client entry', () => {
+    // Real Steam data: top-level `installed` can be true from a remote
+    // client alone, with no clientid "0" entry at all — installed_local must
+    // not be fooled by that, even though the top-level flag stays true.
+    const raw = {
+      appid: 1222680, display_name: 'Need for Speed Heat', installed: true,
+      per_client_data: [{ clientid: '4528256343885615079', client_name: 'steamdeck', display_status: 11, installed: true }],
+      remote_per_client_data: [{ clientid: '4528256343885615079', client_name: 'steamdeck', display_status: 11, installed: true }],
+    };
+    const norm = normalizeAppOverview(raw) as AppOverview;
+    expect(norm).not.toBeNull();
+    expect(norm.installed).toBe(true);
+    expect((norm as any).installed_local).toBe(false);
+    expect(norm.installed_remote).toBe(true);
   });
 
   it('enrichAppStateFlags defaults non-Steam to NOT installed when appStore has no data', async () => {

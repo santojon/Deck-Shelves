@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { getPreferredSteamDocument, getAllSteamDocuments } from "../../runtime/steamHost";
-import { isArtHeroActive } from "../../core/cssLoaderDetect";
+import { isArtHeroActive, isBigArtModeActive } from "../../core/cssLoaderDetect";
+import { getRuntimeClassMap } from "../../core/webpackCompat";
 import { getLandscapeUrls, getPortraitUrls, getHeroUrls as getCentralHeroUrls, getLogoUrls, getAppAssetCacheKey } from "../../core/steamAssets";
 import { getHotCachedImageSrc, warmCacheBackground, firstCacheableUrl } from "../../core/imageCache";
 import { getAppDescriptions, preloadAppDescriptions } from "../../steam/appDescriptionsCache";
@@ -181,7 +182,7 @@ function publishNativeHeroClasses(next: NativeHeroClasses): void {
 }
 
 function discoverNativeHeroClasses(): NativeHeroClasses {
-  if (!isArtHeroActive()) return EMPTY_HERO_CLASSES;
+  if (!isArtHeroActive() && !isBigArtModeActive()) return EMPTY_HERO_CLASSES;
   try {
     for (const doc of getAllSteamDocuments()) {
       const win = doc.defaultView ?? window;
@@ -210,6 +211,21 @@ function discoverNativeHeroClasses(): NativeHeroClasses {
           return { imgClass, zoomClass, innerClass, rootClass };
         }
       }
+    }
+  } catch {}
+  return embeddedHeroClassesFallback();
+}
+
+/* Live discovery needs a visibly-sized native hero image — none exists when
+   hideRecents collapses the native shelf to zero size. Fall back to the
+   boot-time embedded/cached class map (same source `isArtHeroActive`'s
+   heroInner lookup trusts) — each render layer below applies independently,
+   so root+inner alone still gets the native mask/shape. */
+function embeddedHeroClassesFallback(): NativeHeroClasses {
+  try {
+    const map = getRuntimeClassMap(getPreferredSteamDocument());
+    if (map?.heroRoot || map?.heroInner) {
+      return { imgClass: null, zoomClass: null, innerClass: map.heroInner ?? null, rootClass: map.heroRoot ?? null };
     }
   } catch {}
   return EMPTY_HERO_CLASSES;
@@ -326,7 +342,7 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
       return JSON.parse(raw)?.forceCssLoaderThemes === true;
     } catch { return false; }
   };
-  const heroClasses = useNativeHeroClasses(isArtHeroActive() && (readForceThemes() || isPromoted));
+  const heroClasses = useNativeHeroClasses((isArtHeroActive() || isBigArtModeActive()) && (readForceThemes() || isPromoted));
   const nativeHeroImgClass = heroClasses.imgClass;
   const nativeHeroZoomClass = heroClasses.zoomClass;
   const nativeHeroInnerClass = heroClasses.innerClass;

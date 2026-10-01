@@ -8,14 +8,14 @@ import { logInfo } from '../../runtime/logger'
 import { openManagedModal } from '../qam/common/openManagedModal'
 import { ShowcaseModal } from '../qam/modals/ShowcaseModal'
 import { openIssueReport } from '../../core/issueReport'
+import { KOFI_URL, GITHUB_REPO, GITHUB_RELEASES, REDDIT_COMMUNITY, DISCORD_INVITE } from '../../constants'
 
-const KOFI_URL = 'https://ko-fi.com/F2F61WE76V'
-const GITHUB_URL = 'https://github.com/santojon/Deck-Shelves'
-const RELEASES_URL = 'https://github.com/santojon/Deck-Shelves/releases'
+const GITHUB_URL = GITHUB_REPO
+const RELEASES_URL = GITHUB_RELEASES
 // Release notes for the version currently running (not the releases index).
-const RELEASE_NOTES_URL = `https://github.com/santojon/Deck-Shelves/releases/tag/v${pkg.version}`
-const DISCORD_URL = 'https://discord.gg/EChuVEDakk'
-const REDDIT_URL = 'https://www.reddit.com/r/DeckShelves/'
+const RELEASE_NOTES_URL = `${GITHUB_RELEASES}/tag/v${pkg.version}`
+const DISCORD_URL = DISCORD_INVITE
+const REDDIT_URL = REDDIT_COMMUNITY
 
 /* Ko-fi QR encoded inline as a data URL — the asset itself lives in
    `assets/kofi-qr.png`. Inlining (1078 B → ~1440 B b64) sidesteps the

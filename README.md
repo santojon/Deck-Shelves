@@ -9,8 +9,8 @@
 
 [![CI](https://github.com/santojon/Deck-Shelves/actions/workflows/ci.yml/badge.svg)](https://github.com/santojon/Deck-Shelves/actions/workflows/ci.yml)
 [![Release](https://github.com/santojon/Deck-Shelves/actions/workflows/release.yml/badge.svg)](https://github.com/santojon/Deck-Shelves/actions/workflows/release.yml)
-[![Tests](https://img.shields.io/badge/vitest-910%20passed-brightgreen?logo=vitest&logoColor=white)](src/test/)
-[![pytest](https://img.shields.io/badge/pytest-211%20passed-brightgreen?logo=pytest&logoColor=white)](src/test/test_main.py)
+[![Tests](https://img.shields.io/badge/vitest-945%20passed-brightgreen?logo=vitest&logoColor=white)](src/test/)
+[![pytest](https://img.shields.io/badge/pytest-213%20passed-brightgreen?logo=pytest&logoColor=white)](src/test/test_main.py)
 [![TypeCheck](https://img.shields.io/badge/typecheck-clean-brightgreen?logo=typescript&logoColor=white)](tsconfig.json)
 [![Compatibility](https://img.shields.io/badge/checks-40%2F40-brightgreen?logo=steamdeck&logoColor=white)](scripts/build/validate-compat.mjs)
 [![Platform](https://img.shields.io/badge/platform-SteamOS%20%C2%B7%20Linux%20%C2%B7%20macOS%20%C2%B7%20Windows-purple?logo=steamdeck&logoColor=white)](https://github.com/ValveSoftware/SteamOS)
@@ -156,7 +156,7 @@ A full visual tour — home, QAM, shelf editor, smart shelves, About docs and mo
 
 ### Via ShelvesHub (recommended)
 
-[ShelvesHub](https://github.com/santojon/ShelvesHub) is a standalone host — it injects Deck Shelves directly and needs no plugin loader. One-click installers for every platform, automatic updates for itself and the plugin, and its own Quick Access Menu tab.
+[ShelvesHub](https://github.com/santojon/ShelvesHub) is a standalone host — it injects Deck Shelves directly and needs no plugin loader. One-click installers for every platform, automatic updates for itself and the plugin, and its own Quick Access Menu tab. (x86-64 is fully supported; ARM64/aarch64 is experimental until validated on real hardware.)
 
 1. Grab the installer for your platform from the [ShelvesHub releases page](https://github.com/santojon/ShelvesHub/releases/latest) (or see the [ShelvesHub site](https://santojon.github.io/ShelvesHub/) for details).
 2. Run it — on Steam Deck it's a `.desktop` file, no sudo required.

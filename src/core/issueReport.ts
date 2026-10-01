@@ -23,8 +23,9 @@ import { openExternalUrl } from "./updateNotifier";
 import { copyToClipboard } from "../components/ui/clipboard";
 import { notify } from "../components/notify";
 import i18next from "i18next";
+import { GITHUB_ISSUES_NEW } from "../constants";
 
-const ISSUE_URL = "https://github.com/santojon/Deck-Shelves/issues/new";
+const ISSUE_URL = GITHUB_ISSUES_NEW;
 const DASH = "—";
 // Steam's embedded overlay browser (OpenInSystemBrowser) silently no-ops on
 // long URLs instead of erroring. Only the short diagnostics summary rides
@@ -76,6 +77,7 @@ function diagnosticsText(runtime: RuntimeInfo, sys: SystemInfo | null, hw: Hardw
     `OS: ${osLine(sys, runtime.steamOS)}`,
     `Steam: ${sys?.steamVersion ?? DASH}`,
     `Theme: ${runtime.theme ?? DASH}`,
+    `Host: ${runtime.hostHandshake ? `${runtime.hostHandshake.hostKind} ${runtime.hostHandshake.hostVersion} (contract ${runtime.hostHandshake.hostApiVersion})` : DASH}`,
     ...(hw ? hardwareText(hw) : []),
     `Decky: ${yn(runtime.decky)}`,
     `CSS Loader: ${yn(runtime.cssLoader)}`,
