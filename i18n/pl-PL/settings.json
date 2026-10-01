@@ -1221,5 +1221,21 @@
   "hw_gpu": "GPU",
   "hw_storage": "Pamięć masowa",
   "diag_software": "Oprogramowanie",
-  "first_run_desc_maybe_wiped": "Nie ma tu teraz żadnych półek — jeśli to wygląda nie tak, poniżej może być kopia zapasowa do przywrócenia. W przeciwnym razie zacznij od nowa z ustawieniami domyślnymi."
+  "first_run_desc_maybe_wiped": "Nie ma tu teraz żadnych półek — jeśli to wygląda nie tak, poniżej może być kopia zapasowa do przywrócenia. W przeciwnym razie zacznij od nowa z ustawieniami domyślnymi.",
+  "visibility_cat_device": "Urządzenie",
+  "visibility_rule_device": "Typ urządzenia",
+  "visibility_rule_inputMode": "Tryb wejścia",
+  "device_kind_deck": "Steam Deck",
+  "device_kind_machine": "Steam Machine",
+  "device_kind_frame": "Steam Frame",
+  "device_kind_desktop": "Komputer stacjonarny",
+  "device_kind_handheld_arm": "Przenośne (ARM)",
+  "device_kind_unknown": "Nieznane",
+  "input_mode_gamepad": "Pad",
+  "input_mode_pointer": "Wskaźnik",
+  "dev_sim_title": "Symulator Frame/Machine",
+  "dev_sim_device": "Symuluj urządzenie",
+  "dev_sim_device_real": "Rzeczywiste (brak symulacji)",
+  "dev_sim_pointer": "Symuluj wejście wskaźnika",
+  "dev_sim_pointer_desc": "Zastępuje wykryty tryb wejścia, aby można było testować funkcje wskaźnika bez myszy ani dotyku."
 }

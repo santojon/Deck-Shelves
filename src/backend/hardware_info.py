@@ -228,6 +228,20 @@ def _external_disks() -> List[Dict[str, Any]]:
         return []
 
 
+def get_device_identity() -> Dict[str, Any]:
+    """DMI vendor/product/model + arch only — the lightest-weight subset of
+    `get_hardware_info` (no CPU/mem/GPU/disk scan), for the frontend's
+    device-kind classifier. Never raises."""
+    model, product = _model()
+    return {
+        "model": model,
+        "product": product,
+        "vendor": _dmi("sys_vendor"),
+        "arch": platform.machine() or None,
+        "supported": True,
+    }
+
+
 def get_hardware_info() -> Dict[str, Any]:
     """Static machine specs. Never raises — unknown fields come back None."""
     model, product = _model()

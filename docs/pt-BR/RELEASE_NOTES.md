@@ -30,6 +30,7 @@ técnico completo, veja [CHANGELOG.md](CHANGELOG.md).
 - **Corrigido o próprio fundo do Big Art nativo às vezes ficando visível sobre tudo mesmo com Ocultar Recentes ativado.**
 - **Corrigido o título da prateleira promovida ficando espremido logo abaixo dos ícones do topo no Big Art nativo**, em vez da mesma folga que o conteúdo nativo mantém ali.
 - **Corrigida a prateleira promovida ficando empilhada perto do topo com um vão vazio grande abaixo dela, tanto no ArtHero quanto no Big Art** — agora ela fica ancorada embaixo do jeito que o conteúdo nativo fica, igual já funcionava numa combinação específica de tema.
+- **Novas condições de Regras de Visibilidade / gatilho de perfil: "Tipo de dispositivo" e "Modo de entrada".** Monte prateleiras ou perfis com troca automática que reagem ao dispositivo em que você está (o Steam Deck é detectado de forma confiável hoje; outros tipos aparecem como "Desconhecido" em vez de um palpite errado) ou a se você está usando um controle ou um ponteiro no momento. O modo Desenvolvedor também ganhou um controle "simular dispositivo / entrada por ponteiro" pra testar isso sem precisar ter cada tipo de hardware.
 
 ## [3.3.2] - 2026-09-26
 

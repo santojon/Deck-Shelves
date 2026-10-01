@@ -18,7 +18,7 @@ type T = (k: string, opts?: any) => string
 
 const HOURS = Array.from({ length: 24 }, (_, h) => ({ data: h, label: `${String(h).padStart(2, '0')}:00` }))
 const DAYS = [0, 1, 2, 3, 4, 5, 6]
-const KNOWN_KINDS = ['timeWindow', 'dayOfWeek', 'weekend', 'timeOfDayPeriod', 'season', 'holiday', 'lastGameSource', 'gameRunning', 'battery', 'charging', 'offline', 'libraryAvailable', 'externalDisplay', 'resolution', 'ultrawide', 'highCpu', 'lowMemory', 'lowFrameBudget', 'controllerConnected', 'headphonesConnected', 'bluetoothConnected']
+const KNOWN_KINDS = ['timeWindow', 'dayOfWeek', 'weekend', 'timeOfDayPeriod', 'season', 'holiday', 'lastGameSource', 'gameRunning', 'battery', 'charging', 'offline', 'libraryAvailable', 'externalDisplay', 'resolution', 'ultrawide', 'highCpu', 'lowMemory', 'lowFrameBudget', 'controllerConnected', 'headphonesConnected', 'bluetoothConnected', 'device', 'inputMode']
 const BATTERY_LEVELS = [10, 15, 20, 25, 30, 40, 50].map((n) => ({ data: n, label: `${n}%` }))
 const RESOLUTION_WIDTHS = [
   { data: 1280, label: '1280 · HD' },
@@ -111,6 +111,27 @@ function LibraryAvailableRow({ rule, onUpdate, t }: { rule: Rule; onUpdate: (p: 
   return (
     <Focusable {...flowChildrenProps('horizontal')} style={rowStyle}>
       <EnumDropdown value={rule.category} fallback="external" options={opts} onPick={(v) => onUpdate({ category: v })} />
+    </Focusable>
+  )
+}
+
+const DEVICE_KINDS = ['deck', 'machine', 'frame', 'desktop', 'handheld-arm', 'unknown']
+const INPUT_MODES = ['gamepad', 'pointer']
+
+function DeviceKindRow({ rule, onUpdate, t }: { rule: Rule; onUpdate: (p: Partial<Rule>) => void; t: T }) {
+  const opts = DEVICE_KINDS.map((k) => ({ data: k, label: t(`device_kind_${k.replace('-', '_')}`) }))
+  return (
+    <Focusable {...flowChildrenProps('horizontal')} style={rowStyle}>
+      <EnumDropdown value={rule.value} fallback="deck" options={opts} onPick={(v) => onUpdate({ value: v })} />
+    </Focusable>
+  )
+}
+
+function InputModeRow({ rule, onUpdate, t }: { rule: Rule; onUpdate: (p: Partial<Rule>) => void; t: T }) {
+  const opts = INPUT_MODES.map((k) => ({ data: k, label: t(`input_mode_${k}`) }))
+  return (
+    <Focusable {...flowChildrenProps('horizontal')} style={rowStyle}>
+      <EnumDropdown value={rule.value} fallback="pointer" options={opts} onPick={(v) => onUpdate({ value: v })} />
     </Focusable>
   )
 }
@@ -253,6 +274,8 @@ const RULE_BODIES: Record<string, (p: { rule: Rule; onUpdate: (p: Partial<Rule>)
   lowFrameBudget: FrameBudgetRow,
   bluetoothConnected: BluetoothRow,
   libraryAvailable: LibraryAvailableRow,
+  device: DeviceKindRow,
+  inputMode: InputModeRow,
 }
 
 function RuleBody({ rule, onUpdate, t }: { rule: Rule; onUpdate: (p: Partial<Rule>) => void; t: T }) {
@@ -317,6 +340,10 @@ const CATALOG: Cat[] = [
     { kind: 'controllerConnected', Icon: GamepadIcon, invertible: true },
     { kind: 'headphonesConnected', Icon: HeadphonesIcon, invertible: true },
     { kind: 'bluetoothConnected', Icon: BluetoothIcon, invertible: true },
+  ] },
+  { id: 'device', Icon: GamepadIcon, title: 'visibility_cat_device', entries: [
+    { kind: 'device', Icon: GamepadIcon, defaults: { value: 'deck' } },
+    { kind: 'inputMode', Icon: GamepadIcon, defaults: { value: 'pointer' } },
   ] },
 ]
 const CAT_KINDS: Record<string, Set<string>> = Object.fromEntries(CATALOG.map((c) => [c.id, new Set(c.entries.map((e) => e.kind))]))

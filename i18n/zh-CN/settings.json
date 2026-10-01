@@ -1221,5 +1221,21 @@
   "hw_gpu": "GPU",
   "hw_storage": "存储",
   "diag_software": "软件",
-  "first_run_desc_maybe_wiped": "目前这里没有书架——如果感觉不太对，下面可能有可恢复的备份。否则可以使用默认设置重新开始。"
+  "first_run_desc_maybe_wiped": "目前这里没有书架——如果感觉不太对，下面可能有可恢复的备份。否则可以使用默认设置重新开始。",
+  "visibility_cat_device": "设备",
+  "visibility_rule_device": "设备类型",
+  "visibility_rule_inputMode": "输入模式",
+  "device_kind_deck": "Steam Deck",
+  "device_kind_machine": "Steam Machine",
+  "device_kind_frame": "Steam Frame",
+  "device_kind_desktop": "桌面",
+  "device_kind_handheld_arm": "掌机 (ARM)",
+  "device_kind_unknown": "未知",
+  "input_mode_gamepad": "手柄",
+  "input_mode_pointer": "指针",
+  "dev_sim_title": "Frame/Machine 模拟器",
+  "dev_sim_device": "模拟设备",
+  "dev_sim_device_real": "真实(无模拟)",
+  "dev_sim_pointer": "模拟指针输入",
+  "dev_sim_pointer_desc": "覆盖检测到的输入模式,以便在没有鼠标或触摸的情况下测试仅限指针的功能。"
 }

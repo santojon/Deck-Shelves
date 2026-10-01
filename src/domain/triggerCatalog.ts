@@ -5,7 +5,7 @@
    the editor's CATALOG (guarded by triggerCatalog.test.ts). */
 
 export type TriggerCategoryId =
-  | "time" | "session" | "power" | "connectivity" | "display" | "perf" | "peripherals";
+  | "time" | "session" | "power" | "connectivity" | "display" | "perf" | "peripherals" | "device";
 
 export type TriggerKindEntry = {
   kind: string;
@@ -57,6 +57,10 @@ export const TRIGGER_CATALOG: readonly TriggerCategory[] = [
     { kind: "controllerConnected", invertible: true },
     { kind: "headphonesConnected", invertible: true },
     { kind: "bluetoothConnected", invertible: true },
+  ] },
+  { id: "device", titleKey: "visibility_cat_device", entries: [
+    { kind: "device", defaults: { value: "deck" } },
+    { kind: "inputMode", defaults: { value: "pointer" } },
   ] },
 ];
 

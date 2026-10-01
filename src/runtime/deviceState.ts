@@ -1,6 +1,7 @@
 import { getBatteryState, isLowBattery, subscribeBattery } from './batteryState';
 import { getCurrentSettings } from '../store/settingsStore';
 import { call } from './host/decky';
+import { subscribeControllerInput } from './controllerInput';
 
 function isOfflineModeOn(): boolean {
   return (getCurrentSettings() as any)?.offlineModeEnabled === true;
@@ -250,6 +251,123 @@ function subscribeControllers(): void {
   refreshController();
 }
 
+/* Device kind + arch/model. Only `deck` is classified with confidence today —
+   the other kinds have no confirmed detection signal yet (only one reference
+   unit was available to test), so they stay `unknown` rather than guess
+   wrong. Primed once at boot, not re-fetched per rule evaluation. */
+export type DeviceKind = 'deck' | 'machine' | 'frame' | 'desktop' | 'handheld-arm' | 'unknown';
+
+export interface DeviceIdentity {
+  device: DeviceKind;
+  arch: string | null;
+  model: string | null;
+}
+
+const UNKNOWN_IDENTITY: DeviceIdentity = { device: 'unknown', arch: null, model: null };
+
+let _identity: DeviceIdentity = UNKNOWN_IDENTITY;
+let _identityPrimed = false;
+let _simulatedDevice: DeviceKind | null = null;
+
+function classifyDevice(osVariant: string | null, vendor: string | null, product: string | null): DeviceKind {
+  if ((osVariant ?? '').toLowerCase() === 'steamdeck') return 'deck';
+  const v = (vendor ?? '').toLowerCase();
+  const p = (product ?? '').toLowerCase();
+  if (v.includes('valve') && (p === 'jupiter' || p === 'galileo')) return 'deck';
+  return 'unknown';
+}
+
+async function readOSVariant(): Promise<string | null> {
+  try {
+    const sc = (globalThis as any).SteamClient;
+    const info = await sc?.System?.GetSystemInfo?.();
+    const v = info?.sOSVariantId;
+    return typeof v === 'string' && v.length ? v : null;
+  } catch { return null; }
+}
+
+const strOrNull = (v: unknown): string | null => (typeof v === 'string' && v.length ? v : null);
+
+async function fetchDeviceIdentity(): Promise<[string | null, any]> {
+  return Promise.all([readOSVariant(), call<[], any>('get_device_identity').catch(() => null)]);
+}
+
+export async function primeDeviceIdentity(): Promise<void> {
+  if (_identityPrimed) return;
+  _identityPrimed = true;
+  const [variant, hw] = await fetchDeviceIdentity();
+  _identity = {
+    device: classifyDevice(variant, hw?.vendor ?? null, hw?.product ?? null),
+    arch: strOrNull(hw?.arch),
+    model: strOrNull(hw?.model),
+  };
+  notify();
+}
+
+/** Real identity, or a Developer-mode simulated device kind when set. */
+export function getDeviceIdentity(): DeviceIdentity {
+  return _simulatedDevice ? { ..._identity, device: _simulatedDevice } : _identity;
+}
+
+/** Developer-only override for testing hardware-specific features without
+    owning every device kind — in-memory only, never persisted, resets on
+    reload. Re-notifies so Visibility Rules/triggers react immediately. */
+export function setSimulatedDevice(kind: DeviceKind | null): void {
+  if (kind === _simulatedDevice) return;
+  _simulatedDevice = kind;
+  notify();
+}
+export function getSimulatedDevice(): DeviceKind | null {
+  return _simulatedDevice;
+}
+
+/* Input mode: gamepad vs pointer. No Steam-provided "current input mode"
+   getter exists — tracked off real input events instead: any controller
+   button (the existing controllerInput bridge) flips to 'gamepad', any real
+   pointer event flips to 'pointer'. Event-driven only, no polling. */
+export type InputMode = 'gamepad' | 'pointer';
+
+let _inputMode: InputMode = 'gamepad';
+let _simulatedInputMode: InputMode | null = null;
+
+function setInputMode(mode: InputMode): void {
+  if (mode === _inputMode) return;
+  _inputMode = mode;
+  notify();
+}
+
+function subscribeInputMode(): () => void {
+  const onPointer = () => setInputMode('pointer');
+  const unControllerInput = subscribeControllerInput(() => setInputMode('gamepad'));
+  try {
+    document.addEventListener('pointermove', onPointer, { passive: true });
+    document.addEventListener('pointerdown', onPointer, { passive: true });
+  } catch {}
+  return () => {
+    try { unControllerInput(); } catch {}
+    try {
+      document.removeEventListener('pointermove', onPointer);
+      document.removeEventListener('pointerdown', onPointer);
+    } catch {}
+  };
+}
+
+/** Real mode, or a Developer-mode simulated input mode when set. */
+export function getInputMode(): InputMode {
+  return _simulatedInputMode ?? _inputMode;
+}
+
+export function setSimulatedInputMode(mode: InputMode | null): void {
+  if (mode === _simulatedInputMode) return;
+  _simulatedInputMode = mode;
+  notify();
+}
+export function getSimulatedInputMode(): InputMode | null {
+  return _simulatedInputMode;
+}
+
+let _inputModeUnsub: (() => void) | null = null;
+
 export function installDeviceState(): () => void {
   // Battery changes re-notify listeners so battery/charging rules re-evaluate
   // (subscribeBattery is fed by batteryState's own Steam subscription — no
@@ -257,13 +375,16 @@ export function installDeviceState(): () => void {
   const unsubBattery = subscribeBattery(notify);
   subscribeDisplayManager();
   subscribeControllers();
+  _inputModeUnsub = subscribeInputMode();
   void refreshDisplay();
   void refreshLibraryLocations();
+  void primeDeviceIdentity();
   return () => {
     try { unsubBattery(); } catch {}
     if (_displayUnsub) { try { _displayUnsub(); } catch {} _displayUnsub = null; }
     if (_displayDebounce) { clearTimeout(_displayDebounce); _displayDebounce = null; }
     for (const u of _controllerUnsub.splice(0)) { try { u(); } catch {} }
+    if (_inputModeUnsub) { try { _inputModeUnsub(); } catch {} _inputModeUnsub = null; }
   };
 }
 
@@ -310,10 +431,19 @@ function evalBattery(rule: any): boolean {
   return isLowBattery(threshold);
 }
 
+function evalDeviceKindRule(rule: any): boolean {
+  return getDeviceIdentity().device === String(rule?.value ?? 'deck');
+}
+
+function evalInputModeRule(rule: any): boolean {
+  return getInputMode() === String(rule?.value ?? 'pointer');
+}
+
 /* Evaluate one device-state VisibilityRule. Unknown kinds fail open (return true)
    so a rule an older build can't answer never wrongly hides a shelf. Kinds:
    battery (below %, default 20), charging, offline, externalDisplay, resolution
-   (minWidth), ultrawide. */
+   (minWidth), ultrawide, device (deck/machine/frame/desktop/handheld-arm/unknown),
+   inputMode (gamepad/pointer). */
 export function evalDeviceRule(rule: any): boolean {
   const kind = String(rule && rule.kind || '');
   if (kind === 'battery') return evalBattery(rule);
@@ -321,12 +451,14 @@ export function evalDeviceRule(rule: any): boolean {
   if (kind === 'offline') return getDeviceState().offline;
   if (kind === 'controllerConnected') return getDeviceState().controllerConnected;
   if (kind === 'libraryAvailable') return evalLibraryAvailable(rule);
+  if (kind === 'device') return evalDeviceKindRule(rule);
+  if (kind === 'inputMode') return evalInputModeRule(rule);
   return evalDisplayRule(rule); // externalDisplay/resolution/ultrawide + unknown→true
 }
 
 export const DEVICE_RULE_KINDS = [
   'battery', 'charging', 'offline', 'externalDisplay', 'resolution', 'ultrawide',
-  'controllerConnected', 'libraryAvailable',
+  'controllerConnected', 'libraryAvailable', 'device', 'inputMode',
 ] as const;
 export function isDeviceRuleKind(kind: string): boolean {
   return (DEVICE_RULE_KINDS as readonly string[]).includes(kind);

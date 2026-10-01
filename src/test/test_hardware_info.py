@@ -13,6 +13,23 @@ def test_real_host_never_raises():
     assert isinstance(r["externalDisks"], list)
 
 
+def test_device_identity_never_raises_and_has_the_light_fields_only():
+    r = hardware_info.get_device_identity()
+    assert r["supported"] is True
+    assert set(r.keys()) == {"model", "product", "vendor", "arch", "supported"}
+
+
+def test_device_identity_reflects_dmi(monkeypatch):
+    fields = {"product_name": "Galileo", "sys_vendor": "Valve"}
+    monkeypatch.setattr(hardware_info, "_dmi", lambda f: fields.get(f))
+    monkeypatch.setattr(hardware_info.platform, "machine", lambda: "x86_64")
+    r = hardware_info.get_device_identity()
+    assert r == {
+        "model": "Steam Deck (OLED)", "product": "Galileo", "vendor": "Valve",
+        "arch": "x86_64", "supported": True,
+    }
+
+
 def test_external_disks_linux_finds_mounted_volumes(tmp_path, monkeypatch):
     monkeypatch.setattr(hardware_info, "_home_dev", lambda: -1)  # never matches
     user_dir = tmp_path / "run_media" / "deck"

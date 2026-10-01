@@ -30,6 +30,7 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 - **Fixed native Big Art's own background sometimes staying visible over everything even with Hide Recents turned on.**
 - **Fixed the promoted shelf's title crowding right under the top icons under native Big Art**, instead of the same clearance native content keeps there.
 - **Fixed the promoted shelf sitting stacked near the top with a large empty gap below it, on ArtHero as much as on Big Art** — it now sits anchored to the bottom the way native content does, matching what already worked for one specific theme combination.
+- **New Visibility Rules / profile trigger conditions: "Device kind" and "Input mode."** Build shelves or auto-switching profiles that react to the device you're on (Steam Deck is reliably detected today; other kinds show as "Unknown" rather than a wrong guess) or to whether you're currently using a gamepad or a pointer. Developer mode also gets a "simulate device / pointer input" control for testing these without owning every kind of hardware.
 
 ## [3.3.2] - 2026-09-26
 

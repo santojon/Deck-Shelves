@@ -5,10 +5,14 @@ import { CollapsibleSection } from "../../ui/CollapsibleSection";
 import { SourceResolverInspector } from "./SourceResolverInspector";
 import { type DiagnosticEntry, clearDiagnostics, subscribeDiagnostics } from "../../../runtime/diagnostics";
 import { SCOPE_COLOR, LEVEL_BG } from "../../../runtime/logger";
-import { CopyIcon, TrashIcon, DocsIcon } from "../../icons";
+import { CopyIcon, TrashIcon, DocsIcon, GamepadIcon } from "../../icons";
 import { BTN_ICON_STYLE } from "../../ui/buttonStyles";
 import { copyToClipboard } from "../../ui/clipboard";
 import { notify } from "../../notify";
+import {
+  type DeviceKind, type InputMode,
+  getSimulatedDevice, setSimulatedDevice, getSimulatedInputMode, setSimulatedInputMode,
+} from "../../../runtime/deviceState";
 
 export interface DeveloperDetailProps {
   controller: ReturnType<typeof useSettingsController>;
@@ -46,6 +50,44 @@ function OverlayConfig({ controller, t }: DeveloperDetailProps) {
   );
 }
 
+const DEVICE_SIM_OPTIONS = ["real", "deck", "machine", "frame", "desktop", "handheld-arm", "unknown"] as const;
+
+/** Developer-only override for the device kind and input mode the whole
+    plugin reads (Visibility Rules, profile triggers, Packs) — lets
+    hardware-specific behaviour be tested without owning every device kind.
+    In-memory only — resets on reload, never persisted. */
+function DeviceSimulator({ t }: { t: (k: string) => string }) {
+  const [device, setDevice] = useState<DeviceKind | null>(() => getSimulatedDevice());
+  const [pointer, setPointer] = useState<boolean>(() => getSimulatedInputMode() === "pointer");
+
+  const deviceOptions: SingleDropdownOption[] = DEVICE_SIM_OPTIONS.map((k) => ({
+    data: k, label: k === "real" ? t("dev_sim_device_real") : t(`device_kind_${k.replace("-", "_")}`),
+  }));
+  const deviceValue = device ?? "real";
+
+  const pickDevice = (sel: any) => {
+    const next = sel.data === "real" ? null : (sel.data as DeviceKind);
+    setDevice(next);
+    setSimulatedDevice(next);
+  };
+  const togglePointer = (v: boolean) => {
+    setPointer(v);
+    setSimulatedInputMode(v ? ("pointer" as InputMode) : null);
+  };
+
+  return (
+    <div style={{ marginBottom: 12 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "4px 0" }}>
+        <span style={{ flex: 1, fontSize: 13 }}>{t("dev_sim_device")}</span>
+        <div style={{ minWidth: 170 }}>
+          <Dropdown rgOptions={deviceOptions} selectedOption={deviceValue} onChange={pickDevice} />
+        </div>
+      </div>
+      <ToggleField label={t("dev_sim_pointer")} description={t("dev_sim_pointer_desc")} checked={pointer} onChange={togglePointer} />
+    </div>
+  );
+}
+
 /** Developer tab (only shown when Developer mode is on): the on-home debug
     overlay toggle, source resolver, focus tree, and the diagnostic log. */
 export function DeveloperDetail({ controller, t }: DeveloperDetailProps) {
@@ -79,6 +121,9 @@ export function DeveloperDetail({ controller, t }: DeveloperDetailProps) {
         />
         {overlayOn ? <OverlayConfig controller={controller} t={t} /> : null}
       </div>
+      <CollapsibleSection id="dev-device-sim" title={t("dev_sim_title")} count={0} icon={<GamepadIcon size={14} />}>
+        <DeviceSimulator t={t} />
+      </CollapsibleSection>
       <SourceResolverInspector controller={controller} t={t} />
       <CollapsibleSection
         id="dev-logs"

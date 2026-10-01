@@ -67,7 +67,7 @@ from css_themes import read_css_loader_themes
 from display_state import read_display_state
 from perf_probe import read_perf_snapshot
 from host_os import get_host_os as _host_os
-from hardware_info import get_hardware_info as _hardware_info
+from hardware_info import get_hardware_info as _hardware_info, get_device_identity as _device_identity
 from library_location import get_library_locations as _library_locations
 from peripherals import get_bluetooth_state as _bt_state, get_audio_state as _audio_state
 from launchers import list_launcher_games as _list_launcher_games, list_available_launchers as _list_available_launchers
@@ -308,6 +308,12 @@ class Plugin:
         # /proc / platform (read-only, off-thread, fail-soft cross-OS). On-demand —
         # no background poll; feeds System information + the opt-in bug-report block.
         return await asyncio.to_thread(_hardware_info)
+
+    async def get_device_identity(self, *args, **kwargs) -> Dict[str, Any]:
+        # Lightweight DMI/arch-only probe (no disk/GPU/mem scan) for the
+        # device-kind classifier — primed once at boot, cached by the
+        # frontend, no background poll.
+        return await asyncio.to_thread(_device_identity)
 
     async def get_library_locations(self, *args, **kwargs) -> Dict[str, Any]:
         # Parses `libraryfolders.vdf` (filesystem-level, renderer can't read it)

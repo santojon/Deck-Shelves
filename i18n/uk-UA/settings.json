@@ -1221,5 +1221,21 @@
   "hw_gpu": "GPU",
   "hw_storage": "Сховище",
   "diag_software": "ПЗ",
-  "first_run_desc_maybe_wiped": "Зараз тут немає полиць — якщо це виглядає не так, як має бути, нижче може бути резервна копія для відновлення. Інакше почніть заново зі стандартних налаштувань."
+  "first_run_desc_maybe_wiped": "Зараз тут немає полиць — якщо це виглядає не так, як має бути, нижче може бути резервна копія для відновлення. Інакше почніть заново зі стандартних налаштувань.",
+  "visibility_cat_device": "Пристрій",
+  "visibility_rule_device": "Тип пристрою",
+  "visibility_rule_inputMode": "Режим введення",
+  "device_kind_deck": "Steam Deck",
+  "device_kind_machine": "Steam Machine",
+  "device_kind_frame": "Steam Frame",
+  "device_kind_desktop": "Настільний ПК",
+  "device_kind_handheld_arm": "Портативний (ARM)",
+  "device_kind_unknown": "Невідомо",
+  "input_mode_gamepad": "Геймпад",
+  "input_mode_pointer": "Вказівник",
+  "dev_sim_title": "Симулятор Frame/Machine",
+  "dev_sim_device": "Симулювати пристрій",
+  "dev_sim_device_real": "Реальний (без симуляції)",
+  "dev_sim_pointer": "Симулювати введення вказівником",
+  "dev_sim_pointer_desc": "Перевизначає виявлений режим введення, щоб тестувати функції лише для вказівника без миші чи дотику."
 }

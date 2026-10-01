@@ -1221,5 +1221,21 @@
   "hw_gpu": "GPU",
   "hw_storage": "Almacenamiento",
   "diag_software": "Software",
-  "first_run_desc_maybe_wiped": "Ahora mismo no hay estanterías aquí — si esto no te parece normal, es posible que tengas una copia de seguridad para restaurar abajo. Si no, empieza de cero con las predeterminadas."
+  "first_run_desc_maybe_wiped": "Ahora mismo no hay estanterías aquí — si esto no te parece normal, es posible que tengas una copia de seguridad para restaurar abajo. Si no, empieza de cero con las predeterminadas.",
+  "visibility_cat_device": "Dispositivo",
+  "visibility_rule_device": "Tipo de dispositivo",
+  "visibility_rule_inputMode": "Modo de entrada",
+  "device_kind_deck": "Steam Deck",
+  "device_kind_machine": "Steam Machine",
+  "device_kind_frame": "Steam Frame",
+  "device_kind_desktop": "Escritorio",
+  "device_kind_handheld_arm": "Portátil (ARM)",
+  "device_kind_unknown": "Desconocido",
+  "input_mode_gamepad": "Mando",
+  "input_mode_pointer": "Puntero",
+  "dev_sim_title": "Simulador Frame/Machine",
+  "dev_sim_device": "Simular dispositivo",
+  "dev_sim_device_real": "Real (sin simulación)",
+  "dev_sim_pointer": "Simular entrada por puntero",
+  "dev_sim_pointer_desc": "Reemplaza el modo de entrada detectado para poder probar funciones exclusivas de puntero sin ratón ni pantalla táctil."
 }

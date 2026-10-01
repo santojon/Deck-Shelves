@@ -1221,5 +1221,21 @@
   "hw_gpu": "GPU",
   "hw_storage": "Opslag",
   "diag_software": "Software",
-  "first_run_desc_maybe_wiped": "Er zijn nu geen planken — als dat niet klopt, staat hieronder mogelijk een back-up die je kunt herstellen. Anders begin je gewoon opnieuw met de standaardinstellingen."
+  "first_run_desc_maybe_wiped": "Er zijn nu geen planken — als dat niet klopt, staat hieronder mogelijk een back-up die je kunt herstellen. Anders begin je gewoon opnieuw met de standaardinstellingen.",
+  "visibility_cat_device": "Apparaat",
+  "visibility_rule_device": "Apparaattype",
+  "visibility_rule_inputMode": "Invoermodus",
+  "device_kind_deck": "Steam Deck",
+  "device_kind_machine": "Steam Machine",
+  "device_kind_frame": "Steam Frame",
+  "device_kind_desktop": "Bureaublad",
+  "device_kind_handheld_arm": "Handheld (ARM)",
+  "device_kind_unknown": "Onbekend",
+  "input_mode_gamepad": "Gamepad",
+  "input_mode_pointer": "Aanwijzer",
+  "dev_sim_title": "Frame/Machine-simulator",
+  "dev_sim_device": "Apparaat simuleren",
+  "dev_sim_device_real": "Echt (geen simulatie)",
+  "dev_sim_pointer": "Aanwijzerinvoer simuleren",
+  "dev_sim_pointer_desc": "Overschrijft de gedetecteerde invoermodus zodat functies die alleen met een aanwijzer werken getest kunnen worden zonder muis of aanraakscherm."
 }

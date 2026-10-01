@@ -1221,5 +1221,21 @@
   "hw_gpu": "GPU",
   "hw_storage": "Speicher",
   "diag_software": "Software",
-  "first_run_desc_maybe_wiped": "Hier sind gerade keine Regale — falls das nicht richtig aussieht, gibt es unten vielleicht eine Sicherung zum Wiederherstellen. Andernfalls starte einfach neu mit den Standardregalen."
+  "first_run_desc_maybe_wiped": "Hier sind gerade keine Regale — falls das nicht richtig aussieht, gibt es unten vielleicht eine Sicherung zum Wiederherstellen. Andernfalls starte einfach neu mit den Standardregalen.",
+  "visibility_cat_device": "Gerät",
+  "visibility_rule_device": "Gerätetyp",
+  "visibility_rule_inputMode": "Eingabemodus",
+  "device_kind_deck": "Steam Deck",
+  "device_kind_machine": "Steam Machine",
+  "device_kind_frame": "Steam Frame",
+  "device_kind_desktop": "Desktop",
+  "device_kind_handheld_arm": "Handheld (ARM)",
+  "device_kind_unknown": "Unbekannt",
+  "input_mode_gamepad": "Gamepad",
+  "input_mode_pointer": "Zeiger",
+  "dev_sim_title": "Frame/Machine-Simulator",
+  "dev_sim_device": "Gerät simulieren",
+  "dev_sim_device_real": "Echt (keine Simulation)",
+  "dev_sim_pointer": "Zeigereingabe simulieren",
+  "dev_sim_pointer_desc": "Überschreibt den erkannten Eingabemodus, damit reine Zeiger-Funktionen ohne Maus oder Touch getestet werden können."
 }
