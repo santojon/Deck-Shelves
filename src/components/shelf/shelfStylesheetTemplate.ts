@@ -1001,9 +1001,9 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
     .deck-shelves-root[data-ds-theme-hero-fullscreen="true"]:not([data-ds-theme-big-art="true"])[data-ds-recents-hidden="true"] > .ds-shelf[data-ds-recents-slot="true"]:first-child {
       margin-top: -56px;
     }
-    /* Big Art keeps the mount's own +56 push (no pull above) so the BOX is shrunk by 56 to avoid overflowing the viewport — but the ART still bleeds the full 56px back up over that gap (native's own hero reaches the very top, behind the icons) instead of leaving it a flat, art-less band. */
+    /* Big Art: BOX shrinks by the top +56 (icon clearance) AND a further ~64 at the bottom (the button-legend overlay, outside the DOM — measured from a live screenshot, not a hard constant) so card labels clear it; the ART still bleeds the full height, since native's own hero runs behind both bars. */
     .deck-shelves-root[data-ds-theme-big-art="true"] .ds-shelf[data-ds-recents-slot="true"] {
-      height: calc(100vh - 56px) !important;
+      height: calc(100vh - 120px) !important;
       --ds-hero-top: -56px; --ds-hero-h: 100vh;
     }
     /* DS hero-background (compact promoted first shelf, recents hidden): bleed
