@@ -37,6 +37,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile=false
 
+      - name: Install Python test/lint deps
+        run: |
+          python3 -m pip install -U pip setuptools
+          python3 -m pip install ruff pytest
+
       - name: Generate report
         run: pnpm run validate:ci
 
