@@ -7,6 +7,8 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+## [3.3.3] - 2026-10-01
+
 - **Fixed a private Steam wishlist always loading empty, with no error shown.** A past security improvement accidentally broke it for anyone with a private wishlist — it's fixed now, with the same protection against the token ever showing up in a log.
 - **The System Info panel (Settings → Advanced) now shows whether your Steam client is on the Stable, Beta, or Preview channel**, next to its version number.
 - **The Diagnostics panel and bug-report text now show which standalone host is running the plugin**, with its version, when the host supports reporting it.

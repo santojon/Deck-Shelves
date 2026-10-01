@@ -55,7 +55,7 @@ importers:
         specifier: ^6.1.1
         version: 6.1.1(vite@8.3.2(esbuild@0.28.2))
       esbuild:
-        specifier: ^0.28.2
+        specifier: ^0.28.1
         version: 0.28.2
       eslint:
         specifier: ^10.11.0
