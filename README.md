@@ -231,8 +231,8 @@ Deck Shelves runs two ways: standalone via **[ShelvesHub](https://github.com/san
 
 | OS | Via ShelvesHub | Via Decky Loader |
 |---|---|---|
-| SteamOS / Steam Deck | ✅ official (primary target) — x86_64 and ARM64 | ✅ official (primary target) |
-| Linux — SteamOS-like (Bazzite, ChimeraOS, HoloISO, Nobara) + desktop (native / Flatpak) | ✅ x86_64 and ARM64, one-click or package | ✅ unofficial — Decky's systemd install works |
+| SteamOS / Steam Deck | ✅ official (primary target) — x86_64; ARM64 experimental | ✅ official (primary target) |
+| Linux — SteamOS-like (Bazzite, ChimeraOS, HoloISO, Nobara) + desktop (native / Flatpak) | ✅ x86_64 (ARM64 experimental), one-click or package | ✅ unofficial — Decky's systemd install works |
 | Windows | ✅ stable, one-click installer | ⚠️ unofficial — via a community Windows installer; unstable |
 | macOS | ✅ universal binary — native on Apple Silicon and Intel | ❌ not supported — no systemd / no remote debug port |
 

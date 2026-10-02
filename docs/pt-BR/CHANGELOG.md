@@ -9,6 +9,8 @@ e este projeto segue o [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ## [Não lançado]
 
+## [3.3.3] - 2026-10-01
+
 ### Adicionado
 
 - **A linha de versão do Steam no painel Avançado → Diagnóstico agora também mostra o canal de atualização** (Stable, ou o nome bruto do branch — Beta, Preview, …) ao lado do número da versão, lido de `SteamClient.Updates.GetCurrentOSBranch` (só no SteamOS; em branco nas demais plataformas) ([`src/runtime/diagnosticsInfo.ts`](../../src/runtime/diagnosticsInfo.ts), [`src/components/settings/details/DiagnosticsSection.tsx`](../../src/components/settings/details/DiagnosticsSection.tsx)).

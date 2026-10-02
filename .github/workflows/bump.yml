@@ -149,6 +149,20 @@ jobs:
             fi
           fi
 
+          # Promote the pt-BR translations too, so the site's "What's new" shows
+          # pt-BR for the new version instead of falling back to English. The two
+          # files use different "unreleased" headings (RELEASE_NOTES: [Unreleased];
+          # CHANGELOG: [Não lançado]) — handle whichever each one has.
+          for f in docs/pt-BR/CHANGELOG.md docs/pt-BR/RELEASE_NOTES.md; do
+            [[ -f "$f" ]] || continue
+            for H in "Unreleased" "Não lançado"; do
+              if grep -q "^## \[$H\]" "$f"; then
+                sed -i "s/^## \[$H\]/## [$H]\n\n## [${VERSION}] - ${DATE}/" "$f"
+                break
+              fi
+            done
+          done
+
       - name: TypeScript check
         run: pnpm run typecheck
 
@@ -171,6 +185,7 @@ jobs:
         run: |
           git add package.json pnpm-lock.yaml CHANGELOG.md
           [[ -f RELEASE_NOTES.md ]] && git add RELEASE_NOTES.md || true
+          for f in docs/pt-BR/CHANGELOG.md docs/pt-BR/RELEASE_NOTES.md; do [[ -f "$f" ]] && git add "$f" || true; done
 
       - name: Commit bump
         env:
