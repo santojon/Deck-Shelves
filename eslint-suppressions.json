@@ -1,17 +1,17 @@
 {
   "src/components/DeckRow.tsx": {
     "complexity": {
-      "count": 5
+      "count": 1
     }
   },
   "src/components/HomeInject.tsx": {
     "complexity": {
-      "count": 6
+      "count": 2
     }
   },
   "src/components/Shelf.tsx": {
     "complexity": {
-      "count": 5
+      "count": 1
     }
   },
   "src/components/home/navPatches/edgeNavigation.ts": {
@@ -41,17 +41,12 @@
   },
   "src/components/shelf/GameCard.tsx": {
     "complexity": {
-      "count": 10
-    }
-  },
-  "src/components/shelf/HeroBackground.tsx": {
-    "complexity": {
-      "count": 3
+      "count": 1
     }
   },
   "src/components/shelf/PerShelfHero.tsx": {
     "complexity": {
-      "count": 5
+      "count": 3
     }
   },
   "src/components/shelf/PlaceholderCard.tsx": {

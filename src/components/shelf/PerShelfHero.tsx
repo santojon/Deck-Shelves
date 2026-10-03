@@ -5,8 +5,46 @@ import { getRuntimeClassMap } from "../../core/webpackCompat";
 import { getLandscapeUrls, getPortraitUrls, getHeroUrls as getCentralHeroUrls, getLogoUrls, getAppAssetCacheKey } from "../../core/steamAssets";
 import { getHotCachedImageSrc, warmCacheBackground, firstCacheableUrl } from "../../core/imageCache";
 import { getAppDescriptions, preloadAppDescriptions } from "../../steam/appDescriptionsCache";
+import { computeHeroVisualGeometry, resolveOverlayPositionStyle, resolveOverlayOffset, findFirstVisibleCard } from "./perShelfHeroHelpers";
 
 let _nativeAssetProto: any = null;
+
+// Walk up the React fiber tree (max 8 levels) looking for an ancestor
+// component whose props carry `eAssetType` and whose prototype exposes
+// `GetSourcesForAsset` — that's Steam's own asset-resolver component.
+function findAssetProtoInFiber(fiber: any): any {
+  let f = fiber;
+  let depth = 0;
+  while (f && depth < 8) {
+    const p = f.memoizedProps;
+    if (p && "eAssetType" in p && f.stateNode) {
+      const proto = Object.getPrototypeOf(f.stateNode);
+      if (typeof proto?.GetSourcesForAsset === "function") return proto;
+    }
+    f = f.return;
+    depth++;
+  }
+  return null;
+}
+
+function fiberOf(img: HTMLImageElement): any {
+  const fiberKey = Object.keys(img).find(k => k.startsWith("__reactFiber$"));
+  return fiberKey ? (img as any)[fiberKey] : null;
+}
+
+function findAssetProtoInDoc(doc: Document): any {
+  const imgs = doc.querySelectorAll("img");
+  for (let i = 0; i < imgs.length; i++) {
+    const img = imgs[i] as HTMLImageElement;
+    // Skip DS-rendered images — we're hunting Steam's own asset component.
+    if (img.closest(".ds-card, .ds-per-shelf-hero-img")) continue;
+    const fiber = fiberOf(img);
+    if (!fiber) continue;
+    const proto = findAssetProtoInFiber(fiber);
+    if (proto) return proto;
+  }
+  return null;
+}
 
 function findNativeAssetProto(): any {
   if (_nativeAssetProto && typeof _nativeAssetProto.GetSourcesForAsset === "function") {
@@ -15,28 +53,8 @@ function findNativeAssetProto(): any {
   _nativeAssetProto = null;
   try {
     for (const doc of getAllSteamDocuments()) {
-      const imgs = doc.querySelectorAll("img");
-      for (let i = 0; i < imgs.length; i++) {
-        const img = imgs[i] as HTMLImageElement;
-        // Skip DS-rendered images — we're hunting Steam's own asset component.
-        if (img.closest(".ds-card, .ds-per-shelf-hero-img")) continue;
-        const fiberKey = Object.keys(img).find(k => k.startsWith("__reactFiber$"));
-        if (!fiberKey) continue;
-        let f: any = (img as any)[fiberKey];
-        let depth = 0;
-        while (f && depth < 8) {
-          const p = f.memoizedProps;
-          if (p && "eAssetType" in p && f.stateNode) {
-            const proto = Object.getPrototypeOf(f.stateNode);
-            if (typeof proto?.GetSourcesForAsset === "function") {
-              _nativeAssetProto = proto;
-              return proto;
-            }
-          }
-          f = f.return;
-          depth++;
-        }
-      }
+      const proto = findAssetProtoInDoc(doc);
+      if (proto) { _nativeAssetProto = proto; return proto; }
     }
   } catch { /* swallow — caller falls back to static list */ }
   return null;
@@ -47,6 +65,9 @@ function findNativeAssetProto(): any {
    `null` so the synth-hero pipeline treats the attribute as missing.
    Doubles as the sanitizer node CodeQL's `js/xss-through-dom` query
    expects on the DOM-attribute → `<img src>` data flow. */
+// Not decomposed further despite tripping the complexity rule: splitting
+// CodeQL's recognized `js/xss-through-dom` sanitizer barrier risks it no
+// longer matching the pattern — not worth it for one complexity point.
 function sanitizeHeroUrl(raw: string | null | undefined): string | null {
   if (!raw) return null;
   const s = String(raw).trim();
@@ -142,10 +163,6 @@ function resolveHeroSrcFromCache(url0: string | null, urls: ReadonlyArray<string
   return url0;
 }
 
-// Hero height, viewport-parameterized: scales proportionally with the screen
-// instead of a hard pixel value. Used for the first shelf, and for every
-// shelf under forceCssLoaderThemes.
-const HERO_HEIGHT = '70vh';
 
 /* Module-level shared discovery of the active CSS Loader theme's hero
    class chain. Before: each PerShelfHero instance owned its own MO on
@@ -181,36 +198,73 @@ function publishNativeHeroClasses(next: NativeHeroClasses): void {
   }
 }
 
+// A candidate native hero image: large enough to be a hero (not a card
+// thumbnail) and not one of our own DS-rendered images.
+function isCandidateHeroImg(img: HTMLImageElement): boolean {
+  if (img.closest('.ds-card, .ds-per-shelf-hero-img')) return false;
+  const r = img.getBoundingClientRect();
+  return r.width >= 400 && r.height >= 120;
+}
+
+function classOf(node: Element): string {
+  return ((node.className as any) || '').toString().trim();
+}
+
+// Walk up to 6 ancestors from the hero image looking for the theme's own
+// mask (→ innerClass) and animation (→ zoomClass) wrapper classes, then
+// one more level up for the root wrapper once innerClass is found.
+function ancestorHasMask(cs: CSSStyleDeclaration): boolean {
+  const wm = (cs as any).webkitMaskImage;
+  return !!((cs.maskImage && cs.maskImage !== 'none') || (wm && wm !== 'none'));
+}
+
+function ancestorHasAnimation(cs: CSSStyleDeclaration): boolean {
+  return !!(cs.animationName && cs.animationName !== 'none');
+}
+
+type HeroClassAccumulator = { zoomClass: string | null; innerClass: string | null; rootClass: string | null };
+
+function canBeZoomClass(acc: HeroClassAccumulator, cs: CSSStyleDeclaration, cls: string): boolean {
+  return !acc.zoomClass && !acc.innerClass && !!cls && ancestorHasAnimation(cs);
+}
+
+// One ancestor can only contribute to ONE slot, in priority order:
+// animation (zoom) first, then mask (inner), then whatever's next (root).
+function classifyAncestor(acc: HeroClassAccumulator, cs: CSSStyleDeclaration, cls: string): void {
+  if (canBeZoomClass(acc, cs, cls)) { acc.zoomClass = cls; return; }
+  if (!acc.innerClass && ancestorHasMask(cs)) { acc.innerClass = cls || null; return; }
+  if (acc.innerClass && !acc.rootClass && cls) acc.rootClass = cls;
+}
+
+function walkAncestorHeroClasses(win: Window, img: HTMLImageElement): HeroClassAccumulator {
+  let node: HTMLElement | null = img.parentElement;
+  const acc: HeroClassAccumulator = { zoomClass: null, innerClass: null, rootClass: null };
+  for (let depth = 0; node && depth < 6; depth++, node = node.parentElement) {
+    classifyAncestor(acc, win.getComputedStyle(node), classOf(node));
+  }
+  return acc;
+}
+
+function findNativeHeroClassesInDoc(doc: Document): NativeHeroClasses | null {
+  const win = doc.defaultView ?? window;
+  const imgs = doc.querySelectorAll<HTMLImageElement>('img');
+  for (let i = 0; i < imgs.length; i++) {
+    const img = imgs[i];
+    if (!isCandidateHeroImg(img)) continue;
+    const { zoomClass, innerClass, rootClass } = walkAncestorHeroClasses(win, img);
+    if (innerClass || zoomClass) {
+      return { imgClass: classOf(img) || null, zoomClass, innerClass, rootClass };
+    }
+  }
+  return null;
+}
+
 function discoverNativeHeroClasses(): NativeHeroClasses {
   if (!isArtHeroActive() && !isBigArtModeActive()) return EMPTY_HERO_CLASSES;
   try {
     for (const doc of getAllSteamDocuments()) {
-      const win = doc.defaultView ?? window;
-      const imgs = doc.querySelectorAll<HTMLImageElement>('img');
-      for (let i = 0; i < imgs.length; i++) {
-        const img = imgs[i];
-        if (img.closest('.ds-card, .ds-per-shelf-hero-img')) continue;
-        const r = img.getBoundingClientRect();
-        if (r.width < 400 || r.height < 120) continue;
-        const imgClass = ((img.className as any) || '').toString().trim() || null;
-        let node: HTMLElement | null = img.parentElement;
-        let zoomClass: string | null = null;
-        let innerClass: string | null = null;
-        let rootClass: string | null = null;
-        for (let depth = 0; node && depth < 6; depth++, node = node.parentElement) {
-          const cs = win.getComputedStyle(node);
-          const wm = (cs as any).webkitMaskImage;
-          const hasMask = (cs.maskImage && cs.maskImage !== 'none') || (wm && wm !== 'none');
-          const hasAnim = cs.animationName && cs.animationName !== 'none';
-          const cls = ((node.className as any) || '').toString().trim();
-          if (hasAnim && !zoomClass && !innerClass && cls) zoomClass = cls;
-          else if (hasMask && !innerClass) innerClass = cls || null;
-          else if (innerClass && !rootClass && cls) rootClass = cls;
-        }
-        if (innerClass || zoomClass) {
-          return { imgClass, zoomClass, innerClass, rootClass };
-        }
-      }
+      const found = findNativeHeroClassesInDoc(doc);
+      if (found) return found;
     }
   } catch {}
   return embeddedHeroClassesFallback();
@@ -535,15 +589,7 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
           userHasFocusedRef.current = false;
         }
         const allCards = el.querySelectorAll<HTMLElement>('.ds-card[data-appid]');
-        for (const c of allCards) {
-          // Check element is visible: has layout height and is in the document flow.
-          // Also verify no ancestor has display:none by checking offsetParent.
-          if (c.offsetHeight > 0 && c.offsetParent !== null &&
-              getComputedStyle(c).visibility !== 'hidden' &&
-              getComputedStyle(c).display !== 'none') {
-            focused = c; break;
-          }
-        }
+        focused = findFirstVisibleCard(allCards);
       }
       if (!focused) return;
       const appid = Number(focused.getAttribute('data-appid') ?? 0);
@@ -849,60 +895,14 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
   // not only the promoted first one.
   const showLabel = needsLabel && !!labelNode;
   if (!hasArt && !showLabel && !showOverlayContainer) return null;
+  const overlayPos = resolveOverlayPositionStyle(logoPosition);
+  const overlayOffset = resolveOverlayOffset(logoTopOffset, isFullPage);
   const themeBg = 'var(--obsidian-main-color,var(--ds-page-bg,rgb(0,0,0)))';
   /* "First-shelf" hero treatment — 70vh, opaque top, NO inter-shelf overlap.
      Applies to the genuine first shelf (forceExpanded) AND, under
-     forceCssLoaderThemes, to EVERY shelf (each carries data-ds-recents-slot →
-     isPromoted) — there the user wants all heroes identical to the first.
-     force OFF + non-first shelves fall through to the overlap treatment. */
-  const treatAsFirst = isFirstShelf || isPromoted;
-  // Non-first non-promoted: grow by bPx below so the symmetric top/bottom
-  // fades create a seamless cross-fade with the next shelf.
-  const heroHeight = treatAsFirst ? HERO_HEIGHT : `calc(100% + ${Math.abs(topBleed)}px)`;
-  /* Every hero bleeds `topBleed`px up over the shelf above — this is the
-     pre-change behaviour that keeps the art visually anchored to the top.
-     The genuine first shelf simply suppresses its top FADE (via `topStops`);
-     the upward bleed itself stays for every shelf. */
-  const bPx = Math.abs(topBleed);
-
-  // Top fade: smooth ease-in curve with 5 stops over the full 80px bleed.
-  /* Keeps the hero near-invisible while overlapping the shelf above (~0.03 at
-     mid-bleed) and accelerates to opaque only in the final third.  This gives
-     the rounded, gradual transition the user sees between hero arts.
-     Bottom fade: mirrors ArtHero — opaque → 0.67 at -24px → transparent,
-     matching "rgba(0,0,0,0.67) 95%, transparent 100%" from the theme. */
-  const p = (f: number) => `${(bPx * f).toFixed(0)}px`;
-  // Top fade: forceLayoutAsRecents shelves are opaque when selected and
-  // fade when not. isFirstShelf is always opaque. Otherwise subtle fade.
-  const opaqueTop = forceLayoutAsRecents ? isShelfSelected : isFirstShelf;
-  // Subtle ease-in curve (~x^4): low opacity for most of the bleed, ramps
-  // near the end. Extra stops smooth the gradient interpolation.
-  const topStops = opaqueTop
-    ? [`  black 0,`]
-    : [
-        `  transparent 0,`,
-        `  rgba(0,0,0,0.003) ${p(0.10)},`,
-        `  rgba(0,0,0,0.012) ${p(0.22)},`,
-        `  rgba(0,0,0,0.035) ${p(0.38)},`,
-        `  rgba(0,0,0,0.085) ${p(0.55)},`,
-        `  rgba(0,0,0,0.18) ${p(0.72)},`,
-        `  rgba(0,0,0,0.40) ${p(0.86)},`,
-        `  rgba(0,0,0,0.70) ${p(0.95)},`,
-        `  rgba(0,0,0,0.92) ${bPx}px,`,
-        `  black calc(${bPx}px + 40px),`,
-      ];
-  // Bottom fade scales with bPx for non-first non-promoted (matches the
-  // wider top bleed). First/promoted keep the 100/64/16 ArtHero values.
-  const bBlackOffset = treatAsFirst ? 100 : bPx;
-  const bMidOffset = treatAsFirst ? 64 : Math.round(bPx * 0.64);
-  const bTransOffset = treatAsFirst ? 16 : Math.round(bPx * 0.16);
-  const maskVal = [
-    `linear-gradient(to bottom,`,
-    ...topStops,
-    `  black calc(100% - ${bBlackOffset}px),`,
-    `  rgba(0,0,0,0.45) calc(100% - ${bMidOffset}px),`,
-    `  transparent calc(100% - ${bTransOffset}px))`,
-  ].join(' ');
+     forceCssLoaderThemes, to EVERY shelf (isPromoted) — force OFF +
+     non-first shelves fall through to the overlap treatment instead. */
+  const { heroHeight, maskVal } = computeHeroVisualGeometry({ isFirstShelf, isPromoted, topBleed, forceLayoutAsRecents, isShelfSelected });
 
   return (
     <>
@@ -1055,34 +1055,26 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
         aria-hidden="true"
         style={{
           position: 'absolute',
-          left: logoPosition === 'left' ? 24 : logoPosition === 'right' ? 'auto' : '50%',
-          right: logoPosition === 'right' ? 24 : 'auto',
-          transform: logoPosition === 'center' ? 'translateX(-50%)' : undefined,
-          // Logo anchored close to the top of the shelf's container,
-          // with the user-tunable `logoTopOffset` (0-100) scaling it:
-          //   full-page: 0..8 vh  (default 20 → 1.6 vh)
-          /*   regular:   0..32 px (default 20 → 6.4 px)
-             First/promoted shelves OUTSIDE full-page mode also use the px
-             path so the logo sits at the same position as the rest of the
-             shelves; otherwise the 34vh logo would push the description
-             down past the shelf title and overlap the card row. */
-          /* logoBelowShelf anchors the banner to the BOTTOM of the shelf
-             (it sits in DeckRow's paddingBottom, under the cards) instead of
-             the top. Same offset, mirrored to `bottom`. */
-          top: logoBelowShelf ? 'auto' : (isFullPage ? `${(logoTopOffset * 0.08).toFixed(2)}vh` : Math.round(logoTopOffset * 0.32)),
-          bottom: logoBelowShelf ? (isFullPage ? `${(logoTopOffset * 0.08).toFixed(2)}vh` : Math.round(logoTopOffset * 0.32)) : undefined,
-          /* No outer maxWidth: the logo image carries its own size cap and
-             the description carries its own (wider) max-width — letting the
-             container shrink to the widest child gives the description room
-             to actually use its full 4-card-wide budget instead of being
-             clipped by a tight outer box. */
+          left: overlayPos.left,
+          right: overlayPos.right,
+          transform: overlayPos.transform,
+          /* Logo anchored close to the top of the shelf's container, with
+             the user-tunable `logoTopOffset` (0-100) scaling it (full-page:
+             vh, regular: px — see resolveOverlayOffset). `logoBelowShelf`
+             anchors the banner to the BOTTOM of the shelf instead, same
+             offset mirrored to `bottom`. */
+          top: logoBelowShelf ? 'auto' : overlayOffset,
+          bottom: logoBelowShelf ? overlayOffset : undefined,
+          // No outer maxWidth: the logo carries its own size cap and the
+          // description its own (wider) one — letting the container shrink
+          // to the widest child gives the description its full budget.
           zIndex: 21,
           pointerEvents: 'none',
           opacity: visible ? 1 : 0,
           transition: 'opacity 0.4s cubic-bezier(0.17,0.45,0.14,0.83)',
           display: 'flex',
           flexDirection: 'column',
-          alignItems: logoPosition === 'left' ? 'flex-start' : logoPosition === 'right' ? 'flex-end' : 'center',
+          alignItems: overlayPos.alignItems,
           textAlign: logoPosition,
         }}
       >

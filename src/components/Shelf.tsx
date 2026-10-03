@@ -1,6 +1,5 @@
 
-import { Spinner, getFrontendLib } from "../runtime/host/decky";
-import { STEAM_STORE_BASE, STEAM_CDN_AKAMAI } from "../constants";
+import { Spinner } from "../runtime/host/decky";
 import { memo, useEffect, useMemo, useState, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import type { Shelf } from "../types";
@@ -8,46 +7,25 @@ import { usePlatform } from "../runtime/platformContext";
 import type { PlatformAppMeta } from "../runtime/platform";
 import { DeckRow, type DeckRowItem } from "./DeckRow";
 import { shouldShowMoreCard, shouldShowRefreshCard } from "./shelf/trailingCards";
-import { showGameMenu, buildShelfContextMenu } from "../core/steamGameMenu";
-import { saveFocusTarget } from "../core/focusRestore";
-import { subscribeShelfRefresh, triggerShelfRefresh } from "../core/shelfRefresh";
+import { subscribeShelfRefresh } from "../core/shelfRefresh";
 import { maybeSubscribeContextInvalidation } from "../core/contextAwareShelves";
 import { hasExternalSource } from "../core/pluginApi";
 import { mark, measure } from "../core/perf";
 import { logInfo } from "../runtime/logger";
-import { applyManualOrder, invalidateRandomSortCache, getAllAppOverviews, getLocalLibraryAppIds } from "../steam";
+import { applyManualOrder, getAllAppOverviews, getLocalLibraryAppIds } from "../steam";
 import { normalizeTitleForMatch } from "../steam/dedupe";
-import { invalidateSmartShelfCache } from "../steam/smartShelves";
-import { clearOnlineShelfCache } from "../core/shelfActions";
 import { fetchGameNames } from "../core/onlineStore";
 import { getCurrentSettings } from "../store/settingsStore";
 import { publishShelf, unpublishShelf } from "../features/search/shelfRegistry";
-
-function openSteamStorePage(appid: number) {
-  openSteamStoreUrl(`${STEAM_STORE_BASE}/app/${appid}/`, `steam://store/${appid}`);
-}
-
-function openSteamStoreUrl(url: string, steamUrl?: string) {
-  try {
-    const sc = (globalThis as any).SteamClient;
-    if (steamUrl && typeof sc?.URL?.ExecuteSteamURL === 'function') {
-      sc.URL.ExecuteSteamURL(steamUrl);
-      return;
-    }
-    if (typeof sc?.System?.OpenInSystemBrowser === 'function') {
-      sc.System.OpenInSystemBrowser(url);
-      return;
-    }
-    if (typeof sc?.WebChat?.OpenURLInClient === 'function') {
-      sc.WebChat.OpenURLInClient(url);
-      return;
-    }
-  } catch {}
-}
-
-// Host-parametric UI lib — resolved by the one central resolver in the host
-// adapter (loader global OR `__SHELVES_HOST__.ui`), aliased locally.
-const resolveFrontendLib = getFrontendLib;
+import {
+  computeEffectiveSort, computeResolveParams, startManualRefreshIndicator,
+  traceResolveStart, traceResolveThen, traceResolveCatch, bumpResolveGenCounter,
+  computeOnlineSourceFlags, computeOwnedHideFlags, isOnlineSourceForShelf,
+  shouldDropOwnedItem, isHiddenByOwnedName, buildOnlineFallbackRowItem, buildOwnedRowItem,
+  buildRefreshRowItem, buildMoreRowItem, insertSyntheticCards, shouldShowMetaSpinner,
+  computeDeckRowDerivedProps, joinOrEmpty, orEmpty, orEmptyArray, jsonOrNull,
+  computeShelfCacheKey, shouldSkipShelf, resolveHighlightRandom,
+} from "./shelf/shelfViewHelpers";
 
 // Cross-source name key: same normalisation as the wishlist compare so
 // "Kingdom Come Deliverance" (non-Steam) matches "Kingdom Come: Deliverance".
@@ -56,18 +34,6 @@ function ownedNameKey(a: any): string | null {
   if (typeof n !== 'string' || !n) return null;
   return normalizeTitleForMatch(n) || null;
 }
-
-function getCachedDiscount(appid: number): number | null {
-  try {
-    const raw = (globalThis as any).localStorage?.getItem?.('ds-price-cache-v1');
-    if (!raw) return null;
-    const cache = JSON.parse(raw);
-    const d = cache[appid]?.data?.discount;
-    return typeof d === 'number' ? d : null;
-  } catch { return null; }
-}
-
-const NEW_GAME_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
 
 // FNV-1a-style hash. Stable, fast, no deps.
 function fnvSeed(s: string): number {
@@ -218,13 +184,9 @@ function renderUnavailableSourceNotice(title: string, message: string) {
 function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFirst = false, globalHighlightAll = false, globalHighlightRandom = false, globalHideStatusLine = false, globalHideNewBadge = false, globalHideDiscountBadge = false, globalHideCompatIcons = false, globalHideNonSteamBadge = false, globalHideShelfTitle = false, globalHideGameNames = false, globalHideInstallIndicator = false, globalHideSeeMore = false, globalHideRefreshCard = false, globalHeroEnabled = false, globalGameInfoAbove = false, globalFriendsPlayingOverlay = false, globalFriendsPlayingOverlayRecent = false, globalDedupeByName = false, globalEnableLogo = false, globalEnableIcon = false, globalEnableDescription = false, globalDescriptionBelowLogo = false, globalLogoBelowShelf = false, globalLogoPosition = 'left', globalDescriptionPosition = 'left', globalLogoSize = 100, globalLogoTopOffset = 20, globalFullPageShelf = false, globalIconVerticalAlign, globalShelfTitlePosition, globalGameNamePosition, globalPlaytimePosition, globalDescriptionHeight, heroForced = false, heroLabelMount = false, forceExpanded = false, forceLayoutAsRecents = false, forceCollapsed = false, autoCollapseWhenEmpty = false }: { shelf: Shelf; globalMatchNativeSize?: boolean; globalHighlightFirst?: boolean; globalHighlightAll?: boolean; globalHighlightRandom?: boolean; globalHideStatusLine?: boolean; globalHideNewBadge?: boolean; globalHideDiscountBadge?: boolean; globalHideCompatIcons?: boolean; globalHideNonSteamBadge?: boolean; globalHideShelfTitle?: boolean; globalHideGameNames?: boolean; globalHideInstallIndicator?: boolean; globalHideSeeMore?: boolean; globalHideRefreshCard?: boolean; globalHeroEnabled?: boolean; globalGameInfoAbove?: boolean; globalFriendsPlayingOverlay?: boolean; globalFriendsPlayingOverlayRecent?: boolean; globalDedupeByName?: boolean; globalEnableLogo?: boolean; globalEnableIcon?: boolean; globalEnableDescription?: boolean; globalDescriptionBelowLogo?: boolean; globalLogoBelowShelf?: boolean; globalLogoPosition?: 'left' | 'center' | 'right'; globalDescriptionPosition?: 'left' | 'center' | 'right'; globalLogoSize?: number; globalLogoTopOffset?: number; globalFullPageShelf?: boolean; globalIconVerticalAlign?: 'top' | 'center' | 'bottom' | null; globalShelfTitlePosition?: 'left' | 'center' | 'right' | null; globalGameNamePosition?: 'left' | 'center' | 'right' | null; globalPlaytimePosition?: 'left' | 'center' | 'right' | null; globalDescriptionHeight?: number | null; heroForced?: boolean; heroLabelMount?: boolean; forceExpanded?: boolean; forceLayoutAsRecents?: boolean; forceCollapsed?: boolean; autoCollapseWhenEmpty?: boolean }) {
   const { t } = useTranslation();
   const platform = usePlatform();
-  const cacheKey = `ds-shelf-cache-${shelf.id}-${shelf.sort ?? ''}-${(shelf as any).manualBaseSort ?? ''}-${(shelf as any).sortReverse ? 'r1' : 'r0'}-${(shelf as any).manualBaseSortReverse ? 'r1' : 'r0'}`;
-  const effectiveSort = shelf.source?.type === "filter"
-    ? (((shelf.source as any).filter?.sort as string | string[] | undefined) ?? shelf.sort)
-    : shelf.sort;
+  const cacheKey = computeShelfCacheKey(shelf);
   // Manual order applies only when the PRIMARY sort key is "manual".
-  // Multi-key shelves treat the first array entry as primary.
-  const primaryEffectiveSort = Array.isArray(effectiveSort) ? effectiveSort[0] : effectiveSort;
+  const { primaryEffectiveSort } = computeEffectiveSort(shelf);
   const [appIds, setAppIds] = useState<number[] | null>(() => {
     try {
       const raw = localStorage.getItem(cacheKey);
@@ -277,52 +239,15 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
     const resolve = (opts?: { manual?: boolean }) => {
       if (cancelled) return;
       const gen = ++resolveGenRef.current;
-      if (opts?.manual) {
-        setRefreshing(true);
-        if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
-        refreshTimerRef.current = setTimeout(() => {
-          refreshTimerRef.current = null;
-          setRefreshing(false);
-        }, 320);
-      }
+      if (opts?.manual) startManualRefreshIndicator(refreshTimerRef, setRefreshing);
       try {
         mark(`shelf.resolve:${shelf.id}:start`);
-        // On manual sort, resolve using the configured base sort (default
-        /* alphabetical) so items not in `manualOrder` follow the user-chosen
-           natural order. For filter sources the sort lives inside
-           `source.filter.sort` (the third arg is ignored by that branch),
-           so we clone the source and swap `filter.sort` to the base sort.
-           Base sort can be a string OR a multi-key chain (string[]). */
-        const baseSort: string | string[] = (shelf as any).manualBaseSort ?? "alphabetical";
-        const isManual = primaryEffectiveSort === "manual";
-        /* Asc/desc inversion. When manual, the base sort's reverse flag
-           applies (now also accepts boolean[] aligned with the multi-key
-           chain). Otherwise the top-level shelf flag applies. `manual`
-           and `random` are skipped at the resolver level regardless. */
-        const rawShelfReverse = (shelf as any).sortReverse;
-        const rawBaseReverse = (shelf as any).manualBaseSortReverse;
-        const resolveReverse: boolean | boolean[] = isManual
-          ? (Array.isArray(rawBaseReverse) ? rawBaseReverse : !!rawBaseReverse)
-          : (Array.isArray(rawShelfReverse) ? rawShelfReverse : !!rawShelfReverse);
-        /* When reverse is on but no explicit sort is persisted (regular shelf
-           default = "alphabetical" stored as undefined), force `alphabetical`
-           so the resolver actually calls `applySortToIds` and the reverse
-           flag has somewhere to apply. Without this, no-sort + reverse leaves
-           the source's natural order untouched. */
-        const resolveSort = isManual
-          ? baseSort
-          : (shelf.sort ?? (resolveReverse ? "alphabetical" : undefined));
-        let resolveSource: any = shelf.source;
-        if (isManual && shelf.source?.type === "filter") {
-          resolveSource = { ...shelf.source, filter: { ...(shelf.source as any).filter, sort: baseSort } };
-        }
-        const dedupeByName = (shelf as any).dedupeByExactName === true || globalDedupeByName
-        const hiddenAppIds: number[] | undefined = (shelf as any).hiddenAppIds?.length ? (shelf as any).hiddenAppIds : undefined
-        const __traceStart = Date.now();
-        try { (globalThis as any).__ds_resolve_trace = (globalThis as any).__ds_resolve_trace || {}; (globalThis as any).__ds_resolve_trace[shelf.id] = { state: "started", at: __traceStart, gen, currentGen: resolveGenRef.current, cancelled }; } catch {}
+        const { resolveSource, resolveSort, resolveReverse, dedupeByName, hiddenAppIds } =
+          computeResolveParams({ shelf, primaryEffectiveSort, globalDedupeByName });
+        const __traceStart = traceResolveStart(shelf.id, gen, resolveGenRef.current, cancelled);
         platform.resolveShelfAppIds(resolveSource, shelf.limit, resolveSort, shelf.id, resolveReverse, { hiddenAppIds, dedupeByName: dedupeByName || undefined, onResolveTotal: (n) => { resolvedTotalRef.current = n; } })
           .then((ids) => {
-            try { (globalThis as any).__ds_resolve_trace[shelf.id] = { state: "then", at: Date.now(), tookMs: Date.now() - __traceStart, gen, currentGen: resolveGenRef.current, cancelled, idCount: ids?.length }; } catch {}
+            traceResolveThen(shelf.id, __traceStart, gen, resolveGenRef.current, cancelled, ids?.length);
             if (cancelled || gen !== resolveGenRef.current) return;
             const finalIds = primaryEffectiveSort === "manual" ? applyManualOrder(ids, (shelf as any).manualOrder, hiddenAppIds) : ids;
             setAppIds(finalIds);
@@ -332,7 +257,7 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
             try { localStorage.setItem(cacheKey, JSON.stringify({ ts: Date.now(), ids })); } catch (e) { logInfo("HOME", "shelf cache write failed", String(e)); }
           })
           .catch((err) => {
-            try { (globalThis as any).__ds_resolve_trace[shelf.id] = { state: "catch", at: Date.now(), tookMs: Date.now() - __traceStart, gen, currentGen: resolveGenRef.current, cancelled, err: String(err).slice(0, 200) }; } catch {}
+            traceResolveCatch(shelf.id, __traceStart, gen, resolveGenRef.current, cancelled, err);
             if (cancelled || gen !== resolveGenRef.current) return;
             if (firstLoad.current) setAppIds([]);
           })
@@ -349,11 +274,7 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
     // Diagnostic: track per-shelf resolve activity so we can see (via CDP)
     // whether a shelf is stuck in a cancellation loop. Keys the same shelf
     // across re-mounts so the counter actually means something.
-    try {
-      const g = globalThis as any;
-      if (!g.__ds_resolve_gens) g.__ds_resolve_gens = {};
-      g.__ds_resolve_gens[shelf.id] = (g.__ds_resolve_gens[shelf.id] ?? 0) + 1;
-    } catch {}
+    bumpResolveGenCounter(shelf.id);
 
     /* Subscribe to global refresh emitter (replaces per-shelf polling
        timer). The wrapper scopes the `manual` visual indicator: every
@@ -395,7 +316,7 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
       if (settingsTimer !== null) { clearTimeout(settingsTimer); settingsTimer = null; }
       if (refreshTimerRef.current) { clearTimeout(refreshTimerRef.current); refreshTimerRef.current = null; }
     };
-  }, [platform, shelf.enabled, shelf.limit, sourceKey, (shelf as any).manualOrder?.join(",") ?? "", (shelf as any).manualBaseSort ?? "", (shelf as any).sortReverse === true, (shelf as any).manualBaseSortReverse === true, (shelf as any).hiddenAppIds?.join(",") ?? ""]);
+  }, [platform, shelf.enabled, shelf.limit, sourceKey, joinOrEmpty((shelf as any).manualOrder), orEmpty((shelf as any).manualBaseSort), (shelf as any).sortReverse === true, (shelf as any).manualBaseSortReverse === true, joinOrEmpty((shelf as any).hiddenAppIds)]);
   // NOTE: `shelf.sort` is intentionally absent from this dep array. When
   // `sort` is an array (multi-key, e.g. composite shelves with
   /* ["discount_high", "original_price_high"]), the parent passes a fresh
@@ -445,42 +366,17 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
       });
     })();
     return () => { cancelled = true; };
-  }, [platform, appIds?.join(","), metaVersion]);
+  }, [platform, joinOrEmpty(appIds), metaVersion]);
 
-  // Async name fetch for online-source items not in the local appStore.
-  // Uses the public Steam Store API (appdetails?filters=basic) which works
-  // from the browser without authentication.
-  const isOnlineShelf = shelf.source.type === 'wishlist' || shelf.source.type === 'store';
-  // Composite source with at least one online child (wishlist / store): the
-  // composite itself isn't `type === 'wishlist'/'store'`, but the appids it
-  /* returns include non-owned ones from the online child. Without this
-     detection, wishlist appids inside a composite render as `#12345`
-     (no local appStore entry → fallback name) and show an install indicator
-     that makes no sense for games the user doesn't own. Triggers the
-     external-name fetch path AND the install-indicator hide. */
-  const compositeHasOnlineChild = shelf.source.type === 'composite' && Array.isArray((shelf.source as any).sources)
-    && (shelf.source as any).sources.some((c: any) => c?.type === 'wishlist' || c?.type === 'store');
-  // Smart shelves like `friends_playing` may surface appids the user doesn't
-  /* own — the resolver flags them via `includesNonOwned`. Trigger the same
-     Steam Store API name-fetch path the online shelves use so non-owned
-     cards show real titles instead of the generic `App <id>` fallback.
-     Hide-owned / view-more behaviour stays gated on `isOnlineShelf` so
-     friends_playing keeps owned cards interactive. */
+  /* Async name fetch (Steam Store appdetails) for online-source items not in
+     the local appStore. Smart shelves like `friends_playing` may also surface
+     non-owned appids via `includesNonOwned`; hide-owned/view-more stay gated
+     on `isOnlineShelf` so friends_playing keeps owned cards interactive. */
   const sourceIncludesNonOwned = (shelf.source as any).includesNonOwned === true;
-  const needsExternalNames = isOnlineShelf || sourceIncludesNonOwned || compositeHasOnlineChild;
-  // For composite shelves the per-shelf exclude-owned toggles live on the
-  /* online child (editor propagates them there uniformly). Read from the
-     first online child so the render-time name-dedup applies to composite
-     shelves with an online child too — without this, Steam wishlist items
-     that the user owns via a non-Steam shortcut (e.g. Epic / Amazon / GOG)
-     stay visible in the composite row even with the toggle on. */
-  const compositeOnlineChildSource = compositeHasOnlineChild
-    ? ((shelf.source as any).sources?.find?.((c: any) => c?.type === 'wishlist' || c?.type === 'store'))
-    : null;
-  const ownedSourceForToggles = isOnlineShelf ? (shelf.source as any) : compositeOnlineChildSource;
-  const excludeOwned = !!ownedSourceForToggles && ownedSourceForToggles.excludeOwned === true;
-  const excludeOwnedNonSteam = excludeOwned && !!ownedSourceForToggles && ownedSourceForToggles.excludeOwnedNonSteam === true;
-  const perShelfHideOwnedCloud = ownedSourceForToggles?.hideOwnedNonSteamCloud;
+  const {
+    isOnlineShelf, compositeHasOnlineChild, needsExternalNames,
+    excludeOwned, excludeOwnedNonSteam, perShelfHideOwnedCloud,
+  } = computeOnlineSourceFlags({ shelf, sourceIncludesNonOwned });
 
   const [globalHideOwned, setGlobalHideOwned] = useState(() => getCurrentSettings()?.onlineHideOwnedGames === true);
   const [globalHideOwnedNonSteam, setGlobalHideOwnedNonSteam] = useState(() => getCurrentSettings()?.onlineHideOwnedNonSteam === true);
@@ -502,11 +398,10 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
      this gate, the wishlist child's `excludeOwned: true` would only take
      effect via the resolver's appid-based dedup, missing same-name games
      owned via non-Steam shortcuts (no Steam appid match). */
-  const shouldHideOwned = (isOnlineShelf || compositeHasOnlineChild) && (globalHideOwned || excludeOwned);
-  const effectiveNonSteam = (globalHideOwned && globalHideOwnedNonSteam) || (excludeOwned && excludeOwnedNonSteam);
-  // Cloud-play sub-toggle: per-shelf overrides global. Only meaningful
-  // when non-Steam hiding is also on.
-  const effectiveCloud = effectiveNonSteam && (perShelfHideOwnedCloud === true || (perShelfHideOwnedCloud === undefined && globalHideOwnedCloud));
+  const { shouldHideOwned, effectiveNonSteam, effectiveCloud } = computeOwnedHideFlags({
+    isOnlineShelf, compositeHasOnlineChild, globalHideOwned, excludeOwned,
+    globalHideOwnedNonSteam, excludeOwnedNonSteam, perShelfHideOwnedCloud, globalHideOwnedCloud,
+  });
 
   // Owned appid set from collectionStore — matches the resolver's logic so
   // render and resolver agree on what counts as owned.
@@ -578,7 +473,7 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
       })();
     }
     return () => { cancelled = true; };
-  }, [needsExternalNames, appIds?.join(','), items, sourceIncludesNonOwned]);
+  }, [needsExternalNames, joinOrEmpty(appIds), items, sourceIncludesNonOwned]);
 
   /* Publish resolved items into a global registry so Quick Search can
      match against EVERY game in the shelf, not just the cards currently
@@ -599,105 +494,22 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
 
   const rowItems = useMemo((): DeckRowItem[] => {
     if (!appIds?.length) return [];
+    // Online treatment also applies when the shelf is a composite whose
+    // children include a wishlist / store source — shelf-invariant, so
+    // computed once rather than per item.
+    const isOnlineSource = isOnlineSourceForShelf(shelf, sourceIncludesNonOwned);
+    // For composite shelves, only hide owned ids that came from an online
+    // child — `isStoreFallback` proxies "no local overview".
+    const onlyHideOnlineOriginated = shelf.source.type === 'composite';
     const base = appIds.flatMap((appid): DeckRowItem[] => {
       const item = items.get(appid) ?? { appid, name: `App ${appid}` };
       const isStoreFallback = /^App \d+$/.test(item.name);
-      /* Online treatment also applies when the shelf is a composite
-         whose children include a wishlist / store source — those
-         children return remote-only appids that won't be in the local
-         appStore, so the stub `App {id}` name is legitimate and the
-         CDN-art branch below must render them instead of dropping them. */
-      const isOnlineSource =
-        shelf.source.type === 'wishlist' ||
-        shelf.source.type === 'store' ||
-        sourceIncludesNonOwned ||
-        (shelf.source.type === 'composite' && Array.isArray((shelf.source as any).sources)
-          && (shelf.source as any).sources.some((c: any) => c?.type === 'wishlist' || c?.type === 'store'));
-
-      // For composite shelves, only hide owned ids that came from an
-      // online child — `isStoreFallback` proxies "no local overview".
-      const isCompositeShelf = shelf.source.type === 'composite';
-      const onlyHideOnlineOriginated = isCompositeShelf;
       const eligibleForOwnedHide = onlyHideOnlineOriginated ? isStoreFallback : isOnlineSource;
-      if (eligibleForOwnedHide && shouldHideOwned && ownedAppIds && ownedAppIds.has(appid)) return [];
+      if (shouldDropOwnedItem({ eligibleForOwnedHide, shouldHideOwned, ownedAppIds, appid })) return [];
       if (isStoreFallback && !isOnlineSource) return [];
-
-      // Name-based dedup against the truly-owned local titles.
-      // normalizeTitleForMatch strips punctuation so colon / dash
-      /* differences between Steam's official title and the user's
-         non-Steam shortcut name don't block the match. Same composite
-         scoping as the appid check above — name-matching against owned
-         titles would otherwise hide collection items whose names happen
-         to also appear in the user's library. */
-      if (shouldHideOwned && ownedNames && isOnlineSource && eligibleForOwnedHide) {
-        const rawName = item.name && !isStoreFallback ? item.name : storeNames.get(appid) ?? '';
-        const itemName = normalizeTitleForMatch(rawName);
-        if (itemName && ownedNames.has(itemName)) return [];
-      }
-
-      /* Non-owned game from an online source: decorative card with CDN artwork.
-         Artwork URL: use the public Akamai CDN which has better global availability
-         than the Cloudflare edge for in-client requests. Clicking opens the Steam
-         Store page for the game (works natively in Big Picture via /library/app/). */
-      if (isStoreFallback && isOnlineSource) {
-        const cdnPortrait = `${STEAM_CDN_AKAMAI}/steam/apps/${appid}/library_600x900.jpg`;
-        const cdnHero = `${STEAM_CDN_AKAMAI}/steam/apps/${appid}/header.jpg`;
-        const gameName = storeNames.get(appid) ?? `#${appid}`;
-        const discountPct = getCachedDiscount(appid);
-        // Online card menu: DS shelf actions only — no native Steam menu.
-        // Uses buildShelfContextMenu for structure parity with regular shelves.
-        const showOnlineMenu = () => {
-          try {
-            // Without the host fallback this online-card menu never opened in
-            // sole mode (no loader global there).
-            const dfl = resolveFrontendLib();
-            const R = (globalThis as any).SP_REACT;
-            if (!dfl?.showContextMenu || !R || !dfl.MenuItem || !dfl.Menu) return;
-            const items = buildShelfContextMenu(shelf.id, appid, dfl, R);
-            if (!items.length) return;
-            const menu = R.createElement(dfl.Menu, { label: gameName, cancelText: t('cancel') }, ...items);
-            dfl.showContextMenu(menu, null);
-          } catch {}
-        };
-        return [{
-          id: appid,
-          appid,
-          name: gameName,
-          portraitUrl: cdnPortrait,
-          heroUrl: cdnHero,
-          onActivate: () => openSteamStorePage(appid),
-          onMenuButton: showOnlineMenu,
-          discountPercent: discountPct ?? undefined,
-          shelfId: shelf.id,
-        }];
-      }
-
-      /* Pass `shelf.id` so the captured native menu (and the DFL fallback)
-         gain a `Deck Shelves > Shelf > […]` submenu — same afterPatch / HOC
-         afterPatch / HOC seam. Non-shelf game cards still get the
-         unmodified native menu via `showGameMenu(appid)`. */
-      const onMenuButton = () => showGameMenu(appid, shelf.id);
-      const addedTs = (item as any).addedTimestamp;
-      const addedMs = typeof addedTs === 'number' && addedTs > 0 ? (addedTs < 1e12 ? addedTs * 1000 : addedTs) : 0;
-      const isNew = addedMs > 0 ? (Date.now() - addedMs) < NEW_GAME_WINDOW_MS : false;
-      return [{
-        id: appid,
-        appid,
-        name: item.name,
-        portraitUrl: item.portraitUrl,
-        heroUrl: item.heroUrl,
-        onActivate: () => { saveFocusTarget(appid, shelf.id); platform.navigateToApp(appid); },
-        onMenuButton,
-        deckCompatCategory: item.deckCompatCategory,
-        controllerSupport: item.controllerSupport,
-        playtimeMinutes: item.playtimeMinutes,
-        isInstalled: item.installed,
-        updatePending: item.updatePending,
-        isSteam: item.isSteam,
-        isNew,
-        statusText: item.installed !== true ? t('status_not_installed') : undefined,
-        shelfId: shelf.id,
-      }];
+      if (isHiddenByOwnedName({ shouldHideOwned, ownedNames, isOnlineSource, eligibleForOwnedHide, item, isStoreFallback, storeNames, appid })) return [];
+      if (isStoreFallback && isOnlineSource) return [buildOnlineFallbackRowItem({ appid, shelfId: shelf.id, storeNames, t })];
+      return [buildOwnedRowItem({ appid, item, shelf, platform, t })];
     });
     if (!base.length) return base;
     // Cap to shelf.limit AFTER filtering — the resolver overshoots so the
@@ -717,98 +529,19 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
       limit: shelf.limit,
       isOnline: isOnlineShelf,
     };
-    if (shouldShowRefreshCard(trailingInput)) {
-      const isSmart = (shelf.source as any)?.type === 'smart';
-      const refreshName = isOnlineShelf ? t('refresh_cache') : t('refresh');
-      base.push({
-        id: `${shelf.id}__refresh`,
-        name: refreshName,
-        isRefresh: true,
-        onActivate: () => {
-          if (isOnlineShelf) {
-            clearOnlineShelfCache();
-          } else if (isSmart) {
-            invalidateSmartShelfCache(shelf.id);
-          } else {
-            invalidateRandomSortCache(shelf.id);
-          }
-          // Single unified refresh path — same as the context-menu
-          /* "Refresh cache" action. Every subscribed shelf still receives
-             the trigger so online cache clears (which affect every online
-             shelf at once) reload consistently across the home — but
-             `shelfId` scopes the visual indicator to this shelf so a
-             single-shelf click doesn't dim the entire home. */
-          triggerShelfRefresh({ manual: true, shelfId: shelf.id });
-        },
-      });
-    }
-    if (shouldShowMoreCard(trailingInput)) {
-      const moreLabel = isOnlineShelf
-        ? (shelf.source.type === 'wishlist' ? t('view_more_wishlist') : t('view_more_store'))
-        : t('view_more');
-      // Online "see more": open the wishlist or Steam Store browse page.
-      const moreActivate = isOnlineShelf
-        ? () => {
-            const url = shelf.source.type === 'wishlist'
-              ? ((globalThis as any).urlStore?.m_steamUrls?.userwishlist?.url
-                  ?? `${STEAM_STORE_BASE}/wishlist/`)
-              : `${STEAM_STORE_BASE}/specials/`;
-            openSteamStoreUrl(url, `steam://openurl/${url}`);
-          }
-        : () => platform.navigateToShelfSource?.(shelf.source, shelf.title);
-      base.push({
-        id: `${shelf.id}__more`,
-        name: moreLabel,
-        isMoreLink: true,
-        onActivate: moreActivate,
-      });
-    }
-    // interleave synthetic cards at their fixed slots.
-    // Insert is order-preserving: a card with position N lands at index
-    /* N of the final array (clamped to the array length). Multiple
-       syntheticCards with the same position are inserted in declaration
-       order, each pushing the next one forward. Positions are applied
-       AFTER trailing cards so a position past the last game still lands
-       in the visible row. */
-    const synth = (shelf as any).syntheticCards as Array<any> | undefined;
-    if (synth && synth.length) {
-      /* Sort by position, keep the ORIGINAL index alongside so the
-         synthetic card can address its own entry for X (remove) / Y
-         (toggle size) bindings even though the home array is mutated
-         by splice order. */
-      const indexed = synth.map((c, origIdx) => ({ c, origIdx }));
-      indexed.sort((a, b) => (a.c.position ?? 0) - (b.c.position ?? 0));
-      for (const { c, origIdx } of indexed) {
-        const pos = Math.max(0, Math.min(base.length, Number(c.position) || 0));
-        base.splice(pos, 0, {
-          id: `${shelf.id}__synthetic__${pos}__${base.length}`,
-          name: c.text ?? "",
-          shelfId: shelf.id,
-          synthetic: {
-            image: c.image,
-            text: c.text,
-            link: c.link,
-            size: c.size === "featured" ? "featured" : "normal",
-            alpha: c.alpha,
-            placeholder: c.placeholder === true,
-            heroImage: c.heroImage,
-            shadowMode: c.shadowMode,
-            // Index into the persisted `shelf.syntheticCards` array so
-            // the card's X (remove) / Y (toggle size) bindings can
-            // patch the right entry directly.
-            index: origIdx,
-          },
-        });
-      }
-    }
+    if (shouldShowRefreshCard(trailingInput)) base.push(buildRefreshRowItem({ shelf, isOnlineShelf, t }));
+    if (shouldShowMoreCard(trailingInput)) base.push(buildMoreRowItem({ shelf, isOnlineShelf, t, platform }));
+    // Interleave synthetic cards at their fixed slots, after trailing cards
+    // so a position past the last game still lands in the visible row.
+    insertSyntheticCards(base, shelf);
     return base;
-  }, [appIds, items, storeNames, ownedNames, ownedAppIds, shouldHideOwned, shelf.id, shelf.limit, shelf.source, shelf.sort, shelf.title, platform, t, globalHideSeeMore, globalHideRefreshCard, (shelf as any).hideSeeMore, (shelf as any).hideRefreshCard, JSON.stringify((shelf as any).syntheticCards ?? null), priceVersion]);
+  }, [appIds, items, storeNames, ownedNames, ownedAppIds, shouldHideOwned, shelf.id, shelf.limit, shelf.source, shelf.sort, shelf.title, platform, t, globalHideSeeMore, globalHideRefreshCard, (shelf as any).hideSeeMore, (shelf as any).hideRefreshCard, jsonOrNull((shelf as any).syntheticCards), priceVersion]);
 
   /* Menu-added games (in manualOrder, not in resolved source) — DeckRow uses
      this to bind X=Remove on those cards (vs X=Hide on the rest). Kept above
      the early returns below (Rules of Hooks): manualOrder/sourceIds are both
      available before shelf/appIds/rowItems are known. */
-  const manualOrder: number[] = (shelf as any).manualOrder ?? [];
+  const manualOrder: number[] = orEmptyArray((shelf as any).manualOrder);
   const removableSet = useMemo(() => {
     if (!manualOrder.length || !sourceIds) return undefined;
     const inSrc = new Set(sourceIds);
@@ -816,7 +549,7 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
     return tail.length ? new Set(tail) : undefined;
   }, [manualOrder, sourceIds]);
 
-  if (!shelf.enabled || shelf.hidden) return null;
+  if (shouldSkipShelf(shelf)) return null;
   if (appIds === null) return <div style={{ padding: 10 }}><Spinner /></div>;
   if (!appIds.length) return null;
 
@@ -828,7 +561,7 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
      emitter fires (game launch, install/uninstall, 30 s poll). After the
      first successful render, transitions just keep the prior content
      visible until the new meta lands. */
-  if (!rowItems.length && items.size > 0 && metaVersion < 5 && firstLoad.current) {
+  if (shouldShowMetaSpinner(rowItems.length, items.size, metaVersion, firstLoad.current)) {
     return <div style={{ padding: 10 }}><Spinner /></div>;
   }
   if (!rowItems.length) {
@@ -844,7 +577,7 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
     shelf.highlightedAppIds,
     appIds,
     shelf.id,
-    globalHighlightRandom || (shelf as any).highlightRandom,
+    resolveHighlightRandom(globalHighlightRandom, shelf),
   );
   /* Global is the master switch for logo/icon/description/hide flags and
      position/size overrides; light mode additionally strips per-shelf
@@ -869,7 +602,17 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
     gameNamePosition: globalGameNamePosition, playtimePosition: globalPlaytimePosition,
     descriptionHeight: globalDescriptionHeight,
   });
-  const row = <DeckRow title={shelf.title} items={rowItems} shelfId={shelf.id} removableSet={removableSet} matchNativeSize={globalMatchNativeSize || shelf.matchNativeSize} highlightFirst={globalHighlightFirst || shelf.highlightFirst} highlightAll={globalHighlightAll || shelf.highlightAll} highlightedAppIds={effectiveHighlightedAppIds} hideStatusLine={effectiveHide} hideNewBadge={effectiveHideNewBadge} hideDiscountBadge={effectiveHideDiscountBadge} hideCompatIcons={effectiveHideCompatIcons} hideNonSteamBadge={effectiveHideNonSteamBadge} hideShelfTitle={effectiveHideShelfTitle} hideGameNames={effectiveHideGameNames} hideInstallIndicator={effectiveHideInstallIndicator} enableLogo={effectiveEnableLogo} enableIcon={effectiveEnableIcon} enableDescription={effectiveEnableDescription} descriptionBelowLogo={effectiveDescriptionBelowLogo} logoBelowShelf={effectiveLogoBelowShelf} logoPosition={effectiveLogoPosition} descriptionPosition={effectiveDescriptionPosition} logoSize={effectiveLogoSize} logoTopOffset={effectiveLogoTopOffset} iconVerticalAlign={effectiveIconVerticalAlign} shelfTitlePosition={effectiveShelfTitlePosition} gameNamePosition={effectiveGameNamePosition} playtimePosition={effectivePlaytimePosition} descriptionHeight={effectiveDescriptionHeight} descriptionLogoGap={effectiveDescriptionLogoGap} descriptionScale={effectiveDescriptionScale} forceExpanded={forceExpanded} fullPageLayoutOnly={fullPageLayout} pinScrollTop={forceExpanded && !fullPageLayout} forceLayoutAsRecents={forceLayoutAsRecents} heroEnabled={lightMode ? (forceExpanded || forceLayoutAsRecents) : (heroForced || globalHeroEnabled || (shelf as any).heroEnabled === true)} heroLabelMount={heroLabelMount} infoAbove={globalGameInfoAbove || (shelf as any).gameInfoAbove === true} friendsOverlay={globalFriendsPlayingOverlay || (shelf as any).friendsPlayingOverlay === true} friendsOverlayRecent={globalFriendsPlayingOverlayRecent || (shelf as any).friendsPlayingOverlayRecent === true} forceCollapsed={forceCollapsed} autoCollapseWhenEmpty={autoCollapseWhenEmpty} />;
+  const deckRowDerived = computeDeckRowDerivedProps({
+    globalMatchNativeSize, shelfMatchNativeSize: shelf.matchNativeSize,
+    globalHighlightFirst, shelfHighlightFirst: shelf.highlightFirst,
+    globalHighlightAll, shelfHighlightAll: shelf.highlightAll,
+    forceExpanded, fullPageLayout,
+    lightMode, forceLayoutAsRecents, heroForced, globalHeroEnabled, shelfHeroEnabled: (shelf as any).heroEnabled,
+    globalGameInfoAbove, shelfGameInfoAbove: (shelf as any).gameInfoAbove,
+    globalFriendsPlayingOverlay, shelfFriendsPlayingOverlay: (shelf as any).friendsPlayingOverlay,
+    globalFriendsPlayingOverlayRecent, shelfFriendsPlayingOverlayRecent: (shelf as any).friendsPlayingOverlayRecent,
+  });
+  const row = <DeckRow title={shelf.title} items={rowItems} shelfId={shelf.id} removableSet={removableSet} matchNativeSize={deckRowDerived.matchNativeSize} highlightFirst={deckRowDerived.highlightFirst} highlightAll={deckRowDerived.highlightAll} highlightedAppIds={effectiveHighlightedAppIds} hideStatusLine={effectiveHide} hideNewBadge={effectiveHideNewBadge} hideDiscountBadge={effectiveHideDiscountBadge} hideCompatIcons={effectiveHideCompatIcons} hideNonSteamBadge={effectiveHideNonSteamBadge} hideShelfTitle={effectiveHideShelfTitle} hideGameNames={effectiveHideGameNames} hideInstallIndicator={effectiveHideInstallIndicator} enableLogo={effectiveEnableLogo} enableIcon={effectiveEnableIcon} enableDescription={effectiveEnableDescription} descriptionBelowLogo={effectiveDescriptionBelowLogo} logoBelowShelf={effectiveLogoBelowShelf} logoPosition={effectiveLogoPosition} descriptionPosition={effectiveDescriptionPosition} logoSize={effectiveLogoSize} logoTopOffset={effectiveLogoTopOffset} iconVerticalAlign={effectiveIconVerticalAlign} shelfTitlePosition={effectiveShelfTitlePosition} gameNamePosition={effectiveGameNamePosition} playtimePosition={effectivePlaytimePosition} descriptionHeight={effectiveDescriptionHeight} descriptionLogoGap={effectiveDescriptionLogoGap} descriptionScale={effectiveDescriptionScale} forceExpanded={forceExpanded} fullPageLayoutOnly={fullPageLayout} pinScrollTop={deckRowDerived.pinScrollTop} forceLayoutAsRecents={forceLayoutAsRecents} heroEnabled={deckRowDerived.heroEnabled} heroLabelMount={heroLabelMount} infoAbove={deckRowDerived.infoAbove} friendsOverlay={deckRowDerived.friendsOverlay} friendsOverlayRecent={deckRowDerived.friendsOverlayRecent} forceCollapsed={forceCollapsed} autoCollapseWhenEmpty={autoCollapseWhenEmpty} />;
   /* Brief opacity dip while a user-triggered refresh is in flight so the
      click is never ambiguous — even when the resolver returns identical
      data, the shelf visibly fades and recovers, signalling that the

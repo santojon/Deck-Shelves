@@ -2,8 +2,8 @@ import { memo, useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { mark, measure } from "../core/perf";
 import { computeCenteredScrollLeft } from "../core/scrollUtils";
 import { Focusable } from "../runtime/host/decky";
-import { getPreferredSteamDocument, getAllSteamDocuments } from "../runtime/steamHost";
-import { buildSelectorFromToken, getRuntimeClassMap } from "../core/webpackCompat";
+import { getPreferredSteamDocument } from "../runtime/steamHost";
+import { getRuntimeClassMap } from "../core/webpackCompat";
 import { logInfo } from "../runtime/logger";
 import { focusElement, getLastFocusedElement } from "../core/focusRestore";
 import { flowChildrenProps } from "../core/steamOSVersion";
@@ -21,12 +21,19 @@ import {
   globalStylesStart,
   globalStylesStop,
   onNativeDimsChange,
-  clampCardGap,
 } from "./shelf/shelfStyles";
 import { getCurrentSettings, saveSettings } from "../store/settingsStore";
 import { trackFeature } from "../steam/usageTracking";
 import { patchShelfInSettings } from "../domain/settings";
 import { PerShelfHero } from "./shelf/PerShelfHero";
+import {
+  computeEffectiveDims, computeVisuallyForced, computeFullPageLayoutActive,
+  computeAutoCollapsed, computeCollapsed, computeLogoBandPx, computeShelfRootStyle,
+  shouldRenderHero, resolveTitleJustifyContent, boolAttr, computeLockedTitleProps,
+  isFocusStillWithin, isLateralMoveWithinShelf,
+  syncCardSelectionClasses, scrollShelfIntoView, applyVerticalFallback,
+  findScrollViewport, findGpfocusDsCardMutation, clearGpfocusOnOtherDocs,
+} from "./shelf/deckRowHelpers";
 
 function isScrollableEl(el: HTMLElement): boolean {
   try {
@@ -55,16 +62,6 @@ function writeCollapsed(shelfId: string, collapsed: boolean): void {
   }
 }
 
-/* A deferred re-center pass can outlive the focus that scheduled it (a rapid
-   lateral-navigation burst keeps re-arming a verify timer; by the time it
-   fires, focus may have already moved to a different row entirely). True iff
-   a card inside `el` is still genuinely focused — checks both real DOM focus
-   and GamepadUI's own `gpfocus` class. */
-function isFocusStillWithin(el: HTMLElement): boolean {
-  const active = el.ownerDocument?.activeElement;
-  return (active != null && el.contains(active)) || !!el.querySelector('.gpfocus');
-}
-
 // Row paddingBottom budget: scales with what renders below the card art
 // so the label / status row / per-card description never get clipped.
 export function _labelOverhangPx(args: {
@@ -83,12 +80,12 @@ export function _labelOverhangPx(args: {
 }
 
 function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = false, highlightFirst = false, highlightAll = false, highlightedAppIds, hideStatusLine = false, hideNewBadge = false, hideDiscountBadge = false, hideCompatIcons = false, hideNonSteamBadge = false, hideShelfTitle = false, hideGameNames = false, hideInstallIndicator = false, enableLogo = false, enableIcon = false, enableDescription = false, descriptionBelowLogo = false, logoBelowShelf = false, logoPosition = 'left', descriptionPosition = 'left', logoSize = 100, logoTopOffset = 20, iconVerticalAlign = 'top', shelfTitlePosition = 'left', gameNamePosition = 'left', playtimePosition = 'left', descriptionHeight = 2, descriptionLogoGap = 10, descriptionScale = 1, forceExpanded = false, fullPageLayoutOnly = false, pinScrollTop = false, forceLayoutAsRecents = false, heroEnabled = false, heroLabelMount = false, infoAbove = false, friendsOverlay = false, friendsOverlayRecent = false, forceCollapsed = false, autoCollapseWhenEmpty = false }: { title?: string; items: DeckRowItem[]; shelfId?: string; removableSet?: Set<number>; matchNativeSize?: boolean; highlightFirst?: boolean; highlightAll?: boolean; highlightedAppIds?: number[]; hideStatusLine?: boolean; hideNewBadge?: boolean; hideDiscountBadge?: boolean; hideCompatIcons?: boolean; hideNonSteamBadge?: boolean; hideShelfTitle?: boolean; hideGameNames?: boolean; hideInstallIndicator?: boolean; enableLogo?: boolean; enableIcon?: boolean; enableDescription?: boolean; descriptionBelowLogo?: boolean; logoBelowShelf?: boolean; logoPosition?: 'left' | 'center' | 'right'; descriptionPosition?: 'left' | 'center' | 'right'; logoSize?: number; logoTopOffset?: number; iconVerticalAlign?: 'top' | 'center' | 'bottom'; shelfTitlePosition?: 'left' | 'center' | 'right'; gameNamePosition?: 'left' | 'center' | 'right'; playtimePosition?: 'left' | 'center' | 'right'; descriptionHeight?: number; descriptionLogoGap?: number; descriptionScale?: number; forceExpanded?: boolean; fullPageLayoutOnly?: boolean; pinScrollTop?: boolean; forceLayoutAsRecents?: boolean; heroEnabled?: boolean; heroLabelMount?: boolean; infoAbove?: boolean; friendsOverlay?: boolean; friendsOverlayRecent?: boolean; forceCollapsed?: boolean; autoCollapseWhenEmpty?: boolean }) {
-  const visuallyForced = forceExpanded || forceLayoutAsRecents;
+  const visuallyForced = computeVisuallyForced(forceExpanded, forceLayoutAsRecents);
   /* 100vh layout fires for BOTH real recents-replacement (`forceExpanded`)
      and per-shelf full-page intent (`fullPageLayoutOnly`). Only the real
      one drives `isFirstShelf` for the hero — full-page with native
      recents above must still keep its subtle fade-in. */
-  const fullPageLayoutActive = (forceExpanded || fullPageLayoutOnly) && !pinScrollTop;
+  const fullPageLayoutActive = computeFullPageLayoutActive(forceExpanded, fullPageLayoutOnly, pinScrollTop);
   const highlightedSet = useMemo(() => {
     if (!highlightedAppIds?.length) return null;
     return new Set(highlightedAppIds);
@@ -155,8 +152,8 @@ function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = fa
   // Auto-collapse forces the collapsed render (off-context predicate matched, or
   // the shelf is empty) on top of the manual `collapsedState`; a promoted/recents
   // shelf (visuallyForced) is never auto-collapsed.
-  const autoCollapsed = forceCollapsed || (autoCollapseWhenEmpty && items.length === 0);
-  const collapsed = visuallyForced ? false : (collapsedState || autoCollapsed);
+  const autoCollapsed = computeAutoCollapsed(forceCollapsed, autoCollapseWhenEmpty, items.length);
+  const collapsed = computeCollapsed(visuallyForced, collapsedState, autoCollapsed);
   const [nativeRowClass, setNativeRowClass] = useState('');
   /* Bumped by the onNativeDimsChange subscription below so `dims` recomputes
      with a fresh getCachedNativeDims() read once a measurement lands after
@@ -170,26 +167,10 @@ function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = fa
      cards as the *fallback* of their --ds-eff-* CSS variables — the live
      value normally comes from those vars (set on the shelf div, resolved
      from the root --ds-native-* vars that ensureStyles keeps current). */
-  const dims = useMemo(() => {
-    const nd = getCachedNativeDims();
-    const w = matchNativeSize && nd ? nd.width : CARD_W;
-    const h = matchNativeSize && nd ? nd.height : CARD_ART_H;
-    // Clamped both ways (min 8px so TiltedHome's skew never fully merges
-    // adjacent cards, max half the card width so a bad native measurement
-    // can never blow up into a huge visible gap) — see clampCardGap.
-    const rawGap = matchNativeSize && nd ? nd.gap : CARD_GAP;
-    const gap = clampCardGap(rawGap, w);
-    // Default featured: ~3.21× portrait width (matches base native 430px featured
-    // card at 134px portrait width, measured via CDP on the Steam Deck home screen).
-    const featW = matchNativeSize && nd?.featuredWidth ? nd.featuredWidth : Math.round(w * 3.21);
-    // A featured card differs from its row-mates only in WIDTH — its height
-    // (and art height) always match the regular cards, never Steam's
-    // separately measured landscape-card height.
-    const artH = matchNativeSize && nd?.imgHeight ? nd.imgHeight : h;
-    const featH = h;
-    const featArtH = artH;
-    return { w, h, gap, featW, featH, artH, featArtH };
-  }, [matchNativeSize, dimsVersion]);
+  const dims = useMemo(
+    () => computeEffectiveDims(matchNativeSize, getCachedNativeDims()),
+    [matchNativeSize, dimsVersion],
+  );
   const { w: effectiveW, h: effectiveH, gap: effectiveGap, featW: effectiveFeaturedW, featH: effectiveFeaturedH, artH: effectiveArtH, featArtH: effectiveFeaturedArtH } = dims;
 
   /* Per-shelf effective-dimension vars. When matchNativeSize is on, the cards
@@ -343,11 +324,7 @@ function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = fa
     const findScrollableAncestor = (node: HTMLElement | null): HTMLElement | null => {
       let cur = node?.parentElement ?? null;
       while (cur && cur !== cur.ownerDocument?.body) {
-        try {
-          const cs = getComputedStyle(cur);
-          const oy = (cs.overflowY || "").toLowerCase();
-          if ((oy === "auto" || oy === "scroll" || oy === "overlay") && cur.scrollHeight > cur.clientHeight) return cur;
-        } catch { /* skip */ }
+        if (isScrollableEl(cur)) return cur;
         cur = cur.parentElement;
       }
       return null;
@@ -490,22 +467,7 @@ function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = fa
       if (!card) return;
       lastFocusedCard = card;
       if (throttleRows.has(rowEl)) return;
-      try {
-        const allCards = Array.from(rowEl.querySelectorAll<HTMLElement>('.ds-card'));
-        for (const it of allCards) {
-          it.classList.toggle('is-selected', it === card);
-        }
-      } catch (e) {
-        logInfo("HOME", "is-selected toggle failed", String(e));
-      }
-      try {
-        const nested = Array.from(rowEl.querySelectorAll<HTMLElement>('.gpfocus'));
-        for (const n of nested) {
-          if (n !== card && n.classList) n.classList.remove('gpfocus');
-        }
-      } catch (e) {
-        logInfo("HOME", "gpfocus cleanup failed", String(e));
-      }
+      syncCardSelectionClasses(rowEl, card);
       /* Lateral card-to-card move within the same shelf → skip the vertical
          re-centering below (the shelf is already positioned). Only re-center
          when focus ENTERS this shelf from another row. Re-centering on every
@@ -513,16 +475,12 @@ function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = fa
          the whole shelf — hero art included — bob ~6px per card. */
       const prevCard: HTMLElement | null = (globalThis as any).__ds_prev_centered_card ?? null;
       (globalThis as any).__ds_prev_centered_card = card;
-      if (prevCard && prevCard !== card && rowEl.contains(prevCard)) {
+      if (isLateralMoveWithinShelf(prevCard, card, rowEl)) {
         doHorizontalScroll(card);
         return;
       }
       try {
-        const outer = outerRef.current;
-        if (outer) requestAnimationFrame(() => {
-          if (pinScrollTopRef.current) return;
-          outer.scrollIntoView({ block: 'center', behavior: 'smooth' });
-        });
+        scrollShelfIntoView(outerRef.current, pinScrollTopRef.current);
       } catch (e) {
         logInfo("HOME", "scrollIntoView failed", String(e));
       }
@@ -536,23 +494,7 @@ function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = fa
           }
           return null;
         }
-        const anc = getScrollableAncestor(rowEl);
-        if (anc) {
-          const outerEl = outerRef.current;
-          if (outerEl) {
-            if (pinScrollTopRef.current) {
-              try { anc.scrollTo({ top: 0, behavior: 'smooth' }); } catch { anc.scrollTop = 0; }
-            } else {
-              const outerRect = outerEl.getBoundingClientRect();
-              const ancRect = anc.getBoundingClientRect();
-              const delta = outerRect.top - ancRect.top;
-              const target = anc.scrollTop + delta - (anc.clientHeight / 2) + (outerRect.height / 2);
-              const maxScroll = Math.max(0, anc.scrollHeight - anc.clientHeight);
-              const finalTop = Math.max(0, Math.min(target, maxScroll));
-              try { anc.scrollTo({ top: finalTop, behavior: 'smooth' }); } catch { anc.scrollTop = finalTop; }
-            }
-          }
-        }
+        applyVerticalFallback(getScrollableAncestor(rowEl), outerRef.current, pinScrollTopRef.current);
       } catch (e) {
         logInfo("HOME", "vertical scroll fallback A failed", String(e));
       }
@@ -560,40 +502,7 @@ function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = fa
       try {
         const spDoc = getPreferredSteamDocument();
         if (spDoc && spDoc !== document) {
-          const candidates = Array.from(spDoc.querySelectorAll<HTMLElement>('[class]'));
-          let viewport: HTMLElement | null = null;
-          const map = (() => { try { return getRuntimeClassMap(spDoc); } catch { return null; } })();
-          if (map?.viewport) {
-            const sel = buildSelectorFromToken(map.viewport);
-            if (sel) try { viewport = spDoc.querySelector(sel); } catch (e) { logInfo("HOME", "viewport selector failed", String(e)); }
-          }
-          if (!viewport) {
-            for (const el of candidates) {
-              try {
-                const cs = getComputedStyle(el);
-                const oy = (cs.overflowY || '').toLowerCase();
-                if ((oy === 'auto' || oy === 'scroll' || oy === 'overlay') && el.scrollHeight > el.clientHeight && el.clientHeight > 80) { viewport = el; break; }
-              } catch (e) {
-                logInfo("HOME", "viewport scan: getComputedStyle failed", String(e));
-              }
-            }
-          }
-          if (viewport) {
-            const outerEl = outerRef.current;
-            if (outerEl) {
-              if (pinScrollTopRef.current) {
-                try { viewport.scrollTo({ top: 0, behavior: 'smooth' }); } catch { viewport.scrollTop = 0; }
-              } else {
-                const outerRect = outerEl.getBoundingClientRect();
-                const vpRect = viewport.getBoundingClientRect();
-                const delta = outerRect.top - vpRect.top;
-                const target = viewport.scrollTop + delta - (viewport.clientHeight / 2) + (outerRect.height / 2);
-                const max = Math.max(0, viewport.scrollHeight - viewport.clientHeight);
-                const finalTop = Math.max(0, Math.min(target, max));
-                try { viewport.scrollTo({ top: finalTop, behavior: 'smooth' }); } catch { viewport.scrollTop = finalTop; }
-              }
-            }
-          }
+          applyVerticalFallback(findScrollViewport(spDoc), outerRef.current, pinScrollTopRef.current);
         }
       } catch (e) {
         logInfo("HOME", "vertical scroll fallback B failed", String(e));
@@ -602,29 +511,10 @@ function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = fa
     };
 
     const observer = new MutationObserver((mutations) => {
-      let detected: HTMLElement | null = null;
-      for (const m of mutations) {
-        const el = m.target as HTMLElement;
-        if (el.classList?.contains('gpfocus') && el.classList?.contains('ds-card')) {
-          detected = el;
-          break;
-        }
-      }
+      const detected = findGpfocusDsCardMutation(mutations);
       if (!detected) return;
       const c = detected;
-      // GLOBAL sync cleanup — remove gpfocus from all DS cards in all known
-      // Steam documents EXCEPT the one we just observed gaining it. Each
-      /* DeckRow's MutationObserver only watches its own row, so without this
-         cross-row pass, gpfocus from a card in a previously-visited shelf
-         persists and `findFocusedDsCard` (queries .ds-card.gpfocus across
-         documents) returns the wrong card in DOM order. Synchronous so the
-         OPTIONS-button intercept sees a single focused card immediately. */
-      try {
-        for (const doc of getAllSteamDocuments()) {
-          const all = doc.querySelectorAll<HTMLElement>('.ds-card.gpfocus');
-          for (const it of all) { if (it !== c) it.classList.remove('gpfocus'); }
-        }
-      } catch {}
+      clearGpfocusOnOtherDocs(c);
       if (rafPending !== null) return;
       rafPending = requestAnimationFrame(() => {
         rafPending = null;
@@ -687,48 +577,23 @@ function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = fa
   if (!items.length) return null;
   // Space the logo + (below-logo) description banner needs — reserved either
   // above (default) or below (logoBelowShelf) the cards.
-  const logoBandPx = enableLogo
-    ? Math.round(130 * logoSize / 100) + Math.max(0, Math.round(logoTopOffset * 0.32)) + ((enableDescription && descriptionBelowLogo) ? 26 : 0)
-    : 0;
+  const logoBandPx = computeLogoBandPx({ enableLogo, logoSize, logoTopOffset, enableDescription, descriptionBelowLogo });
+  /* Per-shelf fullPageShelf anchors cards at the bottom of a full-viewport
+     box so it looks like the first shelf when hideRecents is on; top/bottom
+     padding reserve room for the logo/description banner or gameInfoAbove
+     clone. See computeShelfRootStyle. */
+  const shelfRootStyle = computeShelfRootStyle({ heroEnabled, enableLogo, enableDescription, hideStatusLine, fullPageLayoutActive, infoAbove, logoBelowShelf, logoBandPx });
+  const lockedTitleProps = computeLockedTitleProps(visuallyForced, toggleCollapse);
   return (
     <div
       ref={outerRef}
       className="Panel ds-shelf"
       data-shelfid={shelfId || undefined}
-      data-ds-hero-enabled={heroEnabled ? 'true' : undefined}
-      data-ds-info-above={infoAbove ? 'true' : undefined}
-        style={{ position: 'relative', ...effShelfVars, ["--ds-eff-desc-scale" as string]: descriptionScale, marginBottom: hideStatusLine ? -6 : 12, scrollMarginTop: 60, scrollMarginBottom: 52, overflow: (heroEnabled || enableLogo || enableDescription) ? 'visible' : 'hidden', background: (heroEnabled || enableLogo) ? 'transparent' : 'var(--ds-shell-bg)',
-        /* Per-shelf fullPageShelf: shelf takes a full viewport-worth of
-           space so it looks identical to the first shelf when
-           hideRecents is on. Cards anchor at the bottom; the hero
-           composes inside the shelf's own bounds (absolute, height 100%). */
-        minHeight: fullPageLayoutActive ? '100vh' : undefined,
-        display: fullPageLayoutActive ? 'flex' : undefined,
-        flexDirection: fullPageLayoutActive ? 'column' : undefined,
-        justifyContent: fullPageLayoutActive ? 'flex-end' : undefined,
-        /* Reserve top space for the logo + description banner.
-           Skipped only when the hero is rendered as a true full-page box
-           (`forceExpanded && !pinScrollTop`) — there the cards sit at the
-           bottom (justify-content: flex-end) and the absolute logo lives
-           in the empty top half, so no extra padding is needed. */
-        /* When `pinScrollTop` is on (user disabled full-page shelves) the
-           hero shrinks back to a normal row, so the absolute logo would
-           overlap the card row unless we still reserve space here.
-           `forceLayoutAsRecents` (themed shelves without hero art) also
-           needs the reservation for the same reason. */
-        /* gameInfoAbove reserves a fixed-px band for the focused game's info
-           clone (NOT viewport-relative: in SharedJSContext window.innerHeight
-           is 1, so vh maths collapses to 0). logoBelowShelf moves the logo
-           reservation to paddingBottom (banner under the cards); else it's on
-           top. Skipped on full-page shelves (flex-end already leaves room). */
-        paddingTop: (!fullPageLayoutActive && (infoAbove || (enableLogo && !logoBelowShelf))) ? (() => {
-          const logoBand = (enableLogo && !logoBelowShelf) ? logoBandPx : 0;
-          const labelBand = infoAbove ? 50 : 0;
-          return logoBand + labelBand + 2;
-        })() : undefined,
-        paddingBottom: (!fullPageLayoutActive && enableLogo && logoBelowShelf) ? logoBandPx + 2 : undefined }}
+      data-ds-hero-enabled={boolAttr(heroEnabled)}
+      data-ds-info-above={boolAttr(infoAbove)}
+        style={{ position: 'relative', ...effShelfVars, ["--ds-eff-desc-scale" as string]: descriptionScale, scrollMarginTop: 60, scrollMarginBottom: 52, ...shelfRootStyle }}
     >
-      {(heroEnabled || heroLabelMount || enableLogo || enableDescription || infoAbove) && <PerShelfHero containerRef={outerRef} showArt={heroEnabled} isFirstShelf={visuallyForced} forceLayoutAsRecents={forceLayoutAsRecents} isFullPage={fullPageLayoutActive} enableLogo={enableLogo} enableDescription={enableDescription} descriptionBelowLogo={descriptionBelowLogo} logoBelowShelf={logoBelowShelf} logoPosition={logoPosition} descriptionPosition={descriptionPosition} logoSize={logoSize} logoTopOffset={logoTopOffset} descriptionHeight={descriptionHeight} descriptionLogoGap={descriptionLogoGap} infoAbove={infoAbove} />}
+      {shouldRenderHero({ heroEnabled, heroLabelMount, enableLogo, enableDescription, infoAbove }) && <PerShelfHero containerRef={outerRef} showArt={heroEnabled} isFirstShelf={visuallyForced} forceLayoutAsRecents={forceLayoutAsRecents} isFullPage={fullPageLayoutActive} enableLogo={enableLogo} enableDescription={enableDescription} descriptionBelowLogo={descriptionBelowLogo} logoBelowShelf={logoBelowShelf} logoPosition={logoPosition} descriptionPosition={descriptionPosition} logoSize={logoSize} logoTopOffset={logoTopOffset} descriptionHeight={descriptionHeight} descriptionLogoGap={descriptionLogoGap} infoAbove={infoAbove} />}
       {title && !hideShelfTitle ? (
         collapsed ? (
           <Focusable
@@ -744,7 +609,7 @@ function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = fa
               paddingRight: "2.8vw",
               display: "flex",
               alignItems: "center",
-              justifyContent: shelfTitlePosition === 'center' ? 'center' : shelfTitlePosition === 'right' ? 'flex-end' : 'flex-start',
+              justifyContent: resolveTitleJustifyContent(shelfTitlePosition),
               gap: 8,
               cursor: "pointer",
               userSelect: "none",
@@ -755,20 +620,20 @@ function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = fa
         ) : (
           <div
             ref={titleRef}
-            className={`ds-shelf-title${visuallyForced ? ' ds-shelf-title--locked' : ''}`}
+            className={`ds-shelf-title${lockedTitleProps.extraClass}`}
             data-ds-title-position={shelfTitlePosition}
-            onClick={visuallyForced ? undefined : toggleCollapse}
+            onClick={lockedTitleProps.onClick}
             style={{
               marginBottom: 8,
               paddingLeft: "2.8vw",
               paddingRight: "2.8vw",
               display: "flex",
               alignItems: "center",
-              justifyContent: shelfTitlePosition === 'center' ? 'center' : shelfTitlePosition === 'right' ? 'flex-end' : 'flex-start',
+              justifyContent: resolveTitleJustifyContent(shelfTitlePosition),
               gap: 8,
-              cursor: visuallyForced ? "default" : "pointer",
+              cursor: lockedTitleProps.cursor,
               userSelect: "none",
-              pointerEvents: visuallyForced ? "none" : undefined,
+              pointerEvents: lockedTitleProps.pointerEvents,
             }}
           >
             <span>{title}</span>
