@@ -1,5 +1,238 @@
 [
   {
+    "ts": "2026-10-05_15-24-10",
+    "stress": false,
+    "subdir": "ci",
+    "version": "3.3.3",
+    "overall": "FAIL",
+    "passed": 7,
+    "failed": 1,
+    "skipped": 0,
+    "total": 8,
+    "per_suite": {},
+    "unit": {
+      "passed": 945,
+      "failed": 0,
+      "skipped": 0,
+      "total": 945
+    },
+    "pytest": {
+      "passed": 213,
+      "failed": 0,
+      "skipped": 0,
+      "total": 213
+    },
+    "ruff": {
+      "issues": 0
+    },
+    "lint": {
+      "problems": 0
+    },
+    "suppressions": 72,
+    "complexity": {
+      "level": 1863,
+      "count": 67,
+      "max": 111,
+      "avg": 27.8,
+      "top": [
+        {
+          "file": "src/components/shelf/GameCard.tsx",
+          "line": 243,
+          "fn": "GameCardImpl",
+          "score": 111
+        },
+        {
+          "file": "src/components/Shelf.tsx",
+          "line": 218,
+          "fn": "ShelfViewImpl",
+          "score": 99
+        },
+        {
+          "file": "src/components/DeckRow.tsx",
+          "line": 85,
+          "fn": "DeckRowImpl",
+          "score": 94
+        },
+        {
+          "file": "src/components/shelf/PerShelfHero.tsx",
+          "line": 291,
+          "fn": "PerShelfHero",
+          "score": 85
+        },
+        {
+          "file": "src/index.tsx",
+          "line": 159,
+          "fn": "(anonymous)",
+          "score": 66
+        },
+        {
+          "file": "src/components/HomeInject.tsx",
+          "line": 46,
+          "fn": "HomeShelves",
+          "score": 52
+        },
+        {
+          "file": "src/components/home/navPatches/reparent.ts",
+          "line": 3,
+          "fn": "reparentNavTreeNodes",
+          "score": 50
+        },
+        {
+          "file": "src/components/shelf/PlaceholderCard.tsx",
+          "line": 12,
+          "fn": "PlaceholderCard",
+          "score": 50
+        },
+        {
+          "file": "src/components/shelf/GameCard.tsx",
+          "line": 491,
+          "fn": "injectNativeClasses",
+          "score": 45
+        },
+        {
+          "file": "src/components/DeckRow.tsx",
+          "line": 489,
+          "fn": "(anonymous)",
+          "score": 42
+        }
+      ]
+    },
+    "decoupling": {
+      "leaks": 0,
+      "adapter": 131,
+      "ratio": 0,
+      "top": []
+    },
+    "portability": {
+      "coupled": 38,
+      "guarded": 38,
+      "unguarded": 0,
+      "top": []
+    },
+    "stats": {
+      "date": "2026-10-05",
+      "traffic": {
+        "main": {
+          "views": 764,
+          "viewsUniques": 255,
+          "clones": 632,
+          "clonesUniques": 196
+        },
+        "api": {
+          "views": 0,
+          "viewsUniques": 0,
+          "clones": 87,
+          "clonesUniques": 18
+        },
+        "host": {
+          "views": 58,
+          "viewsUniques": 5,
+          "clones": 848,
+          "clonesUniques": 86
+        },
+        "shelveshub": {
+          "views": 331,
+          "viewsUniques": 58,
+          "clones": 1367,
+          "clonesUniques": 218
+        }
+      },
+      "npm": {
+        "api": 1595,
+        "host": 1612
+      },
+      "deckyStoreInstalls": 18432,
+      "deckyStoreUpdates": 1725,
+      "githubDownloads": 10879,
+      "shelvesHubDownloads": 316,
+      "versionDownloads": {
+        "stable": {
+          "v3.3.3": 160,
+          "v3.3.2": 194,
+          "v3.3.1": 129,
+          "v3.3.0": 346,
+          "v3.2.1": 566,
+          "v3.2.0": 221,
+          "v3.1.0": 349,
+          "v3.0.2": 238,
+          "v3.0.1": 189,
+          "v3.0.0": 290,
+          "v2.4.3": 250,
+          "v2.4.2": 177,
+          "v2.4.1": 180,
+          "v2.4.0": 180,
+          "v2.3.2": 196,
+          "v2.3.1": 156,
+          "v2.3.0": 189,
+          "v2.2.2": 193,
+          "v2.2.1": 161,
+          "v2.2.0": 157,
+          "v2.1.1": 176,
+          "v2.1.0": 164,
+          "v2.0.1": 182,
+          "v2.0.0": 281,
+          "v1.6.3": 174,
+          "v1.6.2": 173,
+          "v1.6.1": 181,
+          "v1.6.0": 202,
+          "v1.5.3": 178,
+          "v1.5.2": 180,
+          "v1.5.1": 198,
+          "v1.5.0": 191,
+          "v1.4.0": 181,
+          "v1.3.1": 168,
+          "v1.3.0": 182,
+          "v1.2.5": 159,
+          "v1.2.4": 202,
+          "v1.2.3": 260,
+          "v1.2.2": 213,
+          "v1.2.1": 164,
+          "v1.2.0": 206,
+          "v1.1.3": 179,
+          "v1.1.2": 157,
+          "v1.1.1": 160,
+          "v1.1.0": 157,
+          "v1.0.0": 162,
+          "v0.2.0": 159,
+          "v0.1.0": 159
+        },
+        "beta": {
+          "v3.3.3-beta.1": 19,
+          "v3.3.0-beta.4": 83,
+          "v3.3.0-beta.3": 93,
+          "v3.3.0-beta.2": 121,
+          "v3.3.0-beta.1": 101,
+          "v3.2.2-beta.2": 118,
+          "v3.2.2-beta.1": 138,
+          "v3.0.2-beta.2": 159,
+          "v3.0.2-beta.1": 158
+        }
+      }
+    },
+    "step_names": [
+      "TypeScript typecheck",
+      "Lint (eslint + ruff)",
+      "Build (production)",
+      "Unit tests (vitest)",
+      "Backend tests (pytest)",
+      "Package (.zip)",
+      "Verify package",
+      "Compat validation"
+    ],
+    "step_durations_ms": [
+      9964,
+      18659,
+      3115,
+      9600,
+      907,
+      3512,
+      65,
+      6170
+    ],
+    "total_duration_ms": 51992,
+    "_scope": "ci"
+  },
+  {
     "ts": "2026-09-28_14-42-25",
     "stress": false,
     "subdir": "ci",
