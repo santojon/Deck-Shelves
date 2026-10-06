@@ -89,6 +89,11 @@ jobs:
       - name: Run Python unit tests
         run: python3 -m pytest src/test/ -v
 
+      # ARM64 readiness: every backend runtime dep must have a linux/aarch64 wheel,
+      # so the backend installs on an ARM64 device (Steam Frame / ARM SteamOS).
+      - name: ARM64 backend deps audit
+        run: bash scripts/ci/arm64-pydeps-audit.sh requirements.txt
+
       - name: Build plugin (release mode)
         run: pnpm run build:release
 

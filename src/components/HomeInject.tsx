@@ -25,7 +25,7 @@ import { bumpAssetRevision } from "../core/assetRevision";
 import { pickFirstVisibleShelfId, interleaveSmartShelves, applyAutoPin } from "../domain/shelfOrder";
 import { evalVisibility, nextVisibilityFlip, getModeVisibilityWindows, invalidateSmartShelfCache } from "../steam/smartShelves";
 import { subscribeDeviceState } from "../runtime/deviceState";
-import { subscribeSessionState } from "../runtime/sessionState";
+import { subscribeSessionState, getSessionState } from "../runtime/sessionState";
 import { subscribePerfState, stopFrameSampler } from "../runtime/perfState";
 import { subscribePeripheralsState } from "../runtime/peripheralsState";
 import { flowChildrenProps } from "../core/steamOSVersion";
@@ -33,6 +33,7 @@ import { isCssLoaderActive, getNativeRecentsClassName, isArtHeroActive, isNoHero
 import { BadgeFocusOverlay } from "./shelf/BadgeFocusOverlay";
 import { FriendsAvatarOverlay } from "./shelf/FriendsAvatarOverlay";
 import { computeNormalShelves, computeShelvesOrder, computeInterleaveSmart, computeDerivedGlobalFlags, computeEnabledSmartShelves, computeCanHideRecents, applyRecentsFocusTrap, teardownObservers, teardownHistoryPatches, dispatchHideRecentsDisabled, anyShelfHasItems } from "./home/homeInjectHelpers";
+import { markMountStart, recordMountDone, resetMountCounters, recordReconcile, recordDomCallback, recordRender, timerCreated, timerDisposed, observerCreated, observerDisposed, subscriptionCreated, subscriptionDisposed } from "../core/perfMetrics";
 
 const homePlatform = createDeckyPlatform();
 
@@ -45,12 +46,16 @@ const SURPRISE_MODES: SmartShelfMode[] = [
 // Mount + anchor + home-detection helpers live in ./home/mountUtils.
 
 export function HomeShelves() {
+  recordRender();
   const { t } = useTranslation();
   const [settings, setSettings] = useState<Settings | null>(null);
   const [mountEl, setMountEl] = useState<HTMLElement | null>(null);
 
   useEffect(() => {
     let alive = true;
+    markMountStart();
+    resetMountCounters();
+    let mountRecorded = false;
 
     /* Debounce mount removal: a brief route-detector failure (e.g. getPreferredSteamWindow
        returns a window whose location isn't settled yet) would immediately unmount the portal
@@ -59,6 +64,7 @@ export function HomeShelves() {
     let removeTimer: ReturnType<typeof setTimeout> | null = null;
     const updateMount = () => {
       if (!alive) return;
+      recordReconcile();
       const homeVisible = isHomeRoute() || hasHomeDomSignals();
       if (!homeVisible) {
         if (!removeTimer) {
@@ -75,35 +81,40 @@ export function HomeShelves() {
       }
       if (removeTimer) { clearTimeout(removeTimer); removeTimer = null; }
       const el = findOrCreateMount();
-      if (el) setMountEl(el);
+      if (el) {
+        setMountEl(el);
+        if (!mountRecorded) { mountRecorded = true; recordMountDone(); }
+      }
     };
 
     updateMount();
     const doc = getPreferredSteamDocument();
     const win = getPreferredSteamWindow();
-    /* Observe every known Steam doc — when preferredSteamWindow points at
-       SharedJSContext and Steam blows away our mount from the BigPicture
-       body, a single observer on `preferred.body` never fires. Watching each
-       doc body lets updateMount re-create the mount in the same animation
-       frame instead of waiting up to 2 s for the setInterval fallback. */
+    /* Observe every known Steam doc — SharedJSContext can blow away our
+       mount from under the BigPicture body, so a single `preferred.body`
+       observer isn't enough. Each mutation drives mount re-discovery AND
+       the hide-state check via scheduleHomeReconcile (declared below —
+       safe, it only runs once a mutation lands later). */
     const observers: MutationObserver[] = [];
     const observedDocs = new Set<Document>();
     const observeDoc = (d: Document | null | undefined) => {
       if (!d || observedDocs.has(d) || !d.body) return;
       observedDocs.add(d);
-      const o = new MutationObserver(updateMount);
+      const o = new MutationObserver(() => scheduleHomeReconcile());
       o.observe(d.body, { childList: true, subtree: true });
       observers.push(o);
+      observerCreated();
     };
     observeDoc(doc);
     for (const d of getAllSteamDocuments()) observeDoc(d);
 
-    /* State-divergence poll (2 s): Steam re-renders the home DOM without our
+    /* State-divergence check: Steam re-renders the home DOM without our
        hides (B from library, route swap, etc.). Checked in BOTH directions —
        a mount/DOM churn event (e.g. an external display connecting) can
        skip the un-hide call a profile-trigger revert relies on, otherwise
        leaving recents stuck hidden with nothing to self-correct it. */
     const checkHidden = () => {
+      recordDomCallback();
       try {
         const m = doc.getElementById(ROOT_ID) ?? getAllSteamDocuments().map((dd) => dd.getElementById(ROOT_ID)).find(Boolean);
         if (!m) return;
@@ -118,20 +129,46 @@ export function HomeShelves() {
         enforceHomeFocusSuppression();
       } catch {}
     };
-    /* Tight poll (250 ms) cures the flicker the user sees when dpad-up
-       briefly unhides the native recents shelf — at 2 s the recents
-       element stayed visible long enough to be obvious; 250 ms is below
-       the eye's flicker-fusion threshold for a Steam-render bounce. */
-    const hideStatePoll = window.setInterval(checkHidden, 250);
+    /* Event-driven in place of the old 250ms poll: the same DOM mutation that
+       causes Steam's re-render to drop our hides is what the observers below
+       already watch for, so checkHidden rides that signal (+ focus changes)
+       rAF-batched instead of ticking blind. A single rAF covers whichever of
+       updateMount/checkHidden actually needs to run this frame. */
+    let reconcileScheduled = false;
+    const scheduleHomeReconcile = () => {
+      // Suspended while a game is running (Home is backgrounded) — the
+      // observers/focus listeners still fire, but do no further work at all.
+      if (!alive || reconcileScheduled || getSessionState().gameRunning) return;
+      reconcileScheduled = true;
+      requestAnimationFrame(() => {
+        reconcileScheduled = false;
+        if (!alive) return;
+        updateMount();
+        checkHidden();
+      });
+    };
     // Also re-check on every focus change inside the home — Steam tends
     // to rebuild parts of the tree when focus crosses the DS root edge.
-    const onFocusChange = () => { checkHidden(); };
+    const onFocusChange = () => { scheduleHomeReconcile(); };
     doc.addEventListener('focusin', onFocusChange, true);
     doc.addEventListener('focusout', onFocusChange, true);
+    // Catch up once immediately on returning from a game — nothing else
+    // reconciled while suspended, so state may have drifted meanwhile.
+    const unsubSession = subscribeSessionState(() => {
+      if (!getSessionState().gameRunning) scheduleHomeReconcile();
+    });
+    subscriptionCreated();
 
-    // Short fallback covers SPA pushState navigation (library → home) that does
-    // not fire popstate/hashchange and may not trigger body subtree mutations.
-    const timer = window.setInterval(updateMount, 2000);
+    /* Slow safety net (5s, Home-visible only): catches the rare case a hide
+       mismatch isn't accompanied by a body-subtree mutation or focus change
+       at all. Replaces the old unconditional 250ms/2000ms pair — the real
+       work now rides the mutation/focus-driven path above. */
+    const SAFETY_POLL_MS = 5000;
+    const safetyPoll = window.setInterval(() => {
+      if (!alive || !(isHomeRoute() || hasHomeDomSignals())) return;
+      scheduleHomeReconcile();
+    }, SAFETY_POLL_MS);
+    timerCreated();
     win.addEventListener("hashchange", updateMount);
     win.addEventListener("popstate", updateMount);
 
@@ -194,8 +231,11 @@ export function HomeShelves() {
     return () => {
       alive = false;
       teardownObservers(observers);
-      window.clearInterval(timer);
-      window.clearInterval(hideStatePoll);
+      for (let i = 0; i < observers.length; i++) observerDisposed();
+      window.clearInterval(safetyPoll);
+      timerDisposed();
+      unsubSession();
+      subscriptionDisposed();
       try { doc.removeEventListener('focusin', onFocusChange, true); } catch {}
       try { doc.removeEventListener('focusout', onFocusChange, true); } catch {}
       win.removeEventListener("hashchange", updateMount);

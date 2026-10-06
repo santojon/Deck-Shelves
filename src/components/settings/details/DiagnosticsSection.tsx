@@ -31,7 +31,10 @@ function osLine(sys: SystemInfo | null, steamOS: string | null): string {
 
 function hostLine(handshake: RuntimeInfo["hostHandshake"]): string {
   if (!handshake) return DASH;
-  return `${handshake.hostKind} ${handshake.hostVersion} (contract ${handshake.hostApiVersion})`;
+  let s = `${handshake.hostKind} ${handshake.hostVersion} (contract ${handshake.hostApiVersion})`;
+  if (handshake.device) s += ` on ${handshake.device.kind}/${handshake.device.arch}`;
+  if (handshake.bundleVersion) s += `, bundle ${handshake.bundleVersion}`;
+  return s;
 }
 
 /** A titled, tinted block — one per System-information section, for a uniform

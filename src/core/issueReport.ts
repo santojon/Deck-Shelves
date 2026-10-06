@@ -69,6 +69,14 @@ function hardwareText(hw: HardwareInfo): string[] {
   return lines;
 }
 
+function hostLine(hs: RuntimeInfo["hostHandshake"]): string {
+  if (!hs) return DASH;
+  let s = `${hs.hostKind} ${hs.hostVersion} (contract ${hs.hostApiVersion})`;
+  if (hs.device) s += ` on ${hs.device.kind}/${hs.device.arch}${hs.device.model ? ` (${hs.device.model})` : ""}`;
+  if (hs.bundleVersion) s += `, bundle ${hs.bundleVersion}`;
+  return s;
+}
+
 function diagnosticsText(runtime: RuntimeInfo, sys: SystemInfo | null, hw: HardwareInfo | null): string {
   const yn = (b: boolean) => (b ? "yes" : "no");
   const plugins = listCoLoadedPlugins();
@@ -77,7 +85,7 @@ function diagnosticsText(runtime: RuntimeInfo, sys: SystemInfo | null, hw: Hardw
     `OS: ${osLine(sys, runtime.steamOS)}`,
     `Steam: ${sys?.steamVersion ?? DASH}`,
     `Theme: ${runtime.theme ?? DASH}`,
-    `Host: ${runtime.hostHandshake ? `${runtime.hostHandshake.hostKind} ${runtime.hostHandshake.hostVersion} (contract ${runtime.hostHandshake.hostApiVersion})` : DASH}`,
+    `Host: ${hostLine(runtime.hostHandshake)}`,
     ...(hw ? hardwareText(hw) : []),
     `Decky: ${yn(runtime.decky)}`,
     `CSS Loader: ${yn(runtime.cssLoader)}`,

@@ -11,6 +11,7 @@ import { subscribeShelfRefresh } from "../core/shelfRefresh";
 import { maybeSubscribeContextInvalidation } from "../core/contextAwareShelves";
 import { hasExternalSource } from "../core/pluginApi";
 import { mark, measure } from "../core/perf";
+import { recordMountFetch, recordMountCardsProcessed } from "../core/perfMetrics";
 import { logInfo } from "../runtime/logger";
 import { applyManualOrder, getAllAppOverviews, getLocalLibraryAppIds } from "../steam";
 import { normalizeTitleForMatch } from "../steam/dedupe";
@@ -245,10 +246,12 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
         const { resolveSource, resolveSort, resolveReverse, dedupeByName, hiddenAppIds } =
           computeResolveParams({ shelf, primaryEffectiveSort, globalDedupeByName });
         const __traceStart = traceResolveStart(shelf.id, gen, resolveGenRef.current, cancelled);
+        recordMountFetch();
         platform.resolveShelfAppIds(resolveSource, shelf.limit, resolveSort, shelf.id, resolveReverse, { hiddenAppIds, dedupeByName: dedupeByName || undefined, onResolveTotal: (n) => { resolvedTotalRef.current = n; } })
           .then((ids) => {
             traceResolveThen(shelf.id, __traceStart, gen, resolveGenRef.current, cancelled, ids?.length);
             if (cancelled || gen !== resolveGenRef.current) return;
+            recordMountCardsProcessed(ids?.length ?? 0);
             const finalIds = primaryEffectiveSort === "manual" ? applyManualOrder(ids, (shelf as any).manualOrder, hiddenAppIds) : ids;
             setAppIds(finalIds);
             setSourceIds(ids);

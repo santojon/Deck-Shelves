@@ -14,6 +14,7 @@ import { getRuntimeClassMap } from "../core/webpackCompat";
 import { isBigArtModeActive } from "../core/cssLoaderDetect";
 import { notify } from "../components/notify";
 import { findModuleByExport } from "./host/decky";
+import { recordRemountTry, timerCreated, timerDisposed, observerCreated, observerDisposed } from "../core/perfMetrics";
 
 const ROOT_ID = "deck-shelves-home-root";
 const GLOBAL_COMPONENT_ID = "DeckShelvesHomeDomBridge";
@@ -116,10 +117,12 @@ function elMatchesRecentsLabel(el: HTMLElement): boolean {
   } catch { return false; }
 }
 
+// Scoped to the home area (mount's parent), not the whole document — recents
+// is always a sibling of our mount. Falls back to the document if not found yet.
 function restoreRecentsByLabelSearch(): void {
   try {
-    const { doc } = getHostContext();
-    for (const el of Array.from(doc.querySelectorAll<HTMLElement>('*'))) {
+    const doc = getHostContext().doc, scope: ParentNode = (doc.getElementById(ROOT_ID) as HTMLElement | null)?.parentElement ?? doc;
+    for (const el of Array.from(scope.querySelectorAll<HTMLElement>('*'))) {
       if (!elMatchesRecentsLabel(el)) continue;
       try { for (const p of ["visibility", "height", "min-height", "max-height", "overflow"]) el.style.removeProperty(p); } catch {}
     }
@@ -1196,7 +1199,7 @@ export function installHomePatch(_routerHook?: any) {
       // including the empty cross-realm bridge — so it cannot gate us. Our own
       // idempotency comes from the fallbackRoot bookkeeping below.
       if (fallbackRoot && fallbackMountEl === mount && mount.isConnected) return;
-      mountFallbackTo(win, mount);
+      mountFallbackTo(win, mount); recordRemountTry();
     } catch (err) {
       logWarn("HOME", "fallback render error", String(err));
     }
@@ -1204,8 +1207,7 @@ export function installHomePatch(_routerHook?: any) {
 
   const { win: hostWin, doc: hostDoc } = getHostContext();
   observer?.disconnect();
-  observedDoc = null;
-  attachObserver(hostDoc);
+  observedDoc = null; attachObserver(hostDoc); observerCreated();
 
   /* Poll fast for the first ~15s (renderer reload / cold boot) so the mount
      lands promptly on its own, then back off to a calm 2s idle cadence. */
@@ -1218,7 +1220,7 @@ export function installHomePatch(_routerHook?: any) {
       timer = window.setInterval(tryFallbackRender, 2000);
     }
   };
-  timer = window.setInterval(poll, 500);
+  timer = window.setInterval(poll, 500); timerCreated();
 
   const onRouteSignal = () => tryFallbackRender();
   hostWin.addEventListener("hashchange", onRouteSignal);
@@ -1248,9 +1250,9 @@ export function installHomePatch(_routerHook?: any) {
   };
 
   const tearDownObserversAndListeners = (): void => {
-    if (timer) { window.clearInterval(timer); timer = 0; }
-    observer?.disconnect();
-    observer = null;
+    if (timer) { window.clearInterval(timer); timer = 0; timerDisposed(); }
+    if (observer) observerDisposed();
+    observer?.disconnect(); observer = null;
     hostWin.removeEventListener("hashchange", onRouteSignal);
     hostWin.removeEventListener("popstate", onRouteSignal);
     globalThis.removeEventListener?.("deck-shelves-settings-changed", onRouteSignal as EventListener);

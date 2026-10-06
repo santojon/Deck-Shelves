@@ -2,6 +2,7 @@ import { getBatteryState, isLowBattery, subscribeBattery } from './batteryState'
 import { getCurrentSettings } from '../store/settingsStore';
 import { call } from './host/decky';
 import { subscribeControllerInput } from './controllerInput';
+import { getHostHandshake } from './hostHandshake';
 
 function isOfflineModeOn(): boolean {
   return (getCurrentSettings() as any)?.offlineModeEnabled === true;
@@ -304,9 +305,20 @@ export async function primeDeviceIdentity(): Promise<void> {
   notify();
 }
 
+/* Prefer the host's handshake device when it reports a concrete kind — the host
+   sees hardware signals the bundle can't — otherwise keep the bundle's own
+   detection. arch/model fill from the handshake only where present. */
+function resolvedIdentity(): DeviceIdentity {
+  const hs = getHostHandshake()?.device;
+  if (!hs) return _identity;
+  const device = hs.kind && hs.kind !== 'unknown' ? hs.kind : _identity.device;
+  return { device, arch: strOrNull(hs.arch) ?? _identity.arch, model: strOrNull(hs.model) ?? _identity.model };
+}
+
 /** Real identity, or a Developer-mode simulated device kind when set. */
 export function getDeviceIdentity(): DeviceIdentity {
-  return _simulatedDevice ? { ..._identity, device: _simulatedDevice } : _identity;
+  const base = resolvedIdentity();
+  return _simulatedDevice ? { ...base, device: _simulatedDevice } : base;
 }
 
 /** Developer-only override for testing hardware-specific features without

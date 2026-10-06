@@ -7,6 +7,13 @@ técnico completo, veja [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+- **Num host standalone que conhece o próprio hardware, o plugin agora confia na identidade de dispositivo do host.** Quando o host informa em que dispositivo está rodando (e qual versão do plugin carregou), as shelves que dependem do dispositivo usam isso, voltando à detecção do próprio plugin caso contrário — e o painel de Diagnóstico e o texto do relatório de bug agora mostram o dispositivo do host e essa versão também.
+- **Um novo painel de Performance (Configurações → Avançado → Modo desenvolvedor) mostra o quão ocupada está a camada da tela inicial** — tempo de boot/mount, quantos timers e observadores estão ativos, e com que frequência a tela inicial está se reconferindo — pra quem estiver ajudando a diagnosticar uma lentidão. Só atualiza quando você aperta o botão Atualizar, igual ao painel de Informações do Sistema já existente.
+- **Menor uso de CPU/bateria em segundo plano na tela inicial.** Algumas verificações que antes rodavam num timer fixo (pra manter a linha nativa de Recentes oculta corretamente e pra destacar o jogo em foco) agora só rodam quando algo realmente muda, e cada shelf compartilha uma verificação em vez de cada uma rodar a sua. O rastreamento de destaque também pausa completamente enquanto você está num jogo. Nenhuma mudança visível de comportamento — só menos trabalho acontecendo quando nada está mudando.
+- **Smart shelves novas não mostram mais seus jogos ocultos por padrão.** Uma shelf como "Jogados recentemente" ou "No Deck" antes tratava um jogo oculto igual a qualquer outro jogo seu — agora ele é filtrado desde o início. É um filtro normal e visível na shelf, então você pode abrir as configurações de filtro dela e remover (ou mudar pra "qualquer") se quiser jogos ocultos de volta naquela shelf específica. Shelves que você já criou não são afetadas.
+- **Inicialização mais rápida.** Alguns rastreadores em segundo plano que não são necessários pra primeira renderização da tela inicial agora começam um instante depois, quando as coisas já se acomodaram, em vez de competir com ela logo de cara. Nenhuma outra mudança visível.
+- **Inicialização mais resiliente.** Se as shelves da tela inicial algum dia falharem em terminar de carregar, o plugin agora recua automaticamente depois de 20 segundos pra manter a home da própria Steam utilizável, em vez de potencialmente ficar travado.
+
 ## [3.3.3] - 2026-10-01
 
 - **Corrigida uma lista de desejos privada da Steam que sempre carregava vazia, sem mostrar nenhum erro.** Uma melhoria de segurança anterior quebrou isso sem querer pra quem tem lista de desejos privada — já está corrigido, com a mesma proteção pra garantir que o token nunca apareça num log.

@@ -5,7 +5,8 @@ import { Focusable } from "../runtime/host/decky";
 import { getPreferredSteamDocument } from "../runtime/steamHost";
 import { getRuntimeClassMap } from "../core/webpackCompat";
 import { logInfo } from "../runtime/logger";
-import { focusElement, getLastFocusedElement } from "../core/focusRestore";
+import { focusElement } from "../core/focusRestore";
+import { subscribeFocusedCard, getFocusedCard } from "../runtime/focusedCardTracker";
 import { flowChildrenProps } from "../core/steamOSVersion";
 
 // Re-export types and components from shelf/ for backwards compatibility
@@ -408,15 +409,14 @@ function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = fa
 
   /* Confirmed live (2026-09-12): BTakeFocus nav on this beta never fires
      focusin/gpfocus; activeElement and m_FocusWithin subscriptions both
-     proved unreliable. `getLastFocusedElement()` tracks correctly every
-     time — poll it, same tradeoff HomeInject.tsx makes elsewhere. */
+     proved unreliable. `focusedCardTracker` polls the reliable signal ONCE
+     for every mounted row (was: one independent 150ms poll per row). */
   useEffect(() => {
     const rowEl = rowRef.current;
     if (!rowEl) return;
-    const sync = () => {
+    const sync = (focusedCard: HTMLElement | null) => {
       try {
-        const active = getLastFocusedElement();
-        const card = active && rowEl.contains(active) ? (active.closest(".ds-card") as HTMLElement | null) : null;
+        const card = focusedCard && rowEl.contains(focusedCard) ? focusedCard : null;
         if (!card) {
           for (const el of Array.from(rowEl.querySelectorAll<HTMLElement>(".ds-card.gpfocus"))) el.classList.remove("gpfocus");
           return;
@@ -428,8 +428,8 @@ function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = fa
         card.classList.add("gpfocus");
       } catch (e) { logInfo("HOME", "row gpfocus sync failed", String(e)); }
     };
-    const poll = window.setInterval(sync, 150);
-    return () => window.clearInterval(poll);
+    sync(getFocusedCard());
+    return subscribeFocusedCard(sync);
   }, []);
 
   useEffect(() => {

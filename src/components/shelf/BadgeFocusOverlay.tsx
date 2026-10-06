@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { getPreferredSteamDocument, getAllSteamDocuments } from '../../runtime/steamHost';
-import { getLastFocusedElement } from '../../core/focusRestore';
+import { subscribeFocusedCard, getFocusedCard } from '../../runtime/focusedCardTracker';
 import { subscribeOverlayActive } from './overlayState';
 import i18n from '../../i18n';
 
@@ -107,13 +107,14 @@ export function BadgeFocusOverlay() {
       setTimeout(schedule, 200);
     };
     /* The reliable focused-card source. BTakeFocus gamepad nav on the beta
-       never fires focusin/gpfocus, so `getLastFocusedElement()` is the
-       primary signal (same as DeckRow); the `.gpfocus` class DeckRow keeps
-       in sync is the fallback for mouse/hover focus. */
+       never fires focusin/gpfocus, so the shared focusedCardTracker (same
+       poll DeckRow subscribes to, not a separate one) is the primary
+       signal; the `.gpfocus` class DeckRow keeps in sync is the fallback
+       for mouse/hover focus. */
     const resolveFocusedCard = (): HTMLElement | null => {
       try {
-        const active = getLastFocusedElement();
-        const c = active && root.contains(active) ? (active.closest('.ds-card') as HTMLElement | null) : null;
+        const shared = getFocusedCard();
+        const c = shared && root.contains(shared) ? shared : null;
         if (c) return c;
       } catch {}
       return root.querySelector('.ds-card.gpfocus') as HTMLElement | null;
@@ -126,15 +127,15 @@ export function BadgeFocusOverlay() {
       const next = e.relatedTarget as Node | null;
       if (!next || !root.contains(next)) setCurrent(resolveFocusedCard());
     };
-    // Poll the reliable signal (focusin is only a fast path on this beta).
-    const poll = win.setInterval(() => setCurrent(resolveFocusedCard()), 150);
+    setCurrent(resolveFocusedCard());
+    const unsubFocusTracker = subscribeFocusedCard(() => setCurrent(resolveFocusedCard()));
     root.addEventListener('focusin', onFocusIn, true);
     root.addEventListener('focusout', onFocusOut, true);
     win.addEventListener('scroll', schedule, { passive: true, capture: true });
     win.addEventListener('resize', schedule);
     return () => {
       unsubOverlay();
-      win.clearInterval(poll);
+      unsubFocusTracker();
       root.removeEventListener('focusin', onFocusIn, true);
       root.removeEventListener('focusout', onFocusOut, true);
       win.removeEventListener('scroll', schedule, { capture: true } as any);

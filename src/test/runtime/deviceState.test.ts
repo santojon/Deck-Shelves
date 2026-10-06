@@ -283,6 +283,28 @@ describe('device identity classification', () => {
     await fresh.primeDeviceIdentity()
     expect(fresh.getDeviceIdentity()).toEqual({ device: 'unknown', arch: null, model: null })
   })
+
+  it('prefers the host handshake device over own detection when it reports a concrete kind', async () => {
+    vi.resetModules()
+    ;(globalThis as any).SteamClient = { System: { GetSystemInfo: async () => ({}) } }
+    deviceIdentityRpc.current = { vendor: null, product: null, arch: null, model: null, supported: true }
+    const fresh = await import('../../runtime/deviceState')
+    const hs = await import('../../runtime/hostHandshake')
+    hs.setHostHandshake({ device: { kind: 'frame', arch: 'aarch64', model: 'Steam Frame' } } as any)
+    await fresh.primeDeviceIdentity()
+    expect(fresh.getDeviceIdentity()).toEqual({ device: 'frame', arch: 'aarch64', model: 'Steam Frame' })
+  })
+
+  it('keeps own-detected kind when the handshake device kind is unknown, still borrowing its arch/model', async () => {
+    vi.resetModules()
+    ;(globalThis as any).SteamClient = { System: { GetSystemInfo: async () => ({ sOSVariantId: 'steamdeck' }) } }
+    deviceIdentityRpc.current = { vendor: null, product: null, arch: 'x86_64', model: null, supported: true }
+    const fresh = await import('../../runtime/deviceState')
+    const hs = await import('../../runtime/hostHandshake')
+    hs.setHostHandshake({ device: { kind: 'unknown', arch: 'x86_64', model: 'Jupiter' } } as any)
+    await fresh.primeDeviceIdentity()
+    expect(fresh.getDeviceIdentity()).toEqual({ device: 'deck', arch: 'x86_64', model: 'Jupiter' })
+  })
 })
 
 describe('device + inputMode visibility rules and the developer simulator', () => {

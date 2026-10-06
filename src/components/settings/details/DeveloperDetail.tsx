@@ -3,6 +3,7 @@ import { DialogButton, Dropdown, Focusable, ToggleField, type SingleDropdownOpti
 import type { useSettingsController } from "../../../features/settings/controller";
 import { CollapsibleSection } from "../../ui/CollapsibleSection";
 import { SourceResolverInspector } from "./SourceResolverInspector";
+import { PerformanceSection } from "./PerformanceSection";
 import { type DiagnosticEntry, clearDiagnostics, subscribeDiagnostics } from "../../../runtime/diagnostics";
 import { SCOPE_COLOR, LEVEL_BG } from "../../../runtime/logger";
 import { CopyIcon, TrashIcon, DocsIcon, GamepadIcon } from "../../icons";
@@ -125,6 +126,7 @@ export function DeveloperDetail({ controller, t }: DeveloperDetailProps) {
         <DeviceSimulator t={t} />
       </CollapsibleSection>
       <SourceResolverInspector controller={controller} t={t} />
+      <PerformanceSection t={t} />
       <CollapsibleSection
         id="dev-logs"
         title={t("settings_advanced_logs_title")}

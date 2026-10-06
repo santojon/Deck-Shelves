@@ -41,6 +41,8 @@ import { setPendingSettingsTab } from "./runtime/settingsNav";
 import { pickNewSuggestions } from "./runtime/suggestionNotifier";
 import { notify } from "./components/notify";
 import { logError, logInfo } from "./runtime/logger";
+import { disposeAll } from "./runtime/runtimeDisposer";
+import { markBootStart, recordBootCritical, getPerfSnapshot } from "./core/perfMetrics";
 import { Navigation, Focusable, DialogButton, quickAccessMenuClasses } from "./runtime/host/decky";
 import { resolveHost, hostProvidesNativeTab, shouldUseForcedHost, awaitInjectedHost } from "./runtime/host/resolve";
 import { claimHomeOwnership } from "./runtime/host/ownerGuard";
@@ -121,6 +123,7 @@ function TitleView() {
 }
 
 const __ds_entry = definePlugin((serverAPI?: any) => {
+  markBootStart();
   logInfo("RUNTIME", "plugin bootstrap start");
   /* A hot-swap (same host re-evaluating this bundle) skips the OLD
      instance's onDismount, leaving its patches/listeners/timers live
@@ -133,6 +136,10 @@ const __ds_entry = definePlugin((serverAPI?: any) => {
   } catch (error) {
     logError("RUNTIME", "failed to dispose previous instance before hot-swap boot", String(error));
   }
+  // Safety net: catches anything the old instance's manual dispose() list
+  // forgot to wire up by hand (see runtimeDisposer.ts) — a no-op today since
+  // no subsystem registers here yet, additive once one does.
+  try { disposeAll(); } catch {}
   const platform = createDeckyPlatform();
   setPlatform(platform);
   // Image cache pre-hydration + pruning, both deferred to idle so they
@@ -186,18 +193,49 @@ const __ds_entry = definePlugin((serverAPI?: any) => {
   if (!isOwner) logInfo("RUNTIME", "another Deck Shelves instance owns the renderer — standing down (no home patch / no settings writes)");
   const patch = (enableHomePatch && isOwner) ? installHomePatch(routerHook) : null;
   const recentsReplacePatch = isOwner ? installRecentsReplace(routerHook) : null;
+
+  /* Startup watchdog: Home's first mount is expected well under a second;
+     20 s is generous, not tight. If it never lands, tear down the Home
+     patch for this session so Steam's native home stays usable instead of a
+     stuck half-mounted injection. `uninstall()` is idempotent, so this can
+     safely race a normal `dispose()` at session end. */
+  let watchdogTimer: ReturnType<typeof setTimeout> | null = null;
+  if (patch) {
+    const WATCHDOG_BUDGET_MS = 20000;
+    watchdogTimer = setTimeout(() => {
+      watchdogTimer = null;
+      if (getPerfSnapshot().mountMs !== null) return;
+      logDiagnostic("warn", "Startup watchdog: Home didn't complete its first mount within budget — disabling Home patch for this session");
+      try { patch.uninstall(); } catch {}
+    }, WATCHDOG_BUDGET_MS);
+  }
   const uninstallRefresh = installShelfRefreshEmitter();
   const uninstallSystemEvents = installSystemEvents();
   const uninstallBatteryState = installBatteryState();
   const uninstallDeviceState = installDeviceState();
-  const uninstallDeviceHistoryTracker = installDeviceHistoryTracker();
   const uninstallSessionState = installSessionState();
   const uninstallProfileTriggers = installProfileTriggers();
   // Dev-only: expose the live device snapshot for on-device CDP inspection.
   if (__DEV__) { try { (globalThis as any).__ds_device = getDeviceState; } catch {} }
-  const uninstallFriendsState = installFriendsState();
   const uninstallPluginApi = installPluginApi();
-  const uninstallLauncherCache = installLauncherCachePoll();
+
+  /* Phase B (lazy bootstrap): trackers/pollers nothing else in boot() reads
+     synchronously — deferred to idle so they don't compete with the
+     critical path (Home injection, routes, state subscriptions above).
+     `disposed` + cancelSchedule guard the case where dismount happens
+     before idle ever fires. */
+  let uninstallDeviceHistoryTracker: (() => void) | null = null;
+  let uninstallFriendsState: (() => void) | null = null;
+  let uninstallLauncherCache: (() => void) | null = null;
+  let phaseBDisposed = false;
+  const schedulePhaseB = (globalThis as any).requestIdleCallback ?? ((cb: any) => setTimeout(cb, 2000));
+  const cancelPhaseB = (globalThis as any).cancelIdleCallback ?? ((id: any) => clearTimeout(id));
+  const phaseBHandle = schedulePhaseB(() => {
+    if (phaseBDisposed) return;
+    uninstallDeviceHistoryTracker = installDeviceHistoryTracker();
+    uninstallFriendsState = installFriendsState();
+    uninstallLauncherCache = installLauncherCachePoll();
+  });
 
   try { routerHook?.addRoute?.(ABOUT_ROUTE, () => (
     <AboutPage />
@@ -456,25 +494,30 @@ const __ds_entry = definePlugin((serverAPI?: any) => {
       uninstallSystemEvents();
       uninstallBatteryState();
       uninstallDeviceState();
-      uninstallDeviceHistoryTracker();
       uninstallSessionState();
       uninstallProfileTriggers();
-      uninstallFriendsState();
       uninstallPluginApi();
-      uninstallLauncherCache();
+      phaseBDisposed = true;
+      try { cancelPhaseB(phaseBHandle); } catch {}
+      uninstallDeviceHistoryTracker?.();
+      uninstallFriendsState?.();
+      uninstallLauncherCache?.();
       uninstallOwnQamTab?.();
       uninstallShowcaseMode?.();
       uninstallScreensaverInject?.();
       uninstallCloudSync?.();
       unsubUpdateNotify();
       if (updateBootTimer !== null) { clearTimeout(updateBootTimer); updateBootTimer = null; }
+      if (watchdogTimer !== null) { clearTimeout(watchdogTimer); watchdogTimer = null; }
       clearTimeout(suggestTimer);
       clearTimeout(corruptionCheckTimer);
+      disposeAll();
     } catch (error) {
       logError("RUNTIME", "failed to remove patch", String(error));
     }
   };
   try { (globalThis as any).__DECK_SHELVES_INSTANCE__ = { dispose }; } catch {}
+  recordBootCritical();
 
   return {
     name: "Deck Shelves",

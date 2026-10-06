@@ -37,8 +37,10 @@ run_checks() {
     ((fail++))
   fi
 
-  # 4. overflow:hidden on card containers (prevents content bleeding past radius)
-  if grep -rq "overflow.*hidden" "$src/components/DeckRow.tsx" 2>/dev/null; then
+  # 4. overflow:hidden on card containers (prevents content bleeding past radius).
+  # Card rendering moved out of DeckRow.tsx into the per-kind components under
+  # src/components/shelf/ (GameCard.tsx's .ds-card-art is the primary one).
+  if grep -rq "overflow.*hidden" "$src/components/shelf/GameCard.tsx" 2>/dev/null; then
     echo "  ✅ Card containers use overflow:hidden (content clipped to border-radius)"
     ((pass++))
   else
@@ -48,7 +50,7 @@ run_checks() {
 
   # 5. No hardcoded borderRadius: 0 that would override theme
   local hardcoded_zero
-  hardcoded_zero=$(grep -rn 'borderRadius.*:\s*0[^.]' "$src/components/DeckRow.tsx" 2>/dev/null | grep -v 'var(' | grep -v '//' | head -3)
+  hardcoded_zero=$(grep -rn 'borderRadius.*:\s*0[^.]' "$src/components/shelf/GameCard.tsx" 2>/dev/null | grep -v 'var(' | grep -v '//' | head -3)
   if [[ -z "$hardcoded_zero" ]]; then
     echo "  ✅ No hardcoded borderRadius: 0 overriding theme"
     ((pass++))

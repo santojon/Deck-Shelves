@@ -121,9 +121,10 @@ run_checks() {
     ((fail++))
   fi
 
-  # 11. HeroBackground render gated on hideRecents in the parent (HomeInject)
-  # — universal-card themes don't fight a stacked hero on every render.
-  if grep -q 'shelfHeroBackground={settings.hideRecents === true' "$src/components/HomeInject.tsx" 2>/dev/null; then
+  # 11. HeroBackground render gated on hideRecents — universal-card themes
+  # don't fight a stacked hero on every render. The derivation moved from an
+  # inline HomeInject.tsx prop expression into a shared helper.
+  if grep -q 'shelfHeroBackground: settings.hideRecents === true' "$src/components/home/homeInjectHelpers.ts" 2>/dev/null; then
     echo "  ✅ HeroBackground only renders when hideRecents is true"
     ((pass++))
   else

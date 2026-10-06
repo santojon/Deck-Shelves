@@ -28,6 +28,10 @@ const templatesFixture = __DEV__ && typeof __QA_TEMPLATES_FIXTURE__ !== "undefin
 const decorationFixture = __DEV__ && typeof __QA_DECORATION_FIXTURE__ !== "undefined" && __QA_DECORATION_FIXTURE__;
 const stressFixture = __DEV__ && typeof __QA_STRESS_FIXTURE__ !== "undefined" && __QA_STRESS_FIXTURE__;
 const videoFixture = __DEV__ && typeof __QA_VIDEO_FIXTURE__ !== "undefined" && __QA_VIDEO_FIXTURE__;
+// ROADMAP S1 perf:bench baseline matrix (vanilla/empty/typical/stress/large/huge) — scenario
+// picked at RUNTIME from localStorage (not a build constant) so one build covers all six without
+// a redeploy per scenario; see qaPerfMatrixFixture below.
+const perfMatrix = __DEV__ && typeof __QA_PERF_MATRIX__ !== "undefined" && __QA_PERF_MATRIX__;
 
 // Stable fake version surfaced by the update notifier when `qa:update-available`
 // is set. Picked far above any real release so semver compare always reports
@@ -52,7 +56,7 @@ export const qaOverrideActive = __DEV__ && (
   || !!forceTabMaster || !!forceUnifiDeck || !!forceNonSteamBadges || smartShelvesFixture || savedFiltersFixture
   || forceHidden || surpriseMe || forceCrash || forceReplaceFailed || updateAvailable || updateDismissed
   || updateOffline || collectionEmpty || collectionInverted || sourcesFixture || templatesFixture
-  || decorationFixture || stressFixture || videoFixture
+  || decorationFixture || stressFixture || videoFixture || perfMatrix
 );
 
 if (qaOverrideActive) {
@@ -62,7 +66,7 @@ if (qaOverrideActive) {
     forceTabMaster, forceUnifiDeck, forceNonSteamBadges,
     smartShelvesFixture, savedFiltersFixture, forceHidden, surpriseMe, forceCrash, forceReplaceFailed,
     updateAvailable, updateDismissed, updateOffline, collectionEmpty, collectionInverted,
-    sourcesFixture, templatesFixture, decorationFixture, stressFixture, videoFixture,
+    sourcesFixture, templatesFixture, decorationFixture, stressFixture, videoFixture, perfMatrix,
   });
 }
 
@@ -315,6 +319,42 @@ function qaStressFixture(): { shelves: Shelf[]; smartShelves: SmartShelf[] } {
   ];
 
   return { shelves, smartShelves };
+}
+
+// ─── Fixture: ROADMAP S1 perf:bench baseline matrix ──────────────────────────
+// Scenario picked at runtime (localStorage, not a build flag) so one dev build
+// covers vanilla/empty/typical/stress/large/huge without a redeploy each time.
+
+const PERF_SCENARIO_KEY = "__ds_perf_scenario";
+const PERF_SCENARIOS = ["vanilla", "empty", "typical_8x20", "stress_16x50", "large_2000", "huge_5000"] as const;
+type PerfScenarioName = typeof PERF_SCENARIOS[number];
+
+function readPerfScenario(): PerfScenarioName {
+  try {
+    const v = globalThis.localStorage?.getItem(PERF_SCENARIO_KEY);
+    if ((PERF_SCENARIOS as readonly string[]).includes(v ?? "")) return v as PerfScenarioName;
+  } catch {}
+  return "typical_8x20";
+}
+
+/* Uniform "match everything" filter shelf for the mount/frame-gap bench —
+   content doesn't matter, only rendered counts. `sort` must also live on
+   `source.filter`: `_resolveFilter` treats no legacy fields + no
+   `filter.sort` as "no filters configured" and returns empty otherwise. */
+function qaPerfMatrixShelf(i: number, limit: number): Shelf {
+  return { id: `qa_perf_${i}`, title: `Perf ${i}`, enabled: true, hidden: false, limit, sort: "alphabetical", source: { type: "filter", filter: { sort: "alphabetical" } } } as unknown as Shelf;
+}
+
+function qaPerfMatrixFixture(): { enabled: boolean; shelves: Shelf[] } {
+  const repeat = (n: number, limit: number) => Array.from({ length: n }, (_, i) => qaPerfMatrixShelf(i, limit));
+  switch (readPerfScenario()) {
+    case "vanilla": return { enabled: false, shelves: [] };
+    case "empty": return { enabled: true, shelves: [] };
+    case "typical_8x20": return { enabled: true, shelves: repeat(8, 20) };
+    case "stress_16x50": return { enabled: true, shelves: repeat(16, 50) };
+    case "large_2000": return { enabled: true, shelves: repeat(20, 100) };
+    case "huge_5000": return { enabled: true, shelves: repeat(50, 100) };
+  }
 }
 
 // ─── Fixture: all source types + sort options + filter combinations ──────────
@@ -654,6 +694,7 @@ export function applyQASettingsOverride(s: Settings): Settings {
     !wantsHomeOverride && !wantsSmartOverride && !wantsFiltersOverride
     && !wantsCollectionEmpty && !wantsCollectionInverted && !wantsUpdateDismissed
     && !sourcesFixture && !templatesFixture && !decorationFixture && !stressFixture && !videoFixture
+    && !perfMatrix
   ) return s;
 
   /* Every override below is placeholder data that must never be mistaken
@@ -671,6 +712,10 @@ export function applyQASettingsOverride(s: Settings): Settings {
   if (stressFixture) {
     const f = qaStressFixture();
     return tag({ ...s, enabled: true, smartShelvesEnabled: true, onlineFeaturesEnabled: true, shelves: f.shelves, smartShelves: f.smartShelves });
+  }
+  if (perfMatrix) {
+    const f = qaPerfMatrixFixture();
+    return tag({ ...s, enabled: f.enabled, smartShelvesEnabled: false, shelves: f.shelves, smartShelves: [] });
   }
   if (sourcesFixture) {
     const f = qaSourcesFixture();
