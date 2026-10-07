@@ -195,10 +195,10 @@ const __ds_entry = definePlugin((serverAPI?: any) => {
   const recentsReplacePatch = isOwner ? installRecentsReplace(routerHook) : null;
 
   /* Startup watchdog: Home's first mount is expected well under a second;
-     20 s is generous, not tight. If it never lands, tear down the Home
-     patch for this session so Steam's native home stays usable instead of a
-     stuck half-mounted injection. `uninstall()` is idempotent, so this can
-     safely race a normal `dispose()` at session end. */
+     20 s is generous, not tight. If it never lands, tear down both Home
+     patches — leaving recentsReplace alone would hide the native recents row
+     with nothing behind it, worse than the stuck injection. Both uninstalls
+     are idempotent, so this can safely race a normal `dispose()`. */
   let watchdogTimer: ReturnType<typeof setTimeout> | null = null;
   if (patch) {
     const WATCHDOG_BUDGET_MS = 20000;
@@ -207,6 +207,7 @@ const __ds_entry = definePlugin((serverAPI?: any) => {
       if (getPerfSnapshot().mountMs !== null) return;
       logDiagnostic("warn", "Startup watchdog: Home didn't complete its first mount within budget — disabling Home patch for this session");
       try { patch.uninstall(); } catch {}
+      try { recentsReplacePatch?.uninstall?.(); } catch {}
     }, WATCHDOG_BUDGET_MS);
   }
   const uninstallRefresh = installShelfRefreshEmitter();

@@ -38,3 +38,10 @@ export function subscribeFocusedCard(cb: (card: HTMLElement | null) => void): ()
 export function getFocusedCard(): HTMLElement | null {
   return lastCard;
 }
+
+// Test-only reset — keeps vitest cases isolated from module-level state.
+export function __resetFocusedCardTrackerForTest(): void {
+  listeners.clear();
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  lastCard = null;
+}

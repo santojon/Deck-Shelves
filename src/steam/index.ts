@@ -1898,10 +1898,21 @@ function collectFromCachedRaw(ids: number[], idCandidates: string[], nameCandida
   }
 }
 
+/* A native Steam Collections RPC can hang indefinitely right after boot
+   (collection subsystem not built yet) — no built-in timeout of its own.
+   Bounded here so a stuck client can't block every shelf that reads it,
+   not just the composite-child race above that protects its own callers. */
+function withRpcTimeout<T>(promise: Promise<T>, ms = 4000): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const id = setTimeout(() => reject(new Error(`timeout after ${ms}ms`)), ms);
+    promise.then((v) => { clearTimeout(id); resolve(v); }, (e) => { clearTimeout(id); reject(e); });
+  });
+}
+
 async function tryClientCollectionFetch(fn: any, id: string, out: number[]): Promise<void> {
   if (typeof fn !== "function") return;
   try {
-    const res = await fn(id);
+    const res = await withRpcTimeout(Promise.resolve(fn(id)));
     if (Array.isArray(res)) out.push(...res.map((x: any) => Number(x.appid ?? x)));
   } catch {}
 }

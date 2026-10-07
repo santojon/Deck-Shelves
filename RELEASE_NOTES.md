@@ -12,7 +12,8 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 - **Lower background CPU/battery use on the home screen.** Several background checks that used to run on a fixed timer (to keep the native Recents row hidden correctly and to highlight the focused game) now only run in response to an actual change, and every shelf shares one check instead of each running its own. Highlight tracking also fully pauses while you're in a game. No visible change to behavior — just less work happening when nothing's changing.
 - **New smart shelves no longer show your hidden games by default.** A shelf like "Recently Played" or "On Deck" used to treat a hidden game the same as any other — now it's filtered out from the start. It's a regular, visible filter on the shelf, so you can open the shelf's filter settings and remove it (or set it to "any") if you want hidden games back on that one. Shelves you already created aren't affected.
 - **A faster startup.** A few background trackers that aren't needed for the home screen's first paint now start a beat later, once things settle, instead of competing with it right away. No visible change otherwise.
-- **More resilient startup.** If the home screen's shelves ever fail to finish loading, the plugin now backs off automatically after 20 seconds so Steam's own home stays usable, instead of potentially getting stuck.
+- **More resilient startup.** If the home screen's shelves ever fail to finish loading, the plugin now backs off automatically after 20 seconds — restoring Steam's own recents row too — so Steam's own home stays usable, instead of potentially getting stuck.
+- **Fixed a shelf reading from a Steam collection sometimes showing incomplete content for a few seconds right after restarting Steam**, then correcting itself a moment later. Most noticeable on a composite shelf that combines a collection with other sources. Confirmed fixed on a real library that hit this every restart.
 
 ## [3.3.3] - 2026-10-01
 
