@@ -14,6 +14,11 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 - **A faster startup.** A few background trackers that aren't needed for the home screen's first paint now start a beat later, once things settle, instead of competing with it right away. No visible change otherwise.
 - **More resilient startup.** If the home screen's shelves ever fail to finish loading, the plugin now backs off automatically after 20 seconds — restoring Steam's own recents row too — so Steam's own home stays usable, instead of potentially getting stuck.
 - **Fixed a shelf reading from a Steam collection sometimes showing incomplete content for a few seconds right after restarting Steam**, then correcting itself a moment later. Most noticeable on a composite shelf that combines a collection with other sources. Confirmed fixed on a real library that hit this every restart.
+- **Fixed the home screen's hero background sometimes briefly showing the wrong game's art while things are still loading on restart**, before settling on the right one a couple of seconds later. Confirmed fixed with a frame-by-frame recording of an actual restart.
+- **The home screen no longer visibly reorganizes itself while shelves finish loading after a restart.** Steam's own home now stays fully visible and usable the whole time; your shelves then appear all at once, already in their final order, instead of shifting around as each one finishes loading.
+- **Shelves built from a Steam collection — on their own or combined with other sources — now show up noticeably faster after restarting Steam**, and smart shelves remember their last result across a restart instead of recalculating from scratch every time. Combined, these measurably shorten how long the home screen takes to settle after a restart.
+- **The Performance panel's numbers are now color-coded** (good/worth-watching/worth-investigating), matching the same color language as the existing on-screen debug overlay, so you don't have to know what "normal" looks like to spot something off.
+- **Fixed a few Performance panel labels showing up in English regardless of your chosen language, and one label missing everywhere, including English.** Both are now fixed across all supported languages.
 
 ## [3.3.3] - 2026-10-01
 

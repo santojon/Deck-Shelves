@@ -7,6 +7,9 @@ import {
   type SystemInfo, type HardwareInfo, type RuntimeInfo,
 } from "../../../runtime/diagnosticsInfo";
 import { refreshCssLoaderThemes } from "../../../core/cssLoaderDetect";
+import { getPerfSnapshot } from "../../../core/perfMetrics";
+import { getSmartShelfCacheStats } from "../../../steam/smartShelves";
+import { DonutChart, DonutLegend } from "./UsageCharts";
 import { getCurrentSettings } from "../../../settingsStore";
 import {
   CheckIcon, CopyIcon, RefreshIcon, ToolsIcon, MonitorIcon, GearIcon, SlidersIcon,
@@ -98,20 +101,45 @@ function IntegrationCard({ name, icon, active }: { name: string; icon: ReactNode
   );
 }
 
+function StorageDonut({ label, totalBytes, freeBytes, t }: { label: string; totalBytes: number; freeBytes: number | null; t: Tr }) {
+  const free = freeBytes ?? 0;
+  const used = Math.max(0, totalBytes - free);
+  const data = [
+    { label: t("hw_storage_used"), value: used, color: "#1a9fff" },
+    { label: t("hw_storage_free"), value: free, color: "rgba(255,255,255,0.12)" },
+  ];
+  return (
+    <Focusable onActivate={NOOP} focusWithinClassName="gpfocuswithin"
+      style={{ flex: "1 1 160px", minWidth: 150, padding: "8px 10px", borderRadius: 6, background: "rgba(255,255,255,0.03)" }}>
+      <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: 0.4, opacity: 0.55, marginBottom: 4 }}>{label}</div>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ transform: "scale(0.62)", transformOrigin: "left center", width: 81 }}>
+          <DonutChart data={data} />
+        </div>
+        <DonutLegend data={data} />
+      </div>
+    </Focusable>
+  );
+}
+
 function HardwareBlock({ hw, t }: { hw: HardwareInfo | null; t: Tr }) {
   if (!hw) return null;
   return (
     <SectionCard title={t("hw_title")} icon={<MonitorIcon size={13} />}>
       <SpecTile label={t("hw_model")} value={hw.model ?? DASH} />
-      <Focusable flow-children="horizontal" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 6, marginTop: 6 }}>
+      <Focusable flow-children="horizontal" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 6, marginTop: 6, marginBottom: hw.diskTotalBytes ? 6 : 0 }}>
         <SpecTile label={t("hw_cpu")} value={hwCpuText(hw)} />
         <SpecTile label={t("hw_ram")} value={formatSize(hw.memTotalBytes)} />
         {hw.gpu ? <SpecTile label={t("hw_gpu")} value={hw.gpu} /> : null}
-        {hw.diskTotalBytes ? <SpecTile label={t("hw_storage")} value={hwDiskText(hw)} /> : null}
-        {hw.externalDisks.map((d) => (
-          <SpecTile key={d.label} label={d.label} value={d.totalBytes ? `${formatSize(d.totalBytes)} (${formatSize(d.freeBytes)} free)` : DASH} />
-        ))}
       </Focusable>
+      {(hw.diskTotalBytes || hw.externalDisks.length > 0) && (
+        <Focusable flow-children="horizontal" style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+          {hw.diskTotalBytes ? <StorageDonut label={t("hw_storage")} totalBytes={hw.diskTotalBytes} freeBytes={hw.diskFreeBytes} t={t} /> : null}
+          {hw.externalDisks.map((d) => (
+            d.totalBytes ? <StorageDonut key={d.label} label={d.label} totalBytes={d.totalBytes} freeBytes={d.freeBytes} t={t} /> : null
+          ))}
+        </Focusable>
+      )}
     </SectionCard>
   );
 }
@@ -210,6 +238,20 @@ export function DiagnosticsSection({ t }: { t: Tr }) {
     ];
   };
 
+  const perfCopyLines = (): string[] => {
+    const snap = getPerfSnapshot();
+    const cache = getSmartShelfCacheStats();
+    const cacheTotal = cache.hits + cache.misses;
+    const lines = [
+      `${t("perf_title")}:`,
+      `  ${t("perf_boot_critical")} / ${t("perf_mount")}: ${snap.bootCriticalMs?.toFixed(0) ?? DASH}ms / ${snap.mountMs?.toFixed(0) ?? DASH}ms`,
+      `  ${t("perf_active_timers")}/${t("perf_active_observers")}/${t("perf_active_subscriptions")}: ${snap.activeTimers}/${snap.activeObservers}/${snap.activeSubscriptions}`,
+    ];
+    if (snap.usedJSHeapMB !== null) lines.push(`  ${t("perf_heap_used")}: ${snap.usedJSHeapMB}MB / ${snap.totalJSHeapMB}MB`);
+    if (cacheTotal > 0) lines.push(`  ${t("perf_cache_hit_rate")}: ${cache.hits}/${cacheTotal}`);
+    return lines;
+  };
+
   const copyAll = () => {
     const lines = [
       ...hwCopyLines(),
@@ -217,6 +259,7 @@ export function DiagnosticsSection({ t }: { t: Tr }) {
       ...softwareRows.map(([k, v]) => `${t(k)}: ${v}`),
       `${t("diag_plugins")}: ${plugins.length ? plugins.join(", ") : DASH}`,
       ...integrations.map((it) => `${t(it.key)}: ${it.active ? "yes" : "no"}`),
+      ...perfCopyLines(),
       `${t("diag_config")}:`,
       ...config.map((line) => `  ${line}`),
     ];

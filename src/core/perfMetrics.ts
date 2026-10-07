@@ -111,7 +111,25 @@ export type PerfSnapshot = {
   rendersPerMin: number;
   longTaskCount: number;
   longTaskTotalMs: number;
+  usedJSHeapMB: number | null;
+  totalJSHeapMB: number | null;
 };
+
+// `performance.memory` is a non-standard Chromium extension — present in
+// this CEF-based webview, feature-detected rather than assumed. Read fresh
+// on every snapshot (a live gauge, not something to track deltas of).
+function readHeap(): { usedJSHeapMB: number | null; totalJSHeapMB: number | null } {
+  try {
+    const mem = (performance as any).memory;
+    if (!mem) return { usedJSHeapMB: null, totalJSHeapMB: null };
+    return {
+      usedJSHeapMB: +(mem.usedJSHeapSize / 1048576).toFixed(1),
+      totalJSHeapMB: +(mem.totalJSHeapSize / 1048576).toFixed(1),
+    };
+  } catch {
+    return { usedJSHeapMB: null, totalJSHeapMB: null };
+  }
+}
 
 export function getPerfSnapshot(): PerfSnapshot {
   ensureLongTaskObserver();
@@ -122,6 +140,7 @@ export function getPerfSnapshot(): PerfSnapshot {
     domCallbacksPerMin: rateOf(domCallbackLog),
     rendersPerMin: rateOf(renderLog),
     longTaskCount, longTaskTotalMs,
+    ...readHeap(),
   };
 }
 

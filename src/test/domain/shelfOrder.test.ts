@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { pickFirstVisibleShelfId, interleaveSmartShelves, applyAutoPin } from '../../domain/shelfOrder'
+import { pickFirstVisibleShelfId, interleaveSmartShelves, applyAutoPin, isShelfSetSettled } from '../../domain/shelfOrder'
 
 type S = { id: string; source?: { type?: string } }
 
@@ -103,6 +103,28 @@ describe('interleaveSmartShelves', () => {
     const shelves = [tab('a'), tab('b'), tab('c'), tab('d')]
     const out = interleaveSmartShelves(shelves, 'b')
     expect(out.map((s: any) => s.id)).toEqual(['b', 'a', 'c', 'd'])
+  })
+})
+
+describe('isShelfSetSettled', () => {
+  it('is not settled when fewer shelves have rendered than are configured and the timeout has not elapsed', () => {
+    expect(isShelfSetSettled(2, 5, 500, 3000)).toBe(false)
+  })
+
+  it('is settled once every configured shelf has rendered, even well before the timeout', () => {
+    expect(isShelfSetSettled(5, 5, 500, 3000)).toBe(true)
+  })
+
+  it('is settled once the timeout elapses, even if not every shelf rendered', () => {
+    expect(isShelfSetSettled(2, 5, 3000, 3000)).toBe(true)
+  })
+
+  it('is settled when there are no configured shelves at all', () => {
+    expect(isShelfSetSettled(0, 0, 0, 3000)).toBe(true)
+  })
+
+  it('treats more rendered than configured as settled (defensive, should not normally happen)', () => {
+    expect(isShelfSetSettled(6, 5, 0, 3000)).toBe(true)
   })
 })
 

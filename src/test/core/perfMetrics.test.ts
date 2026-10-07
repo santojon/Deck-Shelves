@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import {
   markBootStart, recordBootCritical, markMountStart, recordMountDone,
   timerCreated, timerDisposed, observerCreated, observerDisposed,
@@ -78,5 +78,27 @@ describe("perfMetrics", () => {
   it("counts remount tries", () => {
     recordRemountTry(); recordRemountTry(); recordRemountTry();
     expect(getPerfSnapshot().remountTries).toBe(3);
+  });
+
+  describe("JS heap reading", () => {
+    const originalMemory = (performance as any).memory;
+    afterEach(() => {
+      if (originalMemory === undefined) delete (performance as any).memory;
+      else (performance as any).memory = originalMemory;
+    });
+
+    it("reports null when performance.memory isn't available (non-Chromium)", () => {
+      delete (performance as any).memory;
+      const snap = getPerfSnapshot();
+      expect(snap.usedJSHeapMB).toBeNull();
+      expect(snap.totalJSHeapMB).toBeNull();
+    });
+
+    it("reports heap sizes in MB when performance.memory is available", () => {
+      (performance as any).memory = { usedJSHeapSize: 52428800, totalJSHeapSize: 104857600 };
+      const snap = getPerfSnapshot();
+      expect(snap.usedJSHeapMB).toBe(50);
+      expect(snap.totalJSHeapMB).toBe(100);
+    });
   });
 });

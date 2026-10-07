@@ -18,6 +18,9 @@ import {
   type HardwareInfo,
 } from "../runtime/diagnosticsInfo";
 import { getDiagnostics } from "../runtime/diagnostics";
+import { getPerfSnapshot } from "./perfMetrics";
+import { getLearnedTimeoutsSummary } from "./adaptiveTimeout";
+import { getSmartShelfCacheStats } from "../steam/smartShelves";
 import { getCurrentSettings } from "../store/settingsStore";
 import { openExternalUrl } from "./updateNotifier";
 import { copyToClipboard } from "../components/ui/clipboard";
@@ -69,6 +72,27 @@ function hardwareText(hw: HardwareInfo): string[] {
   return lines;
 }
 
+// Performance block — always included (plugin-internal counters, not
+// personally identifying), unlike the opt-in hardware block above.
+function perfText(): string[] {
+  const snap = getPerfSnapshot();
+  const cache = getSmartShelfCacheStats();
+  const cacheTotal = cache.hits + cache.misses;
+  const learned = getLearnedTimeoutsSummary();
+  const ms = (v: number | null) => (v !== null ? `${v.toFixed(0)}ms` : DASH);
+  const lines = [
+    "Performance:",
+    `  Boot critical / Home mount: ${ms(snap.bootCriticalMs)} / ${ms(snap.mountMs)}`,
+    `  Active timers/observers/subscriptions: ${snap.activeTimers}/${snap.activeObservers}/${snap.activeSubscriptions}`,
+    `  Reconciles/DOM-callbacks/renders per min: ${snap.reconcilesPerMin}/${snap.domCallbacksPerMin}/${snap.rendersPerMin}`,
+    `  Long tasks: ${snap.longTaskCount} (${snap.longTaskTotalMs.toFixed(0)}ms total)`,
+  ];
+  if (snap.usedJSHeapMB !== null) lines.push(`  JS heap: ${snap.usedJSHeapMB}MB / ${snap.totalJSHeapMB}MB`);
+  if (cacheTotal > 0) lines.push(`  Smart-shelf cache hits: ${cache.hits}/${cacheTotal}`);
+  if (learned.length > 0) lines.push(`  Learned timeouts: ${learned.map((l) => `${l.key}=${l.p90Ms}ms`).join(", ")}`);
+  return lines;
+}
+
 function hostLine(hs: RuntimeInfo["hostHandshake"]): string {
   if (!hs) return DASH;
   let s = `${hs.hostKind} ${hs.hostVersion} (contract ${hs.hostApiVersion})`;
@@ -87,6 +111,7 @@ function diagnosticsText(runtime: RuntimeInfo, sys: SystemInfo | null, hw: Hardw
     `Theme: ${runtime.theme ?? DASH}`,
     `Host: ${hostLine(runtime.hostHandshake)}`,
     ...(hw ? hardwareText(hw) : []),
+    ...perfText(),
     `Decky: ${yn(runtime.decky)}`,
     `CSS Loader: ${yn(runtime.cssLoader)}`,
     `TabMaster: ${yn(runtime.tabMaster)}`,

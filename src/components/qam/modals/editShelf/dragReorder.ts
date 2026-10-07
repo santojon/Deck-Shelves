@@ -1,6 +1,5 @@
-/* Shared pointer-drag reorder + price-cache helpers — used by both
-   ShelfPreview's manual-sort row and the standalone ManualSortRow (same
-   drag mechanics, same discount-badge lookup). */
+/* Shared pointer-drag reorder + price-cache helpers for ShelfPreview's
+   manual-sort row (drag mechanics, discount-badge lookup). */
 
 export function readPriceCache(isOnlineShelfSource: boolean): any {
   if (!isOnlineShelfSource) return null

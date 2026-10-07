@@ -122,11 +122,11 @@ export function DeveloperDetail({ controller, t }: DeveloperDetailProps) {
         />
         {overlayOn ? <OverlayConfig controller={controller} t={t} /> : null}
       </div>
+      <PerformanceSection t={t} />
       <CollapsibleSection id="dev-device-sim" title={t("dev_sim_title")} count={0} icon={<GamepadIcon size={14} />}>
         <DeviceSimulator t={t} />
       </CollapsibleSection>
       <SourceResolverInspector controller={controller} t={t} />
-      <PerformanceSection t={t} />
       <CollapsibleSection
         id="dev-logs"
         title={t("settings_advanced_logs_title")}

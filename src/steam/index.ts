@@ -2,6 +2,7 @@ import type { FilterGroup, FilterItem } from "../types";
 import { dedupeAppIdsByName } from "./dedupe";
 import { UPDATE_PENDING_STATUSES, APP_STATUS_GROUPS, EAppDisplayStatus } from "./appDisplayStatus";
 import { mark, measure } from "../core/perf";
+import { getAdaptiveTimeout, recordDuration } from "../core/adaptiveTimeout";
 import {
   hasExternalSortOption, applyExternalSort,
   hasExternalFilterType, evaluateExternalFilter,
@@ -1900,9 +1901,12 @@ function collectFromCachedRaw(ids: number[], idCandidates: string[], nameCandida
 
 /* A native Steam Collections RPC can hang indefinitely right after boot
    (collection subsystem not built yet) — no built-in timeout of its own.
-   Bounded here so a stuck client can't block every shelf that reads it,
-   not just the composite-child race above that protects its own callers. */
-function withRpcTimeout<T>(promise: Promise<T>, ms = 4000): Promise<T> {
+   Bounded here so a stuck client can't block every shelf that reads it.
+   The bound is learned from real observed durations (adaptiveTimeout)
+   rather than a fixed guess — floor/ceiling keep the same safety range. */
+const COLLECTION_RPC_TIMEOUT_KEY = "collection-rpc";
+
+function withRpcTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return new Promise((resolve, reject) => {
     const id = setTimeout(() => reject(new Error(`timeout after ${ms}ms`)), ms);
     promise.then((v) => { clearTimeout(id); resolve(v); }, (e) => { clearTimeout(id); reject(e); });
@@ -1911,21 +1915,29 @@ function withRpcTimeout<T>(promise: Promise<T>, ms = 4000): Promise<T> {
 
 async function tryClientCollectionFetch(fn: any, id: string, out: number[]): Promise<void> {
   if (typeof fn !== "function") return;
+  const ms = getAdaptiveTimeout(COLLECTION_RPC_TIMEOUT_KEY, { floor: 500, ceiling: 4000, fallback: 4000 });
+  const startedAt = Date.now();
   try {
-    const res = await withRpcTimeout(Promise.resolve(fn(id)));
+    const res = await withRpcTimeout(Promise.resolve(fn(id)), ms);
+    recordDuration(COLLECTION_RPC_TIMEOUT_KEY, Date.now() - startedAt);
     if (Array.isArray(res)) out.push(...res.map((x: any) => Number(x.appid ?? x)));
   } catch {}
 }
 
 async function collectFromSteamClients(ids: number[], idCandidates: string[]): Promise<void> {
+  // Each call is independently timeout-bounded and only pushes into the
+  // shared `ids` array — safe to fan out in parallel instead of a sequential
+  // await chain (confirmed live: that chain alone added seconds per child).
+  const tasks: Array<Promise<void>> = [];
   for (const sc of getSteamClients()) {
     const collFn = sc?.Collections?.GetCollectionItems?.bind(sc.Collections);
     const storeFn = sc?.CollectionStore?.GetCollectionApps?.bind(sc.CollectionStore);
     for (const id of idCandidates) {
-      await tryClientCollectionFetch(collFn, id, ids);
-      await tryClientCollectionFetch(storeFn, id, ids);
+      tasks.push(tryClientCollectionFetch(collFn, id, ids));
+      tasks.push(tryClientCollectionFetch(storeFn, id, ids));
     }
   }
+  await Promise.all(tasks);
 }
 
 const COLLECTION_STORE_METHODS = [
@@ -3795,18 +3807,23 @@ function compositeChildLimit(overShootLimit: number): number {
 async function resolveCompositeChildren(childSources: any[], ctx: ResolverContext): Promise<number[][]> {
   const { sort, shelfId, sortReverse, options, depth: _depth, overShootLimit } = ctx;
   const childLimit = compositeChildLimit(overShootLimit);
-  /* 15 s hard ceiling per child so a single hung online source (e.g. a
-     wishlist RPC that doesn't time out cleanly) can't park the parent
-     composite resolve forever. Returning `[]` for a misbehaving child
-     still lets the union complete with the rest of the data. */
+  /* Ceiling per child (15s max) so a single hung online source can't park
+     the parent composite resolve forever; a misbehaving child just resolves
+     `[]`. The actual bound is learned per source type (adaptiveTimeout) — a
+     local collection and a network wishlist/store call have very different
+     natural latencies, so each type keeps its own rolling estimate. */
   return Promise.all(
     childSources.map((child) => {
-      const inner = resolveShelfAppIds(child, childLimit, sort, shelfId, sortReverse, options, _depth + 1);
+      const timeoutKey = `composite-child:${child?.type ?? "unknown"}`;
+      const ms = getAdaptiveTimeout(timeoutKey, { floor: 2000, ceiling: 15000, fallback: 15000 });
+      const startedAt = Date.now();
+      const inner = resolveShelfAppIds(child, childLimit, sort, shelfId, sortReverse, options, _depth + 1)
+        .then((r) => { recordDuration(timeoutKey, Date.now() - startedAt); return r; });
       const fallback = new Promise<number[]>((resolve) => {
         setTimeout(() => {
           logWarn("STEAM", "composite child resolve timed out", { type: child?.type, shelfId });
           resolve([]);
-        }, 15000);
+        }, ms);
       });
       return Promise.race([inner, fallback])
         .catch((e) => { logWarn("STEAM", "composite child resolve failed", String(e)); return [] as number[]; });

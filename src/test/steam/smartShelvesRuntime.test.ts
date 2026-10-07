@@ -27,7 +27,7 @@ vi.mock('../../store/settingsStore', () => ({
   getCurrentSettings: vi.fn(() => ({ onlineFeaturesEnabled: true })),
 }))
 
-import { resolveSmartShelf, invalidateSmartShelfCache } from '../../steam/smartShelves'
+import { resolveSmartShelf, invalidateSmartShelfCache, getSmartShelfCacheStats } from '../../steam/smartShelves'
 import * as batteryState from '../../runtime/batteryState'
 import * as friendsState from '../../runtime/friendsState'
 import * as appDetailsCache from '../../steam/appDetailsCache'
@@ -286,5 +286,22 @@ describe('friends_playing', () => {
     // limit=1 should keep only the owned one (it leads the array).
     const ids = resolveSmartShelf('friends_playing', apps, 1)
     expect(ids).toEqual([1])
+  })
+})
+
+describe('getSmartShelfCacheStats', () => {
+  it('counts a miss on first resolve and a hit on an immediate repeat with the same key', () => {
+    invalidateSmartShelfCache()
+    const before = getSmartShelfCacheStats()
+    const apps: AppOverview[] = [app({ appid: 1, installed: true, deck_compatibility_category: 3, playtime_forever: 10 })]
+    resolveSmartShelf('quick_play', apps, 5, undefined, 60000, 's_cache_stats_test')
+    const afterFirst = getSmartShelfCacheStats()
+    expect(afterFirst.misses).toBe(before.misses + 1)
+    expect(afterFirst.hits).toBe(before.hits)
+
+    resolveSmartShelf('quick_play', apps, 5, undefined, 60000, 's_cache_stats_test')
+    const afterSecond = getSmartShelfCacheStats()
+    expect(afterSecond.hits).toBe(afterFirst.hits + 1)
+    expect(afterSecond.misses).toBe(afterFirst.misses)
   })
 })

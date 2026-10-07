@@ -19,6 +19,20 @@ export function pickFirstVisibleShelfId(
   return null;
 }
 
+/* Shelves resolve progressively — committing `firstVisibleId` to whichever
+   renders FIRST flashes the wrong per-shelf hero as an earlier-config shelf
+   catches up (confirmed live, 2026-10-07). Hold the commit until every
+   configured shelf has rendered once, or a bounded timeout elapses (a shelf
+   that never resolves shouldn't block promotion forever). */
+export function isShelfSetSettled(
+  renderedCount: number,
+  totalCount: number,
+  elapsedMs: number,
+  timeoutMs: number,
+): boolean {
+  return renderedCount >= totalCount || elapsedMs >= timeoutMs;
+}
+
 /* Auto-pin: stable partition that floats every shelf whose `autoPin` predicate
    currently matches to the front, preserving relative order within each group.
    Returns the SAME array reference when nothing is pinned, so a home with no
