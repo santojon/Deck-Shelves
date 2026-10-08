@@ -87,18 +87,29 @@ function pickScalarBase(la: any, rb: any, lp: number, rp: number): any {
   return rp > lp ? rb : la;
 }
 
+/* The whole scalar bag + its clock. `keepLocal` pins both to `local` (profile
+   override active); otherwise the newer-clock bag wins, clock = the max. */
+function scalarBag(la: any, rb: any, lp: number, rp: number, keepLocal: boolean): { base: any; clock: number } {
+  if (keepLocal) return { base: la, clock: lp };
+  return { base: pickScalarBase(la, rb, lp, rp), clock: Math.max(lp, rp) };
+}
+
 /* Merge two full settings snapshots. Symmetric, idempotent and order-independent
    on SYNCED fields (so both devices converge from the same pair); the device-local
    fields in LOCAL_ONLY_FIELDS always come from `local` (the first argument). */
-export function mergeSettings(local: Settings, remote: Settings): Settings {
+/* `scalars: "keepLocal"` pins the whole scalar bag (and its clock) to `local`
+   while the per-entity lists still merge — used while a profile override is
+   active so the scalar settings a profile applies stay device-local and never
+   tug-of-war across devices. This mode is intentionally NOT symmetric. */
+export function mergeSettings(local: Settings, remote: Settings, opts?: { scalars?: "auto" | "keepLocal" }): Settings {
   const la = local as any, rb = remote as any;
   const lp = prefClock(la), rp = prefClock(rb);
-  const base: any = pickScalarBase(la, rb, lp, rp);
+  const { base, clock } = scalarBag(la, rb, lp, rp, opts?.scalars === "keepLocal");
   const out: any = { ...base };
 
   const tombstones = mergeTombstones(la.syncTombstones ?? {}, rb.syncTombstones ?? {});
   out.syncTombstones = tombstones;
-  out.preferencesUpdatedAt = Math.max(lp, rp);
+  out.preferencesUpdatedAt = clock;
 
   for (const key of SYNC_LISTS) {
     const orderIds = ((base[key] ?? []) as Entity[]).map((e) => e.id);

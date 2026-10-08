@@ -52,11 +52,12 @@ function getCacheVersion(appid: number, overview?: SteamAppOverview | null): str
   return null;
 }
 
-/* Generic URL builders. Every URL also carries `r=<assetRevision>` so
-   `bumpAssetRevision()` busts EVERY fallback (not just customimages).
-   Required because Steam's "Customize Artwork" sometimes doesn't bump
-   `local_cache_version` immediately after a write, leaving the loopback
-   URL pinned to the old bitmap. */
+/* URL builders. The revision buster rides only the LOCAL paths whose file
+   can change in place: `/customimages/` has no Steam buster, and loopback's
+   `local_cache_version` sometimes lags a "Customize Artwork" write. */
+/* Remote CDN art (steamstatic/akamai) is content-immutable per appid+file,
+   like the SHA1-pinned community icon, so it omits the buster — re-busting
+   it on every return to home only re-downloads identical bytes. */
 
 function rev(): string {
   return getAssetRevision();
@@ -70,11 +71,11 @@ export function buildLoopbackUrl(appid: number, file: string, version?: string |
 }
 
 export function buildSteamstaticUrl(appid: number, file: string): string {
-  return `${STEAMSTATIC_ORIGIN}/store_item_assets/steam/apps/${appid}/${file}?r=${rev()}`;
+  return `${STEAMSTATIC_ORIGIN}/store_item_assets/steam/apps/${appid}/${file}`;
 }
 
 export function buildAkamaiUrl(appid: number, file: string): string {
-  return `${AKAMAI_ORIGIN}/steam/apps/${appid}/${file}?r=${rev()}`;
+  return `${AKAMAI_ORIGIN}/steam/apps/${appid}/${file}`;
 }
 
 // Asset-type getters

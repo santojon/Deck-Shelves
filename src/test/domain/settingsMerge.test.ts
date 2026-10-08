@@ -96,3 +96,22 @@ describe("mergeSettings — cross-device convergence", () => {
     expect((mergeSettings(b, a) as any).cloudSyncLastSyncedAt).toBe(999);
   });
 });
+
+describe("mergeSettings — scalars:keepLocal (profile override active)", () => {
+  it("keeps the local scalar bag even when the remote clock is newer", () => {
+    const local = mk({ showcaseModeEnabled: false, preferencesUpdatedAt: 1 });
+    const remote = mk({ showcaseModeEnabled: true, preferencesUpdatedAt: 9 });
+    const out = mergeSettings(local, remote, { scalars: "keepLocal" });
+    expect((out as any).showcaseModeEnabled).toBe(false);
+    expect((out as any).preferencesUpdatedAt).toBe(1);
+  });
+
+  it("still merges the per-entity lists while the scalar bag stays local", () => {
+    const local = mk({ showcaseModeEnabled: false, preferencesUpdatedAt: 1, shelves: [sh("a", 5)] });
+    const remote = mk({ showcaseModeEnabled: true, preferencesUpdatedAt: 9, shelves: [sh("a", 9), sh("b", 4)] });
+    const out = mergeSettings(local, remote, { scalars: "keepLocal" });
+    expect((out as any).showcaseModeEnabled).toBe(false);
+    expect(out.shelves.map((s) => s.id).sort()).toEqual(["a", "b"]);
+    expect((out.shelves.find((s) => s.id === "a") as any).updatedAt).toBe(9);
+  });
+});
