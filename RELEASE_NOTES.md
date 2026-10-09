@@ -28,7 +28,11 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 - **Fixed a card's "Update" hint sometimes still showing after the update had already finished**, making the quick-launch action look like it launched the game instead of updating it — the action itself was always correct, only the label was stale. It now stays current.
 - **Even less background work while you're in a game.** Two more Home-screen helpers (the card badge overlay and the Side Nav panel) now pause entirely while a game is running, instead of continuing to watch for changes with nothing to show — picking back up the moment you return.
 - **Coming back to the home screen is now fast — about a second instead of five or six — and it no longer shows Steam's plain home first.** Whether you return from a game's page, the Library or anywhere else, your shelves appear complete right away and your previously selected game stays selected. Measured on a real Deck across 20 back-and-forth trips.
-- **Snappier home rebuilds in general:** a few per-card costs (price lookups, layout checks, animation sampling) now happen once per rebuild instead of once per game.
+- **Snappier home rebuilds in general:** a few per-card costs (price lookups, layout checks, animation sampling) now happen once per rebuild instead of once per game. The plugin also stops watching the whole screen for changes once your shelves are in place (it watches just the home area), which cut the return-to-home time further to about 0.65 s on average.
+- **A safety net for bad starts.** If the home screen fails to finish loading on three Steam starts in a row, the plugin steps aside on the next start — Steam's own home stays usable — and tells you in the Quick Access panel, with a "Leave safe mode" button to try again on the following restart.
+- **Even less idle work:** background checks for friends activity and launcher catalogs now run only if something you've set up actually uses them, and the hero background pauses its focus tracking while you're in a game.
+- **Fixed the home screen occasionally coming up completely blank after a Steam restart** — no shelves, nothing to select, and only another restart would bring them back. Two of the plugin's own startup paths could collide and one wiped the other's shelves; they can no longer touch each other.
+- **On an install with two hosts, saving settings no longer logs occasional "mirror write failed" errors** when both hosts happen to save at the same moment.
 
 ## [3.3.3] - 2026-10-01
 

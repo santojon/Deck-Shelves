@@ -28,7 +28,7 @@ const templatesFixture = __DEV__ && typeof __QA_TEMPLATES_FIXTURE__ !== "undefin
 const decorationFixture = __DEV__ && typeof __QA_DECORATION_FIXTURE__ !== "undefined" && __QA_DECORATION_FIXTURE__;
 const stressFixture = __DEV__ && typeof __QA_STRESS_FIXTURE__ !== "undefined" && __QA_STRESS_FIXTURE__;
 const videoFixture = __DEV__ && typeof __QA_VIDEO_FIXTURE__ !== "undefined" && __QA_VIDEO_FIXTURE__;
-// ROADMAP S1 perf:bench baseline matrix (vanilla/empty/typical/stress/large/huge) — scenario
+// perf:bench baseline matrix (vanilla/empty/typical/stress/large/huge) — scenario
 // picked at RUNTIME from localStorage (not a build constant) so one build covers all six without
 // a redeploy per scenario; see qaPerfMatrixFixture below.
 const perfMatrix = __DEV__ && typeof __QA_PERF_MATRIX__ !== "undefined" && __QA_PERF_MATRIX__;
@@ -321,7 +321,7 @@ function qaStressFixture(): { shelves: Shelf[]; smartShelves: SmartShelf[] } {
   return { shelves, smartShelves };
 }
 
-// ─── Fixture: ROADMAP S1 perf:bench baseline matrix ──────────────────────────
+// ─── Fixture: perf:bench baseline matrix ─────────────────────────────────────
 // Scenario picked at runtime (localStorage, not a build flag) so one dev build
 // covers vanilla/empty/typical/stress/large/huge without a redeploy each time.
 

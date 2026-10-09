@@ -19,6 +19,7 @@ import { Focusable } from "../runtime/host/decky";
 import { installPassiveMenuHook, installPassiveShowContextMenuHook, installLibraryContextMenuPatch, installCreateContextMenuPatch, prewarmMenuExtraction } from "../core/steamGameMenu";
 import { tryRestoreFocus, hasPendingFocus, beginFocusRestoreLoop, beginColdBootFocusGuard, focusElement, getLastFocusedElement, saveFocusTargetFromFocusedCard } from "../core/focusRestore";
 import { allShelvesWarm, getShelfWarmEntry } from "./shelf/shelfWarmState";
+import { recordBootStarted, recordBootCompleted } from "../runtime/safeMode";
 import { focusNativeRecentsFirstCard, findNativeRecentsEl } from "../features/sidenav/ShelfSideNav";
 import { patchShelfEdgeNavigation, patchMenuButton, installVerticalFocusBridge, reparentNavTreeNodes } from "./home/navPatches";
 import { triggerShelfRefresh } from "../core/shelfRefresh";
@@ -167,6 +168,7 @@ export function HomeShelves({ fallback = false }: { fallback?: boolean }) {
   useEffect(() => {
     let alive = true;
     markMountStart();
+    recordBootStarted();
     resetMountCounters();
     let mountRecorded = false;
 
@@ -175,6 +177,8 @@ export function HomeShelves({ fallback = false }: { fallback?: boolean }) {
        and flash native recents. Wait 600 ms before actually removing — if home becomes
        visible again within the window, cancel the removal. Additive only; no impact on 3.7. */
     let removeTimer: ReturnType<typeof setTimeout> | null = null;
+    // Set once the observer block below exists (updateMount runs before it).
+    let scopeHook: ((mount: HTMLElement) => void) | null = null;
     const updateMount = () => {
       if (!alive) return;
       recordReconcile();
@@ -196,8 +200,9 @@ export function HomeShelves({ fallback = false }: { fallback?: boolean }) {
       const el = findOrCreateMount();
       if (el) {
         claimMount(el);
+        scopeHook?.(el);
         setMountEl(el);
-        if (!mountRecorded) { mountRecorded = true; recordMountDone(); }
+        if (!mountRecorded) { mountRecorded = true; recordMountDone(); recordBootCompleted(); }
       }
     };
 
@@ -219,8 +224,49 @@ export function HomeShelves({ fallback = false }: { fallback?: boolean }) {
       observers.push(o);
       observerCreated();
     };
-    observeDoc(doc);
-    for (const d of getAllSteamDocuments()) observeDoc(d);
+    /* Discovery mode (body-subtree observers on every Steam doc) only until
+       the mount lands; then the observers narrow to the home section around
+       the mount plus a childList canary on its parent, so QAM / toast / other
+       pages' mutations stop waking the reconcile. If the section goes away,
+       the canary (else the 5 s poll / focus / route events) re-enters discovery. */
+    let scopedTo: HTMLElement | null = null;
+    const enterDiscovery = () => {
+      if (!scopedTo && observers.length) return;
+      teardownObservers(observers);
+      for (let i = 0; i < observers.length; i++) observerDisposed();
+      observers.length = 0;
+      scopedTo = null;
+      observedDocs.clear();
+      observeDoc(doc);
+      for (const d of getAllSteamDocuments()) observeDoc(d);
+      if (__DEV__) { try { (globalThis as any).__ds_home_observer_scope = 'discovery'; } catch {} }
+    };
+    const scopeObserversTo = (mount: HTMLElement) => {
+      const section = mount.parentElement;
+      if (!section || scopedTo === section) return;
+      teardownObservers(observers);
+      for (let i = 0; i < observers.length; i++) observerDisposed();
+      observers.length = 0;
+      scopedTo = section;
+      const onMutation = () => {
+        if (!section.isConnected || !mount.isConnected) { enterDiscovery(); }
+        scheduleHomeReconcile();
+      };
+      const scoped = new MutationObserver(onMutation);
+      scoped.observe(section, { childList: true, subtree: true });
+      observers.push(scoped); observerCreated();
+      const canaryParent = section.parentElement;
+      if (canaryParent) {
+        const canary = new MutationObserver(onMutation);
+        canary.observe(canaryParent, { childList: true });
+        observers.push(canary); observerCreated();
+      }
+      if (__DEV__) { try { (globalThis as any).__ds_home_observer_scope = 'section'; } catch {} }
+    };
+    enterDiscovery();
+    if (__DEV__) { try { (globalThis as any).__ds_home_observer_scope = 'discovery'; } catch {} }
+    scopeHook = scopeObserversTo;
+    { const existing = doc.getElementById(ROOT_ID) as HTMLElement | null; if (existing?.isConnected) scopeObserversTo(existing); }
 
     /* State-divergence check: Steam re-renders the home DOM without our
        hides (B from library, route swap, etc.). Checked in BOTH directions —

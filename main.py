@@ -214,7 +214,7 @@ class Plugin:
         rev = (prev["rev"] if prev else 0) + 1
         updated_at = time.time()
         wrapped = {"state": clean, "rev": rev, "updatedAt": updated_at}
-        tmp_path = path + ".tmp"
+        tmp_path = f"{path}.{os.getpid()}.tmp"  # unique per writer, see storage._atomic_write_wrapped
         bak_path = path + ".bak"
         try:
             os.makedirs(os.path.dirname(path), exist_ok=True)

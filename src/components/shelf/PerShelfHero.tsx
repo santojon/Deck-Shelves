@@ -6,6 +6,7 @@ import { getLandscapeUrls, getPortraitUrls, getHeroUrls as getCentralHeroUrls, g
 import { getHotCachedImageSrc, warmCacheBackground, firstCacheableUrl } from "../../core/imageCache";
 import { getAppDescriptions, preloadAppDescriptions } from "../../steam/appDescriptionsCache";
 import { computeHeroVisualGeometry, resolveOverlayPositionStyle, resolveOverlayOffset, findFirstVisibleCard } from "./perShelfHeroHelpers";
+import { subscribeSessionState, getSessionState } from "../../runtime/sessionState";
 
 let _nativeAssetProto: any = null;
 
@@ -343,6 +344,10 @@ function useNativeHeroClasses(applyGate: boolean): NativeHeroClasses {
 }
 
 function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecents, isFullPage = false, enableLogo = false, enableDescription = false, descriptionBelowLogo = false, logoBelowShelf = false, logoPosition = 'left', descriptionPosition = 'left', logoSize = 100, logoTopOffset = 20, descriptionHeight = 2, descriptionLogoGap = 10, infoAbove = false }: { containerRef: React.RefObject<HTMLDivElement | null>; showArt: boolean; isFirstShelf: boolean; forceLayoutAsRecents: boolean; isFullPage?: boolean; enableLogo?: boolean; enableDescription?: boolean; descriptionBelowLogo?: boolean; logoBelowShelf?: boolean; logoPosition?: 'left' | 'center' | 'right'; descriptionPosition?: 'left' | 'center' | 'right'; logoSize?: number; logoTopOffset?: number; descriptionHeight?: number; descriptionLogoGap?: number; infoAbove?: boolean }) {
+  // Home stays mounted behind a running game — suspend this shelf's focus
+  // tracking (focusin + subtree observer + scroll) for that window.
+  const [gameRunning, setGameRunning] = useState(() => getSessionState().gameRunning);
+  useEffect(() => subscribeSessionState(() => setGameRunning(getSessionState().gameRunning)), []);
   const [slotA, setSlotA] = useState<string | null>(null);
   const [slotB, setSlotB] = useState<string | null>(null);
   const [activeSlot, setActiveSlot] = useState<'A' | 'B'>('A');
@@ -549,7 +554,7 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
 
   useEffect(() => {
     const el = containerRef.current;
-    if (!el) return;
+    if (!el || gameRunning) return;
     /* Reset the tracked appid whenever this effect (re-)runs — notably when
        `showArt` flips on (global hero toggle). Otherwise `currentAppid` was
        already set by an earlier label-only update() pass, so the appid-change
@@ -772,7 +777,7 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
       if (updatePending != null) cancelAnimationFrame(updatePending);
       if (heroSwapTimerRef.current) { clearTimeout(heroSwapTimerRef.current); heroSwapTimerRef.current = null; }
     };
-  }, [containerRef, showArt]);
+  }, [containerRef, showArt, gameRunning]);
 
   // Idle-time image pre-warm via requestIdleCallback. Warms portrait
   // for every card on every shelf; hero shelves also warm hero +

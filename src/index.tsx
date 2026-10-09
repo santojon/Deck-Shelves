@@ -42,7 +42,11 @@ import { setPendingSettingsTab } from "./runtime/settingsNav";
 import { pickNewSuggestions } from "./runtime/suggestionNotifier";
 import { notify } from "./components/notify";
 import { logError, logInfo } from "./runtime/logger";
-import { disposeAll } from "./runtime/runtimeDisposer";
+import { disposeAll, registerDisposer } from "./runtime/runtimeDisposer";
+import { installDevNavHooks } from "./runtime/devNavHooks";
+import { settingsNeedFriends, settingsNeedLaunchers } from "./runtime/featureDemand";
+import { evaluateBootOutcome } from "./runtime/safeMode";
+import type { Settings } from "./types";
 import { markBootStart, recordBootCritical, getPerfSnapshot, hasMountStarted } from "./core/perfMetrics";
 import { Navigation, Focusable, DialogButton, quickAccessMenuClasses } from "./runtime/host/decky";
 import { resolveHost, hostProvidesNativeTab, shouldUseForcedHost, awaitInjectedHost } from "./runtime/host/resolve";
@@ -194,8 +198,13 @@ const __ds_entry = definePlugin((serverAPI?: any) => {
   const coopForce = shouldUseForcedHost();
   const isOwner = claimHomeOwnership((coopForce || !(serverAPI || loaderRouterHook)) ? "shelveshub" : "decky");
   if (!isOwner) logInfo("RUNTIME", "another Deck Shelves instance owns the renderer — standing down (no home patch / no settings writes)");
-  const patch = (enableHomePatch && isOwner) ? installHomePatch(routerHook) : null;
-  const recentsReplacePatch = isOwner ? installRecentsReplace(routerHook) : null;
+  /* Safe Mode: after repeated boots where Home started mounting but never
+     finished, skip both Home patches this session so Steam's own Home stays
+     usable; the QAM banner offers the way out (`runtime/safeMode.ts`). */
+  const safeMode = evaluateBootOutcome();
+  if (safeMode) logDiagnostic("warn", "Safe Mode: Home patches skipped after repeated incomplete boots");
+  const patch = (enableHomePatch && isOwner && !safeMode) ? installHomePatch(routerHook) : null;
+  const recentsReplacePatch = (isOwner && !safeMode) ? installRecentsReplace(routerHook) : null;
 
   /* Startup watchdog: Home's first mount is expected well under a second;
      20 s is generous, not tight. If it never lands, tear down both Home
@@ -233,6 +242,8 @@ const __ds_entry = definePlugin((serverAPI?: any) => {
   const uninstallProfileTriggers = installProfileTriggers();
   // Dev-only: expose the live device snapshot for on-device CDP inspection.
   if (__DEV__) { try { (globalThis as any).__ds_device = getDeviceState; } catch {} }
+  // Dev-only navigation/nav-tree hooks for on-device drivers, via the host abstraction.
+  if (__DEV__) { try { registerDisposer(installDevNavHooks()); } catch {} }
   const uninstallPluginApi = installPluginApi();
 
   /* Phase B (lazy bootstrap): trackers/pollers nothing else in boot() reads
@@ -246,11 +257,21 @@ const __ds_entry = definePlugin((serverAPI?: any) => {
   let phaseBDisposed = false;
   const schedulePhaseB = (globalThis as any).requestIdleCallback ?? ((cb: any) => setTimeout(cb, 2000));
   const cancelPhaseB = (globalThis as any).cancelIdleCallback ?? ((id: any) => clearTimeout(id));
+  /* Phase C (feature demand): the friends poller and the launcher-cache poll
+     only start when the configuration can actually use their data, and start
+     later the moment a settings change introduces such a use. Each starts at
+     most once per boot; the settings subscription below is the only trigger. */
+  let unsubFeatureDemand: (() => void) | null = null;
+  const startOnDemand = (s: Settings | null) => {
+    if (phaseBDisposed) return;
+    if (!uninstallFriendsState && settingsNeedFriends(s)) uninstallFriendsState = installFriendsState();
+    if (!uninstallLauncherCache && settingsNeedLaunchers(s)) uninstallLauncherCache = installLauncherCachePoll();
+  };
   const phaseBHandle = schedulePhaseB(() => {
     if (phaseBDisposed) return;
     uninstallDeviceHistoryTracker = installDeviceHistoryTracker();
-    uninstallFriendsState = installFriendsState();
-    uninstallLauncherCache = installLauncherCachePoll();
+    startOnDemand(getCurrentSettings());
+    unsubFeatureDemand = subscribeSettings(startOnDemand);
   });
 
   try { routerHook?.addRoute?.(ABOUT_ROUTE, () => (
@@ -515,6 +536,7 @@ const __ds_entry = definePlugin((serverAPI?: any) => {
       uninstallPluginApi();
       phaseBDisposed = true;
       try { cancelPhaseB(phaseBHandle); } catch {}
+      unsubFeatureDemand?.();
       uninstallDeviceHistoryTracker?.();
       uninstallFriendsState?.();
       uninstallLauncherCache?.();

@@ -942,6 +942,10 @@ export function installHomePatch(_routerHook?: any) {
      still string-matches the old id; identity is what actually detects
      "this is a fresh, unrendered node." */
   let fallbackMountEl: HTMLElement | null = null;
+  /* The fallback's React root lives in its own child of the mount, never on the
+     mount itself: a new root clears its container on first commit, which wiped
+     the bridge's portaled shelves whenever both ended up live (blank Home). */
+  let fallbackHostEl: HTMLElement | null = null;
   let fallbackRetries = 0;
   const MAX_FALLBACK_RETRIES = 6;
 
@@ -1065,26 +1069,22 @@ export function installHomePatch(_routerHook?: any) {
     ),
   );
     const tree = wrapWithRealNavParent(mount, innerTree);
+    const host = mount.ownerDocument.createElement("div");
+    host.setAttribute("data-ds-fallback-host", ""); host.style.display = "contents";
+    mount.appendChild(host); fallbackHostEl = host;
     const renderFn = ReactDOM.createRoot ?? ReactDOM.default?.createRoot;
     if (typeof renderFn === "function") {
-      const root = renderFn.call(ReactDOM.default ?? ReactDOM, mount);
-      root.render(tree);
-      logInfo("HOME", "fallback: rendered via createRoot");
-      return root;
+      const root = renderFn.call(ReactDOM.default ?? ReactDOM, host); root.render(tree);
+      logInfo("HOME", "fallback: rendered via createRoot"); return root;
     }
     if (typeof ReactDOM.render === "function") {
-      ReactDOM.render(tree, mount);
-      logInfo("HOME", "fallback: rendered via legacy render");
-      return { unmount: () => { try { ReactDOM.unmountComponentAtNode?.(mount); } catch {} } };
+      ReactDOM.render(tree, host); logInfo("HOME", "fallback: rendered via legacy render");
+      return { unmount: () => { try { ReactDOM.unmountComponentAtNode?.(host); } catch {} } };
     }
     const webpackCreateRoot = findCreateRootViaWebpack();
-    if (webpackCreateRoot) {
-      const root = webpackCreateRoot(mount);
-      root.render(tree);
-      logInfo("HOME", "fallback: rendered via webpack-discovered createRoot");
-      return root;
-    }
-    return null;
+    if (!webpackCreateRoot) return null;
+    const root = webpackCreateRoot(host); root.render(tree);
+    logInfo("HOME", "fallback: rendered via webpack-discovered createRoot"); return root;
   };
 
   const ensureFallbackMount = (): HTMLElement | null => {
@@ -1094,7 +1094,10 @@ export function installHomePatch(_routerHook?: any) {
     return null;
   };
 
-  const teardownPreviousFallbackRoot = (): void => { if (fallbackRoot) { try { fallbackRoot.unmount(); } catch {} fallbackRoot = null; } };
+  const teardownPreviousFallbackRoot = (): void => {
+    if (fallbackRoot) { try { fallbackRoot.unmount(); } catch {} fallbackRoot = null; }
+    if (fallbackHostEl) { try { fallbackHostEl.remove(); } catch {} fallbackHostEl = null; }
+  };
 
   const mountFallbackTo = (win: Window, mount: HTMLElement): void => {
     teardownPreviousFallbackRoot();
@@ -1199,7 +1202,7 @@ export function installHomePatch(_routerHook?: any) {
       // The "react" marker is set by ANY HomeShelves that claims the mount —
       // including the empty cross-realm bridge — so it cannot gate us. Our own
       // idempotency comes from the fallbackRoot bookkeeping below.
-      if (fallbackRoot && fallbackMountEl === mount && mount.isConnected) return;
+      if (fallbackRoot && fallbackMountEl === mount && mount.isConnected && fallbackHostEl?.isConnected) return;
       mountFallbackTo(win, mount); recordRemountTry();
     } catch (err) {
       logWarn("HOME", "fallback render error", String(err));

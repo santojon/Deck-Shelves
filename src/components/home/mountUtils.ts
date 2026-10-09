@@ -68,6 +68,24 @@ function findGamepadNavRoot(ctrl: any): any {
   return main.Root || main.m_Root;
 }
 
+// Nav-tree facts for on-device drivers: node count + how many hold a DS card.
+export function countNavTreeDsCards(): { total: number; dsCards: number } | null {
+  const ctrl = findGamepadNavController();
+  const root = ctrl ? findGamepadNavRoot(ctrl) : null;
+  if (!root) return null;
+  let total = 0;
+  let dsCards = 0;
+  const walk = (node: any, depth: number): void => {
+    if (!node || depth > 40) return;
+    total++;
+    const el = node.m_element;
+    if (el?.classList?.contains?.("ds-card")) dsCards++;
+    for (const child of (node.m_rgChildren ?? [])) walk(child, depth + 1);
+  };
+  walk(root, 0);
+  return { total, dsCards };
+}
+
 export function detectNavTreeApi(): { available: boolean; detail: string } {
   try {
     const ctrl = findGamepadNavController();

@@ -14,6 +14,15 @@
     "mount_ms_warn": 3000,
     "mount_ms_fail": 6000,
     "frame_gap_warn": 50,
-    "frame_gap_fail": 100
+    "frame_gap_fail": 100,
+    "backnav_full_ms_avg_warn": 1500,
+    "backnav_full_ms_avg_fail": 2500,
+    "backnav_full_ms_max_fail": 4000,
+    "backnav_selection_kept_min_ratio": 0.9,
+    "backnav_max_roots": 1,
+    "backnav_fallback_mounts_max": 0,
+    "backnav_leak_delta_max": 0,
+    "backnav_recents_visible_at_end_max": 0,
+    "backnav_heap_growth_mb_max": 40
   }
 }

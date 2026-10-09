@@ -48,10 +48,20 @@ export function saveFocusTargetFromFocusedCard(): void {
   saveFocusTarget(appid, card.getAttribute("data-shelfid") ?? undefined);
 }
 
+/* Home tree's last-focus node first; the nav CONTEXT's last-focus node next (a
+   freshly rebuilt home tree can carry none while the context still does —
+   seen live as "no card to remember" on some leaves); `gpfocus` class last. */
 function findFocusedDsCard(): HTMLElement | null {
   const fromTree = getLastFocusedElement()?.closest?.(".ds-card") as HTMLElement | null | undefined;
   if (fromTree) return fromTree;
+  const fromContext = getActiveFocusedElement()?.closest?.(".ds-card") as HTMLElement | null | undefined;
+  if (fromContext) return fromContext;
   return (getPreferredSteamDocument()?.querySelector(".ds-card.gpfocus") as HTMLElement | null) ?? null;
+}
+
+// Exposed for on-device drivers (dev hooks): the focused DS card by the same rules.
+export function getFocusedDsCardAppid(): string | null {
+  return findFocusedDsCard()?.getAttribute("data-appid") ?? null;
 }
 
 function getFocusNavController(): any {

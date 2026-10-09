@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { SettingsSchema } from "../types";
 
-// ROADMAP Sprint 2.2 — catches a settings field added to only one side
+// Catches a settings field added to only one side
 // (Zod `SettingsSchema` vs Python's `_sanitize_settings`), the root cause of
 // 4 historical regressions where a field silently worked on one host/build
 // but not another. `EXPECTED_PYTHON_ONLY`/`EXPECTED_ZOD_ONLY` are the only

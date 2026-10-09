@@ -38,19 +38,27 @@ SNAP = """(() => {
     revealed: !!(r && getComputedStyle(r).display !== 'none'),
     shelves: document.querySelectorAll('.ds-shelf[data-shelfid]').length,
     recentsVisible: !!(rec && rec.getBoundingClientRect().height > 0),
-    fallbackRoot: !!m && Object.keys(m).some(k => k.startsWith('__reactContainer')),
+    fallbackRoot: !!m && !!m.querySelector('[data-ds-fallback-host]'),
     focusAppid: fc ? fc.getAttribute('data-appid') : null,
     mem: performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1e6) : null,
   });
 })()"""
 
+# Plugin-provided dev hooks (host-agnostic); the loader's DFL globals are only
+# a fallback for a build that predates them.
 NAV_FOCUS = """(() => { try {
+  if (typeof window.__ds_dev_nav_focus === 'function') return JSON.stringify(window.__ds_dev_nav_focus());
   const c = window.DFL.getFocusNavController();
   const ctx = c.m_ActiveContext || c.m_LastActiveContext;
   const el = ctx && ctx.m_lastFocusNode && ctx.m_lastFocusNode.m_element;
   const card = el && el.closest && el.closest('.ds-card');
   return JSON.stringify(card ? card.getAttribute('data-appid') : null);
 } catch (e) { return 'null'; } })()"""
+
+NAVIGATE = """(p => { if (typeof window.__ds_dev_navigate === 'function') return window.__ds_dev_navigate(p);
+  window.DFL.Navigation.Navigate(p); return true; })(%s)"""
+NAVIGATE_BACK = """(() => { if (typeof window.__ds_dev_navigate_back === 'function') return window.__ds_dev_navigate_back();
+  window.DFL.Navigation.NavigateBack(); return true; })()"""
 
 PERF = """(() => { try {
   const s = window.__ds_perf_snapshot();
@@ -87,10 +95,10 @@ class Gate:
             return None
 
     def navigate(self, target: str) -> None:
-        self.sjc.evaluate(f"(()=>{{window.DFL.Navigation.Navigate('{target}');return 1}})()")
+        self.sjc.evaluate(NAVIGATE % json.dumps(target))
 
     def back(self) -> None:
-        self.sjc.evaluate("(()=>{window.DFL.Navigation.NavigateBack();return 1})()")
+        self.sjc.evaluate(NAVIGATE_BACK)
 
     def wait_root_gone(self, timeout: float = 4.0) -> bool:
         t0 = time.time()
@@ -129,11 +137,31 @@ class Gate:
         rec = {"i": i, "kind": kind, "preFocus": pre_focus, "kept": None, "maxRoots": 0, "fallback": False}
         rec.update({k: None for k in TIMED_KEYS})
         self.observe_return(rec, pre_focus, t_ret)
+        # "Kept" is judged at the end of the cycle: Steam's own focus-first-card
+        # reflex can land before the plugin's restore re-takes, so the first
+        # focus seen is only a timing, not the verdict. Bounded wait for the
+        # restore loop's own window.
+        rec["kept"] = self.wait_focus_restored(pre_focus, 3.5)
         time.sleep(1.2)
         rec["recentsVisibleAtEnd"] = self.snap()["recentsVisible"]
         return rec
 
+    def wait_focus_restored(self, pre_focus: str | None, timeout: float) -> bool | None:
+        if not pre_focus:
+            return None
+        t0 = time.time()
+        while time.time() - t0 < timeout:
+            if (self.snap()["focusAppid"] or self.nav_focus()) == pre_focus:
+                return True
+            time.sleep(0.15)
+        return False
+
     def run(self) -> None:
+        for sess in (self.bp, self.sjc):
+            try:
+                sess.call("HeapProfiler.collectGarbage", timeout=30)
+            except Exception:
+                pass
         base = self.snap()
         base_perf = self.perf()
         print("BASELINE", json.dumps(base), json.dumps(base_perf))
@@ -145,9 +173,16 @@ class Gate:
                 f"recentsHidden={rec['t_recentsHidden']} focus={rec['t_focus']} kept={rec['kept']} "
                 f"roots<={rec['maxRoots']} fallback={rec['fallback']} recVisEnd={rec['recentsVisibleAtEnd']}"
             )
+        # Forced GC first so the heap delta reflects retention, not garbage.
+        for sess in (self.bp, self.sjc):
+            try:
+                sess.call("HeapProfiler.collectGarbage", timeout=30)
+            except Exception:
+                pass
+        time.sleep(1.0)
         end = self.snap()
         end_perf = self.perf()
-        print("END", json.dumps(end), json.dumps(end_perf))
+        print("END (after GC)", json.dumps(end), json.dumps(end_perf))
         self.summary(base, base_perf, end, end_perf)
 
     def summary(self, base: dict, base_perf: dict, end: dict, end_perf: dict) -> None:
@@ -164,6 +199,32 @@ class Gate:
             print(f"  {key} delta:", end_perf.get(key, 0) - base_perf.get(key, 0))
         print("  longTasks / longMs over run:", end_perf.get("longTasks"), end_perf.get("longMs"))
         print("  heap MB (pre-GC):", base["mem"], "->", end["mem"])
+        self.write_results(base, base_perf, end, end_perf)
+
+    def write_results(self, base: dict, base_perf: dict, end: dict, end_perf: dict) -> None:
+        """Record the run so `pnpm run perf:gate:check` can judge it against thresholds."""
+        full = [r["t_full"] for r in self.results if r["t_full"] is not None]
+        out = {
+            "recordedAt": time.strftime("%Y-%m-%dT%H:%M:%S"),
+            "cycles": len(self.results),
+            "fullMsAvg": round(sum(full) / len(full)) if full else None,
+            "fullMsMax": max(full) if full else None,
+            "fullMeasured": len(full),
+            "selectionKept": sum(1 for r in self.results if r["kept"]),
+            "selectionJudged": sum(1 for r in self.results if r["kept"] is not None),
+            "maxRoots": max(r["maxRoots"] for r in self.results),
+            "fallbackMounts": sum(1 for r in self.results if r["fallback"]),
+            "recentsVisibleAtEnd": sum(1 for r in self.results if r["recentsVisibleAtEnd"]),
+            "leakDelta": {k: end_perf.get(k, 0) - base_perf.get(k, 0) for k in ("timers", "observers", "subs")},
+            "heapMb": {"start": base["mem"], "end": end["mem"]},
+            "cyclesDetail": self.results,
+        }
+        out_dir = Path(__file__).resolve().parents[3] / "site" / "reports" / "perf"
+        out_dir.mkdir(parents=True, exist_ok=True)
+        latest = out_dir / "backnav-latest.json"
+        latest.write_text(json.dumps(out, indent=2) + "\n", encoding="utf-8")
+        (out_dir / f"backnav-{time.strftime('%Y-%m-%d_%H-%M-%S')}.json").write_text(json.dumps(out, indent=2) + "\n", encoding="utf-8")
+        print("  results written:", latest)
 
 
 def update_timings(rec: dict, s: dict, dt: int, expected: int) -> None:
