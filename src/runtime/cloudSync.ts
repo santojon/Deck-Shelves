@@ -122,9 +122,11 @@ export function installCloudSync(): () => void {
   let wasEnabled = false;
   let unsub: (() => void) | null = null;
 
-  // A profile override is a device-local presentation (a display trigger docks
-  // one machine while another stays handheld), so the scalar settings it applies
-  // must NOT cross devices — only the per-entity lists do.
+  /* A profile override is a device-local presentation (a display trigger docks
+     one machine while another stays handheld). While one is active THIS device's
+     sync is frozen — no adopt, no push — so its profile settings never cross
+     devices and nothing fights the profile trigger (which re-applies on device/
+     settings events). Sync resumes when no profile is active. */
   function overrideActive(s: Settings): boolean {
     return (s as any)?.activeProfileName != null;
   }
@@ -146,33 +148,25 @@ export function installCloudSync(): () => void {
     return !disposed && isHomeOwner() && hasCloudSyncSupport() && isReal(local);
   }
 
-  /* With a profile override active, ADOPT keeps this device's scalar bag (its
-     profile presentation) and PUSH keeps the cloud's — so only the per-entity
-     lists cross devices and the scalar settings never fight. */
-  function computeMerges(local: Settings, remote: Settings | null, frozen: boolean): { adopt: Settings; push: Settings } {
-    const adopt = remote ? mergeSettings(local, remote, frozen ? { scalars: "keepLocal" } : undefined) : local;
-    const push = (frozen && remote) ? mergeSettings(remote, local, { scalars: "keepLocal" }) : adopt;
-    return { adopt, push };
-  }
-
   async function syncOnce(local: Settings): Promise<void> {
     if (!canSync(local)) return;
+    // Frozen while a profile is active — device-local presentation, see above.
+    if (overrideActive(local)) return;
     const cloud = await readCloud();
     const remote = cloud ? (cloud.settings as unknown as Settings) : null;
-    const { adopt, push } = computeMerges(local, remote, overrideActive(local));
-    if (!isReal(adopt)) return;
-    const adoptPayload = JSON.stringify(preparePayload(adopt));
-    if (adoptPayload !== JSON.stringify(preparePayload(local))) {
-      lastKnownJson = adoptPayload; // suppress the re-entrant push from the adopt save
-      await saveSettings(adopt, { fromSync: true });
+    const merged = remote ? mergeSettings(local, remote) : local;
+    if (!isReal(merged)) return;
+    const mergedPayload = JSON.stringify(preparePayload(merged));
+    if (mergedPayload !== JSON.stringify(preparePayload(local))) {
+      lastKnownJson = mergedPayload; // suppress the re-entrant push from the adopt save
+      await saveSettings(merged, { fromSync: true });
       notifyUser(i18n.t("plugin_name"), i18n.t("cloud_sync_applied"), "import", "cloudSync");
     }
-    const pushPayload = JSON.stringify(preparePayload(push));
-    // Cloud already holds the push result → nothing to write.
-    if (remote && pushPayload === JSON.stringify(preparePayload(remote))) { lastKnownJson = adoptPayload; return; }
-    const at = await writeCloud(push);
+    // Cloud already holds the merged result → nothing to write.
+    if (remote && mergedPayload === JSON.stringify(preparePayload(remote))) { lastKnownJson = mergedPayload; return; }
+    const at = await writeCloud(merged);
     if (!at) return;
-    lastKnownJson = pushPayload;
+    lastKnownJson = mergedPayload;
     await patchSettingsVerified({ cloudSyncLastSyncedAt: at }, (s) => (s as any).cloudSyncLastSyncedAt === at);
   }
 

@@ -42,7 +42,7 @@ import { pickNewSuggestions } from "./runtime/suggestionNotifier";
 import { notify } from "./components/notify";
 import { logError, logInfo } from "./runtime/logger";
 import { disposeAll } from "./runtime/runtimeDisposer";
-import { markBootStart, recordBootCritical, getPerfSnapshot } from "./core/perfMetrics";
+import { markBootStart, recordBootCritical, getPerfSnapshot, hasMountStarted } from "./core/perfMetrics";
 import { Navigation, Focusable, DialogButton, quickAccessMenuClasses } from "./runtime/host/decky";
 import { resolveHost, hostProvidesNativeTab, shouldUseForcedHost, awaitInjectedHost } from "./runtime/host/resolve";
 import { claimHomeOwnership } from "./runtime/host/ownerGuard";
@@ -199,16 +199,28 @@ const __ds_entry = definePlugin((serverAPI?: any) => {
      patches — leaving recentsReplace alone would hide the native recents row
      with nothing behind it, worse than the stuck injection. Both uninstalls
      are idempotent, so this can safely race a normal `dispose()`. */
+  /* Only a STARTED-but-unfinished mount is a fault. If Home hasn't rendered at
+     all yet (Steam restarted onto another view, a game, or a settings panel),
+     re-arm instead of disabling — permanently killing the patch there left the
+     plugin looking dead through no fault of the injection. Bounded re-arms. */
   let watchdogTimer: ReturnType<typeof setTimeout> | null = null;
   if (patch) {
     const WATCHDOG_BUDGET_MS = 20000;
-    watchdogTimer = setTimeout(() => {
+    const MAX_REARMS = 9;
+    let rearms = 0;
+    const checkMount = () => {
       watchdogTimer = null;
       if (getPerfSnapshot().mountMs !== null) return;
+      if (!hasMountStarted()) {
+        if (rearms++ >= MAX_REARMS) return; // Home still unopened — stop watching, keep the patch
+        watchdogTimer = setTimeout(checkMount, WATCHDOG_BUDGET_MS);
+        return;
+      }
       logDiagnostic("warn", "Startup watchdog: Home didn't complete its first mount within budget — disabling Home patch for this session");
       try { patch.uninstall(); } catch {}
       try { recentsReplacePatch?.uninstall?.(); } catch {}
-    }, WATCHDOG_BUDGET_MS);
+    };
+    watchdogTimer = setTimeout(checkMount, WATCHDOG_BUDGET_MS);
   }
   const uninstallRefresh = installShelfRefreshEmitter();
   const uninstallSystemEvents = installSystemEvents();

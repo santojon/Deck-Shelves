@@ -13,8 +13,13 @@ export function markBootStart(): void { mark('ds.boot:start'); }
 export function recordBootCritical(): void { bootCriticalMs = measure('ds.boot.critical', 'ds.boot:start'); }
 
 let mountMs: number | null = null;
-export function markMountStart(): void { mark('ds.mount:start'); }
+/* `mountStarted` records that the Home actually began rendering (HomeShelves
+   mounted). The startup watchdog needs it to tell "injection is stuck" apart
+   from "the user simply hasn't opened Home yet" — only the former is a fault. */
+let mountStarted = false;
+export function markMountStart(): void { mountStarted = true; mark('ds.mount:start'); }
 export function recordMountDone(): void { mountMs = measure('ds.mount', 'ds.mount:start'); }
+export function hasMountStarted(): boolean { return mountStarted; }
 
 // --- Home-layer timer/observer/subscription counters -------------------------
 // Tracks the Home mount/patch layer (HomeInject + homePatch), not every
@@ -148,6 +153,7 @@ export function getPerfSnapshot(): PerfSnapshot {
 export function __resetPerfMetricsForTest(): void {
   bootCriticalMs = null;
   mountMs = null;
+  mountStarted = false;
   activeTimers = 0;
   activeObservers = 0;
   activeSubscriptions = 0;
