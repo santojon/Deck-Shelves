@@ -1,9 +1,20 @@
 {
-  "recordedAt": "2026-10-09T17:05:19",
+  "recordedAt": "2026-10-09T17:12:34",
   "windowS": 120,
+  "settleS": 45,
   "acOnline": "1",
   "batteryPct": "92",
-  "withPluginPct": 184.06,
-  "withoutLoaderPct": 164.81,
-  "deltaPp": 19.25
+  "withPlugin": {
+    "crashpad-handler": 0.0,
+    "main": 4.9,
+    "zygote": 144.66,
+    "total": 149.56
+  },
+  "withoutPlugin": {
+    "crashpad-handler": 0.0,
+    "main": 1.43,
+    "zygote": 6.62,
+    "total": 8.05
+  },
+  "deltaPp": 141.51
 }
