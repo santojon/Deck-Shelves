@@ -32,6 +32,7 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 - **A safety net for bad starts.** If the home screen fails to finish loading on three Steam starts in a row, the plugin steps aside on the next start — Steam's own home stays usable — and tells you in the Quick Access panel, with a "Leave safe mode" button to try again on the following restart.
 - **Even less idle work:** background checks for friends activity and launcher catalogs now run only if something you've set up actually uses them, and the hero background pauses its focus tracking while you're in a game.
 - **Fixed the home screen occasionally coming up completely blank after a Steam restart** — no shelves, nothing to select, and only another restart would bring them back. Two of the plugin's own startup paths could collide and one wiped the other's shelves; they can no longer touch each other.
+- **Much lower battery drain while the home screen just sits there.** Two things kept Steam's renderer busy the whole time the Home was open — a loading shimmer that never stopped on cards outside the visible area, and the slow hero zoom redrawing a screen-wide image 60 times a second. The shimmer now ends on its own and the zoom drifts in small steps that look the same; measured on a Deck, an idle home screen went from about one and a half CPU cores to a fraction of one.
 - **On an install with two hosts, saving settings no longer logs occasional "mirror write failed" errors** when both hosts happen to save at the same moment.
 
 ## [3.3.3] - 2026-10-01

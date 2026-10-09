@@ -367,7 +367,8 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
       inset: 0;
       background: linear-gradient(90deg, rgba(90,90,90,0.18) 0%, rgba(160,160,160,0.32) 50%, rgba(90,90,90,0.18) 100%);
       background-size: 200% 100%;
-      animation: ds-shelf-shimmer 2s ease-in-out infinite;
+      /* Bounded: lazily-loaded off-screen cards never flip to --loaded, and an infinite shimmer on each kept the renderer at ~1 core all session. */
+      animation: ds-shelf-shimmer 2s ease-in-out 4 forwards;
       pointer-events: none;
       z-index: 1;
       border-radius: var(--ds-card-radius, 4px);
@@ -904,13 +905,13 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
 
     /* ── Per-shelf hero art ─────────────────────────────────────────────────
        Hero images rendered by PerShelfHero (in DeckRow when heroEnabled=true).
-       Subtle zoom animation mirrors the 25s native Steam hero zoom. */
+       Subtle zoom mirrors the 25s native hero zoom; stepped (5 fps) timing avoids the ~0.5 core a smooth 60 fps scale cost idle (--ds-hero-zoom-ease overrides). */
     @keyframes ds-per-shelf-hero-zoom {
       from { transform: scale(1); }
       to   { transform: scale(var(--ds-hero-zoom-scale, 1.06)); }
     }
     .ds-shelf[data-ds-hero-enabled="true"] .ds-per-shelf-hero-img {
-      animation: ds-per-shelf-hero-zoom var(--ds-hero-zoom-duration, 25s) var(--ds-hero-zoom-ease, ease) infinite alternate;
+      animation: ds-per-shelf-hero-zoom var(--ds-hero-zoom-duration, 25s) var(--ds-hero-zoom-ease, steps(125, end)) infinite alternate;
       transition: opacity 0.5s cubic-bezier(0.17,0.45,0.14,0.83),
                   filter 0.35s ease;
       /* Respect theme overrides via CSS variables for fit/position/filter */
