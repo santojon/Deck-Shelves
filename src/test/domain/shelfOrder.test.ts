@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { pickFirstVisibleShelfId, interleaveSmartShelves, applyAutoPin, isShelfSetSettled } from '../../domain/shelfOrder'
+import { pickFirstVisibleShelfId, interleaveSmartShelves, applyAutoPin, isShelfSetSettled, SHELF_SET_QUIESCE_MS } from '../../domain/shelfOrder'
 
 type S = { id: string; source?: { type?: string } }
 
@@ -125,6 +125,24 @@ describe('isShelfSetSettled', () => {
 
   it('treats more rendered than configured as settled (defensive, should not normally happen)', () => {
     expect(isShelfSetSettled(6, 5, 0, 3000)).toBe(true)
+  })
+
+  /* A shelf that resolves to nothing never renders, so an exact match can be
+     unreachable — a count that stopped growing counts as settled. */
+  it('is settled when the rendered count has stopped growing, even below the configured total', () => {
+    expect(isShelfSetSettled(5, 7, 500, 5000, SHELF_SET_QUIESCE_MS)).toBe(true)
+  })
+
+  it('is not settled while the count is still growing (quiesce not yet reached)', () => {
+    expect(isShelfSetSettled(5, 7, 500, 5000, SHELF_SET_QUIESCE_MS - 1)).toBe(false)
+  })
+
+  it('never settles on quiesce alone when nothing has rendered yet', () => {
+    expect(isShelfSetSettled(0, 7, 500, 5000, SHELF_SET_QUIESCE_MS * 5)).toBe(false)
+  })
+
+  it('keeps the old behaviour when no stability is reported', () => {
+    expect(isShelfSetSettled(5, 7, 500, 5000)).toBe(false)
   })
 })
 

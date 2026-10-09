@@ -24,13 +24,22 @@ export function pickFirstVisibleShelfId(
    catches up (confirmed live, 2026-10-07). Hold the commit until every
    configured shelf has rendered once, or a bounded timeout elapses (a shelf
    that never resolves shouldn't block promotion forever). */
+/* `stableForMs` = how long `renderedCount` has held steady. A shelf that
+   resolves to nothing never renders at all (no friends playing, an empty
+   smart-shelf match), so an exact count match can be UNREACHABLE — waiting for
+   it stalled the reveal for the entire timeout on every load. A count that has
+   stopped growing, with something on screen, is settled. */
+export const SHELF_SET_QUIESCE_MS = 700;
+
 export function isShelfSetSettled(
   renderedCount: number,
   totalCount: number,
   elapsedMs: number,
   timeoutMs: number,
+  stableForMs?: number,
 ): boolean {
-  return renderedCount >= totalCount || elapsedMs >= timeoutMs;
+  if (renderedCount >= totalCount || elapsedMs >= timeoutMs) return true;
+  return renderedCount > 0 && (stableForMs ?? 0) >= SHELF_SET_QUIESCE_MS;
 }
 
 /* Auto-pin: stable partition that floats every shelf whose `autoPin` predicate

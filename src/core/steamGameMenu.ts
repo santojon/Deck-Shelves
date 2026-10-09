@@ -28,6 +28,8 @@ function isLegacyMenuFlow(): boolean {
 }
 
 let cachedMenuComponent: any = null;
+// Guards the synthetic-open prewarm to one run per session (see its own note).
+let prewarmAttempted = false;
 let cachedMenuTemplateProps: Record<string, any> = {};
 let lastExtractionAttempt = 0;
 const EXTRACTION_COOLDOWN = 3000;
@@ -825,6 +827,15 @@ function findCardAnchor(appid: number): { doc: Document; el: HTMLElement } | nul
 
 export function prewarmMenuExtraction(): () => void {
   if (cachedMenuComponent) return () => {};
+  /* Once per session, not once per Home mount. This schedules synthetic menu
+     opens, and each one can strand an empty modal overlay that captures the
+     gamepad focus context (observed live: a childless `ModalDialogOverlay_*`
+     nav tree, no `.gpfocus`, navigation dead — and Escape does NOT clear it). */
+  /* Re-running on every return to Home meant 5 more chances to strand one each
+     time the capture hadn't succeeded. The passive hook still captures the menu
+     whenever the user opens one for real, so nothing is permanently lost. */
+  if (prewarmAttempted) return () => {};
+  prewarmAttempted = true;
   /* Skip on legacy (≤ 3.7): the flow extracts lazily on the first
      MENU press; firing 5 staggered extractions on cold boot hit a race in
      3.7's overlay timing where the panels iteration finds the right fiber
@@ -989,6 +1000,11 @@ function dismissSyntheticMenu(): void {
   }
 }
 
+/* A synthetic menu open can commit AFTER a fixed dismiss schedule has run,
+   leaving an empty modal overlay registered in the gamepad nav tree that
+   captures the focus context and freezes navigation (observed live: an extra
+   `ModalDialogOverlay_*` tree with zero children holding lastFocus, and no
+   `.gpfocus` anywhere, while the shelves rendered fine). */
 function runLegacyMenuCapture(menuFn: (e: any) => void): { component: any; templateProps: Record<string, any> } | null {
   const hooks = installCaptureHooks();
   try {

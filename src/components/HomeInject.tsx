@@ -17,12 +17,12 @@ import { applyHideRecents, reapplyHomeHides, enforceHomeFocusSuppression, applyH
 import { getRecentsReplaceFailed, subscribeRecentsReplaceFailed, isRecentsReplaceInjecting, subscribeRecentsReplaceInjecting } from "../runtime/recentsReplace";
 import { Focusable } from "../runtime/host/decky";
 import { installPassiveMenuHook, installPassiveShowContextMenuHook, installLibraryContextMenuPatch, installCreateContextMenuPatch, prewarmMenuExtraction } from "../core/steamGameMenu";
-import { tryRestoreFocus, hasPendingFocus, beginFocusRestoreLoop, beginColdBootFocusGuard, focusElement } from "../core/focusRestore";
+import { tryRestoreFocus, hasPendingFocus, beginFocusRestoreLoop, beginColdBootFocusGuard, focusElement, getLastFocusedElement } from "../core/focusRestore";
 import { focusNativeRecentsFirstCard, findNativeRecentsEl } from "../features/sidenav/ShelfSideNav";
 import { patchShelfEdgeNavigation, patchMenuButton, installVerticalFocusBridge, reparentNavTreeNodes } from "./home/navPatches";
 import { triggerShelfRefresh } from "../core/shelfRefresh";
 import { bumpAssetRevision } from "../core/assetRevision";
-import { pickFirstVisibleShelfId, interleaveSmartShelves, applyAutoPin, isShelfSetSettled } from "../domain/shelfOrder";
+import { pickFirstVisibleShelfId, interleaveSmartShelves, applyAutoPin, isShelfSetSettled, SHELF_SET_QUIESCE_MS } from "../domain/shelfOrder";
 import { evalVisibility, nextVisibilityFlip, getModeVisibilityWindows, invalidateSmartShelfCache } from "../steam/smartShelves";
 import { subscribeDeviceState } from "../runtime/deviceState";
 import { subscribeSessionState, getSessionState } from "../runtime/sessionState";
@@ -183,6 +183,8 @@ export function HomeShelves() {
        restart), wasOnHome=false would cause onRouteChange to fire triggerShelfRefresh
        immediately — the "strange reload" the user sees after Steam restart. */
     let wasOnHome = true;
+    // Cancels the in-flight focused-card scroll retry (one per return at most).
+    let scrollSyncCancel: (() => void) | null = null;
     const onRouteChange = () => {
       const nowOnHome = isHomeRoute();
       if (nowOnHome && !wasOnHome) {
@@ -200,23 +202,33 @@ export function HomeShelves() {
            siblings arrive without our hides, so they flash back into view.
            Re-apply both hide states so they collapse again before the next paint. */
         try { reapplyHomeHides(); enforceHomeFocusSuppression(); } catch {}
-        // Steam restores the previously-focused DS card on B-return, but the
-        // mount's scroll container can be at the top — the focused card is
-        /* in view only after the user moves the D-pad once. Sync the
-           viewport so it's visible immediately. Uses `block:'nearest'` —
-           NOT `'center'` — so an already-visible card (e.g. the first card
-           near the top) is left exactly where it is. `'center'` would
-           re-center it and visibly scroll the viewport down. */
+        /* Steam restores the previously-focused DS card on B-return, but the
+           mount's scroll container can be at the top, leaving that card off
+           screen — measured live at 268px above the viewport, so the gamepad
+           was driving an invisible card and the home looked frozen. */
+        /* Keyed off the nav tree's own last-focus node, NOT the `gpfocus` class
+           (unreliable on this build), and retried until the card actually
+           exists: the shelves can take seconds to render, so the old fixed
+           150/400/800ms attempts all ran before there was anything to scroll. */
+        let scrollTries = 0;
+        let scrollTimer: ReturnType<typeof setTimeout> | null = null;
         const syncScroll = () => {
+          scrollTimer = null;
+          let done = false;
           try {
-            const liveMount = getPreferredSteamDocument().getElementById(ROOT_ID);
-            const focused = liveMount?.querySelector('.gpfocus, .deck-shelves-root *:focus') as HTMLElement | null;
-            if (focused) {
-              focused.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' as ScrollBehavior });
+            const focused = getLastFocusedElement();
+            const card = focused?.closest?.(".ds-card") as HTMLElement | null;
+            if (card) {
+              card.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "instant" as ScrollBehavior });
+              done = true;
             }
           } catch {}
+          if (done || scrollTries++ >= 24) return;
+          scrollTimer = setTimeout(syncScroll, 250);
         };
-        for (const d of [150, 400, 800]) setTimeout(syncScroll, d);
+        syncScroll();
+        scrollSyncCancel?.();
+        scrollSyncCancel = () => { if (scrollTimer) { clearTimeout(scrollTimer); scrollTimer = null; } };
       }
       wasOnHome = nowOnHome;
     };
@@ -247,6 +259,7 @@ export function HomeShelves() {
       win.removeEventListener("popstate", onRouteChange);
       win.removeEventListener("hashchange", onRouteChange);
       teardownHistoryPatches(hist, origPush, origReplace);
+      scrollSyncCancel?.();
       if (removeTimer) { clearTimeout(removeTimer); removeTimer = null; }
       // Remove the mount from every doc we may have created it in, not just preferred.
       for (const d of observedDocs) { try { d.getElementById(ROOT_ID)?.remove(); } catch {} }
@@ -767,9 +780,28 @@ function ShelvesContainer({ mountEl, shelves, onSettleChange, globalMatchNativeS
     if (!rootEl) return;
     const startedAt = Date.now();
     const REVEAL_TIMEOUT_MS = 5000;
+    /* Re-check once the count goes quiet: shelves that resolve to nothing never
+       render, so without this the gate sat hidden for the whole 5 s timeout on
+       every load — and revealing that late left Steam's nav tree with none of
+       our cards registered (it skips a `display:none` subtree), so gamepad
+       focus could not enter the shelves at all. */
+    let lastCount = -1;
+    let lastChangeAt = Date.now();
+    let quiesceTimer: ReturnType<typeof setTimeout> | null = null;
     const scan = () => {
       const renderedCount = rootEl.querySelectorAll('.ds-shelf[data-shelfid]').length;
-      if (!isShelfSetSettled(renderedCount, (shelves ?? []).length, Date.now() - startedAt, REVEAL_TIMEOUT_MS)) return;
+      if (renderedCount !== lastCount) {
+        lastCount = renderedCount;
+        lastChangeAt = Date.now();
+        if (quiesceTimer) clearTimeout(quiesceTimer);
+        quiesceTimer = setTimeout(scan, SHELF_SET_QUIESCE_MS + 50);
+      }
+      const settled = isShelfSetSettled(
+        renderedCount, (shelves ?? []).length,
+        Date.now() - startedAt, REVEAL_TIMEOUT_MS, Date.now() - lastChangeAt,
+      );
+      if (!settled) return;
+      if (quiesceTimer) { clearTimeout(quiesceTimer); quiesceTimer = null; }
       revealedOnceRef.current = true;
       setShelvesRevealed(true);
       onSettleChange?.(true);
@@ -780,7 +812,11 @@ function ShelvesContainer({ mountEl, shelves, onSettleChange, globalMatchNativeS
     observerCreated();
     const revealTimer = setTimeout(scan, REVEAL_TIMEOUT_MS);
     timerCreated();
-    return () => { obs.disconnect(); observerDisposed(); clearTimeout(revealTimer); timerDisposed(); };
+    return () => {
+      obs.disconnect(); observerDisposed();
+      clearTimeout(revealTimer); timerDisposed();
+      if (quiesceTimer) clearTimeout(quiesceTimer);
+    };
   }, [shelves, onSettleChange]);
 
   /* First rendered .ds-shelf id (tracked by MO, shelves[0] may render null).

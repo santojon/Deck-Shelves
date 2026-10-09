@@ -54,6 +54,14 @@ export function resumeShelfRefresh(): void {
 }
 
 export function triggerShelfRefresh(opts?: RefreshOptions): void {
+  /* A user-driven refresh must bypass the online (wishlist/store) stale-while-
+     revalidate cache, otherwise "Refresh" would just re-serve what's cached.
+     Lazy import avoids a core/ ↔ steam/ circular dep. */
+  if (opts?.manual) {
+    import("../steam").then(({ invalidateOnlineResolveCache }) => {
+      try { invalidateOnlineResolveCache(); } catch {}
+    }).catch(() => {});
+  }
   emit(opts);
 }
 
