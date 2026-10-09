@@ -12,6 +12,7 @@ import { createMatcherState, matchEvent, parseCombo, parseRawCombo, resolveBindi
 import { resolveKeyboardBindings, parseKeyCombo, matchKeyEvent, createKeyMatcherState, isEditableKeyTarget, type KeyMatcherState } from "../../runtime/keyboardBindings";
 import { subscribeControllerInput } from "../../runtime/controllerInput";
 import { resolveQuickLaunchAction, EAppDisplayStatus } from "../../steam/appDisplayStatus";
+import { subscribeShelfRefresh } from "../../core/shelfRefresh";
 import { resolveNativeCardClass, retryWithIntervals } from "./cardUtils";
 import type { DeckRowItem } from "./types";
 import i18n from "../../i18n";
@@ -312,11 +313,19 @@ function computeCardState(appid: number): CardState {
 /* Select-button action mirrors the native menu's first item per state:
    running → RaiseWindow; update-pending → ResumeAppUpdate; else → RunGame. */
 export function useCardQuickLaunchState(appid: number, previewMode: boolean): CardState {
+  // Re-read display_status on every app-overview/game-action signal, not just
+  // at mount — a long-lived card (no remount) would otherwise keep showing a
+  // stale "Update" hint after the real update finished in the background.
+  const [tick, forceTick] = useState(0);
+  useEffect(() => {
+    if (previewMode || !appid) return;
+    return subscribeShelfRefresh(() => forceTick((n) => n + 1));
+  }, [appid, previewMode]);
   return useMemo(() => {
     if (previewMode || !appid) return { label: undefined, action: 'run' };
     try { return computeCardState(appid); }
     catch { return { label: undefined, action: 'run' }; }
-  }, [appid, previewMode]);
+  }, [appid, previewMode, tick]);
 }
 
 function readNativeAnimationVars(el: HTMLElement): { name: string; dur: string; timing: string; iter: string } {
@@ -366,9 +375,23 @@ function applyFallbackAnimation(doc: Document, cardRef: RefObject<HTMLDivElement
   }
 }
 
+/* The sampled native card's ::after animation is the same for every DS card
+   mounting in the same pass, but each card used to force its own computed-
+   style read (~165 per Home rebuild). Memoised per sample element for a
+   short window — a theme switch produces a different sample element. */
+let animVarsCache: { el: HTMLElement; vars: ReturnType<typeof readNativeAnimationVars>; at: number } | null = null;
+const ANIM_VARS_TTL_MS = 2000;
+function readNativeAnimationVarsCached(nativeSample: HTMLElement): ReturnType<typeof readNativeAnimationVars> {
+  const now = Date.now();
+  if (animVarsCache && animVarsCache.el === nativeSample && now - animVarsCache.at < ANIM_VARS_TTL_MS) return animVarsCache.vars;
+  const vars = readNativeAnimationVars(nativeSample);
+  animVarsCache = { el: nativeSample, vars, at: now };
+  return vars;
+}
+
 function tryApplyNativeAnimation(cardRef: RefObject<HTMLDivElement | null>, nativeSample: HTMLElement): void {
   try {
-    if (cardRef.current) applyAnimationVars(cardRef.current, readNativeAnimationVars(nativeSample));
+    if (cardRef.current) applyAnimationVars(cardRef.current, readNativeAnimationVarsCached(nativeSample));
   } catch (e) {
     logInfo("HOME", "injectNativeClasses: animation read failed", String(e));
   }

@@ -149,6 +149,12 @@ export function getPerfSnapshot(): PerfSnapshot {
   };
 }
 
+// Dev-only: an external CDP driver (perf:bench, the back-nav gate)
+// read the same snapshot the Performance panel shows. Tree-shaken in release.
+if (__DEV__) {
+  try { (globalThis as any).__ds_perf_snapshot = getPerfSnapshot; } catch {}
+}
+
 // Test-only reset — keeps vitest cases isolated from module-level state.
 export function __resetPerfMetricsForTest(): void {
   bootCriticalMs = null;

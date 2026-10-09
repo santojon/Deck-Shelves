@@ -1,6 +1,6 @@
 import React from "react";
 import i18next from "i18next";
-import { HomeShelves as HomeShelvesRaw } from "../components/HomeInject";
+import { HomeShelves as HomeShelvesRaw, bridgeHasFilledHome } from "../components/HomeInject";
 import { wrapHomeShelves } from "../qa/harness";
 const HomeShelves = wrapHomeShelves(HomeShelvesRaw);
 import { SearchOverlay } from "../features/search/SearchOverlay";
@@ -15,6 +15,7 @@ import { isBigArtModeActive } from "../core/cssLoaderDetect";
 import { notify } from "../components/notify";
 import { findModuleByExport } from "./host/decky";
 import { recordRemountTry, timerCreated, timerDisposed, observerCreated, observerDisposed } from "../core/perfMetrics";
+import { createBridgeGateState, noteFallbackTick, bridgeGraceActive, hrefOf } from "./homePatchFallbackGate";
 
 const ROOT_ID = "deck-shelves-home-root";
 const GLOBAL_COMPONENT_ID = "DeckShelvesHomeDomBridge";
@@ -925,17 +926,12 @@ export function installHomePatch(_routerHook?: any) {
     routerHookKeys: Object.keys(routerHook ?? {}).slice(0, 20),
   });
 
-  let bridgeRegistered = false;
-  // Time the bridge was set up, for the fallback grace window below.
-  const installedAt = Date.now();
-  // How long a registered bridge gets to render before the DOM fallback steps in.
-  // The fallback exists only for a bridge that failed to register/render; a
-  // slower-to-render working bridge must not race it into a double mount.
-  const BRIDGE_FALLBACK_GRACE_MS = 8000;
+  // Fallback-vs-bridge grace bookkeeping (pure rules in homePatchFallbackGate.ts).
+  const gate = createBridgeGateState(Date.now());
 
   try {
-    bridgeRegistered = registerGlobalBridge(routerHook);
-    if (!bridgeRegistered) logWarn("HOME", "all global bridge strategies failed");
+    gate.bridgeRegistered = registerGlobalBridge(routerHook);
+    if (!gate.bridgeRegistered) logWarn("HOME", "all global bridge strategies failed");
   } catch (error) {
     logWarn("HOME", "global component bridge setup failed", String(error));
   }
@@ -987,14 +983,14 @@ export function installHomePatch(_routerHook?: any) {
   /* Attempt 1 (2026-09-11, reverted): wrapped this tree in a HAND-BUILT
      nav-tree node (CreateNode + RegisterNavigationItem). Real Focusables
      did register, but the whole subtree hung off one synthetic, flat node
-     with no real row/card geometry — directional navigation was erratic.
-     See `.roadmaps/steam-beta-2026-09-compat.md` §3. */
+     with no real row/card geometry — directional navigation was erratic
+     (recorded in the internal Steam-beta compat notes). */
 
   /* Attempt 3 (2026-09-12): reuse a REAL, already-registered nav node as the
      parent Context value instead of fabricating one, so nested Focusables
      register normally with real geometry. Confirmed live via CDP; NOT yet
      physically verified — CDP can't confirm dpad feel, only tree shape.
-     Full rationale: `.roadmaps/steam-beta-2026-09-compat.md` §3. */
+     Full rationale lives in the internal Steam-beta compat notes. */
   const looksLikeNavNode = (v: any): boolean =>
     !!v && typeof v === "object" && typeof v.BTakeFocus === "function" && !!(v.m_Tree || v.Tree);
 
@@ -1062,7 +1058,7 @@ export function installHomePatch(_routerHook?: any) {
     HomeBoundary,
     null,
     React.createElement(React.Fragment, null,
-      React.createElement(HomeShelves),
+      React.createElement(HomeShelves, { fallback: true }),
       React.createElement(SearchOverlay),
       React.createElement(ShelfSideNav),
       React.createElement(DeckScreensaverOverlay),
@@ -1098,11 +1094,7 @@ export function installHomePatch(_routerHook?: any) {
     return null;
   };
 
-  const teardownPreviousFallbackRoot = (): void => {
-    if (!fallbackRoot) return;
-    try { fallbackRoot.unmount(); } catch {}
-    fallbackRoot = null;
-  };
+  const teardownPreviousFallbackRoot = (): void => { if (fallbackRoot) { try { fallbackRoot.unmount(); } catch {} fallbackRoot = null; } };
 
   const mountFallbackTo = (win: Window, mount: HTMLElement): void => {
     teardownPreviousFallbackRoot();
@@ -1110,11 +1102,10 @@ export function installHomePatch(_routerHook?: any) {
     if (!ReactDOM) { logWarn("HOME", "fallback: ReactDOM unavailable"); return; }
     const rendered = renderWithReactDOM(ReactDOM, mount);
     if (rendered) {
-      fallbackRoot = rendered;
-      fallbackMountEl = mount;
+      fallbackRoot = rendered; fallbackMountEl = mount;
       // Cross-window fallback = sole host: tell the router-hook bridge to stand
       // down so it never double-mounts HomeShelves into the same root.
-      try { if (win !== window) (globalThis as any).__ds_sole_home_owned = true; } catch {}
+      try { if (win !== window && !bridgeHasFilledHome()) (globalThis as any).__ds_sole_home_owned = true; } catch {}
     } else logWarn("HOME", "fallback: no working render path found (global or webpack)");
   };
 
@@ -1128,16 +1119,25 @@ export function installHomePatch(_routerHook?: any) {
      shelves render (before card images load), so this yields the instant the
      bridge fills the root on a loader (no double render), yet stays false for the
      empty span so the sole-host fallback can still step in. */
-  const bridgeOwnsHome = (doc: Document): boolean =>
-    doc.getElementById(ROOT_ID)?.querySelector(".deck-shelves-root") != null;
+  const bridgeOwnsHome = (doc: Document): boolean => doc.getElementById(ROOT_ID)?.querySelector(".deck-shelves-root") != null;
 
-  /* Unambiguous signal both the bridge and our own fallback ended up live
-     at once (a slow bridge can still win the race after the fallback's
-     grace window gave up first) — TWO copies of `.deck-shelves-root`, not
-     one. A single copy is ambiguous (could be ours alone) and must not
-     trigger a teardown of our only content when no bridge is involved. */
-  const homeHasDuplicateContent = (doc: Document): boolean =>
-    (doc.getElementById(ROOT_ID)?.querySelectorAll(".deck-shelves-root").length ?? 0) > 1;
+  /* Unambiguous signal both the bridge and our own fallback ended up live at
+     once (a slow bridge can still win the race after the fallback's grace
+     window gave up first) — TWO copies of `.deck-shelves-root`. A single copy
+     is ambiguous (could be ours alone) and must never tear down our only content. */
+  const homeHasDuplicateContent = (doc: Document): boolean => (doc.getElementById(ROOT_ID)?.querySelectorAll(".deck-shelves-root").length ?? 0) > 1;
+
+  // Feeds the per-entry gate, then: the bridge stamps `data-ds-claimed-at` on the root synchronously
+  // before its first commit — a fresh claim counts as ownership so we never double-mount mid-commit.
+  const tickAndCheckClaim = (doc: Document): boolean => {
+    const root = doc.getElementById(ROOT_ID);
+    const href = hrefOf(doc.defaultView);
+    const rootFilled = !!root?.querySelector(".deck-shelves-root");
+    if (__DEV__) { gate.lastHref = href; gate.lastRootFilled = rootFilled; }
+    // Host window: Home is the bare document URL; every other screen is /routes/<…>.
+    noteFallbackTick(gate, !href.includes("/routes/") || hrefIsHomeLike(href), rootFilled, Date.now(), bridgeHasFilledHome());
+    return !fallbackRoot && Date.now() - Number(root?.dataset?.dsClaimedAt || 0) < 3000;
+  };
 
   /* True when the DOM fallback must NOT render. Never mount both into a root that
      already has shelf content (that duplicates every shelf); a freshly-registered
@@ -1152,6 +1152,7 @@ export function installHomePatch(_routerHook?: any) {
       fallbackRetries = 0;
       return true;
     }
+    if (tickAndCheckClaim(doc)) return true;
     if (!isHomeVisible()) { fallbackRetries = 0; return true; }
     if (bridgeOwnsHome(doc)) {
       if (fallbackRoot && (fallbackMountEl !== doc.getElementById(ROOT_ID) || homeHasDuplicateContent(doc))) {
@@ -1159,7 +1160,7 @@ export function installHomePatch(_routerHook?: any) {
       }
       return true;
     }
-    return bridgeRegistered && Date.now() - installedAt < BRIDGE_FALLBACK_GRACE_MS;
+    return bridgeGraceActive(gate, Date.now());
   };
 
   /* rAF-throttle: a body+subtree observer fires hundreds of times per
@@ -1229,7 +1230,7 @@ export function installHomePatch(_routerHook?: any) {
 
   tryFallbackRender();
 
-  logInfo("HOME", "installHomePatch complete", { bridgeRegistered });
+  logInfo("HOME", "installHomePatch complete", { bridgeRegistered: gate.bridgeRegistered });
 
   const popAllUninstallHooks = (): void => {
     while (uninstallHooks.length) {
@@ -1259,8 +1260,7 @@ export function installHomePatch(_routerHook?: any) {
   };
 
   const tearDownFallbackRoot = (): void => {
-    try { fallbackRoot?.unmount(); } catch {}
-    fallbackRoot = null;
+    teardownPreviousFallbackRoot();
     try { hostDoc.getElementById(ROOT_ID)?.remove(); } catch {}
   };
 

@@ -45,12 +45,23 @@ export function openSteamStorePage(appid: number): void {
   openSteamStoreUrl(`${STEAM_STORE_BASE}/app/${appid}/`, `steam://store/${appid}`);
 }
 
+// Parsed once per distinct cache string: this is read per online card on
+// every rowItems recompute, and parsing the whole price cache each time
+// measured ~270 ms per Home rebuild on-device.
+let priceCacheRaw: string | null = null;
+let priceCacheParsed: Record<string, any> | null = null;
+function readPriceCache(): Record<string, any> | null {
+  const raw = (globalThis as any).localStorage?.getItem?.('ds-price-cache-v1') ?? null;
+  if (raw !== priceCacheRaw) {
+    priceCacheRaw = raw;
+    priceCacheParsed = raw ? JSON.parse(raw) : null;
+  }
+  return priceCacheParsed;
+}
+
 export function getCachedDiscount(appid: number): number | null {
   try {
-    const raw = (globalThis as any).localStorage?.getItem?.('ds-price-cache-v1');
-    if (!raw) return null;
-    const cache = JSON.parse(raw);
-    const d = cache[appid]?.data?.discount;
+    const d = readPriceCache()?.[appid]?.data?.discount;
     return typeof d === 'number' ? d : null;
   } catch { return null; }
 }
@@ -77,9 +88,42 @@ export function flag01(value: boolean | undefined): 'r1' | 'r0' {
   return value ? 'r1' : 'r0';
 }
 
+export const SHELF_CACHE_PREFIX = 'ds-shelf-cache-';
+export const SHELF_CACHE_TTL_MS = 86_400_000;
+
 export function computeShelfCacheKey(shelf: Shelf): string {
   const sortPart = shelf.sort ?? '';
-  return `ds-shelf-cache-${shelf.id}-${sortPart}-${orEmpty((shelf as any).manualBaseSort)}-${flag01((shelf as any).sortReverse)}-${flag01((shelf as any).manualBaseSortReverse)}`;
+  return `${SHELF_CACHE_PREFIX}${shelf.id}-${sortPart}-${orEmpty((shelf as any).manualBaseSort)}-${flag01((shelf as any).sortReverse)}-${flag01((shelf as any).manualBaseSortReverse)}`;
+}
+
+/* A shelf's cached id list expires only when that exact key is READ again, so a
+   key whose shelf no longer exists — renamed, deleted, or a throwaway from a
+   benchmark run — is never read and lingers forever (found 52 such keys live). */
+function shelfCacheStamp(ls: any, key: string): number {
+  try { return Number(JSON.parse(ls.getItem(key) || '{}')?.ts) || 0; } catch { return 0; }
+}
+
+function expiredShelfCacheKeys(ls: any, now: number): string[] {
+  const doomed: string[] = [];
+  for (let i = 0; i < ls.length; i++) {
+    const key = ls.key(i);
+    if (!key || key.indexOf(SHELF_CACHE_PREFIX) !== 0) continue;
+    const ts = shelfCacheStamp(ls, key);
+    if (!ts || now - ts > SHELF_CACHE_TTL_MS) doomed.push(key);
+  }
+  return doomed;
+}
+
+export function pruneShelfCaches(now: number = Date.now()): number {
+  let removed = 0;
+  try {
+    const ls = (globalThis as any).localStorage;
+    if (!ls) return 0;
+    for (const key of expiredShelfCacheKeys(ls, now)) {
+      try { ls.removeItem(key); removed++; } catch { /* quota/private mode */ }
+    }
+  } catch { /* storage unavailable */ }
+  return removed;
 }
 
 export function shouldSkipShelf(shelf: Shelf): boolean {

@@ -15,6 +15,7 @@ import { getPreferredSteamDocument } from "../../runtime/steamHost";
 import { evalVisibility } from "../../steam/smartShelves";
 import { interleaveSmartShelves, pickFirstVisibleShelfId } from "../../domain/shelfOrder";
 import { closeAmbientOverlays, lockOverlay, isOverlayLocked } from "../../runtime/closeOverlays";
+import { subscribeSessionState, getSessionState } from "../../runtime/sessionState";
 
 type Anchor = {
   shelfId: string;
@@ -105,6 +106,12 @@ export function ShelfSideNav() {
 
   useEffect(() => subscribeSettings(setSettings), []);
 
+  // Home stays mounted while a game runs (no route change) — suspend the
+  // body-wide focus observer and the open-chord listeners entirely during
+  // that window, same signal the home-reconcile path already uses.
+  const [gameRunning, setGameRunning] = useState(() => getSessionState().gameRunning);
+  useEffect(() => subscribeSessionState(() => setGameRunning(getSessionState().gameRunning)), []);
+
   // Light mode / master-off both hide the side nav (see sideNavGate).
   const { enabled } = sideNavGate(settings);
 
@@ -118,6 +125,9 @@ export function ShelfSideNav() {
       setAnchor(null);
     }
   }, [enabled]);
+  useEffect(() => {
+    if (gameRunning) setAnchor(null);
+  }, [gameRunning]);
 
   const closeAndRestore = () => {
     const prior = priorFocusRef.current;
@@ -129,7 +139,7 @@ export function ShelfSideNav() {
   };
 
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled || gameRunning) return;
     const doc = getPreferredSteamDocument() ?? document;
     // Track the LAST focused card on any DS shelf so the side menu can
     // remember which shelf the user was browsing when they triggered it.
@@ -148,7 +158,7 @@ export function ShelfSideNav() {
     const obs = new MutationObserver(update);
     obs.observe(doc.body, { attributes: true, subtree: true, attributeFilter: ["class"] });
     return () => obs.disconnect();
-  }, [enabled]);
+  }, [enabled, gameRunning]);
 
   /* Dev-only screenshot hook: opens the side nav without a real gamepad
      chord (SteamClient.Input can't be driven over CDP). Resolves the anchor
@@ -169,7 +179,7 @@ export function ShelfSideNav() {
 
   useEffect(() => {
     try { (globalThis as any).__ds_sidenav_enabled = enabled; } catch {}
-    if (!enabled) return;
+    if (!enabled || gameRunning) return;
     const tryOpen = () => {
       if (anchor || !isHomeRoute()) return;
       const { shelfId, appid } = resolveAnchorFromFocus();
@@ -216,7 +226,7 @@ export function ShelfSideNav() {
       if (matchKeyEvent(e.code ?? null, parseKeyCombo(navSideNavKey), keyMatcherState)) tryOpen();
     });
     return () => { unsubBtn(); unsubRaw(); unsubKey(); };
-  }, [anchor, enabled]);
+  }, [anchor, enabled, gameRunning]);
 
   if (!enabled || !anchor || !settings) return null;
   // Inline render (no portal) keeps the overlay inside Steam's NavTree

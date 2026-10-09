@@ -10,7 +10,7 @@ import { isLowBattery } from "./batteryState";
 import { trackDeviceSignal } from "./deviceHistoryTracking";
 
 // Matches the "recurring battery < 20%" threshold already used for reactive
-// suggestions (ROADMAP Sprint 3) — one shared, honest default.
+// suggestions (a later surface) — one shared, honest default.
 const BATTERY_LOW_THRESHOLD = 0.2;
 
 let prevExternal = false;

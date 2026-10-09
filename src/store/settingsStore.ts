@@ -100,7 +100,13 @@ function withTimeout<T>(promise: Promise<T>, ms = 8000): Promise<T> {
   });
 }
 
+// Dev-only: the last raw (pre-QA-override) payload notify() saw, so a QA
+// script can force a recompute after changing an override input without
+// waiting on an unrelated backend refresh. Tree-shaken in release builds.
+let lastRawForQA: Settings | null = null;
+
 function notify(raw: Settings) {
+  if (__DEV__) lastRawForQA = raw;
   const s = applyQASettingsOverride(raw);
   // Re-sync the logger flag on every notify, BEFORE the same-settings
   // short-circuit, so the boot path's notify(cached) applies it even when the
@@ -647,6 +653,17 @@ export async function wasSettingsRecovered(): Promise<boolean> {
 
 export function getCurrentSettings(): Settings | null {
   return current;
+}
+
+/* Dev-only: force a recompute of `current` from the last known raw payload.
+   A QA override (e.g. the perf-matrix scenario key) is read at apply time,
+   not pushed via an event, so changing it does nothing until the next
+   unrelated backend refresh. Exposed on `globalThis` for an external perf
+   driver to call right after writing the override input. */
+if (__DEV__) {
+  (globalThis as any).__ds_qa_reapply_override = () => {
+    if (lastRawForQA) notify(lastRawForQA);
+  };
 }
 
 export function subscribeSettings(listener: (s: Settings) => void): () => void {

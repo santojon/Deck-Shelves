@@ -25,8 +25,9 @@ import {
   shouldDropOwnedItem, isHiddenByOwnedName, buildOnlineFallbackRowItem, buildOwnedRowItem,
   buildRefreshRowItem, buildMoreRowItem, insertSyntheticCards, shouldShowMetaSpinner,
   computeDeckRowDerivedProps, joinOrEmpty, orEmpty, orEmptyArray, jsonOrNull,
-  computeShelfCacheKey, shouldSkipShelf, resolveHighlightRandom,
+  computeShelfCacheKey, SHELF_CACHE_TTL_MS, shouldSkipShelf, resolveHighlightRandom,
 } from "./shelf/shelfViewHelpers";
+import { getShelfWarmEntry, setShelfWarmEntry, type ShelfWarmEntry } from "./shelf/shelfWarmState";
 
 // Cross-source name key: same normalisation as the wishlist compare so
 // "Kingdom Come Deliverance" (non-Steam) matches "Kingdom Come: Deliverance".
@@ -188,30 +189,39 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
   const cacheKey = computeShelfCacheKey(shelf);
   // Manual order applies only when the PRIMARY sort key is "manual".
   const { primaryEffectiveSort } = computeEffectiveSort(shelf);
+  // Read once per mount: the warm entry from the previous mount of this
+  // shelf (route-away/return), so the rebuild paints complete on its first
+  // commit — see shelfWarmState.ts. Falls through to the persisted id cache.
+  const warmRef = useRef<ShelfWarmEntry | null | undefined>(undefined);
+  if (warmRef.current === undefined) warmRef.current = getShelfWarmEntry(shelf.id);
+  const warm = warmRef.current;
   const [appIds, setAppIds] = useState<number[] | null>(() => {
+    if (warm) return warm.appIds;
     try {
       const raw = localStorage.getItem(cacheKey);
       if (raw) {
         const { ts, ids } = JSON.parse(raw);
-        if (Date.now() - ts < 86400000) return primaryEffectiveSort === "manual" ? applyManualOrder(ids, (shelf as any).manualOrder, (shelf as any).hiddenAppIds) : ids; // 24h expiry
+        if (Date.now() - ts < SHELF_CACHE_TTL_MS) return primaryEffectiveSort === "manual" ? applyManualOrder(ids, (shelf as any).manualOrder, (shelf as any).hiddenAppIds) : ids;
       }
     } catch (e) { logInfo("HOME", "shelf cache read failed", String(e)); }
     return null;
   });
-  const [items, setItems] = useState<Map<number, PlatformAppMeta>>(new Map());
+  const [items, setItems] = useState<Map<number, PlatformAppMeta>>(() => warm ? new Map(warm.items) : new Map());
   // Resolver's pre-applyManualOrder ids — used to compute the X-button
   /* "Remove from shelf" set on the home shelf. Cards in manualOrder but
      NOT in `sourceIds` are the menu-added games (truly removable);
      drag-ordered manualOrder entries that ARE in sourceIds get X=hide
      instead so removing them doesn't just bounce them back to the
      source-default slot. */
-  const [sourceIds, setSourceIds] = useState<number[] | null>(null);
-  const [storeNames, setStoreNames] = useState<Map<number, string>>(new Map());
+  const [sourceIds, setSourceIds] = useState<number[] | null>(() => warm ? warm.sourceIds : null);
+  const [storeNames, setStoreNames] = useState<Map<number, string>>(() => warm ? new Map(warm.storeNames) : new Map());
   // Bumped when the price cache is warmed for non-owned smart-shelf cards —
   // forces rowItems to re-read `getCachedDiscount` so the badge appears.
   const [priceVersion, setPriceVersion] = useState(0);
   const [ownedNames, setOwnedNames] = useState<Set<string> | null>(null);
-  const firstLoad = useRef(true);
+  // A warm-seeded mount already has a complete first render; it must not
+  // show the first-load meta spinner or blank itself on a failed re-resolve.
+  const firstLoad = useRef(!warm);
   const [metaVersion, setMetaVersion] = useState(0);
   /* Increments on every `resolve()` call; each in-flight promise captures
      the id at start and bails on completion if the id has advanced —
@@ -229,9 +239,16 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Pre-limit match count reported by the resolver (undefined when the
   // resolver doesn't report it) — drives the dynamic "See more" decision.
-  const resolvedTotalRef = useRef<number | undefined>(undefined);
+  const resolvedTotalRef = useRef<number | undefined>(warm ? warm.resolvedTotal : undefined);
 
   const sourceKey = useMemo(() => JSON.stringify({ source: shelf.source, sort: shelf.sort }), [shelf.source, shelf.sort]);
+
+  // Publish the latest resolved state for the next mount of this shelf
+  // (references only — no copying, no DOM).
+  useEffect(() => {
+    if (!appIds?.length) return;
+    setShelfWarmEntry(shelf.id, { appIds, sourceIds, items, storeNames, resolvedTotal: resolvedTotalRef.current });
+  }, [shelf.id, appIds, sourceIds, items, storeNames]);
 
   useEffect(() => {
     let cancelled = false;

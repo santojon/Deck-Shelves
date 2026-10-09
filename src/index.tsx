@@ -35,6 +35,7 @@ import { checkForUpdate, __resetUpdateCheckCache } from "./core/updateNotifier";
 import { installOrDownloadUpdate, canSelfInstallUpdate } from "./runtime/updateDownload";
 import { invalidateRandomSortCache } from "./steam";
 import { pruneCache as pruneImageCache, hydrateHotCacheFromStorage } from "./core/imageCache";
+import { pruneShelfCaches } from "./components/shelf/shelfViewHelpers";
 import { isOnline } from "./core/connectivity";
 import { getCurrentSettings, subscribeSettings, wasSettingsRecovered } from "./store/settingsStore";
 import { setPendingSettingsTab } from "./runtime/settingsNav";
@@ -153,6 +154,8 @@ const __ds_entry = definePlugin((serverAPI?: any) => {
     schedule(() => {
       try { void hydrateHotCacheFromStorage(); } catch {}
       try { void pruneImageCache(); } catch {}
+      // Expired per-shelf id caches are never read again, so nothing else drops them.
+      try { pruneShelfCaches(); } catch {}
     });
   } catch {}
   // Resolve `~/Downloads` from the backend so import/export defaults work

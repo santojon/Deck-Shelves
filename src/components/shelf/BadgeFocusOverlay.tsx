@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { getPreferredSteamDocument, getAllSteamDocuments } from '../../runtime/steamHost';
 import { subscribeFocusedCard, getFocusedCard } from '../../runtime/focusedCardTracker';
 import { subscribeOverlayActive } from './overlayState';
+import { subscribeSessionState, getSessionState } from '../../runtime/sessionState';
 import i18n from '../../i18n';
 
 function findHomeRootDoc(): { doc: Document; root: HTMLElement } | null {
@@ -52,7 +53,13 @@ export function BadgeFocusOverlay() {
      listeners before the new ones attach, so duplicate handlers can't
      accumulate. */
   const [hostKey, setHostKey] = useState(0);
+  // Home stays mounted while a game runs (no route change) — suspend the
+  // overlay's observers/listeners entirely during that window instead of
+  // tracking a focus nobody can see, same signal the reconcile path uses.
+  const [gameRunning, setGameRunning] = useState(() => getSessionState().gameRunning);
+  useEffect(() => subscribeSessionState(() => setGameRunning(getSessionState().gameRunning)), []);
   useEffect(() => {
+    if (gameRunning) { setState(null); return; }
     const located = findHomeRootDoc();
     if (!located) {
       // Home root not yet in any known doc — retry on next animation
@@ -144,7 +151,7 @@ export function BadgeFocusOverlay() {
       try { resizeObserver?.disconnect(); } catch {}
       if (raf !== null) win.cancelAnimationFrame(raf);
     };
-  }, [hostKey]);
+  }, [hostKey, gameRunning]);
 
   if (obscured || !state) return null;
   const portalDoc = findHomeRootDoc()?.doc ?? document;

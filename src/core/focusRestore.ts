@@ -35,6 +35,25 @@ export function saveFocusTarget(appid: number, shelfId?: string): void {
   } catch {}
 }
 
+/* Remember the currently focused DS card as the restore target — for leave
+   paths that aren't a card activation (B to Library, QAM, side nav). Nav
+   tree first, gpfocus class as fallback. Never overwrites a pending target:
+   an activation already saved a newer, more specific one. */
+export function saveFocusTargetFromFocusedCard(): void {
+  if (pendingAppid) return;
+  const card = findFocusedDsCard();
+  if (!card) return;
+  const appid = Number(card.getAttribute("data-appid"));
+  if (!Number.isFinite(appid) || appid <= 0) return;
+  saveFocusTarget(appid, card.getAttribute("data-shelfid") ?? undefined);
+}
+
+function findFocusedDsCard(): HTMLElement | null {
+  const fromTree = getLastFocusedElement()?.closest?.(".ds-card") as HTMLElement | null | undefined;
+  if (fromTree) return fromTree;
+  return (getPreferredSteamDocument()?.querySelector(".ds-card.gpfocus") as HTMLElement | null) ?? null;
+}
+
 function getFocusNavController(): any {
   return (globalThis as any).FocusNavController;
 }
