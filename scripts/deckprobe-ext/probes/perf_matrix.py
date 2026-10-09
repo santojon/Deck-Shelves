@@ -90,11 +90,13 @@ class Matrix:
         return s
 
     def warm_return(self, expected: int) -> dict:
-        self.sjc.evaluate(NAV % json.dumps("/library"))
+        # Leaving a Home with thousands of cards tears them all down inside this
+        # evaluate; give it room instead of cutting it off at the default 8 s.
+        self.sjc.evaluate(NAV % json.dumps("/library"), timeout=60.0)
         time.sleep(2.0)
         p0 = self.perf()
         t0 = time.time()
-        self.sjc.evaluate(BACK)
+        self.sjc.evaluate(BACK, timeout=60.0)
         t_full = None
         deadline = t0 + 12.0
         while time.time() < deadline:
@@ -107,38 +109,47 @@ class Matrix:
         p1 = self.perf()
         return {"t_full_ms": t_full, "longTasks": p1.get("longTasks", 0) - p0.get("longTasks", 0), "longMs": p1.get("longMs", 0) - p0.get("longMs", 0)}
 
+    def run_one(self, name: str) -> dict:
+        expected = SCENARIOS[name]
+        print(f"=== {name} (expect {expected} shelves)")
+        if not self.switch(name):
+            return {"scenario": name, "error": "switch failed"}
+        s = self.wait_shelves(expected)
+        print(f"  settled in {s['t_settle']} ms: shelves={s['shelves']} cards={s['cards']}")
+        ret = self.warm_return(expected) if expected > 0 else {"t_full_ms": None, "longTasks": 0, "longMs": 0}
+        self.gc()
+        time.sleep(1.0)
+        end = self.snap()
+        print(f"  warm return: full={ret['t_full_ms']} ms, longTasks={ret['longTasks']} ({ret['longMs']} ms), heap after GC {end['mem']} MB")
+        return {"scenario": name, "expectedShelves": expected, "shelves": end["shelves"], "cards": end["cards"], "settleMs": s["t_settle"], "heapMbAfterGc": end["mem"], **{"return_" + k: v for k, v in ret.items()}}
+
+    # One scenario failing (a CDP timeout while thousands of cards tear down)
+    # must not lose the others: record the error and carry on.
     def run(self, names: list[str]) -> list[dict]:
         out = []
         for name in names:
-            expected = SCENARIOS[name]
-            print(f"=== {name} (expect {expected} shelves)")
-            if not self.switch(name):
-                out.append({"scenario": name, "error": "switch failed"})
-                continue
-            s = self.wait_shelves(expected)
-            print(f"  settled in {s['t_settle']} ms: shelves={s['shelves']} cards={s['cards']}")
-            ret = self.warm_return(expected) if expected > 0 else {"t_full_ms": None, "longTasks": 0, "longMs": 0}
-            self.gc()
-            time.sleep(1.0)
-            end = self.snap()
-            rec = {"scenario": name, "expectedShelves": expected, "shelves": end["shelves"], "cards": end["cards"], "settleMs": s["t_settle"], "heapMbAfterGc": end["mem"], **{"return_" + k: v for k, v in ret.items()}}
-            print(f"  warm return: full={ret['t_full_ms']} ms, longTasks={ret['longTasks']} ({ret['longMs']} ms), heap after GC {end['mem']} MB")
-            out.append(rec)
+            try:
+                out.append(self.run_one(name))
+            except Exception as e:
+                print(f"  {name}: {e!r}")
+                out.append({"scenario": name, "expectedShelves": SCENARIOS[name], "error": repr(e)})
         return out
 
 
 def main() -> None:
     names = [a for a in sys.argv[1:] if a in SCENARIOS] or list(SCENARIOS)
     m = Matrix()
+    results: list[dict] = []
     try:
         results = m.run(names)
         m.switch("typical_8x20")
     finally:
         m.close()
-    out_dir = ROOT / "site" / "reports" / "perf"
-    out_dir.mkdir(parents=True, exist_ok=True)
-    (out_dir / "perf-matrix-latest.json").write_text(json.dumps({"recordedAt": time.strftime("%Y-%m-%dT%H:%M:%S"), "results": results}, indent=2) + "\n", encoding="utf-8")
-    print("results written:", out_dir / "perf-matrix-latest.json")
+        out_dir = ROOT / "site" / "reports" / "perf"
+        out_dir.mkdir(parents=True, exist_ok=True)
+        (out_dir / "perf-matrix-latest.json").write_text(json.dumps({"recordedAt": time.strftime("%Y-%m-%dT%H:%M:%S"), "results": results}, indent=2) + "\n", encoding="utf-8")
+        print("results written:", out_dir / "perf-matrix-latest.json")
+    sys.exit(0 if all("error" not in r for r in results) else 1)
 
 
 if __name__ == "__main__":

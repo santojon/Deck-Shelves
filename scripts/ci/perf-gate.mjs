@@ -48,6 +48,34 @@ if (maxAgeDays > 0) {
 }
 
 console.log(`perf-gate: back-nav record ${r.recordedAt} — ${r.cycles} cycles, full ${r.fullMsAvg} ms avg / ${r.fullMsMax} ms max, selection ${r.selectionKept}/${r.cycles}, roots ≤${r.maxRoots}, fallback ${r.fallbackMounts}, leaks ${JSON.stringify(r.leakDelta)}`);
+
+/* The other device records are optional (each probe writes its own file);
+   when present they are judged too, so one command covers the whole contract. */
+const optional = (name) => { const p = resolve(root, `site/reports/perf/${name}`); return existsSync(p) ? JSON.parse(readFileSync(p, "utf8")) : null; };
+const matrix = optional("perf-matrix-latest.json");
+if (matrix) {
+  for (const row of matrix.results ?? []) {
+    const name = row.scenario;
+    check(`matrix ${name}: ${row.error}`, !!row.error);
+    const retMax = t.matrix_return_ms_fail?.[name];
+    const setMax = t.matrix_settle_ms_fail?.[name];
+    check(`matrix ${name}: warm return ${row.return_t_full_ms} ms > ${retMax}`, retMax != null && row.return_t_full_ms != null && row.return_t_full_ms > retMax);
+    check(`matrix ${name}: settle ${row.settleMs} ms > ${setMax}`, setMax != null && row.settleMs > setMax);
+    check(`matrix ${name}: heap ${row.heapMbAfterGc} MB > ${t.matrix_heap_mb_max}`, t.matrix_heap_mb_max != null && row.heapMbAfterGc > t.matrix_heap_mb_max);
+  }
+  console.log(`perf-gate: perf-matrix record ${matrix.recordedAt} — ${(matrix.results ?? []).map((x) => `${x.scenario} ${x.return_t_full_ms ?? "—"} ms`).join(", ")}`);
+}
+for (const mode of ["reload", "restart", "sleepwake", "restart-coexist", "reload-coexist"]) {
+  const s = optional(`soak-${mode}-latest.json`);
+  if (!s) continue;
+  check(`soak ${mode}: ${s.ok}/${s.cycles} OK < ${t.soak_ok_ratio_min}`, s.cycles > 0 && s.ok / s.cycles < (t.soak_ok_ratio_min ?? 1));
+  console.log(`perf-gate: soak ${mode} record ${s.recordedAt} — ${s.ok}/${s.cycles} OK`);
+}
+const idle = optional("idle-cpu-latest.json");
+if (idle) {
+  check(`idle CPU delta ${idle.deltaPp} pp > ${t.idle_cpu_delta_pp_fail}`, t.idle_cpu_delta_pp_fail != null && idle.deltaPp > t.idle_cpu_delta_pp_fail);
+  console.log(`perf-gate: idle-CPU record ${idle.recordedAt} — plugin-free ${idle.withoutPlugin?.total ?? idle.withoutLoaderPct} %, with plugin ${idle.withPlugin?.total ?? idle.withPluginPct} % (delta ${idle.deltaPp} pp, AC=${idle.acOnline})`);
+}
 for (const w of warnings) console.log(`  ⚠️  ${w}`);
 for (const p of problems) console.log(`  ❌ ${p}`);
 if (!problems.length) console.log(`  ✅ within thresholds${warnings.length ? " (with warnings)" : ""}`);

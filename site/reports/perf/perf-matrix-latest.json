@@ -1,0 +1,71 @@
+{
+  "recordedAt": "2026-10-09T17:59:02",
+  "results": [
+    {
+      "scenario": "vanilla",
+      "expectedShelves": 0,
+      "shelves": 0,
+      "cards": 0,
+      "settleMs": 607,
+      "heapMbAfterGc": 166,
+      "return_t_full_ms": null,
+      "return_longTasks": 0,
+      "return_longMs": 0
+    },
+    {
+      "scenario": "empty",
+      "expectedShelves": 0,
+      "shelves": 0,
+      "cards": 0,
+      "settleMs": 24,
+      "heapMbAfterGc": 165,
+      "return_t_full_ms": null,
+      "return_longTasks": 0,
+      "return_longMs": 0
+    },
+    {
+      "scenario": "typical_8x20",
+      "expectedShelves": 8,
+      "shelves": 8,
+      "cards": 168,
+      "settleMs": 2040,
+      "heapMbAfterGc": 167,
+      "return_t_full_ms": 1211,
+      "return_longTasks": 8,
+      "return_longMs": 1806
+    },
+    {
+      "scenario": "stress_16x50",
+      "expectedShelves": 16,
+      "shelves": 16,
+      "cards": 784,
+      "settleMs": 7529,
+      "heapMbAfterGc": 176,
+      "return_t_full_ms": 3868,
+      "return_longTasks": 10,
+      "return_longMs": 6403
+    },
+    {
+      "scenario": "large_2000",
+      "expectedShelves": 20,
+      "shelves": 20,
+      "cards": 1920,
+      "settleMs": 6552,
+      "heapMbAfterGc": 214,
+      "return_t_full_ms": 4607,
+      "return_longTasks": 6,
+      "return_longMs": 5883
+    },
+    {
+      "scenario": "huge_5000",
+      "expectedShelves": 50,
+      "shelves": 50,
+      "cards": 4800,
+      "settleMs": 13551,
+      "heapMbAfterGc": 320,
+      "return_t_full_ms": 8598,
+      "return_longTasks": 5,
+      "return_longMs": 10680
+    }
+  ]
+}

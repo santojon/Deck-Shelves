@@ -137,6 +137,22 @@ def wait_steam_relaunch(env: dict, old_pid: str, timeout: float = 150.0) -> str 
     return None
 
 
+LOADER_SELF_STOPS = 0
+
+
+# Decky's loader sometimes stops its own unit when it sees Steam shut down
+# (`service_stop` in its localplatform code, "Deactivated successfully"), so a
+# killall-driven restart can come back with no loader at all. That's the
+# loader's behaviour, not the plugin's: start it again and count it.
+def ensure_loader(env: dict) -> None:
+    global LOADER_SELF_STOPS
+    if ssh(env, "systemctl is-active plugin_loader.service") == "active":
+        return
+    LOADER_SELF_STOPS += 1
+    sudo(env, "systemctl start plugin_loader.service")
+    time.sleep(8)
+
+
 def trigger(mode: str, env: dict, sleep_secs: int) -> None:
     if mode == "sleepwake":
         sudo(env, f"rtcwake -m mem -s {sleep_secs}", timeout=sleep_secs + 60)
@@ -197,16 +213,21 @@ def main() -> None:
     for i in range(1, cycles + 1):
         t0 = time.time()
         trigger(mode, env, sleep_secs)
-        s = wait_home(host, port, expected)
+        s = wait_home(host, port, expected, 90.0 if mode == "restart" else 150.0)
+        if s is None and mode == "restart":
+            # The loader's self-stop lands a few seconds after Steam exits, i.e. after
+            # the new Steam PID is already up — only visible once the Home never comes.
+            ensure_loader(env)
+            s = wait_home(host, port, expected, 120.0)
         j = read_sjc(host, port) if coexist else wait_plugin(host, port)
         time.sleep(3)
         j = read_sjc(host, port) if (coexist or j.get("instances")) else j
         problems = judge(s, j, base, coexist)
-        rec = {"i": i, "ok": not problems, "problems": problems, "readyS": s and s.get("t_ready"), "cycleS": round(time.time() - t0, 1), "sjc": j}
+        rec = {"i": i, "ok": not problems, "problems": problems, "readyS": s and s.get("t_ready"), "cycleS": round(time.time() - t0, 1), "loaderSelfStops": LOADER_SELF_STOPS, "sjc": j}
         results.append(rec)
-        print(f"cycle {i:3d} {'OK ' if not problems else 'BAD'} ready={rec['readyS']}s total={rec['cycleS']}s {problems or ''} owner={j.get('owner')} inst={j.get('instances')} scope={j.get('scope')}", flush=True)
+        print(f"cycle {i:3d} {'OK ' if not problems else 'BAD'} ready={rec['readyS']}s total={rec['cycleS']}s {problems or ''} owner={j.get('owner')} inst={j.get('instances')} scope={j.get('scope')} loaderSelfStops={LOADER_SELF_STOPS}", flush=True)
     ok = sum(1 for r in results if r["ok"])
-    print(f"SUMMARY {mode}{' (coexist)' if coexist else ''}: {ok}/{cycles} OK")
+    print(f"SUMMARY {mode}{' (coexist)' if coexist else ''}: {ok}/{cycles} OK (loader self-stops restarted by the harness: {LOADER_SELF_STOPS})")
     out_dir = ROOT / "site" / "reports" / "perf"
     out_dir.mkdir(parents=True, exist_ok=True)
     suffix = "-coexist" if coexist else ""
