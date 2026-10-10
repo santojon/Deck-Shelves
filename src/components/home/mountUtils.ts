@@ -102,21 +102,26 @@ export function detectNavTreeApi(): { available: boolean; detail: string } {
 const RECENT_LABELS = ["jogos recentes", "recent games", "recently played", "jogados recentemente"];
 const CHIP_LABELS = ["what's new", "friends", "recommended", "novidades", "amigos", "recomendados"];
 
-function isScrollableViewport(p: HTMLElement): boolean {
+/* `lenient` accepts an `overflow-y: auto|scroll` panel that doesn't overflow
+   yet — early on, the Home holds only the native recents row, so the strict
+   test fails and the anchor fell through to the multi-child wrapper, i.e.
+   INSIDE the recents block (confirmed live under native Big Art: recents then
+   can't be collapsed without hiding the mount; the native hero shows through). */
+function isScrollableViewport(p: HTMLElement, lenient = false): boolean {
   try {
     const win = p.ownerDocument?.defaultView ?? getPreferredSteamWindow();
     const cs = win.getComputedStyle(p);
     const oy = (cs.overflowY || '').toLowerCase();
-    return (oy === 'auto' || oy === 'scroll') && p.scrollHeight > p.clientHeight;
+    return (oy === 'auto' || oy === 'scroll') && (lenient || p.scrollHeight > p.clientHeight);
   } catch (e) { logInfo("HOME", "resolveAnchor: getComputedStyle failed", String(e)); return false; }
 }
 
-function walkToScrollableAncestor(start: HTMLElement, body: HTMLElement, maxHops: number): { parent: HTMLElement; before: ChildNode | null } | null {
+function walkToScrollableAncestor(start: HTMLElement, body: HTMLElement, maxHops: number, lenient = false): { parent: HTMLElement; before: ChildNode | null } | null {
   let container: HTMLElement | null = start;
   for (let i = 0; i < maxHops && container; i++) {
     const p: HTMLElement | null = container.parentElement;
     if (!p || p === body) break;
-    if (isScrollableViewport(p)) return { parent: p, before: container.nextSibling };
+    if (isScrollableViewport(p, lenient)) return { parent: p, before: container.nextSibling };
     container = p;
   }
   return null;
@@ -140,7 +145,7 @@ function findScrollableAnchorAfterRecents(doc: Document): { parent: HTMLElement;
     const txt = `${(node.getAttribute?.("aria-label") || "")} ${(node.textContent || "")}`.toLowerCase();
     if (!RECENT_LABELS.some((l) => txt.includes(l))) continue;
     const start = node as HTMLElement;
-    const scrollable = walkToScrollableAncestor(start, body, 12);
+    const scrollable = walkToScrollableAncestor(start, body, 12) ?? walkToScrollableAncestor(start, body, 12, true);
     if (scrollable) return scrollable;
     const fallback = walkToMultiChildAncestor(start, body, 6);
     if (fallback) return fallback;
@@ -222,11 +227,21 @@ function createMountIn(docs: Document[]): HTMLElement | null {
   return null;
 }
 
+/* A mount that landed INSIDE the recents block (early multi-child anchor) also
+   has a grid-bearing previous sibling, yet it is misplaced: collapsing recents
+   would hide the mount with it. Only a sibling of the whole block is adjacent. */
+function mountNestedInRecents(mount: HTMLElement): boolean {
+  const parent = mount.parentElement;
+  if (!parent || isScrollableViewport(parent, true)) return false;
+  const grid = parent.querySelector('[class*="ReactVirtualized"]');
+  return !!grid && !mount.contains(grid);
+}
+
 /* True when the mount sits right after the recents row (its previous sibling is
    the recents, or a wrapper containing the virtualized recents grid). */
 function isRecentsAdjacent(mount: HTMLElement): boolean {
   const prev = mount.previousElementSibling as HTMLElement | null;
-  if (!prev) return false;
+  if (!prev || mountNestedInRecents(mount)) return false;
   const txt = `${(prev.getAttribute?.("aria-label") || "")} ${(prev.textContent || "")}`.toLowerCase();
   if (RECENT_LABELS.some((l) => txt.includes(l))) return true;
   return !!prev.querySelector('[class*="ReactVirtualized"]');

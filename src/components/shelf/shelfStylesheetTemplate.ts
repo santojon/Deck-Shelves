@@ -53,20 +53,12 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
     }
 
     /* ── SLH alt C shim (data-ds-slh="1") ─────────────────────────────────
-       Problem: the SLH theme uses position:absolute/bottom:0 on the native
-       recents grid inside a height:100vh/overflow:hidden container. When DS
-       hides the native recents (height:0), that grid disappears but the
-       fixed-height container stays. Our promoted shelf
-       (data-ds-recents-slot="true") sits OUTSIDE that container inside
-       #deck-shelves-home-root, so it is not caught by the theme's
-       absolute-positioning rule and ends up at the top instead of the bottom.
-
-       Fix: expand #deck-shelves-home-root to viewport height and pin the
-       promoted shelf to its bottom via absolute positioning — mirroring the
-       theme's layout contract without touching any native class names.
-
-       NOTE: Requires validation on a real Deck with the theme active. The
-       56px header offset is based on CDP observations from 2026-05-14. */
+       SLH pins the native recents grid to the bottom of a viewport-height,
+       overflow-hidden container; with native recents hidden our promoted shelf
+       sits outside it, so mirror the contract: root at viewport height, the
+       promoted shelf absolute at its bottom. Validated live 2026-10-10: the
+       other shelves must NOT flex-shrink into that fixed-height panel (they
+       collapsed to 0–108 px) and must start below the viewport block. */
     [data-ds-slh="1"] #deck-shelves-home-root {
       height: calc(100vh - 56px);
       position: relative;
@@ -76,6 +68,8 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
       height: 100%;
       position: relative;
     }
+    [data-ds-slh="1"] .deck-shelves-root > .ds-shelf { flex-shrink: 0; }
+    [data-ds-slh="1"] .deck-shelves-root > .ds-shelf[data-ds-recents-slot="true"] + .ds-shelf { margin-top: calc(100vh - 56px); }
     [data-ds-slh="1"] .ds-shelf[data-ds-recents-slot="true"] {
       position: absolute !important;
       bottom: 0 !important;
@@ -86,6 +80,10 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
          it doesn't overlap the card row. Mirror via the same variable. */
       padding-top: calc(var(--SLH-lift-hero-px, 0px) + 6px);
     }
+    /* SLH pins the promoted shelf (auto height) to the bottom of the block, so
+       the top-relative -56px hero pull started ~60px below the header (black
+       band). Anchor the art to the shelf bottom, viewport + header tall. */
+    [data-ds-slh="1"] .ds-shelf[data-ds-recents-slot="true"] [data-ds-per-shelf-hero="true"] { top: auto !important; bottom: 0 !important; height: calc(100vh + 56px) !important; }
     /* SLH + ArtHero: the ArtHero flex column still applies inside the
        absolute-positioned promoted shelf. */
     [data-ds-slh="1"] .deck-shelves-root[data-ds-hero-label="true"] .ds-shelf[data-ds-recents-slot="true"] {

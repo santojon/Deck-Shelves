@@ -75,8 +75,11 @@ export function applyReplaceActiveMargin(active: boolean): void {
       if (!mount) continue;
       found++;
       if (active) mount.style.setProperty("margin-top", "0px", "important");
-      // Leave applyHideRecents in control when replace is not active.
-      else mount.style.removeProperty("margin-top");
+      /* Replace not active: restore the hide-recents margin (this runs right
+         after applyHideRecents in the same effect — a bare remove clobbered its
+         56px, confirmed by a boot trace: the first shelf then sat 88px too high
+         and SLH's block ended mid-screen). Plain remove only when not hidden. */
+      else mount.style.setProperty("margin-top", pendingHideRecents ? "56px" : "", "important");
     }
     // The mount can be mid-(re)creation when settings finish loading —
     // retry once shortly after instead of leaving the wrong margin in
@@ -584,20 +587,22 @@ const CHIP_LABELS = ["what's new", "friends", "recommended", "novidades", "amigo
 const ANCHOR_CONTAINERS_QS = '[class*="gamepadlibrary"], [class*="libraryhome"], [class*="LibraryHome"], [class*="BasicHomeView"], [class*="AppGridFilterContainer"], [class*="AllPagesContainer"], main, [role="main"]';
 const ANCHOR_CANDIDATES_QS = '[role="list"],[aria-label],[class*="ReactVirtualized__Grid"],[class*="ReactVirtualized__Grid__innerScrollContainer"]';
 
-function isScrollableViewport(p: HTMLElement): boolean {
+// `lenient`: an overflow-y auto/scroll panel that doesn't overflow YET (early
+// Home holds only native recents) — else the anchor falls inside the recents block.
+function isScrollableViewport(p: HTMLElement, lenient = false): boolean {
   try {
     const cs = getComputedStyle(p);
     const oy = (cs.overflowY || '').toLowerCase();
-    return (oy === 'auto' || oy === 'scroll') && p.scrollHeight > p.clientHeight;
+    return (oy === 'auto' || oy === 'scroll') && (lenient || p.scrollHeight > p.clientHeight);
   } catch { return false; }
 }
 
-function findScrollableAncestor(start: HTMLElement, doc: Document): Anchor | null {
+function findScrollableAncestor(start: HTMLElement, doc: Document, lenient = false): Anchor | null {
   let container: HTMLElement | null = start;
   for (let i = 0; i < 12 && container; i++) {
     const p: HTMLElement | null = container.parentElement;
     if (!p || p === doc.body) break;
-    if (isScrollableViewport(p)) return { parent: p, before: container.nextSibling };
+    if (isScrollableViewport(p, lenient)) return { parent: p, before: container.nextSibling };
     container = p;
   }
   return null;
@@ -616,7 +621,7 @@ function anchorFromRecentsCandidates(doc: Document): Anchor | null {
   for (const node of Array.from(doc.querySelectorAll(ANCHOR_CANDIDATES_QS))) {
     const txt = `${(node.getAttribute?.("aria-label") || "")} ${(node.textContent || "")}`.toLowerCase();
     if (!RECENTS_LABEL_FRAGMENTS_EXT.some((label) => txt.includes(label))) continue;
-    const scrollable = findScrollableAncestor(node as HTMLElement, doc);
+    const scrollable = findScrollableAncestor(node as HTMLElement, doc) ?? findScrollableAncestor(node as HTMLElement, doc, true);
     if (scrollable) return scrollable;
     const fallback = anchorFromGridOrSection(node);
     if (fallback) return fallback;

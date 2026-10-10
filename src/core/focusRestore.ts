@@ -253,6 +253,17 @@ function isCardFocused(card: HTMLElement): boolean {
   return card.classList.contains("gpfocus") || card === card.ownerDocument?.activeElement;
 }
 
+// Steam's boot reflex parked focus in its own search field — a known-wrong
+// landing we don't need to give any grace to before claiming the first card.
+function nativeTextFieldFocused(doc: Document): boolean {
+  const a = doc.activeElement as HTMLElement | null;
+  return !!a && /^(INPUT|TEXTAREA)$/.test(a.tagName) && !a.closest?.("#deck-shelves-home-root");
+}
+
+function fallbackGraceOver(doc: Document, start: number): boolean {
+  return nativeTextFieldFocused(doc) || Date.now() - start > COLD_BOOT_FALLBACK_GRACE_MS;
+}
+
 export function tryRestoreFocus(): boolean {
   if (!pendingAppid) return false;
   if (Date.now() - pendingTimestamp > FOCUS_RESTORE_TIMEOUT) {
@@ -281,6 +292,10 @@ let coldBootAbort: AbortController | null = null;
 // shelves (Steam library store hydration) have been observed taking ~4s on
 // cold boot, so a shorter window risks expiring just before they populate.
 const COLD_BOOT_GUARD_MS = 6000;
+// The window counts from the first rendered card (a themed cold boot mounted
+// ~6 s before any card and dropped focus 2 s after it landed, past the window)
+// — this cap bounds the wait for that first card.
+const COLD_BOOT_GUARD_MAX_MS = 30000;
 
 /* Steam's own "focus first card" boot reflex can land on something that
    isn't one of our cards at all (confirmed live: the native search field,
@@ -298,11 +313,30 @@ function walkBackToEarlierShelf(doc: Document, orderedShelfIds: string[], focuse
   }
 }
 
-function claimFirstCardFocus(doc: Document, firstShelfId: string): boolean {
-  const first = doc.querySelector(`.ds-card[data-shelfid="${firstShelfId}"]`) as HTMLElement | null;
-  if (!first) return false;
-  const navNode = findNavNodeForElement(first);
-  return !!navNode && takeNavFocus(navNode);
+/* `activeElement` is the reliable read on this client; the `gpfocus` class
+   is not always applied. */
+function focusedDsCard(doc: Document): HTMLElement | null {
+  const byClass = doc.querySelector(".ds-card.gpfocus") as HTMLElement | null;
+  if (byClass) return byClass;
+  const active = doc.activeElement as HTMLElement | null;
+  return (active?.closest?.(".ds-card") as HTMLElement | null) ?? null;
+}
+
+function shouldReclaim(doc: Document, start: number, lastClaimAt: number): boolean {
+  return Date.now() - lastClaimAt >= 400 && fallbackGraceOver(doc, start);
+}
+
+/* First shelf *with a card* in order — the first configured shelf may be
+   empty or filtered out on this device, so keying on its id alone never
+   claimed anything (seen live on a themed cold boot). */
+function claimFirstCardFocus(doc: Document, orderedShelfIds: string[]): boolean {
+  for (const id of orderedShelfIds) {
+    const first = doc.querySelector(`.ds-card[data-shelfid="${id}"]`) as HTMLElement | null;
+    if (!first) continue;
+    const navNode = findNavNodeForElement(first);
+    return !!navNode && takeNavFocus(navNode);
+  }
+  return false;
 }
 
 /* Cold-boot default-focus fix: an online shelf reads a synchronous
@@ -328,19 +362,25 @@ export function beginColdBootFocusGuard(orderedShelfIds: string[]): void {
   const cleanup = () => doc.removeEventListener("vgp_ondirection", onDirection, true);
   abort.signal.addEventListener("abort", cleanup, { once: true });
 
-  let claimedFallback = false;
-  const start = Date.now();
+  /* `BTakeFocus` reports success even when the node isn't reachable yet, so
+     never latch on it: keep claiming (every other tick) until a card really
+     holds focus. */
+  let lastClaimAt = 0;
+  const armedAt = Date.now();
+  let start = armedAt;
+  const expired = () => Date.now() - start >= COLD_BOOT_GUARD_MS || Date.now() - armedAt >= COLD_BOOT_GUARD_MAX_MS;
   const tick = () => {
     if (abort.signal.aborted || userNavigated) { cleanup(); return; }
-    const gp = doc.querySelector(".ds-card.gpfocus") as HTMLElement | null;
-    const focusedShelfId = gp?.getAttribute("data-shelfid");
-    const focusedIdx = focusedShelfId ? orderedShelfIds.indexOf(focusedShelfId) : -1;
+    if (!doc.querySelector(".ds-card")) start = Date.now();
+    const gp = focusedDsCard(doc);
+    const focusedIdx = orderedShelfIds.indexOf(gp?.getAttribute("data-shelfid") ?? "");
     if (focusedIdx > 0) {
       walkBackToEarlierShelf(doc, orderedShelfIds, focusedIdx);
-    } else if (!gp && !claimedFallback && Date.now() - start > COLD_BOOT_FALLBACK_GRACE_MS) {
-      claimedFallback = claimFirstCardFocus(doc, orderedShelfIds[0]);
+    } else if (!gp && shouldReclaim(doc, start, lastClaimAt)) {
+      lastClaimAt = Date.now();
+      claimFirstCardFocus(doc, orderedShelfIds);
     }
-    if (Date.now() - start < COLD_BOOT_GUARD_MS) { setTimeout(tick, 200); return; }
+    if (!expired()) { setTimeout(tick, 200); return; }
     cleanup();
   };
   setTimeout(tick, 200);

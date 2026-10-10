@@ -9,7 +9,7 @@
 
 [![CI](https://github.com/santojon/Deck-Shelves/actions/workflows/ci.yml/badge.svg)](https://github.com/santojon/Deck-Shelves/actions/workflows/ci.yml)
 [![Release](https://github.com/santojon/Deck-Shelves/actions/workflows/release.yml/badge.svg)](https://github.com/santojon/Deck-Shelves/actions/workflows/release.yml)
-[![Tests](https://img.shields.io/badge/vitest-1046%20passed-brightgreen?logo=vitest&logoColor=white)](../../src/test/)
+[![Tests](https://img.shields.io/badge/vitest-1050%20passed-brightgreen?logo=vitest&logoColor=white)](../../src/test/)
 [![pytest](https://img.shields.io/badge/pytest-213%20passed-brightgreen?logo=pytest&logoColor=white)](../../src/test/test_main.py)
 [![TypeCheck](https://img.shields.io/badge/typecheck-clean-brightgreen?logo=typescript&logoColor=white)](../../tsconfig.json)
 [![Compatibility](https://img.shields.io/badge/checks-40%2F40-brightgreen?logo=steamdeck&logoColor=white)](../../scripts/build/validate-compat.mjs)
@@ -197,6 +197,8 @@ Tudo está em **[docs/](docs-index.md)** — comece por lá para o índice compl
 - [Prateleiras Inteligentes](smart-shelves.md) — templates de prateleira inteligente, critérios e confiabilidade
 - [Prateleiras online](online-shelves.md) — fontes baseadas em rede, cache e atualização
 - [Modos de exibição](display-modes.md) — o que Normal / Leve / Avançado mostram e ocultam
+- [Decky Loader ou ShelvesHub?](decky-or-shelveshub.md) — os dois hosts lado a lado
+- [Matriz de validação](validation-matrix.md) — quais plataformas e hosts foram exercitados nesta release, e como validar um
 - [Guia de desenvolvimento](development.md) — setup, comandos de build, testes, convenções
 - [Webpack Classmap](webpack-classmap.md) — descoberta de classes CSS em tempo de execução
 - [Auditoria de performance](performance.md) — metodologia de medição, caminhos críticos, ganhos aplicados

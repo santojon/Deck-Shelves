@@ -317,9 +317,12 @@ export function HomeShelves({ fallback = false }: { fallback?: boolean }) {
        updateMount/checkHidden actually needs to run this frame. */
     let reconcileScheduled = false;
     const scheduleHomeReconcile = () => {
-      // Suspended while a game is running (Home is backgrounded) — the
-      // observers/focus listeners still fire, but do no further work at all.
-      if (!alive || reconcileScheduled || getSessionState().gameRunning) return;
+      /* Suspended while a game runs AND the Home is not the active route (game
+         on screen; listeners still fire but do no work). With the Home opened
+         over a running game, Steam swaps in its in-game Home a few seconds
+         later and that swap must re-discover the mount like any other —
+         skipping it left the root empty until the game exited (#101). */
+      if (!alive || reconcileScheduled || (getSessionState().gameRunning && !isHomeRoute())) return;
       reconcileScheduled = true;
       requestAnimationFrame(() => {
         reconcileScheduled = false;

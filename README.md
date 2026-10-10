@@ -9,7 +9,7 @@
 
 [![CI](https://github.com/santojon/Deck-Shelves/actions/workflows/ci.yml/badge.svg)](https://github.com/santojon/Deck-Shelves/actions/workflows/ci.yml)
 [![Release](https://github.com/santojon/Deck-Shelves/actions/workflows/release.yml/badge.svg)](https://github.com/santojon/Deck-Shelves/actions/workflows/release.yml)
-[![Tests](https://img.shields.io/badge/vitest-1046%20passed-brightgreen?logo=vitest&logoColor=white)](src/test/)
+[![Tests](https://img.shields.io/badge/vitest-1050%20passed-brightgreen?logo=vitest&logoColor=white)](src/test/)
 [![pytest](https://img.shields.io/badge/pytest-213%20passed-brightgreen?logo=pytest&logoColor=white)](src/test/test_main.py)
 [![TypeCheck](https://img.shields.io/badge/typecheck-clean-brightgreen?logo=typescript&logoColor=white)](tsconfig.json)
 [![Compatibility](https://img.shields.io/badge/checks-40%2F40-brightgreen?logo=steamdeck&logoColor=white)](scripts/build/validate-compat.mjs)
@@ -197,6 +197,8 @@ Everything lives in **[docs/](docs/README.md)** — start there for the full ind
 - [Smart Shelves](docs/smart-shelves.md) — smart shelf templates, criteria, and reliability
 - [Online shelves](docs/online-shelves.md) — network-backed sources, caching and refresh
 - [Display modes](docs/display-modes.md) — what Normal / Light / Advanced show and hide
+- [Decky Loader or ShelvesHub?](docs/decky-or-shelveshub.md) — the two hosts side by side
+- [Validation matrix](docs/validation-matrix.md) — which platforms and hosts were exercised for this release, and how to validate one
 - [Development Guide](docs/development.md) — setup, build commands, testing, conventions
 - [Webpack Classmap](docs/webpack-classmap.md) — runtime CSS class discovery
 - [Performance audit](docs/performance.md) — measurement methodology, hot paths, applied wins
