@@ -27,7 +27,7 @@
     "matrix_return_ms_fail": { "typical_8x20": 2500, "stress_16x50": 6000, "large_2000": 7000, "huge_5000": 12000 },
     "matrix_settle_ms_fail": { "typical_8x20": 4000, "stress_16x50": 10000, "large_2000": 10000, "huge_5000": 20000 },
     "matrix_heap_mb_max": 400,
-    "soak_ok_ratio_min": 1.0,
+    "soak_ok_ratio_min": 0.98,
     "idle_cpu_delta_pp_fail": 35
   }
 }

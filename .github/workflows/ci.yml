@@ -78,6 +78,11 @@ jobs:
       - name: Docs check
         run: pnpm run docs:check
 
+      # Device perf contract: CI has no Steam Deck, so this judges the committed
+      # on-device records (site/reports/perf/*-latest.json) against the thresholds.
+      - name: Device perf gate (recorded runs)
+        run: pnpm run perf:gate:check -- --max-age-days=60
+
       - name: Run TypeScript unit tests
         run: pnpm run test
 

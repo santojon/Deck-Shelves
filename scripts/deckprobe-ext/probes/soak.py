@@ -184,8 +184,10 @@ def judge(s: dict | None, j: dict, base: dict, coexist: bool) -> list[str]:
     if s is None:
         return problems
     if coexist:
-        if j.get("owner") != base.get("owner"):
-            problems.append(f"owner {base.get('owner')}->{j.get('owner')}")
+        # Which host wins the first mount after a Steam boot is a legitimate race;
+        # the contract is one root / one panel / an owner that is one of the two.
+        if j.get("owner") not in ("decky", "shelveshub"):
+            problems.append(f"owner {j.get('owner')!r}")
         return problems
     if j.get("instances") != 1:
         problems.append(f"instances={j.get('instances')}")

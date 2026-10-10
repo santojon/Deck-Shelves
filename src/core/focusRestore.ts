@@ -116,7 +116,68 @@ export function getActiveFocusedElement(): HTMLElement | null {
   return nodeElement(node);
 }
 
+/* The nav node a DS element actually registered, read off its React fiber
+   (Steam's Focusable keeps it in a ref hook). Realm/context-independent: a
+   cold boot on this beta can leave the controller's active/last contexts with
+   tree COPIES lacking our nodes (or no active context), so the tree walk finds
+   nothing and focus stays where Steam's boot reflex parked it (search field). */
+function hookNavNode(fiber: any, el: HTMLElement): any {
+  for (let hook = fiber.memoizedState; hook && typeof hook === "object"; hook = hook.next) {
+    const node = hook.memoizedState?.current;
+    if (!node || node.m_Tree === undefined) continue;
+    const owner = nodeElement(node);
+    if (owner === el || owner?.contains(el)) return node;
+  }
+  return null;
+}
+
+function navNodeFromFiber(el: HTMLElement): any {
+  try {
+    const key = Object.keys(el).find((k) => k.startsWith("__reactFiber$"));
+    let fiber: any = key ? (el as any)[key] : null;
+    for (let depth = 0; fiber && depth < 12; depth++, fiber = fiber.return) {
+      const node = hookNavNode(fiber, el);
+      if (node) return node;
+    }
+  } catch {}
+  return null;
+}
+
+// Whether a tree in this context carries our Home (a `.deck-shelves-root` node).
+function contextReachesHome(ctx: any): boolean {
+  const walk = (node: any): boolean => {
+    const el = nodeElement(node);
+    if (el?.classList?.contains("deck-shelves-root")) return true;
+    return (node?.m_rgChildren ?? []).some(walk);
+  };
+  return (ctx?.m_rgGamepadNavigationTrees ?? []).some((t: any) => walk(t.m_Root ?? t.Root ?? t));
+}
+
+/* Make the node's own context the controller's active one when the active
+   context cannot reach our Home (none, or a copy without our nodes) — never
+   while another live context (QAM, a modal) legitimately owns input. Also
+   release a native text field holding DOM focus, or BTakeFocus is a no-op. */
+function shouldActivateContext(ctx: any, ctrl: any): boolean {
+  if (!ctx || !ctrl || ctrl.m_ActiveContext === ctx) return false;
+  return typeof ctx.SetActive === "function" && !contextReachesHome(ctrl.m_ActiveContext);
+}
+
+function releaseNativeTextFocus(doc: Document | null | undefined): void {
+  const active = doc?.activeElement as HTMLElement | null;
+  if (active && /^(INPUT|TEXTAREA)$/.test(active.tagName) && !active.closest?.("#deck-shelves-home-root")) active.blur();
+}
+
+function activateNodeContext(navNode: any): void {
+  try {
+    const tree = navNode?.m_Tree;
+    if (shouldActivateContext(tree?.m_context, tree?.m_Controller)) tree.m_context.SetActive(true);
+    releaseNativeTextFocus(nodeElement(navNode)?.ownerDocument);
+  } catch {}
+}
+
 function findNavNodeForElement(el: HTMLElement): any {
+  const fromFiber = navNodeFromFiber(el);
+  if (fromFiber) return fromFiber;
   const walk = (node: any, target: HTMLElement): any => {
     // Cover property name variations across SteamOS versions
     const nodeEl = node.m_element ?? node.Element ?? node.m_pElement ?? node.element;
@@ -140,6 +201,7 @@ function findNavNodeForElement(el: HTMLElement): any {
 
 function takeNavFocus(navNode: any): boolean {
   try {
+    activateNodeContext(navNode);
     if (typeof navNode.BTakeFocus === "function") { navNode.BTakeFocus(2); return true; }
     const tree = navNode.m_Tree;
     if (tree?.TakeFocus) { tree.TakeFocus(2, navNode); return true; }

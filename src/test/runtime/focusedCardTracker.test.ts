@@ -6,6 +6,21 @@ import {
   __resetFocusedCardTrackerForTest,
 } from "../../runtime/focusedCardTracker";
 import * as focusRestore from "../../core/focusRestore";
+import * as sessionState from "../../runtime/sessionState";
+
+// Captures the callbacks the tracker registers with the session state so a test
+// can fire a game start/stop without Steam's app-lifetime notifications.
+const captured = new Set<() => void>();
+function sessionListeners(): (() => void)[] { return Array.from(captured); }
+function mockSessionSubscribe(): void {
+  captured.clear();
+  vi.spyOn(sessionState, "subscribeSessionState").mockImplementation((cb: () => void) => {
+    captured.add(cb);
+    return () => { captured.delete(cb); };
+  });
+  // A game counts as running only when the lifetime event was seen AND the store agrees.
+  vi.spyOn(sessionState, "isGameRunningByEvent").mockImplementation(() => ((globalThis as any).__testGameEvent === true));
+}
 
 function cardEl(): HTMLElement {
   const card = document.createElement("div");
@@ -20,6 +35,7 @@ describe("focusedCardTracker", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     __resetFocusedCardTrackerForTest();
+    mockSessionSubscribe();
   });
 
   afterEach(() => {
@@ -81,6 +97,53 @@ describe("focusedCardTracker", () => {
     vi.advanceTimersByTime(150);
     expect(seen).toEqual([]);
     expect(getFocusedCard()).toBeNull();
+  });
+
+  it("suspends the poll while a game runs and resumes when it stops", () => {
+    vi.spyOn(focusRestore, "getLastFocusedElement").mockReturnValue(null);
+    const g = globalThis as any;
+    g.SteamUIStore = { RunningApps: [{ appid: 1 }] };
+    g.__testGameEvent = true;
+    try {
+      subscribeFocusedCard(() => {});
+      expect(vi.getTimerCount()).toBe(0);
+      g.SteamUIStore.RunningApps = []; g.__testGameEvent = false;
+      for (const l of sessionListeners()) l();
+      expect(vi.getTimerCount()).toBeGreaterThan(0);
+      g.SteamUIStore.RunningApps = [{ appid: 1 }]; g.__testGameEvent = true;
+      for (const l of sessionListeners()) l();
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      delete g.SteamUIStore; delete g.__testGameEvent;
+    }
+  });
+
+  it("stops itself on the next tick once a game is really running (event + store)", () => {
+    vi.spyOn(focusRestore, "getLastFocusedElement").mockReturnValue(null);
+    const g = globalThis as any;
+    try {
+      subscribeFocusedCard(() => {});
+      expect(vi.getTimerCount()).toBeGreaterThan(0);
+      g.SteamUIStore = { RunningApps: [{ appid: 1 }] }; g.__testGameEvent = true;
+      vi.advanceTimersByTime(150);
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      delete g.SteamUIStore; delete g.__testGameEvent;
+    }
+  });
+
+  it("ignores a running-apps entry that never produced a lifetime event (failed launch)", () => {
+    vi.spyOn(focusRestore, "getLastFocusedElement").mockReturnValue(null);
+    const g = globalThis as any;
+    try {
+      g.SteamUIStore = { RunningApps: [{ appid: 1 }] }; g.__testGameEvent = false;
+      subscribeFocusedCard(() => {});
+      expect(vi.getTimerCount()).toBeGreaterThan(0);
+      vi.advanceTimersByTime(300);
+      expect(vi.getTimerCount()).toBeGreaterThan(0);
+    } finally {
+      delete g.SteamUIStore; delete g.__testGameEvent;
+    }
   });
 
   it("isolates a throwing listener — other listeners still get notified", () => {

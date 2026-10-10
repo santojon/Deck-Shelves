@@ -1,0 +1,103 @@
+{
+  "mode": "reload",
+  "coexist": true,
+  "recordedAt": "2026-10-09T20:46:30",
+  "cycles": 5,
+  "ok": 5,
+  "baseline": {
+    "owner": "decky",
+    "timers": 0,
+    "observers": 0,
+    "subs": 0,
+    "instances": 1,
+    "scope": "section",
+    "safeMode": false
+  },
+  "results": [
+    {
+      "i": 1,
+      "ok": true,
+      "problems": [],
+      "readyS": 0.1,
+      "cycleS": 6.0,
+      "loaderSelfStops": 0,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 2,
+      "ok": true,
+      "problems": [],
+      "readyS": 0.3,
+      "cycleS": 6.6,
+      "loaderSelfStops": 0,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 3,
+      "ok": true,
+      "problems": [],
+      "readyS": 0.0,
+      "cycleS": 5.9,
+      "loaderSelfStops": 0,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 4,
+      "ok": true,
+      "problems": [],
+      "readyS": 0.2,
+      "cycleS": 6.6,
+      "loaderSelfStops": 0,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 5,
+      "ok": true,
+      "problems": [],
+      "readyS": 0.1,
+      "cycleS": 6.3,
+      "loaderSelfStops": 0,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    }
+  ]
+}

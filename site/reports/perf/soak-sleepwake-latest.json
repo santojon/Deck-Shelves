@@ -1,0 +1,868 @@
+{
+  "mode": "sleepwake",
+  "coexist": false,
+  "recordedAt": "2026-10-09T20:34:01",
+  "cycles": 50,
+  "ok": 50,
+  "baseline": {
+    "owner": "decky",
+    "timers": 0,
+    "observers": 0,
+    "subs": 0,
+    "instances": 1,
+    "scope": "section",
+    "safeMode": false
+  },
+  "results": [
+    {
+      "i": 1,
+      "ok": true,
+      "problems": [],
+      "readyS": 5.7,
+      "cycleS": 41.8,
+      "loaderSelfStops": 0,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 2,
+      "ok": true,
+      "problems": [],
+      "readyS": 0.4,
+      "cycleS": 39.1,
+      "loaderSelfStops": 0,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 3,
+      "ok": true,
+      "problems": [],
+      "readyS": 0.3,
+      "cycleS": 37.4,
+      "loaderSelfStops": 0,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 4,
+      "ok": true,
+      "problems": [],
+      "readyS": 0.6,
+      "cycleS": 36.9,
+      "loaderSelfStops": 0,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 5,
+      "ok": true,
+      "problems": [],
+      "readyS": 0.8,
+      "cycleS": 37.1,
+      "loaderSelfStops": 0,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 6,
+      "ok": true,
+      "problems": [],
+      "readyS": 0.1,
+      "cycleS": 36.1,
+      "loaderSelfStops": 0,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 7,
+      "ok": true,
+      "problems": [],
+      "readyS": 1.7,
+      "cycleS": 42.3,
+      "loaderSelfStops": 0,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 8,
+      "ok": true,
+      "problems": [],
+      "readyS": 0.2,
+      "cycleS": 39.2,
+      "loaderSelfStops": 0,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 9,
+      "ok": true,
+      "problems": [],
+      "readyS": 1.1,
+      "cycleS": 38.3,
+      "loaderSelfStops": 0,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 10,
+      "ok": true,
+      "problems": [],
+      "readyS": 0.1,
+      "cycleS": 35.1,
+      "loaderSelfStops": 0,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 11,
+      "ok": true,
+      "problems": [],
+      "readyS": 0.0,
+      "cycleS": 36.0,
+      "loaderSelfStops": 0,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 12,
+      "ok": true,
+      "problems": [],
+      "readyS": 0.9,
+      "cycleS": 37.2,
+      "loaderSelfStops": 0,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 13,
+      "ok": true,
+      "problems": [],
+      "readyS": 1.2,
+      "cycleS": 39.1,
+      "loaderSelfStops": 0,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 14,
+      "ok": true,
+      "problems": [],
+      "readyS": 0.0,
+      "cycleS": 34.5,
+      "loaderSelfStops": 0,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 15,
+      "ok": true,
+      "problems": [],
+      "readyS": 0.0,
+      "cycleS": 36.5,
+      "loaderSelfStops": 0,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 16,
+      "ok": true,
+      "problems": [],
+      "readyS": 0.6,
+      "cycleS": 36.5,
+      "loaderSelfStops": 0,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 17,
+      "ok": true,
+      "problems": [],
+      "readyS": 0.9,
+      "cycleS": 38.0,
+      "loaderSelfStops": 0,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 18,
+      "ok": true,
+      "problems": [],
+      "readyS": 0.9,
+      "cycleS": 37.2,
+      "loaderSelfStops": 0,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 19,
+      "ok": true,
+      "problems": [],
+      "readyS": 0.9,
+      "cycleS": 37.0,
+      "loaderSelfStops": 0,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 20,
+      "ok": true,
+      "problems": [],
+      "readyS": 1.3,
+      "cycleS": 37.3,
+      "loaderSelfStops": 0,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 21,
+      "ok": true,
+      "problems": [],
+      "readyS": 0.9,
+      "cycleS": 37.3,
+      "loaderSelfStops": 0,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 22,
+      "ok": true,
+      "problems": [],
+      "readyS": 0.7,
+      "cycleS": 37.4,
+      "loaderSelfStops": 0,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 23,
+      "ok": true,
+      "problems": [],
+      "readyS": 0.0,
+      "cycleS": 36.0,
+      "loaderSelfStops": 0,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 24,
+      "ok": true,
+      "problems": [],
+      "readyS": 0.2,
+      "cycleS": 36.9,
+      "loaderSelfStops": 0,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 25,
+      "ok": true,
+      "problems": [],
+      "readyS": 0.9,
+      "cycleS": 38.7,
+      "loaderSelfStops": 0,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 26,
+      "ok": true,
+      "problems": [],
+      "readyS": 0.1,
+      "cycleS": 38.1,
+      "loaderSelfStops": 0,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 27,
+      "ok": true,
+      "problems": [],
+      "readyS": 0.7,
+      "cycleS": 37.1,
+      "loaderSelfStops": 0,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 28,
+      "ok": true,
+      "problems": [],
+      "readyS": 1.0,
+      "cycleS": 38.0,
+      "loaderSelfStops": 0,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 29,
+      "ok": true,
+      "problems": [],
+      "readyS": 1.3,
+      "cycleS": 37.1,
+      "loaderSelfStops": 0,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 30,
+      "ok": true,
+      "problems": [],
+      "readyS": 0.1,
+      "cycleS": 39.8,
+      "loaderSelfStops": 0,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 31,
+      "ok": true,
+      "problems": [],
+      "readyS": 0.0,
+      "cycleS": 37.4,
+      "loaderSelfStops": 0,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 32,
+      "ok": true,
+      "problems": [],
+      "readyS": 0.0,
+      "cycleS": 35.9,
+      "loaderSelfStops": 0,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 33,
+      "ok": true,
+      "problems": [],
+      "readyS": 0.0,
+      "cycleS": 36.2,
+      "loaderSelfStops": 0,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 34,
+      "ok": true,
+      "problems": [],
+      "readyS": 1.5,
+      "cycleS": 38.3,
+      "loaderSelfStops": 0,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 35,
+      "ok": true,
+      "problems": [],
+      "readyS": 0.2,
+      "cycleS": 37.2,
+      "loaderSelfStops": 0,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 36,
+      "ok": true,
+      "problems": [],
+      "readyS": 1.1,
+      "cycleS": 39.3,
+      "loaderSelfStops": 0,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 37,
+      "ok": true,
+      "problems": [],
+      "readyS": 0.3,
+      "cycleS": 37.2,
+      "loaderSelfStops": 0,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 38,
+      "ok": true,
+      "problems": [],
+      "readyS": 0.0,
+      "cycleS": 40.9,
+      "loaderSelfStops": 0,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 39,
+      "ok": true,
+      "problems": [],
+      "readyS": 0.1,
+      "cycleS": 36.2,
+      "loaderSelfStops": 0,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 40,
+      "ok": true,
+      "problems": [],
+      "readyS": 0.5,
+      "cycleS": 37.4,
+      "loaderSelfStops": 0,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 41,
+      "ok": true,
+      "problems": [],
+      "readyS": 0.2,
+      "cycleS": 37.4,
+      "loaderSelfStops": 0,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 42,
+      "ok": true,
+      "problems": [],
+      "readyS": 0.1,
+      "cycleS": 39.6,
+      "loaderSelfStops": 0,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 43,
+      "ok": true,
+      "problems": [],
+      "readyS": 0.1,
+      "cycleS": 37.0,
+      "loaderSelfStops": 0,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 44,
+      "ok": true,
+      "problems": [],
+      "readyS": 0.4,
+      "cycleS": 37.4,
+      "loaderSelfStops": 0,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 45,
+      "ok": true,
+      "problems": [],
+      "readyS": 0.9,
+      "cycleS": 36.8,
+      "loaderSelfStops": 0,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 46,
+      "ok": true,
+      "problems": [],
+      "readyS": 0.6,
+      "cycleS": 37.5,
+      "loaderSelfStops": 0,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 47,
+      "ok": true,
+      "problems": [],
+      "readyS": 0.5,
+      "cycleS": 36.3,
+      "loaderSelfStops": 0,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 48,
+      "ok": true,
+      "problems": [],
+      "readyS": 0.8,
+      "cycleS": 37.1,
+      "loaderSelfStops": 0,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 49,
+      "ok": true,
+      "problems": [],
+      "readyS": 0.9,
+      "cycleS": 40.9,
+      "loaderSelfStops": 0,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 50,
+      "ok": true,
+      "problems": [],
+      "readyS": 0.2,
+      "cycleS": 38.6,
+      "loaderSelfStops": 0,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    }
+  ]
+}
