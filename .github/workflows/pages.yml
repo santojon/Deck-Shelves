@@ -24,6 +24,7 @@ on:
       - 'scripts/site/build_site.py'
       - 'scripts/ci/report.py'
       - 'scripts/ci/report_dashboard.py'
+      - 'scripts/ci/report_perf.py'
       - '.github/workflows/pages.yml'
   workflow_dispatch:
 

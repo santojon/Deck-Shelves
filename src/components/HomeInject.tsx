@@ -18,13 +18,14 @@ import { getRecentsReplaceFailed, subscribeRecentsReplaceFailed, isRecentsReplac
 import { Focusable } from "../runtime/host/decky";
 import { installPassiveMenuHook, installPassiveShowContextMenuHook, installLibraryContextMenuPatch, installCreateContextMenuPatch, prewarmMenuExtraction } from "../core/steamGameMenu";
 import { tryRestoreFocus, hasPendingFocus, beginFocusRestoreLoop, beginColdBootFocusGuard, focusElement, getLastFocusedElement, saveFocusTargetFromFocusedCard } from "../core/focusRestore";
-import { allShelvesWarm, getShelfWarmEntry } from "./shelf/shelfWarmState";
+import { allShelvesWarm, getShelfWarmEntry, isShelfResolved, subscribeShelfResolved } from "./shelf/shelfWarmState";
 import { recordBootStarted, recordBootCompleted } from "../runtime/safeMode";
 import { focusNativeRecentsFirstCard, findNativeRecentsEl } from "../features/sidenav/ShelfSideNav";
 import { patchShelfEdgeNavigation, patchMenuButton, installVerticalFocusBridge, reparentNavTreeNodes } from "./home/navPatches";
+import { useHeroIdlePause } from "./home/heroIdlePause";
 import { triggerShelfRefresh } from "../core/shelfRefresh";
 import { bumpAssetRevision } from "../core/assetRevision";
-import { pickFirstVisibleShelfId, interleaveSmartShelves, applyAutoPin, isShelfSetSettled, SHELF_SET_QUIESCE_MS } from "../domain/shelfOrder";
+import { pickFirstVisibleShelfId, interleaveSmartShelves, applyAutoPin, isShelfSetSettled, revealableInOrder } from "../domain/shelfOrder";
 import { evalVisibility, nextVisibilityFlip, getModeVisibilityWindows, invalidateSmartShelfCache } from "../steam/smartShelves";
 import { subscribeDeviceState } from "../runtime/deviceState";
 import { subscribeSessionState, getSessionState } from "../runtime/sessionState";
@@ -70,13 +71,6 @@ function refreshSurvivedSubtree(survived: boolean): void {
   try { triggerShelfRefresh(); } catch {}
 }
 
-// Warm return: every shelf seeds its full content on the first commit, so
-// the first non-empty scan is already the final set — no quiesce wait.
-function revealSettled(warm: boolean, renderedCount: number, total: number, elapsedMs: number, timeoutMs: number, stableForMs: number): boolean {
-  if (warm && renderedCount > 0) return true;
-  return isShelfSetSettled(renderedCount, total, elapsedMs, timeoutMs, stableForMs);
-}
-
 /* While a reveal is still pending, leave the hide state as the previous
    instance left it rather than un-hiding: a fresh instance taking over a
    root that was already hidden would otherwise flash native recents for
@@ -91,6 +85,20 @@ function applyRecentsFocusTrapGated(recentsEl: HTMLElement | null, hide: boolean
 }
 function shelfIdsOf(shelves: any[] | null | undefined): string[] {
   return (shelves ?? []).map((s: any) => s.id);
+}
+/* Marks rendered shelves that must wait (`data-ds-pending`, CSS hides them)
+   and returns how many are showing. Once the set is settled everything
+   rendered shows. */
+function applyProgressiveReveal(renderedEls: HTMLElement[], orderedIds: string[], complete: boolean): number {
+  const rendered = new Set(renderedEls.map((el) => el.getAttribute('data-shelfid') ?? ''));
+  const resolved = new Set(orderedIds.filter((id) => isShelfResolved(id)));
+  const showing = complete ? rendered : new Set(revealableInOrder(orderedIds, rendered, resolved));
+  for (const el of renderedEls) {
+    const pending = !showing.has(el.getAttribute('data-shelfid') ?? '');
+    if (pending) el.setAttribute('data-ds-pending', 'true');
+    else if (el.hasAttribute('data-ds-pending')) el.removeAttribute('data-ds-pending');
+  }
+  return showing.size;
 }
 function anyShelfWarmWithItems(shelves: readonly { id: string }[]): boolean {
   return shelves.some((s) => (getShelfWarmEntry(s.id)?.appIds.length ?? 0) > 0);
@@ -722,6 +730,7 @@ function ShelvesContainer({ mountEl, shelves, onSettleChange, globalMatchNativeS
      Declared here so focus-restoration below skips a `display: none` card. */
   const [shelvesRevealed, setShelvesRevealed] = useState(false);
   const revealedOnceRef = useRef(false);
+  useHeroIdlePause(mountEl);
 
   useEffect(() => {
     // One-time nav tree API detection — result surfaced in About > Diagnostics
@@ -949,10 +958,14 @@ function ShelvesContainer({ mountEl, shelves, onSettleChange, globalMatchNativeS
   }, [hideRecentsSetting, mountEl, shelves?.length, shelvesRevealed]);
 
   const rootRef = useRef<HTMLDivElement>(null);
+  // DOM order of the shelves (interleave applied), read by the reveal scan.
+  const orderedRef = useRef<any[]>(shelves);
 
-  /* Reveal-gate scan (see the declaration comment above). `display: none`
-     (not visibility) so Steam's own FocusNavController excludes this
-     subtree while hidden — same invariant relied on elsewhere here. */
+  /* Reveal-gate scan. `display: none` (not visibility) so Steam's nav tree
+     excludes hidden subtrees. Progressive in final order: the container shows
+     as soon as the first shelf in order has rendered; later shelves stay
+     `data-ds-pending` until everything above them is on screen (no reorder,
+     no insert-above); the set-settled signal lifts the gating for the rest. */
   useEffect(() => {
     if (revealedOnceRef.current) return;
     const rootEl = rootRef.current;
@@ -964,38 +977,29 @@ function ShelvesContainer({ mountEl, shelves, onSettleChange, globalMatchNativeS
        every load — and revealing that late left Steam's nav tree with none of
        our cards registered (it skips a `display:none` subtree), so gamepad
        focus could not enter the shelves at all. */
-    let lastCount = -1;
-    let lastChangeAt = Date.now();
-    let quiesceTimer: ReturnType<typeof setTimeout> | null = null;
-    const warm = allShelvesWarm(shelfIdsOf(shelves));
+    let shown = false;
+    const ids = shelfIdsOf(shelves);
+    const warm = allShelvesWarm(ids);
     const scan = () => {
-      const renderedCount = rootEl.querySelectorAll('.ds-shelf[data-shelfid]').length;
-      if (renderedCount !== lastCount) {
-        lastCount = renderedCount;
-        lastChangeAt = Date.now();
-        if (quiesceTimer) clearTimeout(quiesceTimer);
-        quiesceTimer = setTimeout(scan, SHELF_SET_QUIESCE_MS + 50);
-      }
-      const settled = revealSettled(
-        warm, renderedCount, (shelves ?? []).length,
-        Date.now() - startedAt, REVEAL_TIMEOUT_MS, Date.now() - lastChangeAt,
-      );
-      if (!settled) return;
-      if (quiesceTimer) { clearTimeout(quiesceTimer); quiesceTimer = null; }
-      revealedOnceRef.current = true;
-      setShelvesRevealed(true);
-      onSettleChange?.(true);
+      const renderedEls = Array.from(rootEl.querySelectorAll<HTMLElement>('.ds-shelf[data-shelfid]'));
+      // Complete = every shelf rendered or resolved empty, a warm rebuild, or the timeout.
+      const complete = warm || ids.every((id) => isShelfResolved(id)) || renderedEls.length >= ids.length || Date.now() - startedAt >= REVEAL_TIMEOUT_MS;
+      const visible = applyProgressiveReveal(renderedEls, shelfIdsOf(orderedRef.current), complete);
+      if (visible > 0 && !shown) { shown = true; setShelvesRevealed(true); onSettleChange?.(true); }
+      if (complete) revealedOnceRef.current = true;
     };
     scan();
     const obs = new MutationObserver(scan);
     obs.observe(rootEl, { childList: true, subtree: false });
     observerCreated();
+    // Empty resolutions never touch the DOM — they re-scan through this signal.
+    const unsubResolved = subscribeShelfResolved(scan);
     const revealTimer = setTimeout(scan, REVEAL_TIMEOUT_MS);
     timerCreated();
     return () => {
       obs.disconnect(); observerDisposed();
+      unsubResolved();
       clearTimeout(revealTimer); timerDisposed();
-      if (quiesceTimer) clearTimeout(quiesceTimer);
     };
   }, [shelves, onSettleChange]);
 
@@ -1259,6 +1263,7 @@ function ShelvesContainer({ mountEl, shelves, onSettleChange, globalMatchNativeS
     if (!interleaveSmart) return shelves;
     return interleaveSmartShelves(shelves, firstVisibleId);
   }, [shelves, interleaveSmart, firstVisibleId]);
+  orderedRef.current = orderedShelves as any[];
 
   // Steam occasionally injects React-owned children (empty-state SVGs,
   // hint overlays) directly into our root; they show up as direct

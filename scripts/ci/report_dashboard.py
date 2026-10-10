@@ -656,6 +656,34 @@ _DASH_JS = r"""
     runs=merged;render();
     window.scrollTo(0,y);
   });
+
+  // Device perf records (on-device probes: return-to-Home gate, soaks, library-size
+  // matrix, idle CPU, battery). Their own manifest, independent of the scope chips.
+  fetch('perf/manifest.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).catch(()=>null).then(man=>{
+    const panel=$('perf-panel');if(!man||!man.kinds||!panel)return;
+    const K=man.kinds,runsOf=k=>(K[k]||[]).map(r=>Object.assign({},r,{_scope:'perf'}));
+    let any=false;
+    const show=(id,cond)=>{const b=$(id);if(b)b.style.display=cond?'':'none';if(cond)any=true;};
+    const put=(id,rs,fn,opts)=>{const el=$(id);if(el)el.innerHTML=svgMetricTrend(rs,fn,opts)||'';};
+    const ms=v=>Math.round(v)+' ms';
+    const bn=runsOf('backnav').concat(runsOf('backnav-release'));
+    show('pf-backnav-block',bn.length);
+    put('pf-backnav-avg',bn,r=>r.fullMsAvg,{upGood:false,fmt:ms});
+    put('pf-backnav-max',bn,r=>r.fullMsMax,{upGood:false,fmt:ms});
+    put('pf-backnav-sel',bn,r=>r.selectionJudged?100*r.selectionKept/r.selectionJudged:null,{pct:true,upGood:true});
+    const soaks=[].concat(...['reload','restart','sleepwake','restart-coexist','reload-coexist'].map(m=>runsOf('soak-'+m)));
+    show('pf-soak-block',soaks.length);
+    put('pf-soak',soaks,r=>r.okPct,{pct:true,upGood:true});
+    const mx=runsOf('perf-matrix');show('pf-matrix-block',mx.length);
+    for(const sc of ['typical_8x20','stress_16x50','large_2000','huge_5000'])put('pf-mx-'+sc,mx,r=>r[sc+'_returnMs'],{upGood:false,fmt:ms});
+    const idle=runsOf('idle-cpu');show('pf-idle-block',idle.length);
+    put('pf-idle',idle,r=>r.deltaPp,{upGood:false,fmt:v=>Math.round(v)+' pp'});
+    const bat=runsOf('battery-soak');show('pf-battery-block',bat.length);
+    put('pf-battery',bat,r=>typeof r.deltaW==='number'?r.deltaW*1000:null,{upGood:false,fmt:v=>Math.round(v)+' mW'});
+    put('pf-battery-own',bat,r=>typeof r.deltaWPluginOnly==='number'?r.deltaWPluginOnly*1000:null,{upGood:false,fmt:v=>Math.round(v)+' mW'});
+    panel.style.display=any?'':'none';
+    const n=$('perf-count');if(n)n.textContent=String(man.runs||0);
+  });
 })();
 """.strip()
 
@@ -787,6 +815,45 @@ def _rebuild_dashboard(reports_root: Path) -> None:
     </div>
     <div class="legend">
       <span style="color:#64748b;font-size:10px">Fewer issues is better (&#9660; green = improving). Hollow points are <b>estimated</b>, backfilled per version from git (ruff run at each tag; suppressions from the eslint-suppressions.json total — the file was adopted at v2.4.1 with ~147 pre-existing problems). <b>Complexity debt</b> is the summed cyclomatic score of every function over the limit (the MAGNITUDE of complexity, not the offender count the suppressions chart shows); backfilled by archiving each tag's src and re-measuring. <b>Decoupling debt</b> is the number of import sites that reach for &#64;decky directly instead of the host-adapter seam (older tags predate the seam, so the count starts high and falls); backfilled the same way. <b>Platform-portability debt</b> is the number of OS-coupled backend call sites (Linux paths, OS tools/APIs) that are NOT fail-soft and would crash off their native OS — target <b>0</b>; the second chart tracks total OS-coupled sites (rises as multi-OS support grows).</span>
+    </div>
+  </div>
+
+  <div class="panel" id="perf-panel" style="display:none">
+    <h2>Device perf (Steam Deck probes) &mdash; <span id="perf-count">0</span> recorded runs</h2>
+    <div id="pf-backnav-block" style="display:none">
+      <h2 style="margin-top:18px">Return to Home &mdash; time to a fully revealed Home, average per run &mdash; lower is better</h2>
+      <div id="pf-backnav-avg"></div>
+      <h2 style="margin-top:18px">Return to Home &mdash; worst cycle per run &mdash; lower is better</h2>
+      <div id="pf-backnav-max"></div>
+      <h2 style="margin-top:18px">Selection kept on return &mdash; share of cycles</h2>
+      <div id="pf-backnav-sel"></div>
+    </div>
+    <div id="pf-soak-block" style="display:none">
+      <h2 style="margin-top:18px">Soaks (plugin reload, Steam restart, sleep/wake, dual-host) &mdash; cycles OK</h2>
+      <div id="pf-soak"></div>
+    </div>
+    <div id="pf-matrix-block" style="display:none">
+      <h2 style="margin-top:18px">Library-size matrix &mdash; warm return, typical 8&times;20 &mdash; lower is better</h2>
+      <div id="pf-mx-typical_8x20"></div>
+      <h2 style="margin-top:18px">Library-size matrix &mdash; warm return, stress 16&times;50</h2>
+      <div id="pf-mx-stress_16x50"></div>
+      <h2 style="margin-top:18px">Library-size matrix &mdash; warm return, 2000 games</h2>
+      <div id="pf-mx-large_2000"></div>
+      <h2 style="margin-top:18px">Library-size matrix &mdash; warm return, 5000 games</h2>
+      <div id="pf-mx-huge_5000"></div>
+    </div>
+    <div id="pf-idle-block" style="display:none">
+      <h2 style="margin-top:18px">Idle Home CPU &mdash; plugin stack minus plugin-free Steam (percentage points of one core) &mdash; lower is better</h2>
+      <div id="pf-idle"></div>
+    </div>
+    <div id="pf-battery-block" style="display:none">
+      <h2 style="margin-top:18px">Idle Home battery draw &mdash; whole plugin stack minus plugin-free Steam &mdash; lower is better</h2>
+      <div id="pf-battery"></div>
+      <h2 style="margin-top:18px">Idle Home battery draw &mdash; this plugin alone (standalone host) minus plugin-free Steam</h2>
+      <div id="pf-battery-own"></div>
+    </div>
+    <div class="legend">
+      <span style="color:#64748b;font-size:10px">Each point is one recorded on-device run (<code>pnpm run perf:gate</code>, <code>soak.py</code>, <code>perf_matrix.py</code>, <code>idle_cpu.py</code>, <code>battery_soak.py</code>), archived under <code>perf/history/</code> and judged against the thresholds in <code>perf-bench.config.json</code> by <code>pnpm run perf:gate:check</code>. Absolute times depend on the device's clock (a Deck on battery runs ~1.6&times; slower than on mains), so compare runs taken under the same power state; the idle and battery charts are deltas against a plugin-free Steam launch measured in the same session, which cancels that out.</span>
     </div>
   </div>
 

@@ -374,17 +374,10 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
       border-radius: var(--ds-card-radius, 4px);
     }
     #deck-shelves-home-root .ds-card .ds-card-shimmer--loaded { display: none; }
-    /* Hero img opacity gate — defends against the browser's broken-
-       image glyph painting during the gap between src assignment and
-       first decoded byte (especially for slot swaps where the new
-       URL hasn't loaded yet but its wrapper is already at full
-       opacity from the cross-fade). 60 ms transition (was 180 ms) so
-       cached/cold loads alike feel near-instant. PerShelfHero sets
-       is-loaded synchronously via a ref callback when the img is
-       already decoded (hot blob URL / HTTP cache hit), so cached
-       hero swaps don't even need a render cycle to flip the class.
-       ID-scoped under #deck-shelves-home-root to beat the
-       no-hero-gradient theme rule's (0,4,0) specificity. */
+    /* Hero img opacity gate — hides the browser's broken-image glyph between
+       src assignment and first decoded byte (slot swaps included); 60 ms so
+       cached/cold loads feel instant; PerShelfHero flips is-loaded synchronously
+       for already-decoded images. ID-scoped to beat the no-hero-gradient rule. */
     /* Hero img opacity gating — the transition runs ONLY on the up-leg
        (going from 0 → 1 when the image actually decodes). Going back to
        0 (fallback chain advancing to the next URL after an error, src
@@ -910,6 +903,8 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
       from { transform: scale(1); }
       to   { transform: scale(var(--ds-hero-zoom-scale, 1.06)); }
     }
+    .ds-idle .ds-shelf[data-ds-hero-enabled="true"] .ds-per-shelf-hero-img { animation-play-state: paused; }
+    .deck-shelves-root .ds-shelf[data-ds-pending="true"] { display: none !important; }
     .ds-shelf[data-ds-hero-enabled="true"] .ds-per-shelf-hero-img {
       animation: ds-per-shelf-hero-zoom var(--ds-hero-zoom-duration, 25s) var(--ds-hero-zoom-ease, steps(125, end)) infinite alternate;
       transition: opacity 0.5s cubic-bezier(0.17,0.45,0.14,0.83),
@@ -1016,13 +1011,12 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
       --ds-hero-h: calc(100% + 56px);
     }
     /* Decoupled first shelf (recents hidden, DS hero art on, NOT the themed
-       recents-slot): bleed the hero ART up 56px under the transparent Steam
-       header so the top isn't a black strip. Only the art moves
-       (--ds-hero-top); the shelf box, logo and label stay put — a margin-top
-       pull-up like above would shove the logo/label under the header on this
-       non-full-page shelf (it keeps minHeight:auto per the no-forced-full-page
-       rule). Without an ArtHero theme the rules above don't match, which is
-       what left the 56px header gap. */
+       recents-slot, i.e. no CSS Loader): bleed only the ART up 56px under the
+       transparent Steam header, and give the box a hero band above the title
+       like native recents (without it the title sat glued to the header). */
+    .deck-shelves-root[data-ds-recents-hidden="true"] > .ds-shelf[data-ds-hero-enabled="true"]:first-child:not([data-ds-recents-slot="true"]) {
+      padding-top: var(--ds-hero-band, 128px);
+    }
     .deck-shelves-root[data-ds-recents-hidden="true"] > .ds-shelf[data-ds-hero-enabled="true"]:first-child:not([data-ds-recents-slot="true"]) [data-ds-per-shelf-hero="true"] {
       --ds-hero-top: -56px;
       --ds-hero-h: calc(100% + 56px);

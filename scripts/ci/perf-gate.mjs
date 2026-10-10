@@ -71,6 +71,12 @@ for (const mode of ["reload", "restart", "sleepwake", "restart-coexist", "reload
   check(`soak ${mode}: ${s.ok}/${s.cycles} OK < ${t.soak_ok_ratio_min}`, s.cycles > 0 && s.ok / s.cycles < (t.soak_ok_ratio_min ?? 1));
   console.log(`perf-gate: soak ${mode} record ${s.recordedAt} — ${s.ok}/${s.cycles} OK`);
 }
+const battery = optional("battery-soak-latest.json");
+if (battery) {
+  check(`battery soak delta ${battery.deltaW} W > ${t.battery_delta_w_fail}`, t.battery_delta_w_fail != null && battery.deltaW > t.battery_delta_w_fail);
+  const own = battery.deltaWPluginOnly != null ? `, plugin alone ${battery.deltaWPluginOnly >= 0 ? "+" : ""}${battery.deltaWPluginOnly} W` : "";
+  console.log(`perf-gate: battery soak record ${battery.recordedAt} — ${battery.minutesPerHalf} min halves, plugin-free ${battery.pluginFree?.avgWFromEnergy} W, with plugin stack ${battery.withPlugin?.avgWFromEnergy} W (delta ${battery.deltaW} W${own})`);
+}
 const idle = optional("idle-cpu-latest.json");
 if (idle) {
   check(`idle CPU delta ${idle.deltaPp} pp > ${t.idle_cpu_delta_pp_fail}`, t.idle_cpu_delta_pp_fail != null && idle.deltaPp > t.idle_cpu_delta_pp_fail);

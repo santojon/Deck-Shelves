@@ -411,6 +411,10 @@ def _rebuild_subfolder_index(subdir_path: Path) -> List[dict]:
 
 # ── Top-level index ────────────────────────────────────────────────────────────
 
+_PERF_CARD = ('<div class="scard" data-scope="perf"><h2>Device perf</h2><p>On-device probe runs (return to Home, soaks, '
+              'library-size matrix, idle CPU, battery) charted over time.</p><a class="btn" href="dashboard.html#perf-panel">Open charts &rarr;</a></div>')
+
+
 def _rebuild_top_index(reports_root: Path) -> None:
     subdirs = ["local", "ci", "release"]
     labels  = {"local": "Local", "ci": "CI / Automated", "release": "Release"}
@@ -468,6 +472,12 @@ def _rebuild_top_index(reports_root: Path) -> None:
             f'</div>'
         )
 
+    # Device-perf records (on-device probes) live outside the run scopes; their
+    # charts are on the dashboard, so the card just points there.
+    perf_manifest = reports_root / "perf" / "manifest.json"
+    if perf_manifest.exists():
+        section_cards.append(_PERF_CARD)
+
     # When no scope has any data, show a single placeholder instead of empty
     # blocks; individual empty scopes are simply omitted above.
     empty_msg = "No reports yet — run a validation (e.g. `pnpm validate:ci`) to populate this page."
@@ -504,9 +514,12 @@ def _rebuild_top_index(reports_root: Path) -> None:
 
     const grid=document.querySelector('.grid');
     if(grid){
+      // The server-rendered device-perf card (charts live on the dashboard) survives the re-render.
+      const perfCard=grid.querySelector('.scard[data-scope="perf"]');
       grid.innerHTML = have.length
         ? have.map(s=>`<div class="scard" data-scope="${s.sd}"><h2>${esc(s.label)}</h2><p>${esc(DESCS[s.sd])}</p><a class="btn" href="${s.sd}/index.html">Open reports &rarr;</a></div>`).join('')
         : `<p class="empty-note" style="grid-column:1/-1;color:var(--muted);margin:0">${esc(EMPTY)}</p>`;
+      if(perfCard)grid.appendChild(perfCard);
     }
 
     const tbody=document.querySelector('.latest tbody');
@@ -1050,16 +1063,21 @@ def rebuild_aggregates(reports_root: Path, scope_only: bool = False) -> None:
         sp = reports_root / sd
         if sp.exists():
             _rebuild_subfolder_index(sp)
-    if scope_only:
-        return
-    _rebuild_top_index(reports_root)
-    # Lazy import — `report_dashboard` imports `_collect_all_runs` / `_DASH_CSS`
-    # back from this file, so we can't import at module load (circular).
     import os
     import sys
     _here = os.path.dirname(os.path.abspath(__file__))
     if _here not in sys.path:
         sys.path.insert(0, _here)
+    # Device-perf records: archive each probe's `-latest.json` into history and
+    # rebuild the manifest the dashboard's trend charts read (cheap, idempotent).
+    from report_perf import archive_perf_records, build_perf_manifest  # type: ignore[import-not-found]
+    archive_perf_records(reports_root, reports_root.parent.parent)
+    build_perf_manifest(reports_root)
+    if scope_only:
+        return
+    _rebuild_top_index(reports_root)
+    # Lazy import — `report_dashboard` imports `_collect_all_runs` / `_DASH_CSS`
+    # back from this file, so we can't import at module load (circular).
     from report_dashboard import _rebuild_dashboard  # type: ignore[import-not-found]
     _rebuild_dashboard(reports_root)
 

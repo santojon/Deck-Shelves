@@ -73,13 +73,39 @@ def sample(env: dict) -> tuple[dict[str, float], float, float]:
     return by_type, uptime, tck
 
 
-def cpu_percent(env: dict, window: int) -> dict[str, float]:
+# Battery draw in watts (sysfs reports µW, or µA × µV on some kernels); None on AC / unavailable.
+POWER = "cat /sys/class/power_supply/BAT1/power_now 2>/dev/null || echo; cat /sys/class/power_supply/BAT1/current_now 2>/dev/null || echo; cat /sys/class/power_supply/BAT1/voltage_now 2>/dev/null || echo"
+
+
+def battery_watts(env: dict) -> float | None:
+    parts = ssh(env, POWER).split("\n")
+    try:
+        if parts[0].strip():
+            return abs(int(parts[0])) / 1e6
+        if len(parts) > 2 and parts[1].strip() and parts[2].strip():
+            return abs(int(parts[1])) * int(parts[2]) / 1e12
+    except ValueError:
+        pass
+    return None
+
+
+def cpu_percent(env: dict, window: int, on_battery: bool = False) -> dict[str, float]:
     a, u0, tck = sample(env)
-    time.sleep(window)
+    watts: list[float] = []
+    if on_battery:
+        for _ in range(max(1, window // 10)):
+            time.sleep(10)
+            w = battery_watts(env)
+            if w is not None:
+                watts.append(w)
+    else:
+        time.sleep(window)
     b, u1, _ = sample(env)
     secs = max(u1 - u0, 1e-6)
     out = {k: round(100.0 * (b.get(k, 0.0) - a.get(k, 0.0)) / tck / secs, 2) for k in sorted(set(a) | set(b))}
     out["total"] = round(sum(v for k, v in out.items()), 2)
+    if watts:
+        out["batteryW"] = round(sum(watts) / len(watts), 2)
     return out
 
 
@@ -121,27 +147,37 @@ def main() -> None:
     env = load_env()
     host, port = cdp.load_env()
     ac = ssh(env, "cat /sys/class/power_supply/ACAD/online 2>/dev/null; cat /sys/class/power_supply/BAT1/capacity 2>/dev/null").split()
-    print(f"power: AC online={ac[0] if ac else '?'} battery={ac[1] if len(ac) > 1 else '?'}% (a true battery A/B needs AC online=0)")
-    print("B) plugin absent — stopping the loader, relaunching Steam …")
+    on_battery = bool(ac) and ac[0] == "0"
+    print(f"power: AC online={ac[0] if ac else '?'} battery={ac[1] if len(ac) > 1 else '?'}% ({'on battery — sampling draw too' if on_battery else 'a true battery A/B needs AC online=0'})")
+    # A standalone host on the same device would keep injecting the bundle with
+    # the loader stopped — "plugin absent" means both hosts down.
+    hub_active = ssh(env, "systemctl --user is-active shelveshub.service 2>/dev/null") == "active"
+    print(f"B) plugin absent — stopping the loader{' + the standalone host' if hub_active else ''}, relaunching Steam …")
+    if hub_active:
+        ssh(env, "systemctl --user stop shelveshub.service")
     sudo(env, "systemctl kill plugin_loader.service; sleep 2; systemctl kill -s KILL plugin_loader.service; systemctl stop plugin_loader.service")
     relaunch_steam(env, host, port, settle)
     print(f"   sampling {window}s idle …")
-    b = cpu_percent(env, window)
+    b = cpu_percent(env, window, on_battery)
     print(f"   steamwebhelper CPU (% of one core, by process type): {b}")
-    print("A) plugin running — starting the loader, relaunching Steam …")
+    print(f"A) plugin running — starting the loader{' + the standalone host' if hub_active else ''}, relaunching Steam …")
     sudo(env, "systemctl start plugin_loader.service")
+    if hub_active:
+        ssh(env, "systemctl --user start shelveshub.service")
     time.sleep(8)
     relaunch_steam(env, host, port, settle)
     print(f"   sampling {window}s idle …")
-    a = cpu_percent(env, window)
+    a = cpu_percent(env, window, on_battery)
     print(f"   steamwebhelper CPU (% of one core, by process type): {a}")
     delta = round(a["total"] - b["total"], 2)
     print(f"RESULT idle-Home CPU delta attributable to loader+plugin: {delta} pp of one core (window {window}s each)")
+    if "batteryW" in a and "batteryW" in b:
+        print(f"RESULT battery draw: plugin-free {b['batteryW']} W, with plugin {a['batteryW']} W (delta {round(a['batteryW'] - b['batteryW'], 2)} W)")
     out_dir = ROOT / "site" / "reports" / "perf"
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "idle-cpu-latest.json").write_text(json.dumps({
         "recordedAt": time.strftime("%Y-%m-%dT%H:%M:%S"), "windowS": window, "settleS": settle, "acOnline": ac[0] if ac else None,
-        "batteryPct": ac[1] if len(ac) > 1 else None, "withPlugin": a, "withoutPlugin": b, "deltaPp": delta,
+        "batteryPct": ac[1] if len(ac) > 1 else None, "standaloneHostAlsoActive": hub_active, "withPlugin": a, "withoutPlugin": b, "deltaPp": delta,
     }, indent=2) + "\n", encoding="utf-8")
 
 

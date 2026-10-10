@@ -19,5 +19,6 @@
     "total": 3.84,
     "batteryW": 0.53
   },
-  "deltaPp": 7.24
+  "deltaPp": 7.24,
+  "version": "3.3.3"
 }

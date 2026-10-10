@@ -1,0 +1,339 @@
+{
+  "mode": "reload",
+  "coexist": false,
+  "recordedAt": "2026-10-09T17:00:40",
+  "cycles": 20,
+  "ok": 20,
+  "baseline": {
+    "owner": "decky",
+    "timers": 0,
+    "observers": 0,
+    "subs": 0,
+    "instances": 1,
+    "scope": "section",
+    "safeMode": false
+  },
+  "results": [
+    {
+      "i": 1,
+      "ok": true,
+      "problems": [],
+      "readyS": 0.1,
+      "cycleS": 5.8,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 2,
+      "ok": true,
+      "problems": [],
+      "readyS": 20.8,
+      "cycleS": 27.6,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 3,
+      "ok": true,
+      "problems": [],
+      "readyS": 0.1,
+      "cycleS": 6.6,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 4,
+      "ok": true,
+      "problems": [],
+      "readyS": 0.1,
+      "cycleS": 6.1,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 5,
+      "ok": true,
+      "problems": [],
+      "readyS": 0.1,
+      "cycleS": 6.9,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 6,
+      "ok": true,
+      "problems": [],
+      "readyS": 0.1,
+      "cycleS": 6.2,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 7,
+      "ok": true,
+      "problems": [],
+      "readyS": 0.2,
+      "cycleS": 6.4,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 8,
+      "ok": true,
+      "problems": [],
+      "readyS": 0.1,
+      "cycleS": 6.2,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 9,
+      "ok": true,
+      "problems": [],
+      "readyS": 0.2,
+      "cycleS": 6.1,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 10,
+      "ok": true,
+      "problems": [],
+      "readyS": 0.1,
+      "cycleS": 6.1,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 11,
+      "ok": true,
+      "problems": [],
+      "readyS": 0.1,
+      "cycleS": 6.3,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 12,
+      "ok": true,
+      "problems": [],
+      "readyS": 0.3,
+      "cycleS": 6.4,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 13,
+      "ok": true,
+      "problems": [],
+      "readyS": 0.0,
+      "cycleS": 6.2,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 14,
+      "ok": true,
+      "problems": [],
+      "readyS": 0.1,
+      "cycleS": 6.5,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 15,
+      "ok": true,
+      "problems": [],
+      "readyS": 0.1,
+      "cycleS": 5.9,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 16,
+      "ok": true,
+      "problems": [],
+      "readyS": 0.1,
+      "cycleS": 6.2,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 17,
+      "ok": true,
+      "problems": [],
+      "readyS": 0.1,
+      "cycleS": 6.8,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 18,
+      "ok": true,
+      "problems": [],
+      "readyS": 0.1,
+      "cycleS": 6.1,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 19,
+      "ok": true,
+      "problems": [],
+      "readyS": 0.1,
+      "cycleS": 6.2,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 20,
+      "ok": true,
+      "problems": [],
+      "readyS": 0.7,
+      "cycleS": 7.1,
+      "sjc": {
+        "owner": "decky",
+        "timers": 0,
+        "observers": 0,
+        "subs": 0,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    }
+  ],
+  "version": "3.3.3"
+}

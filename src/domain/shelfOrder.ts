@@ -42,6 +42,20 @@ export function isShelfSetSettled(
   return renderedCount > 0 && (stableForMs ?? 0) >= SHELF_SET_QUIESCE_MS;
 }
 
+/* Progressive reveal in final order: the leading run of shelves that have
+   already rendered, skipping shelves that resolved to nothing (they never
+   render) and stopping at the first one still loading. Nothing is ever
+   inserted above a shelf that is already on screen, so there is no reorder;
+   a slow shelf holds back only what follows it. */
+export function revealableInOrder(orderedIds: readonly string[], renderedIds: ReadonlySet<string>, resolvedIds: ReadonlySet<string> = renderedIds): string[] {
+  const out: string[] = [];
+  for (const id of orderedIds) {
+    if (renderedIds.has(id)) out.push(id);
+    else if (!resolvedIds.has(id)) break;
+  }
+  return out;
+}
+
 /* Auto-pin: stable partition that floats every shelf whose `autoPin` predicate
    currently matches to the front, preserving relative order within each group.
    Returns the SAME array reference when nothing is pinned, so a home with no

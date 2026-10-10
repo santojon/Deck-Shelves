@@ -27,7 +27,7 @@ import {
   computeDeckRowDerivedProps, joinOrEmpty, orEmpty, orEmptyArray, jsonOrNull,
   computeShelfCacheKey, SHELF_CACHE_TTL_MS, shouldSkipShelf, resolveHighlightRandom,
 } from "./shelf/shelfViewHelpers";
-import { getShelfWarmEntry, setShelfWarmEntry, type ShelfWarmEntry } from "./shelf/shelfWarmState";
+import { getShelfWarmEntry, setShelfWarmEntry, markShelfResolved, type ShelfWarmEntry } from "./shelf/shelfWarmState";
 
 // Cross-source name key: same normalisation as the wishlist compare so
 // "Kingdom Come Deliverance" (non-Steam) matches "Kingdom Come: Deliverance".
@@ -283,9 +283,11 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
           })
           .finally(() => {
             measure(`shelf.resolve:${shelf.id}`, `shelf.resolve:${shelf.id}:start`);
+            markShelfResolved(shelf.id);
           });
       } catch {
         if (!cancelled && firstLoad.current) setAppIds([]);
+        markShelfResolved(shelf.id);
       }
     };
 
