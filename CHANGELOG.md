@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.3.4] - 2026-10-11
+
 ### Added
 
 - **The Developer tab gained a new Performance panel reporting the Home layer's runtime activity**: critical boot time, Home mount time, cards processed and fetches during the last mount cycle, active timers/observers for the Home mount/patch layer, fallback remount attempts, Home reconciles/DOM-callbacks/renders per minute, and detected long tasks. Read-only and pull-based (Refresh button, same pattern as the existing Diagnostics panel) — no new polling or timers were added to collect it ([`perfMetrics.ts`](src/core/perfMetrics.ts), [`PerformanceSection.tsx`](src/components/settings/details/PerformanceSection.tsx)). It now also shows the network/RPC timeouts the plugin has learned from this device's own real performance (see Changed, below).

@@ -7,6 +7,8 @@ técnico completo, veja [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+## [3.3.4] - 2026-10-11
+
 - **Num host standalone que conhece o próprio hardware, o plugin agora confia na identidade de dispositivo do host.** Quando o host informa em que dispositivo está rodando (e qual versão do plugin carregou), as shelves que dependem do dispositivo usam isso, voltando à detecção do próprio plugin caso contrário — e o painel de Diagnóstico e o texto do relatório de bug agora mostram o dispositivo do host e essa versão também.
 - **Um novo painel de Performance (Configurações → Avançado → Modo desenvolvedor) mostra o quão ocupada está a camada da tela inicial** — tempo de boot/mount, quantos timers e observadores estão ativos, e com que frequência a tela inicial está se reconferindo — pra quem estiver ajudando a diagnosticar uma lentidão. Só atualiza quando você aperta o botão Atualizar, igual ao painel de Informações do Sistema já existente.
 - **Menor uso de CPU/bateria em segundo plano na tela inicial.** Algumas verificações que antes rodavam num timer fixo (pra manter a linha nativa de Recentes oculta corretamente e pra destacar o jogo em foco) agora só rodam quando algo realmente muda, e cada shelf compartilha uma verificação em vez de cada uma rodar a sua. O rastreamento de destaque também pausa completamente enquanto você está num jogo. Nenhuma mudança visível de comportamento — só menos trabalho acontecendo quando nada está mudando.

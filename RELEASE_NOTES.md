@@ -7,6 +7,8 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+## [3.3.4] - 2026-10-11
+
 - **On a standalone host that knows its own hardware, the plugin now trusts the host's device identity.** When the host reports what device it's running on (and which plugin version it loaded), device-aware shelves use that, falling back to the plugin's own detection otherwise — and the Diagnostics panel and bug-report text now show the host's device and that version too.
 - **A new Performance panel (Settings → Advanced → Developer mode) shows how busy the home-screen layer is** — boot/mount timing, how many timers and watchers are active, and how often the home screen is re-checking itself — for anyone helping diagnose a slowdown. It only updates when you press Refresh, just like the existing System Information panel.
 - **Lower background CPU/battery use on the home screen.** Several background checks that used to run on a fixed timer (to keep the native Recents row hidden correctly and to highlight the focused game) now only run in response to an actual change, and every shelf shares one check instead of each running its own. Highlight tracking also fully pauses while you're in a game. No visible change to behavior — just less work happening when nothing's changing.

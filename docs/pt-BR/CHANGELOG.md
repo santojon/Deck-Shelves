@@ -9,6 +9,8 @@ e este projeto segue o [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ## [Não lançado]
 
+## [3.3.4] - 2026-10-11
+
 ### Adicionado
 
 - **A aba Developer ganhou um novo painel de Performance que mostra a atividade em tempo de execução da camada Home**: tempo crítico de boot, tempo de mount da Home, cards processados e buscas feitas no último ciclo de mount, timers/observers ativos na camada de mount/patch da Home, tentativas de remount do fallback, reconciles/DOM-callbacks/renders da Home por minuto, e long tasks detectadas. Somente leitura e sob demanda (botão Atualizar, o mesmo padrão do painel de Diagnóstico já existente) — nenhum polling ou timer novo foi adicionado pra coletar isso ([`perfMetrics.ts`](../../src/core/perfMetrics.ts), [`PerformanceSection.tsx`](../../src/components/settings/details/PerformanceSection.tsx)). Agora ele também mostra os tempos limite de rede/RPC que o plugin aprendeu com a performance real deste dispositivo (veja Modificado, abaixo).
