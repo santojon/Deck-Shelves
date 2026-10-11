@@ -32,7 +32,7 @@ import { subscribeSessionState, getSessionState } from "../runtime/sessionState"
 import { subscribePerfState, stopFrameSampler } from "../runtime/perfState";
 import { subscribePeripheralsState } from "../runtime/peripheralsState";
 import { flowChildrenProps } from "../core/steamOSVersion";
-import { isCssLoaderActive, getNativeRecentsClassName, isArtHeroActive, isNoHeroGradientActive, isHeroFullscreenActive, isNoHomeTextActive, isFocusRoundCompatActive, isTiltedHomeActive, getTiltedHomeMode, isBigArtModeActive } from "../core/cssLoaderDetect";
+import { isCssLoaderActive, getNativeRecentsClassName, isArtHeroActive, isNoHeroGradientActive, isHeroFullscreenActive, isNoHomeTextActive, isFocusRoundCompatActive, isTiltedHomeActive, getTiltedHomeMode, isBigArtModeActive, isGrayUninstalledActive } from "../core/cssLoaderDetect";
 import { BadgeFocusOverlay } from "./shelf/BadgeFocusOverlay";
 import { FriendsAvatarOverlay } from "./shelf/FriendsAvatarOverlay";
 import { computeNormalShelves, computeShelvesOrder, computeInterleaveSmart, computeDerivedGlobalFlags, computeEnabledSmartShelves, computeCanHideRecents, applyRecentsFocusTrap, teardownObservers, teardownHistoryPatches, dispatchHideRecentsDisabled, anyShelfHasItems } from "./home/homeInjectHelpers";
@@ -82,6 +82,15 @@ function applyHideRecentsGated(hide: boolean, revealed: boolean): void {
 function applyRecentsFocusTrapGated(recentsEl: HTMLElement | null, hide: boolean, revealed: boolean): void {
   if (!recentsEl || (hide && !revealed)) return;
   applyRecentsFocusTrap(recentsEl, hide && revealed);
+}
+/* A superseded hide check (deps changed while resolving — the effect fires
+   several times per Home return) must not land its stale answer after the
+   fresh one: a late `false` un-hid native recents for good (seen after
+   returning from the settings page). */
+function settleHideCheck(alive: boolean, anyHas: boolean, revealed: boolean): void {
+  if (!alive) return;
+  applyHideRecentsGated(anyHas, revealed);
+  dispatchHideRecentsDisabled(!anyHas);
 }
 function shelfIdsOf(shelves: any[] | null | undefined): string[] {
   return (shelves ?? []).map((s: any) => s.id);
@@ -882,8 +891,7 @@ function ShelvesContainer({ mountEl, shelves, onSettleChange, globalMatchNativeS
            least twice per return). Cold boot keeps the resolver path. */
         const anyHas = anyShelfWarmWithItems(visible)
           || await anyShelfHasItems(visible, (source, limit) => homePlatform.resolveShelfAppIds(source as any, limit));
-        applyHideRecentsGated(anyHas, shelvesRevealed);
-        if (alive) dispatchHideRecentsDisabled(!anyHas);
+        settleHideCheck(alive, anyHas, shelvesRevealed);
       } catch (e) {
         if (alive) dispatchHideRecentsDisabled(false);
       }
@@ -1145,6 +1153,7 @@ function ShelvesContainer({ mountEl, shelves, onSettleChange, globalMatchNativeS
            same pull crowds the shelf title into the icon row there. */
         setFlag('data-ds-theme-big-art', isBigArtModeActive());
         setFlag('data-ds-theme-no-home-text', isNoHomeTextActive());
+        setFlag('data-ds-theme-gray-uninstalled', isGrayUninstalledActive());
         /* TiltedHome flag — when set, the shelfStyles.ts CSS gates a
            perspective + rotateY transform onto DS cards using the
            SAME `--ren-tilt-angle` (and friends) variables the theme

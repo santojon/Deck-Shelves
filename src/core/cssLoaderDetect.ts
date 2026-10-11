@@ -181,6 +181,14 @@ function readTiltVar(cs: CSSStyleDeclaration, name: string, fallback: string): s
   return cs.getPropertyValue(name).trim() || fallback;
 }
 
+/* Gray Uninstalled dims native capsules that carry the download arrow via
+   `--uninstalled-*` variables on :root; our cards have no such arrow, so the
+   stylesheet mirrors the effect on `data-ds-installed="false"` cards while
+   the theme's variables are present. */
+export function isGrayUninstalledActive(): boolean {
+  return /--uninstalled-grayscale\s*:/i.test(getAllStyleText());
+}
+
 export function isNoHomeTextActive(): boolean {
   const text = getAllStyleText();
   const labelTokens = tokensForKey("nativeCarouselGameLabel", "basicgamecarousel_CarouselGameLabel");

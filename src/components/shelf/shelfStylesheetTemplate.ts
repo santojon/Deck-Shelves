@@ -1028,6 +1028,10 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
       -webkit-mask-image: none !important;
     }
 
+    /* Gray Uninstalled — mirror the theme's dimming (its own :root variables) on our not-installed library cards; on the art box, not the img, so the load fade stays. */
+    #deck-shelves-home-root .deck-shelves-root[data-ds-theme-gray-uninstalled="true"] .ds-card[data-ds-installed="false"][data-ds-installed] .ds-card-art { opacity: var(--uninstalled-opacity, 0.5) !important; filter: brightness(var(--ds-card-dim, 0.9)) grayscale(var(--uninstalled-grayscale, 100%)) !important; }
+    #deck-shelves-home-root .deck-shelves-root[data-ds-theme-gray-uninstalled="true"] .ds-card[data-ds-installed="false"][data-ds-installed]:is(:focus, .gpfocus, :hover) .ds-card-art { opacity: var(--uninstalled-focus-opacity, 0.9) !important; filter: brightness(1) grayscale(var(--uninstalled-focus-grayscale, 90%)) !important; }
+
     /* No Home Text — only engages under force (per user spec). */
     [data-ds-force-themes="true"][data-ds-theme-no-home-text="true"] .ds-shelf[data-ds-recents-slot="true"] .ds-card-label,
     [data-ds-force-themes="true"][data-ds-theme-no-home-text="true"] .ds-shelf[data-ds-recents-slot="true"] .ds-promoted-hero-label {

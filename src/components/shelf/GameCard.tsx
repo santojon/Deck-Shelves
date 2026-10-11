@@ -677,6 +677,7 @@ function GameCardImpl({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHProp
         ...computeCardActionFlags({ appid, removableSet, onRemoveCard, hiddenSet, onHideCard }),
       })}
       data-appid={dataAttrs.appid}
+      data-ds-installed={isLibraryGame ? (item.isInstalled === true ? "true" : "false") : undefined}
       data-ds-friend-avatars={friendAvatarAttr}
       data-shelfid={dataAttrs.shelfId}
       data-name={dataAttrs.name}
