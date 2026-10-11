@@ -136,7 +136,7 @@ export function PlaceholderCard({
   return (
     <Focusable
       ref={cardRef}
-      className={`ds-card${featured ? ' ds-card--featured' : ''}${nativeCardClass ? ` ${nativeCardClass}` : ''}`}
+      className={`ds-card ds-card--text${featured ? ' ds-card--featured' : ''}${nativeCardClass ? ` ${nativeCardClass}` : ''}`}
       focusClassName="gpfocus"
       role="listitem"
       onActivate={item.onToggleSelection ?? item.onActivate}
@@ -202,7 +202,7 @@ export function PlaceholderCard({
           borderRadius: cachedCardRadius,
         }}
       >
-        <span style={{
+        <span className="ds-card-text" style={{
           fontSize: featured ? 14 : 11,
           opacity: 0.5,
           textAlign: "center",

@@ -189,6 +189,24 @@ export function isGrayUninstalledActive(): boolean {
   return /--uninstalled-grayscale\s*:/i.test(getAllStyleText());
 }
 
+/* Clean Library Capsule restyles the native text-box capsule (games without
+   art) per enabled part; each part is a separate rule on that capsule class,
+   so report the enabled ones as tokens the stylesheet can key on. */
+const CLEAN_CAPSULE_PARTS: Array<[string, string]> = [
+  ["disable", "display\\s*:\\s*none"],
+  ["bgimg", "background-image\\s*:\\s*var\\(--g1-bg-image"],
+  ["bg", "background\\s*:\\s*var\\(--g1-bg-color"],
+  ["bold", "font-weight\\s*:\\s*bold"],
+  ["outline", "text-shadow\\s*:"],
+  ["color", "color\\s*:\\s*var\\(--g1-font-color"],
+];
+export function getCleanCapsuleFeatures(): string[] {
+  const text = getAllStyleText();
+  const tokens = tokensForKey("textBoxCarouselContents", "basicgamecarousel_TextBoxCarouselContents");
+  tokens.push("_3bvCHoWj4rDdZr3mnKlXaf");
+  return CLEAN_CAPSULE_PARTS.filter(([, suffix]) => matchesAny(text, tokens, suffix)).map(([name]) => name);
+}
+
 export function isNoHomeTextActive(): boolean {
   const text = getAllStyleText();
   const labelTokens = tokensForKey("nativeCarouselGameLabel", "basicgamecarousel_CarouselGameLabel");

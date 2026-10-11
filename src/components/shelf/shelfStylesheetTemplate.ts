@@ -1015,22 +1015,22 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
     .deck-shelves-root[data-ds-recents-hidden="true"] > .ds-shelf[data-ds-hero-enabled="true"]:first-child:not([data-ds-recents-slot="true"]) {
       padding-top: var(--ds-hero-band, 128px);
     }
-    .deck-shelves-root[data-ds-recents-hidden="true"] > .ds-shelf[data-ds-hero-enabled="true"]:first-child:not([data-ds-recents-slot="true"]) [data-ds-per-shelf-hero="true"] {
-      --ds-hero-top: -56px;
-      --ds-hero-h: calc(100% + 56px);
-    }
+    .deck-shelves-root[data-ds-recents-hidden="true"] > .ds-shelf[data-ds-hero-enabled="true"]:first-child:not([data-ds-recents-slot="true"]) [data-ds-per-shelf-hero="true"] { --ds-hero-top: -56px; --ds-hero-h: calc(100% + 56px); }
     /* FORCE: clean page-per-shelf (no margin, no hero fade). */
-    .deck-shelves-root[data-ds-theme-hero-fullscreen="true"][data-ds-force-themes="true"] .ds-shelf {
-      margin-bottom: 0 !important;
-    }
-    .deck-shelves-root[data-ds-theme-hero-fullscreen="true"][data-ds-force-themes="true"] .ds-shelf[data-ds-recents-slot="true"] [data-ds-per-shelf-hero="true"] {
-      mask-image: none !important;
-      -webkit-mask-image: none !important;
-    }
-
+    .deck-shelves-root[data-ds-theme-hero-fullscreen="true"][data-ds-force-themes="true"] .ds-shelf { margin-bottom: 0 !important; }
+    .deck-shelves-root[data-ds-theme-hero-fullscreen="true"][data-ds-force-themes="true"] .ds-shelf[data-ds-recents-slot="true"] [data-ds-per-shelf-hero="true"] { mask-image: none !important; -webkit-mask-image: none !important; }
     /* Gray Uninstalled — mirror the theme's dimming (its own :root variables) on our not-installed library cards; on the art box, not the img, so the load fade stays. */
     #deck-shelves-home-root .deck-shelves-root[data-ds-theme-gray-uninstalled="true"] .ds-card[data-ds-installed="false"][data-ds-installed] .ds-card-art { opacity: var(--uninstalled-opacity, 0.5) !important; filter: brightness(var(--ds-card-dim, 0.9)) grayscale(var(--uninstalled-grayscale, 100%)) !important; }
     #deck-shelves-home-root .deck-shelves-root[data-ds-theme-gray-uninstalled="true"] .ds-card[data-ds-installed="false"][data-ds-installed]:is(:focus, .gpfocus, :hover) .ds-card-art { opacity: var(--uninstalled-focus-opacity, 0.9) !important; filter: brightness(1) grayscale(var(--uninstalled-focus-grayscale, 90%)) !important; }
+
+    /* Clean Library Capsule — mirror its text-capsule parts (tokens in data-ds-theme-clc) on our art-less text cards. */
+    #deck-shelves-home-root .deck-shelves-root[data-ds-theme-clc] .ds-card--text .ds-card-text { opacity: 1 !important; }
+    #deck-shelves-home-root .deck-shelves-root[data-ds-theme-clc~="bg"] .ds-card--text .ds-card-art { background: var(--g1-bg-color, #333333aa) !important; }
+    #deck-shelves-home-root .deck-shelves-root[data-ds-theme-clc~="bgimg"] .ds-card--text .ds-card-art { background-image: var(--g1-bg-image) !important; background-size: cover !important; background-repeat: no-repeat !important; background-position: center !important; }
+    #deck-shelves-home-root .deck-shelves-root[data-ds-theme-clc~="color"] .ds-card--text .ds-card-text { color: var(--g1-font-color, #fff); }
+    #deck-shelves-home-root .deck-shelves-root[data-ds-theme-clc~="bold"] .ds-card--text .ds-card-text { font-weight: bold; }
+    #deck-shelves-home-root .deck-shelves-root[data-ds-theme-clc~="outline"] .ds-card--text .ds-card-text { text-shadow: ${Array(20).fill("0 0 var(--g1-stroke-size, 1px) var(--g1-stroke-color, #000)").join(", ")}; }
+    #deck-shelves-home-root .deck-shelves-root[data-ds-theme-clc~="disable"] .ds-card--text .ds-card-text { display: none !important; }
 
     /* No Home Text — only engages under force (per user spec). */
     [data-ds-force-themes="true"][data-ds-theme-no-home-text="true"] .ds-shelf[data-ds-recents-slot="true"] .ds-card-label,

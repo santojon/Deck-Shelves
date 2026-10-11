@@ -32,7 +32,7 @@ import { subscribeSessionState, getSessionState } from "../runtime/sessionState"
 import { subscribePerfState, stopFrameSampler } from "../runtime/perfState";
 import { subscribePeripheralsState } from "../runtime/peripheralsState";
 import { flowChildrenProps } from "../core/steamOSVersion";
-import { isCssLoaderActive, getNativeRecentsClassName, isArtHeroActive, isNoHeroGradientActive, isHeroFullscreenActive, isNoHomeTextActive, isFocusRoundCompatActive, isTiltedHomeActive, getTiltedHomeMode, isBigArtModeActive, isGrayUninstalledActive } from "../core/cssLoaderDetect";
+import { isCssLoaderActive, getNativeRecentsClassName, isArtHeroActive, isNoHeroGradientActive, isHeroFullscreenActive, isNoHomeTextActive, isFocusRoundCompatActive, isTiltedHomeActive, getTiltedHomeMode, isBigArtModeActive, isGrayUninstalledActive, getCleanCapsuleFeatures } from "../core/cssLoaderDetect";
 import { BadgeFocusOverlay } from "./shelf/BadgeFocusOverlay";
 import { FriendsAvatarOverlay } from "./shelf/FriendsAvatarOverlay";
 import { computeNormalShelves, computeShelvesOrder, computeInterleaveSmart, computeDerivedGlobalFlags, computeEnabledSmartShelves, computeCanHideRecents, applyRecentsFocusTrap, teardownObservers, teardownHistoryPatches, dispatchHideRecentsDisabled, anyShelfHasItems } from "./home/homeInjectHelpers";
@@ -1154,6 +1154,8 @@ function ShelvesContainer({ mountEl, shelves, onSettleChange, globalMatchNativeS
         setFlag('data-ds-theme-big-art', isBigArtModeActive());
         setFlag('data-ds-theme-no-home-text', isNoHomeTextActive());
         setFlag('data-ds-theme-gray-uninstalled', isGrayUninstalledActive());
+        const clc = getCleanCapsuleFeatures().join(' ');
+        if (clc) root.setAttribute('data-ds-theme-clc', clc); else root.removeAttribute('data-ds-theme-clc');
         /* TiltedHome flag — when set, the shelfStyles.ts CSS gates a
            perspective + rotateY transform onto DS cards using the
            SAME `--ren-tilt-angle` (and friends) variables the theme

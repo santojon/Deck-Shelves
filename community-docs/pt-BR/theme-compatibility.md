@@ -11,6 +11,7 @@ O Deck Shelves funciona junto com temas do [CSS Loader](https://github.com/DeckT
 - **Centered Home** — detectado e levado em conta na matemática de layout do próprio Deck Shelves.
 - **Switch Like Home** — funciona. A primeira prateleira ocupa o slot de recentes fixado no rodapé do tema, com a hero art sangrando sob o cabeçalho, e as demais prateleiras rolam abaixo do primeiro bloco.
 - **Gray Uninstalled** — funciona. Jogos da biblioteca não instalados nas suas prateleiras recebem o mesmo escurecimento e tom de cinza das capas nativas, seguindo os controles do próprio tema (incluindo os valores mais claros com foco).
+- **Clean Library Capsule** — funciona. Cards de texto (jogos sem arte de capa) nas suas prateleiras recebem a cor ou imagem de fundo do tema, texto em negrito, contorno, cor do texto e sua opção de ocultar, cada um seguindo as configurações do próprio tema.
 - **Modo Big Art (nativo da Steam, não é um tema)** e **No Home Tabs** — as prateleiras renderizam e recebem o foco normalmente com ambos.
 
 ## Como a detecção de tema funciona, a grosso modo

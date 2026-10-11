@@ -31,6 +31,7 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 - **Snappier home rebuilds in general:** a few per-card costs (price lookups, layout checks, animation sampling) now happen once per rebuild instead of once per game. The plugin also stops watching the whole screen for changes once your shelves are in place (it watches just the home area), which cut the return-to-home time further to about 0.65 s on average.
 - **A safety net for bad starts.** If the home screen fails to finish loading on three Steam starts in a row, the plugin steps aside on the next start — Steam's own home stays usable — and tells you in the Quick Access panel, with a "Leave safe mode" button to try again on the following restart.
 - **Even less idle work:** background checks for friends activity and launcher catalogs now run only if something you've set up actually uses them, and the hero background pauses its focus tracking while you're in a game.
+- **Clean Library Capsule theme now styles the text cards on your shelves** — background, bold, outline, color and the hide option, driven by the theme's own settings.
 - **Gray Uninstalled theme now dims not-installed games on your shelves** — same opacity and grayscale as native capsules, driven by the theme's own settings.
 - **Fixed native recents reappearing after leaving the plugin's settings page** — a stale check could un-hide them on the way back.
 - **Fixed the first shelf sitting too high with native recents hidden** — the header clearance margin was cleared by a later check; it now sticks, so the Home looks the same on every boot.
