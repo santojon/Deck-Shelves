@@ -3,6 +3,7 @@ import { DialogButton, Dropdown, Focusable, ToggleField, type SingleDropdownOpti
 import type { useSettingsController } from "../../../features/settings/controller";
 import { CollapsibleSection } from "../../ui/CollapsibleSection";
 import { SourceResolverInspector } from "./SourceResolverInspector";
+import { PerformanceSection } from "./PerformanceSection";
 import { type DiagnosticEntry, clearDiagnostics, subscribeDiagnostics } from "../../../runtime/diagnostics";
 import { SCOPE_COLOR, LEVEL_BG } from "../../../runtime/logger";
 import { CopyIcon, TrashIcon, DocsIcon, GamepadIcon } from "../../icons";
@@ -121,6 +122,7 @@ export function DeveloperDetail({ controller, t }: DeveloperDetailProps) {
         />
         {overlayOn ? <OverlayConfig controller={controller} t={t} /> : null}
       </div>
+      <PerformanceSection t={t} />
       <CollapsibleSection id="dev-device-sim" title={t("dev_sim_title")} count={0} icon={<GamepadIcon size={14} />}>
         <DeviceSimulator t={t} />
       </CollapsibleSection>

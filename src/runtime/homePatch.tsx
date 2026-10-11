@@ -1,6 +1,6 @@
 import React from "react";
 import i18next from "i18next";
-import { HomeShelves as HomeShelvesRaw } from "../components/HomeInject";
+import { HomeShelves as HomeShelvesRaw, bridgeHasFilledHome } from "../components/HomeInject";
 import { wrapHomeShelves } from "../qa/harness";
 const HomeShelves = wrapHomeShelves(HomeShelvesRaw);
 import { SearchOverlay } from "../features/search/SearchOverlay";
@@ -14,6 +14,8 @@ import { getRuntimeClassMap } from "../core/webpackCompat";
 import { isBigArtModeActive } from "../core/cssLoaderDetect";
 import { notify } from "../components/notify";
 import { findModuleByExport } from "./host/decky";
+import { recordRemountTry, timerCreated, timerDisposed, observerCreated, observerDisposed } from "../core/perfMetrics";
+import { createBridgeGateState, noteFallbackTick, bridgeGraceActive, hrefOf } from "./homePatchFallbackGate";
 
 const ROOT_ID = "deck-shelves-home-root";
 const GLOBAL_COMPONENT_ID = "DeckShelvesHomeDomBridge";
@@ -73,8 +75,11 @@ export function applyReplaceActiveMargin(active: boolean): void {
       if (!mount) continue;
       found++;
       if (active) mount.style.setProperty("margin-top", "0px", "important");
-      // Leave applyHideRecents in control when replace is not active.
-      else mount.style.removeProperty("margin-top");
+      /* Replace not active: restore the hide-recents margin (this runs right
+         after applyHideRecents in the same effect — a bare remove clobbered its
+         56px, confirmed by a boot trace: the first shelf then sat 88px too high
+         and SLH's block ended mid-screen). Plain remove only when not hidden. */
+      else mount.style.setProperty("margin-top", pendingHideRecents ? "56px" : "", "important");
     }
     // The mount can be mid-(re)creation when settings finish loading —
     // retry once shortly after instead of leaving the wrong margin in
@@ -116,10 +121,12 @@ function elMatchesRecentsLabel(el: HTMLElement): boolean {
   } catch { return false; }
 }
 
+// Scoped to the home area (mount's parent), not the whole document — recents
+// is always a sibling of our mount. Falls back to the document if not found yet.
 function restoreRecentsByLabelSearch(): void {
   try {
-    const { doc } = getHostContext();
-    for (const el of Array.from(doc.querySelectorAll<HTMLElement>('*'))) {
+    const doc = getHostContext().doc, scope: ParentNode = (doc.getElementById(ROOT_ID) as HTMLElement | null)?.parentElement ?? doc;
+    for (const el of Array.from(scope.querySelectorAll<HTMLElement>('*'))) {
       if (!elMatchesRecentsLabel(el)) continue;
       try { for (const p of ["visibility", "height", "min-height", "max-height", "overflow"]) el.style.removeProperty(p); } catch {}
     }
@@ -580,20 +587,22 @@ const CHIP_LABELS = ["what's new", "friends", "recommended", "novidades", "amigo
 const ANCHOR_CONTAINERS_QS = '[class*="gamepadlibrary"], [class*="libraryhome"], [class*="LibraryHome"], [class*="BasicHomeView"], [class*="AppGridFilterContainer"], [class*="AllPagesContainer"], main, [role="main"]';
 const ANCHOR_CANDIDATES_QS = '[role="list"],[aria-label],[class*="ReactVirtualized__Grid"],[class*="ReactVirtualized__Grid__innerScrollContainer"]';
 
-function isScrollableViewport(p: HTMLElement): boolean {
+// `lenient`: an overflow-y auto/scroll panel that doesn't overflow YET (early
+// Home holds only native recents) — else the anchor falls inside the recents block.
+function isScrollableViewport(p: HTMLElement, lenient = false): boolean {
   try {
     const cs = getComputedStyle(p);
     const oy = (cs.overflowY || '').toLowerCase();
-    return (oy === 'auto' || oy === 'scroll') && p.scrollHeight > p.clientHeight;
+    return (oy === 'auto' || oy === 'scroll') && (lenient || p.scrollHeight > p.clientHeight);
   } catch { return false; }
 }
 
-function findScrollableAncestor(start: HTMLElement, doc: Document): Anchor | null {
+function findScrollableAncestor(start: HTMLElement, doc: Document, lenient = false): Anchor | null {
   let container: HTMLElement | null = start;
   for (let i = 0; i < 12 && container; i++) {
     const p: HTMLElement | null = container.parentElement;
     if (!p || p === doc.body) break;
-    if (isScrollableViewport(p)) return { parent: p, before: container.nextSibling };
+    if (isScrollableViewport(p, lenient)) return { parent: p, before: container.nextSibling };
     container = p;
   }
   return null;
@@ -612,7 +621,7 @@ function anchorFromRecentsCandidates(doc: Document): Anchor | null {
   for (const node of Array.from(doc.querySelectorAll(ANCHOR_CANDIDATES_QS))) {
     const txt = `${(node.getAttribute?.("aria-label") || "")} ${(node.textContent || "")}`.toLowerCase();
     if (!RECENTS_LABEL_FRAGMENTS_EXT.some((label) => txt.includes(label))) continue;
-    const scrollable = findScrollableAncestor(node as HTMLElement, doc);
+    const scrollable = findScrollableAncestor(node as HTMLElement, doc) ?? findScrollableAncestor(node as HTMLElement, doc, true);
     if (scrollable) return scrollable;
     const fallback = anchorFromGridOrSection(node);
     if (fallback) return fallback;
@@ -922,17 +931,12 @@ export function installHomePatch(_routerHook?: any) {
     routerHookKeys: Object.keys(routerHook ?? {}).slice(0, 20),
   });
 
-  let bridgeRegistered = false;
-  // Time the bridge was set up, for the fallback grace window below.
-  const installedAt = Date.now();
-  // How long a registered bridge gets to render before the DOM fallback steps in.
-  // The fallback exists only for a bridge that failed to register/render; a
-  // slower-to-render working bridge must not race it into a double mount.
-  const BRIDGE_FALLBACK_GRACE_MS = 8000;
+  // Fallback-vs-bridge grace bookkeeping (pure rules in homePatchFallbackGate.ts).
+  const gate = createBridgeGateState(Date.now());
 
   try {
-    bridgeRegistered = registerGlobalBridge(routerHook);
-    if (!bridgeRegistered) logWarn("HOME", "all global bridge strategies failed");
+    gate.bridgeRegistered = registerGlobalBridge(routerHook);
+    if (!gate.bridgeRegistered) logWarn("HOME", "all global bridge strategies failed");
   } catch (error) {
     logWarn("HOME", "global component bridge setup failed", String(error));
   }
@@ -943,6 +947,10 @@ export function installHomePatch(_routerHook?: any) {
      still string-matches the old id; identity is what actually detects
      "this is a fresh, unrendered node." */
   let fallbackMountEl: HTMLElement | null = null;
+  /* The fallback's React root lives in its own child of the mount, never on the
+     mount itself: a new root clears its container on first commit, which wiped
+     the bridge's portaled shelves whenever both ended up live (blank Home). */
+  let fallbackHostEl: HTMLElement | null = null;
   let fallbackRetries = 0;
   const MAX_FALLBACK_RETRIES = 6;
 
@@ -984,14 +992,14 @@ export function installHomePatch(_routerHook?: any) {
   /* Attempt 1 (2026-09-11, reverted): wrapped this tree in a HAND-BUILT
      nav-tree node (CreateNode + RegisterNavigationItem). Real Focusables
      did register, but the whole subtree hung off one synthetic, flat node
-     with no real row/card geometry — directional navigation was erratic.
-     See `.roadmaps/steam-beta-2026-09-compat.md` §3. */
+     with no real row/card geometry — directional navigation was erratic
+     (recorded in the internal Steam-beta compat notes). */
 
   /* Attempt 3 (2026-09-12): reuse a REAL, already-registered nav node as the
      parent Context value instead of fabricating one, so nested Focusables
      register normally with real geometry. Confirmed live via CDP; NOT yet
      physically verified — CDP can't confirm dpad feel, only tree shape.
-     Full rationale: `.roadmaps/steam-beta-2026-09-compat.md` §3. */
+     Full rationale lives in the internal Steam-beta compat notes. */
   const looksLikeNavNode = (v: any): boolean =>
     !!v && typeof v === "object" && typeof v.BTakeFocus === "function" && !!(v.m_Tree || v.Tree);
 
@@ -1059,33 +1067,29 @@ export function installHomePatch(_routerHook?: any) {
     HomeBoundary,
     null,
     React.createElement(React.Fragment, null,
-      React.createElement(HomeShelves),
+      React.createElement(HomeShelves, { fallback: true }),
       React.createElement(SearchOverlay),
       React.createElement(ShelfSideNav),
       React.createElement(DeckScreensaverOverlay),
     ),
   );
     const tree = wrapWithRealNavParent(mount, innerTree);
+    const host = mount.ownerDocument.createElement("div");
+    host.setAttribute("data-ds-fallback-host", ""); host.style.display = "contents";
+    mount.appendChild(host); fallbackHostEl = host;
     const renderFn = ReactDOM.createRoot ?? ReactDOM.default?.createRoot;
     if (typeof renderFn === "function") {
-      const root = renderFn.call(ReactDOM.default ?? ReactDOM, mount);
-      root.render(tree);
-      logInfo("HOME", "fallback: rendered via createRoot");
-      return root;
+      const root = renderFn.call(ReactDOM.default ?? ReactDOM, host); root.render(tree);
+      logInfo("HOME", "fallback: rendered via createRoot"); return root;
     }
     if (typeof ReactDOM.render === "function") {
-      ReactDOM.render(tree, mount);
-      logInfo("HOME", "fallback: rendered via legacy render");
-      return { unmount: () => { try { ReactDOM.unmountComponentAtNode?.(mount); } catch {} } };
+      ReactDOM.render(tree, host); logInfo("HOME", "fallback: rendered via legacy render");
+      return { unmount: () => { try { ReactDOM.unmountComponentAtNode?.(host); } catch {} } };
     }
     const webpackCreateRoot = findCreateRootViaWebpack();
-    if (webpackCreateRoot) {
-      const root = webpackCreateRoot(mount);
-      root.render(tree);
-      logInfo("HOME", "fallback: rendered via webpack-discovered createRoot");
-      return root;
-    }
-    return null;
+    if (!webpackCreateRoot) return null;
+    const root = webpackCreateRoot(host); root.render(tree);
+    logInfo("HOME", "fallback: rendered via webpack-discovered createRoot"); return root;
   };
 
   const ensureFallbackMount = (): HTMLElement | null => {
@@ -1096,9 +1100,8 @@ export function installHomePatch(_routerHook?: any) {
   };
 
   const teardownPreviousFallbackRoot = (): void => {
-    if (!fallbackRoot) return;
-    try { fallbackRoot.unmount(); } catch {}
-    fallbackRoot = null;
+    if (fallbackRoot) { try { fallbackRoot.unmount(); } catch {} fallbackRoot = null; }
+    if (fallbackHostEl) { try { fallbackHostEl.remove(); } catch {} fallbackHostEl = null; }
   };
 
   const mountFallbackTo = (win: Window, mount: HTMLElement): void => {
@@ -1107,11 +1110,10 @@ export function installHomePatch(_routerHook?: any) {
     if (!ReactDOM) { logWarn("HOME", "fallback: ReactDOM unavailable"); return; }
     const rendered = renderWithReactDOM(ReactDOM, mount);
     if (rendered) {
-      fallbackRoot = rendered;
-      fallbackMountEl = mount;
+      fallbackRoot = rendered; fallbackMountEl = mount;
       // Cross-window fallback = sole host: tell the router-hook bridge to stand
       // down so it never double-mounts HomeShelves into the same root.
-      try { if (win !== window) (globalThis as any).__ds_sole_home_owned = true; } catch {}
+      try { if (win !== window && !bridgeHasFilledHome()) (globalThis as any).__ds_sole_home_owned = true; } catch {}
     } else logWarn("HOME", "fallback: no working render path found (global or webpack)");
   };
 
@@ -1125,16 +1127,25 @@ export function installHomePatch(_routerHook?: any) {
      shelves render (before card images load), so this yields the instant the
      bridge fills the root on a loader (no double render), yet stays false for the
      empty span so the sole-host fallback can still step in. */
-  const bridgeOwnsHome = (doc: Document): boolean =>
-    doc.getElementById(ROOT_ID)?.querySelector(".deck-shelves-root") != null;
+  const bridgeOwnsHome = (doc: Document): boolean => doc.getElementById(ROOT_ID)?.querySelector(".deck-shelves-root") != null;
 
-  /* Unambiguous signal both the bridge and our own fallback ended up live
-     at once (a slow bridge can still win the race after the fallback's
-     grace window gave up first) — TWO copies of `.deck-shelves-root`, not
-     one. A single copy is ambiguous (could be ours alone) and must not
-     trigger a teardown of our only content when no bridge is involved. */
-  const homeHasDuplicateContent = (doc: Document): boolean =>
-    (doc.getElementById(ROOT_ID)?.querySelectorAll(".deck-shelves-root").length ?? 0) > 1;
+  /* Unambiguous signal both the bridge and our own fallback ended up live at
+     once (a slow bridge can still win the race after the fallback's grace
+     window gave up first) — TWO copies of `.deck-shelves-root`. A single copy
+     is ambiguous (could be ours alone) and must never tear down our only content. */
+  const homeHasDuplicateContent = (doc: Document): boolean => (doc.getElementById(ROOT_ID)?.querySelectorAll(".deck-shelves-root").length ?? 0) > 1;
+
+  // Feeds the per-entry gate, then: the bridge stamps `data-ds-claimed-at` on the root synchronously
+  // before its first commit — a fresh claim counts as ownership so we never double-mount mid-commit.
+  const tickAndCheckClaim = (doc: Document): boolean => {
+    const root = doc.getElementById(ROOT_ID);
+    const href = hrefOf(doc.defaultView);
+    const rootFilled = !!root?.querySelector(".deck-shelves-root");
+    if (__DEV__) { gate.lastHref = href; gate.lastRootFilled = rootFilled; }
+    // Host window: Home is the bare document URL; every other screen is /routes/<…>.
+    noteFallbackTick(gate, !href.includes("/routes/") || hrefIsHomeLike(href), rootFilled, Date.now(), bridgeHasFilledHome());
+    return !fallbackRoot && Date.now() - Number(root?.dataset?.dsClaimedAt || 0) < 3000;
+  };
 
   /* True when the DOM fallback must NOT render. Never mount both into a root that
      already has shelf content (that duplicates every shelf); a freshly-registered
@@ -1149,6 +1160,7 @@ export function installHomePatch(_routerHook?: any) {
       fallbackRetries = 0;
       return true;
     }
+    if (tickAndCheckClaim(doc)) return true;
     if (!isHomeVisible()) { fallbackRetries = 0; return true; }
     if (bridgeOwnsHome(doc)) {
       if (fallbackRoot && (fallbackMountEl !== doc.getElementById(ROOT_ID) || homeHasDuplicateContent(doc))) {
@@ -1156,7 +1168,7 @@ export function installHomePatch(_routerHook?: any) {
       }
       return true;
     }
-    return bridgeRegistered && Date.now() - installedAt < BRIDGE_FALLBACK_GRACE_MS;
+    return bridgeGraceActive(gate, Date.now());
   };
 
   /* rAF-throttle: a body+subtree observer fires hundreds of times per
@@ -1195,8 +1207,8 @@ export function installHomePatch(_routerHook?: any) {
       // The "react" marker is set by ANY HomeShelves that claims the mount —
       // including the empty cross-realm bridge — so it cannot gate us. Our own
       // idempotency comes from the fallbackRoot bookkeeping below.
-      if (fallbackRoot && fallbackMountEl === mount && mount.isConnected) return;
-      mountFallbackTo(win, mount);
+      if (fallbackRoot && fallbackMountEl === mount && mount.isConnected && fallbackHostEl?.isConnected) return;
+      mountFallbackTo(win, mount); recordRemountTry();
     } catch (err) {
       logWarn("HOME", "fallback render error", String(err));
     }
@@ -1204,8 +1216,7 @@ export function installHomePatch(_routerHook?: any) {
 
   const { win: hostWin, doc: hostDoc } = getHostContext();
   observer?.disconnect();
-  observedDoc = null;
-  attachObserver(hostDoc);
+  observedDoc = null; attachObserver(hostDoc); observerCreated();
 
   /* Poll fast for the first ~15s (renderer reload / cold boot) so the mount
      lands promptly on its own, then back off to a calm 2s idle cadence. */
@@ -1218,7 +1229,7 @@ export function installHomePatch(_routerHook?: any) {
       timer = window.setInterval(tryFallbackRender, 2000);
     }
   };
-  timer = window.setInterval(poll, 500);
+  timer = window.setInterval(poll, 500); timerCreated();
 
   const onRouteSignal = () => tryFallbackRender();
   hostWin.addEventListener("hashchange", onRouteSignal);
@@ -1227,7 +1238,7 @@ export function installHomePatch(_routerHook?: any) {
 
   tryFallbackRender();
 
-  logInfo("HOME", "installHomePatch complete", { bridgeRegistered });
+  logInfo("HOME", "installHomePatch complete", { bridgeRegistered: gate.bridgeRegistered });
 
   const popAllUninstallHooks = (): void => {
     while (uninstallHooks.length) {
@@ -1248,17 +1259,16 @@ export function installHomePatch(_routerHook?: any) {
   };
 
   const tearDownObserversAndListeners = (): void => {
-    if (timer) { window.clearInterval(timer); timer = 0; }
-    observer?.disconnect();
-    observer = null;
+    if (timer) { window.clearInterval(timer); timer = 0; timerDisposed(); }
+    if (observer) observerDisposed();
+    observer?.disconnect(); observer = null;
     hostWin.removeEventListener("hashchange", onRouteSignal);
     hostWin.removeEventListener("popstate", onRouteSignal);
     globalThis.removeEventListener?.("deck-shelves-settings-changed", onRouteSignal as EventListener);
   };
 
   const tearDownFallbackRoot = (): void => {
-    try { fallbackRoot?.unmount(); } catch {}
-    fallbackRoot = null;
+    teardownPreviousFallbackRoot();
     try { hostDoc.getElementById(ROOT_ID)?.remove(); } catch {}
   };
 

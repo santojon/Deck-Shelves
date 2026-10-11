@@ -32,6 +32,7 @@ declare const __QA_TEMPLATES_FIXTURE__: boolean;
 declare const __QA_DECORATION_FIXTURE__: boolean;
 declare const __QA_STRESS_FIXTURE__: boolean;
 declare const __QA_VIDEO_FIXTURE__: boolean;
+declare const __QA_PERF_MATRIX__: boolean;
 
 interface Window {
   SP_REACT?: any;

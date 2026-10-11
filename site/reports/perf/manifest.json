@@ -1,0 +1,166 @@
+{
+  "kinds": {
+    "backnav": [
+      {
+        "kind": "backnav",
+        "ts": "2026-10-10T09:12:46",
+        "version": "3.3.3",
+        "cycles": 20,
+        "fullMsAvg": 1181,
+        "fullMsMax": 2977,
+        "selectionKept": 18,
+        "selectionJudged": 18,
+        "maxRoots": 1,
+        "fallbackMounts": 0,
+        "leaks": 0,
+        "heapStartMb": 159,
+        "heapEndMb": 152,
+        "file": "history/backnav/2026-10-10T09-12-46.json"
+      }
+    ],
+    "backnav-release": [
+      {
+        "kind": "backnav-release",
+        "ts": "2026-10-09T20:51:58",
+        "version": "3.3.3",
+        "cycles": 20,
+        "fullMsAvg": 682,
+        "fullMsMax": 1192,
+        "selectionKept": 20,
+        "selectionJudged": 20,
+        "maxRoots": 1,
+        "fallbackMounts": 0,
+        "leaks": 0,
+        "heapStartMb": 144,
+        "heapEndMb": 156,
+        "file": "history/backnav-release/2026-10-09T20-51-58.json"
+      }
+    ],
+    "battery-soak": [
+      {
+        "kind": "battery-soak",
+        "ts": "2026-10-10T10:18:37",
+        "version": "3.3.3",
+        "minutesPerHalf": 30,
+        "deltaW": 0.514,
+        "deltaWPluginOnly": -0.049,
+        "withPluginW": 4.235,
+        "pluginFreeW": 3.721,
+        "hubOnlyW": 3.672,
+        "file": "history/battery-soak/2026-10-10T10-18-37.json"
+      }
+    ],
+    "idle-cpu": [
+      {
+        "kind": "idle-cpu",
+        "ts": "2026-10-10T08:58:16",
+        "version": "3.3.3",
+        "deltaPp": 7.24,
+        "withPluginPct": 11.08,
+        "pluginFreePct": 3.84,
+        "acOnline": "0",
+        "withPluginW": 0.6,
+        "pluginFreeW": 0.53,
+        "file": "history/idle-cpu/2026-10-10T08-58-16.json"
+      }
+    ],
+    "perf-matrix": [
+      {
+        "kind": "perf-matrix",
+        "ts": "2026-10-09T17:59:02",
+        "version": "3.3.3",
+        "vanilla_returnMs": null,
+        "vanilla_settleMs": 607,
+        "vanilla_heapMb": 166,
+        "vanilla_error": false,
+        "empty_returnMs": null,
+        "empty_settleMs": 24,
+        "empty_heapMb": 165,
+        "empty_error": false,
+        "typical_8x20_returnMs": 1211,
+        "typical_8x20_settleMs": 2040,
+        "typical_8x20_heapMb": 167,
+        "typical_8x20_error": false,
+        "stress_16x50_returnMs": 3868,
+        "stress_16x50_settleMs": 7529,
+        "stress_16x50_heapMb": 176,
+        "stress_16x50_error": false,
+        "large_2000_returnMs": 4607,
+        "large_2000_settleMs": 6552,
+        "large_2000_heapMb": 214,
+        "large_2000_error": false,
+        "huge_5000_returnMs": 8598,
+        "huge_5000_settleMs": 13551,
+        "huge_5000_heapMb": 320,
+        "huge_5000_error": false,
+        "file": "history/perf-matrix/2026-10-09T17-59-02.json"
+      }
+    ],
+    "soak-reload": [
+      {
+        "kind": "soak-reload",
+        "ts": "2026-10-09T17:00:40",
+        "version": "3.3.3",
+        "mode": "reload",
+        "coexist": false,
+        "ok": 20,
+        "cycles": 20,
+        "okPct": 100.0,
+        "file": "history/soak-reload/2026-10-09T17-00-40.json"
+      }
+    ],
+    "soak-reload-coexist": [
+      {
+        "kind": "soak-reload-coexist",
+        "ts": "2026-10-09T20:46:30",
+        "version": "3.3.3",
+        "mode": "reload",
+        "coexist": true,
+        "ok": 5,
+        "cycles": 5,
+        "okPct": 100.0,
+        "file": "history/soak-reload-coexist/2026-10-09T20-46-30.json"
+      }
+    ],
+    "soak-restart": [
+      {
+        "kind": "soak-restart",
+        "ts": "2026-10-09T20:02:37",
+        "version": "3.3.3",
+        "mode": "restart",
+        "coexist": false,
+        "ok": 99,
+        "cycles": 100,
+        "okPct": 99.0,
+        "file": "history/soak-restart/2026-10-09T20-02-37.json"
+      }
+    ],
+    "soak-restart-coexist": [
+      {
+        "kind": "soak-restart-coexist",
+        "ts": "2026-10-09T20:45:59",
+        "version": "3.3.3",
+        "mode": "restart",
+        "coexist": true,
+        "ok": 10,
+        "cycles": 10,
+        "okPct": 100.0,
+        "file": "history/soak-restart-coexist/2026-10-09T20-45-59.json"
+      }
+    ],
+    "soak-sleepwake": [
+      {
+        "kind": "soak-sleepwake",
+        "ts": "2026-10-09T20:34:01",
+        "version": "3.3.3",
+        "mode": "sleepwake",
+        "coexist": false,
+        "ok": 50,
+        "cycles": 50,
+        "okPct": 100.0,
+        "file": "history/soak-sleepwake/2026-10-09T20-34-01.json"
+      }
+    ]
+  },
+  "runs": 10
+}

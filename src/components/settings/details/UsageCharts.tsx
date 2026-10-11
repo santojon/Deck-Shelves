@@ -212,16 +212,16 @@ export function AreaTrend({ values, color }: { values: number[]; color: string }
 /* Top-N horizontal bars (shelves, features, …) — DOM-based so labels stay
    crisp and ellipsize cleanly. `mode='pct'` relabels the trailing value as a
    share of the total (bars still scale to the largest row for readability). */
-export function TopBarChart({ rows, color, mode = "raw" }: { rows: Array<[string, number]>; color: string; mode?: "raw" | "pct" }) {
+export function TopBarChart({ rows, color, mode = "raw" }: { rows: Array<[string, number] | [string, number, string]>; color: string; mode?: "raw" | "pct" }) {
   const max = Math.max(1, ...rows.map((r) => r[1]));
   const total = rows.reduce((a, r) => a + r[1], 0) || 1;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 2 }}>
-      {rows.map(([label, v]) => (
+      {rows.map(([label, v, rowColor]) => (
         <div key={label} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11 }}>
           <span style={{ width: 96, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", opacity: 0.85 }}>{label}</span>
           <div style={{ flex: 1, height: 12, background: "rgba(255,255,255,0.06)", borderRadius: 2, overflow: "hidden" }}>
-            <div style={{ width: `${(v / max) * 100}%`, height: "100%", background: color, opacity: 0.85, borderRadius: 2 }} />
+            <div style={{ width: `${(v / max) * 100}%`, height: "100%", background: rowColor ?? color, opacity: 0.85, borderRadius: 2 }} />
           </div>
           <span style={{ width: 34, textAlign: "right", flexShrink: 0, opacity: 0.6 }}>{mode === "pct" ? `${Math.round((v / total) * 100)}%` : v}</span>
         </div>

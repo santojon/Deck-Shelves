@@ -18,7 +18,4 @@ export {
 export { isNonSteamBadgesAvailable, NON_STEAM_BADGE_CLASS } from './nonsteambadges';
 
 // DOM-based tab integration (UnifiDeck + other DOM-rendering plugins)
-export {
-  getUnifiDeckTabs,
-  getTabsFromDOM,
-} from './domtabs';
+export { getTabsFromDOM } from './domtabs';

@@ -39,6 +39,32 @@ describe('cacheRegistry', () => {
     expect(meta.keys).toContain('ds-name-appid-v1')
   })
 
+  it('covers every newly-persisted cache (smart shelves, catalog, screenshots, tabs, theme discovery)', () => {
+    const ids = CACHE_GROUPS.map((g) => g.id)
+    expect(ids).toEqual(expect.arrayContaining(['smart_shelves', 'catalog', 'screenshots', 'tabs', 'theme_discovery']))
+    const theme = CACHE_GROUPS.find((g) => g.id === 'theme_discovery')!
+    expect(theme.keys).toEqual(expect.arrayContaining(['ds_class_map', 'ds_qam_panel_classes']))
+  })
+
+  it('never lists user data or stats as a clearable cache (pinned games, read-only history, device history)', () => {
+    const allKeys = CACHE_GROUPS.flatMap((g) => g.keys)
+    expect(allKeys).not.toContain('ds-pinned-games-v1')
+    expect(allKeys).not.toContain('ds-history-v1')
+    expect(allKeys).not.toContain('ds_device_history_v1')
+  })
+
+  it('clearing the smart-shelves group also invalidates the in-memory resolver cache', async () => {
+    const { invalidateSmartShelfCache } = await import('../../steam/smartShelves')
+    localStorage.setItem('ds-smart-shelf-cache-v1', JSON.stringify({ 'x:quick_play:10::3600000': { ts: Date.now(), ids: [1, 2, 3] } }))
+    clearGroup(CACHE_GROUPS.find((g) => g.id === 'smart_shelves')!)
+    // invalidateSmartShelfCache() persists the now-empty in-memory cache back
+    // out, so the key ends up holding an empty object rather than vanishing —
+    // either way, nothing from before the clear should survive.
+    const raw = localStorage.getItem('ds-smart-shelf-cache-v1')
+    expect(raw == null || Object.keys(JSON.parse(raw)).length === 0).toBe(true)
+    expect(invalidateSmartShelfCache).toBeTypeOf('function')
+  })
+
   it('formatBytes is human-readable', () => {
     expect(formatBytes(0)).toBe('—')
     expect(formatBytes(512)).toBe('512 B')

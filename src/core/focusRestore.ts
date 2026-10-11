@@ -35,6 +35,35 @@ export function saveFocusTarget(appid: number, shelfId?: string): void {
   } catch {}
 }
 
+/* Remember the currently focused DS card as the restore target — for leave
+   paths that aren't a card activation (B to Library, QAM, side nav). Nav
+   tree first, gpfocus class as fallback. Never overwrites a pending target:
+   an activation already saved a newer, more specific one. */
+export function saveFocusTargetFromFocusedCard(): void {
+  if (pendingAppid) return;
+  const card = findFocusedDsCard();
+  if (!card) return;
+  const appid = Number(card.getAttribute("data-appid"));
+  if (!Number.isFinite(appid) || appid <= 0) return;
+  saveFocusTarget(appid, card.getAttribute("data-shelfid") ?? undefined);
+}
+
+/* Home tree's last-focus node first; the nav CONTEXT's last-focus node next (a
+   freshly rebuilt home tree can carry none while the context still does —
+   seen live as "no card to remember" on some leaves); `gpfocus` class last. */
+function findFocusedDsCard(): HTMLElement | null {
+  const fromTree = getLastFocusedElement()?.closest?.(".ds-card") as HTMLElement | null | undefined;
+  if (fromTree) return fromTree;
+  const fromContext = getActiveFocusedElement()?.closest?.(".ds-card") as HTMLElement | null | undefined;
+  if (fromContext) return fromContext;
+  return (getPreferredSteamDocument()?.querySelector(".ds-card.gpfocus") as HTMLElement | null) ?? null;
+}
+
+// Exposed for on-device drivers (dev hooks): the focused DS card by the same rules.
+export function getFocusedDsCardAppid(): string | null {
+  return findFocusedDsCard()?.getAttribute("data-appid") ?? null;
+}
+
 function getFocusNavController(): any {
   return (globalThis as any).FocusNavController;
 }
@@ -87,7 +116,68 @@ export function getActiveFocusedElement(): HTMLElement | null {
   return nodeElement(node);
 }
 
+/* The nav node a DS element actually registered, read off its React fiber
+   (Steam's Focusable keeps it in a ref hook). Realm/context-independent: a
+   cold boot on this beta can leave the controller's active/last contexts with
+   tree COPIES lacking our nodes (or no active context), so the tree walk finds
+   nothing and focus stays where Steam's boot reflex parked it (search field). */
+function hookNavNode(fiber: any, el: HTMLElement): any {
+  for (let hook = fiber.memoizedState; hook && typeof hook === "object"; hook = hook.next) {
+    const node = hook.memoizedState?.current;
+    if (!node || node.m_Tree === undefined) continue;
+    const owner = nodeElement(node);
+    if (owner === el || owner?.contains(el)) return node;
+  }
+  return null;
+}
+
+function navNodeFromFiber(el: HTMLElement): any {
+  try {
+    const key = Object.keys(el).find((k) => k.startsWith("__reactFiber$"));
+    let fiber: any = key ? (el as any)[key] : null;
+    for (let depth = 0; fiber && depth < 12; depth++, fiber = fiber.return) {
+      const node = hookNavNode(fiber, el);
+      if (node) return node;
+    }
+  } catch {}
+  return null;
+}
+
+// Whether a tree in this context carries our Home (a `.deck-shelves-root` node).
+function contextReachesHome(ctx: any): boolean {
+  const walk = (node: any): boolean => {
+    const el = nodeElement(node);
+    if (el?.classList?.contains("deck-shelves-root")) return true;
+    return (node?.m_rgChildren ?? []).some(walk);
+  };
+  return (ctx?.m_rgGamepadNavigationTrees ?? []).some((t: any) => walk(t.m_Root ?? t.Root ?? t));
+}
+
+/* Make the node's own context the controller's active one when the active
+   context cannot reach our Home (none, or a copy without our nodes) — never
+   while another live context (QAM, a modal) legitimately owns input. Also
+   release a native text field holding DOM focus, or BTakeFocus is a no-op. */
+function shouldActivateContext(ctx: any, ctrl: any): boolean {
+  if (!ctx || !ctrl || ctrl.m_ActiveContext === ctx) return false;
+  return typeof ctx.SetActive === "function" && !contextReachesHome(ctrl.m_ActiveContext);
+}
+
+function releaseNativeTextFocus(doc: Document | null | undefined): void {
+  const active = doc?.activeElement as HTMLElement | null;
+  if (active && /^(INPUT|TEXTAREA)$/.test(active.tagName) && !active.closest?.("#deck-shelves-home-root")) active.blur();
+}
+
+function activateNodeContext(navNode: any): void {
+  try {
+    const tree = navNode?.m_Tree;
+    if (shouldActivateContext(tree?.m_context, tree?.m_Controller)) tree.m_context.SetActive(true);
+    releaseNativeTextFocus(nodeElement(navNode)?.ownerDocument);
+  } catch {}
+}
+
 function findNavNodeForElement(el: HTMLElement): any {
+  const fromFiber = navNodeFromFiber(el);
+  if (fromFiber) return fromFiber;
   const walk = (node: any, target: HTMLElement): any => {
     // Cover property name variations across SteamOS versions
     const nodeEl = node.m_element ?? node.Element ?? node.m_pElement ?? node.element;
@@ -111,6 +201,7 @@ function findNavNodeForElement(el: HTMLElement): any {
 
 function takeNavFocus(navNode: any): boolean {
   try {
+    activateNodeContext(navNode);
     if (typeof navNode.BTakeFocus === "function") { navNode.BTakeFocus(2); return true; }
     const tree = navNode.m_Tree;
     if (tree?.TakeFocus) { tree.TakeFocus(2, navNode); return true; }
@@ -162,6 +253,17 @@ function isCardFocused(card: HTMLElement): boolean {
   return card.classList.contains("gpfocus") || card === card.ownerDocument?.activeElement;
 }
 
+// Steam's boot reflex parked focus in its own search field — a known-wrong
+// landing we don't need to give any grace to before claiming the first card.
+function nativeTextFieldFocused(doc: Document): boolean {
+  const a = doc.activeElement as HTMLElement | null;
+  return !!a && /^(INPUT|TEXTAREA)$/.test(a.tagName) && !a.closest?.("#deck-shelves-home-root");
+}
+
+function fallbackGraceOver(doc: Document, start: number): boolean {
+  return nativeTextFieldFocused(doc) || Date.now() - start > COLD_BOOT_FALLBACK_GRACE_MS;
+}
+
 export function tryRestoreFocus(): boolean {
   if (!pendingAppid) return false;
   if (Date.now() - pendingTimestamp > FOCUS_RESTORE_TIMEOUT) {
@@ -190,6 +292,10 @@ let coldBootAbort: AbortController | null = null;
 // shelves (Steam library store hydration) have been observed taking ~4s on
 // cold boot, so a shorter window risks expiring just before they populate.
 const COLD_BOOT_GUARD_MS = 6000;
+// The window counts from the first rendered card (a themed cold boot mounted
+// ~6 s before any card and dropped focus 2 s after it landed, past the window)
+// — this cap bounds the wait for that first card.
+const COLD_BOOT_GUARD_MAX_MS = 30000;
 
 /* Steam's own "focus first card" boot reflex can land on something that
    isn't one of our cards at all (confirmed live: the native search field,
@@ -207,11 +313,30 @@ function walkBackToEarlierShelf(doc: Document, orderedShelfIds: string[], focuse
   }
 }
 
-function claimFirstCardFocus(doc: Document, firstShelfId: string): boolean {
-  const first = doc.querySelector(`.ds-card[data-shelfid="${firstShelfId}"]`) as HTMLElement | null;
-  if (!first) return false;
-  const navNode = findNavNodeForElement(first);
-  return !!navNode && takeNavFocus(navNode);
+/* `activeElement` is the reliable read on this client; the `gpfocus` class
+   is not always applied. */
+function focusedDsCard(doc: Document): HTMLElement | null {
+  const byClass = doc.querySelector(".ds-card.gpfocus") as HTMLElement | null;
+  if (byClass) return byClass;
+  const active = doc.activeElement as HTMLElement | null;
+  return (active?.closest?.(".ds-card") as HTMLElement | null) ?? null;
+}
+
+function shouldReclaim(doc: Document, start: number, lastClaimAt: number): boolean {
+  return Date.now() - lastClaimAt >= 400 && fallbackGraceOver(doc, start);
+}
+
+/* First shelf *with a card* in order — the first configured shelf may be
+   empty or filtered out on this device, so keying on its id alone never
+   claimed anything (seen live on a themed cold boot). */
+function claimFirstCardFocus(doc: Document, orderedShelfIds: string[]): boolean {
+  for (const id of orderedShelfIds) {
+    const first = doc.querySelector(`.ds-card[data-shelfid="${id}"]`) as HTMLElement | null;
+    if (!first) continue;
+    const navNode = findNavNodeForElement(first);
+    return !!navNode && takeNavFocus(navNode);
+  }
+  return false;
 }
 
 /* Cold-boot default-focus fix: an online shelf reads a synchronous
@@ -237,19 +362,25 @@ export function beginColdBootFocusGuard(orderedShelfIds: string[]): void {
   const cleanup = () => doc.removeEventListener("vgp_ondirection", onDirection, true);
   abort.signal.addEventListener("abort", cleanup, { once: true });
 
-  let claimedFallback = false;
-  const start = Date.now();
+  /* `BTakeFocus` reports success even when the node isn't reachable yet, so
+     never latch on it: keep claiming (every other tick) until a card really
+     holds focus. */
+  let lastClaimAt = 0;
+  const armedAt = Date.now();
+  let start = armedAt;
+  const expired = () => Date.now() - start >= COLD_BOOT_GUARD_MS || Date.now() - armedAt >= COLD_BOOT_GUARD_MAX_MS;
   const tick = () => {
     if (abort.signal.aborted || userNavigated) { cleanup(); return; }
-    const gp = doc.querySelector(".ds-card.gpfocus") as HTMLElement | null;
-    const focusedShelfId = gp?.getAttribute("data-shelfid");
-    const focusedIdx = focusedShelfId ? orderedShelfIds.indexOf(focusedShelfId) : -1;
+    if (!doc.querySelector(".ds-card")) start = Date.now();
+    const gp = focusedDsCard(doc);
+    const focusedIdx = orderedShelfIds.indexOf(gp?.getAttribute("data-shelfid") ?? "");
     if (focusedIdx > 0) {
       walkBackToEarlierShelf(doc, orderedShelfIds, focusedIdx);
-    } else if (!gp && !claimedFallback && Date.now() - start > COLD_BOOT_FALLBACK_GRACE_MS) {
-      claimedFallback = claimFirstCardFocus(doc, orderedShelfIds[0]);
+    } else if (!gp && shouldReclaim(doc, start, lastClaimAt)) {
+      lastClaimAt = Date.now();
+      claimFirstCardFocus(doc, orderedShelfIds);
     }
-    if (Date.now() - start < COLD_BOOT_GUARD_MS) { setTimeout(tick, 200); return; }
+    if (!expired()) { setTimeout(tick, 200); return; }
     cleanup();
   };
   setTimeout(tick, 200);

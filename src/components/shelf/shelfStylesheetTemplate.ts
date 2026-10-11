@@ -53,20 +53,12 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
     }
 
     /* ── SLH alt C shim (data-ds-slh="1") ─────────────────────────────────
-       Problem: the SLH theme uses position:absolute/bottom:0 on the native
-       recents grid inside a height:100vh/overflow:hidden container. When DS
-       hides the native recents (height:0), that grid disappears but the
-       fixed-height container stays. Our promoted shelf
-       (data-ds-recents-slot="true") sits OUTSIDE that container inside
-       #deck-shelves-home-root, so it is not caught by the theme's
-       absolute-positioning rule and ends up at the top instead of the bottom.
-
-       Fix: expand #deck-shelves-home-root to viewport height and pin the
-       promoted shelf to its bottom via absolute positioning — mirroring the
-       theme's layout contract without touching any native class names.
-
-       NOTE: Requires validation on a real Deck with the theme active. The
-       56px header offset is based on CDP observations from 2026-05-14. */
+       SLH pins the native recents grid to the bottom of a viewport-height,
+       overflow-hidden container; with native recents hidden our promoted shelf
+       sits outside it, so mirror the contract: root at viewport height, the
+       promoted shelf absolute at its bottom. Validated live 2026-10-10: the
+       other shelves must NOT flex-shrink into that fixed-height panel (they
+       collapsed to 0–108 px) and must start below the viewport block. */
     [data-ds-slh="1"] #deck-shelves-home-root {
       height: calc(100vh - 56px);
       position: relative;
@@ -76,6 +68,8 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
       height: 100%;
       position: relative;
     }
+    [data-ds-slh="1"] .deck-shelves-root > .ds-shelf { flex-shrink: 0; }
+    [data-ds-slh="1"] .deck-shelves-root > .ds-shelf[data-ds-recents-slot="true"] + .ds-shelf { margin-top: calc(100vh - 56px); }
     [data-ds-slh="1"] .ds-shelf[data-ds-recents-slot="true"] {
       position: absolute !important;
       bottom: 0 !important;
@@ -86,6 +80,10 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
          it doesn't overlap the card row. Mirror via the same variable. */
       padding-top: calc(var(--SLH-lift-hero-px, 0px) + 6px);
     }
+    /* SLH pins the promoted shelf (auto height) to the bottom of the block, so
+       the top-relative -56px hero pull started ~60px below the header (black
+       band). Anchor the art to the shelf bottom, viewport + header tall. */
+    [data-ds-slh="1"] .ds-shelf[data-ds-recents-slot="true"] [data-ds-per-shelf-hero="true"] { top: auto !important; bottom: 0 !important; height: calc(100vh + 56px) !important; }
     /* SLH + ArtHero: the ArtHero flex column still applies inside the
        absolute-positioned promoted shelf. */
     [data-ds-slh="1"] .deck-shelves-root[data-ds-hero-label="true"] .ds-shelf[data-ds-recents-slot="true"] {
@@ -367,23 +365,17 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
       inset: 0;
       background: linear-gradient(90deg, rgba(90,90,90,0.18) 0%, rgba(160,160,160,0.32) 50%, rgba(90,90,90,0.18) 100%);
       background-size: 200% 100%;
-      animation: ds-shelf-shimmer 2s ease-in-out infinite;
+      /* Bounded: lazily-loaded off-screen cards never flip to --loaded, and an infinite shimmer on each kept the renderer at ~1 core all session. */
+      animation: ds-shelf-shimmer 2s ease-in-out 4 forwards;
       pointer-events: none;
       z-index: 1;
       border-radius: var(--ds-card-radius, 4px);
     }
     #deck-shelves-home-root .ds-card .ds-card-shimmer--loaded { display: none; }
-    /* Hero img opacity gate — defends against the browser's broken-
-       image glyph painting during the gap between src assignment and
-       first decoded byte (especially for slot swaps where the new
-       URL hasn't loaded yet but its wrapper is already at full
-       opacity from the cross-fade). 60 ms transition (was 180 ms) so
-       cached/cold loads alike feel near-instant. PerShelfHero sets
-       is-loaded synchronously via a ref callback when the img is
-       already decoded (hot blob URL / HTTP cache hit), so cached
-       hero swaps don't even need a render cycle to flip the class.
-       ID-scoped under #deck-shelves-home-root to beat the
-       no-hero-gradient theme rule's (0,4,0) specificity. */
+    /* Hero img opacity gate — hides the browser's broken-image glyph between
+       src assignment and first decoded byte (slot swaps included); 60 ms so
+       cached/cold loads feel instant; PerShelfHero flips is-loaded synchronously
+       for already-decoded images. ID-scoped to beat the no-hero-gradient rule. */
     /* Hero img opacity gating — the transition runs ONLY on the up-leg
        (going from 0 → 1 when the image actually decodes). Going back to
        0 (fallback chain advancing to the next URL after an error, src
@@ -904,13 +896,15 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
 
     /* ── Per-shelf hero art ─────────────────────────────────────────────────
        Hero images rendered by PerShelfHero (in DeckRow when heroEnabled=true).
-       Subtle zoom animation mirrors the 25s native Steam hero zoom. */
+       Subtle zoom mirrors the 25s native hero zoom; stepped (5 fps) timing avoids the ~0.5 core a smooth 60 fps scale cost idle (--ds-hero-zoom-ease overrides). */
     @keyframes ds-per-shelf-hero-zoom {
       from { transform: scale(1); }
       to   { transform: scale(var(--ds-hero-zoom-scale, 1.06)); }
     }
+    .ds-idle .ds-shelf[data-ds-hero-enabled="true"] .ds-per-shelf-hero-img { animation-play-state: paused; }
+    .deck-shelves-root .ds-shelf[data-ds-pending="true"] { display: none !important; }
     .ds-shelf[data-ds-hero-enabled="true"] .ds-per-shelf-hero-img {
-      animation: ds-per-shelf-hero-zoom var(--ds-hero-zoom-duration, 25s) var(--ds-hero-zoom-ease, ease) infinite alternate;
+      animation: ds-per-shelf-hero-zoom var(--ds-hero-zoom-duration, 25s) var(--ds-hero-zoom-ease, steps(125, end)) infinite alternate;
       transition: opacity 0.5s cubic-bezier(0.17,0.45,0.14,0.83),
                   filter 0.35s ease;
       /* Respect theme overrides via CSS variables for fit/position/filter */
@@ -1015,25 +1009,28 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
       --ds-hero-h: calc(100% + 56px);
     }
     /* Decoupled first shelf (recents hidden, DS hero art on, NOT the themed
-       recents-slot): bleed the hero ART up 56px under the transparent Steam
-       header so the top isn't a black strip. Only the art moves
-       (--ds-hero-top); the shelf box, logo and label stay put — a margin-top
-       pull-up like above would shove the logo/label under the header on this
-       non-full-page shelf (it keeps minHeight:auto per the no-forced-full-page
-       rule). Without an ArtHero theme the rules above don't match, which is
-       what left the 56px header gap. */
-    .deck-shelves-root[data-ds-recents-hidden="true"] > .ds-shelf[data-ds-hero-enabled="true"]:first-child:not([data-ds-recents-slot="true"]) [data-ds-per-shelf-hero="true"] {
-      --ds-hero-top: -56px;
-      --ds-hero-h: calc(100% + 56px);
+       recents-slot, i.e. no CSS Loader): bleed only the ART up 56px under the
+       transparent Steam header, and give the box a hero band above the title
+       like native recents (without it the title sat glued to the header). */
+    .deck-shelves-root[data-ds-recents-hidden="true"] > .ds-shelf[data-ds-hero-enabled="true"]:first-child:not([data-ds-recents-slot="true"]) {
+      padding-top: var(--ds-hero-band, 128px);
     }
+    .deck-shelves-root[data-ds-recents-hidden="true"] > .ds-shelf[data-ds-hero-enabled="true"]:first-child:not([data-ds-recents-slot="true"]) [data-ds-per-shelf-hero="true"] { --ds-hero-top: -56px; --ds-hero-h: calc(100% + 56px); }
     /* FORCE: clean page-per-shelf (no margin, no hero fade). */
-    .deck-shelves-root[data-ds-theme-hero-fullscreen="true"][data-ds-force-themes="true"] .ds-shelf {
-      margin-bottom: 0 !important;
-    }
-    .deck-shelves-root[data-ds-theme-hero-fullscreen="true"][data-ds-force-themes="true"] .ds-shelf[data-ds-recents-slot="true"] [data-ds-per-shelf-hero="true"] {
-      mask-image: none !important;
-      -webkit-mask-image: none !important;
-    }
+    .deck-shelves-root[data-ds-theme-hero-fullscreen="true"][data-ds-force-themes="true"] .ds-shelf { margin-bottom: 0 !important; }
+    .deck-shelves-root[data-ds-theme-hero-fullscreen="true"][data-ds-force-themes="true"] .ds-shelf[data-ds-recents-slot="true"] [data-ds-per-shelf-hero="true"] { mask-image: none !important; -webkit-mask-image: none !important; }
+    /* Gray Uninstalled — mirror the theme's dimming (its own :root variables) on our not-installed library cards; on the art box, not the img, so the load fade stays. */
+    #deck-shelves-home-root .deck-shelves-root[data-ds-theme-gray-uninstalled="true"] .ds-card[data-ds-installed="false"][data-ds-installed] .ds-card-art { opacity: var(--uninstalled-opacity, 0.5) !important; filter: brightness(var(--ds-card-dim, 0.9)) grayscale(var(--uninstalled-grayscale, 100%)) !important; }
+    #deck-shelves-home-root .deck-shelves-root[data-ds-theme-gray-uninstalled="true"] .ds-card[data-ds-installed="false"][data-ds-installed]:is(:focus, .gpfocus, :hover) .ds-card-art { opacity: var(--uninstalled-focus-opacity, 0.9) !important; filter: brightness(1) grayscale(var(--uninstalled-focus-grayscale, 90%)) !important; }
+
+    /* Clean Library Capsule — mirror its text-capsule parts (tokens in data-ds-theme-clc) on our art-less text cards. */
+    #deck-shelves-home-root .deck-shelves-root[data-ds-theme-clc] .ds-card--text .ds-card-text { opacity: 1 !important; }
+    #deck-shelves-home-root .deck-shelves-root[data-ds-theme-clc~="bg"] .ds-card--text .ds-card-art { background: var(--g1-bg-color, #333333aa) !important; }
+    #deck-shelves-home-root .deck-shelves-root[data-ds-theme-clc~="bgimg"] .ds-card--text .ds-card-art { background-image: var(--g1-bg-image) !important; background-size: cover !important; background-repeat: no-repeat !important; background-position: center !important; }
+    #deck-shelves-home-root .deck-shelves-root[data-ds-theme-clc~="color"] .ds-card--text .ds-card-text { color: var(--g1-font-color, #fff); }
+    #deck-shelves-home-root .deck-shelves-root[data-ds-theme-clc~="bold"] .ds-card--text .ds-card-text { font-weight: bold; }
+    #deck-shelves-home-root .deck-shelves-root[data-ds-theme-clc~="outline"] .ds-card--text .ds-card-text { text-shadow: ${Array(20).fill("0 0 var(--g1-stroke-size, 1px) var(--g1-stroke-color, #000)").join(", ")}; }
+    #deck-shelves-home-root .deck-shelves-root[data-ds-theme-clc~="disable"] .ds-card--text .ds-card-text { display: none !important; }
 
     /* No Home Text — only engages under force (per user spec). */
     [data-ds-force-themes="true"][data-ds-theme-no-home-text="true"] .ds-shelf[data-ds-recents-slot="true"] .ds-card-label,

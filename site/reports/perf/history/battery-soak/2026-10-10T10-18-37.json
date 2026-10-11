@@ -1,0 +1,1055 @@
+{
+  "recordedAt": "2026-10-10T10:18:37",
+  "minutesPerHalf": 30,
+  "standaloneHostAlsoActive": true,
+  "withPlugin": {
+    "name": "A-with-plugin",
+    "minutes": 30,
+    "energyUsedWh": 2.134,
+    "avgWFromEnergy": 4.235,
+    "avgWSampled": 3.67,
+    "rendererCpuPct": 13.88,
+    "backlightSeen": [
+      "5166"
+    ],
+    "overlaySeen": [
+      "home idle-paused"
+    ],
+    "acSeen": [
+      "0"
+    ],
+    "samples": [
+      {
+        "energyWh": 20.3625,
+        "watts": 3.853,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 34216.0,
+        "uptime": 227124.11,
+        "tck": 100.0,
+        "overlay": "home idle-paused",
+        "t": 60
+      },
+      {
+        "energyWh": 20.2924,
+        "watts": 3.835,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 35040.0,
+        "uptime": 227184.53,
+        "tck": 100.0,
+        "overlay": "home idle-paused",
+        "t": 121
+      },
+      {
+        "energyWh": 20.2148,
+        "watts": 3.817,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 35895.0,
+        "uptime": 227245.08,
+        "tck": 100.0,
+        "overlay": "home idle-paused",
+        "t": 181
+      },
+      {
+        "energyWh": 20.1472,
+        "watts": 3.8,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 36557.0,
+        "uptime": 227305.5,
+        "tck": 100.0,
+        "overlay": "home idle-paused",
+        "t": 242
+      },
+      {
+        "energyWh": 20.0747,
+        "watts": 3.823,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 37371.0,
+        "uptime": 227366.0,
+        "tck": 100.0,
+        "overlay": "home idle-paused",
+        "t": 302
+      },
+      {
+        "energyWh": 19.9826,
+        "watts": 3.793,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 38177.0,
+        "uptime": 227426.38,
+        "tck": 100.0,
+        "overlay": "home idle-paused",
+        "t": 363
+      },
+      {
+        "energyWh": 19.9397,
+        "watts": 3.757,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 38953.0,
+        "uptime": 227486.81,
+        "tck": 100.0,
+        "overlay": "home idle-paused",
+        "t": 423
+      },
+      {
+        "energyWh": 19.8632,
+        "watts": 3.778,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 39785.0,
+        "uptime": 227547.31,
+        "tck": 100.0,
+        "overlay": "home idle-paused",
+        "t": 484
+      },
+      {
+        "energyWh": 19.8055,
+        "watts": 3.722,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 40592.0,
+        "uptime": 227607.98,
+        "tck": 100.0,
+        "overlay": "home idle-paused",
+        "t": 544
+      },
+      {
+        "energyWh": 19.534,
+        "watts": 3.619,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 41564.0,
+        "uptime": 227668.4,
+        "tck": 100.0,
+        "overlay": "home idle-paused",
+        "t": 605
+      },
+      {
+        "energyWh": 19.6691,
+        "watts": 3.622,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 42254.0,
+        "uptime": 227728.91,
+        "tck": 100.0,
+        "overlay": "home idle-paused",
+        "t": 665
+      },
+      {
+        "energyWh": 19.5896,
+        "watts": 3.668,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 43218.0,
+        "uptime": 227789.37,
+        "tck": 100.0,
+        "overlay": "home idle-paused",
+        "t": 726
+      },
+      {
+        "energyWh": 19.4991,
+        "watts": 3.621,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 44116.0,
+        "uptime": 227849.83,
+        "tck": 100.0,
+        "overlay": "home idle-paused",
+        "t": 786
+      },
+      {
+        "energyWh": 19.4655,
+        "watts": 3.676,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 45003.0,
+        "uptime": 227910.22,
+        "tck": 100.0,
+        "overlay": "home idle-paused",
+        "t": 847
+      },
+      {
+        "energyWh": 19.3896,
+        "watts": 3.631,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 45886.0,
+        "uptime": 227970.67,
+        "tck": 100.0,
+        "overlay": "home idle-paused",
+        "t": 907
+      },
+      {
+        "energyWh": 19.3295,
+        "watts": 3.632,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 46627.0,
+        "uptime": 228031.04,
+        "tck": 100.0,
+        "overlay": "home idle-paused",
+        "t": 967
+      },
+      {
+        "energyWh": 19.2656,
+        "watts": 3.607,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 47512.0,
+        "uptime": 228091.5,
+        "tck": 100.0,
+        "overlay": "home idle-paused",
+        "t": 1028
+      },
+      {
+        "energyWh": 19.1747,
+        "watts": 3.586,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 48301.0,
+        "uptime": 228151.88,
+        "tck": 100.0,
+        "overlay": "home idle-paused",
+        "t": 1088
+      },
+      {
+        "energyWh": 19.1322,
+        "watts": 3.604,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 49164.0,
+        "uptime": 228212.3,
+        "tck": 100.0,
+        "overlay": "home idle-paused",
+        "t": 1149
+      },
+      {
+        "energyWh": 19.065,
+        "watts": 3.596,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 49921.0,
+        "uptime": 228272.79,
+        "tck": 100.0,
+        "overlay": "home idle-paused",
+        "t": 1209
+      },
+      {
+        "energyWh": 18.9332,
+        "watts": 3.574,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 50803.0,
+        "uptime": 228333.18,
+        "tck": 100.0,
+        "overlay": "home idle-paused",
+        "t": 1270
+      },
+      {
+        "energyWh": 18.9225,
+        "watts": 3.592,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 51648.0,
+        "uptime": 228393.65,
+        "tck": 100.0,
+        "overlay": "home idle-paused",
+        "t": 1330
+      },
+      {
+        "energyWh": 18.7726,
+        "watts": 3.558,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 52382.0,
+        "uptime": 228454.07,
+        "tck": 100.0,
+        "overlay": "home idle-paused",
+        "t": 1390
+      },
+      {
+        "energyWh": 18.7593,
+        "watts": 3.584,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 53280.0,
+        "uptime": 228514.49,
+        "tck": 100.0,
+        "overlay": "home idle-paused",
+        "t": 1451
+      },
+      {
+        "energyWh": 18.7237,
+        "watts": 3.685,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 54013.0,
+        "uptime": 228575.04,
+        "tck": 100.0,
+        "overlay": "home idle-paused",
+        "t": 1511
+      },
+      {
+        "energyWh": 18.6336,
+        "watts": 3.64,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 54933.0,
+        "uptime": 228635.44,
+        "tck": 100.0,
+        "overlay": "home idle-paused",
+        "t": 1572
+      },
+      {
+        "energyWh": 18.5783,
+        "watts": 3.617,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 55906.0,
+        "uptime": 228695.84,
+        "tck": 100.0,
+        "overlay": "home idle-paused",
+        "t": 1632
+      },
+      {
+        "energyWh": 18.4346,
+        "watts": 3.592,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 56824.0,
+        "uptime": 228756.36,
+        "tck": 100.0,
+        "overlay": "home idle-paused",
+        "t": 1693
+      },
+      {
+        "energyWh": 18.4457,
+        "watts": 3.607,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 57687.0,
+        "uptime": 228816.81,
+        "tck": 100.0,
+        "overlay": "home idle-paused",
+        "t": 1753
+      },
+      {
+        "energyWh": 18.3756,
+        "watts": 3.596,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 58579.0,
+        "uptime": 228877.26,
+        "tck": 100.0,
+        "overlay": "home idle-paused",
+        "t": 1814
+      }
+    ]
+  },
+  "pluginFree": {
+    "name": "B-plugin-free",
+    "minutes": 30,
+    "energyUsedWh": 1.8754,
+    "avgWFromEnergy": 3.721,
+    "avgWSampled": 3.514,
+    "rendererCpuPct": 3.52,
+    "backlightSeen": [
+      "5166"
+    ],
+    "overlaySeen": [
+      "home"
+    ],
+    "acSeen": [
+      "0"
+    ],
+    "samples": [
+      {
+        "energyWh": 18.0543,
+        "watts": 4.399,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 5398.0,
+        "uptime": 229038.83,
+        "tck": 100.0,
+        "overlay": "home",
+        "t": 60
+      },
+      {
+        "energyWh": 18.0011,
+        "watts": 3.871,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 5601.0,
+        "uptime": 229099.31,
+        "tck": 100.0,
+        "overlay": "home",
+        "t": 121
+      },
+      {
+        "energyWh": 17.9359,
+        "watts": 3.684,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 5835.0,
+        "uptime": 229159.77,
+        "tck": 100.0,
+        "overlay": "home",
+        "t": 181
+      },
+      {
+        "energyWh": 17.8693,
+        "watts": 3.603,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 6047.0,
+        "uptime": 229220.14,
+        "tck": 100.0,
+        "overlay": "home",
+        "t": 242
+      },
+      {
+        "energyWh": 17.8086,
+        "watts": 3.562,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 6274.0,
+        "uptime": 229280.7,
+        "tck": 100.0,
+        "overlay": "home",
+        "t": 302
+      },
+      {
+        "energyWh": 17.709,
+        "watts": 3.523,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 6463.0,
+        "uptime": 229341.21,
+        "tck": 100.0,
+        "overlay": "home",
+        "t": 363
+      },
+      {
+        "energyWh": 17.6748,
+        "watts": 3.527,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 6707.0,
+        "uptime": 229401.59,
+        "tck": 100.0,
+        "overlay": "home",
+        "t": 423
+      },
+      {
+        "energyWh": 17.5944,
+        "watts": 3.49,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 6904.0,
+        "uptime": 229462.04,
+        "tck": 100.0,
+        "overlay": "home",
+        "t": 484
+      },
+      {
+        "energyWh": 17.5477,
+        "watts": 3.51,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 7142.0,
+        "uptime": 229522.43,
+        "tck": 100.0,
+        "overlay": "home",
+        "t": 544
+      },
+      {
+        "energyWh": 17.4545,
+        "watts": 3.47,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 7330.0,
+        "uptime": 229582.88,
+        "tck": 100.0,
+        "overlay": "home",
+        "t": 605
+      },
+      {
+        "energyWh": 17.4223,
+        "watts": 3.515,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 7587.0,
+        "uptime": 229643.36,
+        "tck": 100.0,
+        "overlay": "home",
+        "t": 665
+      },
+      {
+        "energyWh": 17.3018,
+        "watts": 3.512,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 7787.0,
+        "uptime": 229703.91,
+        "tck": 100.0,
+        "overlay": "home",
+        "t": 726
+      },
+      {
+        "energyWh": 17.2523,
+        "watts": 3.529,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 8068.0,
+        "uptime": 229764.33,
+        "tck": 100.0,
+        "overlay": "home",
+        "t": 786
+      },
+      {
+        "energyWh": 17.2291,
+        "watts": 3.457,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 8261.0,
+        "uptime": 229824.75,
+        "tck": 100.0,
+        "overlay": "home",
+        "t": 846
+      },
+      {
+        "energyWh": 17.1665,
+        "watts": 3.44,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 8498.0,
+        "uptime": 229885.27,
+        "tck": 100.0,
+        "overlay": "home",
+        "t": 907
+      },
+      {
+        "energyWh": 17.072,
+        "watts": 3.496,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 8697.0,
+        "uptime": 229945.66,
+        "tck": 100.0,
+        "overlay": "home",
+        "t": 967
+      },
+      {
+        "energyWh": 17.033,
+        "watts": 3.459,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 8921.0,
+        "uptime": 230006.13,
+        "tck": 100.0,
+        "overlay": "home",
+        "t": 1028
+      },
+      {
+        "energyWh": 16.9711,
+        "watts": 3.444,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 9105.0,
+        "uptime": 230066.62,
+        "tck": 100.0,
+        "overlay": "home",
+        "t": 1088
+      },
+      {
+        "energyWh": 16.8242,
+        "watts": 3.409,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 9290.0,
+        "uptime": 230127.15,
+        "tck": 100.0,
+        "overlay": "home",
+        "t": 1149
+      },
+      {
+        "energyWh": 16.8484,
+        "watts": 3.434,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 9504.0,
+        "uptime": 230187.56,
+        "tck": 100.0,
+        "overlay": "home",
+        "t": 1209
+      },
+      {
+        "energyWh": 16.7861,
+        "watts": 3.424,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 9697.0,
+        "uptime": 230247.98,
+        "tck": 100.0,
+        "overlay": "home",
+        "t": 1270
+      },
+      {
+        "energyWh": 16.728,
+        "watts": 3.4,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 9879.0,
+        "uptime": 230308.41,
+        "tck": 100.0,
+        "overlay": "home",
+        "t": 1330
+      },
+      {
+        "energyWh": 16.6598,
+        "watts": 3.407,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 10090.0,
+        "uptime": 230368.9,
+        "tck": 100.0,
+        "overlay": "home",
+        "t": 1391
+      },
+      {
+        "energyWh": 16.5935,
+        "watts": 3.437,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 10271.0,
+        "uptime": 230429.34,
+        "tck": 100.0,
+        "overlay": "home",
+        "t": 1451
+      },
+      {
+        "energyWh": 16.5375,
+        "watts": 3.405,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 10453.0,
+        "uptime": 230489.71,
+        "tck": 100.0,
+        "overlay": "home",
+        "t": 1511
+      },
+      {
+        "energyWh": 16.4651,
+        "watts": 3.402,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 10689.0,
+        "uptime": 230550.33,
+        "tck": 100.0,
+        "overlay": "home",
+        "t": 1572
+      },
+      {
+        "energyWh": 16.3948,
+        "watts": 3.391,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 10877.0,
+        "uptime": 230610.96,
+        "tck": 100.0,
+        "overlay": "home",
+        "t": 1633
+      },
+      {
+        "energyWh": 16.3432,
+        "watts": 3.425,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 11137.0,
+        "uptime": 230671.41,
+        "tck": 100.0,
+        "overlay": "home",
+        "t": 1693
+      },
+      {
+        "energyWh": 16.2772,
+        "watts": 3.407,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 11320.0,
+        "uptime": 230731.94,
+        "tck": 100.0,
+        "overlay": "home",
+        "t": 1754
+      },
+      {
+        "energyWh": 16.142,
+        "watts": 3.382,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 11500.0,
+        "uptime": 230792.45,
+        "tck": 100.0,
+        "overlay": "home",
+        "t": 1814
+      }
+    ]
+  },
+  "deltaW": 0.514,
+  "hubOnlyPlugin": {
+    "name": "C-hub-only-plugin",
+    "minutes": 30,
+    "energyUsedWh": 1.8503,
+    "avgWFromEnergy": 3.672,
+    "avgWSampled": 3.669,
+    "rendererCpuPct": 11.34,
+    "backlightSeen": [
+      "5166"
+    ],
+    "overlaySeen": [
+      "home idle-paused"
+    ],
+    "acSeen": [
+      "0"
+    ],
+    "samples": [
+      {
+        "energyWh": 15.5033,
+        "watts": 5.707,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 6595.0,
+        "uptime": 231056.71,
+        "tck": 100.0,
+        "overlay": "home idle-paused",
+        "t": 60
+      },
+      {
+        "energyWh": 15.4418,
+        "watts": 4.399,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 7339.0,
+        "uptime": 231117.16,
+        "tck": 100.0,
+        "overlay": "home idle-paused",
+        "t": 121
+      },
+      {
+        "energyWh": 15.3863,
+        "watts": 3.932,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 8086.0,
+        "uptime": 231177.59,
+        "tck": 100.0,
+        "overlay": "home idle-paused",
+        "t": 182
+      },
+      {
+        "energyWh": 15.3306,
+        "watts": 3.767,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 8899.0,
+        "uptime": 231238.59,
+        "tck": 100.0,
+        "overlay": "home idle-paused",
+        "t": 242
+      },
+      {
+        "energyWh": 15.2633,
+        "watts": 3.719,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 9683.0,
+        "uptime": 231299.1,
+        "tck": 100.0,
+        "overlay": "home idle-paused",
+        "t": 303
+      },
+      {
+        "energyWh": 15.0676,
+        "watts": 3.623,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 10352.0,
+        "uptime": 231359.44,
+        "tck": 100.0,
+        "overlay": "home idle-paused",
+        "t": 363
+      },
+      {
+        "energyWh": 15.1059,
+        "watts": 3.632,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 10966.0,
+        "uptime": 231419.83,
+        "tck": 100.0,
+        "overlay": "home idle-paused",
+        "t": 424
+      },
+      {
+        "energyWh": 15.0676,
+        "watts": 3.636,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 11605.0,
+        "uptime": 231480.29,
+        "tck": 100.0,
+        "overlay": "home idle-paused",
+        "t": 484
+      },
+      {
+        "energyWh": 15.0043,
+        "watts": 3.636,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 12256.0,
+        "uptime": 231540.66,
+        "tck": 100.0,
+        "overlay": "home idle-paused",
+        "t": 544
+      },
+      {
+        "energyWh": 14.9371,
+        "watts": 3.651,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 12896.0,
+        "uptime": 231601.07,
+        "tck": 100.0,
+        "overlay": "home idle-paused",
+        "t": 605
+      },
+      {
+        "energyWh": 14.8099,
+        "watts": 3.62,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 13539.0,
+        "uptime": 231661.53,
+        "tck": 100.0,
+        "overlay": "home idle-paused",
+        "t": 665
+      },
+      {
+        "energyWh": 14.8146,
+        "watts": 3.634,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 14172.0,
+        "uptime": 231722.01,
+        "tck": 100.0,
+        "overlay": "home idle-paused",
+        "t": 726
+      },
+      {
+        "energyWh": 14.7438,
+        "watts": 3.625,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 14810.0,
+        "uptime": 231782.46,
+        "tck": 100.0,
+        "overlay": "home idle-paused",
+        "t": 786
+      },
+      {
+        "energyWh": 14.6823,
+        "watts": 3.593,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 15634.0,
+        "uptime": 231842.97,
+        "tck": 100.0,
+        "overlay": "home idle-paused",
+        "t": 847
+      },
+      {
+        "energyWh": 14.6195,
+        "watts": 3.536,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 16416.0,
+        "uptime": 231903.4,
+        "tck": 100.0,
+        "overlay": "home idle-paused",
+        "t": 907
+      },
+      {
+        "energyWh": 14.5176,
+        "watts": 3.519,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 17222.0,
+        "uptime": 231963.97,
+        "tck": 100.0,
+        "overlay": "home idle-paused",
+        "t": 968
+      },
+      {
+        "energyWh": 14.4954,
+        "watts": 3.519,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 17856.0,
+        "uptime": 232024.4,
+        "tck": 100.0,
+        "overlay": "home idle-paused",
+        "t": 1028
+      },
+      {
+        "energyWh": 14.4139,
+        "watts": 3.491,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 18495.0,
+        "uptime": 232084.87,
+        "tck": 100.0,
+        "overlay": "home idle-paused",
+        "t": 1089
+      },
+      {
+        "energyWh": 14.3604,
+        "watts": 3.476,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 19136.0,
+        "uptime": 232145.25,
+        "tck": 100.0,
+        "overlay": "home idle-paused",
+        "t": 1149
+      },
+      {
+        "energyWh": 14.2918,
+        "watts": 3.49,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 19781.0,
+        "uptime": 232205.67,
+        "tck": 100.0,
+        "overlay": "home idle-paused",
+        "t": 1209
+      },
+      {
+        "energyWh": 14.2419,
+        "watts": 3.483,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 20412.0,
+        "uptime": 232266.26,
+        "tck": 100.0,
+        "overlay": "home idle-paused",
+        "t": 1270
+      },
+      {
+        "energyWh": 14.1733,
+        "watts": 3.474,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 21040.0,
+        "uptime": 232326.73,
+        "tck": 100.0,
+        "overlay": "home idle-paused",
+        "t": 1330
+      },
+      {
+        "energyWh": 14.1145,
+        "watts": 3.473,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 21681.0,
+        "uptime": 232387.1,
+        "tck": 100.0,
+        "overlay": "home idle-paused",
+        "t": 1391
+      },
+      {
+        "energyWh": 14.0467,
+        "watts": 3.502,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 22340.0,
+        "uptime": 232447.52,
+        "tck": 100.0,
+        "overlay": "home idle-paused",
+        "t": 1451
+      },
+      {
+        "energyWh": 13.9837,
+        "watts": 3.51,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 23136.0,
+        "uptime": 232507.97,
+        "tck": 100.0,
+        "overlay": "home idle-paused",
+        "t": 1512
+      },
+      {
+        "energyWh": 13.9267,
+        "watts": 3.47,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 23783.0,
+        "uptime": 232568.4,
+        "tck": 100.0,
+        "overlay": "home idle-paused",
+        "t": 1572
+      },
+      {
+        "energyWh": 13.853,
+        "watts": 3.483,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 24397.0,
+        "uptime": 232628.78,
+        "tck": 100.0,
+        "overlay": "home idle-paused",
+        "t": 1632
+      },
+      {
+        "energyWh": 13.7996,
+        "watts": 3.468,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 25029.0,
+        "uptime": 232689.15,
+        "tck": 100.0,
+        "overlay": "home idle-paused",
+        "t": 1693
+      },
+      {
+        "energyWh": 13.7331,
+        "watts": 3.506,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 25686.0,
+        "uptime": 232749.61,
+        "tck": 100.0,
+        "overlay": "home idle-paused",
+        "t": 1753
+      },
+      {
+        "energyWh": 13.6614,
+        "watts": 3.496,
+        "ac": "0",
+        "backlight": "5166",
+        "ticks": 26338.0,
+        "uptime": 232810.06,
+        "tck": 100.0,
+        "overlay": "home idle-paused",
+        "t": 1814
+      }
+    ]
+  },
+  "deltaWPluginOnly": -0.049,
+  "version": "3.3.3"
+}

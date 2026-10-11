@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { getPreferredSteamDocument, getAllSteamDocuments } from '../../runtime/steamHost';
-import { getLastFocusedElement } from '../../core/focusRestore';
+import { subscribeFocusedCard, getFocusedCard } from '../../runtime/focusedCardTracker';
 import { subscribeOverlayActive } from './overlayState';
+import { subscribeSessionState, getSessionState } from '../../runtime/sessionState';
 import i18n from '../../i18n';
 
 function findHomeRootDoc(): { doc: Document; root: HTMLElement } | null {
@@ -52,7 +53,13 @@ export function BadgeFocusOverlay() {
      listeners before the new ones attach, so duplicate handlers can't
      accumulate. */
   const [hostKey, setHostKey] = useState(0);
+  // Home stays mounted while a game runs (no route change) — suspend the
+  // overlay's observers/listeners entirely during that window instead of
+  // tracking a focus nobody can see, same signal the reconcile path uses.
+  const [gameRunning, setGameRunning] = useState(() => getSessionState().gameRunning);
+  useEffect(() => subscribeSessionState(() => setGameRunning(getSessionState().gameRunning)), []);
   useEffect(() => {
+    if (gameRunning) { setState(null); return; }
     const located = findHomeRootDoc();
     if (!located) {
       // Home root not yet in any known doc — retry on next animation
@@ -107,13 +114,14 @@ export function BadgeFocusOverlay() {
       setTimeout(schedule, 200);
     };
     /* The reliable focused-card source. BTakeFocus gamepad nav on the beta
-       never fires focusin/gpfocus, so `getLastFocusedElement()` is the
-       primary signal (same as DeckRow); the `.gpfocus` class DeckRow keeps
-       in sync is the fallback for mouse/hover focus. */
+       never fires focusin/gpfocus, so the shared focusedCardTracker (same
+       poll DeckRow subscribes to, not a separate one) is the primary
+       signal; the `.gpfocus` class DeckRow keeps in sync is the fallback
+       for mouse/hover focus. */
     const resolveFocusedCard = (): HTMLElement | null => {
       try {
-        const active = getLastFocusedElement();
-        const c = active && root.contains(active) ? (active.closest('.ds-card') as HTMLElement | null) : null;
+        const shared = getFocusedCard();
+        const c = shared && root.contains(shared) ? shared : null;
         if (c) return c;
       } catch {}
       return root.querySelector('.ds-card.gpfocus') as HTMLElement | null;
@@ -126,15 +134,15 @@ export function BadgeFocusOverlay() {
       const next = e.relatedTarget as Node | null;
       if (!next || !root.contains(next)) setCurrent(resolveFocusedCard());
     };
-    // Poll the reliable signal (focusin is only a fast path on this beta).
-    const poll = win.setInterval(() => setCurrent(resolveFocusedCard()), 150);
+    setCurrent(resolveFocusedCard());
+    const unsubFocusTracker = subscribeFocusedCard(() => setCurrent(resolveFocusedCard()));
     root.addEventListener('focusin', onFocusIn, true);
     root.addEventListener('focusout', onFocusOut, true);
     win.addEventListener('scroll', schedule, { passive: true, capture: true });
     win.addEventListener('resize', schedule);
     return () => {
       unsubOverlay();
-      win.clearInterval(poll);
+      unsubFocusTracker();
       root.removeEventListener('focusin', onFocusIn, true);
       root.removeEventListener('focusout', onFocusOut, true);
       win.removeEventListener('scroll', schedule, { capture: true } as any);
@@ -143,7 +151,7 @@ export function BadgeFocusOverlay() {
       try { resizeObserver?.disconnect(); } catch {}
       if (raf !== null) win.cancelAnimationFrame(raf);
     };
-  }, [hostKey]);
+  }, [hostKey, gameRunning]);
 
   if (obscured || !state) return null;
   const portalDoc = findHomeRootDoc()?.doc ?? document;

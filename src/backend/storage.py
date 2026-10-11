@@ -97,7 +97,10 @@ def _atomic_write_wrapped(path: str, wrapped: Dict[str, Any]) -> None:
     never block the primary save the caller actually needs to succeed."""
     try:
         os.makedirs(os.path.dirname(path), exist_ok=True)
-        tmp_path = path + ".tmp"
+        # Per-process tmp name: on a dual-host install the other host's backend
+        # mirrors into this same directory, and a shared ".tmp" lets the two
+        # renames race (one of them finds its tmp already gone).
+        tmp_path = f"{path}.{os.getpid()}.tmp"
         with open(tmp_path, "w", encoding="utf-8") as f:
             json.dump(wrapped, f, ensure_ascii=False, indent=2)
             f.flush()

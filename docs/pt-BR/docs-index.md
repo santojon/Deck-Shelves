@@ -15,6 +15,8 @@ para saber o que o plugin faz e como instalá-lo.
 | [smart-shelves.md](smart-shelves.md) | Templates de prateleira inteligente, suas heurísticas, parâmetros de ajuste e quando cada uma aparece |
 | [online-shelves.md](online-shelves.md) | Fontes baseadas em rede (wishlist, loja), cache e comportamento de atualização |
 | [display-modes.md](display-modes.md) | O que os modos Normal, Leve e Avançado mostram e ocultam, cada um |
+| [decky-or-shelveshub.md](decky-or-shelveshub.md) | Os dois hosts lado a lado — plataformas, instalação, atualizações, aba de acesso rápido, os dois juntos |
+| [validation-matrix.md](validation-matrix.md) | Quais combinações de plataforma / canal da Steam / host foram exercitadas na release atual, e como validar uma |
 
 ## Estendendo o plugin
 

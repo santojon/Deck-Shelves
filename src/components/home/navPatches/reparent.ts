@@ -24,7 +24,9 @@ export function reparentNavTreeNodes(mountEl: HTMLElement): number {
   if (!ourNodes.length) {
     const domPresent = !!mountEl.querySelector(".deck-shelves-root");
     if (domPresent) logInfo("HOME", "reparentNavTreeNodes: DS nav node absent from tree while DOM present — focus loss imminent");
-    return 0;
+    // -2: our DOM is on screen but Steam's live tree has no node for it (the
+    // tree was rebuilt under us) — the caller can re-mount to re-register.
+    return domPresent ? -2 : 0;
   }
 
   // Do not perturb the tree while focus is inside our subtree — that

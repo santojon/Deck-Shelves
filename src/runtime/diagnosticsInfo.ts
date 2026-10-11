@@ -28,7 +28,11 @@ export interface RuntimeInfo {
   nonSteamBadges: boolean;
   /** From the host's optional `handshake()` — null on a host that doesn't
    *  implement it (e.g. Decky), not just an empty/missing value. */
-  hostHandshake: { hostKind: string; hostVersion: string; hostApiVersion: string; capabilities: string[] } | null;
+  hostHandshake: {
+    hostKind: string; hostVersion: string; hostApiVersion: string; capabilities: string[];
+    device?: { kind: string; arch: string; model?: string | null };
+    bundleVersion?: string;
+  } | null;
 }
 
 function deckyLoader(): unknown {
@@ -260,6 +264,8 @@ export function collectRuntimeInfo(): RuntimeInfo {
       hostVersion: hs.hostVersion,
       hostApiVersion: hs.hostApiVersion,
       capabilities: Object.keys(hs.capabilities).filter((k) => hs.capabilities[k]).sort(),
+      ...(hs.device ? { device: { kind: hs.device.kind, arch: hs.device.arch, model: hs.device.model ?? null } } : {}),
+      ...(hs.bundleVersion ? { bundleVersion: hs.bundleVersion } : {}),
     } : null,
   };
 }

@@ -9,6 +9,10 @@ Deck Shelves works alongside [CSS Loader](https://github.com/DeckThemes/CSSLoade
 - **ArtHero** — works. Deck Shelves' first shelf picks up the theme's hero-art treatment without stripping any of its own styling.
 - **TiltedHome (Renaissance)** — works, including all four of its tilt-mode combinations (skew/3D × one-way/opposite-facing).
 - **Centered Home** — detected and accounted for in Deck Shelves' own layout math.
+- **Switch Like Home** — works. The first shelf takes the theme's bottom-pinned recents slot with the hero art bleeding under the header, and the remaining shelves scroll in below the first block.
+- **Gray Uninstalled** — works. Not-installed library games on your shelves get the same dimming and grayscale as native capsules, following the theme's own sliders (including the lighter focused values).
+- **Clean Library Capsule** — works. Text cards (games without capsule art) on your shelves take the theme's background color or image, bold text, outline, text color and its hide option, each following the theme's own settings.
+- **Big Art mode (native Steam, not a theme)** and **No Home Tabs** — the shelves render and take focus normally alongside both.
 
 ## How theme detection works, roughly
 

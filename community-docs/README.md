@@ -38,6 +38,7 @@ want; keep it for a pinned Discussion post people will search later.
 
 **Distribution & sync**
 - [shelveshub-install.md](shelveshub-install.md) — ShelvesHub, the new recommended way to install (no Decky Loader needed)
+- [call-for-validators.md](call-for-validators.md) — the 3.3.4 validation call: which platforms still need a named validator and what the ten-minute check looks like
 - [own-qam-tab.md](own-qam-tab.md) — Deck Shelves' own Quick Access tab under Decky Loader
 - [cloud-sync.md](cloud-sync.md) — sync your settings across every device on your Steam account
 

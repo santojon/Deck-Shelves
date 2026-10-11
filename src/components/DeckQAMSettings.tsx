@@ -38,6 +38,7 @@ import { FirstRunBanner } from './qam/modals/FirstRunBanner'
 import { useFirstRunShowcase } from './qam/useFirstRunShowcase'
 import { NotificationAreaToggles } from './qam/NotificationAreaToggles'
 import { MountCrashBanner } from './qam/modals/MountCrashBanner'
+import { SafeModeSlot } from './qam/modals/SafeModeBanner'
 import { RecentsReplaceErrorBanner } from './qam/modals/RecentsReplaceErrorBanner'
 import { getRecentsReplaceFailed, getRecentsReplaceError, subscribeRecentsReplaceFailed } from '../runtime/recentsReplace'
 import { ResetAllModal } from './qam/modals/ResetAllModal'
@@ -537,6 +538,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
       {(() => mountCrashed && (
         <MountCrashBanner controller={controller} error={crashError} onDismiss={() => { setMountCrashed(false); setCrashError(null) }} />
       ))()}
+      <SafeModeSlot controller={controller} />
       {(() => isFirstRun ? <FirstRunBanner controller={controller} /> : null)()}
 
       {/* Profiles section sits ABOVE Behavior; the component hides itself

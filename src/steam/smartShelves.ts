@@ -15,11 +15,50 @@ import { getCurrentSettings } from "../store/settingsStore";
 const resolverCache = new Map<string, { ts: number; ids: number[] }>();
 const DEFAULT_SMART_TTL_MS = 60 * 60 * 1000;
 
+/* Persisted across Steam restarts so a fresh boot can reuse a still-valid
+   result instantly instead of recomputing — a restart used to act as an
+   unintentional full cache wipe. Same TTL rule as the in-memory cache
+   (including `friends_playing`'s own ttl=0); this only extends how long an
+   entry survives, not how freshness is judged. Bounded to the N most recent. */
+const PERSIST_KEY = "ds-smart-shelf-cache-v1";
+const PERSIST_MAX_ENTRIES = 200;
+
+function loadPersistedCache(): void {
+  try {
+    const raw = (globalThis as any).localStorage?.getItem?.(PERSIST_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw) as Record<string, { ts: number; ids: number[] }>;
+    for (const [k, v] of Object.entries(parsed)) {
+      if (v && typeof v.ts === "number" && Array.isArray(v.ids)) resolverCache.set(k, v);
+    }
+  } catch { /* corrupt or private-mode storage — start cold */ }
+}
+loadPersistedCache();
+
+function persistCache(): void {
+  try {
+    const entries = Array.from(resolverCache.entries())
+      .sort((a, b) => b[1].ts - a[1].ts)
+      .slice(0, PERSIST_MAX_ENTRIES);
+    (globalThis as any).localStorage?.setItem?.(PERSIST_KEY, JSON.stringify(Object.fromEntries(entries)));
+  } catch { /* best-effort */ }
+}
+
+let cacheHits = 0;
+let cacheMisses = 0;
+
+/** Read-only hit/miss counts since boot, for the Performance panel. */
+export function getSmartShelfCacheStats(): { hits: number; misses: number } {
+  return { hits: cacheHits, misses: cacheMisses };
+}
+
 function cached(key: string, ttlMs: number, fn: () => number[]): number[] {
   const entry = resolverCache.get(key);
-  if (entry && Date.now() - entry.ts < ttlMs) return entry.ids;
+  if (entry && Date.now() - entry.ts < ttlMs) { cacheHits++; return entry.ids; }
+  cacheMisses++;
   const ids = fn();
   resolverCache.set(key, { ts: Date.now(), ids });
+  persistCache();
   return ids;
 }
 
@@ -1011,11 +1050,12 @@ export const INTERNAL_SMART_MODES: ReadonlySet<string> = new Set([
 ]);
 
 export function invalidateSmartShelfCache(shelfId?: string): void {
-  if (!shelfId) { resolverCache.clear(); return; }
+  if (!shelfId) { resolverCache.clear(); persistCache(); return; }
   // Per-shelf scope: the namespaced cache key starts with `${shelfId}:`.
   // Wipe only those entries so refresh on shelf A doesn't disturb shelf B.
   const prefix = `${shelfId}:`;
   for (const k of Array.from(resolverCache.keys())) {
     if (k.startsWith(prefix)) resolverCache.delete(k);
   }
+  persistCache();
 }

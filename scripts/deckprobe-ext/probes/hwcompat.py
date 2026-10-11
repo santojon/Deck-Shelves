@@ -7,7 +7,7 @@ decodes `steam_hw_compat_category_packed` for a sample of owned apps, cross-
 checking the decode against the named getters when present.
 
 Bit layout and the one confirmed `eGamingDeviceType` value are from a live
-D1 (SSH grep)/D2 (CDP) discovery pass — see `.roadmaps/FRAME-FACTS.md`. Only
+D1 (SSH grep)/D2 (CDP) discovery pass (internal hardware-facts notes). Only
 Deck LCD (544) has ever been confirmed against real hardware; every other
 device type is left unmapped on purpose rather than guessed — filling those
 in for real needs either physical Machine/Frame/Deck OLED hardware or a

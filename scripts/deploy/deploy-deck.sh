@@ -123,10 +123,13 @@ fi
 if [[ "$HARD" == "1" ]]; then
   # Batch: verify + restart plugin_loader + kill Steam in one SSH session.
   # systemctl restart takes ~8 s; ServerAliveInterval keeps the connection alive.
+  # The loader's unit only signals its main PID (KillMode=process), so a plain
+  # restart leaves the previous loader + every plugin backend alive and still
+  # injecting; stop the whole cgroup first, then let the unit restart.
   if [[ -n "${SUDO_PASS}" ]]; then
     ssh "${SSH_ALIVE[@]}" "${USER_NAME}@${HOST}" \
       "test -f '${PLUGIN_DIR}/dist/index.js' || echo '[deploy] WARN: index.js missing'; \
-       printf '%s\n' '${SUDO_PASS}' | sudo -S systemctl restart plugin_loader.service 2>/dev/null; \
+       printf '%s\n' '${SUDO_PASS}' | sudo -S bash -c 'systemctl kill plugin_loader.service; sleep 2; systemctl kill -s KILL plugin_loader.service; systemctl restart plugin_loader.service' 2>/dev/null; \
        killall steam 2>/dev/null || true"
     echo "[deploy] hard reload done."
   else

@@ -2,6 +2,7 @@ import type { FilterGroup, FilterItem } from "../types";
 import { dedupeAppIdsByName } from "./dedupe";
 import { UPDATE_PENDING_STATUSES, APP_STATUS_GROUPS, EAppDisplayStatus } from "./appDisplayStatus";
 import { mark, measure } from "../core/perf";
+import { getAdaptiveTimeout, recordDuration } from "../core/adaptiveTimeout";
 import {
   hasExternalSortOption, applyExternalSort,
   hasExternalFilterType, evaluateExternalFilter,
@@ -1898,23 +1899,45 @@ function collectFromCachedRaw(ids: number[], idCandidates: string[], nameCandida
   }
 }
 
+/* A native Steam Collections RPC can hang indefinitely right after boot
+   (collection subsystem not built yet) — no built-in timeout of its own.
+   Bounded here so a stuck client can't block every shelf that reads it.
+   The bound is learned from real observed durations (adaptiveTimeout)
+   rather than a fixed guess — floor/ceiling keep the same safety range. */
+const COLLECTION_RPC_TIMEOUT_KEY = "collection-rpc";
+
+function withRpcTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const id = setTimeout(() => reject(new Error(`timeout after ${ms}ms`)), ms);
+    promise.then((v) => { clearTimeout(id); resolve(v); }, (e) => { clearTimeout(id); reject(e); });
+  });
+}
+
 async function tryClientCollectionFetch(fn: any, id: string, out: number[]): Promise<void> {
   if (typeof fn !== "function") return;
+  const ms = getAdaptiveTimeout(COLLECTION_RPC_TIMEOUT_KEY, { floor: 500, ceiling: 4000, fallback: 4000 });
+  const startedAt = Date.now();
   try {
-    const res = await fn(id);
+    const res = await withRpcTimeout(Promise.resolve(fn(id)), ms);
+    recordDuration(COLLECTION_RPC_TIMEOUT_KEY, Date.now() - startedAt);
     if (Array.isArray(res)) out.push(...res.map((x: any) => Number(x.appid ?? x)));
   } catch {}
 }
 
 async function collectFromSteamClients(ids: number[], idCandidates: string[]): Promise<void> {
+  // Each call is independently timeout-bounded and only pushes into the
+  // shared `ids` array — safe to fan out in parallel instead of a sequential
+  // await chain (confirmed live: that chain alone added seconds per child).
+  const tasks: Array<Promise<void>> = [];
   for (const sc of getSteamClients()) {
     const collFn = sc?.Collections?.GetCollectionItems?.bind(sc.Collections);
     const storeFn = sc?.CollectionStore?.GetCollectionApps?.bind(sc.CollectionStore);
     for (const id of idCandidates) {
-      await tryClientCollectionFetch(collFn, id, ids);
-      await tryClientCollectionFetch(storeFn, id, ids);
+      tasks.push(tryClientCollectionFetch(collFn, id, ids));
+      tasks.push(tryClientCollectionFetch(storeFn, id, ids));
     }
   }
+  await Promise.all(tasks);
 }
 
 const COLLECTION_STORE_METHODS = [
@@ -3784,21 +3807,33 @@ function compositeChildLimit(overShootLimit: number): number {
 async function resolveCompositeChildren(childSources: any[], ctx: ResolverContext): Promise<number[][]> {
   const { sort, shelfId, sortReverse, options, depth: _depth, overShootLimit } = ctx;
   const childLimit = compositeChildLimit(overShootLimit);
-  /* 15 s hard ceiling per child so a single hung online source (e.g. a
-     wishlist RPC that doesn't time out cleanly) can't park the parent
-     composite resolve forever. Returning `[]` for a misbehaving child
-     still lets the union complete with the rest of the data. */
+  /* Ceiling per child (15s max) so a single hung online source can't park
+     the parent composite resolve forever; a misbehaving child just resolves
+     `[]`. The actual bound is learned per source type (adaptiveTimeout) — a
+     local collection and a network wishlist/store call have very different
+     natural latencies, so each type keeps its own rolling estimate. */
   return Promise.all(
     childSources.map((child) => {
-      const inner = resolveShelfAppIds(child, childLimit, sort, shelfId, sortReverse, options, _depth + 1);
+      const timeoutKey = `composite-child:${child?.type ?? "unknown"}`;
+      const ms = getAdaptiveTimeout(timeoutKey, { floor: 2000, ceiling: 15000, fallback: 15000 });
+      const startedAt = Date.now();
+      /* Cancel the ceiling timer once the child settles. Left running it fires
+         anyway after a SUCCESSFUL resolve — logging a bogus "timed out" that
+         hides which children really are slow — and leaks one pending timer per
+         child per resolve, which adds up fast across home remounts. */
+      let timer: ReturnType<typeof setTimeout> | null = null;
+      const clear = () => { if (timer !== null) { clearTimeout(timer); timer = null; } };
+      const inner = resolveShelfAppIds(child, childLimit, sort, shelfId, sortReverse, options, _depth + 1)
+        .then((r) => { recordDuration(timeoutKey, Date.now() - startedAt); clear(); return r; });
       const fallback = new Promise<number[]>((resolve) => {
-        setTimeout(() => {
-          logWarn("STEAM", "composite child resolve timed out", { type: child?.type, shelfId });
+        timer = setTimeout(() => {
+          timer = null;
+          logWarn("STEAM", "composite child resolve timed out", { type: child?.type, shelfId, ms });
           resolve([]);
-        }, 15000);
+        }, ms);
       });
       return Promise.race([inner, fallback])
-        .catch((e) => { logWarn("STEAM", "composite child resolve failed", String(e)); return [] as number[]; });
+        .catch((e) => { clear(); logWarn("STEAM", "composite child resolve failed", String(e)); return [] as number[]; });
     }),
   );
 }
@@ -3837,13 +3872,57 @@ async function _resolveComposite(ctx: ResolverContext): Promise<number[]> {
 
 // Dispatcher table keyed by `source.type`. Each entry runs in its own
 // function above so the dispatcher itself stays at complexity ~3.
+/* Online (wishlist/store) resolves are network calls — measured ~3.7 s p90 on
+   real hardware — and the home re-resolves every shelf on every rebuild, so
+   reading them live made each return to the home wait seconds, and blow the
+   child timeout, leaving the shelf empty. */
+/* Serve the last result immediately and refresh in the background once it goes
+   stale: the home never waits on the network, and the following resolve already
+   has fresh data. No new timer — the refresh rides resolves that happen anyway. */
+const ONLINE_SWR_TTL_MS = 600_000;
+type OnlineSwrEntry = { ts: number; ids: number[]; refreshing: boolean };
+const onlineSwrCache = new Map<string, OnlineSwrEntry>();
+
+/** Drop cached online resolves (manual refresh / cache management). */
+export function invalidateOnlineResolveCache(): void {
+  onlineSwrCache.clear();
+}
+
+function onlineSwrKey(type: string, ctx: ResolverContext): string {
+  const o = ctx.options ?? {};
+  return JSON.stringify([
+    type, ctx.source, ctx.sort ?? null, ctx.sortReverse ?? null,
+    ctx.overShootLimit, o.hiddenAppIds ?? null, o.dedupeByName ?? null,
+  ]);
+}
+
+function withOnlineSwr(type: string, inner: (ctx: ResolverContext) => Promise<number[]>) {
+  return async (ctx: ResolverContext): Promise<number[]> => {
+    const key = onlineSwrKey(type, ctx);
+    const hit = onlineSwrCache.get(key);
+    if (!hit) {
+      const ids = await inner(ctx);
+      onlineSwrCache.set(key, { ts: Date.now(), ids, refreshing: false });
+      return ids;
+    }
+    if (Date.now() - hit.ts < ONLINE_SWR_TTL_MS) return hit.ids;
+    if (!hit.refreshing) {
+      hit.refreshing = true;
+      void inner(ctx)
+        .then((ids) => { onlineSwrCache.set(key, { ts: Date.now(), ids, refreshing: false }); })
+        .catch(() => { hit.refreshing = false; });
+    }
+    return hit.ids;
+  };
+}
+
 const SOURCE_RESOLVERS: Record<string, (ctx: ResolverContext) => Promise<number[]>> = {
   collection: _resolveCollection,
   tab: _resolveTab,
   filter: _resolveFilter,
   external: _resolveExternal,
-  wishlist: _resolveWishlist,
-  store: _resolveStore,
+  wishlist: withOnlineSwr("wishlist", _resolveWishlist),
+  store: withOnlineSwr("store", _resolveStore),
   smart: _resolveSmart,
   composite: _resolveComposite,
 };

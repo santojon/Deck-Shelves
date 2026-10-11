@@ -4,7 +4,7 @@
    Local storage stays the source of truth; this is a third mirror, same
    LWW-by-timestamp idea the dual-host canonical/loader mirror uses. */
 
-import { getCurrentSettings, saveSettings, subscribeSettings, getSyncBasis, applySyncedBasis } from "../store/settingsStore";
+import { getCurrentSettings, saveSettings, subscribeSettings } from "../store/settingsStore";
 import { mergeSettings } from "../domain/settingsMerge";
 import { isHomeOwner } from "./host/ownerGuard";
 import { notifyUser } from "./notify";
@@ -122,12 +122,13 @@ export function installCloudSync(): () => void {
   let wasEnabled = false;
   let unsub: (() => void) | null = null;
 
-  // Apply a merged snapshot locally WITHOUT re-stamping it — it already carries
-  // the authoritative per-entity clocks from the merge (see settingsStore.saveSettings).
-  async function applyMerged(merged: Settings): Promise<void> {
-    // Adopt into the sync basis: updates the baseline (not the live override)
-    // while a profile is active, else the live config.
-    await applySyncedBasis(merged);
+  /* A profile override is a device-local presentation (a display trigger docks
+     one machine while another stays handheld). While one is active THIS device's
+     sync is frozen — no adopt, no push — so its profile settings never cross
+     devices and nothing fights the profile trigger (which re-applies on device/
+     settings events). Sync resumes when no profile is active. */
+  function overrideActive(s: Settings): boolean {
+    return (s as any)?.activeProfileName != null;
   }
 
   /* One sync pass: merge the local snapshot with the cloud copy per-entity
@@ -149,17 +150,19 @@ export function installCloudSync(): () => void {
 
   async function syncOnce(local: Settings): Promise<void> {
     if (!canSync(local)) return;
+    // Frozen while a profile is active — device-local presentation, see above.
+    if (overrideActive(local)) return;
     const cloud = await readCloud();
     const remote = cloud ? (cloud.settings as unknown as Settings) : null;
     const merged = remote ? mergeSettings(local, remote) : local;
     if (!isReal(merged)) return;
     const mergedPayload = JSON.stringify(preparePayload(merged));
     if (mergedPayload !== JSON.stringify(preparePayload(local))) {
-      lastKnownJson = mergedPayload; // suppress the re-entrant push from applyMerged
-      await applyMerged(merged);
+      lastKnownJson = mergedPayload; // suppress the re-entrant push from the adopt save
+      await saveSettings(merged, { fromSync: true });
       notifyUser(i18n.t("plugin_name"), i18n.t("cloud_sync_applied"), "import", "cloudSync");
     }
-    // Cloud already holds the merged result → nothing to push.
+    // Cloud already holds the merged result → nothing to write.
     if (remote && mergedPayload === JSON.stringify(preparePayload(remote))) { lastKnownJson = mergedPayload; return; }
     const at = await writeCloud(merged);
     if (!at) return;
@@ -174,31 +177,27 @@ export function installCloudSync(): () => void {
     if (debounceTimer) clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => {
       debounceTimer = null;
-      void syncOnce(getSyncBasis() ?? s);
+      void syncOnce(s);
     }, PUSH_DEBOUNCE_MS);
   }
 
-  // Cloud sync always operates on the sync BASIS (the pre-override baseline while
-  // a profile is active, else the live config) so a device-local profile never
-  // propagates and the shared base still converges.
   function onSettingsChange(live: Settings): void {
     const enabled = isFeatureEnabled(live);
-    const basis = getSyncBasis() ?? live;
     if (enabled && !wasEnabled) {
       wasEnabled = true;
-      void syncOnce(basis);
+      void syncOnce(live);
       return;
     }
     wasEnabled = enabled;
     if (!enabled) return;
-    schedulePush(basis);
+    schedulePush(live);
   }
 
   void (async () => {
     const local = getCurrentSettings();
     if (local && isFeatureEnabled(local)) {
       wasEnabled = true;
-      await syncOnce(getSyncBasis() ?? local);
+      await syncOnce(local);
     }
     if (disposed) return;
     unsub = subscribeSettings(onSettingsChange);
@@ -207,7 +206,7 @@ export function installCloudSync(): () => void {
   const pullTimer = setInterval(() => {
     if (disposed) return;
     const live = getCurrentSettings();
-    if (live && isFeatureEnabled(live)) void syncOnce(getSyncBasis() ?? live);
+    if (live && isFeatureEnabled(live)) void syncOnce(live);
   }, PULL_INTERVAL_MS);
 
   return () => {

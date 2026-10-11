@@ -172,7 +172,7 @@ def _sweep_stray_modals(ctx) -> None:
 
 def _open_trigger_modal_for_last_row(ctx) -> bool:
     """The Set-trigger button is always the 2nd action button in a row
-    (after Apply) — present because Sprint work confirmed `profileTriggersEnabled`
+    (after Apply) — present because earlier work confirmed `profileTriggersEnabled`
     is on for this suite to run at all (see the SkipTest guard below)."""
     return ctx.eval(f"""
 (function(){{

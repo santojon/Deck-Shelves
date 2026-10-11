@@ -35,12 +35,19 @@ import { checkForUpdate, __resetUpdateCheckCache } from "./core/updateNotifier";
 import { installOrDownloadUpdate, canSelfInstallUpdate } from "./runtime/updateDownload";
 import { invalidateRandomSortCache } from "./steam";
 import { pruneCache as pruneImageCache, hydrateHotCacheFromStorage } from "./core/imageCache";
+import { pruneShelfCaches } from "./components/shelf/shelfViewHelpers";
 import { isOnline } from "./core/connectivity";
 import { getCurrentSettings, subscribeSettings, wasSettingsRecovered } from "./store/settingsStore";
 import { setPendingSettingsTab } from "./runtime/settingsNav";
 import { pickNewSuggestions } from "./runtime/suggestionNotifier";
 import { notify } from "./components/notify";
 import { logError, logInfo } from "./runtime/logger";
+import { disposeAll, registerDisposer } from "./runtime/runtimeDisposer";
+import { installDevNavHooks } from "./runtime/devNavHooks";
+import { settingsNeedFriends, settingsNeedLaunchers } from "./runtime/featureDemand";
+import { evaluateBootOutcome } from "./runtime/safeMode";
+import type { Settings } from "./types";
+import { markBootStart, recordBootCritical, getPerfSnapshot, hasMountStarted } from "./core/perfMetrics";
 import { Navigation, Focusable, DialogButton, quickAccessMenuClasses } from "./runtime/host/decky";
 import { resolveHost, hostProvidesNativeTab, shouldUseForcedHost, awaitInjectedHost } from "./runtime/host/resolve";
 import { claimHomeOwnership } from "./runtime/host/ownerGuard";
@@ -121,6 +128,7 @@ function TitleView() {
 }
 
 const __ds_entry = definePlugin((serverAPI?: any) => {
+  markBootStart();
   logInfo("RUNTIME", "plugin bootstrap start");
   /* A hot-swap (same host re-evaluating this bundle) skips the OLD
      instance's onDismount, leaving its patches/listeners/timers live
@@ -133,6 +141,10 @@ const __ds_entry = definePlugin((serverAPI?: any) => {
   } catch (error) {
     logError("RUNTIME", "failed to dispose previous instance before hot-swap boot", String(error));
   }
+  // Safety net: catches anything the old instance's manual dispose() list
+  // forgot to wire up by hand (see runtimeDisposer.ts) — a no-op today since
+  // no subsystem registers here yet, additive once one does.
+  try { disposeAll(); } catch {}
   const platform = createDeckyPlatform();
   setPlatform(platform);
   // Image cache pre-hydration + pruning, both deferred to idle so they
@@ -146,6 +158,8 @@ const __ds_entry = definePlugin((serverAPI?: any) => {
     schedule(() => {
       try { void hydrateHotCacheFromStorage(); } catch {}
       try { void pruneImageCache(); } catch {}
+      // Expired per-shelf id caches are never read again, so nothing else drops them.
+      try { pruneShelfCaches(); } catch {}
     });
   } catch {}
   // Resolve `~/Downloads` from the backend so import/export defaults work
@@ -184,20 +198,81 @@ const __ds_entry = definePlugin((serverAPI?: any) => {
   const coopForce = shouldUseForcedHost();
   const isOwner = claimHomeOwnership((coopForce || !(serverAPI || loaderRouterHook)) ? "shelveshub" : "decky");
   if (!isOwner) logInfo("RUNTIME", "another Deck Shelves instance owns the renderer — standing down (no home patch / no settings writes)");
-  const patch = (enableHomePatch && isOwner) ? installHomePatch(routerHook) : null;
-  const recentsReplacePatch = isOwner ? installRecentsReplace(routerHook) : null;
+  /* Safe Mode: after repeated boots where Home started mounting but never
+     finished, skip both Home patches this session so Steam's own Home stays
+     usable; the QAM banner offers the way out (`runtime/safeMode.ts`). */
+  const safeMode = evaluateBootOutcome();
+  if (safeMode) logDiagnostic("warn", "Safe Mode: Home patches skipped after repeated incomplete boots");
+  const patch = (enableHomePatch && isOwner && !safeMode) ? installHomePatch(routerHook) : null;
+  const recentsReplacePatch = (isOwner && !safeMode) ? installRecentsReplace(routerHook) : null;
+
+  /* Startup watchdog: Home's first mount is expected well under a second;
+     20 s is generous, not tight. If it never lands, tear down both Home
+     patches — leaving recentsReplace alone would hide the native recents row
+     with nothing behind it, worse than the stuck injection. Both uninstalls
+     are idempotent, so this can safely race a normal `dispose()`. */
+  /* Only a STARTED-but-unfinished mount is a fault. If Home hasn't rendered at
+     all yet (Steam restarted onto another view, a game, or a settings panel),
+     re-arm instead of disabling — permanently killing the patch there left the
+     plugin looking dead through no fault of the injection. Bounded re-arms. */
+  let watchdogTimer: ReturnType<typeof setTimeout> | null = null;
+  if (patch) {
+    const WATCHDOG_BUDGET_MS = 20000;
+    const MAX_REARMS = 9;
+    let rearms = 0;
+    const checkMount = () => {
+      watchdogTimer = null;
+      if (getPerfSnapshot().mountMs !== null) return;
+      if (!hasMountStarted()) {
+        if (rearms++ >= MAX_REARMS) return; // Home still unopened — stop watching, keep the patch
+        watchdogTimer = setTimeout(checkMount, WATCHDOG_BUDGET_MS);
+        return;
+      }
+      logDiagnostic("warn", "Startup watchdog: Home didn't complete its first mount within budget — disabling Home patch for this session");
+      try { patch.uninstall(); } catch {}
+      try { recentsReplacePatch?.uninstall?.(); } catch {}
+    };
+    watchdogTimer = setTimeout(checkMount, WATCHDOG_BUDGET_MS);
+  }
   const uninstallRefresh = installShelfRefreshEmitter();
   const uninstallSystemEvents = installSystemEvents();
   const uninstallBatteryState = installBatteryState();
   const uninstallDeviceState = installDeviceState();
-  const uninstallDeviceHistoryTracker = installDeviceHistoryTracker();
   const uninstallSessionState = installSessionState();
   const uninstallProfileTriggers = installProfileTriggers();
   // Dev-only: expose the live device snapshot for on-device CDP inspection.
   if (__DEV__) { try { (globalThis as any).__ds_device = getDeviceState; } catch {} }
-  const uninstallFriendsState = installFriendsState();
+  // Dev-only navigation/nav-tree hooks for on-device drivers, via the host abstraction.
+  if (__DEV__) { try { registerDisposer(installDevNavHooks()); } catch {} }
   const uninstallPluginApi = installPluginApi();
-  const uninstallLauncherCache = installLauncherCachePoll();
+
+  /* Phase B (lazy bootstrap): trackers/pollers nothing else in boot() reads
+     synchronously — deferred to idle so they don't compete with the
+     critical path (Home injection, routes, state subscriptions above).
+     `disposed` + cancelSchedule guard the case where dismount happens
+     before idle ever fires. */
+  let uninstallDeviceHistoryTracker: (() => void) | null = null;
+  let uninstallFriendsState: (() => void) | null = null;
+  let uninstallLauncherCache: (() => void) | null = null;
+  let phaseBDisposed = false;
+  const schedulePhaseB = (globalThis as any).requestIdleCallback ?? ((cb: any) => setTimeout(cb, 2000));
+  const cancelPhaseB = (globalThis as any).cancelIdleCallback ?? ((id: any) => clearTimeout(id));
+  /* Phase C (feature demand): the friends poller and the launcher-cache poll
+     only start when the configuration can actually use their data, and start
+     later the moment a settings change introduces such a use. Each starts at
+     most once per boot; the settings subscription below is the only trigger. */
+  let unsubFeatureDemand: (() => void) | null = null;
+  const startOnDemand = (s: Settings | null) => {
+    if (phaseBDisposed) return;
+    if (!uninstallFriendsState && settingsNeedFriends(s)) uninstallFriendsState = installFriendsState();
+    if (!uninstallLauncherCache && settingsNeedLaunchers(s)) uninstallLauncherCache = installLauncherCachePoll();
+  };
+  const phaseBHandle = schedulePhaseB(() => {
+    if (phaseBDisposed) return;
+    uninstallDeviceHistoryTracker = installDeviceHistoryTracker();
+    startOnDemand(getCurrentSettings());
+    unsubFeatureDemand = subscribeSettings(startOnDemand);
+  });
 
   try { routerHook?.addRoute?.(ABOUT_ROUTE, () => (
     <AboutPage />
@@ -456,25 +531,31 @@ const __ds_entry = definePlugin((serverAPI?: any) => {
       uninstallSystemEvents();
       uninstallBatteryState();
       uninstallDeviceState();
-      uninstallDeviceHistoryTracker();
       uninstallSessionState();
       uninstallProfileTriggers();
-      uninstallFriendsState();
       uninstallPluginApi();
-      uninstallLauncherCache();
+      phaseBDisposed = true;
+      try { cancelPhaseB(phaseBHandle); } catch {}
+      unsubFeatureDemand?.();
+      uninstallDeviceHistoryTracker?.();
+      uninstallFriendsState?.();
+      uninstallLauncherCache?.();
       uninstallOwnQamTab?.();
       uninstallShowcaseMode?.();
       uninstallScreensaverInject?.();
       uninstallCloudSync?.();
       unsubUpdateNotify();
       if (updateBootTimer !== null) { clearTimeout(updateBootTimer); updateBootTimer = null; }
+      if (watchdogTimer !== null) { clearTimeout(watchdogTimer); watchdogTimer = null; }
       clearTimeout(suggestTimer);
       clearTimeout(corruptionCheckTimer);
+      disposeAll();
     } catch (error) {
       logError("RUNTIME", "failed to remove patch", String(error));
     }
   };
   try { (globalThis as any).__DECK_SHELVES_INSTANCE__ = { dispose }; } catch {}
+  recordBootCritical();
 
   return {
     name: "Deck Shelves",
