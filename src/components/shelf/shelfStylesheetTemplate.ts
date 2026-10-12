@@ -1,6 +1,8 @@
-// Shelf stylesheet template. Pure CSS string builder.
-// Outer ctx values are computed by the caller in shelfStyles.ts
-// from cachedNativeDims + cachedCardRadius (dim-detector state).
+/* Shelf stylesheet template. Pure CSS string builder.
+   Outer ctx values are computed by the caller in shelfStyles.ts
+   from cachedNativeDims + cachedCardRadius (dim-detector state).
+   Theme-specific rules live in src/themes/adapters and are appended last. */
+import { themeStylesheet } from "../../themes/registry";
 
 export type ShelfStylesheetCtx = {
   cardRadius: string;
@@ -50,81 +52,6 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
        tall flex container when needed. */
     .Panel.ds-shelf {
       height: auto !important;
-    }
-
-    /* ── SLH alt C shim (data-ds-slh="1") ─────────────────────────────────
-       SLH pins the native recents grid to the bottom of a viewport-height,
-       overflow-hidden container; with native recents hidden our promoted shelf
-       sits outside it, so mirror the contract: root at viewport height, the
-       promoted shelf absolute at its bottom. Validated live 2026-10-10: the
-       other shelves must NOT flex-shrink into that fixed-height panel (they
-       collapsed to 0–108 px) and must start below the viewport block. */
-    [data-ds-slh="1"] #deck-shelves-home-root {
-      height: calc(100vh - 56px);
-      position: relative;
-      overflow: visible;
-    }
-    [data-ds-slh="1"] .deck-shelves-root {
-      height: 100%;
-      position: relative;
-    }
-    [data-ds-slh="1"] .deck-shelves-root > .ds-shelf { flex-shrink: 0; }
-    [data-ds-slh="1"] .deck-shelves-root > .ds-shelf[data-ds-recents-slot="true"] + .ds-shelf { margin-top: calc(100vh - 56px); }
-    [data-ds-slh="1"] .ds-shelf[data-ds-recents-slot="true"] {
-      position: absolute !important;
-      bottom: 0 !important;
-      left: 0 !important;
-      right: 0 !important;
-      height: auto !important;
-      /* SLH pads the grid top by the lift amount so the hero image above
-         it doesn't overlap the card row. Mirror via the same variable. */
-      padding-top: calc(var(--SLH-lift-hero-px, 0px) + 6px);
-    }
-    /* SLH pins the promoted shelf (auto height) to the bottom of the block, so
-       the top-relative -56px hero pull started ~60px below the header (black
-       band). Anchor the art to the shelf bottom, viewport + header tall. */
-    [data-ds-slh="1"] .ds-shelf[data-ds-recents-slot="true"] [data-ds-per-shelf-hero="true"] { top: auto !important; bottom: 0 !important; height: calc(100vh + 56px) !important; }
-    /* SLH + ArtHero: the ArtHero flex column still applies inside the
-       absolute-positioned promoted shelf. */
-    [data-ds-slh="1"] .deck-shelves-root[data-ds-hero-label="true"] .ds-shelf[data-ds-recents-slot="true"] {
-      display: flex !important;
-      flex-direction: column;
-    }
-
-    /* SLH's absolute/bottom:0 recents grid anchors to a 0px-height parent,
-       pushing the grid above the viewport. Scoped to the real sibling
-       (marked [data-ds-native-recents] by HomeInject) — the bare aria-label
-       alone also matches unrelated grids (e.g. a Big Art hero carousel). */
-    [data-ds-slh="1"] [data-ds-native-recents="true"] .ReactVirtualized__Grid[aria-label="grid"] {
-      position: relative !important;
-      bottom: auto !important;
-      top: auto !important;
-    }
-
-    /* ── Centered Home shim (data-ds-centered="1") ─────────────────────────
-       The Centered Home theme (by Morz) shifts the library home content into
-       a centered column using a left padding defined by --center-home-padding.
-       DS shelves sit in a portal outside that column and therefore stay
-       full-width, not centered. We compensate by applying the same left-padding
-       variable so DS shelves align with native content.
-
-       NOTE: --center-home-padding name needs verification on a real Deck with
-       the theme active. If the theme uses a different property name, update the
-       detection in ensureStyles() and this rule together. */
-    [data-ds-centered="1"] #deck-shelves-home-root,
-    [data-ds-centered="1"] .deck-shelves-root {
-      padding-left: var(--ds-centered-pad, var(--center-home-padding, 0px));
-      padding-right: var(--ds-centered-pad, var(--center-home-padding, 0px));
-      box-sizing: border-box;
-    }
-    /* The row's own left padding (2.8vw, inline-styled) compounds with the
-       container padding above and offsets cards too far right. Override to 0
-       so cards sit flush with the centered native column. */
-    [data-ds-centered="1"] .ds-shelf .ds-row-scroll {
-      padding-left: 0 !important;
-    }
-    [data-ds-centered="1"] .ds-shelf .ds-shelf-title {
-      padding-left: 0 !important;
     }
 
     /* "Show game info above the cards" (data-ds-info-above) ONLY shows the
@@ -258,15 +185,6 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
       box-shadow: rgba(0, 0, 0, 0.5) 0px 16px 24px 0px !important;
       z-index: 12;
     }
-    /* Suppress our focus drop shadow when the "Focus Highlight Color" theme's
-       Round Compatibility patch is on — that patch removes the native card
-       focus indicator, so DS cards should match. Spec needs the #id prefix
-       to beat the (1,2,0) original focus rule. */
-    #deck-shelves-home-root .deck-shelves-root[data-ds-theme-focus-round-compat="true"] .ds-card:focus,
-    #deck-shelves-home-root .deck-shelves-root[data-ds-theme-focus-round-compat="true"] .ds-card.gpfocus,
-    #deck-shelves-home-root .deck-shelves-root[data-ds-theme-focus-round-compat="true"] .ds-card:hover {
-      box-shadow: none !important;
-    }
     /* Synthetic decoration cards (placeholder=false, the default) render no
        background fill, so the baseline drop shadow paints against nothing —
        suppress it in every state; placeholder=true keeps it so the grey
@@ -300,26 +218,7 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
       opacity: 0 !important;
       animation: none !important;
     }
-    /* Also kill the Game Cover Shine ::after animation/opacity under the same
-       flag — that pseudo paints over the card on focus and isn't controlled
-       by the Round Compat patch on its own. */
-    #deck-shelves-home-root .deck-shelves-root[data-ds-theme-focus-round-compat="true"] .ds-card:focus::after,
-    #deck-shelves-home-root .deck-shelves-root[data-ds-theme-focus-round-compat="true"] .ds-card.gpfocus::after,
-    #deck-shelves-home-root .deck-shelves-root[data-ds-theme-focus-round-compat="true"] .ds-card:hover::after {
-      opacity: 0 !important;
-      animation: none !important;
-    }
     #deck-shelves-home-root { z-index: 10 !important; }
-    /* Round Compat ON: hide the FocusRing entirely. Gated on the html-level
-       flag so the rule can reach the FocusRing's subtree (which sits outside
-       .deck-shelves-root). Hash kept in sync with classmap entry for
-       FocusRing — if a Steam release breaks this, update the class below. */
-    html[data-ds-theme-focus-round-compat="true"] ._1wPplsegQqCoe06wXPhzKT {
-      animation: none !important;
-      border: none !important;
-      outline: none !important;
-      opacity: 0 !important;
-    }
     /* Round Compat OFF: the FocusRing carries TWO visual layers — a static
        white border (Steam native) and a themed colored outline (animated
        blinker). Suppress the border AND switch box-sizing to border-box so
@@ -386,10 +285,6 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
        (there's no native hero behind to mask it). */
     #deck-shelves-home-root .ds-per-shelf-hero-img { opacity: 0 !important; transition: none !important; }
     #deck-shelves-home-root .ds-per-shelf-hero-img.is-loaded { opacity: 1 !important; transition: opacity 0.06s ease !important; }
-    /* TiltedHome integration: see the block scoped under
-       [data-ds-theme-tilted-home="true"] further down. The intermediate
-       skew-based version was removed because it conflicted with the
-       theme's own rotateY transforms. */
     /* Refresh icon spin — driven by class added on click via DOM (not React
        state) so the animation survives the upstream setAppIds() that may
        reconcile the row while playing. The class is re-added each click via
@@ -923,14 +818,6 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
       -webkit-mask-image: var(--ds-hero-mask, linear-gradient(rgb(0,0,0) 90%, rgba(0,0,0,0) calc(100% - 5px)));
     }
 
-    /* Obsidian without ArtHero: apply grayscale+contrast to per-shelf hero
-       images so they match the first shelf. When ArtHero is also active
-       (data-ds-hero-label set on .deck-shelves-root), the first shelf shows
-       colour — so skip grayscale on all per-shelf heroes to match. */
-    [data-ds-obsidian="1"] .deck-shelves-root:not([data-ds-hero-label="true"]) .ds-shelf[data-ds-hero-enabled="true"] .ds-per-shelf-hero-img {
-      filter: grayscale(1) contrast(1.1);
-    }
-
     /* Theme inheritance for promoted (recents-slot) shelves. The slot
        attribute scopes these rules to the first shelf (hideRecents) or to
        every shelf (force on). */
@@ -977,29 +864,6 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
       --ds-hero-h: calc(100% + 110px);
     }
 
-    /* No Hero Gradient — strip mask/zoom on promoted heroes. */
-    [data-ds-theme-no-hero-gradient="true"] .ds-shelf[data-ds-recents-slot="true"] .ds-per-shelf-hero-img {
-      mask-image: none !important;
-      -webkit-mask-image: none !important;
-      filter: none !important;
-      opacity: 1 !important;
-      animation: none !important;
-    }
-
-    /* Hero Fullscreen: promoted shelf fills viewport, flex-end bottom-anchors title/row (was SLH-only, left ArtHero/Big Art floating). */
-    .deck-shelves-root[data-ds-theme-hero-fullscreen="true"] .ds-shelf[data-ds-recents-slot="true"] {
-      height: 100vh !important; --ds-hero-top: 0px; --ds-hero-h: 100vh;
-      display: flex !important; flex-direction: column; justify-content: flex-end;
-    }
-    /* ArtHero header-band pull; Big Art excluded (no such clearance there). */
-    .deck-shelves-root[data-ds-theme-hero-fullscreen="true"]:not([data-ds-theme-big-art="true"])[data-ds-recents-hidden="true"] > .ds-shelf[data-ds-recents-slot="true"]:first-child {
-      margin-top: -56px;
-    }
-    /* Big Art: BOX shrinks by the top +56 (icon clearance) AND a further ~64 at the bottom (the button-legend overlay, outside the DOM — measured from a live screenshot, not a hard constant) so card labels clear it; the ART still bleeds the full height, since native's own hero runs behind both bars. */
-    .deck-shelves-root[data-ds-theme-big-art="true"] .ds-shelf[data-ds-recents-slot="true"] {
-      height: calc(100vh - 120px) !important;
-      --ds-hero-top: -56px; --ds-hero-h: 100vh;
-    }
     /* DS hero-background (compact promoted first shelf, recents hidden): bleed
        only the ART up under the header (like the non-slot rule below) instead of
        margin-top-ing the whole shelf — a whole-box pull glued the cards/title to
@@ -1016,26 +880,7 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
       padding-top: var(--ds-hero-band, 128px);
     }
     .deck-shelves-root[data-ds-recents-hidden="true"] > .ds-shelf[data-ds-hero-enabled="true"]:first-child:not([data-ds-recents-slot="true"]) [data-ds-per-shelf-hero="true"] { --ds-hero-top: -56px; --ds-hero-h: calc(100% + 56px); }
-    /* FORCE: clean page-per-shelf (no margin, no hero fade). */
-    .deck-shelves-root[data-ds-theme-hero-fullscreen="true"][data-ds-force-themes="true"] .ds-shelf { margin-bottom: 0 !important; }
-    .deck-shelves-root[data-ds-theme-hero-fullscreen="true"][data-ds-force-themes="true"] .ds-shelf[data-ds-recents-slot="true"] [data-ds-per-shelf-hero="true"] { mask-image: none !important; -webkit-mask-image: none !important; }
-    /* Gray Uninstalled — mirror the theme's dimming (its own :root variables) on our not-installed library cards; on the art box, not the img, so the load fade stays. */
-    #deck-shelves-home-root .deck-shelves-root[data-ds-theme-gray-uninstalled="true"] .ds-card[data-ds-installed="false"][data-ds-installed] .ds-card-art { opacity: var(--uninstalled-opacity, 0.5) !important; filter: brightness(var(--ds-card-dim, 0.9)) grayscale(var(--uninstalled-grayscale, 100%)) !important; }
-    #deck-shelves-home-root .deck-shelves-root[data-ds-theme-gray-uninstalled="true"] .ds-card[data-ds-installed="false"][data-ds-installed]:is(:focus, .gpfocus, :hover) .ds-card-art { opacity: var(--uninstalled-focus-opacity, 0.9) !important; filter: brightness(1) grayscale(var(--uninstalled-focus-grayscale, 90%)) !important; }
-
-    /* Clean Library Capsule — mirror its text-capsule parts (tokens in data-ds-theme-clc) on our art-less text cards. */
-    #deck-shelves-home-root .deck-shelves-root[data-ds-theme-clc] .ds-card--text .ds-card-text { opacity: 1 !important; }
-    #deck-shelves-home-root .deck-shelves-root[data-ds-theme-clc~="bg"] .ds-card--text .ds-card-art { background: var(--g1-bg-color, #333333aa) !important; }
-    #deck-shelves-home-root .deck-shelves-root[data-ds-theme-clc~="bgimg"] .ds-card--text .ds-card-art { background-image: var(--g1-bg-image) !important; background-size: cover !important; background-repeat: no-repeat !important; background-position: center !important; }
-    #deck-shelves-home-root .deck-shelves-root[data-ds-theme-clc~="color"] .ds-card--text .ds-card-text { color: var(--g1-font-color, #fff); }
-    #deck-shelves-home-root .deck-shelves-root[data-ds-theme-clc~="bold"] .ds-card--text .ds-card-text { font-weight: bold; }
-    #deck-shelves-home-root .deck-shelves-root[data-ds-theme-clc~="outline"] .ds-card--text .ds-card-text { text-shadow: ${Array(20).fill("0 0 var(--g1-stroke-size, 1px) var(--g1-stroke-color, #000)").join(", ")}; }
-    #deck-shelves-home-root .deck-shelves-root[data-ds-theme-clc~="disable"] .ds-card--text .ds-card-text { display: none !important; }
-
-    /* No Home Text — only engages under force (per user spec). */
-    [data-ds-force-themes="true"][data-ds-theme-no-home-text="true"] .ds-shelf[data-ds-recents-slot="true"] .ds-card-label,
-    [data-ds-force-themes="true"][data-ds-theme-no-home-text="true"] .ds-shelf[data-ds-recents-slot="true"] .ds-promoted-hero-label {
-      visibility: hidden !important;
-    }
+    /* ── Theme adapters (src/themes/adapters), in registry order ── */
+    ${themeStylesheet(ctx)}
   `;
 }

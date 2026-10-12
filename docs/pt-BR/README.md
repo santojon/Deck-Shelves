@@ -9,8 +9,8 @@
 
 [![CI](https://github.com/santojon/Deck-Shelves/actions/workflows/ci.yml/badge.svg)](https://github.com/santojon/Deck-Shelves/actions/workflows/ci.yml)
 [![Release](https://github.com/santojon/Deck-Shelves/actions/workflows/release.yml/badge.svg)](https://github.com/santojon/Deck-Shelves/actions/workflows/release.yml)
-[![Tests](https://img.shields.io/badge/vitest-1050%20passed-brightgreen?logo=vitest&logoColor=white)](../../src/test/)
-[![pytest](https://img.shields.io/badge/pytest-213%20passed-brightgreen?logo=pytest&logoColor=white)](../../src/test/test_main.py)
+[![Tests](https://img.shields.io/badge/vitest-1113%20passed-brightgreen?logo=vitest&logoColor=white)](../../src/test/)
+[![pytest](https://img.shields.io/badge/pytest-216%20passed-brightgreen?logo=pytest&logoColor=white)](../../src/test/test_main.py)
 [![TypeCheck](https://img.shields.io/badge/typecheck-clean-brightgreen?logo=typescript&logoColor=white)](../../tsconfig.json)
 [![Compatibility](https://img.shields.io/badge/checks-40%2F40-brightgreen?logo=steamdeck&logoColor=white)](../../scripts/build/validate-compat.mjs)
 [![Platform](https://img.shields.io/badge/platform-SteamOS%20%C2%B7%20Linux%20%C2%B7%20macOS%20%C2%B7%20Windows-purple?logo=steamdeck&logoColor=white)](https://github.com/ValveSoftware/SteamOS)
@@ -193,7 +193,8 @@ Tudo está em **[docs/](docs-index.md)** — comece por lá para o índice compl
 - [Arquitetura](architecture.md) — visão geral do sistema, estrutura do projeto, fluxo de dados, sistemas-chave, internals da Home
 - [Plugin API](plugin-api.md) — registre fontes de prateleira personalizadas a partir de outros plugins
 - [Sistema de filtros](filters.md) — tipos de filtro, grupos, chaves de ordenação, fontes nativas
-- [Templates de prateleira](shelf-templates.md) — presets de templates de prateleira padrão e online
+- [Templates de prateleira](shelf-templates.md) — presets de templates de prateleira padrão e online, e os pacotes de configuração
+- [Frame e Machine](frame-and-machine.md) — famílias de dispositivo, compatibilidade por dispositivo, níveis de VR, ARM64
 - [Prateleiras Inteligentes](smart-shelves.md) — templates de prateleira inteligente, critérios e confiabilidade
 - [Prateleiras online](online-shelves.md) — fontes baseadas em rede, cache e atualização
 - [Modos de exibição](display-modes.md) — o que Normal / Leve / Avançado mostram e ocultam

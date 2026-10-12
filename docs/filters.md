@@ -52,6 +52,8 @@ flowchart LR
 | `isNew` | Added to library within 30 days | — |
 | `deckCompatibility` | Steam Deck compatibility level | `levels`: `["verified", "playable", "unsupported", "unknown"]` |
 | `steamosCompatibility` | SteamOS compatibility rating — distinct from Deck Compatibility (a different Valve rating, same 4-level scale) | `levels`: `["verified", "playable", "unsupported", "unknown"]` |
+| `machineCompatibility` | Steam Machine compatibility rating (the living-room box; same 4-level scale) — see [Frame and Machine](frame-and-machine.md) | `levels`: `["verified", "playable", "unsupported", "unknown"]` |
+| `frameCompatibility` | Steam Frame compatibility rating (the VR headset; same 4-level scale) — see [Frame and Machine](frame-and-machine.md) | `levels`: `["verified", "playable", "unsupported", "unknown"]` |
 | `demo` | Steam demo listings | — |
 | `playedWithinDays` | Played within N days | `days`: number |
 | `playtimeRange` | Total playtime in a range | `minHours`: number, `maxHours`: number (either optional) |
@@ -89,7 +91,7 @@ flowchart LR
 | `genres` | Any of the listed genres | `genres`: string[] |
 | `categories` | Any of the listed store categories | `categories`: string[] |
 | `franchise` | Franchise name contains | `franchise`: string |
-| `vrSupport` | Marked as VR-supported | — |
+| `vrSupport` | VR support level: VR-only titles, titles that support VR, or titles with no VR at all | `levels`: `("only" \| "supported" \| "none")[]` (default `["only", "supported"]`, which matches the old yes/no behavior) |
 | `multiplayerType` | Multiplayer capability | `kind`: `"any"` \| `"single"` \| `"multi"` \| `"coop"` \| `"online"` |
 | `familySharing` | Flagged for Steam Family Sharing | — |
 | `dlcOwned` | Owns at least N DLC | `minCount`: number |

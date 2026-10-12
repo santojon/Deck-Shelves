@@ -8,11 +8,8 @@ import type { Settings } from "../types";
 import { registerTranslations } from "../i18n";
 import { getCurrentSettings, saveSettings, subscribeSettings } from "../store/settingsStore";
 import { triggerShelfRefresh } from "./shelfRefresh";
-import {
-  isTabMasterInstalled,
-  isNonSteamBadgesInstalled,
-  isUnifiDeckInstalled,
-} from "../integrations/registry";
+import { isTabMasterInstalled } from "../integrations/registry";
+import { INTEGRATIONS } from "../integrations/descriptors";
 import { TRIGGER_CATALOG } from "../domain/triggerCatalog";
 import { SHELF_TEMPLATES, ONLINE_SHELF_TEMPLATES } from "../domain/templates";
 import { DEFAULT_BINDINGS } from "../runtime/buttonBindings";
@@ -525,11 +522,9 @@ function projectSavedFilters(s: Settings | null): ReadonlyArray<PublicSavedFilte
   }));
 }
 
-const KNOWN_INTEGRATIONS: ReadonlyArray<{ id: string; displayName: string; detect: () => boolean }> = [
-  { id: "tabmaster", displayName: "TabMaster", detect: isTabMasterInstalled },
-  { id: "unifideck", displayName: "UnifiDeck", detect: isUnifiDeckInstalled },
-  { id: "nonsteambadges", displayName: "Non-Steam Badges", detect: isNonSteamBadgesInstalled },
-];
+// One source for the public capability list: the integration descriptors.
+const KNOWN_INTEGRATIONS: ReadonlyArray<{ id: string; displayName: string; detect: () => boolean }> =
+  INTEGRATIONS.map((i) => ({ id: i.id, displayName: i.label, detect: i.isInstalled }));
 
 function projectProfiles(s: Settings | null): ReadonlyArray<PublicProfile> {
   if (!s) return [];

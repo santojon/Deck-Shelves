@@ -11,7 +11,8 @@ para saber o que o plugin faz e como instalá-lo.
 |---|---|
 | [showcase.md](showcase.md) | Tour visual de toda a interface — home, Quick Access, editores |
 | [filters.md](filters.md) | Todo tipo de filtro e seus parâmetros, grupos de filtro, chaves de ordenação, fontes nativas, prateleiras com múltiplas fontes |
-| [shelf-templates.md](shelf-templates.md) | As prateleiras predefinidas oferecidas ao criar uma prateleira, incluindo as online |
+| [shelf-templates.md](shelf-templates.md) | As prateleiras predefinidas oferecidas ao criar uma prateleira, incluindo as online, e os pacotes de configuração |
+| [frame-and-machine.md](frame-and-machine.md) | Modelo de família de dispositivo, selos e filtros de compatibilidade por dispositivo, níveis de VR, testes sem o hardware, CI ARM64 |
 | [smart-shelves.md](smart-shelves.md) | Templates de prateleira inteligente, suas heurísticas, parâmetros de ajuste e quando cada uma aparece |
 | [online-shelves.md](online-shelves.md) | Fontes baseadas em rede (wishlist, loja), cache e comportamento de atualização |
 | [display-modes.md](display-modes.md) | O que os modos Normal, Leve e Avançado mostram e ocultam, cada um |

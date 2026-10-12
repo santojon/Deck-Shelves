@@ -105,6 +105,11 @@ jobs:
       - name: Package release zip
         run: pnpm run dist
 
+      # ARM64 readiness: the package must carry no x86-only native binary
+      # (it ships Python sources + a JS bundle — the expected answer is none).
+      - name: Package architecture audit
+        run: python3 scripts/ci/elf-arch-audit.py "$(ls deck-shelves-v*.zip | head -1)" --forbid x86_64 --forbid i386
+
       - name: Run compatibility checks
         run: pnpm run validate:compat
 
@@ -158,3 +163,48 @@ jobs:
           SUBMIT_TOKEN: ${{ secrets.SUBMIT_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.SUBMIT_TOKEN || secrets.GITHUB_TOKEN }}
         run: bash scripts/ci/commit-report.sh
+
+  # ARM64 as a first-class target (Steam Frame / ARM SteamOS): the same build,
+  # package, backend tests and architecture audit on a native arm64 runner.
+  validate-arm64:
+    runs-on: ubuntu-24.04-arm
+    if: |
+      github.ref_type == 'tag'
+      || !startsWith(github.event.head_commit.message, 'chore: bump version')
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile=false
+
+      - name: Build plugin (release mode)
+        run: pnpm run build:release
+
+      - name: Package release zip
+        run: pnpm run dist
+
+      - name: Package architecture audit (no x86-only binaries)
+        run: python3 scripts/ci/elf-arch-audit.py "$(ls deck-shelves-v*.zip | head -1)" --forbid x86_64 --forbid i386
+
+      - name: Setup Python
+        run: |
+          python3 -m pip install -U pip setuptools
+          python3 -m pip install pytest
+
+      - name: Run Python unit tests (arm64)
+        run: python3 -m pytest src/test/ -q
+
+      - name: ARM64 backend deps audit
+        run: bash scripts/ci/arm64-pydeps-audit.sh requirements.txt

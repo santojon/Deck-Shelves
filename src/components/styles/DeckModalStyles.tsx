@@ -38,6 +38,11 @@ export function DeckModalStyles() {
       .deck-shelves-modal-scope .${gamepadDialogClasses.GamepadDialogContent} .DialogHeader {
         margin-left: 15px;
       }
+      /* Title-less dialogs (the first-run tour): the native header still renders
+         an empty 28 px band when no title is given — collapse it. */
+      .deck-shelves-modal-scope .ds-tour-modal .DialogHeader {
+        display: none;
+      }
 
       .deck-shelves-modal-scope .name-field .${gamepadDialogClasses.Field} {
         padding-bottom: 16px;

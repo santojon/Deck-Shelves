@@ -140,7 +140,8 @@ src/features/            Feature controllers
       online.ts          Online-features toggles + acceptOnlinePrivacy
       globalVisual.ts    30 global visual setters (consolidated)
       profiles.ts        Usage profiles + unified/lightMode/featureToggle setters
-src/integrations/        Third-party plugin integration (TabMaster, UnifiDeck)
+src/integrations/        Third-party plugin integration (one descriptor per plugin: TabMaster, UnifiDeck, ...)
+src/themes/              Theme compatibility (one adapter per theme under adapters/ + registry)
 src/shims/               React/Decky GamepadUI shims
 src/test/                Vitest test suites
 i18n/                    Locale files

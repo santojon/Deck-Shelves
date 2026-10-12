@@ -18,6 +18,24 @@ Quando o usuário clica em **Criar prateleiras padrão** no banner de primeira e
 | Jogados Recentemente | Filtro — ordenado por `recent` |
 | Adicionados Recentemente | Filtro — ordenado por `added` |
 
+## Pacotes de configuração e o assistente de configuração
+
+O **Assistente de configuração** (menu de Acesso Rápido → "Assistente de configuração", também oferecido ao final do tour de primeira execução) aplica um ponto de partida inteiro de uma vez. Cada pacote é um conjunto dos templates abaixo mais, quando ajuda, algumas prateleiras inteligentes e configurações:
+
+| Pacote | Grupo | Adiciona |
+|---|---|---|
+| Essencial | Configuração rápida | Favoritos, Jogados Recentemente, Adicionados Recentemente |
+| Steam + não-Steam | Configuração rápida | Jogados Recentemente, Instalados, Não-Steam, Favoritos |
+| Resgate do backlog | Pacotes de configuração | Nunca Jogados + prateleiras inteligentes *Resgate do backlog* e *Melhores não jogados* |
+| Deck portátil | Pacotes de configuração | Instalados, Verificados para o Deck + prateleiras inteligentes *Pouca bateria*, *Modo viagem*, *Partida rápida* |
+| Redescobrir | Pacotes de configuração | Mais Jogados + prateleiras inteligentes *Redescobrir*, *Joias esquecidas*, *Joias escondidas* |
+| Sala de estar | Pacotes de configuração | Favoritos, Jogados Recentemente + prateleiras inteligentes *Sessão longa (noite)*, *Escolhas do Deck*; liga a arte de fundo da primeira prateleira e o primeiro jogo em destaque |
+| Frame | Por dispositivo | Jogados Recentemente, Favoritos + prateleiras inteligentes *Partida rápida*, *Pouca bateria* |
+| Machine | Por dispositivo | Favoritos, Jogados Recentemente, Mais Jogados + prateleiras inteligentes *Sessão longa (noite)*, *Escolhas do Deck*; liga a arte de fundo da primeira prateleira |
+| Stream | Por dispositivo | Steam Cloud, Jogados Recentemente + prateleira inteligente *Partida rápida* |
+
+Os pacotes não são destrutivos: um template que você já tem é marcado como "já tem" e pulado, nada é removido, e toda prateleira continua editável depois. O assistente mostra exatamente o que um pacote vai adicionar antes de aplicar, marca os pacotes que combinam com sua biblioteca (a partir das mesmas estatísticas da aba Sugestões) e mantém um passo único **Desfazer a última configuração**, que remove só o que a última aplicação adicionou e restaura as configurações que ela mudou.
+
 ---
 
 ## Todos os templates disponíveis

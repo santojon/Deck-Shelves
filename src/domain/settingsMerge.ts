@@ -101,6 +101,29 @@ function scalarBag(la: any, rb: any, lp: number, rp: number, keepLocal: boolean)
    while the per-entity lists still merge — used while a profile override is
    active so the scalar settings a profile applies stay device-local and never
    tug-of-war across devices. This mode is intentionally NOT symmetric. */
+/* A neutral host's own config entity rides the sync as per-key LWW (its
+   `updatedAt` map), independent of the scalar bag: a device that never had it
+   adopts it, ties keep local, and an empty remote never erases local keys. */
+type HubConfig = { values: Record<string, unknown>; updatedAt: Record<string, number> };
+type Clocks = Record<string, number>;
+
+function hubOrNull(c: HubConfig | null | undefined): HubConfig | null { return c && c.values ? c : null; }
+
+function adoptNewer(values: Record<string, unknown>, clocks: Clocks, k: string, v: unknown, tr: number): void {
+  if (!(k in values) || tr > (clocks[k] ?? 0)) { values[k] = v; clocks[k] = tr; }
+}
+
+export function mergeHubConfig(local: HubConfig | null | undefined, remote: HubConfig | null | undefined): HubConfig | null {
+  const l = hubOrNull(local);
+  const r = hubOrNull(remote);
+  if (!r || Object.keys(r.values).length === 0) return l;
+  if (!l) return r;
+  const values = { ...l.values };
+  const updatedAt: Clocks = { ...(l.updatedAt ?? {}) };
+  for (const [k, v] of Object.entries(r.values)) adoptNewer(values, updatedAt, k, v, r.updatedAt?.[k] ?? 0);
+  return { values, updatedAt };
+}
+
 export function mergeSettings(local: Settings, remote: Settings, opts?: { scalars?: "auto" | "keepLocal" }): Settings {
   const la = local as any, rb = remote as any;
   const lp = prefClock(la), rp = prefClock(rb);
@@ -116,5 +139,7 @@ export function mergeSettings(local: Settings, remote: Settings, opts?: { scalar
     out[key] = mergeList((la[key] ?? []) as Entity[], (rb[key] ?? []) as Entity[], tombstones, orderIds);
   }
   for (const key of LOCAL_ONLY_FIELDS) out[key] = la[key];
+  const hub = mergeHubConfig(la.hubConfig, rb.hubConfig);
+  if (hub) out.hubConfig = hub; else delete out.hubConfig;
   return out as Settings;
 }

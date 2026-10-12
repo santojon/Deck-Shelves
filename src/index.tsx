@@ -51,7 +51,9 @@ import { markBootStart, recordBootCritical, getPerfSnapshot, hasMountStarted } f
 import { Navigation, Focusable, DialogButton, quickAccessMenuClasses } from "./runtime/host/decky";
 import { resolveHost, hostProvidesNativeTab, shouldUseForcedHost, awaitInjectedHost } from "./runtime/host/resolve";
 import { claimHomeOwnership } from "./runtime/host/ownerGuard";
-import { setHostHandshake } from "./runtime/hostHandshake";
+import { setHostHandshake, getHostHandshake } from "./runtime/hostHandshake";
+import { tryDeferToHost, readDeferSignal, hostBundleBooted } from "./runtime/host/coopDefer";
+import pkg from "../package.json";
 import { AboutPage } from "./components/AboutPage";
 import { SettingsPage } from "./components/SettingsPage";
 import { ShelfEditRoute, ShelfDeleteRoute, ShelfComposeRoute } from "./components/ShelfModalRoute";
@@ -185,6 +187,15 @@ const __ds_entry = definePlugin((serverAPI?: any) => {
   // feature detection elsewhere) — cache once so diagnostics/bug-report can
   // read it without a direct HostApi import (see hostHandshake.ts).
   try { setHostHandshake(_hostApi.handshake?.() ?? null); } catch { setHostHandshake(null); }
+  /* Cooperative auto-update (host capability `coopBundle`): when the forced host
+     carries a bundle at least as new as this loader copy, stand down and let it
+     inject its own; a normal boot follows only if that bundle never shows up. */
+  const deferToHost = tryDeferToHost({
+    loaderLaunched: !__ds_selfInvoked, forced: shouldUseForcedHost(),
+    handshake: getHostHandshake(), ownVersion: pkg.version, log: (m) => logInfo("RUNTIME", m),
+    onFallback: () => { try { boot(); } catch (e) { logError("RUNTIME", "boot after host defer failed", String(e)); } },
+  });
+  if (deferToHost) return { name: "Deck Shelves", title: <></>, content: <></>, icon: <DeckShelvesIcon /> };
   // The router hook used for our screens + home patch: the loader's when a loader
   // launched us, or — as sole host — the injected host's own hook.
   const routerHook = loaderRouterHook
@@ -586,6 +597,8 @@ const __ds_entry = definePlugin((serverAPI?: any) => {
    nothing would boot. `__ds_ran` guards both directions so a self-invoke plus
    an unexpected loader call can never run the plugin body twice. */
 let __ds_ran = false;
+// True when this copy booted itself (injected by a neutral host), false when a loader called the export.
+let __ds_selfInvoked = false;
 function __ds_entry_guarded(serverAPI?: any) {
   if (__ds_ran) return undefined;
   __ds_ran = true;
@@ -596,11 +609,14 @@ function __ds_entry_guarded(serverAPI?: any) {
 }
 export default __ds_entry_guarded;
 
-// A loader always wins on a dual-install (see resolveHost()) — only
-// self-invoke when the injected-host signal is present with no loader global.
+/* A loader always wins on a dual-install (see resolveHost()) — only self-invoke
+   when the injected-host signal is present with no loader global. Exception:
+   the cooperative-bundle hand-over — the loader's copy published the defer
+   signal and no host copy has booted yet, so this copy IS the host's bundle. */
 try {
   const g = globalThis as any;
   const hasInjectedHost = !!(g.window?.__SHELVES_HOST__ ?? g.__SHELVES_HOST__);
   const hasLoaderGlobal = !!(g.window?.DFL ?? g.DFL ?? g.window?.deckyFrontendLib ?? g.deckyFrontendLib);
-  if (hasInjectedHost && !hasLoaderGlobal) __ds_entry_guarded();
+  const coopHandOver = readDeferSignal() !== null && !hostBundleBooted();
+  if (hasInjectedHost && (!hasLoaderGlobal || coopHandOver)) { __ds_selfInvoked = true; __ds_entry_guarded(); }
 } catch {}

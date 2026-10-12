@@ -9,12 +9,9 @@ vi.mock('../../core/steamOSVersion', () => ({ getSteamOSVersion: () => '3.6.20' 
 vi.mock('../../core/cssLoaderDetect', () => ({
   isCssLoaderActive: () => true,
   getActiveCssLoaderThemes: () => [],
-  isArtHeroActive: () => false,
-  isTiltedHomeActive: () => true,
-  isHeroFullscreenActive: () => false,
-  isNoHomeTextActive: () => false,
   cssLoaderStyleCount: () => 0,
 }))
+vi.mock('../../themes', () => ({ activeThemeLabels: () => ['TiltedHome'] }))
 vi.mock('../../integrations/registry', () => ({
   isTabMasterInstalled: () => true,
   isUnifiDeckInstalled: () => false,

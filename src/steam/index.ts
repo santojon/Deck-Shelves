@@ -991,6 +991,8 @@ export type AppOverview = {
   installed?: boolean;
   deck_compatibility_category?: number;
   steamos_compatibility_category?: number;
+  machine_compatibility_category?: number;
+  frame_compatibility_category?: number;
   library_capsule?: string;
   library_capsule_filename?: string;
   rt_store_asset_mtime?: number;
@@ -1172,11 +1174,25 @@ function steamosCompatCategory(n: any): number {
     ((((Number(n.steam_hw_compat_category_packed ?? 0) >> 4) & 0x3)) || 0));
 }
 
+// Steam Machine / Steam Frame categories: named getters first, else the
+// confirmed packed layout (machine = bits 6–7, frame = bits 8–9).
+function machineCompatCategory(n: any): number {
+  return Number(n.steam_machine_compat_category ?? n.machine_compatibility_category ??
+    ((((Number(n.steam_hw_compat_category_packed ?? 0) >> 6) & 0x3)) || 0));
+}
+
+function frameCompatCategory(n: any): number {
+  return Number(n.steam_frame_compat_category ?? n.frame_compatibility_category ??
+    ((((Number(n.steam_hw_compat_category_packed ?? 0) >> 8) & 0x3)) || 0));
+}
+
 function buildTypeFields(node: any) {
   const n = node ?? {};
   return {
     deck_compatibility_category: deckCompatCategory(n),
     steamos_compatibility_category: steamosCompatCategory(n),
+    machine_compatibility_category: machineCompatCategory(n),
+    frame_compatibility_category: frameCompatCategory(n),
     app_type: firstNumber(n.app_type, n.appType, n.m_eAppType, n.eAppType) || undefined,
     controller_support: deriveControllerSupport(node),
   };
@@ -2530,6 +2546,8 @@ const FILTER_EVALUATORS: Record<string, FilterEvaluator> = {
   isNew:                  evalIsNew,
   deckCompatibility:      (item, app) => isDeckCompatMatch(app.deck_compatibility_category, item.params?.levels ?? []),
   steamosCompatibility:   (item, app) => isSteamOsCompatMatch(app.steamos_compatibility_category, item.params?.levels ?? []),
+  machineCompatibility:   (item, app) => isDeckCompatMatch(app.machine_compatibility_category, item.params?.levels ?? []),
+  frameCompatibility:     (item, app) => isDeckCompatMatch(app.frame_compatibility_category, item.params?.levels ?? []),
   playedWithinDays:       evalPlayedWithinDays,
   playtimeRange:          evalPlaytimeRange,
   recentlyActive:         evalRecentlyActive,
@@ -4212,6 +4230,8 @@ function buildMetaFromOverview(appid: number, overview?: AppOverview, raw?: any)
     installed: localInstalled !== undefined ? localInstalled : overview?.installed,
     isSteam,
     deckCompatCategory: overview?.deck_compatibility_category,
+    machineCompatCategory: overview?.machine_compatibility_category,
+    frameCompatCategory: overview?.frame_compatibility_category,
     controllerSupport: overview?.controller_support,
     playtimeMinutes: pickPlaytimeMinutes(overview),
     updatePending: resolveUpdatePending(appid, overview, raw),

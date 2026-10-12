@@ -16,6 +16,7 @@ export default defineConfig(({ mode }) => {
         `${new Date().toISOString().slice(0, 16).replace("T", " ")} ${isProd ? "rel" : "dev"}`,
       ),
       __QA_FIRST_RUN__: JSON.stringify(!isProd && process.env.DS_QA_FORCE_FIRST_RUN === "1"),
+      __QA_FORCE_DEVICE__: JSON.stringify(!isProd ? (process.env.DS_QA_FORCE_DEVICE ?? "") : ""),
       __QA_QAM_ERROR__: JSON.stringify(!isProd && process.env.DS_QA_FORCE_QAM_ERROR === "1"),
       __QA_SHELF_ERROR__: JSON.stringify(!isProd && process.env.DS_QA_FORCE_SHELF_ERROR === "1"),
       __QA_ALL_SHELVES_HIDE_RECENTS__: JSON.stringify(!isProd && process.env.DS_QA_FORCE_ALL_SHELVES_HIDE_RECENTS === "1"),

@@ -11,7 +11,8 @@ for what the plugin does and how to install it.
 |---|---|
 | [showcase.md](showcase.md) | Visual tour of every surface — home, Quick Access, editors |
 | [filters.md](filters.md) | Every filter type and its parameters, filter groups, sort keys, built-in sources, multi-source shelves |
-| [shelf-templates.md](shelf-templates.md) | The preset shelves offered when creating a shelf, including the online ones |
+| [shelf-templates.md](shelf-templates.md) | The preset shelves offered when creating a shelf, including the online ones, and the setup packs |
+| [frame-and-machine.md](frame-and-machine.md) | Device family model, per-device compatibility badges and filters, VR levels, testing without the hardware, ARM64 CI |
 | [smart-shelves.md](smart-shelves.md) | Smart-shelf templates, their heuristics, tuning parameters and when each appears |
 | [online-shelves.md](online-shelves.md) | Network-backed sources (wishlist, store), caching and refresh behaviour |
 | [display-modes.md](display-modes.md) | What Normal, Light and Advanced modes each show and hide |

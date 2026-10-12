@@ -8,12 +8,9 @@ import { getSteamOSVersion } from "../core/steamOSVersion";
 import {
   isCssLoaderActive,
   getActiveCssLoaderThemes,
-  isArtHeroActive,
-  isTiltedHomeActive,
-  isHeroFullscreenActive,
-  isNoHomeTextActive,
   cssLoaderStyleCount,
 } from "../core/cssLoaderDetect";
+import { activeThemeLabels } from "../themes";
 import * as pluginRegistry from "../integrations/registry";
 import { getHostHandshake } from "./hostHandshake";
 
@@ -60,11 +57,7 @@ function activeTheme(): string | null {
   // DS-relevant home themes we structurally detect until the fetch resolves.
   const names = getActiveCssLoaderThemes();
   if (names.length) return names.join(", ");
-  const parts: string[] = [];
-  if (isTiltedHomeActive()) parts.push("TiltedHome");
-  if (isArtHeroActive()) parts.push("ArtHero");
-  if (isHeroFullscreenActive()) parts.push("Hero Fullscreen");
-  if (isNoHomeTextActive()) parts.push("No Home Text");
+  const parts = activeThemeLabels();
   return parts.length ? parts.join(", ") : `CSS Loader (${cssLoaderStyleCount()})`;
 }
 

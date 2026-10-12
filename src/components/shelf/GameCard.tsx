@@ -1,4 +1,4 @@
-import { useEffect, useRef, useMemo, useState, memo } from "react";
+import { useRef, useMemo, memo } from "react";
 import { Focusable } from "../../runtime/host/decky";
 import { getAppAssetCacheKey } from "../../core/steamAssets";
 import i18n from "../../i18n";
@@ -6,7 +6,7 @@ import { type DeckRowItem, CARD_W, CARD_ART_H } from "./types";
 import { formatPlaytime } from "./shelfStyles";
 import { PlaceholderCard } from "./PlaceholderCard";
 import { useNearViewport } from "./cardUtils";
-import { getFriendsInApp, subscribeFriendsChanged } from "../../runtime/friendsState";
+import { getFriendsInApp } from "../../runtime/friendsState";
 import { getCurrentSettings, saveSettings } from "../../store/settingsStore";
 import { patchShelfInSettings } from "../../domain/settings";
 import { saveFocusTarget, beginFocusRestoreLoop } from "../../core/focusRestore";
@@ -15,8 +15,9 @@ import { currentPlatformKey } from "../../core/onlineMetadata";
 import { isSteamOSCached, primeSystemPlatform } from "../../runtime/diagnosticsInfo";
 import { getLocalLibraryAppIds } from "../../steam";
 import { trackFeature } from "../../steam/usageTracking";
+import { recordCardRender } from "../../core/perfMetrics";
 import {
-  useCardActivation, useCardInputBindings, useCardQuickLaunchState,
+  useCardActivation, useCardInputBindings, useCardQuickLaunchState, useFriendsInAppKey,
   useNativeCardClassInjection, useCardImageFallback, useCardAssetDecoration,
 } from "./gameCardHooks";
 
@@ -563,6 +564,7 @@ type GameCardProps = {
 
 function GameCardImpl({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHProp, featured = false, cardIndex, hideStatusLine = false, hideNewBadge = false, hideDiscountBadge = false, hideCompatIcons = false, hideNonSteamBadge = false, hideGameName = false, hideInstallIndicator = false, friendsOverlay = false, friendsOverlayRecent = false, enableLogo = false, enableIcon = false, enableDescription = false, descriptionBelowLogo = false, descriptionPosition = 'left', iconVerticalAlign = 'top', gameNamePosition = 'left', playtimePosition = 'left', previewMode = false, removableSet, onRemoveCard, hiddenSet, onHideCard }: GameCardProps) {
   const t = i18n.t.bind(i18n);
+  if (__DEV__) recordCardRender();
   const cardRef = useRef<HTMLDivElement>(null);
   // Gates description fetch + icon/logo/cover cache warming to cards near
   // the visible scroll area — see useNearViewport.
@@ -574,14 +576,9 @@ function GameCardImpl({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHProp
   const { cssW, cssH, cssArtH } = computeCardCssDims({ featured, cardW, cardH, artH });
 
   /* getFriendsInApp (below) is a plain pull read during render, not a prop —
-     without this, a card whose other props stay stable across a friends
-     poll never re-renders to pick up a friend who just started playing.
-     Only subscribes when the decoration is actually on. */
-  const [, forceFriendsTick] = useState(0);
-  useEffect(() => {
-    if (!friendsOverlay || previewMode) return;
-    return subscribeFriendsChanged(() => forceFriendsTick((n) => n + 1));
-  }, [friendsOverlay, previewMode]);
+     this selected key re-renders the card only when ITS friend set changes
+     (a friends poll no longer re-renders every decorated card). */
+  useFriendsInAppKey(appid, friendsOverlay && !previewMode);
 
   const { activate, quickLaunch } = useCardActivation({ cardRef, item, previewMode, appid });
   const cardState = useCardQuickLaunchState(appid, previewMode);

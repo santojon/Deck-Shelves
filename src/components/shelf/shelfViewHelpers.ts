@@ -10,6 +10,8 @@ import { saveFocusTarget } from "../../core/focusRestore";
 import { triggerShelfRefresh } from "../../core/shelfRefresh";
 import { invalidateRandomSortCache } from "../../steam";
 import { invalidateSmartShelfCache } from "../../steam/smartShelves";
+import { compatCategoryForFamily } from "../../domain/deviceProfile";
+import { getDeviceProfile } from "../../runtime/deviceState";
 import { clearOnlineShelfCache } from "../../core/shelfActions";
 
 // Host-parametric UI lib — resolved by the one central resolver in the host
@@ -365,7 +367,9 @@ export function buildOwnedRowItem(params: { appid: number; item: PlatformAppMeta
     heroUrl: item.heroUrl,
     onActivate: () => { saveFocusTarget(appid, shelf.id); platform.navigateToApp(appid); },
     onMenuButton,
-    deckCompatCategory: item.deckCompatCategory,
+    // The badge shows the rating of the device in use (Frame / Machine have
+    // their own); everything else keeps the Deck rating.
+    deckCompatCategory: compatCategoryForFamily(getDeviceProfile().family, item),
     controllerSupport: item.controllerSupport,
     playtimeMinutes: item.playtimeMinutes,
     isInstalled: item.installed,

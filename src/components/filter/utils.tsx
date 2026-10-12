@@ -22,6 +22,8 @@ export const ALL_FILTER_TYPES: FilterItemType[] = [
   "controllerSupport",
   "systemCompatibility",
   "steamosCompatibility",
+  "machineCompatibility",
+  "frameCompatibility",
   "remotePlayLocation",
   "libraryLocation",
   "friends",
@@ -73,6 +75,8 @@ export const ALL_FILTER_TYPES: FilterItemType[] = [
 ];
 
 export const COMPAT_LEVELS = ["verified", "playable", "unsupported", "unknown"] as const;
+// VR in three values (Steam's "VR Only" / "VR Supported" categories, else none).
+export const VR_LEVELS = ["only", "supported", "none"] as const;
 
 /* Every filter type is invertible: the evaluator negates uniformly
    (`evaluateFilterItem`: `item.inverted ? !result : result`), so the editor
@@ -88,6 +92,9 @@ const DEFAULT_PARAMS: Partial<Record<FilterItemType, () => Record<string, any>>>
   hidden: () => ({ mode: "exclude" }),
   deckCompatibility: () => ({ levels: ["verified", "playable"] }),
   steamosCompatibility: () => ({ levels: ["verified", "playable"] }),
+  machineCompatibility: () => ({ levels: ["verified", "playable"] }),
+  frameCompatibility: () => ({ levels: ["verified", "playable"] }),
+  vrSupport: () => ({ levels: ["only", "supported"] }),
   reviewScore: () => ({ op: ">=", value: 75, source: "metacritic" }),
   releaseDate: () => ({ op: "after", ts: 0 }),
   playedWithinDays: () => ({ days: 30 }),
@@ -154,6 +161,8 @@ const PARAM_VALIDATORS: Partial<Record<FilterItem["type"], (p: any) => boolean>>
   hidden: (p) => !!p.mode,
   deckCompatibility: (p) => nonEmptyArray(p.levels),
   steamosCompatibility: (p) => nonEmptyArray(p.levels),
+  machineCompatibility: (p) => nonEmptyArray(p.levels),
+  frameCompatibility: (p) => nonEmptyArray(p.levels),
   reviewScore: (p) => Number(p.value ?? -1) >= 0 && Number(p.value ?? 101) <= 100,
   releaseDate: (p) => Number(p.ts ?? 0) > 0,
   playedWithinDays: (p) => Number(p.days ?? 0) > 0,
@@ -206,6 +215,8 @@ export function getTypeLabel(type: FilterItemType): string {
     controllerSupport: t("filter_type_controller_support"),
     systemCompatibility: t("filter_type_system_compatibility"),
     steamosCompatibility: t("filter_type_steamos_compatibility"),
+    machineCompatibility: t("filter_type_machine_compatibility" as any),
+    frameCompatibility: t("filter_type_frame_compatibility" as any),
     remotePlayLocation: t("filter_type_remote_play"),
     libraryLocation: t("filter_type_library_location"),
     merge: t("filter_type_merge"),

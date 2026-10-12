@@ -139,7 +139,7 @@ function refresh(): boolean {
   _playingByApp = playingByApp;
   _recentByApp = recentByApp;
   if (changed) {
-    try { triggerShelfRefresh(); } catch {}
+    try { triggerShelfRefresh({ deps: ['friends'] }); } catch {}
   }
   /* Unconditional, unlike triggerShelfRefresh above: a card can mount (and
      read getFriendsInApp) between refresh() populating the maps and this

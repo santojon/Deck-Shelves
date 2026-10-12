@@ -35,6 +35,12 @@ export function saveFocusTarget(appid: number, shelfId?: string): void {
   } catch {}
 }
 
+// The card a Home rebuild should land on, if a restore is pending.
+export function getPendingFocusTarget(): { appid: number; shelfId: string | null } | null {
+  if (!pendingAppid || Date.now() - pendingTimestamp > FOCUS_RESTORE_TIMEOUT) return null;
+  return { appid: pendingAppid, shelfId: pendingShelfId };
+}
+
 /* Remember the currently focused DS card as the restore target — for leave
    paths that aren't a card activation (B to Library, QAM, side nav). Nav
    tree first, gpfocus class as fallback. Never overwrites a pending target:

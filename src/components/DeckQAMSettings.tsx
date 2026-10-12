@@ -39,6 +39,7 @@ import { useFirstRunShowcase } from './qam/useFirstRunShowcase'
 import { NotificationAreaToggles } from './qam/NotificationAreaToggles'
 import { MountCrashBanner } from './qam/modals/MountCrashBanner'
 import { SafeModeSlot } from './qam/modals/SafeModeBanner'
+import { SetupWizardEntry } from './qam/modals/SetupWizardEntry'
 import { RecentsReplaceErrorBanner } from './qam/modals/RecentsReplaceErrorBanner'
 import { getRecentsReplaceFailed, getRecentsReplaceError, subscribeRecentsReplaceFailed } from '../runtime/recentsReplace'
 import { ResetAllModal } from './qam/modals/ResetAllModal'
@@ -217,7 +218,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
     return () => setQamExpanded(false);
   }, [setQamExpanded, isActiveTab]);
   // First-run feature showcase (opens once; replayable from the AboutPage).
-  useFirstRunShowcase(settings, actions);
+  useFirstRunShowcase(settings, actions, controller);
   /* Dev-only screenshot hook: opens/closes the sidecar the same way a
      dpad-right chord does (`fireQamExpand` widens the QAM compositor window
      via the opener postMessage AND flips the store) — the store flag alone
@@ -540,6 +541,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
       ))()}
       <SafeModeSlot controller={controller} />
       {(() => isFirstRun ? <FirstRunBanner controller={controller} /> : null)()}
+      <SetupWizardEntry controller={controller} />
 
       {/* Profiles section sits ABOVE Behavior; the component hides itself
           when the user has zero shelves (regular + smart combined). */}

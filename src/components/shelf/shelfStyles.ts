@@ -3,6 +3,7 @@ import { discoverNativeCardDimensions, getRuntimeClassMap, type NativeCardDims }
 import { logInfo } from "../../runtime/logger";
 import { subscribeShelfRefresh } from "../../core/shelfRefresh";
 import { isFocusRoundCompatActive } from "../../core/cssLoaderDetect";
+import { applyDocumentThemeFlags } from "../../themes/registry";
 import { CARD_W, CARD_ART_H, CARD_GAP } from "./types";
 import { buildShelfStylesheet, type ShelfStylesheetCtx } from "./shelfStylesheetTemplate";
 
@@ -381,9 +382,8 @@ function ensureStyles() {
       if (!doc) continue;
       applyStyleVars(doc, radiusChanged, dimsChanged, newBadgeRadiusChanged);
       detectPageBg(doc);
-      detectObsidian(doc);
-      detectSlh(doc);
-      detectCenteredHome(doc);
+      // Document-scoped themes (SLH, Obsidian, Centered Home, …) — see src/themes.
+      applyDocumentThemeFlags(doc);
       detectNativeHeadingColor(doc);
     }
   } catch {
@@ -541,51 +541,6 @@ function detectPageBg(doc: Document): void {
       if (bodyBg && bodyBg !== 'rgba(0, 0, 0, 0)' && bodyBg !== 'transparent') pageBg = bodyBg;
     }
     doc.documentElement.style.setProperty('--ds-page-bg', pageBg || 'rgb(0, 0, 0)');
-  } catch {}
-}
-
-// Obsidian theme: mirror its grayscale+contrast onto per-shelf hero images.
-function detectObsidian(doc: Document): void {
-  try {
-    const obs = getComputedStyle(doc.documentElement).getPropertyValue('--obsidian-main-color').trim();
-    if (obs !== '') doc.documentElement.setAttribute('data-ds-obsidian', '1');
-    else doc.documentElement.removeAttribute('data-ds-obsidian');
-  } catch {}
-}
-
-// SLH theme locks the home to viewport height; mark documentElement so the
-// stylesheet applies layout overrides. Detected via --SLH-lift-hero-px.
-function detectSlh(doc: Document): void {
-  try {
-    const slh = getComputedStyle(doc.documentElement).getPropertyValue('--SLH-lift-hero-px').trim();
-    if (slh !== '') doc.documentElement.setAttribute('data-ds-slh', '1');
-    else doc.documentElement.removeAttribute('data-ds-slh');
-  } catch {}
-}
-
-// Centered Home shifts content into a centered column via a padding var whose
-// name varies; copy the first present one into --ds-centered-pad.
-function detectCenteredHome(doc: Document): void {
-  try {
-    const root = doc.documentElement;
-    const cs = getComputedStyle(root);
-    const candidates = [
-      '--center-home-padding', '--centered-home-padding',
-      '--center-home-padding-x', '--center-home-x',
-      '--ch-padding', '--centered-padding',
-    ];
-    let chVal = '';
-    for (const name of candidates) {
-      const v = cs.getPropertyValue(name).trim();
-      if (v !== '') { chVal = v; break; }
-    }
-    if (chVal !== '') {
-      root.setAttribute('data-ds-centered', '1');
-      root.style.setProperty('--ds-centered-pad', chVal);
-    } else {
-      root.removeAttribute('data-ds-centered');
-      root.style.removeProperty('--ds-centered-pad');
-    }
   } catch {}
 }
 

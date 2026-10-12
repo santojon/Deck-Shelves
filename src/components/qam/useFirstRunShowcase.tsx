@@ -1,13 +1,15 @@
 import { useEffect, useRef } from 'react';
 import { openManagedModal } from './common/openManagedModal';
 import { ShowcaseModal } from './modals/ShowcaseModal';
+import { openSetupWizard } from './modals/SetupWizardEntry';
 import { getCurrentSettings } from '../../settingsStore';
 
 /* Open the first-run feature showcase once — the first time the QAM mounts with
    settings loaded and the tour not yet seen. Marking it seen (Skip/Finish) keeps
    it from reappearing; the AboutPage replay button clears the flag to bring it
-   back. Extracted from DeckQAMSettings to keep that file under the line cap. */
-export function useFirstRunShowcase(settings: any, actions: any): void {
+   back. The closing screen's choices act through the controller: "configure
+   now" opens the setup wizard, "default" creates the default shelves. */
+export function useFirstRunShowcase(settings: any, actions: any, controller?: any): void {
   const opened = useRef(false);
   useEffect(() => {
     /* Gate on the LOADED settings (getCurrentSettings() is null until the first
@@ -17,6 +19,13 @@ export function useFirstRunShowcase(settings: any, actions: any): void {
     const loaded = getCurrentSettings();
     if (opened.current || !loaded || (loaded as any).showcaseSeen === true) return;
     opened.current = true;
-    openManagedModal((close) => <ShowcaseModal closeModal={close} onComplete={() => void actions?.setShowcaseSeen?.(true)} />);
-  }, [settings, actions]);
+    openManagedModal((close) => (
+      <ShowcaseModal
+        closeModal={close}
+        onComplete={() => void actions?.setShowcaseSeen?.(true)}
+        onConfigure={controller ? () => openSetupWizard(controller) : undefined}
+        onDefault={actions?.createDefaultShelves ? () => void actions.createDefaultShelves() : undefined}
+      />
+    ));
+  }, [settings, actions, controller]);
 }

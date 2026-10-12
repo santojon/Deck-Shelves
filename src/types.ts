@@ -27,6 +27,8 @@ export const FilterItemTypeSchema = z.enum([
   "controllerSupport",
   "systemCompatibility",
   "steamosCompatibility",
+  "machineCompatibility",
+  "frameCompatibility",
   "remotePlayLocation",
   "libraryLocation",
   "merge",
@@ -727,6 +729,23 @@ export const SettingsSchema = z.object({
   // Set once the first-run feature showcase has been seen/dismissed; the
   // AboutPage "replay" button clears it back so the tour can be shown again.
   showcaseSeen: z.boolean().optional(),
+  // Setup wizard (setup packs / recipes): seen flag + the last apply, kept so
+  // the wizard can offer a one-step revert of exactly what it added/changed.
+  setupWizardSeen: z.boolean().optional(),
+  lastSetupApply: z.object({
+    packId: z.string(),
+    at: z.number(),
+    addedShelfIds: z.array(z.string()),
+    addedSmartIds: z.array(z.string()),
+    prevSettings: z.record(z.string(), z.unknown()),
+  }).nullish(),
+  // Opaque entity a neutral host stores to carry its OWN config across the
+  // user's devices on the plugin's sync (per-key last-writer-wins by
+  // `updatedAt`). The plugin never reads or edits the values.
+  hubConfig: z.object({
+    values: z.record(z.string(), z.unknown()),
+    updatedAt: z.record(z.string(), z.number()),
+  }).nullish(),
   profiles: z.array(z.object({
     id: z.string(),
     updatedAt: z.number().int().nonnegative().optional(),

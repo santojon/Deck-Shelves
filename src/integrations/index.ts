@@ -1,6 +1,10 @@
 // Plugin registry
 export { isPluginInstalled, isTabMasterInstalled, isExternalTabsProviderInstalled, isNonSteamBadgesInstalled } from './registry';
 
+// Integration descriptors (what each plugin provides + presence)
+export { INTEGRATIONS, installedIntegrations, integrationsProviding, integrationPresence } from './descriptors';
+export type { IntegrationDescriptor, IntegrationCapability } from './descriptors';
+
 // TabMaster integration
 export {
   isTabMasterContextValue,

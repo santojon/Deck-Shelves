@@ -32,7 +32,8 @@ import { subscribeSessionState, getSessionState } from "../runtime/sessionState"
 import { subscribePerfState, stopFrameSampler } from "../runtime/perfState";
 import { subscribePeripheralsState } from "../runtime/peripheralsState";
 import { flowChildrenProps } from "../core/steamOSVersion";
-import { isCssLoaderActive, getNativeRecentsClassName, isArtHeroActive, isNoHeroGradientActive, isHeroFullscreenActive, isNoHomeTextActive, isFocusRoundCompatActive, isTiltedHomeActive, getTiltedHomeMode, isBigArtModeActive, isGrayUninstalledActive, getCleanCapsuleFeatures } from "../core/cssLoaderDetect";
+import { isCssLoaderActive, getNativeRecentsClassName } from "../core/cssLoaderDetect";
+import { applyRootThemeFlags, clearRootThemeFlags } from "../themes";
 import { BadgeFocusOverlay } from "./shelf/BadgeFocusOverlay";
 import { FriendsAvatarOverlay } from "./shelf/FriendsAvatarOverlay";
 import { computeNormalShelves, computeShelvesOrder, computeInterleaveSmart, computeDerivedGlobalFlags, computeEnabledSmartShelves, computeCanHideRecents, applyRecentsFocusTrap, teardownObservers, teardownHistoryPatches, dispatchHideRecentsDisabled, anyShelfHasItems } from "./home/homeInjectHelpers";
@@ -585,7 +586,7 @@ export function HomeShelves({ fallback = false }: { fallback?: boolean }) {
     const t = window.setTimeout(() => {
       for (const id of timeAwareIds) invalidateSmartShelfCache(id);
       setVisibilityTick((n) => n + 1);
-      try { triggerShelfRefresh(); } catch {}
+      try { triggerShelfRefresh({ deps: ['time'] }); } catch {}
     }, delay);
     return () => window.clearTimeout(t);
   }, [settings?.smartShelvesEnabled, smartList, visibilityTick]);
@@ -1119,75 +1120,10 @@ function ShelvesContainer({ mountEl, shelves, onSettleChange, globalMatchNativeS
       if (on) root.setAttribute(attr, 'true');
       else root.removeAttribute(attr);
     };
-    // Mirror a flag onto <html> of every reachable Steam document. Needed
-    // when a rule must target an element OUTSIDE .deck-shelves-root (e.g.
-    // the native FocusRing overlay, which lives in its own subtree).
-    const setHtmlFlag = (attr: string, on: boolean) => {
-      try {
-        const docs: Document[] = [];
-        const seen = new Set<Document>();
-        const add = (d: Document | null | undefined) => {
-          if (!d || seen.has(d)) return;
-          seen.add(d);
-          docs.push(d);
-        };
-        add(document);
-        add(getPreferredSteamDocument());
-        for (const d of getAllSteamDocuments()) add(d);
-        for (const d of docs) {
-          if (on) d.documentElement.setAttribute(attr, 'true');
-          else d.documentElement.removeAttribute(attr);
-        }
-      } catch {}
-    };
     const apply = () => {
       try {
-        setFlag('data-ds-hero-label', isArtHeroActive());
-        // Theme flags — CSS in shelfStyles.ts scopes the visual change via
-        // data-ds-recents-slot (first shelf or all under force).
-        setFlag('data-ds-theme-no-hero-gradient', isNoHeroGradientActive());
-        setFlag('data-ds-theme-hero-fullscreen', isHeroFullscreenActive());
-        /* Separate from hero-fullscreen: some of its CSS (the ArtHero-tuned
-           -56px pull-up) assumes ArtHero's own native clearance under the
-           header — native Big Art doesn't have that same clearance, so the
-           same pull crowds the shelf title into the icon row there. */
-        setFlag('data-ds-theme-big-art', isBigArtModeActive());
-        setFlag('data-ds-theme-no-home-text', isNoHomeTextActive());
-        setFlag('data-ds-theme-gray-uninstalled', isGrayUninstalledActive());
-        const clc = getCleanCapsuleFeatures().join(' ');
-        if (clc) root.setAttribute('data-ds-theme-clc', clc); else root.removeAttribute('data-ds-theme-clc');
-        /* TiltedHome flag — when set, the shelfStyles.ts CSS gates a
-           perspective + rotateY transform onto DS cards using the
-           SAME `--ren-tilt-angle` (and friends) variables the theme
-           exposes at `:root`, so DS shelves match the user's tilt
-           intensity without us having to fork the values. */
-        const tilted = isTiltedHomeActive();
-        setFlag('data-ds-theme-tilted-home', tilted);
-        /* TiltedHome variants — emit method + direction so shelfStyles.ts
-           CSS can gate the precise transform on the actually-installed
-           mode (user picks among independent CSS Loader modules). Cleared
-           when TiltedHome isn't active. */
-        const mode = tilted ? getTiltedHomeMode() : null;
-        const setStrFlag = (attr: string, val: string | null | undefined) => {
-          try {
-            const doc = getPreferredSteamDocument();
-            const docs = [doc, ...getAllSteamDocuments()].filter((x): x is Document => !!x);
-            for (const d of docs) {
-              const r = d.querySelector('.deck-shelves-root') as HTMLElement | null;
-              if (r) {
-                if (val) r.setAttribute(attr, val);
-                else r.removeAttribute(attr);
-              }
-            }
-          } catch {}
-        };
-        setStrFlag('data-ds-theme-tilt-method', mode?.method ?? null);
-        setStrFlag('data-ds-theme-tilt-direction', mode?.direction ?? null);
-        const roundCompat = isFocusRoundCompatActive();
-        setFlag('data-ds-theme-focus-round-compat', roundCompat);
-        // Mirror to <html> so the FocusRing suppression rule can reach the
-        // FocusRing element (which sits outside .deck-shelves-root).
-        setHtmlFlag('data-ds-theme-focus-round-compat', roundCompat);
+        // Every supported theme's flags (and <html> mirrors) — see src/themes.
+        applyRootThemeFlags(root);
         // Force-themes flag — gates theme rules that should only engage
         // under force (e.g. No Home Text per user spec).
         setFlag('data-ds-force-themes', forceCssLoaderThemes);
@@ -1223,17 +1159,10 @@ function ShelvesContainer({ mountEl, shelves, onSettleChange, globalMatchNativeS
     return () => {
       for (const o of observers) { try { o.disconnect(); } catch {} }
       try {
-        root.removeAttribute('data-ds-hero-label');
-        root.removeAttribute('data-ds-theme-no-hero-gradient');
-        root.removeAttribute('data-ds-theme-hero-fullscreen');
-        root.removeAttribute('data-ds-theme-big-art');
-        root.removeAttribute('data-ds-theme-no-home-text');
-        root.removeAttribute('data-ds-theme-tilted-home');
-        root.removeAttribute('data-ds-theme-focus-round-compat');
+        clearRootThemeFlags(root);
         root.removeAttribute('data-ds-force-themes');
         root.removeAttribute('data-ds-recents-hidden');
       } catch {}
-      setHtmlFlag('data-ds-theme-focus-round-compat', false);
     };
   }, [mountEl, forceCssLoaderThemes, hideRecentsSetting]);
 
@@ -1311,9 +1240,9 @@ function ShelvesContainer({ mountEl, shelves, onSettleChange, globalMatchNativeS
       {...flowChildrenProps("column")}
       style={{ width: "100%", display: shelvesRevealed ? "flex" : "none", flexDirection: "column", paddingBottom: 8, marginBottom: 24, position: "relative" }}
     >
-      {orderedShelves.map((shelf: any) => {
+      {orderedShelves.map((shelf: any, shelfIndex: number) => {
         const ac = computeAutoCollapse(shelf, autoCollapseEnabled);
-        return <ShelfView key={shelf.id} shelf={shelf} forceCollapsed={ac.forceCollapsed} autoCollapseWhenEmpty={ac.autoCollapseWhenEmpty} globalMatchNativeSize={globalMatchNativeSize} globalHighlightFirst={globalHighlightFirst} globalHighlightAll={globalHighlightAll} globalHighlightRandom={globalHighlightRandom} globalHideStatusLine={globalHideStatusLine} globalHideNewBadge={globalHideNewBadge} globalHideDiscountBadge={globalHideDiscountBadge} globalHideCompatIcons={globalHideCompatIcons} globalHideNonSteamBadge={globalHideNonSteamBadge} globalHideShelfTitle={globalHideShelfTitle} globalHideGameNames={globalHideGameNames} globalHideInstallIndicator={globalHideInstallIndicator} globalHideSeeMore={globalHideSeeMore} globalHideRefreshCard={globalHideRefreshCard} globalDedupeByName={globalDedupeByName} globalHeroEnabled={globalHeroEnabled} globalGameInfoAbove={globalGameInfoAbove} globalFriendsPlayingOverlay={globalFriendsPlayingOverlay} globalFriendsPlayingOverlayRecent={globalFriendsPlayingOverlayRecent} globalEnableLogo={globalEnableLogo} globalEnableIcon={globalEnableIcon} globalEnableDescription={globalEnableDescription} globalDescriptionBelowLogo={globalDescriptionBelowLogo} globalLogoBelowShelf={globalLogoBelowShelf} globalLogoPosition={globalLogoPosition} globalDescriptionPosition={globalDescriptionPosition} globalLogoSize={globalLogoSize} globalLogoTopOffset={globalLogoTopOffset} globalFullPageShelf={globalFullPageShelf} globalIconVerticalAlign={globalIconVerticalAlign} globalShelfTitlePosition={globalShelfTitlePosition} globalGameNamePosition={globalGameNamePosition} globalPlaytimePosition={globalPlaytimePosition} globalDescriptionHeight={globalDescriptionHeight} heroForced={perShelfHeroAllowed && shelfHeroBackground && shelf.id === firstVisibleId} heroLabelMount={perShelfHeroAllowed && (forceCssLoaderThemes || (hideRecentsSetting && shelf.id === firstVisibleId))} forceExpanded={hideRecentsSetting && shelf.id === firstVisibleId} forceLayoutAsRecents={forceCssLoaderThemes && !(hideRecentsSetting && shelf.id === firstVisibleId)} />;
+        return <ShelfView key={shelf.id} shelf={shelf} eagerRender={shelfIndex < 2} forceCollapsed={ac.forceCollapsed} autoCollapseWhenEmpty={ac.autoCollapseWhenEmpty} globalMatchNativeSize={globalMatchNativeSize} globalHighlightFirst={globalHighlightFirst} globalHighlightAll={globalHighlightAll} globalHighlightRandom={globalHighlightRandom} globalHideStatusLine={globalHideStatusLine} globalHideNewBadge={globalHideNewBadge} globalHideDiscountBadge={globalHideDiscountBadge} globalHideCompatIcons={globalHideCompatIcons} globalHideNonSteamBadge={globalHideNonSteamBadge} globalHideShelfTitle={globalHideShelfTitle} globalHideGameNames={globalHideGameNames} globalHideInstallIndicator={globalHideInstallIndicator} globalHideSeeMore={globalHideSeeMore} globalHideRefreshCard={globalHideRefreshCard} globalDedupeByName={globalDedupeByName} globalHeroEnabled={globalHeroEnabled} globalGameInfoAbove={globalGameInfoAbove} globalFriendsPlayingOverlay={globalFriendsPlayingOverlay} globalFriendsPlayingOverlayRecent={globalFriendsPlayingOverlayRecent} globalEnableLogo={globalEnableLogo} globalEnableIcon={globalEnableIcon} globalEnableDescription={globalEnableDescription} globalDescriptionBelowLogo={globalDescriptionBelowLogo} globalLogoBelowShelf={globalLogoBelowShelf} globalLogoPosition={globalLogoPosition} globalDescriptionPosition={globalDescriptionPosition} globalLogoSize={globalLogoSize} globalLogoTopOffset={globalLogoTopOffset} globalFullPageShelf={globalFullPageShelf} globalIconVerticalAlign={globalIconVerticalAlign} globalShelfTitlePosition={globalShelfTitlePosition} globalGameNamePosition={globalGameNamePosition} globalPlaytimePosition={globalPlaytimePosition} globalDescriptionHeight={globalDescriptionHeight} heroForced={perShelfHeroAllowed && shelfHeroBackground && shelf.id === firstVisibleId} heroLabelMount={perShelfHeroAllowed && (forceCssLoaderThemes || (hideRecentsSetting && shelf.id === firstVisibleId))} forceExpanded={hideRecentsSetting && shelf.id === firstVisibleId} forceLayoutAsRecents={forceCssLoaderThemes && !(hideRecentsSetting && shelf.id === firstVisibleId)} />;
       })}
       <BadgeFocusOverlay />
       <FriendsAvatarOverlay />

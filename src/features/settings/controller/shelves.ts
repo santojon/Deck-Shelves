@@ -3,6 +3,7 @@ import type { Settings, Shelf, ShelfFilter, ShelfSource } from "../../../types";
 import { addShelfToSettings, deleteShelfFromSettings, moveShelf, normalizeFilter, patchShelfInSettings } from "../../../domain/settings";
 import { createDefaultShelf, createDefaultSource, randomShelfId } from "../../../domain/defaults";
 import { DEFAULT_SHELF_TEMPLATES } from "../../../domain/templates";
+import { setupPackById, applySetupPack, revertSetupApply } from "../../../domain/setupPacks";
 import { writeJsonFile, readJsonFile } from "../../../settingsStore";
 import { createSnapshot } from "../../../store/settingsStore";
 import { notify } from "../../../components/notify";
@@ -160,6 +161,35 @@ export function createShelfActions(deps: ShelvesDeps) {
       }
       await persist(next);
       setSelectedId(next.shelves[0]?.id ?? null);
+    },
+    /* Setup wizard: apply a pack non-destructively (existing shelves kept,
+       covered templates skipped) and remember the apply so it can be undone. */
+    async applySetupPack(packId: string): Promise<boolean> {
+      const s = liveSettings();
+      const pack = setupPackById(packId);
+      if (!s || !pack) return false;
+      const { next } = applySetupPack(s, pack, {
+        template: (tpl) => t(tpl.titleKey as any),
+        smart: (mode) => t(`smart_template_${mode}` as any),
+      });
+      await persist(next);
+      setSelectedId(next.shelves[0]?.id ?? null);
+      try { trackFeature("setup_pack"); } catch {}
+      notify("success", { body: t("setup_applied_toast" as any), area: "shelves" });
+      return true;
+    },
+    async revertSetupPack(): Promise<boolean> {
+      const s = liveSettings();
+      const record = (s as any)?.lastSetupApply;
+      if (!s || !record) return false;
+      await persist(revertSetupApply(s, record));
+      notify("reset", { body: t("setup_reverted_toast" as any), area: "shelves" });
+      return true;
+    },
+    async setSetupWizardSeen(seen: boolean) {
+      const s = liveSettings();
+      if (!s || ((s as any).setupWizardSeen ?? false) === seen) return;
+      await persist({ ...s, setupWizardSeen: seen } as any);
     },
     async addShelfWith(title: string, source: ShelfSource): Promise<Shelf | undefined> {
       const s = liveSettings();

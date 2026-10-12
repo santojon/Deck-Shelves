@@ -1,6 +1,5 @@
 
-import { Spinner } from "../runtime/host/decky";
-import { memo, useEffect, useMemo, useState, useRef } from "react";
+import { memo, useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import type { Shelf } from "../types";
 import { usePlatform } from "../runtime/platformContext";
@@ -8,6 +7,7 @@ import type { PlatformAppMeta } from "../runtime/platform";
 import { DeckRow, type DeckRowItem } from "./DeckRow";
 import { shouldShowMoreCard, shouldShowRefreshCard } from "./shelf/trailingCards";
 import { subscribeShelfRefresh } from "../core/shelfRefresh";
+import { shelfDependencies, depsIntersect } from "../domain/shelfDeps";
 import { maybeSubscribeContextInvalidation } from "../core/contextAwareShelves";
 import { hasExternalSource } from "../core/pluginApi";
 import { mark, measure } from "../core/perf";
@@ -28,6 +28,10 @@ import {
   computeShelfCacheKey, SHELF_CACHE_TTL_MS, shouldSkipShelf, resolveHighlightRandom,
 } from "./shelf/shelfViewHelpers";
 import { getShelfWarmEntry, setShelfWarmEntry, markShelfResolved, type ShelfWarmEntry } from "./shelf/shelfWarmState";
+import { readShelfMetaCache, writeShelfMetaCache } from "./shelf/shelfMetaCache";
+import { ShelfSkeleton } from "./shelf/ShelfSkeleton";
+import { stabilizeRowItems } from "./shelf/rowItemsStable";
+import { recallShelfHeight } from "./shelf/shelfViewportGate";
 
 // Cross-source name key: same normalisation as the wishlist compare so
 // "Kingdom Come Deliverance" (non-Steam) matches "Kingdom Come: Deliverance".
@@ -183,7 +187,7 @@ function renderUnavailableSourceNotice(title: string, message: string) {
   );
 }
 
-function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFirst = false, globalHighlightAll = false, globalHighlightRandom = false, globalHideStatusLine = false, globalHideNewBadge = false, globalHideDiscountBadge = false, globalHideCompatIcons = false, globalHideNonSteamBadge = false, globalHideShelfTitle = false, globalHideGameNames = false, globalHideInstallIndicator = false, globalHideSeeMore = false, globalHideRefreshCard = false, globalHeroEnabled = false, globalGameInfoAbove = false, globalFriendsPlayingOverlay = false, globalFriendsPlayingOverlayRecent = false, globalDedupeByName = false, globalEnableLogo = false, globalEnableIcon = false, globalEnableDescription = false, globalDescriptionBelowLogo = false, globalLogoBelowShelf = false, globalLogoPosition = 'left', globalDescriptionPosition = 'left', globalLogoSize = 100, globalLogoTopOffset = 20, globalFullPageShelf = false, globalIconVerticalAlign, globalShelfTitlePosition, globalGameNamePosition, globalPlaytimePosition, globalDescriptionHeight, heroForced = false, heroLabelMount = false, forceExpanded = false, forceLayoutAsRecents = false, forceCollapsed = false, autoCollapseWhenEmpty = false }: { shelf: Shelf; globalMatchNativeSize?: boolean; globalHighlightFirst?: boolean; globalHighlightAll?: boolean; globalHighlightRandom?: boolean; globalHideStatusLine?: boolean; globalHideNewBadge?: boolean; globalHideDiscountBadge?: boolean; globalHideCompatIcons?: boolean; globalHideNonSteamBadge?: boolean; globalHideShelfTitle?: boolean; globalHideGameNames?: boolean; globalHideInstallIndicator?: boolean; globalHideSeeMore?: boolean; globalHideRefreshCard?: boolean; globalHeroEnabled?: boolean; globalGameInfoAbove?: boolean; globalFriendsPlayingOverlay?: boolean; globalFriendsPlayingOverlayRecent?: boolean; globalDedupeByName?: boolean; globalEnableLogo?: boolean; globalEnableIcon?: boolean; globalEnableDescription?: boolean; globalDescriptionBelowLogo?: boolean; globalLogoBelowShelf?: boolean; globalLogoPosition?: 'left' | 'center' | 'right'; globalDescriptionPosition?: 'left' | 'center' | 'right'; globalLogoSize?: number; globalLogoTopOffset?: number; globalFullPageShelf?: boolean; globalIconVerticalAlign?: 'top' | 'center' | 'bottom' | null; globalShelfTitlePosition?: 'left' | 'center' | 'right' | null; globalGameNamePosition?: 'left' | 'center' | 'right' | null; globalPlaytimePosition?: 'left' | 'center' | 'right' | null; globalDescriptionHeight?: number | null; heroForced?: boolean; heroLabelMount?: boolean; forceExpanded?: boolean; forceLayoutAsRecents?: boolean; forceCollapsed?: boolean; autoCollapseWhenEmpty?: boolean }) {
+function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFirst = false, globalHighlightAll = false, globalHighlightRandom = false, globalHideStatusLine = false, globalHideNewBadge = false, globalHideDiscountBadge = false, globalHideCompatIcons = false, globalHideNonSteamBadge = false, globalHideShelfTitle = false, globalHideGameNames = false, globalHideInstallIndicator = false, globalHideSeeMore = false, globalHideRefreshCard = false, globalHeroEnabled = false, globalGameInfoAbove = false, globalFriendsPlayingOverlay = false, globalFriendsPlayingOverlayRecent = false, globalDedupeByName = false, globalEnableLogo = false, globalEnableIcon = false, globalEnableDescription = false, globalDescriptionBelowLogo = false, globalLogoBelowShelf = false, globalLogoPosition = 'left', globalDescriptionPosition = 'left', globalLogoSize = 100, globalLogoTopOffset = 20, globalFullPageShelf = false, globalIconVerticalAlign, globalShelfTitlePosition, globalGameNamePosition, globalPlaytimePosition, globalDescriptionHeight, heroForced = false, heroLabelMount = false, forceExpanded = false, forceLayoutAsRecents = false, forceCollapsed = false, autoCollapseWhenEmpty = false, eagerRender = true }: { shelf: Shelf; eagerRender?: boolean; globalMatchNativeSize?: boolean; globalHighlightFirst?: boolean; globalHighlightAll?: boolean; globalHighlightRandom?: boolean; globalHideStatusLine?: boolean; globalHideNewBadge?: boolean; globalHideDiscountBadge?: boolean; globalHideCompatIcons?: boolean; globalHideNonSteamBadge?: boolean; globalHideShelfTitle?: boolean; globalHideGameNames?: boolean; globalHideInstallIndicator?: boolean; globalHideSeeMore?: boolean; globalHideRefreshCard?: boolean; globalHeroEnabled?: boolean; globalGameInfoAbove?: boolean; globalFriendsPlayingOverlay?: boolean; globalFriendsPlayingOverlayRecent?: boolean; globalDedupeByName?: boolean; globalEnableLogo?: boolean; globalEnableIcon?: boolean; globalEnableDescription?: boolean; globalDescriptionBelowLogo?: boolean; globalLogoBelowShelf?: boolean; globalLogoPosition?: 'left' | 'center' | 'right'; globalDescriptionPosition?: 'left' | 'center' | 'right'; globalLogoSize?: number; globalLogoTopOffset?: number; globalFullPageShelf?: boolean; globalIconVerticalAlign?: 'top' | 'center' | 'bottom' | null; globalShelfTitlePosition?: 'left' | 'center' | 'right' | null; globalGameNamePosition?: 'left' | 'center' | 'right' | null; globalPlaytimePosition?: 'left' | 'center' | 'right' | null; globalDescriptionHeight?: number | null; heroForced?: boolean; heroLabelMount?: boolean; forceExpanded?: boolean; forceLayoutAsRecents?: boolean; forceCollapsed?: boolean; autoCollapseWhenEmpty?: boolean }) {
   const { t } = useTranslation();
   const platform = usePlatform();
   const cacheKey = computeShelfCacheKey(shelf);
@@ -195,18 +199,29 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
   const warmRef = useRef<ShelfWarmEntry | null | undefined>(undefined);
   if (warmRef.current === undefined) warmRef.current = getShelfWarmEntry(shelf.id);
   const warm = warmRef.current;
+  // Set when the ids came from the persisted cache (no warm entry): the shelf
+  // then counts as resolved for the ordered reveal and may paint from disk.
+  const diskSeededRef = useRef(false);
   const [appIds, setAppIds] = useState<number[] | null>(() => {
     if (warm) return warm.appIds;
     try {
       const raw = localStorage.getItem(cacheKey);
       if (raw) {
         const { ts, ids } = JSON.parse(raw);
-        if (Date.now() - ts < SHELF_CACHE_TTL_MS) return primaryEffectiveSort === "manual" ? applyManualOrder(ids, (shelf as any).manualOrder, (shelf as any).hiddenAppIds) : ids;
+        if (Date.now() - ts < SHELF_CACHE_TTL_MS) {
+          diskSeededRef.current = true;
+          return primaryEffectiveSort === "manual" ? applyManualOrder(ids, (shelf as any).manualOrder, (shelf as any).hiddenAppIds) : ids;
+        }
       }
     } catch (e) { logInfo("HOME", "shelf cache read failed", String(e)); }
     return null;
   });
-  const [items, setItems] = useState<Map<number, PlatformAppMeta>>(() => warm ? new Map(warm.items) : new Map());
+  // Warm first paint from disk: the last persisted card meta for the cached ids
+  // renders real cards on the first commit; the live meta replaces it in place.
+  const [items, setItems] = useState<Map<number, PlatformAppMeta>>(() => {
+    if (warm) return new Map(warm.items);
+    return (diskSeededRef.current && appIds?.length ? readShelfMetaCache(cacheKey, appIds) : null) ?? new Map();
+  });
   // Resolver's pre-applyManualOrder ids — used to compute the X-button
   /* "Remove from shelf" set on the home shelf. Cards in manualOrder but
      NOT in `sourceIds` are the menu-added games (truly removable);
@@ -219,9 +234,15 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
   // forces rowItems to re-read `getCachedDiscount` so the badge appears.
   const [priceVersion, setPriceVersion] = useState(0);
   const [ownedNames, setOwnedNames] = useState<Set<string> | null>(null);
-  // A warm-seeded mount already has a complete first render; it must not
-  // show the first-load meta spinner or blank itself on a failed re-resolve.
-  const firstLoad = useRef(!warm);
+  // A warm- or disk-seeded mount already has a complete first render; it must
+  // not show the first-load skeleton or blank itself on a failed re-resolve.
+  const firstLoad = useRef(!warm && items.size === 0);
+  useEffect(() => { if (diskSeededRef.current) markShelfResolved(shelf.id); }, [shelf.id]);
+  /* Vertical virtualization: a shelf below the first screenful keeps a
+     same-height placeholder until it comes within reach of the viewport
+     (observed by the placeholder), then mounts its row for good. */
+  const [near, setNear] = useState(eagerRender);
+  const onNear = useCallback(() => setNear(true), []);
   const [metaVersion, setMetaVersion] = useState(0);
   /* Increments on every `resolve()` call; each in-flight promise captures
      the id at start and bails on completion if the id has advanced —
@@ -303,7 +324,11 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
        shelf still re-resolves, but only the one matching `opts.shelfId`
        (or all when no shelfId is set, as a defensive fallback for any
        future caller that doesn't carry a scope) shows the dim flash. */
+    // A tagged signal only re-resolves shelves whose data it touches
+    // (domain/shelfDeps); manual and untagged signals reach every shelf.
+    const deps = shelfDependencies(shelf.source, shelf.sort as any);
     const unsubRefresh = subscribeShelfRefresh((opts) => {
+      if (!opts?.manual && !depsIntersect(deps, opts?.deps)) return;
       const showVisual = !!opts?.manual && (!opts.shelfId || opts.shelfId === shelf.id);
       resolve(showVisual ? { manual: true } : undefined);
     });
@@ -379,9 +404,11 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
           catch { return [appid, { appid, name: `App ${appid}` }]; }
         }));
       }
+      if (cancelled) return;
+      writeShelfMetaCache(cacheKey, appIds, new Map(results));
       // Merge instead of replace so cards don't flash to placeholder
       // while the new results land.
-      if (!cancelled) setItems((prev) => {
+      setItems((prev) => {
         const next = new Map(prev);
         for (const [id, meta] of results) next.set(id, meta);
         return next;
@@ -514,7 +541,14 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
     return () => { unpublishShelf(shelf.id); };
   }, [shelf.id, shelf.title, appIds, items]);
 
+  const prevRowItemsRef = useRef<DeckRowItem[]>([]);
   const rowItems = useMemo((): DeckRowItem[] => {
+    const stable = stabilizeRowItems(prevRowItemsRef.current, buildRowItems());
+    prevRowItemsRef.current = stable;
+    return stable;
+  }, [appIds, items, storeNames, ownedNames, ownedAppIds, shouldHideOwned, shelf.id, shelf.limit, shelf.source, shelf.sort, shelf.title, platform, t, globalHideSeeMore, globalHideRefreshCard, (shelf as any).hideSeeMore, (shelf as any).hideRefreshCard, jsonOrNull((shelf as any).syntheticCards), priceVersion]);
+
+  function buildRowItems(): DeckRowItem[] {
     if (!appIds?.length) return [];
     // Online treatment also applies when the shelf is a composite whose
     // children include a wishlist / store source — shelf-invariant, so
@@ -557,7 +591,7 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
     // so a position past the last game still lands in the visible row.
     insertSyntheticCards(base, shelf);
     return base;
-  }, [appIds, items, storeNames, ownedNames, ownedAppIds, shouldHideOwned, shelf.id, shelf.limit, shelf.source, shelf.sort, shelf.title, platform, t, globalHideSeeMore, globalHideRefreshCard, (shelf as any).hideSeeMore, (shelf as any).hideRefreshCard, jsonOrNull((shelf as any).syntheticCards), priceVersion]);
+  }
 
   /* Menu-added games (in manualOrder, not in resolved source) — DeckRow uses
      this to bind X=Remove on those cards (vs X=Hide on the rest). Kept above
@@ -572,7 +606,10 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
   }, [manualOrder, sourceIds]);
 
   if (shouldSkipShelf(shelf)) return null;
-  if (appIds === null) return <div style={{ padding: 10 }}><Spinner /></div>;
+  // Skeletons keep the shelf's slot (title + card-sized boxes) from the first
+  // commit, so the Home's structure is visible in its final order at once.
+  const hideSkeletonTitle = globalHideShelfTitle || (shelf as any).hideShelfTitle === true;
+  if (appIds === null) return <ShelfSkeleton shelf={shelf} count={Math.min(shelf.limit ?? 8, 8)} hideTitle={hideSkeletonTitle} />;
   if (!appIds.length) return null;
 
   // Spinner during the meta-fetch transition is gated to first load only.
@@ -584,13 +621,14 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
      first successful render, transitions just keep the prior content
      visible until the new meta lands. */
   if (shouldShowMetaSpinner(rowItems.length, items.size, metaVersion, firstLoad.current)) {
-    return <div style={{ padding: 10 }}><Spinner /></div>;
+    return <ShelfSkeleton shelf={shelf} count={Math.min(appIds.length, 10)} hideTitle={hideSkeletonTitle} />;
   }
   if (!rowItems.length) {
     return unavailableExternalSourceId(shelf)
       ? renderUnavailableSourceNotice(shelf.title, t('shelf_source_unavailable'))
       : null;
   }
+  if (!near) return <ShelfSkeleton shelf={shelf} count={Math.min(rowItems.length, 10)} hideTitle={hideSkeletonTitle} onNear={onNear} heightHint={recallShelfHeight(shelf.id)} />;
 
   // Random-featured rule: stable per shelf id, ~25 % of cards. Implementation
   // pulled out to `computeRandomHighlightSet` to keep render complexity under

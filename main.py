@@ -62,7 +62,7 @@ from plugin_host import logger
 # continues to work for existing pytest suites + any external callers.
 from paths import _steam_install_candidates, _normalize_path, _validate_json_export_path
 from storage import _settings_dir, _primary_file, _safe_read_json, _backups_dir, _write_versioned_backup, _list_backups, _is_safe_backup_name, _export_backup, _import_backup, _delete_backup, _clear_backups, AUTO_THROTTLE_SECONDS, _read_wrapped, sync_mirror, reconcile_settings, _canonical_settings_dir, _loader_settings_dir, _is_corrupt_json, _recover_wrapped, _quarantine_corrupt_primary
-from sanitizer import _sanitize_settings
+from sanitizer import _sanitize_settings, merge_hub_config
 from css_themes import read_css_loader_themes
 from display_state import read_display_state
 from perf_probe import read_perf_snapshot
@@ -344,6 +344,10 @@ class Plugin:
         clean = _sanitize_settings(data)
         try:
             current = self._read_state()
+            # The host's own config entity merges per key with what is on disk
+            # (the frontend may carry a stale copy of a key the host updated).
+            if isinstance(current, dict) and (current.get("hubConfig") or clean.get("hubConfig")):
+                clean["hubConfig"] = merge_hub_config(current.get("hubConfig"), clean.get("hubConfig"))
             if json.dumps(current, sort_keys=True) == json.dumps(clean, sort_keys=True):
                 return True
         except Exception:

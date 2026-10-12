@@ -9,8 +9,8 @@
 
 [![CI](https://github.com/santojon/Deck-Shelves/actions/workflows/ci.yml/badge.svg)](https://github.com/santojon/Deck-Shelves/actions/workflows/ci.yml)
 [![Release](https://github.com/santojon/Deck-Shelves/actions/workflows/release.yml/badge.svg)](https://github.com/santojon/Deck-Shelves/actions/workflows/release.yml)
-[![Tests](https://img.shields.io/badge/vitest-1050%20passed-brightgreen?logo=vitest&logoColor=white)](src/test/)
-[![pytest](https://img.shields.io/badge/pytest-213%20passed-brightgreen?logo=pytest&logoColor=white)](src/test/test_main.py)
+[![Tests](https://img.shields.io/badge/vitest-1113%20passed-brightgreen?logo=vitest&logoColor=white)](src/test/)
+[![pytest](https://img.shields.io/badge/pytest-216%20passed-brightgreen?logo=pytest&logoColor=white)](src/test/test_main.py)
 [![TypeCheck](https://img.shields.io/badge/typecheck-clean-brightgreen?logo=typescript&logoColor=white)](tsconfig.json)
 [![Compatibility](https://img.shields.io/badge/checks-40%2F40-brightgreen?logo=steamdeck&logoColor=white)](scripts/build/validate-compat.mjs)
 [![Platform](https://img.shields.io/badge/platform-SteamOS%20%C2%B7%20Linux%20%C2%B7%20macOS%20%C2%B7%20Windows-purple?logo=steamdeck&logoColor=white)](https://github.com/ValveSoftware/SteamOS)
@@ -193,7 +193,8 @@ Everything lives in **[docs/](docs/README.md)** — start there for the full ind
 - [Architecture](docs/architecture.md) — system overview, project structure, data flow, key systems, Home internals
 - [Plugin API](docs/plugin-api.md) — register custom shelf sources from other plugins
 - [Filter System](docs/filters.md) — filter types, groups, sort keys, built-in sources
-- [Shelf Templates](docs/shelf-templates.md) — standard and online shelf template presets
+- [Shelf Templates](docs/shelf-templates.md) — standard and online shelf template presets, and the setup packs
+- [Frame and Machine](docs/frame-and-machine.md) — device families, per-device compatibility, VR levels, ARM64
 - [Smart Shelves](docs/smart-shelves.md) — smart shelf templates, criteria, and reliability
 - [Online shelves](docs/online-shelves.md) — network-backed sources, caching and refresh
 - [Display modes](docs/display-modes.md) — what Normal / Light / Advanced show and hide

@@ -4,6 +4,7 @@ import { MoreCard } from "./MoreCard";
 import { RefreshCard } from "./RefreshCard";
 import { SyntheticCard } from "./SyntheticCard";
 import type { DeckRowItem } from "./types";
+import type { CardWindow } from "../../domain/cardWindow";
 
 /* Shared `items.map → GameCard/RefreshCard/MoreCard` loop used by both the
    home shelf (DeckRow) and the EditShelfModal preview. Pure presentational
@@ -64,6 +65,10 @@ export interface ShelfRowProps {
   onRemoveCard?: (appid: number) => void;
   hiddenSet?: Set<number>;
   onHideCard?: (appid: number) => void;
+  /* Cards outside [start, end) mount as same-sized, non-focusable slots so the
+     row keeps its width and scroll geometry while only the visible span (plus
+     overscan) pays for a real card. Absent = mount everything (preview). */
+  window?: CardWindow | null;
 }
 
 function ShelfRowImpl({
@@ -83,10 +88,18 @@ function ShelfRowImpl({
   onRemoveCard,
   hiddenSet,
   onHideCard,
+  window,
 }: ShelfRowProps) {
   return (
     <>
       {items.map((item, idx) => {
+        if (window && (idx < window.start || idx >= window.end)) {
+          const wide = item.synthetic ? item.synthetic.size === "featured"
+            : (!item.isRefresh && !item.isMoreLink && (highlightAll || (highlightFirst && idx === 0) || (!!highlightedSet && item.appid !== undefined && highlightedSet.has(item.appid))));
+          const w = wide && featuredW !== undefined ? featuredW : cardW;
+          const h = wide && featuredH !== undefined ? featuredH : cardH;
+          return <div key={item.id} className="ds-card-slot" aria-hidden="true" style={{ width: w, minWidth: w, height: h, flexShrink: 0 }} />;
+        }
         if (item.synthetic) {
           const isFeat = item.synthetic.size === "featured";
           return (

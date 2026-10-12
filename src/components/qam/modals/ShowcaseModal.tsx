@@ -20,21 +20,45 @@ const STEPS: Step[] = [
   { Icon: ToolsIcon, title: 'showcase_tools_title', body: 'showcase_tools_body' },
 ]
 
-/* First-run guided tour of the main features. Shown once (marked via
-   `onComplete`) and replayable from the AboutPage. Skip and Finish both end
-   the tour; the physical Menu button advances like every other modal. */
-export function ShowcaseModal({ closeModal, onComplete }: { closeModal?: () => void; onComplete?: () => void }) {
+/* Leaner tour: the welcome screen, then the features two per screen (same
+   content, fewer taps), then a closing screen with the three ways to start —
+   configure now (setup wizard), the default shelves, or from scratch. */
+const SCREENS: Step[][] = [[STEPS[0]], [STEPS[1], STEPS[2]], [STEPS[3], STEPS[4]], [STEPS[5], STEPS[6]], [STEPS[7], STEPS[8]], [STEPS[9]]]
+const FINAL = SCREENS.length // index of the closing choice screen
+
+function StepBlock({ step, hero }: { step: Step; hero: boolean }) {
   const { t } = useTranslation()
-  const [step, setStep] = useState(0)
-  const last = step === STEPS.length - 1
+  const Icon = step.Icon
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+      {hero
+        ? <div style={{ display: 'flex', padding: '4px 0' }}><DeckShelvesWordmark width={240} /></div>
+        : <div style={{ color: 'var(--ds-accent, #4a9eff)', display: 'flex' }}><Icon size={36} /></div>}
+      <div style={{ fontSize: 16, fontWeight: 700, textAlign: 'center', width: '100%' }}>{t(step.title)}</div>
+      <div style={{ fontSize: 13, lineHeight: 1.45, opacity: 0.85, maxWidth: 460 }}>{t(step.body)}</div>
+    </div>
+  )
+}
+
+/* First-run guided tour. Shown once (marked via `onComplete`) and replayable
+   from the AboutPage. Skip and Finish both end the tour; the physical Menu
+   button advances like every other modal. `onConfigure` / `onDefault` wire
+   the closing choices when the caller can act on them (the QAM can; the
+   AboutPage replay only shows the tour). */
+export function ShowcaseModal({ closeModal, onComplete, onConfigure, onDefault }: { closeModal?: () => void; onComplete?: () => void; onConfigure?: () => void; onDefault?: () => void }) {
+  const { t } = useTranslation()
+  const [screen, setScreen] = useState(0)
+  const last = screen === FINAL
   const end = () => { try { onComplete?.() } catch {} ; closeModal?.() }
-  const next = () => { if (last) end(); else setStep((s) => s + 1) }
-  const cur = STEPS[step]
-  const Icon = cur.Icon
+  const next = () => { if (last) end(); else setScreen((s) => s + 1) }
+  const choose = (fn?: () => void) => { end(); try { fn?.() } catch {} }
+  const total = SCREENS.length + 1
   return (
     <ModalShell>
+      {/* No dialog title: each screen carries its own heading. The wrapper class
+          lets the modal stylesheet collapse the empty native header band. */}
+      <div className='ds-tour-modal'>
       <ConfirmModal
-        strTitle={t('showcase_title')}
         strOKButtonText={last ? t('showcase_finish') : t('showcase_next')}
         strCancelButtonText={t('showcase_skip')}
         onOK={next}
@@ -42,28 +66,33 @@ export function ShowcaseModal({ closeModal, onComplete }: { closeModal?: () => v
         onEscKeypress={end}
       >
         <Focusable onMenuButton={next} onMenuActionDescription={last ? t('showcase_finish') : t('showcase_next')}>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 10, padding: '10px 6px 4px' }}>
-            {/* Welcome step shows the full brand wordmark (D-symbol + shelf, its
-                own fills); the other steps use monochrome accent glyphs. */}
-            {step === 0
-              ? <div style={{ display: 'flex', padding: '4px 0' }}><DeckShelvesWordmark width={240} /></div>
-              : <div style={{ color: 'var(--ds-accent, #4a9eff)', display: 'flex' }}><Icon size={44} /></div>}
-            <div style={{ fontSize: 17, fontWeight: 700, textAlign: 'center', width: '100%' }}>{t(cur.title)}</div>
-            <div style={{ fontSize: 13, lineHeight: 1.5, opacity: 0.85, maxWidth: 460 }}>{t(cur.body)}</div>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 12, padding: '10px 6px 4px' }}>
+            {last ? (
+              <>
+                <div style={{ fontSize: 17, fontWeight: 700 }}>{t('showcase_final_title' as any)}</div>
+                <div style={{ fontSize: 13, lineHeight: 1.5, opacity: 0.85, maxWidth: 460 }}>{t('showcase_final_body' as any)}</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: '100%', maxWidth: 360 }}>
+                  {onConfigure && <DialogButton onClick={() => choose(onConfigure)} onOKButton={() => choose(onConfigure)} onOKActionDescription={t('showcase_choice_configure' as any)}>{t('showcase_choice_configure' as any)}</DialogButton>}
+                  {onDefault && <DialogButton onClick={() => choose(onDefault)} onOKButton={() => choose(onDefault)} onOKActionDescription={t('showcase_choice_default' as any)}>{t('showcase_choice_default' as any)}</DialogButton>}
+                  <DialogButton onClick={() => choose()} onOKButton={() => choose()} onOKActionDescription={t('showcase_choice_scratch' as any)}>{t('showcase_choice_scratch' as any)}</DialogButton>
+                </div>
+              </>
+            ) : SCREENS[screen].map((step, i) => <StepBlock key={step.title} step={step} hero={screen === 0 && i === 0} />)}
             <div style={{ display: 'flex', gap: 6, padding: '4px 0 2px' }}>
-              {STEPS.map((_, i) => (
-                <div key={i} style={{ width: 8, height: 8, borderRadius: 999, background: i === step ? 'var(--ds-accent, #4a9eff)' : 'rgba(255,255,255,0.25)' }} />
+              {Array.from({ length: total }, (_, i) => (
+                <div key={i} style={{ width: 8, height: 8, borderRadius: 999, background: i === screen ? 'var(--ds-accent, #4a9eff)' : 'rgba(255,255,255,0.25)' }} />
               ))}
             </div>
-            <div style={{ fontSize: 11, opacity: 0.5 }}>{t('showcase_progress', { current: step + 1, total: STEPS.length })}</div>
-            {step > 0 && (
-              <DialogButton style={{ minWidth: 120, marginTop: 2 }} onClick={() => setStep((s) => Math.max(0, s - 1))} onOKButton={() => setStep((s) => Math.max(0, s - 1))}>
+            <div style={{ fontSize: 11, opacity: 0.5 }}>{t('showcase_progress', { current: screen + 1, total })}</div>
+            {screen > 0 && (
+              <DialogButton style={{ minWidth: 120, marginTop: 2 }} onClick={() => setScreen((s) => Math.max(0, s - 1))} onOKButton={() => setScreen((s) => Math.max(0, s - 1))}>
                 ← {t('showcase_back')}
               </DialogButton>
             )}
           </div>
         </Focusable>
       </ConfirmModal>
+      </div>
     </ModalShell>
   )
 }

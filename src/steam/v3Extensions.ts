@@ -130,9 +130,42 @@ function evalFranchise(item: any, app: AppOverview): boolean {
   return typeof raw === "string" && raw.toLowerCase().includes(want);
 }
 
-function evalVrSupport(_item: any, app: AppOverview): boolean {
-  const raw = rawField<boolean | number>(appIdOf(app), "vr_supported", "rt_vr_supported", "vr_support");
-  return raw === true || raw === 1;
+/* VR in three values. Steam's store categories: 401 "VR Only", 402 "VR
+   Supported" (31 is the older "VR Support" tag) — read from the local
+   overview's BHasStoreCategory when it is a real one, else from the cached
+   catalog metadata's category names, else the legacy vr flag. */
+const VR_ONLY_IDS = [401];
+const VR_SUPPORTED_IDS = [402, 31];
+export type VrLevel = "only" | "supported" | "none";
+
+function vrLevelFromLocal(appid: number): VrLevel | null {
+  const local = rawLocalOverview(appid);
+  if (!local || typeof local.BHasStoreCategory !== "function") return null;
+  if (VR_ONLY_IDS.some((id) => local.BHasStoreCategory(id))) return "only";
+  if (VR_SUPPORTED_IDS.some((id) => local.BHasStoreCategory(id))) return "supported";
+  return null;
+}
+
+function vrLevelFromCatalog(appid: number): VrLevel | null {
+  const cats = getCachedCatalogMeta(appid)?.categories ?? [];
+  if (cats.some((c) => /\bvr only\b/i.test(c))) return "only";
+  if (cats.some((c) => /\bvr support(ed)?\b/i.test(c))) return "supported";
+  return null;
+}
+
+function vrLevelOf(app: AppOverview): VrLevel {
+  const appid = appIdOf(app);
+  const known = vrLevelFromLocal(appid) ?? vrLevelFromCatalog(appid);
+  if (known) return known;
+  const raw = rawField<boolean | number>(appid, "vr_supported", "rt_vr_supported", "vr_support");
+  return raw === true || raw === 1 ? "supported" : "none";
+}
+
+// No `levels` (filters saved before the three-value form) = any VR title.
+function evalVrSupport(item: any, app: AppOverview): boolean {
+  const level = vrLevelOf(app);
+  const levels: string[] = Array.isArray(item?.params?.levels) ? item.params.levels : [];
+  return levels.length ? levels.includes(level) : level !== "none";
 }
 
 /* Steam's official store-category ids (stable, public taxonomy) — the local

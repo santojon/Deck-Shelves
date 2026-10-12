@@ -18,6 +18,24 @@ When the user clicks **Create default shelves** on the first-run banner, three s
 | Recently Played | Filter — sort by `recent` |
 | Recently Added | Filter — sort by `added` |
 
+## Setup packs and the setup wizard
+
+The **Setup wizard** (Quick Access menu → "Setup wizard", also offered at the end of the first-run tour) applies a whole starting point at once. Every pack is a bundle of the templates below plus, where it helps, a few smart shelves and settings:
+
+| Pack | Group | Adds |
+|---|---|---|
+| Essential | Quick setup | Favorites, Recently Played, Recently Added |
+| Steam + non-Steam | Quick setup | Recently Played, Installed, Non-Steam, Favorites |
+| Backlog rescue | Setup packs | Never Played + smart shelves *Backlog rescue* and *Best unplayed* |
+| Portable Deck | Setup packs | Installed, Deck Verified + smart shelves *Short battery*, *Travel mode*, *Quick play* |
+| Rediscover | Setup packs | Most Played + smart shelves *Rediscover*, *Forgotten gems*, *Hidden gems* |
+| Living room | Setup packs | Favorites, Recently Played + smart shelves *Long session (night)*, *Deck picks*; turns on the first-shelf background art and the featured first game |
+| Frame | By device | Recently Played, Favorites + smart shelves *Quick play*, *Short battery* |
+| Machine | By device | Favorites, Recently Played, Most Played + smart shelves *Long session (night)*, *Deck picks*; turns on the first-shelf background art |
+| Stream | By device | Steam Cloud, Recently Played + smart shelf *Quick play* |
+
+Packs are non-destructive: a template you already have is marked "already have" and skipped, nothing is removed, and every shelf stays editable afterwards. The wizard shows exactly what a pack will add before you apply it, marks packs that fit your library (from the same statistics as the Suggestions tab), and keeps one **Undo the last setup** step that removes only what the last apply added and restores the settings it changed.
+
 ---
 
 ## All available templates

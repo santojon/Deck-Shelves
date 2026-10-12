@@ -147,7 +147,8 @@ flowchart TB
 
     domain["src/domain<br/>regras puras: filtros, templates, gatilhos"]
     store["src/store<br/>estado global settingsStore"]
-    integrations["src/integrations<br/>TabMaster / UnifiDeck / ..."]
+    integrations["src/integrations<br/>um descritor por plugin: TabMaster / UnifiDeck / ..."]
+    themes["src/themes<br/>um adaptador por tema + registro"]
 
     homepatch --> shelf
     shelf --> refresh
@@ -278,7 +279,7 @@ src/
 │ ├── steamGameMenu.ts Extração do menu de contexto nativo do jogo
 │ ├── webpackCompat.ts Descoberta de classe em runtime (viewport + tokens nativos de shelf/card/section)
 │ ├── reorder.ts useContainerDragReorder + helpers puros (findReorderTargetIndex, moveInOrder)
-│ ├── cssLoaderDetect.ts isCssLoaderActive(), isArtHeroActive(), getNativeRecentsClassName()
+│ ├── cssLoaderDetect.ts Fachada de compatibilidade sobre src/themes (mesmos nomes, mesmo caminho de import)
 │ ├── steamOSVersion.ts helper getSteamOSVersion()
 │ ├── pluginApi.ts API pública entre plugins (v2)
 │ └── perf.ts Marks/measures de performance
@@ -442,7 +443,8 @@ Agregação pura em `domain/statistics.ts` (`computeLibraryStatistics`, `compute
 ### i18n (`i18n.ts`)
 Os locales são divididos em `i18n/<locale>/<area>.json` (home / qam / about / settings / integrations / common). O loader mescla todo arquivo de área por locale via `import.meta.glob` — `en-US` é carregado de forma eager (ansiosa), os demais de forma preguiçosa (lazy). Integrações externas adicionam strings em runtime através de `api.registerTranslations(locale, dict)`. `validate.mjs` garante paridade do conjunto de chaves por locale + nenhuma colisão entre áreas.
 
-### Compatibilidade com CSS Loader / ArtHero / TiltedHome (`core/cssLoaderDetect.ts`)
+### Compatibilidade com temas (`src/themes`)
+Um adaptador por visual suportado, em `themes/adapters/` (Switch Like Home, Centered Home, Obsidian, o patch redondo do Focus Highlight Color, TiltedHome, ArtHero, No Hero Gradient, Hero Fullscreen, o Big Art nativo, Gray Uninstalled, Clean Library Capsule, No Home Text). Um `ThemeAdapter` (`themes/types.ts`) reúne tudo o que um tema precisa: `id` / `label` (diagnóstico), `scope` (adaptadores `root` leem os estilos de tema injetados e gravam em `.deck-shelves-root`; adaptadores `document` leem variáveis computadas e gravam em `<html>`), as `flags` `data-ds-*` que ele possui (mais espelhos opcionais em `<html>` e gravação em todas as raízes), `read()` (detectar → valores das flags), `vars()` opcional (propriedades CSS em `<html>`) e `css(ctx)` opcional (as regras que espelham o tema nas shelves). `themes/registry.ts` guarda a lista ordenada e é o único lugar que a percorre: `applyRootThemeFlags` / `clearRootThemeFlags` (chamados pelo `HomeInject` a cada mutação do `<head>` da Steam e ao desmontar), `applyDocumentThemeFlags` (chamado pelo poll do `shelfStyles`), `themeStylesheet(ctx)` (anexado à folha de estilo das shelves, na ordem do registro) e `activeThemeLabels()` (diagnóstico / relatórios de bug). Adicionar um tema = um arquivo de adaptador + uma entrada no registro. As primitivas compartilhadas de detecção (texto dos estilos injetados, casamento de tokens com classes ao vivo, nomes dos temas lidos do disco) ficam em `themes/detect.ts`; `core/cssLoaderDetect.ts` reexporta os mesmos nomes para que os pontos de uso antigos continuem funcionando.
 - `isCssLoaderActive()` / `isArtHeroActive()` leem tags `<style class="css-loader-style">` no documento ativo.
 - `getNativeRecentsClassName(mountEl)` lê a classe do wrapper nativo de recentes ao vivo a partir de `mountEl.previousElementSibling` — nunca hardcoded.
 - Quando `hideRecents=true` e um tema do CSS Loader está ativo, `HomeInject` adiciona `data-ds-recents-slot="true"` mais a classe do wrapper ao vivo à primeira prateleira do DS — de forma aditiva (as classes `ds-*` existentes são preservadas). As invariantes garantidas pela cadeia de proteção estão documentadas inline em `HomeInject.tsx`.

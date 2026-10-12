@@ -146,7 +146,8 @@ flowchart TB
 
     domain["src/domain<br/>pure rules: filters, templates, triggers"]
     store["src/store<br/>settingsStore global state"]
-    integrations["src/integrations<br/>TabMaster / UnifiDeck / ..."]
+    integrations["src/integrations<br/>one descriptor per plugin: TabMaster / UnifiDeck / ..."]
+    themes["src/themes<br/>one adapter per theme + registry"]
 
     homepatch --> shelf
     shelf --> refresh
@@ -277,7 +278,7 @@ src/
 │ ├── steamGameMenu.ts Native game context menu extraction
 │ ├── webpackCompat.ts Runtime class discovery (viewport + native shelf/card/section tokens)
 │ ├── reorder.ts useContainerDragReorder + pure helpers (findReorderTargetIndex, moveInOrder)
-│ ├── cssLoaderDetect.ts isCssLoaderActive(), isArtHeroActive(), getNativeRecentsClassName()
+│ ├── cssLoaderDetect.ts Compatibility facade over src/themes (same names, same import path)
 │ ├── steamOSVersion.ts getSteamOSVersion() helper
 │ ├── pluginApi.ts Public inter-plugin API (v2)
 │ └── perf.ts Performance marks/measures
@@ -441,7 +442,8 @@ Pure aggregation in `domain/statistics.ts` (`computeLibraryStatistics`, `compute
 ### i18n (`i18n.ts`)
 Locales are sliced into `i18n/<locale>/<area>.json` (home / qam / about / settings / integrations / common). The loader merges every area file per locale via `import.meta.glob` — `en-US` eager, others lazy. External integrations add strings at runtime through `api.registerTranslations(locale, dict)`. `validate.mjs` enforces per-locale key-set parity + no cross-area collisions.
 
-### CSS Loader / ArtHero / TiltedHome compat (`core/cssLoaderDetect.ts`)
+### Theme compatibility (`src/themes`)
+One adapter per supported look, under `themes/adapters/` (Switch Like Home, Centered Home, Obsidian, Focus Highlight Color's round patch, TiltedHome, ArtHero, No Hero Gradient, Hero Fullscreen, native Big Art, Gray Uninstalled, Clean Library Capsule, No Home Text). A `ThemeAdapter` (`themes/types.ts`) bundles everything a theme needs: `id` / `label` (diagnostics), `scope` (`root` adapters read the injected theme styles and stamp `.deck-shelves-root`; `document` adapters read computed variables and stamp `<html>`), the `data-ds-*` `flags` it owns (plus optional `<html>` mirrors and all-roots stamping), `read()` (detect → flag values), optional `vars()` (CSS custom properties on `<html>`) and optional `css(ctx)` (the rules that mirror the theme on the shelves). `themes/registry.ts` holds the ordered list and is the only place that iterates it: `applyRootThemeFlags` / `clearRootThemeFlags` (called from `HomeInject` on every Steam `<head>` mutation and on unmount), `applyDocumentThemeFlags` (called from the `shelfStyles` poll), `themeStylesheet(ctx)` (appended to the shelf stylesheet, in registry order) and `activeThemeLabels()` (diagnostics / bug reports). Adding a theme = one adapter file + one registry entry. Shared detection primitives (injected style text, token matching against live class names, the theme names read from disk) live in `themes/detect.ts`; `core/cssLoaderDetect.ts` re-exports the same names so older call sites keep working.
 - `isCssLoaderActive()` / `isArtHeroActive()` read `<style class="css-loader-style">` tags in the active document.
 - `getNativeRecentsClassName(mountEl)` reads the live native-recents wrapper class from `mountEl.previousElementSibling` — never hardcoded.
 - When `hideRecents=true` and a CSS Loader theme is active, `HomeInject` adds `data-ds-recents-slot="true"` plus the live wrapper class to the first DS shelf — additively (existing `ds-*` classes are preserved). Invariants enforced by the guard chain are documented inline in `HomeInject.tsx`.

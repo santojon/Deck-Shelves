@@ -42,7 +42,7 @@ export const SETTINGS_CATEGORIES: ReadonlyArray<SettingsCategory> = [
     "contextSearchEnabled", "contextSearchKeyboardEnabled", "contextSearchOnEnter",
     "gameContextMenuEnabled", "settingsPageEnabled", "ownQamTabEnabled", "advancedModeEnabled",
     "templateSuggestionsEnabled", "removalSuggestionsEnabled", "autoCollapseEnabled",
-    "notificationsDisabled", "notificationsDisabledAreas", "showcaseSeen",
+    "notificationsDisabled", "notificationsDisabledAreas", "showcaseSeen", "setupWizardSeen", "lastSetupApply", "hubConfig",
     "cloudSyncEnabled", "cloudSyncLastSyncedAt",
     "schemaVersion", "syncTombstones", "preferencesUpdatedAt",
   ] },

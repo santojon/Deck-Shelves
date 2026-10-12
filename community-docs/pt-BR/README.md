@@ -21,6 +21,7 @@ vão pesquisar depois.
 **Funcionalidades principais**
 - [shelf-sources-and-filters.md](shelf-sources-and-filters.md) — de onde vêm os jogos de uma prateleira, filtros, ordenações, combinar fontes
 - [smart-shelves.md](smart-shelves.md) — prateleiras que escolhem seus próprios jogos automaticamente
+- [setup-wizard.md](setup-wizard.md) — o assistente de configuração e seus pacotes: um ponto de partida inteiro numa aplicação, com desfazer
 - [visual-customization.md](visual-customization.md) — logos, ícones, descrições, hero art, cards de decoração, alternâncias de ocultar/mostrar
 - [online-features.md](online-features.md) — lista de desejos, prateleiras de promoção, preços, filtros de metadados da loja
 - [native-home-integration.md](native-home-integration.md) — substituir os Recentes nativos, ocultar a faixa de abas, reordenação manual/por arraste

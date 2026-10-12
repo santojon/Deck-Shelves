@@ -1,5 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
-import { dispatchHomeButtonDown, subscribeHomeKey } from "../../runtime/homeInputBus";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type RefObject } from "react";
+import { createSelectedStore } from "../../core/selectedStore";
+import { getFriendsInApp, subscribeFriendsChanged } from "../../runtime/friendsState";
+import { dispatchHomeButtonDown } from "../../runtime/homeInputBus";
+import { registerCardInput } from "../../runtime/cardInputRegistry";
 import { getPreferredSteamDocument } from "../../runtime/steamHost";
 import { buildSelectorFromToken, getRuntimeClassMap } from "../../core/webpackCompat";
 import { getPortraitUrls, getLandscapeUrls, getLogoUrls, getIconUrls } from "../../core/steamAssets";
@@ -10,7 +13,6 @@ import { logInfo } from "../../runtime/logger";
 import { getCurrentSettings } from "../../store/settingsStore";
 import { createMatcherState, matchEvent, parseCombo, parseRawCombo, resolveBindings } from "../../runtime/buttonBindings";
 import { resolveKeyboardBindings, parseKeyCombo, matchKeyEvent, createKeyMatcherState, isEditableKeyTarget, type KeyMatcherState } from "../../runtime/keyboardBindings";
-import { subscribeControllerInput } from "../../runtime/controllerInput";
 import { resolveQuickLaunchAction, EAppDisplayStatus } from "../../steam/appDisplayStatus";
 import { subscribeShelfRefresh } from "../../core/shelfRefresh";
 import { resolveNativeCardClass, retryWithIntervals } from "./cardUtils";
@@ -204,37 +206,33 @@ export function useCardInputBindings(params: {
     } catch {}
   }, [appid, previewMode, quickLaunch, removableSet, onRemoveCard, onHideCard, shelfId, toggleCardHighlight]);
 
-  // Raw stream subscription for tokens the Decky home-button bus doesn't
-  // forward (back-grip L4/L5/R4/R5). Decky-known tokens stay on
-  // buttonDownHandler above to avoid firing twice for the same press.
+  /* Raw stream (back-grip L4/L5/R4/R5 — tokens the Decky home-button bus
+     doesn't forward; Decky-known tokens stay on buttonDownHandler above so a
+     press never fires twice) and keyboard, both through the one-per-Home
+     registry: it dispatches only to the focused card, so no per-card
+     subscription and no per-card `.gpfocus` check on every press. */
   useEffect(() => {
     if (previewMode || !appid) return;
-    return subscribeControllerInput((e) => {
-      if (!e.pressed) return;
-      const el = cardRef.current;
-      if (!el || !el.classList.contains("gpfocus")) return;
-      try {
-        const b = resolveBindings(getCurrentSettings()?.buttonBindings as any, (getCurrentSettings() as any)?.buttonBindingsDisabled, cardActionsEnabled());
-        const rawCombos = [b.cardQuickLaunch, b.cardHideRemove, b.cardHighlightToggle];
-        if (!rawCombos.some(usesRawOnlyCombo)) return;
-        const evtLike = { button: e.button };
-        const action = matchedCardAction(b, evtLike, rawMatcherRef.current, true);
-        if (action) runCardAction(action, { quickLaunch, appid, removableSet, onRemoveCard, onHideCard, shelfId, toggleCardHighlight });
-      } catch {}
-    });
-  }, [appid, previewMode, quickLaunch, removableSet, onRemoveCard, onHideCard, shelfId, toggleCardHighlight, cardRef]);
-
-  // Keyboard equivalent — independent trigger, same `.gpfocus` gate.
-  useEffect(() => {
-    if (previewMode || !appid) return;
-    return subscribeHomeKey((e) => {
-      if (isEditableKeyTarget(e.tag)) return;
-      if (!cardRef.current?.classList.contains("gpfocus")) return;
-      handleCardKeyEvent(e.code ?? null, keyMatcherRef.current, {
-        quickLaunch,
-        removeOrHide: () => { if (removableSet?.has(appid) && onRemoveCard) onRemoveCard(appid); else onHideCard?.(appid); },
-        toggleHighlight: () => { try { toggleCardHighlight(shelfId, appid); } catch {} },
-      });
+    const el = cardRef.current;
+    if (!el) return;
+    return registerCardInput(el, {
+      raw: (e) => {
+        try {
+          const b = resolveBindings(getCurrentSettings()?.buttonBindings as any, (getCurrentSettings() as any)?.buttonBindingsDisabled, cardActionsEnabled());
+          const rawCombos = [b.cardQuickLaunch, b.cardHideRemove, b.cardHighlightToggle];
+          if (!rawCombos.some(usesRawOnlyCombo)) return;
+          const action = matchedCardAction(b, { button: e.button }, rawMatcherRef.current, true);
+          if (action) runCardAction(action, { quickLaunch, appid, removableSet, onRemoveCard, onHideCard, shelfId, toggleCardHighlight });
+        } catch {}
+      },
+      key: (e) => {
+        if (isEditableKeyTarget(e.tag)) return;
+        handleCardKeyEvent(e.code ?? null, keyMatcherRef.current, {
+          quickLaunch,
+          removeOrHide: () => { if (removableSet?.has(appid) && onRemoveCard) onRemoveCard(appid); else onHideCard?.(appid); },
+          toggleHighlight: () => { try { toggleCardHighlight(shelfId, appid); } catch {} },
+        });
+      },
     });
   }, [appid, previewMode, quickLaunch, removableSet, onRemoveCard, onHideCard, shelfId, toggleCardHighlight, cardRef]);
 
@@ -310,22 +308,45 @@ function computeCardState(appid: number): CardState {
   return resolveInstalledCardState(overview);
 }
 
+const IDLE_CARD_STATE: CardState = { label: undefined, action: 'run' };
+function computeCardStateSafe(appid: number): CardState {
+  try { return computeCardState(appid); } catch { return IDLE_CARD_STATE; }
+}
+/* Re-read display_status on every app-overview/game-action signal (a
+   long-lived card would otherwise keep a stale "Update" hint) — but through
+   ONE refresh subscription for all cards: the store recomputes every mounted
+   card's state per signal and re-renders only the cards whose label/action
+   actually changed, instead of forcing every card to render on each emit. */
+const cardStateStore = createSelectedStore<CardState>({
+  compute: computeCardStateSafe,
+  equal: (a, b) => a.label === b.label && a.action === b.action,
+  attach: (recompute) => subscribeShelfRefresh(recompute),
+});
+const noopUnsub = () => {};
+
 /* Select-button action mirrors the native menu's first item per state:
    running → RaiseWindow; update-pending → ResumeAppUpdate; else → RunGame. */
 export function useCardQuickLaunchState(appid: number, previewMode: boolean): CardState {
-  // Re-read display_status on every app-overview/game-action signal, not just
-  // at mount — a long-lived card (no remount) would otherwise keep showing a
-  // stale "Update" hint after the real update finished in the background.
-  const [tick, forceTick] = useState(0);
-  useEffect(() => {
-    if (previewMode || !appid) return;
-    return subscribeShelfRefresh(() => forceTick((n) => n + 1));
-  }, [appid, previewMode]);
-  return useMemo(() => {
-    if (previewMode || !appid) return { label: undefined, action: 'run' };
-    try { return computeCardState(appid); }
-    catch { return { label: undefined, action: 'run' }; }
-  }, [appid, previewMode, tick]);
+  const active = !previewMode && !!appid;
+  const subscribe = useCallback((cb: () => void) => active ? cardStateStore.subscribe(appid, cb) : noopUnsub, [appid, active]);
+  const getSnapshot = useCallback(() => active ? cardStateStore.get(appid) : IDLE_CARD_STATE, [appid, active]);
+  return useSyncExternalStore(subscribe, getSnapshot);
+}
+
+/* Same pattern for the friends-playing decoration: the key only changes when
+   THIS card's friend set changes, so a friends poll re-renders just those. */
+const friendsKeyStore = createSelectedStore<string>({
+  compute: (appid) => `${friendIds(getFriendsInApp(appid, false))}|${friendIds(getFriendsInApp(appid, true))}`,
+  equal: (a, b) => a === b,
+  attach: (recompute) => subscribeFriendsChanged(recompute),
+});
+function friendIds(list: any[]): string {
+  return (list ?? []).map((f: any) => String(f?.steamid ?? f?.id ?? f?.name ?? '')).join(',');
+}
+export function useFriendsInAppKey(appid: number, enabled: boolean): string {
+  const subscribe = useCallback((cb: () => void) => enabled && appid ? friendsKeyStore.subscribe(appid, cb) : noopUnsub, [appid, enabled]);
+  const getSnapshot = useCallback(() => enabled && appid ? friendsKeyStore.get(appid) : '', [appid, enabled]);
+  return useSyncExternalStore(subscribe, getSnapshot);
 }
 
 function readNativeAnimationVars(el: HTMLElement): { name: string; dur: string; timing: string; iter: string } {

@@ -5,7 +5,7 @@ import { Focusable } from "../runtime/host/decky";
 import { getPreferredSteamDocument } from "../runtime/steamHost";
 import { getRuntimeClassMap } from "../core/webpackCompat";
 import { logInfo } from "../runtime/logger";
-import { focusElement } from "../core/focusRestore";
+import { focusElement, getPendingFocusTarget } from "../core/focusRestore";
 import { subscribeFocusedCard, getFocusedCard } from "../runtime/focusedCardTracker";
 import { flowChildrenProps } from "../core/steamOSVersion";
 
@@ -27,6 +27,8 @@ import { getCurrentSettings, saveSettings } from "../store/settingsStore";
 import { trackFeature } from "../steam/usageTracking";
 import { patchShelfInSettings } from "../domain/settings";
 import { PerShelfHero } from "./shelf/PerShelfHero";
+import { computeCardWindow, sameWindow, type CardWindow } from "../domain/cardWindow";
+import { rememberShelfHeight } from "./shelf/shelfViewportGate";
 import {
   computeEffectiveDims, computeVisuallyForced, computeFullPageLayoutActive,
   computeAutoCollapsed, computeCollapsed, computeLogoBandPx, computeShelfRootStyle,
@@ -202,6 +204,35 @@ function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = fa
   const finalFeaturedW = effectiveFeaturedW;
   const finalFeaturedH = effectiveFeaturedH;
   const finalFeaturedArtH = effectiveFeaturedArtH;
+
+  /* Horizontal card virtualization: only the visible span (+ overscan) mounts
+     real cards; the rest are same-sized slots (ShelfRow). Recomputed per
+     frame on scroll; a pending focus-restore target anchors the window so the
+     card the user returns to is always mounted. Overscan grows when a row has
+     featured (wider) cards, since the index estimate uses the regular width. */
+  const hasWideCards = highlightAll || highlightFirst || !!highlightedSet?.size;
+  const windowFor = useCallback((scrollLeft: number, viewportW: number): CardWindow => {
+    const target = getPendingFocusTarget();
+    const anchor = target && (!target.shelfId || target.shelfId === shelfId) ? items.findIndex((i) => i.appid === target.appid) : -1;
+    return computeCardWindow({ scrollLeft, viewportW: viewportW || 1280, slotW: effectiveW + effectiveGap, count: items.length, overscan: hasWideCards ? 9 : 6, anchor });
+  }, [items, shelfId, effectiveW, effectiveGap, hasWideCards]);
+  const [cardWindow, setCardWindow] = useState<CardWindow>(() => windowFor(0, 0));
+  const windowRef = useRef<CardWindow>(cardWindow);
+  useEffect(() => {
+    const rowEl = rowRef.current;
+    const apply = () => {
+      const next = windowFor(rowEl?.scrollLeft ?? 0, rowEl?.clientWidth ?? 0);
+      if (!sameWindow(windowRef.current, next)) { windowRef.current = next; setCardWindow(next); }
+    };
+    apply();
+    if (!rowEl) return;
+    let raf: number | null = null;
+    const onScroll = () => { if (raf !== null) return; raf = requestAnimationFrame(() => { raf = null; apply(); }); };
+    rowEl.addEventListener("scroll", onScroll, { passive: true });
+    return () => { rowEl.removeEventListener("scroll", onScroll); if (raf !== null) cancelAnimationFrame(raf); };
+  }, [windowFor]);
+  // Last rendered height per shelf → sizes the placeholder a rebuild starts with.
+  useEffect(() => { rememberShelfHeight(shelfId, outerRef.current?.offsetHeight ?? 0); });
 
   useEffect(() => {
     globalStylesStart();
@@ -714,6 +745,7 @@ function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = fa
             onRemoveCard={onRemoveCard}
             hiddenSet={hiddenSet}
             onHideCard={onHideCard}
+            window={cardWindow}
           />
           <div style={{ minWidth: "2.8vw", minHeight: 1, flexShrink: 0, pointerEvents: "none" }} aria-hidden="true" />
         </Focusable>
