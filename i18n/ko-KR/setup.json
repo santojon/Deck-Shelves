@@ -5,7 +5,6 @@
   "setup_group_quick": "빠른 설정",
   "setup_group_pack": "설정 팩",
   "setup_group_device": "기기별",
-  "setup_recommended": "내 라이브러리 추천",
   "setup_preview_title": "추가되는 항목",
   "setup_preview_have": "이미 있음",
   "setup_preview_setting": "켜짐: {{name}}",
@@ -41,5 +40,16 @@
   "filter_type_machine_compatibility": "Steam Machine 호환성",
   "vr_only": "VR 전용",
   "vr_supported": "VR 지원",
-  "vr_none": "VR 없음"
+  "vr_none": "VR 없음",
+  "setup_step_choose": "선택",
+  "setup_step_review": "검토",
+  "setup_step_done": "완료",
+  "setup_count_shelves": "선반 {{count}}개",
+  "setup_count_smart": "스마트 선반 {{count}}개",
+  "setup_count_settings": "설정 {{count}}개",
+  "setup_nothing_to_add": "이 팩의 내용은 이미 모두 갖고 있습니다.",
+  "setup_done_title": "준비 완료",
+  "setup_done_body": "모든 선반은 계속 편집할 수 있습니다. 이 설정을 나중에 되돌리려면 빠른 접근 제목 표시줄의 지팡이 아이콘으로 마법사를 다시 여세요.",
+  "setup_undo": "되돌리기",
+  "setup_recommended_short": "추천"
 }

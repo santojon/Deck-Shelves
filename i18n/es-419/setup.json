@@ -5,7 +5,6 @@
   "setup_group_quick": "Configuración rápida",
   "setup_group_pack": "Paquetes de configuración",
   "setup_group_device": "Por dispositivo",
-  "setup_recommended": "Recomendado para tu biblioteca",
   "setup_preview_title": "Qué añade esto",
   "setup_preview_have": "ya lo tienes",
   "setup_preview_setting": "Activa: {{name}}",
@@ -41,5 +40,16 @@
   "filter_type_machine_compatibility": "Compatibilidad con Steam Machine",
   "vr_only": "Solo VR",
   "vr_supported": "Compatible con VR",
-  "vr_none": "Sin VR"
+  "vr_none": "Sin VR",
+  "setup_step_choose": "Elegir",
+  "setup_step_review": "Revisar",
+  "setup_step_done": "Listo",
+  "setup_count_shelves": "{{count}} estantes",
+  "setup_count_smart": "{{count}} estantes inteligentes",
+  "setup_count_settings": "{{count}} ajustes",
+  "setup_nothing_to_add": "Ya tienes todo lo de este paquete.",
+  "setup_done_title": "Todo listo",
+  "setup_done_body": "Todos los estantes siguen siendo editables. Para deshacer esta configuración más tarde, vuelve a abrir el asistente desde el ícono de varita en la barra de título del Acceso rápido.",
+  "setup_undo": "Deshacer",
+  "setup_recommended_short": "Recomendado"
 }

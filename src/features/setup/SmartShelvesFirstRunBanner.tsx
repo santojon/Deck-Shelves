@@ -1,5 +1,5 @@
-import { Focusable, DialogButton } from '../../../runtime/host/decky'
-import type { SettingsController } from '../../../features/settings/controller'
+import { Focusable, DialogButton } from '../../runtime/host/decky'
+import type { SettingsController } from '../settings/controller'
 
 export function SmartShelvesFirstRunBanner({ controller, onAdd }: { controller: SettingsController; onAdd: () => void }) {
   const { t } = controller

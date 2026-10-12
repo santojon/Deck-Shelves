@@ -6,7 +6,7 @@ import { DocSection } from './DocSection'
 import { flowChildrenProps } from '../../core/steamOSVersion'
 import { logInfo } from '../../runtime/logger'
 import { openManagedModal } from '../qam/common/openManagedModal'
-import { ShowcaseModal } from '../qam/modals/ShowcaseModal'
+import { ShowcaseModal } from '../../features/setup/ShowcaseModal'
 import { openIssueReport } from '../../core/issueReport'
 import { KOFI_URL, GITHUB_REPO, GITHUB_RELEASES, REDDIT_COMMUNITY, DISCORD_INVITE } from '../../constants'
 

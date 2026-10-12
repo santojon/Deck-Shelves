@@ -5,7 +5,6 @@
   "setup_group_quick": "Configurazione rapida",
   "setup_group_pack": "Pacchetti di configurazione",
   "setup_group_device": "Per dispositivo",
-  "setup_recommended": "Consigliato per la tua libreria",
   "setup_preview_title": "Cosa aggiunge",
   "setup_preview_have": "già presente",
   "setup_preview_setting": "Attiva: {{name}}",
@@ -41,5 +40,16 @@
   "filter_type_machine_compatibility": "Compatibilità Steam Machine",
   "vr_only": "Solo VR",
   "vr_supported": "Supporto VR",
-  "vr_none": "Senza VR"
+  "vr_none": "Senza VR",
+  "setup_step_choose": "Scegli",
+  "setup_step_review": "Rivedi",
+  "setup_step_done": "Fatto",
+  "setup_count_shelves": "{{count}} scaffali",
+  "setup_count_smart": "{{count}} scaffali smart",
+  "setup_count_settings": "{{count}} impostazioni",
+  "setup_nothing_to_add": "Hai già tutto ciò che contiene questo pacchetto.",
+  "setup_done_title": "Tutto pronto",
+  "setup_done_body": "Ogni scaffale resta modificabile. Per annullare questa configurazione in seguito, riapri la procedura guidata dall'icona a bacchetta nella barra del titolo dell'Accesso rapido.",
+  "setup_undo": "Annulla",
+  "setup_recommended_short": "Consigliato"
 }

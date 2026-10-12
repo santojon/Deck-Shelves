@@ -5,7 +5,6 @@
   "setup_group_quick": "クイックセットアップ",
   "setup_group_pack": "セットアップパック",
   "setup_group_device": "デバイス別",
-  "setup_recommended": "あなたのライブラリにおすすめ",
   "setup_preview_title": "追加される内容",
   "setup_preview_have": "追加済み",
   "setup_preview_setting": "有効化: {{name}}",
@@ -41,5 +40,16 @@
   "filter_type_machine_compatibility": "Steam Machine 互換性",
   "vr_only": "VR専用",
   "vr_supported": "VR対応",
-  "vr_none": "VRなし"
+  "vr_none": "VRなし",
+  "setup_step_choose": "選択",
+  "setup_step_review": "確認",
+  "setup_step_done": "完了",
+  "setup_count_shelves": "シェルフ {{count}} 件",
+  "setup_count_smart": "スマートシェルフ {{count}} 件",
+  "setup_count_settings": "設定 {{count}} 件",
+  "setup_nothing_to_add": "このパックの内容はすべてすでに揃っています。",
+  "setup_done_title": "設定完了",
+  "setup_done_body": "どのシェルフも後から編集できます。このセットアップを後で取り消すには、クイックアクセスのタイトルバーにある杖のアイコンからウィザードをもう一度開いてください。",
+  "setup_undo": "取り消す",
+  "setup_recommended_short": "おすすめ"
 }

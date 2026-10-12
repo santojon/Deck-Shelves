@@ -549,9 +549,13 @@ export function DeckQAMStyles() {
          portion of the QAM panel (left edge ~351 = 51 tab strip +
          300 DS plugin tab width). */
       .deck-shelves-qam-sidecar {
-        position: absolute;
-        left: 300px;
-        top: 0;
+        /* Fixed to the QAM viewport (the measurement anchors it to the tab's
+           content panel, whose box stays put when its content scrolls), so the
+           sidecar never slides along when the gamepad focus scrolls the main
+           column under it. */
+        position: fixed;
+        left: 348px;
+        top: 14px;
         width: 503px;
         height: 440px;
         /* No explicit background -- Steam does not expose theme CSS vars
@@ -564,15 +568,18 @@ export function DeckQAMStyles() {
         z-index: 5;
         box-sizing: border-box;
       }
+      /* Header pinned to the very top of the sidecar (it starts at the tab's
+         content top, like the host's), with a back control on the left. */
       .ds-sidecar-title {
         position: absolute;
-        /* Nudge the title up so it sits roughly at the same vertical
-           band as Decky's "Deck Shelves" header in the QAM frame above. */
-        top: -8px;
+        top: 0;
         left: 0;
         right: 0;
-        height: 32px;
-        padding: 4px 16px;
+        height: 40px;
+        padding: 4px 16px 4px 10px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
         font-weight: 700;
         font-size: 18px;
         color: #ffffff;
@@ -582,9 +589,29 @@ export function DeckQAMStyles() {
         box-sizing: border-box;
         z-index: 2;
       }
+      .ds-sidecar-back {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 36px;
+        height: 32px;
+        flex: 0 0 auto;
+        border-radius: 4px;
+        background: rgba(255, 255, 255, 0.08);
+        color: #ffffff;
+        cursor: pointer;
+        user-select: none;
+      }
+      .ds-sidecar-back.gpfocus,
+      .ds-sidecar-back:focus,
+      .ds-sidecar-back:focus-within {
+        background: rgba(255, 255, 255, 0.20);
+        outline: 2px solid rgba(255, 255, 255, 0.45);
+        outline-offset: -2px;
+      }
       .ds-sidecar-body {
         position: absolute;
-        top: 24px;
+        top: 40px;
         left: 0;
         right: 0;
         bottom: 16px;

@@ -4,7 +4,7 @@ import { CollapsibleSection } from "../../ui/CollapsibleSection";
 import { getPerfSnapshot, type PerfSnapshot } from "../../../core/perfMetrics";
 import { getLearnedTimeoutsSummary } from "../../../core/adaptiveTimeout";
 import { getSmartShelfCacheStats } from "../../../steam/smartShelves";
-import { DonutChart, DonutLegend, TopBarChart } from "./UsageCharts";
+import { DonutChart, DonutLegend, TopBarChart } from "../../../features/statistics/UsageCharts";
 import { GaugeIcon, RefreshIcon } from "../../icons";
 import { BTN_ICON_STYLE } from "../../ui/buttonStyles";
 

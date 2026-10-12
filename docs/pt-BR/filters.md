@@ -54,6 +54,7 @@ flowchart LR
 | `steamosCompatibility` | Nota de compatibilidade com o SteamOS — distinta da Compatibilidade com o Deck (uma classificação diferente da Valve, mesma escala de 4 níveis) | `levels`: `["verified", "playable", "unsupported", "unknown"]` |
 | `machineCompatibility` | Nota de compatibilidade com o Steam Machine (o console de sala; mesma escala de 4 níveis) — veja [Frame e Machine](frame-and-machine.md) | `levels`: `["verified", "playable", "unsupported", "unknown"]` |
 | `frameCompatibility` | Nota de compatibilidade com o Steam Frame (o headset de VR; mesma escala de 4 níveis) — veja [Frame e Machine](frame-and-machine.md) | `levels`: `["verified", "playable", "unsupported", "unknown"]` |
+| `deviceCompatibility` | Nota de compatibilidade **do aparelho em que você está** — a nota do Deck num Steam Deck, a do Machine num Steam Machine, a do Frame num Steam Frame (a do Deck nos demais). É o que os templates "Verificados neste aparelho" / "Jogáveis neste aparelho" usam | `levels`: `["verified", "playable", "unsupported", "unknown"]` |
 | `demo` | Listagens de demos da Steam | — |
 | `playedWithinDays` | Jogado nos últimos N dias | `days`: número |
 | `playtimeRange` | Tempo total de jogo numa faixa | `minHours`: número, `maxHours`: número (ambos opcionais) |

@@ -1,14 +1,19 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Focusable, ToggleField } from "../../../runtime/host/decky";
-import { getUsageSummary, flushUsage } from "../../../steam/usageTracking";
-import type { useSettingsController } from "../../../features/settings/controller";
-import { getExternalStatisticsProviders, type StatisticsEntry } from "../../../core/pluginApi";
-import { CollapsibleSection } from "../../ui/CollapsibleSection";
-import { deriveSuggestions, deriveRemovalSuggestions, type StatSuggestion } from "../../../domain/statistics";
-import { confirmAction } from "../../qam/modals/ConfirmActionModal";
-import { SHELF_TEMPLATES, coveredTemplateIds } from "../../../domain/templates";
-import { SHELF_TPL_ICON, SMART_TPL_ICON } from "../../qam/modals/templateIcons";
-import { PlusCircleIcon, StackIcon, CheckIcon, RefreshIcon, SparkleIcon, TrashIcon } from "../../icons";
+import { Focusable, ToggleField } from "../../runtime/host/decky";
+import { getUsageSummary, flushUsage } from "../../steam/usageTracking";
+import type { useSettingsController } from "../settings/controller";
+import { getExternalStatisticsProviders, type StatisticsEntry } from "../../core/pluginApi";
+import { CollapsibleSection } from "../../components/ui/CollapsibleSection";
+import { deriveSuggestions, deriveRemovalSuggestions, type StatSuggestion } from "../../domain/statistics";
+import { confirmAction } from "../../components/qam/modals/ConfirmActionModal";
+import { SHELF_TEMPLATES, coveredTemplateIds } from "../../domain/templates";
+import { SHELF_TPL_ICON, SMART_TPL_ICON } from "../../components/qam/modals/templateIcons";
+import { PlusCircleIcon, StackIcon, CheckIcon, RefreshIcon, SparkleIcon, TrashIcon } from "../../components/icons";
+import { subscribeShelfRefresh } from "../../core/shelfRefresh";
+import { isSuggestionNew, markSuggestionsSeen } from "../../runtime/suggestionNotifier";
+
+// How long the tab waits after a library/usage signal before re-deriving.
+const REACT_DEBOUNCE_MS = 1500;
 
 export interface SuggestionsDetailProps {
   controller: ReturnType<typeof useSettingsController>;
@@ -25,6 +30,8 @@ const SUGGESTION_STYLE = `
 .ds-stat-sg{background:var(--ds-surface,rgba(255,255,255,0.05));border:1px solid var(--ds-border,rgba(255,255,255,0.12));border-radius:10px;padding:14px 10px;flex:1 1 calc(20% - 8px);max-width:calc(20% - 8px);min-width:120px;min-height:128px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:5px;cursor:pointer;box-sizing:border-box;transition:transform .12s,border-color .12s,background .12s}
 .ds-stat-sg:hover{border-color:var(--ds-accent,#1a9fff);background:var(--ds-surface-hi,rgba(255,255,255,0.10))}
 .ds-stat-sg[aria-disabled="true"]{opacity:.55}
+.ds-stat-sg{position:relative}
+.ds-stat-sg-new{position:absolute;top:6px;right:6px;font-size:9px;font-weight:700;padding:1px 6px;border-radius:999px;background:var(--ds-accent,#1a9fff);color:#fff}
 `;
 
 function entriesFor(groups: ProviderGroup[], id: string): StatisticsEntry[] {
@@ -52,8 +59,8 @@ function suggestionLabels(t: (k: string) => string, sg: StatSuggestion) {
 }
 
 function SuggestionBlock(
-  { t, sg, why, applied, onApply }:
-  { t: (k: string) => string; sg: StatSuggestion; why: string; applied: boolean; onApply: () => void },
+  { t, sg, why, applied, isNew, onApply }:
+  { t: (k: string) => string; sg: StatSuggestion; why: string; applied: boolean; isNew: boolean; onApply: () => void },
 ) {
   const { name, actionKey, doneKey } = suggestionLabels(t, sg);
   return (
@@ -65,6 +72,7 @@ function SuggestionBlock(
       onOKButton={onApply}
       onOKActionDescription={t(actionKey)}
     >
+      {isNew && !applied ? <span className="ds-stat-sg-new">{t("settings_suggestions_new")}</span> : null}
       {suggestionIcon(sg)}
       <div style={{ fontSize: 12, fontWeight: 700 }}>
         {applied ? t(doneKey) : t(actionKey)}
@@ -75,10 +83,11 @@ function SuggestionBlock(
   );
 }
 
-function SuggestionList({ t, items, applied, whyOf, onApply }: {
+function SuggestionList({ t, items, applied, fresh, whyOf, onApply }: {
   t: (k: string) => string;
   items: StatSuggestion[];
   applied: Set<string>;
+  fresh: Set<string>;
   whyOf: (sg: StatSuggestion) => string;
   onApply: (sg: StatSuggestion) => void;
 }) {
@@ -86,18 +95,40 @@ function SuggestionList({ t, items, applied, whyOf, onApply }: {
   return (
     <Focusable flow-children="horizontal" style={{ display: "flex", gap: 10, marginTop: 8, flexWrap: "wrap" }}>
       {items.map((sg) => (
-        <SuggestionBlock key={sg.id} t={t} sg={sg} why={whyOf(sg)} applied={applied.has(sg.id)} onApply={() => onApply(sg)} />
+        <SuggestionBlock key={sg.id} t={t} sg={sg} why={whyOf(sg)} applied={applied.has(sg.id)} isNew={fresh.has(sg.id)} onApply={() => onApply(sg)} />
       ))}
     </Focusable>
   );
 }
 
+/* Re-derive while the tab is open: the library (overview changes, installs,
+   collection edits) and the usage ledger move under it, so a library/usage
+   signal re-resolves the providers after a short debounce. Nothing runs once
+   the tab unmounts. */
+function useReactiveTick(): number {
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const unsub = subscribeShelfRefresh(() => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => { timer = null; setTick((n) => n + 1); }, REACT_DEBOUNCE_MS);
+    });
+    return () => { unsub(); if (timer) clearTimeout(timer); };
+  }, []);
+  return tick;
+}
+
 export function SuggestionsDetail({ controller, t }: SuggestionsDetailProps) {
   const [groups, setGroups] = useState<ProviderGroup[] | null>(null);
   const [applied, setApplied] = useState<Set<string>>(() => new Set());
+  const tick = useReactiveTick();
+  // Which suggestions were new when the tab opened — frozen for the visit, so a
+  // chip does not vanish under the user's eyes; the ledger is updated on close.
+  const [fresh] = useState<Set<string>>(() => new Set());
 
-  // Resolve the built-in stat providers once on mount — they feed the
-  // suggestion heuristics (library composition + per-shelf usage).
+  // Resolve the built-in stat providers on mount and again after a library /
+  // usage signal — they feed the suggestion heuristics (library composition +
+  // per-shelf usage).
   useEffect(() => {
     let cancelled = false;
     /* The library provider runs a heavy library enumeration (getAllAppOverviews
@@ -113,7 +144,7 @@ export function SuggestionsDetail({ controller, t }: SuggestionsDetailProps) {
       ).then((g) => { if (!cancelled) setGroups(g); });
     }, 60);
     return () => { cancelled = true; clearTimeout(timer); };
-  }, []);
+  }, [tick]);
 
   const suggestions = useMemo<StatSuggestion[]>(() => {
     if (!groups) return [];
@@ -169,6 +200,13 @@ export function SuggestionsDetail({ controller, t }: SuggestionsDetailProps) {
     return (controller.t as unknown as (k: string, o?: any) => string)(sg.messageKey, sg.params);
   }, [controller]);
 
+  // New = never notified or shown before; everything shown this visit is
+  // recorded as seen when the tab closes.
+  useEffect(() => {
+    for (const sg of suggestions) if (isSuggestionNew(sg.id)) fresh.add(sg.id);
+  }, [suggestions, fresh]);
+  useEffect(() => () => { markSuggestionsSeen([...fresh]); }, [fresh]);
+
   return (
     <Focusable flow-children="vertical" style={{ display: "flex", flexDirection: "column" }}>
       <style>{SUGGESTION_STYLE}</style>
@@ -180,7 +218,7 @@ export function SuggestionsDetail({ controller, t }: SuggestionsDetailProps) {
           checked={(controller.settings as any)?.templateSuggestionsEnabled === true}
           onChange={(v: boolean) => (controller.actions as any).setTemplateSuggestionsEnabled?.(v)}
         />
-        <SuggestionList t={t} items={suggestions} applied={applied} whyOf={whyOf} onApply={applySuggestion} />
+        <SuggestionList t={t} items={suggestions} applied={applied} fresh={fresh} whyOf={whyOf} onApply={applySuggestion} />
       </CollapsibleSection>
 
       <CollapsibleSection id="sg-removal" title={t("settings_suggestions_cleanup")} count={removalSuggestions.length} icon={<TrashIcon size={14} />} initialOpen>
@@ -189,7 +227,7 @@ export function SuggestionsDetail({ controller, t }: SuggestionsDetailProps) {
           checked={(controller.settings as any)?.removalSuggestionsEnabled === true}
           onChange={(v: boolean) => (controller.actions as any).setRemovalSuggestionsEnabled?.(v)}
         />
-        <SuggestionList t={t} items={removalSuggestions} applied={applied} whyOf={whyOf} onApply={applySuggestion} />
+        <SuggestionList t={t} items={removalSuggestions} applied={applied} fresh={fresh} whyOf={whyOf} onApply={applySuggestion} />
       </CollapsibleSection>
     </Focusable>
   );

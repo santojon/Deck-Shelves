@@ -5,7 +5,6 @@
   "setup_group_quick": "Snelle installatie",
   "setup_group_pack": "Installatiepakketten",
   "setup_group_device": "Per apparaat",
-  "setup_recommended": "Aanbevolen voor je bibliotheek",
   "setup_preview_title": "Wat dit toevoegt",
   "setup_preview_have": "al aanwezig",
   "setup_preview_setting": "Zet aan: {{name}}",
@@ -41,5 +40,16 @@
   "filter_type_machine_compatibility": "Steam Machine-compatibiliteit",
   "vr_only": "Alleen VR",
   "vr_supported": "VR ondersteund",
-  "vr_none": "Geen VR"
+  "vr_none": "Geen VR",
+  "setup_step_choose": "Kiezen",
+  "setup_step_review": "Controleren",
+  "setup_step_done": "Klaar",
+  "setup_count_shelves": "{{count}} planken",
+  "setup_count_smart": "{{count}} slimme planken",
+  "setup_count_settings": "{{count}} instellingen",
+  "setup_nothing_to_add": "Je hebt alles uit dit pakket al.",
+  "setup_done_title": "Alles klaar",
+  "setup_done_body": "Elke plank blijft bewerkbaar. Om deze installatie later ongedaan te maken, open je de wizard opnieuw via het toverstafpictogram in de titelbalk van Snelle toegang.",
+  "setup_undo": "Ongedaan maken",
+  "setup_recommended_short": "Aanbevolen"
 }

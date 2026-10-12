@@ -15,7 +15,8 @@ import { resolveContextAwareShelf } from "../core/contextAwareShelves";
 import type { PlatformAppMeta, PlatformTab } from "../runtime/platform";
 import { logInfo, logWarn } from "../runtime/logger";
 import { getPreferredSteamDocument, getPreferredSteamWindow } from "../runtime/steamHost";
-import { getLibraryCategoryOf, getLibraryIdOf, isLibraryLocationsWarm, refreshLibraryLocations } from "../runtime/deviceState";
+import { getLibraryCategoryOf, getLibraryIdOf, isLibraryLocationsWarm, refreshLibraryLocations, getDeviceProfile } from "../runtime/deviceState";
+import { compatCategoryForFamily } from "../domain/deviceProfile";
 import { getAppDescriptions as _getAppDescriptions } from "./appDescriptionsCache";
 
 export type SteamCollection = { id: string; name: string };
@@ -2545,6 +2546,10 @@ const FILTER_EVALUATORS: Record<string, FilterEvaluator> = {
   appStatus:              evalAppStatus,
   isNew:                  evalIsNew,
   deckCompatibility:      (item, app) => isDeckCompatMatch(app.deck_compatibility_category, item.params?.levels ?? []),
+  // The rating of the device in use (Deck / Machine / Frame); everything else falls back to the Deck one.
+  deviceCompatibility:    (item, app) => isDeckCompatMatch(compatCategoryForFamily(getDeviceProfile().family, {
+    deckCompatCategory: app.deck_compatibility_category, machineCompatCategory: app.machine_compatibility_category, frameCompatCategory: app.frame_compatibility_category,
+  }), item.params?.levels ?? []),
   steamosCompatibility:   (item, app) => isSteamOsCompatMatch(app.steamos_compatibility_category, item.params?.levels ?? []),
   machineCompatibility:   (item, app) => isDeckCompatMatch(app.machine_compatibility_category, item.params?.levels ?? []),
   frameCompatibility:     (item, app) => isDeckCompatMatch(app.frame_compatibility_category, item.params?.levels ?? []),

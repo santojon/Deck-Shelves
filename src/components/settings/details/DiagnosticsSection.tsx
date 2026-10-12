@@ -9,7 +9,7 @@ import {
 import { refreshCssLoaderThemes } from "../../../core/cssLoaderDetect";
 import { getPerfSnapshot } from "../../../core/perfMetrics";
 import { getSmartShelfCacheStats } from "../../../steam/smartShelves";
-import { DonutChart, DonutLegend } from "./UsageCharts";
+import { DonutChart, DonutLegend } from "../../../features/statistics/UsageCharts";
 import { getCurrentSettings } from "../../../settingsStore";
 import {
   CheckIcon, CopyIcon, RefreshIcon, ToolsIcon, MonitorIcon, GearIcon, SlidersIcon,

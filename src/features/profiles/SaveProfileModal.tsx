@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { ConfirmModal, TextField, ToggleField, Focusable } from "../../../runtime/host/decky";
-import type { SettingsController } from "../../../features/settings/controller";
+import { ConfirmModal, TextField, ToggleField, Focusable } from "../../runtime/host/decky";
+import type { SettingsController } from "../settings/controller";
 
 export interface SaveProfileModalProps {
   closeModal?: () => void;

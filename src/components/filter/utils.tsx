@@ -8,6 +8,7 @@ export const ALL_FILTER_TYPES: FilterItemType[] = [
   "hidden",
   "updatePending",
   "deckCompatibility",
+  "deviceCompatibility",
   "shortcutType",
   "playedWithinDays",
   "playtimeRange",
@@ -91,6 +92,7 @@ export function canBeInverted(_type: FilterItemType): boolean {
 const DEFAULT_PARAMS: Partial<Record<FilterItemType, () => Record<string, any>>> = {
   hidden: () => ({ mode: "exclude" }),
   deckCompatibility: () => ({ levels: ["verified", "playable"] }),
+  deviceCompatibility: () => ({ levels: ["verified", "playable"] }),
   steamosCompatibility: () => ({ levels: ["verified", "playable"] }),
   machineCompatibility: () => ({ levels: ["verified", "playable"] }),
   frameCompatibility: () => ({ levels: ["verified", "playable"] }),
@@ -160,6 +162,7 @@ function isValidRegex(pattern: any): boolean {
 const PARAM_VALIDATORS: Partial<Record<FilterItem["type"], (p: any) => boolean>> = {
   hidden: (p) => !!p.mode,
   deckCompatibility: (p) => nonEmptyArray(p.levels),
+  deviceCompatibility: (p) => nonEmptyArray(p.levels),
   steamosCompatibility: (p) => nonEmptyArray(p.levels),
   machineCompatibility: (p) => nonEmptyArray(p.levels),
   frameCompatibility: (p) => nonEmptyArray(p.levels),
@@ -196,6 +199,7 @@ export function getTypeLabel(type: FilterItemType): string {
     updatePending: t("filter_type_update_pending"),
     isNew: t("filter_type_is_new"),
     deckCompatibility: t("filter_type_deck_compatibility"),
+    deviceCompatibility: t("filter_type_device_compatibility"),
     playedWithinDays: t("filter_type_played_within_days"),
     playtimeRange: t("filter_type_playtime_range"),
     recentlyActive: t("filter_type_recently_active"),

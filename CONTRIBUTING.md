@@ -130,7 +130,11 @@ src/components/          React components
 src/core/                Utilities (focus, scroll, assets, webpack compat, plugin API)
 src/domain/              Pure domain logic (settings operations, defaults, templates)
 src/runtime/             Platform integration (home patching, Steam host, logger)
-src/features/            Feature controllers
+src/features/            Feature-scoped modules (UI + hooks per feature; pure rules stay in src/domain)
+  setup/                 Setup wizard, first-run tour + banners, wizard entry
+  statistics/            Statistics + Suggestions panels, usage charts
+  profiles/              Profiles section / detail / modals
+  search/, sidenav/      Quick Search overlay, Side Nav overlay
   settings/
     controller.tsx       Hook entry (state + effects + compose action slices)
     controller/          Action slices spread into the public `actions`

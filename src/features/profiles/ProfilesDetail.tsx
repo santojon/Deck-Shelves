@@ -1,15 +1,15 @@
 import React, { useState } from "react";
-import { DialogButton, Focusable, TextField, ToggleField } from "../../../runtime/host/decky";
-import type { useSettingsController } from "../../../features/settings/controller";
-import { FACTORY_PROFILE_ID, FACTORY_PROFILE_NAME } from "../../../features/settings/controller/profiles";
-import { joinDownloads } from "../../../core/userPaths";
-import { SettingsSection } from "../../ui/SettingsSection";
-import { CollapsibleSection } from "../../ui/CollapsibleSection";
-import { CheckIcon, CopyIcon, DownloadIcon, PencilIcon, PlayIcon, SaveIcon, TrashIcon, UploadIcon, XIcon, PersonIcon, TargetIcon } from "../../icons";
-import { BTN_ICON_COMPACT_STYLE, BTN_STYLE } from "../../ui/buttonStyles";
-import { openManagedModal } from "../../qam/common/openManagedModal";
-import { SetProfileTriggerModal } from "../../qam/modals/SetProfileTriggerModal";
-import { confirmAction } from "../../qam/modals/ConfirmActionModal";
+import { DialogButton, Focusable, TextField, ToggleField } from "../../runtime/host/decky";
+import type { useSettingsController } from "../settings/controller";
+import { FACTORY_PROFILE_ID, FACTORY_PROFILE_NAME } from "../settings/controller/profiles";
+import { joinDownloads } from "../../core/userPaths";
+import { SettingsSection } from "../../components/ui/SettingsSection";
+import { CollapsibleSection } from "../../components/ui/CollapsibleSection";
+import { CheckIcon, CopyIcon, DownloadIcon, PencilIcon, PlayIcon, SaveIcon, TrashIcon, UploadIcon, XIcon, PersonIcon, TargetIcon } from "../../components/icons";
+import { BTN_ICON_COMPACT_STYLE, BTN_STYLE } from "../../components/ui/buttonStyles";
+import { openManagedModal } from "../../components/qam/common/openManagedModal";
+import { SetProfileTriggerModal } from "../../components/qam/modals/SetProfileTriggerModal";
+import { confirmAction } from "../../components/qam/modals/ConfirmActionModal";
 
 
 export interface ProfilesDetailProps {

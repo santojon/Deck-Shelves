@@ -33,6 +33,21 @@ async function computeSuggestions(s: any): Promise<StatSuggestion[]> {
   });
 }
 
+/* The same ledger backs the "New" chip on the Suggestions tab: a suggestion the
+   user has never been notified about or seen in the tab is new; opening the
+   tab marks what it showed. */
+export function isSuggestionNew(id: string): boolean {
+  return !loadNotified().has(id);
+}
+
+export function markSuggestionsSeen(ids: string[]): void {
+  if (!ids.length) return;
+  const notified = loadNotified();
+  let changed = false;
+  for (const id of ids) if (!notified.has(id)) { notified.add(id); changed = true; }
+  if (changed) saveNotified([...notified]);
+}
+
 /* Suggestions the user hasn't been notified about yet (records the current set
    as notified as a side effect). Empty when the opt-in is off, in light mode,
    or nothing is new — so the caller fires a toast only when this is non-empty. */

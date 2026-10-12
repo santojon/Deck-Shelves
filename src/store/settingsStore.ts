@@ -3,7 +3,7 @@ import { isHomeOwner } from "../runtime/host/ownerGuard";
 import { SettingsSchema, type Settings } from "../types";
 import { defaultSettings } from "../domain/defaults";
 import { logError, logInfo, logWarn, setVerboseLogging } from "../runtime/logger";
-import { applyQASettingsOverride, qaOverrideActive } from "../qa/harness";
+import { applyQASettingsOverride, qaOverrideActive, qaSeedActive } from "../qa/harness";
 import { SYNC_LISTS, LOCAL_ONLY_FIELDS } from "../domain/settingsMerge";
 
 /* Bumping the cache key invalidates persisted localStorage entries from
@@ -107,6 +107,9 @@ let lastRawForQA: Settings | null = null;
 
 function notify(raw: Settings) {
   if (__DEV__) lastRawForQA = raw;
+  // Fresh-install QA seed active: an untagged payload is a backend refresh —
+  // drop it so the session's in-memory progress (tour seen, packs applied) holds.
+  if (qaSeedActive() && (raw as any).__dsQaOverride !== true) return;
   const s = applyQASettingsOverride(raw);
   // Re-sync the logger flag on every notify, BEFORE the same-settings
   // short-circuit, so the boot path's notify(cached) applies it even when the

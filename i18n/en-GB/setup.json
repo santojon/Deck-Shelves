@@ -5,7 +5,6 @@
   "setup_group_quick": "Quick setup",
   "setup_group_pack": "Setup packs",
   "setup_group_device": "By device",
-  "setup_recommended": "Recommended for your library",
   "setup_preview_title": "What this adds",
   "setup_preview_have": "already have",
   "setup_preview_setting": "Turns on: {{name}}",
@@ -41,5 +40,16 @@
   "filter_type_machine_compatibility": "Steam Machine compatibility",
   "vr_only": "VR only",
   "vr_supported": "VR supported",
-  "vr_none": "No VR"
+  "vr_none": "No VR",
+  "setup_step_choose": "Choose",
+  "setup_step_review": "Review",
+  "setup_step_done": "Done",
+  "setup_count_shelves": "{{count}} shelves",
+  "setup_count_smart": "{{count}} smart shelves",
+  "setup_count_settings": "{{count}} settings",
+  "setup_nothing_to_add": "You already have everything in this pack.",
+  "setup_done_title": "All set",
+  "setup_done_body": "Every shelf stays editable. To undo this setup later, open the wizard again from the wand icon in the Quick Access title bar.",
+  "setup_undo": "Undo",
+  "setup_recommended_short": "Recommended"
 }

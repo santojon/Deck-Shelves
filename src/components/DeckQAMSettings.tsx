@@ -34,12 +34,11 @@ import { ExportModal } from './qam/modals/ExportModal'
 import { ImportFromCustomFiltersModal } from './qam/modals/ImportFromCustomFiltersModal'
 import { ImportModal } from './qam/modals/ImportModal'
 import { CreateShelfModal } from './qam/modals/CreateShelfModal'
-import { FirstRunBanner } from './qam/modals/FirstRunBanner'
-import { useFirstRunShowcase } from './qam/useFirstRunShowcase'
+import { FirstRunBanner } from '../features/setup/FirstRunBanner'
+import { useFirstRunShowcase } from '../features/setup/useFirstRunShowcase'
 import { NotificationAreaToggles } from './qam/NotificationAreaToggles'
 import { MountCrashBanner } from './qam/modals/MountCrashBanner'
 import { SafeModeSlot } from './qam/modals/SafeModeBanner'
-import { SetupWizardEntry } from './qam/modals/SetupWizardEntry'
 import { RecentsReplaceErrorBanner } from './qam/modals/RecentsReplaceErrorBanner'
 import { getRecentsReplaceFailed, getRecentsReplaceError, subscribeRecentsReplaceFailed } from '../runtime/recentsReplace'
 import { ResetAllModal } from './qam/modals/ResetAllModal'
@@ -48,13 +47,13 @@ import { SmartShelvesPanelSection } from './qam/list/SmartShelvesPanelSection'
 import { UnifiedShelvesPanelSection } from './qam/list/UnifiedShelvesPanelSection'
 import { SavedFilterRow } from './qam/list/SavedFilterRow'
 import { SavedSmartFilterRow } from './qam/list/SavedSmartFilterRow'
-import { SmartShelvesFirstRunBanner } from './qam/modals/SmartShelvesFirstRunBanner'
+import { SmartShelvesFirstRunBanner } from '../features/setup/SmartShelvesFirstRunBanner'
 import { CollapsibleSection, DSSliderField, PositionField, VersionFooter, type HorizontalPosition } from './ui'
 import { SlidersIcon, StackIcon, SparkleIcon, BookmarkIcon, PlusCircleIcon, OnlineIcon, SearchIcon, WandIcon, CloudIcon } from './icons'
 import { UpdateBanner } from './qam/UpdateBanner'
 import { useQamExpanded, resetQamExpanded } from './qam/qamExpandedStore'
 import { confirmAction } from './qam/modals/ConfirmActionModal'
-import { ProfilesSection } from './qam/sections/ProfilesSection'
+import { ProfilesSection } from '../features/profiles/ProfilesSection'
 import { VisualGlobalSection } from './qam/sections/VisualGlobalSection'
 import { getQamWindow, useQamCompositorSync, useIsActiveQamTab, shouldRenderSidecar } from './qam/sidecarActiveTab'
 import { SidecarPanel, useDpadExpandBridge, fireQamExpand, traceSidecarCollapse } from './qam/sidecar/SidecarPanel'
@@ -529,6 +528,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
       <Focusable className='deck-shelves-qam-flex' flow-children='row' noFocusRing>
       <Focusable className='deck-shelves-qam-main' noFocusRing onCancelButton={sidecarCancelHandler(qamExpanded, closeSidecar)} onButtonDown={(evt: any) => mainCancelButtonDown(evt, qamExpanded, closeSidecar)}>
       <UpdateBanner controller={controller} />
+      {(() => isFirstRun ? <FirstRunBanner controller={controller} /> : null)()}
 
       <ToggleField
         label={t('enabled')}
@@ -540,8 +540,6 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
         <MountCrashBanner controller={controller} error={crashError} onDismiss={() => { setMountCrashed(false); setCrashError(null) }} />
       ))()}
       <SafeModeSlot controller={controller} />
-      {(() => isFirstRun ? <FirstRunBanner controller={controller} /> : null)()}
-      <SetupWizardEntry controller={controller} />
 
       {/* Profiles section sits ABOVE Behavior; the component hides itself
           when the user has zero shelves (regular + smart combined). */}

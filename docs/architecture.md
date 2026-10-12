@@ -291,6 +291,11 @@ src/
 │ └── customfilters.ts TabMaster filter conversion
 │
 ├── features/
+│ ├── setup/ Setup wizard (tiles → review → done), first-run tour + banners, wizard entry
+│ ├── statistics/ Statistics + Suggestions panels (reactive, "New" chip), usage charts
+│ ├── profiles/ Profiles section (QAM), Profiles detail (Settings), save / rename modals
+│ ├── search/ Quick Search overlay + provider registry
+│ ├── sidenav/ Side Nav overlay
 │ └── settings/
 │ ├── controller.tsx Hook entry (state + effects + spread compose)
 │ └── controller/ Action slices (composed via spreads)

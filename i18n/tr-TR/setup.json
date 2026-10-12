@@ -5,7 +5,6 @@
   "setup_group_quick": "Hızlı kurulum",
   "setup_group_pack": "Kurulum paketleri",
   "setup_group_device": "Cihaza göre",
-  "setup_recommended": "Kütüphaneniz için önerilen",
   "setup_preview_title": "Bunun eklediği",
   "setup_preview_have": "zaten var",
   "setup_preview_setting": "Açar: {{name}}",
@@ -41,5 +40,16 @@
   "filter_type_machine_compatibility": "Steam Machine uyumluluğu",
   "vr_only": "Yalnızca VR",
   "vr_supported": "VR destekli",
-  "vr_none": "VR yok"
+  "vr_none": "VR yok",
+  "setup_step_choose": "Seç",
+  "setup_step_review": "İncele",
+  "setup_step_done": "Tamam",
+  "setup_count_shelves": "{{count}} raf",
+  "setup_count_smart": "{{count}} akıllı raf",
+  "setup_count_settings": "{{count}} ayar",
+  "setup_nothing_to_add": "Bu paketteki her şeye zaten sahipsin.",
+  "setup_done_title": "Her şey hazır",
+  "setup_done_body": "Her raf düzenlenebilir kalır. Bu kurulumu daha sonra geri almak için sihirbazı Hızlı Erişim başlık çubuğundaki değnek simgesinden yeniden aç.",
+  "setup_undo": "Geri al",
+  "setup_recommended_short": "Önerilen"
 }

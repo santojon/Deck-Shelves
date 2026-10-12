@@ -1,16 +1,16 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Focusable, DialogButton } from "../../../runtime/host/decky";
-import { getUsageSummary, getUsage, clearUsage, flushUsage } from "../../../steam/usageTracking";
-import { dailyTotals } from "../../../domain/usageStats";
-import { shelfTypeBreakdown, shelfSourceBreakdown, cardTypeComposition as cardTypeCompositionPure, cardComposition as cardCompositionPure } from "../../../domain/shelfStats";
+import { Focusable, DialogButton } from "../../runtime/host/decky";
+import { getUsageSummary, getUsage, clearUsage, flushUsage } from "../../steam/usageTracking";
+import { dailyTotals } from "../../domain/usageStats";
+import { shelfTypeBreakdown, shelfSourceBreakdown, cardTypeComposition as cardTypeCompositionPure, cardComposition as cardCompositionPure } from "../../domain/shelfStats";
 import { ComboBarsTrend, DayAxis, StackedBars, AreaTrend, TopBarChart, DonutChart, ChartLegend, DonutLegend, TrendKpi, SERIES_COLORS } from "./UsageCharts";
-import type { useSettingsController } from "../../../features/settings/controller";
-import { getExternalStatisticsProviders, type StatisticsEntry } from "../../../core/pluginApi";
-import { SettingsSection } from "../../ui/SettingsSection";
-import { CollapsibleSection } from "../../ui/CollapsibleSection";
-import { confirmAction } from "../../qam/modals/ConfirmActionModal";
-import { TrashIcon, StackIcon, GamepadIcon, SlidersIcon, PlayIcon } from "../../icons";
-import { BTN_COMPACT_STYLE } from "../../ui/buttonStyles";
+import type { useSettingsController } from "../settings/controller";
+import { getExternalStatisticsProviders, type StatisticsEntry } from "../../core/pluginApi";
+import { SettingsSection } from "../../components/ui/SettingsSection";
+import { CollapsibleSection } from "../../components/ui/CollapsibleSection";
+import { confirmAction } from "../../components/qam/modals/ConfirmActionModal";
+import { TrashIcon, StackIcon, GamepadIcon, SlidersIcon, PlayIcon } from "../../components/icons";
+import { BTN_COMPACT_STYLE } from "../../components/ui/buttonStyles";
 
 export interface StatisticsDetailProps {
   controller: ReturnType<typeof useSettingsController>;

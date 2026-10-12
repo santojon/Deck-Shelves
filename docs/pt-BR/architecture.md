@@ -292,6 +292,11 @@ src/
 │ └── customfilters.ts Conversão de filtro do TabMaster
 │
 ├── features/
+│ ├── setup/ Assistente de configuração (blocos → revisão → pronto), tour de primeira execução + banners, entrada do assistente
+│ ├── statistics/ Painéis de Estatísticas + Sugestões (reativas, selo "Novo"), gráficos de uso
+│ ├── profiles/ Seção de perfis (QAM), detalhe de perfis (Configurações), modais de salvar / renomear
+│ ├── search/ Overlay de Busca rápida + registro de provedores
+│ ├── sidenav/ Overlay do Side Nav
 │ └── settings/
 │ ├── controller.tsx Hook de entrada (estado + efeitos + composição via spread)
 │ └── controller/ Slices de ação (compostos via spreads)

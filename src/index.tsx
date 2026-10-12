@@ -53,6 +53,7 @@ import { resolveHost, hostProvidesNativeTab, shouldUseForcedHost, awaitInjectedH
 import { claimHomeOwnership } from "./runtime/host/ownerGuard";
 import { setHostHandshake, getHostHandshake } from "./runtime/hostHandshake";
 import { tryDeferToHost, readDeferSignal, hostBundleBooted } from "./runtime/host/coopDefer";
+import { SetupWizardEntry } from "./features/setup/SetupWizardEntry";
 import pkg from "../package.json";
 import { AboutPage } from "./components/AboutPage";
 import { SettingsPage } from "./components/SettingsPage";
@@ -101,26 +102,24 @@ export function openSettingsPage(tab?: string) {
   Navigation.Navigate(SETTINGS_ROUTE);
 }
 
+/* Title row sized like the host's own tab (18 px title, 28 px square icon
+   buttons): Decky adds a back arrow on the left, and the previous 40 px buttons
+   wrapped "Deck Shelves" onto two lines. */
+const titleIconButton = { height: 28, width: 28, minWidth: 0, padding: 0, borderRadius: 4, flex: "0 0 auto", display: "flex", justifyContent: "center", alignItems: "center" } as const;
+
 function TitleView() {
   return (
     <Focusable
-      style={{ display: "flex", padding: 0, flex: "auto", boxShadow: "none" }}
+      style={{ display: "flex", alignItems: "center", gap: 8, padding: 0, flex: "auto", boxShadow: "none" }}
       className={quickAccessMenuClasses.Title}
     >
-      <div style={{ marginRight: "auto", display: "flex", alignItems: "center" }}>Deck Shelves</div>
-      <DialogButton
-        style={{ height: 28, width: 40, minWidth: 0, padding: 0, display: "flex", justifyContent: "center", alignItems: "center" }}
-        onClick={openAboutPage}
-        onOKButton={openAboutPage}
-      >
-        <DocsIcon size={14} />
+      <div style={{ marginRight: "auto", minWidth: 0, fontSize: 18, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>Deck Shelves</div>
+      <SetupWizardEntry />
+      <DialogButton style={titleIconButton} onClick={openAboutPage} onOKButton={openAboutPage}>
+        <DocsIcon size={16} />
       </DialogButton>
-      <DialogButton
-        style={{ height: 28, width: 40, minWidth: 0, padding: 0, marginLeft: 4, display: "flex", justifyContent: "center", alignItems: "center" }}
-        onClick={() => openSettingsPage()}
-        onOKButton={() => openSettingsPage()}
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 14, height: 14 }}>
+      <DialogButton style={titleIconButton} onClick={() => openSettingsPage()} onOKButton={() => openSettingsPage()}>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 16, height: 16 }}>
           <circle cx="12" cy="12" r="3" />
           <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
         </svg>

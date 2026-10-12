@@ -28,6 +28,17 @@ const templatesFixture = __DEV__ && typeof __QA_TEMPLATES_FIXTURE__ !== "undefin
 const decorationFixture = __DEV__ && typeof __QA_DECORATION_FIXTURE__ !== "undefined" && __QA_DECORATION_FIXTURE__;
 const stressFixture = __DEV__ && typeof __QA_STRESS_FIXTURE__ !== "undefined" && __QA_STRESS_FIXTURE__;
 const videoFixture = __DEV__ && typeof __QA_VIDEO_FIXTURE__ !== "undefined" && __QA_VIDEO_FIXTURE__;
+// A fresh install as the first-run flow sees it: no shelves, the tour not yet
+// seen, the setup wizard never applied — exercises tour → wizard end to end.
+const freshInstall = __DEV__ && typeof __QA_FRESH_INSTALL__ !== "undefined" && __QA_FRESH_INSTALL__;
+let freshSeeded = false;
+
+/* True once the fresh-install seed has been applied this session: the store
+   then ignores untagged payloads (backend refreshes), which would otherwise
+   re-seed and undo what the session did in memory. */
+export function qaSeedActive(): boolean {
+  return freshInstall && freshSeeded;
+}
 // perf:bench baseline matrix (vanilla/empty/typical/stress/large/huge) — scenario
 // picked at RUNTIME from localStorage (not a build constant) so one build covers all six without
 // a redeploy per scenario; see qaPerfMatrixFixture below.
@@ -56,7 +67,7 @@ export const qaOverrideActive = __DEV__ && (
   || !!forceTabMaster || !!forceUnifiDeck || !!forceNonSteamBadges || smartShelvesFixture || savedFiltersFixture
   || forceHidden || surpriseMe || forceCrash || forceReplaceFailed || updateAvailable || updateDismissed
   || updateOffline || collectionEmpty || collectionInverted || sourcesFixture || templatesFixture
-  || decorationFixture || stressFixture || videoFixture || perfMatrix
+  || decorationFixture || stressFixture || videoFixture || perfMatrix || freshInstall
 );
 
 if (qaOverrideActive) {
@@ -66,7 +77,7 @@ if (qaOverrideActive) {
     forceTabMaster, forceUnifiDeck, forceNonSteamBadges,
     smartShelvesFixture, savedFiltersFixture, forceHidden, surpriseMe, forceCrash, forceReplaceFailed,
     updateAvailable, updateDismissed, updateOffline, collectionEmpty, collectionInverted,
-    sourcesFixture, templatesFixture, decorationFixture, stressFixture, videoFixture, perfMatrix,
+    sourcesFixture, templatesFixture, decorationFixture, stressFixture, videoFixture, perfMatrix, freshInstall,
   });
 }
 
@@ -694,7 +705,7 @@ export function applyQASettingsOverride(s: Settings): Settings {
     !wantsHomeOverride && !wantsSmartOverride && !wantsFiltersOverride
     && !wantsCollectionEmpty && !wantsCollectionInverted && !wantsUpdateDismissed
     && !sourcesFixture && !templatesFixture && !decorationFixture && !stressFixture && !videoFixture
-    && !perfMatrix
+    && !perfMatrix && !freshInstall
   ) return s;
 
   /* Every override below is placeholder data that must never be mistaken
@@ -706,6 +717,20 @@ export function applyQASettingsOverride(s: Settings): Settings {
      boot, however it got there. */
   const tag = <T extends object>(o: T): T => ({ ...o, __dsQaOverride: true }) as T;
 
+  /* Fresh install: nothing configured yet and nothing seen yet, so the tour
+     opens, its closing choice can open the wizard, and the wizard's apply /
+     undo run in memory only (the QA guard keeps every save off the backend).
+     A SEED, not a standing override: the first payload of the session is
+     replaced by the fresh state; later tagged payloads (saves built on it)
+     pass through, and the store drops untagged ones (backend refreshes) while
+     the seed is active — re-forcing on every notify wiped the shelves a pack
+     had just added and re-opened the tour after "seen" was saved. */
+  if (freshInstall) {
+    if (freshSeeded && (s as any).__dsQaOverride === true) return s;
+    freshSeeded = true;
+    // Master toggle off like a real first run (that is what shows the welcome banner).
+    return tag({ ...s, enabled: false, shelves: [], smartShelves: [], showcaseSeen: false, setupWizardSeen: false, lastSetupApply: null } as Settings);
+  }
   // Sources / templates / decoration / stress fixtures are exclusive with
   // each other and with the existing collection-fixture overrides — only
   // one set wins.

@@ -12,7 +12,7 @@
   "about_feature_edit_smart": "Editar estanterías inteligentes: anular orden, agregar filtros, ajustar visuales",
   "about_feature_external_imports": "Importa pestañas de biblioteca desde TabMaster u otros plugins proveedores y conviértelas en estanterías",
   "about_feature_filters": "Filtra por nombre, tiempo de juego, estado de instalación, compatibilidad, visibilidad y más",
-  "about_feature_first_run": "Banner de primer uso con plantillas de estantería predeterminadas",
+  "about_feature_first_run": "Banner de primer uso con el asistente de configuración",
   "about_feature_global_toggles": "Toggles globales para tamaño nativo y destacado con configuración por estante",
   "about_feature_hero_global": "Interruptor global de hero en la sección Visual del QAM que activa el hero art en todas las estanterías a la vez",
   "about_feature_hero_per_shelf": "Imagen hero de fondo por estantería — normal o inteligente — con interruptor en la pestaña Visual del modal Editar Estantería",

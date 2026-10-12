@@ -12,7 +12,7 @@
   "about_feature_edit_smart": "スマート棚を編集: 並び順を上書き、追加フィルター、ビジュアル設定",
   "about_feature_external_imports": "TabMasterまたは他のプロバイダープラグインからライブラリタブをインポートしてシェルフに変換",
   "about_feature_filters": "名前、プレイ時間、インストール状態、互換性、表示状態などでフィルタリング",
-  "about_feature_first_run": "初回起動バナーとデフォルトシェルフテンプレート",
+  "about_feature_first_run": "初回起動バナーとセットアップウィザード",
   "about_feature_global_toggles": "ネイティブサイズとハイライトのグローバルトグル（シェルフ個別設定優先）",
   "about_feature_hero_global": "QAM のビジュアルセクションにあるグローバル hero トグル — すべての棚で一度に hero アートを有効にできます",
   "about_feature_hero_per_shelf": "棚ごとのヒーロー背景アート — 通常または スマート — 棚編集モーダルの「ビジュアル」タブにあるトグルで切り替え",

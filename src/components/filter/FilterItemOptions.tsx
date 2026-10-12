@@ -208,6 +208,7 @@ const RENDERERS: Record<string, (c: OptCtx) => ReactNode> = {
     p.mode ?? "exclude", (v) => patchParams({ mode: v })),
   collection: collectionOptions,
   deckCompatibility: ({ t, p, patchParams }) => toggleSet(COMPAT_LEVELS, Array.isArray(p.levels) ? p.levels : [], (k) => t(`compat_${k}`), (next) => patchParams({ levels: next })),
+  deviceCompatibility: ({ t, p, patchParams }) => toggleSet(COMPAT_LEVELS, Array.isArray(p.levels) ? p.levels : [], (k) => t(`compat_${k}`), (next) => patchParams({ levels: next })),
   steamosCompatibility: ({ t, p, patchParams }) => toggleSet(COMPAT_LEVELS, Array.isArray(p.levels) ? p.levels : [], (k) => t(`compat_${k}`), (next) => patchParams({ levels: next })),
   machineCompatibility: ({ t, p, patchParams }) => toggleSet(COMPAT_LEVELS, Array.isArray(p.levels) ? p.levels : [], (k) => t(`compat_${k}`), (next) => patchParams({ levels: next })),
   frameCompatibility: ({ t, p, patchParams }) => toggleSet(COMPAT_LEVELS, Array.isArray(p.levels) ? p.levels : [], (k) => t(`compat_${k}`), (next) => patchParams({ levels: next })),

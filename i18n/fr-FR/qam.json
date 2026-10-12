@@ -67,5 +67,6 @@
   "report_issue_title": "Signaler un problème",
   "report_issue_desc": "Ouvre un rapport prérempli dans votre navigateur. Rien n'est envoyé tant que vous ne l'avez pas vérifié et soumis.",
   "report_issue_hardware": "Inclure les informations matérielles",
-  "report_issue_hardware_desc": "Modèle, CPU, mémoire, GPU et stockage — aide à diagnostiquer les problèmes propres à l'appareil."
+  "report_issue_hardware_desc": "Modèle, CPU, mémoire, GPU et stockage — aide à diagnostiquer les problèmes propres à l'appareil.",
+  "sidecar_back": "Retour"
 }

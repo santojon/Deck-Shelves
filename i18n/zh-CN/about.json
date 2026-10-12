@@ -12,7 +12,7 @@
   "about_feature_edit_smart": "编辑智能货架：覆盖排序、添加过滤器、调整视觉",
   "about_feature_external_imports": "从TabMaster或其他提供者插件导入库标签页并转换为书架",
   "about_feature_filters": "按名称、游玩时间、安装状态、兼容性、可见性等进行筛选",
-  "about_feature_first_run": "带默认书架模板的首次运行横幅",
+  "about_feature_first_run": "带设置向导的首次运行横幅",
   "about_feature_global_toggles": "全局切换原生尺寸和突出显示，可按书架单独覆盖",
   "about_feature_hero_global": "QAM「视觉」区域中的全局英雄开关 — 一次性为所有货架启用英雄图",
   "about_feature_hero_per_shelf": "每个货架的英雄背景图 — 普通或智能 — 在编辑货架对话框的「视觉」选项卡中切换",

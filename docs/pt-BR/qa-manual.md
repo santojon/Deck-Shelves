@@ -168,6 +168,7 @@ config do Vite). Cada script `pnpm qa:*` envolve uma variável de ambiente
 | Flag | Script | Efeito |
 |------|--------|--------|
 | `DS_QA_FORCE_FIRST_RUN` | `pnpm qa:first-run` | Lista de prateleiras vazia + plugin desativado — exercita o banner de primeira execução |
+| `DS_QA_FRESH_INSTALL` | `pnpm qa:fresh-install` | Uma instalação nova como o fluxo de primeira execução a vê: chave geral desligada, sem prateleiras, tour ainda não visto, nenhuma configuração aplicada — o banner de boas-vindas e o tour aparecem, a escolha final do tour abre o assistente de configuração, aplicar / desfazer rodam só em memória (nada é gravado no aparelho) |
 | `DS_QA_FORCE_QAM_ERROR` | `pnpm qa:qam-error` | Lança erro na renderização do QAM — exercita o ErrorBoundary do QAM |
 | `DS_QA_FORCE_SHELF_ERROR` | `pnpm qa:shelf-error` | Lança erro na renderização de prateleira — exercita o `HomeBoundary` |
 | `DS_QA_FORCE_HOME_CRASH` | `pnpm qa:home-crash` | Mesmo erro, flag distinta para scripts de captura desambiguarem |
@@ -192,3 +193,23 @@ config do Vite). Cada script `pnpm qa:*` envolve uma variável de ambiente
 Combine flags conforme necessário (ex.:
 `DS_QA_SMART_SHELVES_FIXTURE=1 DS_QA_SAVED_FILTERS_FIXTURE=1 pnpm run deploy:deck:hard`).
 Cada uma é independente e aditiva.
+
+## 13. Cenários de vídeo (requer CDP)
+
+Sequências roteirizadas e repetíveis para os oito roteiros de conteúdo (prateleiras
+personalizadas, smart shelves, filtros, personalização visual, Busca rápida + Side Nav, perfis +
+gatilhos, prateleiras online, ferramentas avançadas). Implante primeiro a fixture de vídeo
+(`pnpm run qa:video-fixture`) e então:
+
+```bash
+pnpm run video:scenarios:list                 # nomes + resumo de uma linha
+pnpm run video:scenarios                      # conduz todos os cenários e imprime os pontos de marcação (grave externamente)
+pnpm run video:scenarios -- --only 01_custom_shelves,02_smart_shelves
+pnpm run video:record -- --fps 8              # também captura quadros via CDP → assets/video/<nome>/<nome>.mp4
+```
+
+Sem `--record` o runner só conduz a interface e imprime cada marcação com o tempo, para que um
+dispositivo de captura obtenha a mesma filmagem em toda tomada. Com `--record` ele captura quadros
+JPEG da janela Big Picture (6–10 fps num Deck) e monta um mp4 quando o `ffmpeg` está no PATH; os
+quadros e o `cues.json` ficam ao lado de qualquer forma. Os cenários ficam em
+`scripts/deckprobe-ext/video/scenarios/`; o runner e os helpers em `deckprobe/video/`.

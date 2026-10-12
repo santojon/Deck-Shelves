@@ -67,5 +67,6 @@
   "report_issue_title": "Report a problem",
   "report_issue_desc": "Opens a pre-filled report in your browser. Nothing is sent until you review and submit it.",
   "report_issue_hardware": "Include hardware information",
-  "report_issue_hardware_desc": "Model, CPU, memory, GPU and storage — helps diagnose device-specific issues."
+  "report_issue_hardware_desc": "Model, CPU, memory, GPU and storage — helps diagnose device-specific issues.",
+  "sidecar_back": "Back"
 }

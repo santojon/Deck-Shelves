@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { ConfirmModal, Field, TextField, Focusable } from '../../../runtime/host/decky'
-import type { SettingsController } from '../../../features/settings/controller'
-import { ModalShell } from '../../ui'
-import { textFromDeckyChange } from './modalUtils'
+import { ConfirmModal, Field, TextField, Focusable } from '../../runtime/host/decky'
+import type { SettingsController } from '../settings/controller'
+import { ModalShell } from '../../components/ui'
+import { textFromDeckyChange } from '../../components/qam/modals/modalUtils'
 
 export function RenameProfileModal({ closeModal, controller, profileId, currentName }: { closeModal?: () => void; controller: SettingsController; profileId: string; currentName: string }) {
   const { t } = controller

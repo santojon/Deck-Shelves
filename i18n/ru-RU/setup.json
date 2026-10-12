@@ -5,7 +5,6 @@
   "setup_group_quick": "Быстрая настройка",
   "setup_group_pack": "Наборы настроек",
   "setup_group_device": "По устройству",
-  "setup_recommended": "Рекомендуется для вашей библиотеки",
   "setup_preview_title": "Что будет добавлено",
   "setup_preview_have": "уже есть",
   "setup_preview_setting": "Включает: {{name}}",
@@ -41,5 +40,16 @@
   "filter_type_machine_compatibility": "Совместимость со Steam Machine",
   "vr_only": "Только VR",
   "vr_supported": "Поддержка VR",
-  "vr_none": "Без VR"
+  "vr_none": "Без VR",
+  "setup_step_choose": "Выбор",
+  "setup_step_review": "Проверка",
+  "setup_step_done": "Готово",
+  "setup_count_shelves": "{{count}} полок",
+  "setup_count_smart": "{{count}} умных полок",
+  "setup_count_settings": "{{count}} настроек",
+  "setup_nothing_to_add": "У вас уже есть всё из этого набора.",
+  "setup_done_title": "Всё готово",
+  "setup_done_body": "Каждую полку можно редактировать. Чтобы отменить эту настройку позже, снова откройте мастер по значку волшебной палочки в заголовке быстрого доступа.",
+  "setup_undo": "Отменить",
+  "setup_recommended_short": "Рекомендуется"
 }

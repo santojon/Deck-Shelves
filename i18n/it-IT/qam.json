@@ -67,5 +67,6 @@
   "report_issue_title": "Segnala un problema",
   "report_issue_desc": "Apre una segnalazione precompilata nel browser. Non viene inviato nulla finché non la controlli e la invii.",
   "report_issue_hardware": "Includi informazioni hardware",
-  "report_issue_hardware_desc": "Modello, CPU, memoria, GPU e archiviazione: aiuta a diagnosticare problemi specifici del dispositivo."
+  "report_issue_hardware_desc": "Modello, CPU, memoria, GPU e archiviazione: aiuta a diagnosticare problemi specifici del dispositivo.",
+  "sidecar_back": "Indietro"
 }

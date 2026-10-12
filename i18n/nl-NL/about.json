@@ -12,7 +12,7 @@
   "about_feature_edit_smart": "Slimme schappen bewerken: sortering overschrijven, extra filters, visuele opties",
   "about_feature_external_imports": "Importeer bibliotheekmappen uit TabMaster of andere providerplugins om ze naar planken te converteren",
   "about_feature_filters": "Filter op naam, speeltijd, installatiestatus, compatibiliteit, zichtbaarheid en meer",
-  "about_feature_first_run": "Welkomstbanner met standaard planksjablonen",
+  "about_feature_first_run": "Welkomstbanner met installatiewizard",
   "about_feature_global_toggles": "Globale toggles voor native grootte en uitlichting met per-plank override",
   "about_feature_hero_global": "Globale hero-schakelaar in het Visueel-onderdeel van het QAM die hero-art tegelijk voor elke plank inschakelt",
   "about_feature_hero_per_shelf": "Hero-achtergrondafbeelding per plank — normaal of slim — met schakelaar in het Visueel-tabblad van het Plank bewerken-modaal",

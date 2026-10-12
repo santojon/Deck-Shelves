@@ -67,5 +67,6 @@
   "report_issue_title": "Zgłoś problem",
   "report_issue_desc": "Otwiera wstępnie wypełnione zgłoszenie w przeglądarce. Nic nie jest wysyłane, dopóki go nie sprawdzisz i nie wyślesz.",
   "report_issue_hardware": "Dołącz informacje o sprzęcie",
-  "report_issue_hardware_desc": "Model, CPU, pamięć, GPU i pamięć masowa — pomaga diagnozować problemy specyficzne dla urządzenia."
+  "report_issue_hardware_desc": "Model, CPU, pamięć, GPU i pamięć masowa — pomaga diagnozować problemy specyficzne dla urządzenia.",
+  "sidecar_back": "Wstecz"
 }

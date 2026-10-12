@@ -1,4 +1,4 @@
-import type { UsageDailyPoint } from "../../../domain/usageStats";
+import type { UsageDailyPoint } from "../../domain/usageStats";
 
 /* Hand-rolled, dependency-free SVG/DOM usage charts. Time-series charts use a
    fixed viewBox + `width:100%` (so they're responsive) with

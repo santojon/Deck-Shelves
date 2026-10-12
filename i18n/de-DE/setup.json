@@ -5,7 +5,6 @@
   "setup_group_quick": "Schnelleinrichtung",
   "setup_group_pack": "Einrichtungspakete",
   "setup_group_device": "Nach Gerät",
-  "setup_recommended": "Empfohlen für deine Bibliothek",
   "setup_preview_title": "Was hinzugefügt wird",
   "setup_preview_have": "bereits vorhanden",
   "setup_preview_setting": "Aktiviert: {{name}}",
@@ -41,5 +40,16 @@
   "filter_type_machine_compatibility": "Steam-Machine-Kompatibilität",
   "vr_only": "Nur VR",
   "vr_supported": "VR unterstützt",
-  "vr_none": "Kein VR"
+  "vr_none": "Kein VR",
+  "setup_step_choose": "Auswählen",
+  "setup_step_review": "Prüfen",
+  "setup_step_done": "Fertig",
+  "setup_count_shelves": "{{count}} Regale",
+  "setup_count_smart": "{{count}} Smart-Regale",
+  "setup_count_settings": "{{count}} Einstellungen",
+  "setup_nothing_to_add": "Du hast bereits alles aus diesem Paket.",
+  "setup_done_title": "Alles bereit",
+  "setup_done_body": "Jedes Regal bleibt bearbeitbar. Um diese Einrichtung später rückgängig zu machen, öffne den Assistenten erneut über das Zauberstab-Symbol in der Titelleiste des Schnellzugriffs.",
+  "setup_undo": "Rückgängig",
+  "setup_recommended_short": "Empfohlen"
 }

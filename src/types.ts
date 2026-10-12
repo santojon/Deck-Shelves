@@ -8,6 +8,7 @@ export const FilterItemTypeSchema = z.enum([
   "updatePending",
   "isNew",
   "deckCompatibility",
+  "deviceCompatibility",
   "playedWithinDays",
   "playtimeRange",
   "recentlyActive",

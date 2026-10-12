@@ -114,16 +114,16 @@ By default, smart shelves appear **before** normal shelves. The `smartShelvesAtB
 
 ---
 
-### Deck Picks — `deck_picks`
+### Picks for this device — `deck_picks`
 
-**When it appears:** you have at least one Deck Verified game in the library.
+**When it appears:** you have at least one game rated *Verified* for the device you are on.
 
 **Criteria:**
-- `deck_compatibility_category = Verified` (category 3)
+- the compatibility rating of the device in use = Verified (category 3) — the Deck rating on a Steam Deck, the Machine rating on a Steam Machine, the Frame rating on a Steam Frame
 
-**Sort:** most recently played first (highlights games you actively use on Deck).
+**Sort:** most recently played first (highlights games you actively use on this device).
 
-**When it disappears:** when the library has no Deck Verified games at all.
+**When it disappears:** when the library has no game rated Verified for this device.
 
 **Reliability:** high for most Steam Deck users; Valve certifies many popular titles.
 

@@ -130,16 +130,16 @@ Jogáveis para o Deck e têm menos de 2 horas de tempo de jogo.
 
 ---
 
-### Escolhas para o Deck — `deck_picks`
+### Escolhas para este aparelho — `deck_picks`
 
-**Quando aparece:** você tem pelo menos um jogo Verificado para Deck na biblioteca.
+**Quando aparece:** você tem pelo menos um jogo avaliado como *Verificado* para o aparelho em que está.
 
 **Critérios:**
-- `deck_compatibility_category = Verified` (categoria 3)
+- a nota de compatibilidade do aparelho em uso = Verificado (categoria 3) — a nota do Deck num Steam Deck, a do Machine num Steam Machine, a do Frame num Steam Frame
 
-**Ordenação:** jogados mais recentemente primeiro (destaca jogos que você usa ativamente no Deck).
+**Ordenação:** jogados mais recentemente primeiro (destaca jogos que você usa ativamente neste aparelho).
 
-**Quando desaparece:** quando a biblioteca não tem nenhum jogo Verificado para Deck.
+**Quando desaparece:** quando a biblioteca não tem nenhum jogo Verificado para este aparelho.
 
 **Confiabilidade:** alta para a maioria dos usuários de Steam Deck; a Valve certifica muitos títulos populares.
 

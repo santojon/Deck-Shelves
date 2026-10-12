@@ -626,6 +626,56 @@ _I18N_ATTR_ATTR_RE = re.compile(r'data-i18n-attr="([^"]+)"')
 _PT_BR_KEY_RE = re.compile(r'^\s*"([^"]+)"\s*:', re.MULTILINE)
 
 
+# ── Site analytics (site/analytics.json) ─────────────────────────────────────
+# A privacy-first page-view counter — no cookies, no personal data, no consent
+# banner — injected into every page's <head> when a site code is set, plus a
+# one-line notice in the footer. Markers keep the step idempotent; an empty
+# code strips both again.
+_ANALYTICS_RE = re.compile(r"\s*<!-- analytics -->[\s\S]*?<!-- /analytics -->")
+_NOTICE_RE = re.compile(r"\s*<!-- analytics-notice -->[\s\S]*?<!-- /analytics-notice -->")
+_FOOT_BOTTOM_RE = re.compile(r'(<div class="foot-bottom">[\s\S]*?)(</div>)')
+
+
+def _analytics_config(site: Path) -> tuple[str, bool]:
+    """(site code, public stats) from site/analytics.json; an empty code = off."""
+    try:
+        cfg = json.loads((site / "analytics.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return "", False
+    code = str(cfg.get("code") or "")
+    if cfg.get("provider") != "goatcounter" or not re.fullmatch(r"[A-Za-z0-9-]+", code):
+        return "", False
+    return code, bool(cfg.get("publicStats"))
+
+
+def _analytics_blocks(code: str, public_stats: bool) -> tuple[str, str]:
+    if not code:
+        return "", ""
+    snippet = (f'<!-- analytics --><script data-goatcounter="https://{code}.goatcounter.com/count" '
+               'async src="//gc.zgo.at/count.js"></script><!-- /analytics -->')
+    stats = (f' <a href="https://{code}.goatcounter.com" data-i18n="footer.analyticsStats">public stats</a>'
+             if public_stats else "")
+    notice = ('<!-- analytics-notice --><span class="analytics-note"><span data-i18n="footer.analytics">'
+              'Page views are counted without cookies or personal data (GoatCounter).</span>'
+              f'{stats}</span><!-- /analytics-notice -->')
+    return snippet, notice
+
+
+def _inject_analytics(site: Path) -> int:
+    code, public_stats = _analytics_config(site)
+    snippet, notice = _analytics_blocks(code, public_stats)
+    pages = sorted(site.rglob("*.html"))
+    for page in pages:
+        text = _NOTICE_RE.sub("", _ANALYTICS_RE.sub("", page.read_text(encoding="utf-8")))
+        if snippet:
+            text = text.replace("</head>", f"{snippet}\n</head>", 1)
+            text = _FOOT_BOTTOM_RE.sub(lambda m: f"{m.group(1)}{notice}{m.group(2)}", text, count=1)
+        page.write_text(text, encoding="utf-8")
+    state = "on (goatcounter)" if snippet else "off (no site code in site/analytics.json)"
+    print(f"[build_site] analytics: {state} across {len(pages)} page(s)")
+    return len(pages)
+
+
 def _load_pt_br_keys(site: Path) -> set[str] | None:
     path = site / "i18n" / "pt-BR.js"
     if not path.is_file():
@@ -740,6 +790,7 @@ def main() -> int:
         print("[build_site] WARN: could not parse README Features section")
 
     _write_integration_pages(root, site)
+    _inject_analytics(site)
 
     pages = [index, site / "features.html", *sorted((site / "integrations").glob("*.html"))]
     problems = _validate_i18n_coverage(site, pages)

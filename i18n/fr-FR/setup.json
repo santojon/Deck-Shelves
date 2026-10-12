@@ -5,7 +5,6 @@
   "setup_group_quick": "Configuration rapide",
   "setup_group_pack": "Packs de configuration",
   "setup_group_device": "Par appareil",
-  "setup_recommended": "Recommandé pour votre bibliothèque",
   "setup_preview_title": "Ce que cela ajoute",
   "setup_preview_have": "déjà présent",
   "setup_preview_setting": "Active : {{name}}",
@@ -41,5 +40,16 @@
   "filter_type_machine_compatibility": "Compatibilité Steam Machine",
   "vr_only": "VR uniquement",
   "vr_supported": "Compatible VR",
-  "vr_none": "Sans VR"
+  "vr_none": "Sans VR",
+  "setup_step_choose": "Choisir",
+  "setup_step_review": "Vérifier",
+  "setup_step_done": "Terminé",
+  "setup_count_shelves": "{{count}} étagères",
+  "setup_count_smart": "{{count}} étagères intelligentes",
+  "setup_count_settings": "{{count}} réglages",
+  "setup_nothing_to_add": "Vous avez déjà tout ce que contient ce pack.",
+  "setup_done_title": "Tout est prêt",
+  "setup_done_body": "Chaque étagère reste modifiable. Pour annuler cette configuration plus tard, rouvrez l'assistant depuis l'icône baguette dans la barre de titre de l'Accès rapide.",
+  "setup_undo": "Annuler",
+  "setup_recommended_short": "Recommandé"
 }

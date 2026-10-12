@@ -25,8 +25,9 @@ export const SETUP_PACKS: SetupPack[] = [
   { id: "portable_deck", group: "pack", templates: ["installed", "deck_verified"], smart: ["short_battery", "travel_mode", "quick_play"] },
   { id: "rediscover", group: "pack", templates: ["most_played"], smart: ["rediscover", "forgotten_gems", "hidden_gems"] },
   { id: "living_room", group: "pack", templates: ["favorites", "recent"], smart: ["long_session_night", "deck_picks"], settings: { shelfHeroBackground: true, globalHighlightFirst: true } },
-  { id: "frame", group: "device", templates: ["recent", "favorites"], smart: ["quick_play", "short_battery"] },
-  { id: "machine", group: "device", templates: ["favorites", "recent", "most_played"], smart: ["long_session_night", "deck_picks"], settings: { shelfHeroBackground: true } },
+  { id: "frame", group: "device", templates: ["vr_games", "vr_only", "recent", "favorites"], smart: ["quick_play", "short_battery"] },
+  // A TV: hero art everywhere, full-page shelves, the first game featured, logos.
+  { id: "machine", group: "device", templates: ["favorites", "recent", "most_played"], smart: ["long_session_night", "deck_picks"], settings: { shelfHeroBackground: true, globalHeroEnabled: true, globalFullPageShelf: true, globalHighlightFirst: true, globalEnableLogo: true } },
   { id: "stream", group: "device", templates: ["steam_cloud", "recent"], smart: ["quick_play"] },
 ];
 

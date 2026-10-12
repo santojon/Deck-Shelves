@@ -3,7 +3,8 @@ import type { SmartShelfMode } from "../types";
 import { getParam, type SmartParams } from "./smartParams";
 import { weightedRank, multiFactorRank, timeDecayScore, applyCooldown, rotateWindow } from "./heuristics";
 import { getBatteryState } from "../runtime/batteryState";
-import { evalDeviceRule, isDeviceRuleKind } from "../runtime/deviceState";
+import { evalDeviceRule, isDeviceRuleKind, getDeviceProfile } from "../runtime/deviceState";
+import { compatCategoryForFamily } from "../domain/deviceProfile";
 import { evalTimeContextRule, isTimeContextKind } from "../domain/timeContext";
 import { evalSessionRule, isSessionRuleKind } from "../runtime/sessionState";
 import { evalPerfRule, isPerfRuleKind } from "../runtime/perfState";
@@ -70,8 +71,15 @@ function lastPlayedSec(app: AppOverview): number {
   return Number(app.last_played ?? 0);
 }
 
+// The compatibility rating of the device in use (Deck, Machine or Frame);
+// on a Deck, and for any family without its own rating, the Deck one.
 function deckCompat(app: AppOverview): number {
-  return Number(app.deck_compatibility_category ?? 0);
+  const own = compatCategoryForFamily(getDeviceProfile().family, {
+    deckCompatCategory: app.deck_compatibility_category,
+    machineCompatCategory: (app as any).machine_compatibility_category,
+    frameCompatCategory: (app as any).frame_compatibility_category,
+  });
+  return Number(own ?? app.deck_compatibility_category ?? 0);
 }
 
 function resolveQuickPlay(apps: AppOverview[], limit: number, params?: SmartParams): number[] {

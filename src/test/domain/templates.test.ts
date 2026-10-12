@@ -59,15 +59,22 @@ describe('SHELF_TEMPLATES', () => {
     }
   })
 
-  it('deck_verified template targets the "verified" compatibility level', () => {
+  it('deck_verified template targets the "verified" level of the device in use', () => {
     const verified = SHELF_TEMPLATES.find((t) => t.id === 'deck_verified')
     expect(verified).toBeDefined()
     if (verified!.source.type === 'filter') {
       const group = verified!.source.filter.filterGroup
       expect(group).toBeDefined()
-      expect(group!.items[0].type).toBe('deckCompatibility')
+      expect(group!.items[0].type).toBe('deviceCompatibility')
       expect(group!.items[0].params?.levels).toEqual(['verified'])
     }
+  })
+
+  it('VR templates key on the VR support levels', () => {
+    const games = SHELF_TEMPLATES.find((t) => t.id === 'vr_games')
+    const only = SHELF_TEMPLATES.find((t) => t.id === 'vr_only')
+    expect(games && games.source.type === 'filter' && games.source.filter.filterGroup?.items[0]).toMatchObject({ type: 'vrSupport', params: { levels: ['only', 'supported'] } })
+    expect(only && only.source.type === 'filter' && only.source.filter.filterGroup?.items[0]).toMatchObject({ type: 'vrSupport', params: { levels: ['only'] } })
   })
 
   it('never_played template targets the backlog via maxPlaytimeMinutes:0', () => {
@@ -79,12 +86,12 @@ describe('SHELF_TEMPLATES', () => {
     }
   })
 
-  it('deck_playable template targets the "playable" compatibility level', () => {
+  it('deck_playable template targets the "playable" level of the device in use', () => {
     const dp = SHELF_TEMPLATES.find((t) => t.id === 'deck_playable')
     expect(dp).toBeDefined()
     if (dp!.source.type === 'filter') {
       const group = dp!.source.filter.filterGroup
-      expect(group!.items[0].type).toBe('deckCompatibility')
+      expect(group!.items[0].type).toBe('deviceCompatibility')
       expect(group!.items[0].params?.levels).toEqual(['playable'])
     }
   })

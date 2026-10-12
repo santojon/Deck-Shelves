@@ -5,7 +5,6 @@
   "setup_group_quick": "快速設定",
   "setup_group_pack": "設定套件",
   "setup_group_device": "依裝置",
-  "setup_recommended": "為你的收藏庫推薦",
   "setup_preview_title": "將新增的內容",
   "setup_preview_have": "已有",
   "setup_preview_setting": "開啟：{{name}}",
@@ -41,5 +40,16 @@
   "filter_type_machine_compatibility": "Steam Machine 相容性",
   "vr_only": "僅限 VR",
   "vr_supported": "支援 VR",
-  "vr_none": "無 VR"
+  "vr_none": "無 VR",
+  "setup_step_choose": "選擇",
+  "setup_step_review": "確認",
+  "setup_step_done": "完成",
+  "setup_count_shelves": "{{count}} 個貨架",
+  "setup_count_smart": "{{count}} 個智慧貨架",
+  "setup_count_settings": "{{count}} 項設定",
+  "setup_nothing_to_add": "這個套件裡的內容你已經全部擁有。",
+  "setup_done_title": "全部完成",
+  "setup_done_body": "每個貨架都可以繼續編輯。若之後想復原這次設定，請透過快速存取標題列中的魔杖圖示重新開啟精靈。",
+  "setup_undo": "復原",
+  "setup_recommended_short": "推薦"
 }

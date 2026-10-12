@@ -67,5 +67,6 @@
   "toast_profile_renamed": "Profile renamed",
   "toast_filter_saved": "Filter saved",
   "toast_filter_deleted": "Filter deleted",
-  "toast_filter_renamed": "Filter renamed"
+  "toast_filter_renamed": "Filter renamed",
+  "sidecar_back": "Back"
 }

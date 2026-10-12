@@ -15,7 +15,7 @@ import { getCurrentSettings } from '../../../store/settingsStore'
 import { trackFeature } from '../../../steam/usageTracking'
 import { absorbCancelButton } from '../sidecarCancel'
 import { type OpenerWithInput } from '../sidecarActiveTab'
-import { GearIcon } from '../../icons'
+import { ChevronLeftIcon, GearIcon } from '../../icons'
 import { ErrorBoundary } from '../../ErrorBoundary'
 import { GeneralTab } from './GeneralTab'
 
@@ -26,6 +26,27 @@ const DPAD_DOWN = 21;
 
 function rectEdges(rect: DOMRect | undefined, win: Window): { right: number; bottom: number } {
   return { right: rect?.right ?? win.innerWidth, bottom: rect?.bottom ?? win.innerHeight };
+}
+
+/* The sidecar's viewport frame. It is fixed-position and anchored to the tab's
+   content panel — a box that stays put when its content scrolls — so it keeps its
+   place while the gamepad focus scrolls the main column under it, and it starts at
+   that panel's top (like the host's own sidecar). 280×320 is the floor whenever
+   measurements aren't available yet. */
+function sidecarFrame(
+  main: HTMLElement | null, anchor: HTMLElement | null, panel: HTMLElement | null, win: Window,
+): { left: number; top: number; width: number; height: number } {
+  const mainRect = main ? main.getBoundingClientRect() : undefined;
+  const anchorRect = anchor ? anchor.getBoundingClientRect() : undefined;
+  /* Guard against a transient 0 width (a mid-layout/tab-switch measurement, more
+     likely with a host's native tab sharing the QAM): a 0 stuck the sidecar on
+     the main panel. */
+  const mainWidth = mainRect && mainRect.width > 0 ? mainRect.width : 300;
+  const base = anchorRect ?? { left: 0, top: 0 };
+  const left = Math.round(base.left + mainWidth);
+  const top = Math.round(base.top);
+  const { right, bottom } = rectEdges(panel ? panel.getBoundingClientRect() : undefined, win);
+  return { left, top, width: Math.max(280, Math.round(right - left)), height: Math.max(320, Math.round(bottom - top)) };
 }
 
 type NavNode = {
@@ -138,23 +159,13 @@ export function SidecarPanel({ controller, onCollapse }: { controller: SettingsC
       // The QAM tab's dark panel that hosts every plugin tab content area.
       // The class is obfuscated but consistently present; if Steam ever
       // renames it we fall back to the viewport.
-      const panel = (doc.querySelector('._2BB6uf--jFaAmdnwLOqMU7') as HTMLElement | null)
-        ?? (scope?.closest('[id^="quickaccess_content_"]') as HTMLElement | null);
-      const mainRect = main?.getBoundingClientRect();
-      const panelRect = panel?.getBoundingClientRect();
-      const sRect = sideEl.getBoundingClientRect();
-      if (mainRect && mainRect.width > 0) {
-        /* Anchor to the plugin tab's right edge so we adapt if its width
-           changes. Guard against a transient 0 (a mid-layout/tab-switch
-           measurement, more likely with a host's native tab sharing the
-           QAM): overriding `left` with 0 stuck the sidecar on the main panel. */
-        sideEl.style.left = `${Math.round(mainRect.width)}px`;
-      }
-      const { right: targetRight, bottom: targetBottom } = rectEdges(panelRect, win);
-      const w = Math.max(280, Math.round(targetRight - sRect.left));
-      const h = Math.max(320, Math.round(targetBottom - sRect.top + 8));
-      sideEl.style.width = `${w}px`;
-      sideEl.style.height = `${h}px`;
+      const content = (scope?.closest('[id^="quickaccess_content_"]') ?? null) as HTMLElement | null;
+      const panel = (doc.querySelector('._2BB6uf--jFaAmdnwLOqMU7') as HTMLElement | null) ?? content;
+      const f = sidecarFrame(main, content ?? scope, panel, win);
+      sideEl.style.left = `${f.left}px`;
+      sideEl.style.top = `${f.top}px`;
+      sideEl.style.width = `${f.width}px`;
+      sideEl.style.height = `${f.height}px`;
     };
     measure();
     // Re-measure on viewport resize and on Steam Deck dock/undock events.
@@ -180,7 +191,16 @@ export function SidecarPanel({ controller, onCollapse }: { controller: SettingsC
       noFocusRing
     >
       <div className='ds-sidecar-title'>
-        <GearIcon size={16} style={{ marginRight: 8 }} />
+        <Focusable
+          className='ds-sidecar-back'
+          onClick={onCollapse}
+          onOKButton={onCollapse}
+          onActivate={onCollapse}
+          title={controller.t('sidecar_back')}
+        >
+          <ChevronLeftIcon size={16} />
+        </Focusable>
+        <GearIcon size={16} />
         {controller.t('settings_title')}
       </div>
       <div className='ds-sidecar-body' ref={innerRef}>

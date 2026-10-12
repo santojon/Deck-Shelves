@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react'
-import { Focusable, DialogButton } from '../../../runtime/host/decky'
-import type { SettingsController } from '../../../features/settings/controller'
-import { listBackups, type BackupEntry } from '../../../store/settingsStore'
-import { openManagedModal } from '../common/openManagedModal'
-import { RestoreSnapshotModal } from './RestoreSnapshotModal'
+import { Focusable, DialogButton } from '../../runtime/host/decky'
+import type { SettingsController } from '../settings/controller'
+import { listBackups, type BackupEntry } from '../../store/settingsStore'
+import { openManagedModal } from '../../components/qam/common/openManagedModal'
+import { RestoreSnapshotModal } from '../../components/qam/modals/RestoreSnapshotModal'
+import { openSetupWizard } from './SetupWizardEntry'
+import { WandIcon } from '../../components/icons'
 
 export function FirstRunBanner({ controller }: { controller: SettingsController }) {
-  const { t, actions, settings } = controller
+  const { t, settings } = controller
   /* Empty shelves + master toggle off is normal for a fresh install — but a
      true `showcaseSeen` means this install has seen the tour before, so
      empty here means something cleared it, not day one. Offer the snapshot
@@ -28,21 +30,21 @@ export function FirstRunBanner({ controller }: { controller: SettingsController 
       <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', marginBottom: 12 }}>
         {hasSnapshots ? t('first_run_desc_maybe_wiped' as any) : t('first_run_desc')}
       </div>
-      <Focusable style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+      <Focusable style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {hasSnapshots && (
           <DialogButton
             onClick={openRecovery}
             onOKButton={openRecovery}
             onOKActionDescription={t('snapshot_recovery_button')}
-            style={{ flex: 1, minWidth: 0 }}
+            style={{ width: '100%', padding: '10px 8px' }}
           >{t('snapshot_recovery_button')} ({snaps!.length})</DialogButton>
         )}
         <DialogButton
-          onClick={() => actions.createDefaultShelves()}
-          onOKButton={() => actions.createDefaultShelves()}
-          onOKActionDescription={t('first_run_create_defaults')}
-          style={{ flex: 1, minWidth: 0 }}
-        >{t('first_run_create_defaults')}</DialogButton>
+          onClick={() => openSetupWizard(controller)}
+          onOKButton={() => openSetupWizard(controller)}
+          onOKActionDescription={t('setup_wizard_open' as any)}
+          style={{ width: '100%', padding: '10px 8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+        ><WandIcon size={14} /> {t('setup_wizard_open' as any)}</DialogButton>
       </Focusable>
     </div>
   )

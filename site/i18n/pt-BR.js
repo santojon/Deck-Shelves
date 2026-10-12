@@ -215,5 +215,7 @@ window.__DS_I18N_PT_BR__ = {
   "footer.reportsDashboard": "Dashboard de relatórios",
   "footer.reportsCi": "Relatórios de CI",
   "footer.reportsRelease": "Relatórios de versão",
-  "footer.disclaimer": "Steam Deck e Steam são marcas registradas e/ou marcas comerciais da Valve Corporation. Decky e Decky Loader são marcas de seus respectivos proprietários. O Deck Shelves é um plugin independente e não é afiliado, endossado ou patrocinado pela Valve Corporation ou pelo projeto Decky Loader. O mesmo vale para todo outro plugin e tema mencionado neste site — incluindo TabMaster, UnifiDeck, SteamGridDB, Non-Steam Badges e qualquer tema do CSS Loader que o Deck Shelves detecta ou com o qual interopera: as menções servem apenas para fins de interoperabilidade, não são uma alegação de afiliação ou endosso por parte de seus respectivos autores."
+  "footer.disclaimer": "Steam Deck e Steam são marcas registradas e/ou marcas comerciais da Valve Corporation. Decky e Decky Loader são marcas de seus respectivos proprietários. O Deck Shelves é um plugin independente e não é afiliado, endossado ou patrocinado pela Valve Corporation ou pelo projeto Decky Loader. O mesmo vale para todo outro plugin e tema mencionado neste site — incluindo TabMaster, UnifiDeck, SteamGridDB, Non-Steam Badges e qualquer tema do CSS Loader que o Deck Shelves detecta ou com o qual interopera: as menções servem apenas para fins de interoperabilidade, não são uma alegação de afiliação ou endosso por parte de seus respectivos autores.",
+  "footer.analytics": "As visitas são contadas sem cookies nem dados pessoais (GoatCounter).",
+  "footer.analyticsStats": "estatísticas públicas"
 };

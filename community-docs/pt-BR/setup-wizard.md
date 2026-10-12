@@ -6,7 +6,7 @@ O Deck Shelves agora tem um **Assistente de configuração**: escolha um ponto d
 
 ## Onde fica
 
-- **Menu de Acesso Rápido → Deck Shelves → "Assistente de configuração"** — sempre disponível, na primeira execução ou não.
+- **Menu de Acesso Rápido → Deck Shelves → o ícone de varinha na barra de título** (ao lado dos ícones de documentação e configurações) — sempre disponível, na primeira execução ou não. Numa instalação nova o banner de primeira execução também o oferece como botão.
 - No **final do tour de primeira execução**, que agora termina com três escolhas: *Configurar agora* (abre o assistente), *Começar com o padrão* (as três prateleiras padrão, como antes) ou *Começar do zero* (nada é criado; os avisos habituais de primeira execução continuam disponíveis depois).
 
 ## Os pacotes

@@ -6,7 +6,7 @@ Deck Shelves now has a **Setup wizard**: pick a starting point, see exactly what
 
 ## Where it lives
 
-- **Quick Access menu → Deck Shelves → "Setup wizard"** — always there, first run or not.
+- **Quick Access menu → Deck Shelves → the wand icon in the title bar** (next to the docs and settings icons) — always there, first run or not. On a fresh install the first-run banner offers it as a button too.
 - At the **end of the first-run tour**, which now closes with three choices: *Configure now* (opens the wizard), *Start with the default* (the three default shelves, as before) or *Start from scratch* (nothing is created; the usual first-run prompts stay available later).
 
 ## The packs

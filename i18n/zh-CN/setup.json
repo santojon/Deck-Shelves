@@ -5,7 +5,6 @@
   "setup_group_quick": "快速设置",
   "setup_group_pack": "设置包",
   "setup_group_device": "按设备",
-  "setup_recommended": "为你的库推荐",
   "setup_preview_title": "将添加的内容",
   "setup_preview_have": "已有",
   "setup_preview_setting": "开启：{{name}}",
@@ -41,5 +40,16 @@
   "filter_type_machine_compatibility": "Steam Machine 兼容性",
   "vr_only": "仅 VR",
   "vr_supported": "支持 VR",
-  "vr_none": "无 VR"
+  "vr_none": "无 VR",
+  "setup_step_choose": "选择",
+  "setup_step_review": "确认",
+  "setup_step_done": "完成",
+  "setup_count_shelves": "{{count}} 个货架",
+  "setup_count_smart": "{{count}} 个智能货架",
+  "setup_count_settings": "{{count}} 项设置",
+  "setup_nothing_to_add": "这个套装里的内容你已经全部拥有。",
+  "setup_done_title": "全部完成",
+  "setup_done_body": "每个货架都可以继续编辑。若以后想撤销此次设置，请通过快速访问标题栏中的魔杖图标重新打开向导。",
+  "setup_undo": "撤销",
+  "setup_recommended_short": "推荐"
 }

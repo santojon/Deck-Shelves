@@ -165,6 +165,7 @@ The build accepts environment flags that force specific UI states for repeatable
 | Flag | Script | Effect |
 |------|--------|--------|
 | `DS_QA_FORCE_FIRST_RUN` | `pnpm qa:first-run` | Empty shelf list + plugin disabled — exercises the first-run banner |
+| `DS_QA_FRESH_INSTALL` | `pnpm qa:fresh-install` | A fresh install as the first-run flow sees it: master toggle off, no shelves, tour not yet seen, no setup applied — the welcome banner and the tour appear, the tour's closing choice opens the setup wizard, apply / undo run in memory only (nothing is written to the device) |
 | `DS_QA_FORCE_QAM_ERROR` | `pnpm qa:qam-error` | Throws on QAM render — exercises the QAM ErrorBoundary |
 | `DS_QA_FORCE_SHELF_ERROR` | `pnpm qa:shelf-error` | Throws on shelf render — exercises `HomeBoundary` |
 | `DS_QA_FORCE_HOME_CRASH` | `pnpm qa:home-crash` | Same throw, distinct flag for capture scripts to disambiguate |
@@ -187,3 +188,22 @@ The build accepts environment flags that force specific UI states for repeatable
 | `DS_QA_COLLECTION_INVERTED` | `pnpm qa:collection-inverted` | Seeds two side-by-side shelves: "In Favorites" + "Installed but NOT in Favorites" (inverted) — visually verifies #56 |
 
 Combine flags as needed (e.g. `DS_QA_SMART_SHELVES_FIXTURE=1 DS_QA_SAVED_FILTERS_FIXTURE=1 pnpm run deploy:deck:hard`). Each one is independent and additive.
+
+## 13. Video Scenarios (CDP required)
+
+Scripted, repeatable sequences for the eight content scripts (custom shelves, smart shelves,
+filters, visual customization, Quick Search + Side Nav, profiles + triggers, online shelves,
+power-user tools). Deploy the video fixture first (`pnpm run qa:video-fixture`), then:
+
+```bash
+pnpm run video:scenarios:list                 # names + one-line summaries
+pnpm run video:scenarios                      # drive every scenario, print cue points (record externally)
+pnpm run video:scenarios -- --only 01_custom_shelves,02_smart_shelves
+pnpm run video:record -- --fps 8              # also capture frames over CDP → assets/video/<name>/<name>.mp4
+```
+
+Without `--record` the runner only drives the UI and prints each cue with its timestamp, so a
+capture device gets the same footage every take. With `--record` it grabs JPEG frames from the
+Big Picture window (6–10 fps on a Deck) and stitches an mp4 when `ffmpeg` is on PATH; frames
+and `cues.json` stay next to it either way. Scenarios live in
+`scripts/deckprobe-ext/video/scenarios/`; the runner and helpers in `deckprobe/video/`.

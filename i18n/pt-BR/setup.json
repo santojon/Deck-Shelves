@@ -5,7 +5,6 @@
   "setup_group_quick": "Configuração rápida",
   "setup_group_pack": "Pacotes de configuração",
   "setup_group_device": "Por dispositivo",
-  "setup_recommended": "Recomendado para sua biblioteca",
   "setup_preview_title": "O que isto adiciona",
   "setup_preview_have": "já tem",
   "setup_preview_setting": "Ativa: {{name}}",
@@ -41,5 +40,16 @@
   "filter_type_machine_compatibility": "Compatibilidade com Steam Machine",
   "vr_only": "Somente VR",
   "vr_supported": "Suporta VR",
-  "vr_none": "Sem VR"
+  "vr_none": "Sem VR",
+  "setup_step_choose": "Escolher",
+  "setup_step_review": "Revisar",
+  "setup_step_done": "Pronto",
+  "setup_count_shelves": "{{count}} prateleiras",
+  "setup_count_smart": "{{count}} prateleiras inteligentes",
+  "setup_count_settings": "{{count}} configurações",
+  "setup_nothing_to_add": "Você já tem tudo deste pacote.",
+  "setup_done_title": "Tudo pronto",
+  "setup_done_body": "Toda prateleira continua editável. Para desfazer esta configuração depois, abra o assistente de novo pelo ícone de varinha na barra de título do Acesso Rápido.",
+  "setup_undo": "Desfazer",
+  "setup_recommended_short": "Recomendado"
 }

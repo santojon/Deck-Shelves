@@ -41,7 +41,6 @@ vão pesquisar depois.
 
 **Distribuição e sincronização**
 - [shelveshub-install.md](shelveshub-install.md) — ShelvesHub, a nova forma recomendada de instalar (não precisa de Decky Loader)
-- [call-for-validators.md](call-for-validators.md) — a chamada de validação da 3.3.4: quais plataformas ainda precisam de um validador nomeado e como é a checagem de dez minutos
 - [own-qam-tab.md](own-qam-tab.md) — a própria aba de Acesso Rápido do Deck Shelves sob o Decky Loader
 - [cloud-sync.md](cloud-sync.md) — sincronize suas configurações entre todos os dispositivos da sua conta Steam
 

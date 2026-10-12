@@ -5,7 +5,6 @@
   "setup_group_quick": "Szybka konfiguracja",
   "setup_group_pack": "Pakiety konfiguracji",
   "setup_group_device": "Według urządzenia",
-  "setup_recommended": "Polecane dla twojej biblioteki",
   "setup_preview_title": "Co to dodaje",
   "setup_preview_have": "już masz",
   "setup_preview_setting": "Włącza: {{name}}",
@@ -41,5 +40,16 @@
   "filter_type_machine_compatibility": "Zgodność ze Steam Machine",
   "vr_only": "Tylko VR",
   "vr_supported": "Obsługa VR",
-  "vr_none": "Bez VR"
+  "vr_none": "Bez VR",
+  "setup_step_choose": "Wybierz",
+  "setup_step_review": "Sprawdź",
+  "setup_step_done": "Gotowe",
+  "setup_count_shelves": "{{count}} półek",
+  "setup_count_smart": "{{count}} inteligentnych półek",
+  "setup_count_settings": "{{count}} ustawień",
+  "setup_nothing_to_add": "Masz już wszystko z tego pakietu.",
+  "setup_done_title": "Wszystko gotowe",
+  "setup_done_body": "Każda półka pozostaje edytowalna. Aby później cofnąć tę konfigurację, otwórz kreator ponownie z ikony różdżki na pasku tytułu Szybkiego dostępu.",
+  "setup_undo": "Cofnij",
+  "setup_recommended_short": "Polecane"
 }

@@ -1,18 +1,18 @@
 import type { ReactNode } from "react";
-import { Dropdown, Field, Menu, MenuItem, showContextMenu, DialogButton, ToggleField } from "../../../runtime/host/decky";
-import { CollapsibleSection } from "../../ui";
-import { PersonIcon, CheckIcon } from "../../icons";
-import { icons } from "../icons";
-import type { SettingsController } from "../../../features/settings/controller";
-import { FACTORY_PROFILE_ID, FACTORY_PROFILE_NAME } from "../../../features/settings/controller/profiles";
-import { openManagedModal } from "../common/openManagedModal";
-import { SaveProfileModal } from "../modals/SaveProfileModal";
-import { RenameProfileModal } from "../modals/RenameProfileModal";
-import { SetProfileTriggerModal } from "../modals/SetProfileTriggerModal";
-import { confirmAction } from "../modals/ConfirmActionModal";
-import { joinDownloads } from "../../../core/userPaths";
-import { ReorderableShelfList } from "../common/ReorderableShelfList";
-import { HideableRow, type HideableRowMode } from "../sidecar/HideableRow";
+import { Dropdown, Field, Menu, MenuItem, showContextMenu, DialogButton, ToggleField } from "../../runtime/host/decky";
+import { CollapsibleSection } from "../../components/ui";
+import { PersonIcon, CheckIcon } from "../../components/icons";
+import { icons } from "../../components/qam/icons";
+import type { SettingsController } from "../settings/controller";
+import { FACTORY_PROFILE_ID, FACTORY_PROFILE_NAME } from "../settings/controller/profiles";
+import { openManagedModal } from "../../components/qam/common/openManagedModal";
+import { SaveProfileModal } from "./SaveProfileModal";
+import { RenameProfileModal } from "./RenameProfileModal";
+import { SetProfileTriggerModal } from "../../components/qam/modals/SetProfileTriggerModal";
+import { confirmAction } from "../../components/qam/modals/ConfirmActionModal";
+import { joinDownloads } from "../../core/userPaths";
+import { ReorderableShelfList } from "../../components/qam/common/ReorderableShelfList";
+import { HideableRow, type HideableRowMode } from "../../components/qam/sidecar/HideableRow";
 
 export interface ProfilesSectionProps {
   controller: SettingsController;
