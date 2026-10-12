@@ -7,7 +7,106 @@ import { type DeckRowItem, CARD_W, CARD_ART_H } from "./types";
 import { getCachedCardRadius } from "./shelfStyles";
 import { resolveNativeCardClass, retryWithIntervals, applyNativeAfterAnimation } from "./cardUtils";
 import { toggleCardHighlight } from "./GameCard";
-import { EAppDisplayStatus } from "../../steam/appDisplayStatus";
+import { useCardQuickLaunchState } from "./gameCardHooks";
+
+type Handler = (() => void) | undefined;
+
+// Size off the per-shelf --ds-eff-* vars (mirrors GameCard) so a native-dims
+// change reflows through CSS with no re-render; the props are the fallback.
+function cardSizeVars(featured: boolean, cardW: number, cardH: number, artH: number | undefined) {
+  const art = typeof artH === "number" ? artH : cardH;
+  return {
+    cssW: `var(${featured ? "--ds-eff-feat-w" : "--ds-eff-card-w"}, ${cardW}px)`,
+    cssH: `var(${featured ? "--ds-eff-feat-h" : "--ds-eff-card-h"}, ${cardH}px)`,
+    cssArtH: `var(${featured ? "--ds-eff-feat-art-h" : "--ds-eff-card-art-h"}, ${art}px)`,
+  };
+}
+
+function hideLabel(previewMode: boolean, hidden: boolean): string {
+  if (previewMode) return i18n.t(hidden ? 'show_in_shelf' : 'hide_from_shelf');
+  return i18n.t(hidden ? 'card_show' : 'card_hide');
+}
+
+/* X → remove (for menu-added cards) or hide (otherwise). Same context-aware
+   shape as GameCard, including the short home-only labels. */
+function secondaryAction(args: {
+  appid: number; previewMode: boolean;
+  removableSet?: Set<number>; onRemoveCard?: (appid: number) => void;
+  hiddenSet?: Set<number>; onHideCard?: (appid: number) => void;
+}): { description: string | undefined; handler: Handler } {
+  const { appid, previewMode, removableSet, onRemoveCard, hiddenSet, onHideCard } = args;
+  if (appid && removableSet?.has(appid) && onRemoveCard) {
+    return { description: i18n.t(previewMode ? 'menu_remove_from_shelf' : 'card_remove'), handler: () => { try { onRemoveCard(appid); } catch {} } };
+  }
+  if (appid && onHideCard) {
+    return { description: hideLabel(previewMode, !!hiddenSet?.has(appid)), handler: () => { try { onHideCard(appid); } catch {} } };
+  }
+  return { description: undefined, handler: undefined };
+}
+
+/* Y → highlight toggle. Same gating as GameCard: only outside previewMode
+   (the modal owns highlight via its picker) and only with a real appid. */
+function optionsAction(appid: number, previewMode: boolean, shelfId: string | undefined): { description: string | undefined; handler: Handler } {
+  if (previewMode || !appid) return { description: undefined, handler: undefined };
+  return { description: i18n.t('card_highlight_toggle'), handler: () => { try { toggleCardHighlight(shelfId, appid); } catch {} } };
+}
+
+// Class, activation, menu and data attributes — the item-driven part of the card.
+function placeholderFocusProps(item: DeckRowItem, previewMode: boolean, featured: boolean, nativeCardClass: string) {
+  return {
+    className: `ds-card ds-card--text${featured ? ' ds-card--featured' : ''}${nativeCardClass ? ` ${nativeCardClass}` : ''}`,
+    onActivate: item.onToggleSelection ?? item.onActivate,
+    onOKButton: item.onToggleSelection ?? item.onActivate,
+    onMenuButton: item.onMenuButton,
+    onMenuActionDescription: !previewMode && item.onMenuButton ? i18n.t('card_options') : undefined,
+    onContextMenu: item.onMenuButton,
+    "data-appid": item.appid || undefined,
+    "data-shelfid": item.shelfId || undefined,
+  };
+}
+
+function PlaceholderArt({ featured, name, discount, isNew, radius }: { featured: boolean; name: string; discount: number | undefined; isNew: boolean; radius: number | string }) {
+  const { t } = useTranslation();
+  const showDiscountBadge = typeof discount === 'number' && discount > 0;
+  const showNewBadge = isNew && !showDiscountBadge;
+  return (
+    <div
+      className="ds-card-art"
+      style={{
+        overflow: "hidden",
+        background: "linear-gradient(313deg, rgba(51,51,51,0.667), rgba(85,85,85,0.667))",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: featured ? 16 : 6,
+        boxSizing: "border-box",
+        borderRadius: radius,
+      }}
+    >
+      <span className="ds-card-text" style={{
+        fontSize: featured ? 14 : 11,
+        opacity: 0.5,
+        textAlign: "center",
+        wordBreak: "break-word",
+        lineHeight: 1.3,
+      }}>
+        {name}
+      </span>
+      {showDiscountBadge && (
+        <div className="ds-new-badge-band">
+          <div className="ds-new-badge" style={{ background: '#2a7f2a' }}>
+            {t('badge_discount', { count: discount }) ?? `${discount}% off`}
+          </div>
+        </div>
+      )}
+      {showNewBadge && (
+        <div className="ds-new-badge-band">
+          <div className="ds-new-badge">{t('badge_new')}</div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function PlaceholderCard({
   item,
@@ -32,7 +131,6 @@ export function PlaceholderCard({
   hiddenSet?: Set<number>;
   onHideCard?: (appid: number) => void;
 }) {
-  const { t } = useTranslation();
   const cardRef = useRef<HTMLDivElement>(null);
   const [nativeCardClass, setNativeCardClass] = useState('');
   const appid = item.appid ?? 0;
@@ -57,46 +155,8 @@ export function PlaceholderCard({
     try { return !!(globalThis as any).appStore?.GetAppOverviewByAppID?.(appid); }
     catch { return false; }
   }, [appid, previewMode]);
-  const cardState = useMemo(() => {
-    if (previewMode || !appid) return { label: undefined as string | undefined, action: 'run' as 'run' | 'resume_update' | 'raise' };
-    try {
-      const overview = (globalThis as any).appStore?.GetAppOverviewByAppID?.(appid);
-      if (!overview) return { label: undefined, action: 'run' };
-      if (overview.installed !== true) {
-        /* Mirrors GameCard's cardState: "Install" only for the clean
-           not-installed state Steam reports on the local client, with no
-           platform-incompatibility flag — installed-elsewhere-only titles get
-           "Stream" instead, and anything else (a stale/unclassified status)
-           shows no hint, since neither action applies. */
-        const pcd: any[] = Array.isArray(overview.per_client_data)
-          ? overview.per_client_data
-          : (Array.isArray(overview.local_per_client_data) ? overview.local_per_client_data : []);
-        const localEntry = pcd.find((c: any) => String(c?.clientid) === "0");
-        const platformIncompatible = localEntry?.is_invalid_os_type === true
-          || localEntry?.is_available_on_current_platform === false;
-        const cleanlyInstallable = localEntry?.display_status === EAppDisplayStatus.NotInstalled && !platformIncompatible;
-        if (cleanlyInstallable) return { label: i18n.t('menu_install'), action: 'run' };
-        const remotePcd: any[] = Array.isArray(overview.remote_per_client_data)
-          ? overview.remote_per_client_data
-          : pcd.filter((c: any) => String(c?.clientid) !== "0");
-        const installedRemote = remotePcd.some((c: any) => !!c?.installed || Number(c?.display_status) === EAppDisplayStatus.Installed);
-        if (installedRemote) return { label: i18n.t('menu_stream'), action: 'run' };
-        if (!localEntry) return { label: i18n.t('menu_install'), action: 'run' };
-        return { label: undefined, action: 'run' };
-      }
-      const ds = (() => {
-        if (typeof overview.display_status === 'number') return overview.display_status;
-        const pcd = overview.per_client_data ?? overview.local_per_client_data;
-        if (Array.isArray(pcd) && pcd[0] && typeof pcd[0].display_status === 'number') return pcd[0].display_status;
-        return 0;
-      })();
-      const RUNNING = ds === 1 || ds === 4;
-      const UPDATE = ds === 2 || ds === 5 || ds === 7 || ds === 8 || ds === 12 || ds === 13 || ds === 19;
-      if (RUNNING) return { label: i18n.t('menu_resume'), action: 'raise' };
-      if (UPDATE) return { label: i18n.t('menu_update'), action: 'resume_update' };
-      return { label: i18n.t('menu_play'), action: 'run' };
-    } catch { return { label: undefined, action: 'run' }; }
-  }, [appid, previewMode]);
+  // The same per-state label/action GameCard shows, from the shared store.
+  const cardState = useCardQuickLaunchState(appid, previewMode);
   /* Mirror GameCard: open the native menu and click its first item —
      same dispatch as the user picking that item manually. Avoids the
      state-specific Steam APIs (RunGame / RaiseWindowForGame /
@@ -123,60 +183,30 @@ export function PlaceholderCard({
     } catch {}
   }, [appid, previewMode, quickLaunch]);
 
-  const cachedCardRadius = getCachedCardRadius();
-  // Mirror GameCard: size off the per-shelf --ds-eff-* vars so a native-dims
-  // change reflows through CSS with no re-render; the prop is the fallback.
-  const cssW = `var(${featured ? "--ds-eff-feat-w" : "--ds-eff-card-w"}, ${cardW}px)`;
-  const cssH = `var(${featured ? "--ds-eff-feat-h" : "--ds-eff-card-h"}, ${cardH}px)`;
-  const cssArtH = `var(${featured ? "--ds-eff-feat-art-h" : "--ds-eff-card-art-h"}, ${typeof artH === "number" ? artH : cardH}px)`;
-  const discount = item.discountPercent;
-  const showDiscountBadge = typeof discount === 'number' && discount > 0;
-  const showNewBadge = item.isNew === true && !showDiscountBadge;
+  const size = cardSizeVars(featured, cardW, cardH, artH);
+  const secondary = secondaryAction({ appid, previewMode, removableSet, onRemoveCard, hiddenSet, onHideCard });
+  const options = optionsAction(appid, previewMode, item.shelfId);
+  const libraryInput = isLibraryGame
+    ? { onButtonDown: buttonDownHandler, actionDescriptionMap: cardState.label ? { [GamepadButton.SELECT]: cardState.label } : undefined }
+    : { onButtonDown: undefined, actionDescriptionMap: undefined };
 
   return (
     <Focusable
       ref={cardRef}
-      className={`ds-card ds-card--text${featured ? ' ds-card--featured' : ''}${nativeCardClass ? ` ${nativeCardClass}` : ''}`}
+      {...placeholderFocusProps(item, previewMode, featured, nativeCardClass)}
       focusClassName="gpfocus"
       role="listitem"
-      onActivate={item.onToggleSelection ?? item.onActivate}
-      onOKButton={item.onToggleSelection ?? item.onActivate}
-      onMenuButton={item.onMenuButton}
-      onMenuActionDescription={!previewMode && item.onMenuButton ? i18n.t('card_options') : undefined}
-      onContextMenu={item.onMenuButton}
-      // Y → highlight toggle. Same gating as GameCard: only outside
-      // previewMode (the modal owns highlight via its picker) and only
-      // when the card has a real appid.
-      onOptionsActionDescription={!previewMode && appid
-        ? i18n.t('card_highlight_toggle')
-        : undefined}
-      onOptionsButton={!previewMode && appid ? () => { try { toggleCardHighlight(item.shelfId, appid); } catch {} } : undefined}
-      // X → remove (for menu-added cards) or hide (otherwise). Same
-      // context-aware shape as GameCard, including the short
-      // home-only labels via `card_remove` / `card_hide`.
-      onSecondaryActionDescription={
-        appid && removableSet?.has(appid) && onRemoveCard
-          ? i18n.t(previewMode ? 'menu_remove_from_shelf' : 'card_remove')
-          : appid && onHideCard
-            ? i18n.t(previewMode
-                ? (hiddenSet?.has(appid) ? 'show_in_shelf' : 'hide_from_shelf')
-                : (hiddenSet?.has(appid) ? 'card_show' : 'card_hide'))
-            : undefined}
-      onSecondaryButton={
-        appid && removableSet?.has(appid) && onRemoveCard
-          ? () => { try { onRemoveCard(appid); } catch {} }
-          : appid && onHideCard
-            ? () => { try { onHideCard(appid); } catch {} }
-            : undefined}
-      onButtonDown={isLibraryGame ? buttonDownHandler : undefined}
-      actionDescriptionMap={isLibraryGame && cardState.label ? { [GamepadButton.SELECT]: cardState.label } : undefined}
-      data-appid={item.appid || undefined}
-      data-shelfid={item.shelfId || undefined}
+      onOptionsActionDescription={options.description}
+      onOptionsButton={options.handler}
+      onSecondaryActionDescription={secondary.description}
+      onSecondaryButton={secondary.handler}
+      onButtonDown={libraryInput.onButtonDown}
+      actionDescriptionMap={libraryInput.actionDescriptionMap}
       style={{
         position: "relative",
-        width: cssW,
-        minWidth: cssW,
-        height: cssH,
+        width: size.cssW,
+        minWidth: size.cssW,
+        height: size.cssH,
         flexShrink: 0,
         padding: 0,
         margin: 0,
@@ -186,44 +216,10 @@ export function PlaceholderCard({
         // Pass artH through the same `--ds-card-art-h` variable GameCard uses,
         // so the art region fills the right height in the modal preview (where
         // cardH includes the label strip and artH is shorter).
-        ["--ds-card-art-h" as string]: cssArtH,
+        ["--ds-card-art-h" as string]: size.cssArtH,
       }}
     >
-      <div
-        className="ds-card-art"
-        style={{
-          overflow: "hidden",
-          background: "linear-gradient(313deg, rgba(51,51,51,0.667), rgba(85,85,85,0.667))",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: featured ? 16 : 6,
-          boxSizing: "border-box",
-          borderRadius: cachedCardRadius,
-        }}
-      >
-        <span className="ds-card-text" style={{
-          fontSize: featured ? 14 : 11,
-          opacity: 0.5,
-          textAlign: "center",
-          wordBreak: "break-word",
-          lineHeight: 1.3,
-        }}>
-          {item.name}
-        </span>
-        {showDiscountBadge && (
-          <div className="ds-new-badge-band">
-            <div className="ds-new-badge" style={{ background: '#2a7f2a' }}>
-              {t('badge_discount', { count: discount }) ?? `${discount}% off`}
-            </div>
-          </div>
-        )}
-        {showNewBadge && (
-          <div className="ds-new-badge-band">
-            <div className="ds-new-badge">{t('badge_new')}</div>
-          </div>
-        )}
-      </div>
+      <PlaceholderArt featured={featured} name={item.name} discount={item.discountPercent} isNew={item.isNew === true} radius={getCachedCardRadius()} />
     </Focusable>
   );
 }

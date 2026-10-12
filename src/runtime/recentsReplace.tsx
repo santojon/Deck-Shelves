@@ -100,29 +100,31 @@ function markReplaceFailed(reason: string) {
 // --- Steam app validation -----------------------------------------------
 const RENDERABLE_STEAM_APP_TYPES: ReadonlySet<number> = new Set([1, 2, 1073741824]); // Game, Application, Non-Steam Shortcut
 
+const appIdOf = (v: any): number => (typeof v === "number" ? v : Number(v?.appid ?? v?.nAppID));
+
+// The collection's `apps` comes as a Set, an array or a Map-like with `values()`.
+function appsIterable(apps: any): Iterable<any> | null {
+  if (apps instanceof Set || Array.isArray(apps)) return apps;
+  return typeof apps?.values === "function" ? apps.values() : null;
+}
+
+function ownedAppsOf(cs: any): any {
+  const coll = cs.allAppsCollection ?? cs.allGamesCollection ?? cs.localGamesCollection;
+  return coll?.apps;
+}
+
 function getOwnedAppIdSet(): Set<number> | null {
   const cs: any = (globalThis as any).collectionStore;
   if (!cs) return null;
-  const coll = cs.allAppsCollection ?? cs.allGamesCollection ?? cs.localGamesCollection;
-  const apps = coll?.apps;
+  const apps = ownedAppsOf(cs);
   if (!apps) return null;
   const out = new Set<number>();
   try {
-    if (apps instanceof Set) {
-      for (const v of apps) {
-        const id = typeof v === "number" ? v : Number((v as any)?.appid ?? (v as any)?.nAppID);
-        if (Number.isFinite(id) && id > 0) out.add(id);
-      }
-    } else if (typeof apps?.values === "function") {
-      for (const v of apps.values()) {
-        const id = typeof v === "number" ? v : Number((v as any)?.appid ?? (v as any)?.nAppID);
-        if (Number.isFinite(id) && id > 0) out.add(id);
-      }
-    } else if (Array.isArray(apps)) {
-      for (const v of apps) {
-        const id = typeof v === "number" ? v : Number((v as any)?.appid ?? (v as any)?.nAppID);
-        if (Number.isFinite(id) && id > 0) out.add(id);
-      }
+    const it = appsIterable(apps);
+    if (!it) return null;
+    for (const v of it) {
+      const id = appIdOf(v);
+      if (Number.isFinite(id) && id > 0) out.add(id);
     }
   } catch { return null; }
   return out.size > 0 ? out : null;
@@ -231,6 +233,41 @@ function shelfKey(shelf: any): string {
   return `${shelf.id}:${JSON.stringify(shelf.source)}:${shelf.limit ?? 20}:${sortKey}:${reverseKey}:${baseSortKey}:${baseReverseKey}:${moKey}`;
 }
 
+type ResolveContext = {
+  isManual: boolean;
+  sort: string | string[] | undefined;
+  reverse: boolean | boolean[] | undefined;
+  source: any;
+  manualOrder: number[] | undefined;
+  hiddenAppIds: number[] | undefined;
+};
+
+/* Filter sources carry their `sort` inside `source.filter` — under manual
+   sort the resolver looks at that nested field, not the third arg. Swap it
+   to the base sort for this resolve only (same trick Shelf.tsx uses). */
+function manualResolveSource(shelf: any, manualBaseSort: any): any {
+  if (shelf.source?.type !== 'filter') return shelf.source;
+  return { ...shelf.source, filter: { ...(shelf.source as any).filter, sort: manualBaseSort ?? 'alphabetical' } };
+}
+
+/* The shelf's full sort context for the resolver. Mirrors Shelf.tsx's
+   manual handling: resolve with manualBaseSort, then applyManualOrder, so
+   the promoted recents row matches the home. */
+function resolveContextFor(shelf: any): ResolveContext {
+  const shelfSort = shelf.sort;
+  const manualBaseSort = shelf.manualBaseSort;
+  const primaryEffectiveSort = Array.isArray(shelfSort) ? shelfSort[0] : shelfSort;
+  const isManual = primaryEffectiveSort === 'manual';
+  return {
+    isManual,
+    sort: isManual ? (manualBaseSort ?? 'alphabetical') : shelfSort,
+    reverse: isManual ? shelf.manualBaseSortReverse : shelf.sortReverse,
+    source: isManual ? manualResolveSource(shelf, manualBaseSort) : shelf.source,
+    manualOrder: shelf.manualOrder,
+    hiddenAppIds: shelf.hiddenAppIds?.length ? shelf.hiddenAppIds : undefined,
+  };
+}
+
 function scheduleResolve(shelf: any) {
   const key = shelfKey(shelf);
   if (key === lastResolveKey && cachedAppIds) return;
@@ -238,40 +275,14 @@ function scheduleResolve(shelf: any) {
   lastResolveKey = key;
   const platform = getPlatform();
   if (!platform) return;
-  /* Forward the shelf's full sort context — without this, the resolver
-     falls back to its default ordering (effectively alphabetical for many
-     sources), which makes the "shelf as recents" promotion ignore the
-     user's chosen sort. shelfKey() above already namespaces the cache */
-  /* entry by source so two shelves with the same source but different
-     sorts don't collide.
-
-     Mirror Shelf.tsx's manual handling: resolve with manualBaseSort
-     then applyManualOrder so the promoted recents matches the home. */
-  const shelfSort = (shelf as any).sort;
-  const shelfSortReverse = (shelf as any).sortReverse;
-  const manualBaseSort = (shelf as any).manualBaseSort;
-  const manualBaseSortReverse = (shelf as any).manualBaseSortReverse;
-  const manualOrder: number[] | undefined = (shelf as any).manualOrder;
-  const hiddenAppIds: number[] | undefined = (shelf as any).hiddenAppIds?.length ? (shelf as any).hiddenAppIds : undefined;
-  const primaryEffectiveSort = Array.isArray(shelfSort) ? shelfSort[0] : shelfSort;
-  const isManual = primaryEffectiveSort === 'manual';
-  const resolveSort: string | string[] | undefined = isManual
-    ? (manualBaseSort ?? 'alphabetical')
-    : shelfSort;
-  const resolveReverse: boolean | boolean[] | undefined = isManual
-    ? manualBaseSortReverse
-    : shelfSortReverse;
-  /* Filter sources carry their `sort` inside `source.filter` — under
-     manual sort the resolver looks at that nested field, not the third
-     arg. Swap it to the base sort for this resolve only (same trick
-     Shelf.tsx uses). */
-  let resolveSource: any = shelf.source;
-  if (isManual && shelf.source?.type === 'filter') {
-    resolveSource = { ...shelf.source, filter: { ...(shelf.source as any).filter, sort: manualBaseSort ?? 'alphabetical' } };
-  }
+  /* Forward the shelf's full sort context — without it the resolver falls
+     back to its default ordering and the "shelf as recents" promotion
+     ignores the user's chosen sort. shelfKey() above already namespaces
+     the cache entry by source, so same-source shelves don't collide. */
+  const rc = resolveContextFor(shelf);
   resolvePromise = platform
-    .resolveShelfAppIds(resolveSource, shelf.limit ?? 20, resolveSort, shelf.id, resolveReverse)
-    .then((ids: number[]) => isManual ? applyManualOrder(ids, manualOrder, hiddenAppIds) : ids)
+    .resolveShelfAppIds(rc.source, shelf.limit ?? 20, rc.sort, shelf.id, rc.reverse)
+    .then((ids: number[]) => rc.isManual ? applyManualOrder(ids, rc.manualOrder, rc.hiddenAppIds) : ids)
     .then((ids: number[]) => {
       const prev = cachedAppIds;
       const valid = validAppIds(ids);
@@ -450,6 +461,46 @@ function installGlobalErrorTrap() {
   } catch { return () => {}; }
 }
 
+function reResolveActiveShelf(): void {
+  const shelf = activeFirstShelf();
+  if (shelf) { lastResolveKey = ""; scheduleResolve(shelf); }
+}
+
+// Debounced: an app running/updating fires overview changes continuously;
+// coalesce them into one re-resolve so we don't churn the shelf mid-use.
+function subscribeAppOverviewChanges(onChange: () => void): (() => void) | null {
+  try {
+    const client: any = (globalThis as any).SteamClient;
+    const reg = client?.Apps?.RegisterForAppOverviewChanges?.(() => {
+      if (overviewDebounce) clearTimeout(overviewDebounce);
+      overviewDebounce = setTimeout(() => { overviewDebounce = null; onChange(); }, OVERVIEW_DEBOUNCE_MS);
+    });
+    return reg?.unregister ? () => reg.unregister() : null;
+  } catch { return null; }
+}
+
+/* collectionStore.on('change') fires when the user's collections (and the
+   underlying allAppsCollection.apps set) finish populating on cold boot, or
+   when the user installs/removes an app. Either is a good moment to
+   re-resolve: boot unblocks the owned-set filter, install/uninstall keeps
+   the recents list aligned with the library. */
+function subscribeCollectionChanges(onChange: () => void): (() => void) | null {
+  try {
+    const cs: any = (globalThis as any).collectionStore;
+    if (!cs || typeof cs.on !== "function") return null;
+    cs.on("change", onChange);
+    return () => { try { cs.off?.("change", onChange); } catch {} };
+  } catch { return null; }
+}
+
+function subscribeResumeFromSuspend(onResume: () => void): (() => void) | null {
+  try {
+    const client: any = (globalThis as any).SteamClient;
+    const reg = client?.System?.RegisterForOnResumeFromSuspend?.(onResume);
+    return reg?.unregister ? () => reg.unregister() : null;
+  } catch { return null; }
+}
+
 export function installRecentsReplace(routerHook: any): PatchHandle {
   if (!routerHook?.addPatch) return null;
 
@@ -550,31 +601,14 @@ export function installRecentsReplace(routerHook: any): PatchHandle {
     }
   });
 
-  let unsubApp: (() => void) | null = null;
-  try {
-    const client: any = (globalThis as any).SteamClient;
-    // Debounced: an app running/updating fires overview changes continuously;
-    // coalesce them into one re-resolve so we don't churn the shelf mid-use.
-    const reg = client?.Apps?.RegisterForAppOverviewChanges?.(() => {
-      if (overviewDebounce) clearTimeout(overviewDebounce);
-      overviewDebounce = setTimeout(() => {
-        overviewDebounce = null;
-        const shelf = activeFirstShelf();
-        if (shelf) { lastResolveKey = ""; scheduleResolve(shelf); }
-      }, OVERVIEW_DEBOUNCE_MS);
-    });
-    unsubApp = reg?.unregister ? () => reg.unregister() : null;
-  } catch {}
+  const unsubApp = subscribeAppOverviewChanges(reResolveActiveShelf);
 
   /* The promoted shelf is "the first visible regular shelf" drawn a second
      time, so it needs the same central shelfRefresh signal the regular
      shelves already react to — without it, a change only shelfRefresh
      catches (e.g. a visibility-rule flip) left the replaced row stale until
      the next 90s tick or an unrelated settings edit re-primed the cache. */
-  const unsubShelfRefresh = subscribeShelfRefresh(() => {
-    const shelf = activeFirstShelf();
-    if (shelf) { lastResolveKey = ""; scheduleResolve(shelf); }
-  });
+  const unsubShelfRefresh = subscribeShelfRefresh(reResolveActiveShelf);
 
   // Bootstrap: patchFn only fires when Steam renders /library/home.
   // If already on home at install time, we trigger resolve ourselves.
@@ -595,35 +629,12 @@ export function installRecentsReplace(routerHook: any): PatchHandle {
     bootstrapTimers.push(setTimeout(tryResolve, d));
   }
 
-  // collectionStore.on('change') fires when the user's collections (and
-  /* the underlying allAppsCollection.apps set) finish populating on cold
-     boot, or when the user installs/removes an app. Either trigger is a
-     good moment to re-resolve: the boot case unblocks the filter that
-     requires owned-set membership, and the install/uninstall case keeps
-     the recents list aligned with the user's library state. */
-  let unsubColl: (() => void) | null = null;
-  try {
-    const cs: any = (globalThis as any).collectionStore;
-    if (cs && typeof cs.on === "function") {
-      const handler = () => {
-        const shelf = activeFirstShelf();
-        if (shelf) { lastResolveKey = ""; scheduleResolve(shelf); }
-      };
-      cs.on("change", handler);
-      unsubColl = () => { try { cs.off?.("change", handler); } catch {} };
-    }
-  } catch {}
-
-  let resumeUnsub: (() => void) | null = null;
-  try {
-    const client: any = (globalThis as any).SteamClient;
-    const reg = client?.System?.RegisterForOnResumeFromSuspend?.(() => {
-      if (replaceFailed) return;
-      cachedAppIds = null; lastResolveKey = "";
-      setTimeout(tryResolve, 2000);
-    });
-    resumeUnsub = reg?.unregister ? () => reg.unregister() : null;
-  } catch {}
+  const unsubColl = subscribeCollectionChanges(reResolveActiveShelf);
+  const resumeUnsub = subscribeResumeFromSuspend(() => {
+    if (replaceFailed) return;
+    cachedAppIds = null; lastResolveKey = "";
+    setTimeout(tryResolve, 2000);
+  });
 
   const periodicTimer = setInterval(tryResolve, 90 * 1000);
 

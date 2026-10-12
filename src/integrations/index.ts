@@ -1,25 +1,11 @@
 // Plugin registry
-export { isPluginInstalled, isTabMasterInstalled, isExternalTabsProviderInstalled, isNonSteamBadgesInstalled } from './registry';
+export { isTabMasterInstalled, isNonSteamBadgesInstalled } from './registry';
 
 // Integration descriptors (what each plugin provides + presence)
-export { INTEGRATIONS, installedIntegrations, integrationsProviding, integrationPresence } from './descriptors';
-export type { IntegrationDescriptor, IntegrationCapability } from './descriptors';
+export { installedIntegrations, integrationsProviding, integrationPresence } from './descriptors';
 
 // TabMaster integration
-export {
-  isTabMasterContextValue,
-  extractTabsFromContext as extractTabMasterTabs,
-  getTabAppsFromContext as getTabMasterAppsFromContext,
-  getTabsFromBackend as getTabMasterTabsFromBackend,
-  getTabDetailsFromBackend as getTabMasterDetailsFromBackend,
-  getTabsFromSettingsFile as getTabMasterTabsFromSettingsFile,
-  getVisibleTabsFromSettingsFile as getTabMasterVisibleTabs,
-  tabContainerToShelfSource,
-  extractTabsForImport as extractTabMasterTabsForImport,
-} from './tabmaster';
+export { getTabsFromSettingsFile as getTabMasterTabsFromSettingsFile, tabContainerToShelfSource, extractTabsForImport as extractTabMasterTabsForImport } from './tabmaster';
 
 // Non-SteamBadges integration
-export { isNonSteamBadgesAvailable, NON_STEAM_BADGE_CLASS } from './nonsteambadges';
-
-// DOM-based tab integration (UnifiDeck + other DOM-rendering plugins)
-export { getTabsFromDOM } from './domtabs';
+export { isNonSteamBadgesAvailable } from './nonsteambadges';

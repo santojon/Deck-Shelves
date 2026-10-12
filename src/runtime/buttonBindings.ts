@@ -50,13 +50,6 @@ const TOKEN_TO_RAW: Record<string, number> = {
 // in chord, so trying to bind these results in a stuck-state risk.
 const RESERVED = new Set<string>(["A", "B", "MENU", "START", "STEAM", "SCREENSHOT"]);
 
-export const ALLOWED_TOKENS = [
-  "X", "Y", "L1", "R1", "L2", "R2", "VIEW",
-  "L3", "R3", "L4", "L5", "R4", "R5",
-  "DPAD_UP", "DPAD_DOWN", "DPAD_LEFT", "DPAD_RIGHT",
-  "LSTICK", "RSTICK",
-] as const;
-
 export type Combo =
   | { kind: "single"; btn: number }
   | { kind: "chord"; btns: number[] }

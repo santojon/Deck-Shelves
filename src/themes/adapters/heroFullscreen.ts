@@ -2,7 +2,7 @@ import { getAllStyleText, matchesAny, tokensForKey } from "../detect";
 import { isBigArtModeActive } from "./bigArt";
 import type { ThemeAdapter } from "../types";
 
-export function isHeroFullscreenActive(): boolean {
+function isHeroFullscreenActive(): boolean {
   // Native Big Art has no injected stylesheet to scan (not a CSS Loader
   // theme) but lays its hero out full-viewport the same way — confirmed
   // live the compact treatment left the promoted shelf below the fold.

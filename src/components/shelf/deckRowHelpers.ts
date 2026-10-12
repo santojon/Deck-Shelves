@@ -130,12 +130,6 @@ export function resolveTitleJustifyContent(position: 'left' | 'center' | 'right'
   return 'flex-start';
 }
 
-// Small value helpers — kept separate so their branches don't count
-// against the caller's own complexity.
-export function joinOrEmpty(list: unknown[] | null | undefined): string {
-  return list?.join(",") ?? "";
-}
-
 // --- DOM-imperative focus/scroll helpers (side-effecting, but with no
 // branching/timing changes vs. the inline code they replace) ---
 
@@ -178,7 +172,7 @@ export function scrollShelfIntoView(outer: HTMLElement | null, pinToTop: boolean
 
 // Centers `el` inside `container` by scrolling container's top — shared by
 // both vertical-fallback paths (ancestor scroll container, Steam viewport).
-export function centerElementInContainer(container: HTMLElement, el: HTMLElement, pinToTop: boolean): void {
+function centerElementInContainer(container: HTMLElement, el: HTMLElement, pinToTop: boolean): void {
   if (pinToTop) {
     try { container.scrollTo({ top: 0, behavior: 'smooth' }); } catch { container.scrollTop = 0; }
     return;

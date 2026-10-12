@@ -300,18 +300,41 @@ function detectNativeNewBadgeRadius(): string {
    per-shelf --ds-eff-* vars, so a dims change reflows every card via CSS
    alone — no React re-render of the 800+ GameCards on the home screen.
    The fallbacks mirror the dims computation in DeckRow exactly. */
-function nativeDimVarEntries(): [string, string][] {
-  const nd = cachedNativeDims;
+type EffectiveDims = { w: number; h: number; gap: number; artH: number; featW: number; featH: number; featArtH: number };
+
+function featuredDims(nd: NativeCardDims | null, w: number, h: number): Pick<EffectiveDims, 'featW' | 'featH' | 'featArtH'> {
+  return {
+    featW: nd?.featuredWidth ?? Math.round(w * 3.21),
+    featH: nd?.featuredHeight ?? h,
+    featArtH: nd?.featuredImgHeight ?? nd?.featuredHeight ?? h,
+  };
+}
+
+/* The measured native dims with the DeckRow fallbacks filled in — one
+   derivation for the CSS variables and the stylesheet context, so the two
+   can never drift apart. */
+function effectiveDims(nd: NativeCardDims | null): EffectiveDims {
   const w = nd?.width ?? CARD_W;
   const h = nd?.height ?? CARD_ART_H;
+  return {
+    w,
+    h,
+    gap: nd ? clampCardGap(nd.gap, w) : CARD_GAP,
+    artH: nd?.imgHeight ?? h,
+    ...featuredDims(nd, w, h),
+  };
+}
+
+function nativeDimVarEntries(): [string, string][] {
+  const d = effectiveDims(cachedNativeDims);
   return [
-    ['--ds-native-card-w', `${w}px`],
-    ['--ds-native-card-h', `${h}px`],
-    ['--ds-native-card-gap', `${nd ? clampCardGap(nd.gap, w) : CARD_GAP}px`],
-    ['--ds-native-card-art-h', `${nd?.imgHeight ?? h}px`],
-    ['--ds-native-feat-w', `${nd?.featuredWidth ?? Math.round(w * 3.21)}px`],
-    ['--ds-native-feat-h', `${nd?.featuredHeight ?? h}px`],
-    ['--ds-native-feat-art-h', `${nd?.featuredImgHeight ?? nd?.featuredHeight ?? h}px`],
+    ['--ds-native-card-w', `${d.w}px`],
+    ['--ds-native-card-h', `${d.h}px`],
+    ['--ds-native-card-gap', `${d.gap}px`],
+    ['--ds-native-card-art-h', `${d.artH}px`],
+    ['--ds-native-feat-w', `${d.featW}px`],
+    ['--ds-native-feat-h', `${d.featH}px`],
+    ['--ds-native-feat-art-h', `${d.featArtH}px`],
   ];
 }
 
@@ -321,43 +344,56 @@ function nativeDimVarEntries(): [string, string][] {
    transient unhidden state is never shown to the user (no visible flash).
    Used when `discoverNativeCardDimensions` returns null because hideRecents
    is active and there are no other measurable native portrait cards on screen. */
+type HideRecentsRule = { el: HTMLStyleElement | null; text: string; active: boolean };
+
+/* Hide can come from either the dedicated <style#hide-recents> element OR
+   from inline `display:none` set by applyHideRecents on the recents element
+   itself (the classmap may not have native-recents tokens, in which case
+   homePatch only sets the inline style and skips the CSS rule). */
+function readHideRecentsRule(steamDoc: Document): HideRecentsRule {
+  const el = steamDoc.getElementById('deck-shelves-hide-recents-style') as HTMLStyleElement | null;
+  const text = el?.textContent ?? '';
+  return { el, text, active: !!text && text.includes('display: none') };
+}
+
+function isInlineHidden(el: HTMLElement): boolean {
+  return el.style.display === 'none' || el.style.visibility === 'hidden';
+}
+
+/* Un-hide the recents row (style rule + inline props) and return the restore
+   step; both run inside one synchronous block so no frame ever paints it. */
+function unhideRecents(recentsEl: HTMLElement, rule: HideRecentsRule): () => void {
+  const saved = { display: recentsEl.style.display, visibility: recentsEl.style.visibility, height: recentsEl.style.height, overflow: recentsEl.style.overflow };
+  if (rule.el && rule.active) rule.el.textContent = '';
+  // Clear inline hiding too — applyHideRecents may have set both.
+  recentsEl.style.display = '';
+  recentsEl.style.visibility = '';
+  recentsEl.style.height = '';
+  recentsEl.style.overflow = '';
+  return () => {
+    if (rule.el && rule.active) rule.el.textContent = rule.text;
+    recentsEl.style.display = saved.display;
+    recentsEl.style.visibility = saved.visibility;
+    recentsEl.style.height = saved.height;
+    recentsEl.style.overflow = saved.overflow;
+  };
+}
+
 function discoverViaBriefUnhide(steamDoc: Document): NativeCardDims | null {
   try {
     const mount = steamDoc.getElementById('deck-shelves-home-root') as HTMLElement | null;
-    if (!mount) return null;
-    const recentsEl = mount.previousElementSibling as HTMLElement | null;
+    const recentsEl = mount?.previousElementSibling as HTMLElement | null;
     if (!recentsEl) return null;
-    /* Hide can come from either the dedicated <style#hide-recents> element OR
-       from inline `display:none` set by applyHideRecents on the recents
-       element itself (the classmap may not have native-recents tokens, in
-       which case homePatch only sets the inline style and skips the CSS rule). */
-    const hideStyle = steamDoc.getElementById('deck-shelves-hide-recents-style') as HTMLStyleElement | null;
-    const styleText = hideStyle?.textContent ?? '';
-    const hiddenViaInline = recentsEl.style.display === 'none' || recentsEl.style.visibility === 'hidden';
-    const hiddenViaStyleRule = !!styleText && styleText.includes('display: none');
-    if (!hiddenViaInline && !hiddenViaStyleRule) return null;
-    // Save anything we may touch
-    const savedDisplay = recentsEl.style.display;
-    const savedVisibility = recentsEl.style.visibility;
-    const savedHeight = recentsEl.style.height;
-    const savedOverflow = recentsEl.style.overflow;
+    const rule = readHideRecentsRule(steamDoc);
+    if (!isInlineHidden(recentsEl) && !rule.active) return null;
+    const restore = unhideRecents(recentsEl, rule);
     try {
-      if (hideStyle && hiddenViaStyleRule) hideStyle.textContent = '';
-      // Clear inline hiding too — applyHideRecents may have set both.
-      recentsEl.style.display = '';
-      recentsEl.style.visibility = '';
-      recentsEl.style.height = '';
-      recentsEl.style.overflow = '';
       // Force synchronous layout so getBoundingClientRect sees the unhidden cards.
       void recentsEl.offsetHeight;
       return discoverNativeCardDimensions(steamDoc);
     } finally {
       // Restore before the next paint so the user never sees recents flash.
-      if (hideStyle && hiddenViaStyleRule) hideStyle.textContent = styleText;
-      recentsEl.style.display = savedDisplay;
-      recentsEl.style.visibility = savedVisibility;
-      recentsEl.style.height = savedHeight;
-      recentsEl.style.overflow = savedOverflow;
+      restore();
     }
   } catch { return null; }
 }
@@ -574,16 +610,16 @@ function detectNativeHeadingColor(doc: Document): void {
 }
 
 function buildStylesheet(): string {
-  const dims = cachedNativeDims;
+  const d = effectiveDims(cachedNativeDims);
   const ctx: ShelfStylesheetCtx = {
     cardRadius: cachedCardRadius,
-    cardW: dims?.width ?? CARD_W,
-    cardH: dims?.height ?? CARD_ART_H,
-    cardArtH: dims?.imgHeight ?? dims?.height ?? CARD_ART_H,
-    cardGap: dims ? clampCardGap(dims.gap, dims.width ?? CARD_W) : CARD_GAP,
-    featuredW: dims?.featuredWidth ?? Math.round((dims?.width ?? CARD_W) * 3.21),
-    featuredH: dims?.featuredHeight ?? dims?.height ?? CARD_ART_H,
-    featuredArtH: dims?.featuredImgHeight ?? dims?.featuredHeight ?? dims?.height ?? CARD_ART_H,
+    cardW: d.w,
+    cardH: d.h,
+    cardArtH: d.artH,
+    cardGap: d.gap,
+    featuredW: d.featW,
+    featuredH: d.featH,
+    featuredArtH: d.featArtH,
   };
   return buildShelfStylesheet(ctx);
 }

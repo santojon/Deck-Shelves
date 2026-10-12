@@ -2,7 +2,7 @@
 // tab IDs/names get an i18n key + Steam icon prefix; unsupported tabs
 // (like Collections) are filtered out of the source dropdown.
 
-export function slugifyForTab(s: string): string {
+function slugifyForTab(s: string): string {
   return String(s ?? '')
     .toLowerCase()
     .normalize('NFD')

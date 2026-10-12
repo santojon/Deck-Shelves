@@ -11,14 +11,11 @@ vi.mock('../../runtime/friendsState', () => ({
   getFriendsPlayingAppIds: vi.fn(() => new Set<number>()),
   getFriendsRecentlyPlayedAppIds: vi.fn(() => new Set<number>()),
   installFriendsState: vi.fn(() => () => {}),
-  refreshFriendsState: vi.fn(),
 }))
 
 vi.mock('../../steam/appDetailsCache', () => ({
-  getAppDetailsSummary: vi.fn(() => null),
   preloadAppDetailsSummary: vi.fn(),
   preloadAppDetailsSummaries: vi.fn(),
-  clearAppDetailsCache: vi.fn(),
   appHasAnyCategory: vi.fn(() => false),
   getAppAchievementPct: vi.fn(() => NaN),
 }))

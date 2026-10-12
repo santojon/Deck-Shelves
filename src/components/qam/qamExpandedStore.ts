@@ -37,11 +37,11 @@ function notifyCompositor(expanded: boolean): void {
   } catch {}
 }
 
-export function getQamExpanded(): boolean {
+function getQamExpanded(): boolean {
   return current;
 }
 
-export function setQamExpanded(next: boolean | ((prev: boolean) => boolean)): void {
+function setQamExpanded(next: boolean | ((prev: boolean) => boolean)): void {
   if (__DEV__) {
     const g = globalThis as unknown as { __ds_set_count__?: number; __ds_last_set__?: unknown };
     g.__ds_set_count__ = (g.__ds_set_count__ ?? 0) + 1;
@@ -63,7 +63,7 @@ export function resetQamExpanded(): void {
   writeSession(false);
 }
 
-export function toggleQamExpanded(): void {
+function toggleQamExpanded(): void {
   setQamExpanded((v) => !v);
 }
 

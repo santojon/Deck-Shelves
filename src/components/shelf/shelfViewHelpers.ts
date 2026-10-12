@@ -36,14 +36,14 @@ const STEAM_URL_OPENERS: SteamUrlOpener[] = [
   },
 ];
 
-export function openSteamStoreUrl(url: string, steamUrl?: string): void {
+function openSteamStoreUrl(url: string, steamUrl?: string): void {
   try {
     const sc = (globalThis as any).SteamClient;
     for (const opener of STEAM_URL_OPENERS) { if (opener(sc, url, steamUrl)) return; }
   } catch {}
 }
 
-export function openSteamStorePage(appid: number): void {
+function openSteamStorePage(appid: number): void {
   openSteamStoreUrl(`${STEAM_STORE_BASE}/app/${appid}/`, `steam://store/${appid}`);
 }
 
@@ -61,7 +61,7 @@ function readPriceCache(): Record<string, any> | null {
   return priceCacheParsed;
 }
 
-export function getCachedDiscount(appid: number): number | null {
+function getCachedDiscount(appid: number): number | null {
   try {
     const d = readPriceCache()?.[appid]?.data?.discount;
     return typeof d === 'number' ? d : null;
@@ -86,7 +86,7 @@ export function jsonOrNull(value: unknown): string {
   return JSON.stringify(value ?? null);
 }
 
-export function flag01(value: boolean | undefined): 'r1' | 'r0' {
+function flag01(value: boolean | undefined): 'r1' | 'r0' {
   return value ? 'r1' : 'r0';
 }
 

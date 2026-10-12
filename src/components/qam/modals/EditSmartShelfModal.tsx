@@ -40,6 +40,7 @@ import { textFromDeckyChange } from './modalUtils'
 import { SMART_PARAM_DEFAULTS, SMART_PARAM_META, paramKeysForMode, DEFAULT_SORT_FOR_MODE } from '../../../steam/smartParams'
 import { buildInitialSmartState, DEFAULT_REFRESH_MINUTES, type EditState } from './editShelf/buildSmartInitialState'
 import { persistSmartShelf } from './editShelf/buildSmartSavePatch'
+import { visualFlagsOf, applyVisualPatch, previewHideFlags, removableTail } from './editShelf/sharedEditProps'
 
 
 /* Ordered list of every internal smart-shelf mode, used by the Source-tab
@@ -764,8 +765,8 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
                   content: (
                     <VisualTabContent
                       t={t}
-                      flags={{ matchNativeSize: state.matchNativeSize, highlightFirst: state.highlightFirst, highlightAll: state.highlightAll, highlightRandom: state.highlightRandom, enableLogo: state.enableLogo, enableIcon: state.enableIcon, enableDescription: state.enableDescription, descriptionBelowLogo: state.descriptionBelowLogo, logoPosition: state.logoPosition, descriptionPosition: state.descriptionPosition, logoSize: state.logoSize, logoTopOffset: state.logoTopOffset, iconVerticalAlign: state.iconVerticalAlign, shelfTitlePosition: state.shelfTitlePosition, gameNamePosition: state.gameNamePosition, playtimePosition: state.playtimePosition, descriptionHeight: state.descriptionHeight, descriptionLogoGap: state.descriptionLogoGap, descriptionScale: state.descriptionScale, fullPageShelf: state.fullPageShelf, heroEnabled: state.heroEnabled, gameInfoAbove: state.gameInfoAbove, friendsPlayingOverlay: state.friendsPlayingOverlay, friendsPlayingOverlayRecent: state.friendsPlayingOverlayRecent }}
-                      setFlags={(patch: any) => setState((prev) => { const next = { ...prev, ...patch }; if (patch.gameInfoAbove === true) next.hideShelfTitle = true; return next; })}
+                      flags={visualFlagsOf(state)}
+                      setFlags={(patch: any) => setState((prev) => applyVisualPatch(prev, patch))}
                       highlightedAppIds={state.highlightedAppIds}
                       setHighlightedAppIds={(next) => setState((prev) => ({ ...prev, highlightedAppIds: next }))}
                       highlightPickerOpen={highlightPickerOpen}
@@ -812,14 +813,7 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
             highlightedAppIds={state.highlightedAppIds}
             alternatingMode={alternatingMode}
             hiddenAppIds={state.hiddenAppIds}
-            hideStatusLine={state.hideStatusLine}
-            hideNewBadge={state.hideNewBadge}
-            hideCompatIcons={state.hideCompatIcons}
-            hideNonSteamBadge={state.hideNonSteamBadge}
-            hideGameNames={state.hideGameNames === true}
-            hideInstallIndicator={state.hideInstallIndicator === true}
-            hideSeeMore={state.hideSeeMore === true}
-            hideRefreshCard={state.hideRefreshCard === true}
+            {...previewHideFlags(state)}
             limit={state.limit}
             shelfSource={previewSource}
             shelfSort={state.sort}
@@ -827,12 +821,7 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
             selectionMode={previewSel.mode}
             selectionSet={previewSel.set}
             onToggleSelection={previewSel.onToggle}
-            removableSet={(() => {
-              if (!state.manualOrder.length) return undefined
-              const inSource = new Set(resolvedIds)
-              const tail = state.manualOrder.filter((id) => !inSource.has(id))
-              return tail.length ? new Set(tail) : undefined
-            })()}
+            removableSet={removableTail(state.manualOrder, resolvedIds)}
             onRemoveCard={(id) => setState((prev) => ({ ...prev, manualOrder: prev.manualOrder.filter((x) => x !== id) }))}
           />
           </div>

@@ -496,7 +496,7 @@ export function evalDeviceRule(rule: any): boolean {
   return evalDisplayRule(rule); // externalDisplay/resolution/ultrawide + unknown→true
 }
 
-export const DEVICE_RULE_KINDS = [
+const DEVICE_RULE_KINDS = [
   'battery', 'charging', 'offline', 'externalDisplay', 'resolution', 'ultrawide',
   'controllerConnected', 'libraryAvailable', 'device', 'inputMode',
 ] as const;

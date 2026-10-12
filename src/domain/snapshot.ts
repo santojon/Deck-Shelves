@@ -6,7 +6,7 @@ import type { Settings } from "../types";
    compatible with the existing per-concept export shape (`{ state: {...} }`)
    so older exports still import. */
 
-export const SNAPSHOT_VERSION = 1;
+const SNAPSHOT_VERSION = 1;
 
 export type SnapshotConcept =
   | "shelves"

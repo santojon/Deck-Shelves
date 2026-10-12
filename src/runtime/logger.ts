@@ -51,7 +51,7 @@ function styles(scope: DeckLogScope, level: DeckLogLevel) {
   return { tagStyle, scopeStyle, msgStyle };
 }
 
-export function deckLog(scope: DeckLogScope, level: DeckLogLevel, message: string, context?: unknown) {
+function deckLog(scope: DeckLogScope, level: DeckLogLevel, message: string, context?: unknown) {
   const { tagStyle, scopeStyle, msgStyle } = styles(scope, level);
   const consoleMethod = level === "ERROR" ? console.error : level === "WARN" ? console.warn : console.log;
   if (typeof context === "undefined") {

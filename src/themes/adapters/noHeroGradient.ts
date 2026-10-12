@@ -1,7 +1,7 @@
 import { getAllStyleText, matchesAny, tokensForKey } from "../detect";
 import type { ThemeAdapter } from "../types";
 
-export function isNoHeroGradientActive(): boolean {
+function isNoHeroGradientActive(): boolean {
   const text = getAllStyleText();
   const rootTokens = tokensForKey("heroRoot", "gamepadhomerecentgames_RecentGamesBackgroundContainer");
   const innerTokens = tokensForKey("heroInner", "gamepadhomerecentgames_RecentGamesBackgroundImages");

@@ -1,32 +1,5 @@
 import { _discoverViaDFL } from "./webpackCompatDfl";
 
-function isScrollableElement(el: HTMLElement): boolean {
-  try {
-    const cs = getComputedStyle(el);
-    const oy = ((el.style && (el.style as any).overflowY) || (cs && cs.overflowY) || '').toLowerCase();
-    if (oy !== 'auto' && oy !== 'scroll' && oy !== 'overlay') return false;
-    return el.scrollHeight > el.clientHeight && el.clientHeight > 80;
-  } catch { return false; }
-}
-
-function pickHashedClass(el: HTMLElement): string | null {
-  for (const cls of Array.from(el.classList)) {
-    if (cls && cls.startsWith('_') && cls.length > 5) return cls;
-  }
-  return null;
-}
-
-export function findWebpackHashedClass(doc: Document): string | null {
-  try {
-    for (const el of Array.from(doc.querySelectorAll<HTMLElement>('[class]'))) {
-      if (!isScrollableElement(el)) continue;
-      const cls = pickHashedClass(el);
-      if (cls) return cls;
-    }
-  } catch {}
-  return null;
-}
-
 export function buildSelectorFromToken(token: string | null): string | null {
   if (!token) return null;
   return `.${token.replace(/\s+/g, '.')}`;
@@ -757,41 +730,4 @@ export function discoverClassMap(doc: Document): Record<string, string> | null {
         ?? discoverViaAncestorTokens(doc)
         ?? discoverViaTokenMap(doc);
   } catch { return null; }
-}
-
-const SINGLE_CLASS_RE = /^\.[A-Za-z_][A-Za-z0-9_-]+$/;
-
-const COMPAT_COLOR_TO_KEY: Record<string, 'verified' | 'playable' | 'unsupported'> = {
-  'rgb(89, 191, 64)': 'verified',
-  'rgb(255, 200, 44)': 'playable',
-  'rgb(220, 222, 223)': 'unsupported',
-};
-
-function pickClassFromSelector(sel: string, allowMulti: boolean): string | null {
-  if (SINGLE_CLASS_RE.test(sel)) return sel.slice(1);
-  if (!allowMulti) return null;
-  const firstPart = sel.split(',')[0].trim();
-  return SINGLE_CLASS_RE.test(firstPart) ? firstPart.slice(1) : null;
-}
-
-function applyCompatRule(rule: CSSStyleRule, result: Record<string, string>): void {
-  if (!rule.selectorText || !rule.style) return;
-  const key = COMPAT_COLOR_TO_KEY[rule.style.color || ''];
-  if (!key) return;
-  const cls = pickClassFromSelector(rule.selectorText, key === 'unsupported');
-  if (cls) result[key] = cls;
-}
-
-export function discoverCompatClasses(doc: Document): { verified?: string; playable?: string; unsupported?: string } {
-  const result: Record<string, string> = {};
-  try {
-    for (const sheet of Array.from(doc.styleSheets)) {
-      try {
-        for (const rule of (Array.from(sheet.cssRules || []) as CSSStyleRule[])) {
-          applyCompatRule(rule, result);
-        }
-      } catch {}
-    }
-  } catch {}
-  return result;
 }

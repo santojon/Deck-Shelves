@@ -79,6 +79,7 @@
     "deck:setup": "bash scripts/deploy/deck-setup.sh",
     "fix:deck:perms": "bash scripts/deck/fix-deck-perms.sh",
     "deck:check": "bash scripts/deck/deck-check.sh",
+    "deck:debug": "bash scripts/deck/open-deck-debug.sh",
     "deck:perf": "bash scripts/deck/perf-test.sh",
     "logs:decky": "bash scripts/deck/logs-decky.sh",
     "check": "pnpm run typecheck && node scripts/build/validate.mjs",
@@ -86,9 +87,6 @@
     "validate:compat": "node scripts/build/validate-compat.mjs",
     "screenshots": "pnpm --filter deckprobe screenshots",
     "screenshots:validate": "node scripts/build/validate-screenshots.mjs",
-    "video:scenarios": "node deckprobe/scripts/py.mjs -m deckprobe.video.run --scenarios-dir scripts/deckprobe-ext/video/scenarios",
-    "video:scenarios:list": "node deckprobe/scripts/py.mjs -m deckprobe.video.run --scenarios-dir scripts/deckprobe-ext/video/scenarios --list",
-    "video:record": "node deckprobe/scripts/py.mjs -m deckprobe.video.run --scenarios-dir scripts/deckprobe-ext/video/scenarios --record",
     "videos": "pnpm --filter deckprobe videos",
     "videos:list": "pnpm --filter deckprobe videos:list",
     "devtools:cli": "pnpm --filter deckprobe cli --",
@@ -142,7 +140,6 @@
     "react": "19.2.7",
     "react-dom": "19.2.7",
     "react-i18next": "^17.0.16",
-    "tslib": "^2.8.1",
     "zod": "^4.6.5"
   },
   "pnpm": {

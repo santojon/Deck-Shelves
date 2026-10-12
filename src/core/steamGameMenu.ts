@@ -387,10 +387,6 @@ function patchDeepestRender(prototype: any): void {
   installShouldComponentUpdatePatch(prototype);
 }
 
-export function isLibraryContextMenuPatched(): boolean {
-  return _libraryContextMenuPatched;
-}
-
 export function installLibraryContextMenuPatch(): void {
   if (_libraryContextMenuPatched) return;
   const cls = discoverLibraryContextMenuClass();
@@ -1123,7 +1119,7 @@ function findModernMenuFn(doc: Document): ((e: any) => void) | null {
   return null;
 }
 
-export function extractAppContextMenu(): boolean {
+function extractAppContextMenu(): boolean {
   if (cachedMenuComponent) return true;
   const now = Date.now();
   if (now - lastExtractionAttempt < EXTRACTION_COOLDOWN) return false;

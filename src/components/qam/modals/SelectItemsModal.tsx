@@ -3,7 +3,7 @@ import { ConfirmModal, Focusable, ToggleField } from "../../../runtime/host/deck
 import { ModalShell } from "../../ui";
 import { useTranslation } from "react-i18next";
 
-export interface SelectableItem {
+interface SelectableItem {
   id: string;
   label: string;
   /** Optional secondary line shown under the label (dim). */

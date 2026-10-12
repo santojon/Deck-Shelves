@@ -4,10 +4,10 @@
    onto these ids; the API exposes it via listTriggerCatalog(). Keep in sync with
    the editor's CATALOG (guarded by triggerCatalog.test.ts). */
 
-export type TriggerCategoryId =
+type TriggerCategoryId =
   | "time" | "session" | "power" | "connectivity" | "display" | "perf" | "peripherals" | "device";
 
-export type TriggerKindEntry = {
+type TriggerKindEntry = {
   kind: string;
   /** Default params seeded when the rule is added. */
   defaults?: Record<string, unknown>;

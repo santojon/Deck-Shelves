@@ -133,7 +133,7 @@ export function evalPerfRule(rule: any): boolean {
   return true;
 }
 
-export const PERF_RULE_KINDS = ['highCpu', 'lowMemory', 'lowFrameBudget'] as const;
+const PERF_RULE_KINDS = ['highCpu', 'lowMemory', 'lowFrameBudget'] as const;
 export function isPerfRuleKind(kind: string): boolean {
   return (PERF_RULE_KINDS as readonly string[]).includes(kind);
 }

@@ -45,12 +45,9 @@ function tryOpenSteamKeyboard(): void {
   }
 }
 
-function dismissSteamKeyboard(): void {
-  /* On a match there's no physical B press to close the OSK natively, and
-     ModalKeyboardDismissed is only a notification — it doesn't close the OSK the
-     `OpenGamepadKeyboard` call popped. So (1) blur the focused text input across
-     every Steam doc — that closes an input-tied OSK — and (2) fire every known
-     dismiss/close method on every candidate Input object. */
+/* Blur the focused text input across every Steam doc — that closes an
+   input-tied on-screen keyboard. */
+function blurActiveTextInputs(): void {
   try {
     for (const doc of getAllSteamDocuments()) {
       try {
@@ -59,21 +56,75 @@ function dismissSteamKeyboard(): void {
       } catch {}
     }
   } catch {}
+}
+
+const inputApiOf = (owner: any) => owner?.SteamClient?.Input;
+
+// Every candidate `SteamClient.Input` this realm can reach (a repeated
+// dismiss call on the same object is harmless, so no dedup).
+function candidateInputApis(): any[] {
+  const g = globalThis as any;
+  const view = g.SteamUIStore?.WindowStore?.GamepadUIMainWindowInstance?.BrowserWindow;
+  return [inputApiOf(view?.opener), inputApiOf(g), inputApiOf(g.opener), inputApiOf(view)].filter(Boolean);
+}
+
+const KEYBOARD_DISMISS_METHODS = ["ModalKeyboardDismissed", "StandaloneKeyboardDismissed", "DismissGamepadKeyboard", "CloseGamepadKeyboard", "HideGamepadKeyboard"];
+
+function dismissSteamKeyboard(): void {
+  /* On a match there's no physical B press to close the OSK natively, and
+     ModalKeyboardDismissed is only a notification — it doesn't close the OSK the
+     `OpenGamepadKeyboard` call popped. So (1) blur the focused text input
+     (closes an input-tied OSK) and (2) fire every known dismiss/close method
+     on every candidate Input object. */
+  blurActiveTextInputs();
   try {
-    const g = globalThis as any;
-    const view = g.SteamUIStore?.WindowStore?.GamepadUIMainWindowInstance?.BrowserWindow;
-    const inputs = [
-      view?.opener?.SteamClient?.Input,
-      g.SteamClient?.Input,
-      g.opener?.SteamClient?.Input,
-      view?.SteamClient?.Input,
-    ].filter(Boolean);
-    const methods = ["ModalKeyboardDismissed", "StandaloneKeyboardDismissed", "DismissGamepadKeyboard", "CloseGamepadKeyboard", "HideGamepadKeyboard"];
-    for (const Input of inputs) {
-      for (const m of methods) {
+    for (const Input of candidateInputApis()) {
+      for (const m of KEYBOARD_DISMISS_METHODS) {
         try { Input[m]?.(); } catch {}
       }
     }
+  } catch {}
+}
+
+function prepareSearchInput(input: HTMLInputElement): void {
+  try {
+    input.setAttribute("inputmode", "text");
+    input.setAttribute("autocomplete", "off");
+    input.setAttribute("autocorrect", "off");
+    input.setAttribute("autocapitalize", "none");
+    input.setAttribute("spellcheck", "false");
+    input.setAttribute("enterkeyhint", "search");
+    if (!input.hasAttribute("tabindex")) input.setAttribute("tabindex", "0");
+  } catch {}
+}
+
+/* A synthetic touch tap on the input: Steam pops the on-screen keyboard for
+   pointer-initiated focus, not for programmatic focus. */
+function tapInputForKeyboard(input: HTMLInputElement): void {
+  try {
+    const r = input.getBoundingClientRect();
+    const x = r.left + r.width / 2;
+    const y = r.top + r.height / 2;
+    const PD = (typeof PointerEvent !== "undefined") ? PointerEvent : null;
+    if (PD) {
+      input.dispatchEvent(new PD("pointerdown", { bubbles: true, clientX: x, clientY: y, pointerType: "touch" }));
+      input.dispatchEvent(new PD("pointerup",   { bubbles: true, clientX: x, clientY: y, pointerType: "touch" }));
+    }
+    input.dispatchEvent(new MouseEvent("click", { bubbles: true, clientX: x, clientY: y }));
+  } catch {}
+}
+
+function publishSearchFocusDiag(input: HTMLInputElement, n: number, kb: boolean): void {
+  try {
+    const g = globalThis as any;
+    g.__ds_search_active = {
+      n,
+      isInput: input === input.ownerDocument?.activeElement,
+      activeTag: (input.ownerDocument?.activeElement as HTMLElement | null)?.tagName,
+      type: input.type,
+      tabIndex: input.tabIndex,
+      kb,
+    };
   } catch {}
 }
 
@@ -338,40 +389,10 @@ function SearchPill({ query, onChange, keyboardEnabled, onEnter }: {
       const input = host?.querySelector<HTMLInputElement>("input");
       if (input && input.isConnected) {
         captured = input;
-        try {
-          input.setAttribute("inputmode", "text");
-          input.setAttribute("autocomplete", "off");
-          input.setAttribute("autocorrect", "off");
-          input.setAttribute("autocapitalize", "none");
-          input.setAttribute("spellcheck", "false");
-          input.setAttribute("enterkeyhint", "search");
-          if (!input.hasAttribute("tabindex")) input.setAttribute("tabindex", "0");
-        } catch {}
+        prepareSearchInput(input);
         try { input.focus(); } catch {}
-        if (n === 8 && keyboardEnabled) {
-          try {
-            const r = input.getBoundingClientRect();
-            const x = r.left + r.width / 2;
-            const y = r.top + r.height / 2;
-            const PD = (typeof PointerEvent !== "undefined") ? PointerEvent : null;
-            if (PD) {
-              input.dispatchEvent(new PD("pointerdown", { bubbles: true, clientX: x, clientY: y, pointerType: "touch" }));
-              input.dispatchEvent(new PD("pointerup",   { bubbles: true, clientX: x, clientY: y, pointerType: "touch" }));
-            }
-            input.dispatchEvent(new MouseEvent("click", { bubbles: true, clientX: x, clientY: y }));
-          } catch {}
-        }
-        try {
-          const g = globalThis as any;
-          g.__ds_search_active = {
-            n,
-            isInput: input === input.ownerDocument?.activeElement,
-            activeTag: (input.ownerDocument?.activeElement as HTMLElement | null)?.tagName,
-            type: input.type,
-            tabIndex: input.tabIndex,
-            kb: keyboardEnabled,
-          };
-        } catch {}
+        if (n === 8 && keyboardEnabled) tapInputForKeyboard(input);
+        publishSearchFocusDiag(input, n, keyboardEnabled);
       }
       if (n > 0) window.setTimeout(() => tryFocus(n - 1), 120);
     };

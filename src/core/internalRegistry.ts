@@ -71,7 +71,7 @@ const INTERNAL_SORT_OPTIONS: ExternalSortOptionDescriptor[] = [
   sort: (appIds) => appIds.slice(),
 }));
 
-export function installInternalRegistry(): () => void {
+function installInternalRegistry(): () => void {
   const unsubs: Array<() => void> = [];
   for (const d of INTERNAL_SMART_DESCRIPTORS) unsubs.push(registerInternalSmartShelfSource(d));
   for (const d of INTERNAL_FILTER_TYPES) unsubs.push(registerInternalFilterType(d));

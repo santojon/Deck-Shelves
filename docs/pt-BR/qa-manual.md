@@ -198,18 +198,32 @@ Cada uma é independente e aditiva.
 
 Sequências roteirizadas e repetíveis para os oito roteiros de conteúdo (prateleiras
 personalizadas, smart shelves, filtros, personalização visual, Busca rápida + Side Nav, perfis +
-gatilhos, prateleiras online, ferramentas avançadas). Implante primeiro a fixture de vídeo
+gatilhos, prateleiras online, ferramentas avançadas), registradas no mesmo runner `videos` das
+gravações dos roteiros de conteúdo. Implante primeiro a fixture de vídeo
 (`pnpm run qa:video-fixture`) e então:
 
 ```bash
-pnpm run video:scenarios:list                 # nomes + resumo de uma linha
-pnpm run video:scenarios                      # conduz todos os cenários e imprime os pontos de marcação (grave externamente)
-pnpm run video:scenarios -- --only 01_custom_shelves,02_smart_shelves
-pnpm run video:record -- --fps 8              # também captura quadros via CDP → assets/video/<nome>/<nome>.mp4
+pnpm run videos:list                          # todos os cenários registrados (roteiros de conteúdo + 01…08)
+pnpm run videos -- --only 01_custom_shelves,02_smart_shelves
+pnpm run videos -- --video-fps 8              # taxa de codificação (padrão 10)
 ```
 
-Sem `--record` o runner só conduz a interface e imprime cada marcação com o tempo, para que um
-dispositivo de captura obtenha a mesma filmagem em toda tomada. Com `--record` ele captura quadros
-JPEG da janela Big Picture (6–10 fps num Deck) e monta um mp4 quando o `ffmpeg` está no PATH; os
-quadros e o `cues.json` ficam ao lado de qualquer forma. Os cenários ficam em
-`scripts/deckprobe-ext/video/scenarios/`; o runner e os helpers em `deckprobe/video/`.
+Cada cenário conduz a janela Big Picture por uma sequência cronometrada enquanto o screencast
+do runner grava, imprime cada ponto de marcação com o tempo e os escreve ao lado do mp4
+(`<nome>.cues.txt`); as gravações vão para `tmp/videos/` (ignorado pelo git) e precisam do
+`ffmpeg` no PATH. Os cenários e seus helpers de condução ficam em
+`scripts/deckprobe-ext/videos/scenarios/` (`feature_scripts.py`, `_steps.py`).
+
+## 14. Sondas avulsas e scripts de manutenção
+
+Diagnósticos pontuais guardados ao lado das suítes de sondas. Eles leem o cliente ao vivo pelo
+protocolo de depuração e imprimem o que encontram; nenhum deles altera configurações.
+
+| Script | O que faz |
+|---|---|
+| `python3 scripts/deckprobe-ext/probes/perf_card_count.py [--max-count N --steps …]` | Aumenta o limite da primeira prateleira passo a passo e mede o tempo de renderização da home por quantidade de cards, para achar onde o orçamento de frame degrada (restaura o limite depois) |
+| `python3 scripts/deckprobe-ext/probes/native_shelf_detection.py` | Lista todo candidato à fileira nativa de recentes do Steam com posição, pai e contagem de cards nativos, para conferir num dado build a heurística que o side nav e a Busca rápida usam |
+| `python3 scripts/deckprobe-ext/probes/hwcompat.py` | Imprime os campos de informação de sistema do aparelho e decodifica a categoria de compatibilidade de hardware empacotada para uma amostra de jogos, conferida contra os getters nomeados |
+| `bash scripts/dev/ensure-repo-settings.sh` | Só para mantenedores: confere as configurações de merge do repositório no GitHub (só squash, apagar branch ao mesclar) e as corrige quando divergem; precisa do CLI `gh` |
+| `pnpm run deck:debug` | Abre a lista de alvos do DevTools do aparelho (`http://<host>:<porta>`) no navegador |
+| `scripts/deckprobe-ext/lib/ds_qam.py` (helper, para importar) | `open_decky_ds_tab(host, port)`: abre a aba Deck Shelves do loader até o painel estar visível de verdade — o helper de navegação do toolkit se contenta com a cópia oculta do painel que o host independente mantém num aparelho com dois hosts |

@@ -79,9 +79,13 @@ export const FilterItemTypeSchema = z.enum([
 ]);
 export type FilterItemType = z.infer<typeof FilterItemTypeSchema>;
 
+// Early imports stored boolean flags as 0/1; read them as booleans so the
+// whole document doesn't fail validation over a legacy filter item.
+const legacyFlag = (v: unknown) => (v === 1 ? true : v === 0 ? false : v);
+
 export const FilterItemSchema = z.object({
   type: FilterItemTypeSchema,
-  inverted: z.boolean().optional(),
+  inverted: z.preprocess(legacyFlag, z.boolean().optional()),
   params: z.record(z.string(), z.any()).optional(),
 });
 export type FilterItem = z.infer<typeof FilterItemSchema>;
@@ -245,6 +249,22 @@ export const SmartShelfModeSchema = z.enum([
 ]);
 export type SmartShelfMode = z.infer<typeof SmartShelfModeSchema>;
 
+/* Sort keys shared by regular and smart shelves: a single key, a free-form
+   key (external sort providers) or a multi-key chain with the same members. */
+const SORT_KEYS = ["alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score", "added", "random", "manual", "price_low", "discount_high", "original_price_high"] as const;
+const ShelfSortSchema = z.union([
+  z.enum(SORT_KEYS),
+  z.string(),
+  z.array(z.union([z.enum(SORT_KEYS), z.string()])),
+]);
+// Base order under a manual override: the same keys minus "manual" itself and the store sorts.
+const MANUAL_BASE_SORT_KEYS = ["alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score", "added", "random"] as const;
+const ManualBaseSortSchema = z.union([
+  z.enum(MANUAL_BASE_SORT_KEYS),
+  z.string(),
+  z.array(z.union([z.enum(MANUAL_BASE_SORT_KEYS), z.string()])),
+]);
+
 export const SmartShelfSchema = z.object({
   id: z.string().min(1).max(64),
   updatedAt: z.number().int().nonnegative().optional(),
@@ -257,14 +277,7 @@ export const SmartShelfSchema = z.object({
      `sort` overrides the mode's default ordering (supports the same values as
      regular shelves, including "manual" + `manualOrder` / `manualBaseSort`).
      `filterGroup` narrows the mode's candidate pool with additional filters. */
-  sort: z.union([
-    z.enum(["alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score", "added", "random", "manual", "price_low", "discount_high", "original_price_high"]),
-    z.string(),
-    z.array(z.union([
-      z.enum(["alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score", "added", "random", "manual", "price_low", "discount_high", "original_price_high"]),
-      z.string(),
-    ])),
-  ]).optional(),
+  sort: ShelfSortSchema.optional(),
   // When true, reverse the sort result (asc/desc toggle). Ignored for
   // `manual` and `random`. Default false. Array form is per-key reverse
   // aligned with the `sort` array; see FilterSchema.sortReverse.
@@ -274,14 +287,7 @@ export const SmartShelfSchema = z.object({
      sort === "manual". Accepts a single key OR a multi-key chain so the
      user can have e.g. recent + alphabetical tiebreaker as the base
      order under a manual override. */
-  manualBaseSort: z.union([
-    z.enum(["alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score", "added", "random"]),
-    z.string(),
-    z.array(z.union([
-      z.enum(["alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score", "added", "random"]),
-      z.string(),
-    ])),
-  ]).optional(),
+  manualBaseSort: ManualBaseSortSchema.optional(),
   // Reverse flag for the manual base sort. Mirrors `sortReverse`: boolean
   // applies uniformly, `boolean[]` aligned with the multi-key chain.
   manualBaseSortReverse: z.union([z.boolean(), z.array(z.boolean())]).optional(),
@@ -433,14 +439,7 @@ export const ShelfSchema = z.object({
   enabled: z.boolean().default(true),
   hidden: z.boolean().default(false),
   limit: z.number().int().min(1).max(100).default(20),
-  sort: z.union([
-    z.enum(["alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score", "added", "random", "manual", "price_low", "discount_high", "original_price_high"]),
-    z.string(),
-    z.array(z.union([
-      z.enum(["alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score", "added", "random", "manual", "price_low", "discount_high", "original_price_high"]),
-      z.string(),
-    ])),
-  ]).optional(),
+  sort: ShelfSortSchema.optional(),
   // When true, reverse the sort result (asc/desc toggle). Ignored for
   // `manual` and `random`. Default false. Array form is per-key reverse
   // aligned with the `sort` array; see FilterSchema.sortReverse.
@@ -452,14 +451,7 @@ export const ShelfSchema = z.object({
      sort === "manual". Accepts a single key OR a multi-key chain so the
      user can have e.g. recent + alphabetical tiebreaker as the base
      order under a manual override. */
-  manualBaseSort: z.union([
-    z.enum(["alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score", "added", "random"]),
-    z.string(),
-    z.array(z.union([
-      z.enum(["alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score", "added", "random"]),
-      z.string(),
-    ])),
-  ]).optional(),
+  manualBaseSort: ManualBaseSortSchema.optional(),
   // Reverse flag for the manual base sort. Mirrors `sortReverse`: boolean
   // applies uniformly, `boolean[]` aligned with the multi-key chain.
   manualBaseSortReverse: z.union([z.boolean(), z.array(z.boolean())]).optional(),

@@ -73,7 +73,7 @@ export function closeAmbientOverlays(timeoutMs: number = 1200): Promise<void> {
   });
 }
 
-export function waitForOverlaysGone(timeoutMs: number = 600, onTick?: () => void): Promise<void> {
+function waitForOverlaysGone(timeoutMs: number = 600, onTick?: () => void): Promise<void> {
   return new Promise((resolve) => {
     const doc = getPreferredSteamDocument() ?? document;
     const started = Date.now();

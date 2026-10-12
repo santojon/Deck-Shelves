@@ -1,4 +1,4 @@
-export function isPluginInstalled(name: string): boolean {
+function isPluginInstalled(name: string): boolean {
   // SteamOS 3.9 moved the loader off window — try multiple paths.
   // plugins may be array or Map depending on version.
   try {
@@ -67,4 +67,3 @@ export const isUnifiDeckInstalled = (): boolean => {
     return false;
   }
 };
-export const isExternalTabsProviderInstalled = isUnifiDeckInstalled;

@@ -9,7 +9,7 @@ export type ThemeFlagValue = boolean | string | null | undefined;
 /* "root" adapters read the injected theme styles and stamp `.deck-shelves-root`
    (re-read whenever a Steam <head> changes); "document" adapters read computed
    variables on <html> and stamp <html> itself (re-read on the style poll). */
-export type ThemeScope = "root" | "document";
+type ThemeScope = "root" | "document";
 
 export type ThemeAdapter = {
   id: string;
@@ -30,7 +30,7 @@ export type ThemeAdapter = {
   css?: (ctx: ShelfStylesheetCtx) => string;
 };
 
-export function flagIsOn(v: ThemeFlagValue): boolean {
+function flagIsOn(v: ThemeFlagValue): boolean {
   return v === true || (typeof v === "string" && v !== "");
 }
 

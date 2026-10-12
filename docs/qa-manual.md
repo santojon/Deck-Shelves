@@ -193,17 +193,31 @@ Combine flags as needed (e.g. `DS_QA_SMART_SHELVES_FIXTURE=1 DS_QA_SAVED_FILTERS
 
 Scripted, repeatable sequences for the eight content scripts (custom shelves, smart shelves,
 filters, visual customization, Quick Search + Side Nav, profiles + triggers, online shelves,
-power-user tools). Deploy the video fixture first (`pnpm run qa:video-fixture`), then:
+power-user tools), registered with the same `videos` runner as the content-script recordings.
+Deploy the video fixture first (`pnpm run qa:video-fixture`), then:
 
 ```bash
-pnpm run video:scenarios:list                 # names + one-line summaries
-pnpm run video:scenarios                      # drive every scenario, print cue points (record externally)
-pnpm run video:scenarios -- --only 01_custom_shelves,02_smart_shelves
-pnpm run video:record -- --fps 8              # also capture frames over CDP → assets/video/<name>/<name>.mp4
+pnpm run videos:list                          # every registered scenario (content scripts + 01…08)
+pnpm run videos -- --only 01_custom_shelves,02_smart_shelves
+pnpm run videos -- --video-fps 8              # encode rate (default 10)
 ```
 
-Without `--record` the runner only drives the UI and prints each cue with its timestamp, so a
-capture device gets the same footage every take. With `--record` it grabs JPEG frames from the
-Big Picture window (6–10 fps on a Deck) and stitches an mp4 when `ffmpeg` is on PATH; frames
-and `cues.json` stay next to it either way. Scenarios live in
-`scripts/deckprobe-ext/video/scenarios/`; the runner and helpers in `deckprobe/video/`.
+Each scenario drives the Big Picture window through a timed sequence while the runner's
+screencast records it, prints each cue point with its timestamp and writes them beside the mp4
+(`<name>.cues.txt`); recordings land in `tmp/videos/` (gitignored) and need `ffmpeg` on PATH.
+Scenarios and their driving helpers live in `scripts/deckprobe-ext/videos/scenarios/`
+(`feature_scripts.py`, `_steps.py`).
+
+## 14. Ad-hoc probes and maintainer scripts
+
+One-off diagnostics kept beside the probe suites. They read the live client over the debug
+protocol and print what they find; none of them changes settings.
+
+| Script | What it does |
+|---|---|
+| `python3 scripts/deckprobe-ext/probes/perf_card_count.py [--max-count N --steps …]` | Raises the first shelf's limit step by step and measures home render time per card count, to find where the frame budget degrades (restores the limit afterwards) |
+| `python3 scripts/deckprobe-ext/probes/native_shelf_detection.py` | Lists every candidate for Steam's native recents row with position, parent and native-card count, so the heuristic the side nav and Quick Search use can be checked on a given client build |
+| `python3 scripts/deckprobe-ext/probes/hwcompat.py` | Prints the device's system-info fields and decodes the packed hardware-compat category for a sample of owned apps, cross-checked against the named getters |
+| `bash scripts/dev/ensure-repo-settings.sh` | Maintainers only: checks the GitHub repository's merge settings (squash-only, delete branch on merge) and patches them when they drift; needs the `gh` CLI |
+| `pnpm run deck:debug` | Opens the device's DevTools target list (`http://<host>:<port>`) in the browser |
+| `scripts/deckprobe-ext/lib/ds_qam.py` (helper, import it) | `open_decky_ds_tab(host, port)`: opens the loader's Deck Shelves tab until the panel is really visible — the toolkit's own navigation helper is satisfied by the standalone host's hidden copy of the panel on a two-host device |

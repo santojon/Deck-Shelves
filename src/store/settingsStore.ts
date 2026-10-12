@@ -311,6 +311,12 @@ function scheduleColdRetry(): void {
   }, delay);
 }
 
+// The store's effective state after a notify() — a QA override/seed applied
+// inside notify() must reach direct callers too, not just subscribers.
+function effectiveState(fallback: Settings): Settings {
+  return current ?? fallback;
+}
+
 export async function refreshSettings(): Promise<Settings> {
   const cached = current ?? readCache() ?? readSharedState();
   if (cached) {
@@ -346,19 +352,19 @@ export async function refreshSettings(): Promise<Settings> {
         notify(fromServer);
       })
       .catch((error) => { logWarn("STORAGE", "background refresh failed", String(error)); scheduleColdRetry(); });
-    return cached;
+    return effectiveState(cached);
   }
   try {
     logInfo("STORAGE", "refreshSettings requesting backend");
     const next = normalize(await withTimeout(call<[], unknown>("get_settings"), 8000));
     notify(next);
-    return next;
+    return effectiveState(next);
   } catch (error) {
     logWarn("STORAGE", "refreshSettings failed", String(error));
     scheduleColdRetry();
     const next = current ?? readCache() ?? readSharedState() ?? defaultSettings();
     notify(next);
-    return next;
+    return effectiveState(next);
   }
 }
 
@@ -384,56 +390,11 @@ async function flushPendingSave(): Promise<void> {
   }
 }
 
-/* Cloud-sync baseline: settings with no profile override applied. A profile
-   is DEVICE-LOCAL — a docked profile on one machine must not overwrite a
-   handheld profile on another via sync — so once one activates we snapshot
-   the pre-override config here; sync reads/writes THIS (getSyncBasis), not
-   the live override. In memory only, like the trigger baseline. */
-let syncBaseline: Settings | null = null;
-
-function profileOverrideActive(s: Settings | null): boolean {
-  return !!s && (s as any).activeProfileName != null;
-}
-
-export function setSyncBaseline(s: Settings | null): void {
-  syncBaseline = s ? (JSON.parse(JSON.stringify(s)) as Settings) : null;
-}
-
-export function getSyncBaseline(): Settings | null {
-  return syncBaseline;
-}
-
-/* What cloud sync operates on: the baseline while a profile override is active,
-   else the live config. */
-export function getSyncBasis(): Settings | null {
-  return syncBaseline ?? current;
-}
-
-/* Adopt a cloud-merged basis. While a profile override is active, update only the
-   baseline (the live override stays, so the device keeps showing its own profile);
-   otherwise adopt it as the live config. */
-export async function applySyncedBasis(merged: Settings): Promise<void> {
-  if (syncBaseline) {
-    setSyncBaseline(merged);
-    return;
-  }
-  await saveSettings(merged, { fromSync: true });
-}
-
 export function saveSettings(next: Settings, opts?: { fromSync?: boolean }): Promise<boolean> {
   // Stamp per-entity sync clocks + tombstones from the diff vs the current state,
   // unless this is a sync-applied write (which already carries authoritative
   // stamps from the merge — re-stamping would clobber the other device's clocks).
   const stamped = opts?.fromSync ? next : stampChanges(current, next);
-  // Tracks the profile-override baseline centrally, since every profile
-  // apply sets `activeProfileName` through here: snapshot on activation,
-  // clear on deactivation. Sync-applied writes never toggle it.
-  if (!opts?.fromSync) {
-    const wasOverride = profileOverrideActive(current);
-    const nowOverride = profileOverrideActive(stamped);
-    if (!wasOverride && nowOverride) setSyncBaseline(current);
-    else if (wasOverride && !nowOverride) setSyncBaseline(null);
-  }
   // Never let a QA-overridden session reach the real backend — see
   // `qaOverrideActive`'s doc comment for the incident this guards against.
   // Replaces a narrower, two-flag version of this same check.
@@ -490,18 +451,6 @@ async function runSave(next: Settings): Promise<boolean> {
   }
 }
 
-export async function resetSettings(): Promise<Settings> {
-  try {
-    const next = normalize(await withTimeout(call<[], unknown>("reset_settings"), 8000));
-    notify(next);
-    return next;
-  } catch {
-    const next = defaultSettings();
-    notify(next);
-    return next;
-  }
-}
-
 export async function exportSettingsToFile(destPath: string): Promise<boolean> {
   try {
     logInfo("STORAGE", "exportSettingsToFile start", { destPath });
@@ -509,22 +458,6 @@ export async function exportSettingsToFile(destPath: string): Promise<boolean> {
   } catch (error) {
     logError("STORAGE", "exportSettingsToFile failed", String(error));
     return false;
-  }
-}
-
-export async function importSettingsFromFile(srcPath: string): Promise<Settings> {
-  try {
-    logInfo("STORAGE", "importSettingsFromFile start", { srcPath });
-    const raw = await withTimeout(call<[unknown], unknown>("import_settings", { src_path: srcPath }), 15000);
-    const next = normalize(raw);
-    notify(next);
-    logInfo("STORAGE", "importSettingsFromFile success", { enabled: next.enabled, shelfCount: next.shelves.length });
-    return next;
-  } catch (error) {
-    logError("STORAGE", "importSettingsFromFile failed", String(error));
-    const next = current ?? defaultSettings();
-    notify(next);
-    return next;
   }
 }
 

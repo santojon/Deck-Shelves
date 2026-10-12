@@ -1,6 +1,6 @@
 {
   "_comment": "Site-only page-view counting, injected by scripts/site/build_site.py at build time. Privacy-first and free: no cookies, no personal data, no consent banner. Leave `code` empty to ship the site without it.",
   "provider": "goatcounter",
-  "code": "",
+  "code": "deck-shelves",
   "publicStats": true
 }

@@ -28,7 +28,7 @@ async function runDownload(url: string, filename: string): Promise<string | null
   return null;
 }
 
-export async function downloadUpdate(result: UpdateCheckResult | null | undefined): Promise<void> {
+async function downloadUpdate(result: UpdateCheckResult | null | undefined): Promise<void> {
   if (!result) return;
   const { assetUrl, assetName, releaseUrl, latestVersion } = result;
   if (!assetUrl || !assetName) { openReleaseUrl(releaseUrl); return; }

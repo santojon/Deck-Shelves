@@ -1,4 +1,4 @@
-import { getPreferredSteamDocument } from "../../runtime/steamHost";
+
 import { getAllStyleText } from "../detect";
 import type { ThemeAdapter } from "../types";
 
@@ -24,35 +24,6 @@ export function getTiltedHomeMode(): { method: "skew" | "3d"; direction: "one-wa
   const direction: "one-way" | "opposites" =
     />\s*div\.gpfocuswithin\s*~\s*div/i.test(text) ? "opposites" : "one-way";
   return { method, direction };
-}
-
-export function getTiltedHomeConfig(): {
-  tiltAngle: string;
-  imageZoom: string;
-  mostRecentOffset: string;
-  viewMoreOffset: string;
-  viewMoreFocusScale: string;
-} | null {
-  if (!isTiltedHomeActive()) return null;
-  try {
-    const doc = getPreferredSteamDocument();
-    const root = doc?.documentElement;
-    if (!root) return null;
-    const cs = (doc?.defaultView ?? window).getComputedStyle(root);
-    return {
-      tiltAngle: readTiltVar(cs, "--ren-tilt-angle", "-5deg"),
-      imageZoom: readTiltVar(cs, "--ren-image-zoom", "1.15"),
-      mostRecentOffset: readTiltVar(cs, "--ren-most-recent-offset", "2%"),
-      viewMoreOffset: readTiltVar(cs, "--ren-view-more-offset", "-7%"),
-      viewMoreFocusScale: readTiltVar(cs, "--ren-view-more-focus-scale", "0.88"),
-    };
-  } catch {
-    return null;
-  }
-}
-
-function readTiltVar(cs: CSSStyleDeclaration, name: string, fallback: string): string {
-  return cs.getPropertyValue(name).trim() || fallback;
 }
 
 /* TiltedHome: the user picks one of four CSS Loader modules (skew / 3d ×

@@ -1,7 +1,7 @@
 import { getAllStyleText, matchesAny, tokensForKey } from "../detect";
 import type { ThemeAdapter } from "../types";
 
-export function isNoHomeTextActive(): boolean {
+function isNoHomeTextActive(): boolean {
   const text = getAllStyleText();
   const labelTokens = tokensForKey("nativeCarouselGameLabel", "basicgamecarousel_CarouselGameLabel");
   // Also include the observed hashed token directly as a safety net for

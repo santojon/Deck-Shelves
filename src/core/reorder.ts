@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
 export type ReorderAxis = "horizontal" | "vertical";
-export type ReorderPointerType = "mouse" | "touch" | "pen";
+type ReorderPointerType = "mouse" | "touch" | "pen";
 
 export function findReorderTargetIndex(
   itemRects: ReadonlyArray<{ left: number; right: number; top: number; bottom: number }>,

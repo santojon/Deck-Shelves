@@ -69,6 +69,27 @@ function exposeSubscribersForDebug(): void {
   } catch {}
 }
 
+const inputApiOf = (owner: any) => owner?.SteamClient?.Input;
+
+const homeView = (g: any) => g.document?.getElementById?.('deck-shelves-home-root')?.ownerDocument?.defaultView;
+
+/* Every place Steam may expose a `SteamClient.Input`, in priority order, as
+   lazy probes — each one evaluated (and guarded) on its own. */
+function inputProbes(g: any): Array<[string, () => any]> {
+  const probes: Array<[string, () => any]> = [
+    ['self', () => inputApiOf(g)],
+    ['opener', () => inputApiOf(g.opener)],
+    ['gamepadMain', () => inputApiOf(g.SteamUIStore?.WindowStore?.GamepadUIMainWindowInstance?.BrowserWindow)],
+  ];
+  let wins: any;
+  try { wins = g.SteamUIStore?.WindowStore?.SteamUIWindows; } catch {}
+  if (Array.isArray(wins)) wins.forEach((entry: any, i: number) => probes.push(['ui[' + i + ']', () => inputApiOf(entry?.BrowserWindow)]));
+  probes.push(['focused', () => inputApiOf(g.SteamUIStore?.GetFocusedWindowInstance?.()?.BrowserWindow)]);
+  probes.push(['home.view', () => inputApiOf(homeView(g))]);
+  probes.push(['home.opener', () => inputApiOf(homeView(g)?.opener)]);
+  return probes;
+}
+
 function getAllInputApis(): any[] {
   const g = globalThis as any;
   const seen = new Set<any>();
@@ -83,25 +104,9 @@ function getAllInputApis(): any[] {
       g.__ds_input_sources.push(label);
     } catch {}
   };
-  tryPush(g.SteamClient?.Input, 'self');
-  tryPush(g.opener?.SteamClient?.Input, 'opener');
-  tryPush(g.SteamUIStore?.WindowStore?.GamepadUIMainWindowInstance?.BrowserWindow?.SteamClient?.Input, 'gamepadMain');
-  try {
-    const wins = g.SteamUIStore?.WindowStore?.SteamUIWindows;
-    if (Array.isArray(wins)) {
-      wins.forEach((entry: any, i: number) => tryPush(entry?.BrowserWindow?.SteamClient?.Input, 'ui[' + i + ']'));
-    }
-  } catch {}
-  try {
-    const focused = g.SteamUIStore?.GetFocusedWindowInstance?.();
-    tryPush(focused?.BrowserWindow?.SteamClient?.Input, 'focused');
-  } catch {}
-  try {
-    const root = (g as any).document?.getElementById?.('deck-shelves-home-root');
-    const view = root?.ownerDocument?.defaultView;
-    tryPush(view?.SteamClient?.Input, 'home.view');
-    tryPush(view?.opener?.SteamClient?.Input, 'home.opener');
-  } catch {}
+  for (const [label, get] of inputProbes(g)) {
+    try { tryPush(get(), label); } catch {}
+  }
   return candidates;
 }
 
@@ -134,15 +139,23 @@ let pollTimer: number | null = null;
    callbacks are silently dropped. The BP script writes events to
    `view.__ds_bp_input_log`; we poll it and forward into the listeners
    here. */
-function installBPInjection(): boolean {
-  const g = globalThis as any;
+// The BP-side windows that may own a `SteamClient.Input` (the first one
+// exposing `RegisterForControllerInputMessages` wins).
+function collectBrowserWindows(g: any): any[] {
   const candidates: any[] = [];
-  try { candidates.push(g.SteamUIStore?.WindowStore?.GamepadUIMainWindowInstance?.BrowserWindow); } catch {}
+  const push = (get: () => any) => { try { candidates.push(get()); } catch {} };
+  push(() => g.SteamUIStore?.WindowStore?.GamepadUIMainWindowInstance?.BrowserWindow);
   try {
     const wins = g.SteamUIStore?.WindowStore?.SteamUIWindows;
     if (Array.isArray(wins)) for (const w of wins) candidates.push(w?.BrowserWindow);
   } catch {}
-  try { candidates.push(g.SteamUIStore?.GetFocusedWindowInstance?.()?.BrowserWindow); } catch {}
+  push(() => g.SteamUIStore?.GetFocusedWindowInstance?.()?.BrowserWindow);
+  return candidates;
+}
+
+function installBPInjection(): boolean {
+  const g = globalThis as any;
+  const candidates = collectBrowserWindows(g);
   const view = candidates.find((c) => c?.SteamClient?.Input?.RegisterForControllerInputMessages) ?? null;
   try {
     g.__ds_bp_diag = {
@@ -154,10 +167,19 @@ function installBPInjection(): boolean {
     };
   } catch {}
   if (!view) return false;
-  /* Also install a global keydown listener IN BP context to capture
-     keyboard typing on the home (matches Big Picture's native
-     "type to filter" UX). BP captures these even when no input has
-     focus, but the events only fire in BP's JS context. */
+  installBPKeydownLogger(view, g);
+  if (view.__ds_bp_input_installed) {
+    g.__ds_input_bp_view = view;
+    return true;
+  }
+  return installBPInputRegistration(view, g);
+}
+
+/* Also install a global keydown listener IN BP context to capture keyboard
+   typing on the home (matches Big Picture's native "type to filter" UX). BP
+   captures these even when no input has focus, but the events only fire in
+   BP's JS context. */
+function installBPKeydownLogger(view: any, g: any): void {
   try {
     const kbBody = [
       "if (this.__ds_bp_keydown_installed) return;",
@@ -176,10 +198,9 @@ function installBPInjection(): boolean {
   } catch (e) {
     try { g.__ds_bp_keydown_err = String(e).slice(0, 200); } catch {}
   }
-  if (view.__ds_bp_input_installed) {
-    g.__ds_input_bp_view = view;
-    return true;
-  }
+}
+
+function installBPInputRegistration(view: any, g: any): boolean {
   try {
     const body = [
       "if (this.__ds_bp_input_installed) return;",

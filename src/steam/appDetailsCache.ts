@@ -1,7 +1,6 @@
 
-import { logInfo } from "../runtime/logger";
 
-export type AppDetailsSummary = {
+type AppDetailsSummary = {
   categories: string[];
   achievementProgress: number;
 };
@@ -51,11 +50,7 @@ function extractAchievementProgress(details: any): number {
   return NaN;
 }
 
-export function getAppDetailsSummary(appid: number): AppDetailsSummary | null {
-  return cache.get(appid) ?? null;
-}
-
-export function preloadAppDetailsSummary(appid: number): void {
+function preloadAppDetailsSummary(appid: number): void {
   if (cache.has(appid) || pending.has(appid)) return;
   const sc = getSteamClient();
   if (!sc?.Apps?.RegisterForAppDetails) return;
@@ -85,12 +80,6 @@ export function preloadAppDetailsSummary(appid: number): void {
 
 export function preloadAppDetailsSummaries(appids: number[]): void {
   for (const id of appids) preloadAppDetailsSummary(id);
-}
-
-export function clearAppDetailsCache(): void {
-  cache.clear();
-  pending.clear();
-  logInfo("STEAM", "appDetailsCache cleared");
 }
 
 export function appHasAnyCategory(appid: number, queries: string[]): boolean {

@@ -41,28 +41,6 @@ export function DonutLegend({ data, mode = "raw" }: { data: Array<{ label: strin
   );
 }
 
-const V = { W: 320, H: 110, pad: 6 };
-
-/* Comparative multi-series line: launches / shelf-views / feature-use overlaid
-   on one time axis. */
-export function MultiLineChart({ points, activeKeys }: { points: UsageDailyPoint[]; activeKeys: SeriesKey[] }) {
-  const { W, H, pad } = V;
-  const iw = W - pad * 2, ih = H - pad * 2;
-  const maxY = Math.max(1, ...points.flatMap((p) => activeKeys.map((k) => p[k])));
-  const n = points.length;
-  const xAt = (i: number) => pad + (n <= 1 ? iw / 2 : (i / (n - 1)) * iw);
-  const yAt = (v: number) => pad + ih - (v / maxY) * ih;
-  const path = (k: SeriesKey) => points.map((p, i) => `${i === 0 ? "M" : "L"}${xAt(i).toFixed(1)},${yAt(p[k]).toFixed(1)}`).join(" ");
-  return (
-    <svg width="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" style={{ display: "block", height: H }}>
-      <line x1={pad} y1={pad + ih} x2={pad + iw} y2={pad + ih} stroke="rgba(255,255,255,0.12)" strokeWidth={1} vectorEffect="non-scaling-stroke" />
-      {SERIES_ORDER.filter((k) => activeKeys.includes(k)).map((k) => (
-        <path key={k} d={path(k)} fill="none" stroke={SERIES_COLORS[k]} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
-      ))}
-    </svg>
-  );
-}
-
 /* Day-axis labels (DD) under a time-series chart (DOM, evenly spaced). Kept out
    of the SVG so the labels stay crisp regardless of chart scaling. */
 export function DayAxis({ points }: { points: UsageDailyPoint[] }) {
@@ -122,23 +100,6 @@ export function ComboBarsTrend({ points }: { points: UsageDailyPoint[] }) {
       {keys.map((k) => {
         const last = points[n - 1]?.[k] ?? 0;
         return last > 0 ? <text key={"v" + k} x={W - 1} y={yAt(trend[k][n - 1] ?? 0) - 1} fontSize={6.5} fontWeight={700} fill={SERIES_COLORS[k]} textAnchor="end">{last}</text> : null;
-      })}
-    </svg>
-  );
-}
-
-/* Vertical bars over time (single metric per day). */
-export function DailyBars({ values, color }: { values: number[]; color: string }) {
-  const { W, H } = V;
-  const max = Math.max(1, ...values);
-  const n = values.length;
-  const slot = W / Math.max(1, n);
-  const bw = slot * 0.64;
-  return (
-    <svg width="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" style={{ display: "block", height: H }}>
-      {values.map((v, i) => {
-        const bh = Math.max(0.8, (v / max) * (H - 4));
-        return <rect key={i} x={i * slot + (slot - bw) / 2} y={H - bh} width={bw} height={bh} rx={1} fill={color} fillOpacity={v > 0 ? 0.85 : 0.16} />;
       })}
     </svg>
   );

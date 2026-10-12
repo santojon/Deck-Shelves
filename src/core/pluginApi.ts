@@ -123,14 +123,17 @@ export type {
 // Translates Steam's raw AppOverview into the canonical PublicAppMeta shape.
 // External descriptors registered via @deck-shelves/api receive THIS — the
 // runtime no longer hands them the raw AppOverview cast through `unknown`.
+const numOrUndef = (v: unknown): number | undefined => (typeof v === "number" ? v : undefined);
+
 export function toPublicAppMeta(raw: any): PublicAppMeta {
   if (!raw || typeof raw !== "object") return { appid: 0, name: "" };
   const appid = Number(raw.appid ?? raw.m_unAppID ?? 0);
   const name = String(raw.display_name ?? raw.name ?? "");
   const isNonSteam = raw.app_type === 1073741824 || raw.is_non_steam === true;
-  const playtime = typeof raw.playtime_forever === "number" ? raw.playtime_forever : undefined;
-  const lastPlayed = typeof raw.last_played === "number" ? raw.last_played : undefined;
-  const compat = typeof raw.deck_compatibility_category === "number" ? raw.deck_compatibility_category : undefined;
+  const playtime = numOrUndef(raw.playtime_forever);
+  const lastPlayed = numOrUndef(raw?.last_played);
+  const compat = numOrUndef(raw.deck_compatibility_category);
+  const controllerSupport = numOrUndef(raw.nControllerSupport);
   const installed = raw.installed === true || raw.is_installed === true;
   return {
     appid,
@@ -146,9 +149,9 @@ export function toPublicAppMeta(raw: any): PublicAppMeta {
     deck_compatibility_category: compat,
     supportsCloud: raw.bCloudAvailable === true,
     bCloudAvailable: raw.bCloudAvailable === true,
-    controllerSupport: typeof raw.nControllerSupport === "number" ? raw.nControllerSupport : undefined,
-    nControllerSupport: typeof raw.nControllerSupport === "number" ? raw.nControllerSupport : undefined,
-    app_type: typeof raw.app_type === "number" ? raw.app_type : undefined,
+    controllerSupport,
+    nControllerSupport: controllerSupport,
+    app_type: numOrUndef(raw.app_type),
     is_installed: installed,
     is_hidden: raw.is_hidden === true,
   };
@@ -255,10 +258,6 @@ export function resolveExternalSmartSource(
   if (!src) return Promise.resolve([]);
   const merged = { ...(src.defaultParams ?? {}), ...params };
   return safeResolveIds(() => src.resolve(limit, merged));
-}
-
-export function getExternalSmartSourceMeta(id: string): SmartShelfSourceDescriptor | undefined {
-  return smartSources.get(id);
 }
 
 export function getExternalSmartSources(): SmartShelfSourceDescriptor[] {
@@ -413,10 +412,6 @@ export function registerInternalStatisticsProvider(d: StatisticsProviderDescript
   return () => { internalStatisticsProviderIds.delete(d.id); statisticsProviders.delete(d.id); };
 }
 
-export function isInternalStatisticsProvider(id: string): boolean {
-  return internalStatisticsProviderIds.has(id);
-}
-
 function hasExternalOnlyEntries(): boolean {
   return !!(sideMenuProviders.size || contextProviders.size || widgetProviders.size
     || shelfRenderers.size || metadataProviders.size || recommendationProviders.size
@@ -473,17 +468,23 @@ async function removeRegisteredSavedFilter(id: string): Promise<void> {
   await saveSettings({ ...s, savedFilters: next as any });
 }
 
+const firstSort = (sort: any) => (Array.isArray(sort) ? sort[0] : sort);
+
+// Source kinds whose public shape is `{ type, <key>: string }`.
+const SIMPLE_SOURCE_KEYS: Record<string, string> = { collection: "collectionId", tab: "tab", external: "sourceId", smart: "mode" };
+
+function toPublicShelfSource(src: any): PublicShelfSource | null {
+  const type = src?.type;
+  if (type === "filter") return { type: "filter", filter: { sort: firstSort(src.filter?.sort), group: src.filter?.group as any } };
+  const key = SIMPLE_SOURCE_KEYS[type];
+  return key ? ({ type, [key]: String(src[key] ?? "") } as PublicShelfSource) : null;
+}
+
 function projectShelves(s: Settings | null): ReadonlyArray<PublicShelf> {
   if (!s) return [];
   const out: PublicShelf[] = [];
   for (const sh of s.shelves) {
-    const src: any = sh.source;
-    let pub: PublicShelfSource | null = null;
-    if (src?.type === "collection") pub = { type: "collection", collectionId: String(src.collectionId ?? "") };
-    else if (src?.type === "tab") pub = { type: "tab", tab: String(src.tab ?? "") };
-    else if (src?.type === "filter") pub = { type: "filter", filter: { sort: Array.isArray(src.filter?.sort) ? src.filter?.sort[0] : src.filter?.sort, group: src.filter?.group as any } };
-    else if (src?.type === "external") pub = { type: "external", sourceId: String(src.sourceId ?? "") };
-    else if (src?.type === "smart") pub = { type: "smart", mode: String(src.mode ?? "") };
+    const pub = toPublicShelfSource(sh.source);
     if (!pub) continue;
     out.push({
       id: sh.id,

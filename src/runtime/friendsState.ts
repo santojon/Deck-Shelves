@@ -209,10 +209,6 @@ export function getFriendsInApp(appId: number, includeRecent: boolean): FriendBr
   return (includeRecent ? _recentByApp : _playingByApp).get(appId) ?? [];
 }
 
-export function refreshFriendsState(): void {
-  try { refresh(); } catch {}
-}
-
 // Temporary diagnostic for the "friend overlay missing" investigation.
 // Dead-code-eliminated from release builds (`if (!__DEV__) return;`).
 if (__DEV__) {

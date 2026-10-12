@@ -56,7 +56,7 @@ export function __resetThemeDetectCacheForTest(): void {
 }
 
 /** The live runtime class token for a classmap key, or null when the map has none yet. */
-export function liveClassToken(key: string): string | null {
+function liveClassToken(key: string): string | null {
   try {
     const doc = getPreferredSteamDocument();
     const map = doc ? getRuntimeClassMap(doc) : null;
@@ -118,7 +118,7 @@ let _themesCache: { active: string[]; installed: number } | null = null;
    backend theme read. Checked by INSTALL (not just active styles) so the disk
    read never runs on a Deck without CSS Loader. Self-contained (reads the loader
    globals directly) to stay free of an integrations import. */
-export function isCssLoaderInstalled(): boolean {
+function isCssLoaderInstalled(): boolean {
   try {
     const g: any = globalThis as any;
     const loader = g.DeckyPluginLoader ?? g.deckyPluginLoader
@@ -141,8 +141,4 @@ export async function refreshCssLoaderThemes(): Promise<void> {
 
 export function getActiveCssLoaderThemes(): string[] {
   return _themesCache?.active ?? [];
-}
-
-export function getInstalledCssLoaderThemeCount(): number {
-  return _themesCache?.installed ?? 0;
 }

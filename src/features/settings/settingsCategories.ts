@@ -66,8 +66,6 @@ export const SETTINGS_CATEGORIES: ReadonlyArray<SettingsCategory> = [
   ] },
 ];
 
-export type CategoryId = (typeof SETTINGS_CATEGORIES)[number]["id"];
-
 const CATEGORY_BY_ID: Readonly<Record<string, SettingsCategory>> = Object.freeze(
   Object.fromEntries(SETTINGS_CATEGORIES.map((c) => [c.id, c])),
 );
@@ -144,8 +142,8 @@ export function detectCategoriesInPayload(payload: unknown): Set<string> {
    `detectCategoriesInPayload` only ever look at `state`, so a pre-wrapper
    export (bare `{ state: {...} }`, no format/version fields) still imports
    unchanged through the same path. */
-export const EXPORT_FORMAT = "deck-shelves-settings";
-export const EXPORT_FORMAT_VERSION = 1;
+const EXPORT_FORMAT = "deck-shelves-settings";
+const EXPORT_FORMAT_VERSION = 1;
 
 export function buildExportPayload(
   state: Record<string, unknown>,

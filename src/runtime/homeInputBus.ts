@@ -12,7 +12,7 @@ import { GamepadButton } from "./host/decky";
    runs, and `__ds_bp_keydown_installed` stays undefined in BP. */
 import "./controllerInput";
 
-export type HomeButtonEvent = { button: number };
+type HomeButtonEvent = { button: number };
 type Listener = (e: HomeButtonEvent) => void;
 
 const listeners = new Set<Listener>();
@@ -26,18 +26,6 @@ export function dispatchHomeButtonDown(evt: { detail?: { button?: number } } | a
   const button = evt?.detail?.button;
   if (typeof button !== "number") return;
   try { (globalThis as any).__ds_home_btn_last = { button, t: Date.now() }; } catch {}
-  for (const l of listeners) {
-    try { l({ button }); } catch {}
-  }
-}
-
-// `onGamepadDirection` fires for DPAD events that the nav system
-// consumes — we get them via a parallel path. Decky's GamepadEvent
-// detail.button maps to DIR_UP/DOWN/LEFT/RIGHT enum values.
-export function dispatchHomeDirection(evt: { detail?: { button?: number } } | any): void {
-  const button = evt?.detail?.button;
-  if (typeof button !== "number") return;
-  try { (globalThis as any).__ds_home_dir_last = { button, t: Date.now() }; } catch {}
   for (const l of listeners) {
     try { l({ button }); } catch {}
   }

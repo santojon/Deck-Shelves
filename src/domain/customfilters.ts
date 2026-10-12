@@ -28,8 +28,6 @@ export const KNOWN_FILTER_TYPES = [
   'neglected',
 ] as const
 
-export type KnownFilterType = typeof KNOWN_FILTER_TYPES[number]
-
 // Normalised external filter-type aliases → our internal FilterItemType.
 // Anything unrecognised falls back to `nameIncludes`.
 const FILTER_TYPE_ALIASES: Record<string, FilterItemType> = {

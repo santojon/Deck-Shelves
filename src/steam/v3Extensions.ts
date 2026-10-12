@@ -27,7 +27,7 @@ function rawLocalOverview(appid: number): any | null {
    prefetchFranchise() before a franchise filter runs (see steam/index.ts). */
 const _franchiseCache = new Map<number, string | null>();
 
-export function getCachedFranchise(appid: number): string | undefined {
+function getCachedFranchise(appid: number): string | undefined {
   return _franchiseCache.has(appid) ? (_franchiseCache.get(appid) ?? undefined) : undefined;
 }
 
@@ -136,7 +136,7 @@ function evalFranchise(item: any, app: AppOverview): boolean {
    catalog metadata's category names, else the legacy vr flag. */
 const VR_ONLY_IDS = [401];
 const VR_SUPPORTED_IDS = [402, 31];
-export type VrLevel = "only" | "supported" | "none";
+type VrLevel = "only" | "supported" | "none";
 
 function vrLevelFromLocal(appid: number): VrLevel | null {
   const local = rawLocalOverview(appid);

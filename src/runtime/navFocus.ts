@@ -52,9 +52,3 @@ export function takeNavTreeFocus(el: HTMLElement): boolean {
     return false;
   }
 }
-
-export function takeNavTreeFocusOnFirstChild(container: HTMLElement): boolean {
-  const first = container.querySelector(".Focusable") as HTMLElement | null;
-  if (!first) return false;
-  return takeNavTreeFocus(first);
-}

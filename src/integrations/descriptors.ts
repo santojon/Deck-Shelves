@@ -4,7 +4,7 @@ import { isTabMasterInstalled, isUnifiDeckInstalled, isNonSteamBadgesInstalled }
    to detect it and what it provides. Consumers ask the list (presence,
    capabilities, labels) instead of naming each plugin; adding an integration
    = one module + one entry here. */
-export type IntegrationCapability = "tabs" | "badges";
+type IntegrationCapability = "tabs" | "badges";
 
 export type IntegrationDescriptor = {
   id: "tabmaster" | "unifideck" | "nonsteambadges";

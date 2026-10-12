@@ -12,8 +12,6 @@ import { flowChildrenProps } from "../core/steamOSVersion";
 // Re-export types and components from shelf/ for backwards compatibility
 export { type DeckRowItem } from "./shelf/types";
 export { GameCard } from "./shelf/GameCard";
-export { MoreCard } from "./shelf/MoreCard";
-export { PlaceholderCard } from "./shelf/PlaceholderCard";
 
 import { type DeckRowItem, CARD_W, CARD_ART_H, CARD_GAP } from "./shelf/types";
 import { ShelfRow } from "./shelf/ShelfRow";

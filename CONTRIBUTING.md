@@ -248,6 +248,14 @@ The dashboard is a self-contained HTML file (inline SVG, no CDN, works offline).
 
 It exits with code 1 on any failure. Reports are local-only (`reports/ci/` is gitignored); add an artifact upload step to preserve them across CI runs if needed.
 
+## Maintainer scripts
+
+- `bash scripts/dev/ensure-repo-settings.sh` — checks and patches the GitHub repository's merge
+  settings (squash-only, delete branch on merge); needs the `gh` CLI.
+- `pnpm run deck:debug` — opens the device's DevTools target list in the browser.
+- The ad-hoc probes under `scripts/deckprobe-ext/probes/` are listed in
+  [docs/qa-manual.md](docs/qa-manual.md) (section 14).
+
 ## Screenshots (optional)
 
 > Screenshot capture and Devtools usage are documented in the main README and the Devtools readme under `scripts/devtools/README.md`.

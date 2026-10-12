@@ -1,5 +1,4 @@
 
-import { getPreferredSteamDocument } from "../../runtime/steamHost";
 
 type Listener = (active: boolean) => void;
 
@@ -71,10 +70,4 @@ export function subscribeOverlayActive(doc: Document, listener: Listener): () =>
       setupDoc = null;
     }
   };
-}
-
-export function getOverlayActive(doc?: Document): boolean {
-  const d = doc ?? getPreferredSteamDocument() ?? document;
-  ensureWatcher(d);
-  return active;
 }

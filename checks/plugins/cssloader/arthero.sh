@@ -16,9 +16,10 @@ run_checks() {
     ((fail++))
   fi
 
-  # 2. Helper exposes the two probes used by the rest of the codebase.
-  if grep -q 'export function isCssLoaderActive' "$src/core/cssLoaderDetect.ts" 2>/dev/null \
-     && grep -q 'export function isArtHeroActive' "$src/core/cssLoaderDetect.ts" 2>/dev/null; then
+  # 2. Helper exposes the two probes used by the rest of the codebase (as
+  # re-exports of the theme adapters under src/themes since the facade split).
+  if grep -q 'isCssLoaderActive' "$src/core/cssLoaderDetect.ts" 2>/dev/null \
+     && grep -q 'isArtHeroActive' "$src/core/cssLoaderDetect.ts" 2>/dev/null; then
     echo "  ✅ Detection helper exports isCssLoaderActive + isArtHeroActive"
     ((pass++))
   else
@@ -66,8 +67,9 @@ run_checks() {
     ((fail++))
   fi
 
-  # 7. ArtHero detection probes css-loader-style tags (the public CSS Loader marker).
-  if grep -q "css-loader-style" "$src/core/cssLoaderDetect.ts" 2>/dev/null; then
+  # 7. ArtHero detection probes css-loader-style tags (the public CSS Loader
+  # marker) — the shared detector lives in src/themes/detect.ts.
+  if grep -rq "css-loader-style" "$src/themes" "$src/core/cssLoaderDetect.ts" 2>/dev/null; then
     echo "  ✅ Detection probes <style class=\"css-loader-style\"> tags"
     ((pass++))
   else
@@ -78,8 +80,8 @@ run_checks() {
   # 7b. ArtHero detection uses the structural signature (heroInner + mask-image
   # rule) rather than relying on theme-name attributes — those don't exist in
   # most CSS Loader builds. Verified live on a Deck running the ArtHero theme.
-  if grep -q "heroToken" "$src/core/cssLoaderDetect.ts" 2>/dev/null \
-     && grep -q "mask-image" "$src/core/cssLoaderDetect.ts" 2>/dev/null; then
+  if grep -q "heroToken" "$src/themes/adapters/artHero.ts" 2>/dev/null \
+     && grep -q "mask-image" "$src/themes/adapters/artHero.ts" 2>/dev/null; then
     echo "  ✅ ArtHero detected by structural signature (heroInner + mask-image)"
     ((pass++))
   else

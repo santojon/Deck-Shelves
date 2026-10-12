@@ -829,10 +829,6 @@ export function wrapHomeShelves<P extends object>(Component: React.ComponentType
   };
 }
 
-export function isReplaceFailedForced(): boolean {
-  return !!forceReplaceFailed;
-}
-
 /* Snapshot-recovery harness: with the `qa:snapshot-recovery` runtime flag set,
    the error-boundary recovery UI lists these fixture snapshots so the full
    error → "Restore a snapshot" → picker flow is previewable without a real

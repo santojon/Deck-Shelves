@@ -6,7 +6,7 @@
 export type DeviceFamily = "deck" | "frame" | "machine" | "pc" | "handheld" | "unknown";
 export type Architecture = "x86_64" | "aarch64" | "unknown";
 
-export type DeviceCapabilities = {
+type DeviceCapabilities = {
   battery: boolean | null;
   externalDisplay: boolean | null;
   vr: boolean | null;

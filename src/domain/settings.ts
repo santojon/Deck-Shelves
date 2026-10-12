@@ -47,29 +47,6 @@ export function moveShelf(settings: Settings, id: string, direction: -1 | 1): Se
   return { ...settings, shelves };
 }
 
-export function reorderShelves(settings: Settings, draggedId: string, targetId: string): Settings {
-  if (draggedId === targetId) return settings;
-  const shelves = settings.shelves.slice();
-  const from = shelves.findIndex((item) => item.id === draggedId);
-  const to = shelves.findIndex((item) => item.id === targetId);
-  if (from < 0 || to < 0) return settings;
-  const [item] = shelves.splice(from, 1);
-  shelves.splice(to, 0, item);
-  return { ...settings, shelves };
-}
-
-export function hiddenModeToValue(value: ShelfFilter["hidden"]) {
-  if (value === "only" || value === true) return "only";
-  if (value === false) return "exclude";
-  return "any";
-}
-
-export function hiddenValueFromMode(mode: string): ShelfFilter["hidden"] {
-  if (mode === "only") return "only";
-  if (mode === "exclude") return false;
-  return undefined;
-}
-
 // Boolean/enum flag filters (installed / favorites / nonSteam / hidden /
 // updatePending) as FilterItems, in legacy order.
 function legacyFlagItems(filter: ShelfFilter): FilterItem[] {

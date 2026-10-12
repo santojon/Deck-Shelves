@@ -94,7 +94,7 @@ const TOGGLE_PARENTS: Record<string, string> = {
   smartSurpriseMe: 'smartShelvesEnabled',
 };
 
-export function isToggleHiddenWithAncestors(key: string, hidden: ReadonlyArray<string>): boolean {
+function isToggleHiddenWithAncestors(key: string, hidden: ReadonlyArray<string>): boolean {
   if (hidden.includes(key)) return true;
   const parent = TOGGLE_PARENTS[key];
   return parent ? isToggleHiddenWithAncestors(parent, hidden) : false;
@@ -119,7 +119,7 @@ export function OnlinePrivacyModal({ closeModal, t, onAccept }: { closeModal?: (
   );
 }
 
-export function SavedFiltersList({ controller }: { controller: SettingsController }) {
+function SavedFiltersList({ controller }: { controller: SettingsController }) {
   const { t, settings } = controller
   const saved = settings?.savedFilters ?? []
   if (saved.length === 0) {
@@ -132,7 +132,7 @@ export function SavedFiltersList({ controller }: { controller: SettingsControlle
   )
 }
 
-export function SavedSmartFiltersList({ controller }: { controller: SettingsController }) {
+function SavedSmartFiltersList({ controller }: { controller: SettingsController }) {
   const { t, settings } = controller
   const saved = settings?.savedSmartFilters ?? []
   if (saved.length === 0) {

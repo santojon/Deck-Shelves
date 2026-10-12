@@ -1,7 +1,7 @@
 import { isNonSteamBadgesInstalled } from './registry';
 import { getPreferredSteamDocument } from '../runtime/steamHost';
 
-export const NON_STEAM_BADGE_CLASS = 'nonsteam-badge';
+const NON_STEAM_BADGE_CLASS = 'nonsteam-badge';
 
 export function isNonSteamBadgesAvailable(): boolean {
   const qa = __DEV__ && typeof __QA_FORCE_NONSTEAMBADGES__ !== "undefined" ? __QA_FORCE_NONSTEAMBADGES__ : "";

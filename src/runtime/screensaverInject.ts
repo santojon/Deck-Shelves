@@ -68,7 +68,7 @@ export function getDwellSeconds(settings: Settings | null): number {
 
 // How many apps to draw per shelf per round-robin round (see
 // resolveShelfAppPool) before moving to the next shelf.
-export function getShelfBatchSize(settings: Settings | null): number {
+function getShelfBatchSize(settings: Settings | null): number {
   const v = (settings as any)?.screensaverShelfBatchSize;
   return typeof v === "number" && v > 0 ? v : 5;
 }

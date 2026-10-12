@@ -684,7 +684,7 @@ function cssEscape(value: string): string {
 // Synthetic id used for the native Steam "Recents" row when it's visible
 // on the home. Picked here (not in settings) so it can't collide with a
 // real user-defined shelf id and so callers can recognise it.
-export const NATIVE_RECENTS_ID = "__ds_native_recents__";
+const NATIVE_RECENTS_ID = "__ds_native_recents__";
 
 function getClassMap(): Record<string, string> {
   try {

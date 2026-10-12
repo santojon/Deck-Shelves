@@ -10,8 +10,6 @@ export const STEAM_CDN_AKAMAI = "https://cdn.akamai.steamstatic.com";
 export const STEAM_CDN_CLOUDFLARE = "https://shared.cloudflare.steamstatic.com";
 /** Steam avatar host (friends' pictures). */
 export const STEAM_AVATARS_BASE = "https://avatars.steamstatic.com";
-/** Steam Community web origin. */
-export const STEAMCOMMUNITY_BASE = "https://steamcommunity.com";
 
 /** Project links. */
 export const GITHUB_REPO = "https://github.com/santojon/Deck-Shelves";

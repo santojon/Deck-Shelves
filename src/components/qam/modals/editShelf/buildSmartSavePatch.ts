@@ -155,7 +155,7 @@ function patchAutoRules(state: EditState): Patch {
   }
 }
 
-export function buildSmartSavePatch(args: SaveArgs): Partial<SmartShelf> {
+function buildSmartSavePatch(args: SaveArgs): Partial<SmartShelf> {
   const { state, shelf, isManual, highlightPickerOpen, hiddenPickerOpen, paramKeys } = args
   return {
     ...patchCore(state, shelf),

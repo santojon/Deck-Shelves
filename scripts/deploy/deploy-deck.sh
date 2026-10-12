@@ -46,11 +46,18 @@ SSH_OPTS_STR="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o Log
 # (systemctl restart plugin_loader takes ~8 s).
 SSH_ALIVE=(-o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" -o "LogLevel ERROR" -o "ServerAliveInterval 10" -o "ServerAliveCountMax 6")
 
-if [[ "$RELEASE" == "1" ]]; then
-  pnpm run build:release 2>&1 | grep -E "built in|error|warning" || true
-else
-  pnpm run build 2>&1 | grep -E "built in|error|warning" || true
+# A failed build must stop the deploy — piping the build into grep used to
+# swallow its exit code and ship whatever stale bundle sat in dist/.
+BUILD_LOG="$(mktemp)"
+if [[ "$RELEASE" == "1" ]]; then BUILD_CMD="build:release"; else BUILD_CMD="build"; fi
+if ! pnpm run "$BUILD_CMD" > "$BUILD_LOG" 2>&1; then
+  grep -E "error|Error" "$BUILD_LOG" | tail -20 || true
+  echo "✗ pnpm run $BUILD_CMD failed — deploy aborted" >&2
+  rm -f "$BUILD_LOG"
+  exit 1
 fi
+grep -E "built in|error|warning" "$BUILD_LOG" || true
+rm -f "$BUILD_LOG"
 
 rm -rf .deploy
 mkdir -p "${STAGE_DIR}/dist"

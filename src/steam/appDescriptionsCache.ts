@@ -168,7 +168,3 @@ export function preloadAppDescriptions(appid: number): void {
   }
   pollUntilReady(store, appid);
 }
-
-export function preloadAppDescriptionsBatch(appids: number[]): void {
-  for (const id of appids) preloadAppDescriptions(id);
-}

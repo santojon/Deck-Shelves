@@ -33,11 +33,6 @@ function isRandomNonSmart(src: any, sort: string | string[] | undefined): boolea
   return primarySort(filterSort) === "random";
 }
 
-// Direct-only check (kept for callers that need the strict shape).
-export function isOnlineShelfSource(src: any): boolean {
-  return src?.type === "wishlist" || src?.type === "store";
-}
-
 export function shouldShowRefreshCard(input: TrailingCardInput): boolean {
   if (input.globalHideRefreshCard === true || input.hideRefreshCard === true) return false;
   const src = input.source;

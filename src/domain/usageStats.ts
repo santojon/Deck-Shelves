@@ -2,7 +2,7 @@
 // layer (src/steam/usageTracking.ts) reads/writes localStorage and calls
 // these. Keeps the domain testable and free of Steam/runtime coupling.
 
-export interface UsageDay {
+interface UsageDay {
   /** shelfId -> times the shelf was viewed (focused into). */
   shelfViews: Record<string, number>;
   /** card kind ('game' | 'nonsteam' | 'more' | 'refresh' | 'decoration' | ...) -> launches/activations. */
@@ -27,7 +27,7 @@ export interface UsageSummary {
   totalFeatureUse: number;
 }
 
-export function emptyDay(): UsageDay {
+function emptyDay(): UsageDay {
   return { shelfViews: {}, cardLaunches: {}, featureUse: {} };
 }
 

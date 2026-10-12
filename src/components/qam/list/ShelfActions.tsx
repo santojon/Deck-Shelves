@@ -50,7 +50,7 @@ export function showComposeConfirm(controller: SettingsController, source: Shelf
   })
 }
 
-export function ShelfActionsContextMenu({ controller, shelf }: { controller: SettingsController; shelf: Shelf }) {
+function ShelfActionsContextMenu({ controller, shelf }: { controller: SettingsController; shelf: Shelf }) {
   const { t, shelves, actions } = controller
   const index = shelves.findIndex((s) => s.id === shelf.id)
   const showRefresh = isOnlineSource(shelf.source) || isRandomOrSmart(shelf)

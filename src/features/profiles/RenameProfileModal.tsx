@@ -1,36 +1,14 @@
-import { useState } from 'react'
-import { ConfirmModal, Field, TextField, Focusable } from '../../runtime/host/decky'
 import type { SettingsController } from '../settings/controller'
-import { ModalShell } from '../../components/ui'
-import { textFromDeckyChange } from '../../components/qam/modals/modalUtils'
+import { RenameModal } from '../../components/qam/modals/RenameModal'
 
 export function RenameProfileModal({ closeModal, controller, profileId, currentName }: { closeModal?: () => void; controller: SettingsController; profileId: string; currentName: string }) {
-  const { t } = controller
-  const [name, setName] = useState(currentName)
-
-  const trimmed = name.trim()
-  const handleOK = () => {
-    if (!trimmed || trimmed === currentName) { closeModal?.(); return }
-    closeModal?.()
-    void (async () => { await (controller.actions as any).renameProfile?.(profileId, trimmed) })()
-  }
-
   return (
-    <ModalShell>
-      <ConfirmModal
-        strTitle={t('settings_profiles_rename' as any)}
-        strOKButtonText={t('save')}
-        strCancelButtonText={t('cancel')}
-        onCancel={closeModal}
-        onEscKeypress={closeModal}
-        onOK={handleOK}
-      >
-        <Focusable onMenuButton={handleOK} onMenuActionDescription={t('save')}>
-          <Field label={t('title')}>
-            <TextField value={name} onChange={(value: unknown) => setName(textFromDeckyChange(value))} />
-          </Field>
-        </Focusable>
-      </ConfirmModal>
-    </ModalShell>
+    <RenameModal
+      closeModal={closeModal}
+      controller={controller}
+      title={controller.t('settings_profiles_rename' as any)}
+      currentName={currentName}
+      onRename={(name) => (controller.actions as any).renameProfile?.(profileId, name)}
+    />
   )
 }

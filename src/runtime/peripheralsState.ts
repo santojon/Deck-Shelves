@@ -98,7 +98,7 @@ export function evalPeripheralRule(rule: any): boolean {
   return true;
 }
 
-export const PERIPHERAL_RULE_KINDS = ['bluetoothConnected', 'headphonesConnected'] as const;
+const PERIPHERAL_RULE_KINDS = ['bluetoothConnected', 'headphonesConnected'] as const;
 export function isPeripheralRuleKind(kind: string): boolean {
   return (PERIPHERAL_RULE_KINDS as readonly string[]).includes(kind);
 }

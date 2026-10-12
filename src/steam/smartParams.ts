@@ -99,9 +99,9 @@ export const SMART_PARAM_DEFAULTS: Record<SmartShelfMode, SmartParams> = {
   custom:                 {},
 };
 
-export type SmartParamKind = "slider" | "text" | "dropdown";
+type SmartParamKind = "slider" | "text" | "dropdown";
 
-export type SmartParamOption = {
+type SmartParamOption = {
   value: number;
   labelKey: string;
 };
