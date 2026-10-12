@@ -7,6 +7,10 @@ técnico completo, veja [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+- **Por baixo do capô, o código de renderização da tela inicial e a inicialização do plugin foram reorganizados em peças menores, sem mudança de comportamento** — verificado num Steam Deck real. Recarregar o plugin agora também limpa a rota da página de Configurações.
+
+- **Os builds de release ficaram um pouco mais enxutos: diagnósticos destinados só a um depurador agora ficam nos builds de desenvolvimento.** Nada visível muda.
+
 ## [3.3.4] - 2026-10-11
 
 - **Num host standalone que conhece o próprio hardware, o plugin agora confia na identidade de dispositivo do host.** Quando o host informa em que dispositivo está rodando (e qual versão do plugin carregou), as shelves que dependem do dispositivo usam isso, voltando à detecção do próprio plugin caso contrário — e o painel de Diagnóstico e o texto do relatório de bug agora mostram o dispositivo do host e essa versão também.
@@ -45,6 +49,7 @@ técnico completo, veja [CHANGELOG.md](CHANGELOG.md).
 - **Sem segundo tour numa instalação com dois hosts, e um banner de boas-vindas com um botão só.** Com o Decky Loader e o host independente entregando o plugin ao mesmo tempo, uma segunda cópia do tour de primeira execução aparecia logo depois de terminar a primeira; agora só a cópia dona abre o tour. O banner de boas-vindas oferece só o Assistente de configuração (as prateleiras padrão continuam disponíveis nas escolhas finais do tour), e o texto foi reescrito para combinar.
 - **Por baixo do capô: uma faxina geral.** Código morto e uma dependência sem uso removidos, a ferramenta de cenários de vídeo unificada, e 25 funções simplificadas em helpers pequenos sem mudança de comportamento; as supressões de lint caíram de 46 para 19.
 - **Por baixo do capô, segunda rodada.** Supressões de lint caíram para 10, os diálogos e cards duplicados regular/smart foram unificados em peças compartilhadas, a dica de atalho do card de placeholder agora fica atualizada, um flag de filtro legado não derruba mais a validação das configurações no boot, e os checks de compatibilidade voltaram a passar.
+- **O pacote Sala de estar liga o visual de sala completo** (arte de herói em todas as prateleiras, prateleiras de tela inteira, primeiro jogo em destaque, logos), como o pacote Machine, com as próprias prateleiras.
 - **As Sugestões se atualizam enquanto você olha para elas**, e o que você ainda não viu aparece marcado como "Novo".
 - **Por baixo dos panos, a compatibilidade com temas e as integrações com plugins foram reorganizadas** para que cada tema suportado e cada plugin de terceiros seja uma peça independente. Nada muda na tela; isso torna o suporte ao próximo tema mais rápido e seguro.
 - **As shelves só re-resolvem para os dados que mudaram** — os sinais de atualização são marcados (biblioteca, coleções, amigos, online, relógio, sessão), distribuídos aos poucos e desacelerados na bateria.

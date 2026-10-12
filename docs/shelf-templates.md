@@ -29,7 +29,7 @@ The **Setup wizard** (the wand icon in the Quick Access menu's title bar, the fi
 | Backlog rescue | Setup packs | Never Played + smart shelves *Backlog rescue* and *Best unplayed* |
 | Portable Deck | Setup packs | Installed, Deck Verified + smart shelves *Short battery*, *Travel mode*, *Quick play* |
 | Rediscover | Setup packs | Most Played + smart shelves *Rediscover*, *Forgotten gems*, *Hidden gems* |
-| Living room | Setup packs | Favorites, Recently Played + smart shelves *Long session (night)*, *Deck picks*; turns on the first-shelf background art and the featured first game |
+| Living room | Setup packs | Favorites, Recently Played + smart shelves *Long session (night)*, *Deck picks*; turns on the same living-room look as the Machine pack: the first-shelf background art, hero art on every shelf, full-page shelves, the featured first game and logos |
 | Frame | By device | VR games, VR only, Recently Played, Favorites + smart shelves *Quick play*, *Short battery* |
 | Machine | By device | Favorites, Recently Played, Most Played + smart shelves *Long session (night)*, *Picks for this device*; turns on the first-shelf background art, hero art on every shelf, full-page shelves, the featured first game and logos |
 | Stream | By device | Steam Cloud, Recently Played + smart shelf *Quick play* |

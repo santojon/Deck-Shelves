@@ -1,3 +1,4 @@
+import { devStamp } from "../runtime/devStamps";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { createPortal } from "react-dom";
@@ -1012,7 +1013,7 @@ function ShelvesContainer(props: ShelvesContainerProps) {
      (shelves.length), and on hideRecents change. Retries because the
      NavTree builds async on cold boot. */
   useEffect(() => {
-    try { (globalThis as any).__ds_focus_effect_ran = { t: Date.now(), mountEl: !!mountEl, hideRecents: hideRecentsSetting, shelvesLen: shelves?.length ?? 0 }; } catch {}
+    devStamp("__ds_focus_effect_ran", { t: Date.now(), mountEl: !!mountEl, hideRecents: hideRecentsSetting, shelvesLen: shelves?.length ?? 0 });
     let cancelled = false;
     let restorePendingSeen = false;
 
@@ -1035,14 +1036,14 @@ function ShelvesContainer(props: ShelvesContainerProps) {
       // Native row visible — either by setting, or because our own shelves
       // are still behind the reveal gate (`display: none`, unfocusable).
       if ((!hideRecentsSetting || !shelvesRevealed) && doc && focusNativeRecentsFirstCard(doc)) {
-        try { (globalThis as any).__ds_focus_first = { t: Date.now(), why: 'native-first' }; } catch {}
+        devStamp("__ds_focus_first", { t: Date.now(), why: 'native-first' });
         return true;
       }
       if (!shelvesRevealed) return false;
       const firstCard = mountEl.querySelector('.ds-shelf .ds-card') as HTMLElement | null;
       if (firstCard) {
         focusElement(firstCard);
-        try { (globalThis as any).__ds_focus_first = { t: Date.now(), why: 'ds-first' }; } catch {}
+        devStamp("__ds_focus_first", { t: Date.now(), why: 'ds-first' });
       }
       return !!mountEl.querySelector('.ds-shelf .gpfocus, .deck-shelves-root .gpfocus');
     };

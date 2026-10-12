@@ -1,3 +1,4 @@
+import { devStamp } from "../../runtime/devStamps";
 import type { SearchHit, SearchProviderDescriptor } from "../../core/pluginApi";
 import { focusElement } from "../../core/focusRestore";
 import { getPreferredSteamDocument } from "../../runtime/steamHost";
@@ -142,7 +143,7 @@ function collectShelfApps(): ShelfHit[] {
       });
     }
   }
-  try { (globalThis as any).__ds_search_pool = out.length; } catch {}
+  devStamp("__ds_search_pool", out.length);
   return out;
 }
 
@@ -185,7 +186,7 @@ export const BUILT_IN_SHELF_SEARCH: SearchProviderDescriptor = {
     }
     scored.sort((a, b) => b.score - a.score);
     const top = scored.slice(0, Math.max(1, limit));
-    try { (globalThis as any).__ds_search_last = { q, pool: apps.length, hits: top.length }; } catch {}
+    devStamp("__ds_search_last", { q, pool: apps.length, hits: top.length });
     const hits: SearchHit[] = top.map(({ entry, score }) => ({
       id: `shelves:${entry.appid}`,
       appid: entry.appid,

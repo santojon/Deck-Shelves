@@ -1,3 +1,4 @@
+import { devStamp, devCount } from "../../runtime/devStamps";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { TextField } from "../../runtime/host/decky";
 import { getExternalSearchProviders, type SearchHit } from "../../core/pluginApi";
@@ -115,21 +116,18 @@ function tapInputForKeyboard(input: HTMLInputElement): void {
 }
 
 function publishSearchFocusDiag(input: HTMLInputElement, n: number, kb: boolean): void {
-  try {
-    const g = globalThis as any;
-    g.__ds_search_active = {
-      n,
-      isInput: input === input.ownerDocument?.activeElement,
-      activeTag: (input.ownerDocument?.activeElement as HTMLElement | null)?.tagName,
-      type: input.type,
-      tabIndex: input.tabIndex,
-      kb,
-    };
-  } catch {}
+  devStamp("__ds_search_active", {
+    n,
+    isInput: input === input.ownerDocument?.activeElement,
+    activeTag: (input.ownerDocument?.activeElement as HTMLElement | null)?.tagName,
+    type: input.type,
+    tabIndex: input.tabIndex,
+    kb,
+  });
 }
 
 export function SearchOverlay() {
-  try { (globalThis as any).__ds_search_mounted = (((globalThis as any).__ds_search_mounted ?? 0) + 1); } catch {}
+  devCount("__ds_search_mounted");
   // Light mode strips advanced features for simplicity / battery — the
   // Quick Search pill is one of them. User toggle stays untouched.
   const [enabled, setEnabled] = useState(() => {
@@ -280,7 +278,7 @@ export function SearchOverlay() {
   }, []);
   useEffect(() => {
     if (!enabled) return;
-    try { (globalThis as any).__ds_search_enabled = enabled; } catch {}
+    devStamp("__ds_search_enabled", enabled);
     return subscribeHomeButton((e) => {
       if (open) {
         if (

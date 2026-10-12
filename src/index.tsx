@@ -4,6 +4,7 @@ import { definePlugin } from "@host/api";
 // Dev-only; stripped from release via `if (__DEV__)`.
 if (__DEV__) { try { (globalThis as any).__ds_build = __BUILD_ID__; } catch {} }
 import i18next from "i18next";
+import { useEffect, useReducer, type ReactNode } from "react";
 import { initI18n } from "./i18n";
 import { SettingsView } from "./components/Settings";
 import { ErrorBoundary } from "./components/ErrorBoundary";
@@ -17,37 +18,28 @@ import { installShelfRefreshEmitter } from "./core/shelfRefresh";
 import { installSystemEvents } from "./runtime/systemEvents";
 import { installBatteryState } from "./runtime/batteryState";
 import { installDeviceState, getDeviceState } from "./runtime/deviceState";
-import { installDeviceHistoryTracker } from "./runtime/deviceHistoryTracker";
 import { installSessionState } from "./runtime/sessionState";
 import { installProfileTriggers } from "./runtime/profileTriggers";
-import { installFriendsState } from "./runtime/friendsState";
 import { installOwnQamTab } from "./runtime/ownQamTab";
 import { installShowcaseMode } from "./runtime/showcaseMode";
 import { installScreensaverInject } from "./runtime/screensaverInject";
 import { installCloudSync } from "./runtime/cloudSync";
 import { installPluginApi } from "./core/pluginApi";
-import { installLauncherCachePoll } from "./runtime/launcherCache";
 import "./core/internalRegistry";
 import { logDiagnostic } from "./runtime/diagnostics";
 import { prefetchSteamOSVersion } from "./core/steamOSVersion";
 import { prewarmUserPaths } from "./core/userPaths";
-import { checkForUpdate, __resetUpdateCheckCache } from "./core/updateNotifier";
-import { installOrDownloadUpdate, canSelfInstallUpdate } from "./runtime/updateDownload";
 import { invalidateRandomSortCache } from "./steam";
 import { pruneCache as pruneImageCache, hydrateHotCacheFromStorage } from "./core/imageCache";
 import { pruneShelfCaches } from "./components/shelf/shelfViewHelpers";
-import { isOnline } from "./core/connectivity";
-import { getCurrentSettings, subscribeSettings, wasSettingsRecovered } from "./store/settingsStore";
+import { getCurrentSettings } from "./store/settingsStore";
 import { setPendingSettingsTab } from "./runtime/settingsNav";
-import { pickNewSuggestions } from "./runtime/suggestionNotifier";
-import { notify } from "./components/notify";
 import { logError, logInfo } from "./runtime/logger";
 import { disposeAll, registerDisposer } from "./runtime/runtimeDisposer";
 import { installDevNavHooks } from "./runtime/devNavHooks";
-import { settingsNeedFriends, settingsNeedLaunchers } from "./runtime/featureDemand";
 import { evaluateBootOutcome } from "./runtime/safeMode";
-import type { Settings } from "./types";
-import { markBootStart, recordBootCritical, getPerfSnapshot, hasMountStarted } from "./core/perfMetrics";
+import { markBootStart, recordBootCritical } from "./core/perfMetrics";
+import { installStartupWatchdog, startLazyPhases, installUpdateProbes, scheduleBootToasts, logSystemEnvironment } from "./runtime/bootPhases";
 import { Navigation, Focusable, DialogButton, quickAccessMenuClasses } from "./runtime/host/decky";
 import { resolveHost, hostProvidesNativeTab, shouldUseForcedHost, awaitInjectedHost } from "./runtime/host/resolve";
 import { claimHomeOwnership } from "./runtime/host/ownerGuard";
@@ -102,6 +94,18 @@ export function openSettingsPage(tab?: string) {
   Navigation.Navigate(SETTINGS_ROUTE);
 }
 
+/* What the loader renders for a copy that stood down: a note pointing at the
+   host's tab, or the real editor once `bootStandIn` ran this copy after all. */
+type StandInEntry = { content?: ReactNode; onDismount?: () => void } | null;
+let standInEntry: StandInEntry = null;
+const standInWatchers = new Set<() => void>();
+function StandInContent() {
+  const [, rerender] = useReducer((n: number) => n + 1, 0);
+  useEffect(() => { standInWatchers.add(rerender); return () => { standInWatchers.delete(rerender); }; }, []);
+  if (standInEntry?.content) return <>{standInEntry.content}</>;
+  return <div style={{ padding: "8px 16px", opacity: 0.8 }}>{i18next.t("coop_stand_in")}</div>;
+}
+
 /* Title row sized like the host's own tab (18 px title, 28 px square icon
    buttons): Decky adds a back arrow on the left, and the previous 40 px buttons
    wrapped "Deck Shelves" onto two lines. */
@@ -126,6 +130,132 @@ function TitleView() {
       </DialogButton>
     </Focusable>
   );
+}
+
+const ENABLE_HOME_PATCH = typeof __DECK_SHELVES_ENABLE_HOME_PATCH__ !== "undefined" ? __DECK_SHELVES_ENABLE_HOME_PATCH__ : true;
+
+/* A LOADER router hook (used to detect that a loader launched us). Keyed on the
+   loader only — the injected host also exposes a router hook, but that must NOT
+   make resolveHost pick the loader path. */
+function loaderRouterHookOf(serverAPI: any): any {
+  const g = globalThis as any;
+  return serverAPI?.routerHook ?? g.window?.DFL?.routerHook ?? g.DFL?.routerHook;
+}
+
+/* The router hook used for our screens + home patch: the loader's when a loader
+   launched us, or — as sole host — the injected host's own hook. */
+function pluginRouterHookOf(loaderRouterHook: any): any {
+  const g = globalThis as any;
+  return loaderRouterHook ?? g.window?.__SHELVES_HOST__?.routerHook ?? g.__SHELVES_HOST__?.routerHook;
+}
+
+// Optional on the contract (absent hosts, e.g. Decky, are read via direct feature
+// detection elsewhere) — cached once so diagnostics/bug-report can read it without
+// a direct HostApi import (see hostHandshake.ts).
+function cacheHostHandshake(host: HostApi): void {
+  try { setHostHandshake(host.handshake?.() ?? null); } catch { setHostHandshake(null); }
+}
+
+/* Single-owner guard: in a dual-host install the first instance claims the
+   renderer; the other stands down — no home patch and no settings writes — so
+   there's one injector and one writer. Under cooperative force this single
+   instance runs on the neutral host and claims under that host's own kind even
+   though a loader launched it (resolveHost already bound it to the injected host). */
+function claimRenderer(coopForce: boolean, loaderLaunched: boolean): boolean {
+  const isOwner = claimHomeOwnership((coopForce || !loaderLaunched) ? "shelveshub" : "decky");
+  if (!isOwner) logInfo("RUNTIME", "another Deck Shelves instance owns the renderer — standing down (no home patch / no settings writes)");
+  return isOwner;
+}
+
+/* Safe Mode: after repeated boots where Home started mounting but never
+   finished, skip both Home patches this session so Steam's own Home stays
+   usable; the QAM banner offers the way out (`runtime/safeMode.ts`). */
+function installHomePatches(routerHook: any, isOwner: boolean) {
+  const safeMode = evaluateBootOutcome();
+  if (safeMode) logDiagnostic("warn", "Safe Mode: Home patches skipped after repeated incomplete boots");
+  const active = isOwner && !safeMode;
+  const patch = (ENABLE_HOME_PATCH && active) ? installHomePatch(routerHook) : null;
+  const recentsReplacePatch = active ? installRecentsReplace(routerHook) : null;
+  logDiagnostic("info", ENABLE_HOME_PATCH ? (patch ? "Home patch installed" : "Home patch unavailable") : "Home patch disabled in this build");
+  return { patch, recentsReplacePatch };
+}
+
+function installDevHooks(): void {
+  if (!__DEV__) return;
+  // Expose the live device snapshot for on-device CDP inspection.
+  try { (globalThis as any).__ds_device = getDeviceState; } catch {}
+  // Navigation/nav-tree hooks for on-device drivers, via the host abstraction.
+  try { registerDisposer(installDevNavHooks()); } catch {}
+}
+
+type RouteSpec = { path: string; label: string; exact?: boolean; render: () => ReactNode };
+/* The full-page Settings route is registered eagerly so navigation works; the
+   QAM gear button that opens it stays gated behind `settingsPageEnabled`. Edit /
+   Delete / Manage / Compose open from the card context menu — a standalone
+   controller shows the modal via showModal in a portal; Manage is a flat
+   MenuItem + navigation because nested groups disappear after the first open. */
+const PLUGIN_ROUTES: RouteSpec[] = [
+  { path: ABOUT_ROUTE, label: "about", render: () => <AboutPage /> },
+  { path: SETTINGS_ROUTE, label: "settings", render: () => <SettingsPage /> },
+  { path: EDIT_ROUTE, label: "shelf modal", exact: true, render: () => <ShelfEditRoute shelfId="" /> },
+  { path: DELETE_ROUTE, label: "shelf modal", exact: true, render: () => <ShelfDeleteRoute shelfId="" /> },
+  { path: MANAGE_ROUTE, label: "shelf modal", exact: true, render: () => <ShelfManageRoute shelfId="" /> },
+  { path: COMPOSE_ROUTE, label: "shelf modal", exact: true, render: () => <ShelfComposeRoute sourceId="" targetId="" /> },
+];
+
+function registerPluginRoutes(routerHook: any): void {
+  for (const r of PLUGIN_ROUTES) {
+    try {
+      if (r.exact) routerHook?.addRoute?.(r.path, r.render, { exact: true });
+      else routerHook?.addRoute?.(r.path, r.render);
+    } catch (e) { logInfo("RUNTIME", `${r.label} route addRoute failed`, String(e)); }
+  }
+}
+
+function unregisterPluginRoutes(routerHook: any): void {
+  for (const r of PLUGIN_ROUTES) routerHook?.removeRoute?.(r.path);
+}
+
+/* If a neutral host injected its own native QAM tab, populate it so opening it
+   shows Deck Shelves directly (`__SHELVES_QAM__` takes no part in host
+   selection). The tab may inject after this body runs — retry + enqueue. */
+function registerHostQamPanel(renderPanel: QamPanel["content"]): void {
+  try {
+    // `QamPanel` / `window.__SHELVES_QAM__` / `__SHELVES_QAM_PENDING__` are all
+    // declared by the @deck-shelves/host contract's `Window` augmentation.
+    const qamPanel: QamPanel = { id: "deck-shelves", title: i18next.t("menu_deck_shelves"), content: renderPanel };
+    const registerNativeTab = (): boolean => {
+      const q = window.__SHELVES_QAM__;
+      if (q?.registerPanel) { try { q.registerPanel(qamPanel); } catch {} return true; }
+      return false;
+    };
+    if (!registerNativeTab()) {
+      // Bridge not injected yet — leave the panel for the host runtime to drain
+      // when it installs (order-independent), and also poll briefly in case it is
+      // mid-injection right now.
+      (window.__SHELVES_QAM_PENDING__ ??= []).push(qamPanel);
+      let attempts = 0;
+      const timer = setInterval(() => { if (registerNativeTab() || ++attempts > 100) clearInterval(timer); }, 100);
+    }
+  } catch {}
+}
+
+/* Own native QAM tab under Decky alone (opt-in, default OFF). Owner-only,
+   Decky-loader-only, and never when a neutral host already provides its own
+   native tab — the option itself is hidden in that case (settings UI). */
+function installOwnTabIfWanted(isOwner: boolean, loaderLaunched: boolean, renderPanel: Parameters<typeof installOwnQamTab>[0]["renderPanel"]): (() => void) | null {
+  if (!isOwner || !loaderLaunched || hostProvidesNativeTab()) return null;
+  return installOwnQamTab({
+    title: i18next.t("menu_deck_shelves"),
+    icon: <DeckShelvesIcon />,
+    renderPanel,
+    isEnabled: () => getCurrentSettings()?.ownQamTabEnabled === true,
+  });
+}
+
+// Patches a live Steam internal of unguaranteed shape at plugin init — never let it take boot down.
+function tryInstall(install: () => () => void): (() => void) | null {
+  try { return install(); } catch { return null; }
 }
 
 const __ds_entry = definePlugin((serverAPI?: any) => {
@@ -172,150 +302,35 @@ const __ds_entry = definePlugin((serverAPI?: any) => {
      race, no takeover. Meanwhile hand the loader a minimal placeholder. Everything
      host-dependent lives in boot() so it can run now or once the host is ready. */
   const boot = (): unknown => {
-  const enableHomePatch = typeof __DECK_SHELVES_ENABLE_HOME_PATCH__ !== "undefined" ? __DECK_SHELVES_ENABLE_HOME_PATCH__ : true;
-  // A LOADER router hook (used to detect that a loader launched us). Keep this
-  // keyed on the loader only — the injected host also exposes a router hook, but
-  // that must NOT make resolveHost pick the loader path.
-  const loaderRouterHook = serverAPI?.routerHook
-    ?? (globalThis as any).window?.DFL?.routerHook
-    ?? (globalThis as any).DFL?.routerHook;
+  const loaderRouterHook = loaderRouterHookOf(serverAPI);
+  const loaderLaunched = !!(serverAPI || loaderRouterHook);
   // Host selection lives entirely in resolveHost() — loader vs injected host,
   // by launch signal, producing the same HostApi contract either way.
   _hostApi = resolveHost(serverAPI, loaderRouterHook);
-  // Optional on the contract (absent hosts, e.g. Decky, are read via direct
-  // feature detection elsewhere) — cache once so diagnostics/bug-report can
-  // read it without a direct HostApi import (see hostHandshake.ts).
-  try { setHostHandshake(_hostApi.handshake?.() ?? null); } catch { setHostHandshake(null); }
+  cacheHostHandshake(_hostApi);
   /* Cooperative auto-update (host capability `coopBundle`): when the forced host
      carries a bundle at least as new as this loader copy, stand down and let it
      inject its own; a normal boot follows only if that bundle never shows up. */
   const deferToHost = tryDeferToHost({
     loaderLaunched: !__ds_selfInvoked, forced: shouldUseForcedHost(),
     handshake: getHostHandshake(), ownVersion: pkg.version, log: (m) => logInfo("RUNTIME", m),
-    onFallback: () => { try { boot(); } catch (e) { logError("RUNTIME", "boot after host defer failed", String(e)); } },
+    onFallback: () => bootStandIn("boot after host defer failed"),
   });
-  if (deferToHost) return { name: "Deck Shelves", title: <></>, content: <></>, icon: <DeckShelvesIcon /> };
-  // The router hook used for our screens + home patch: the loader's when a loader
-  // launched us, or — as sole host — the injected host's own hook.
-  const routerHook = loaderRouterHook
-    ?? (globalThis as any).window?.__SHELVES_HOST__?.routerHook
-    ?? (globalThis as any).__SHELVES_HOST__?.routerHook;
-  /* Single-owner guard: in a dual-host install the first instance claims the
-     renderer; the other stands down — no home patch and no settings writes — so
-     there's one injector and one writer. Under cooperative force this single
-     instance runs on the neutral host, so it owns as shelveshub even though a
-     loader launched it (resolveHost already bound _hostApi to the injected host). */
-  const coopForce = shouldUseForcedHost();
-  const isOwner = claimHomeOwnership((coopForce || !(serverAPI || loaderRouterHook)) ? "shelveshub" : "decky");
-  if (!isOwner) logInfo("RUNTIME", "another Deck Shelves instance owns the renderer — standing down (no home patch / no settings writes)");
-  /* Safe Mode: after repeated boots where Home started mounting but never
-     finished, skip both Home patches this session so Steam's own Home stays
-     usable; the QAM banner offers the way out (`runtime/safeMode.ts`). */
-  const safeMode = evaluateBootOutcome();
-  if (safeMode) logDiagnostic("warn", "Safe Mode: Home patches skipped after repeated incomplete boots");
-  const patch = (enableHomePatch && isOwner && !safeMode) ? installHomePatch(routerHook) : null;
-  const recentsReplacePatch = (isOwner && !safeMode) ? installRecentsReplace(routerHook) : null;
-
-  /* Startup watchdog: Home's first mount is expected well under a second;
-     20 s is generous, not tight. If it never lands, tear down both Home
-     patches — leaving recentsReplace alone would hide the native recents row
-     with nothing behind it, worse than the stuck injection. Both uninstalls
-     are idempotent, so this can safely race a normal `dispose()`. */
-  /* Only a STARTED-but-unfinished mount is a fault. If Home hasn't rendered at
-     all yet (Steam restarted onto another view, a game, or a settings panel),
-     re-arm instead of disabling — permanently killing the patch there left the
-     plugin looking dead through no fault of the injection. Bounded re-arms. */
-  let watchdogTimer: ReturnType<typeof setTimeout> | null = null;
-  if (patch) {
-    const WATCHDOG_BUDGET_MS = 20000;
-    const MAX_REARMS = 9;
-    let rearms = 0;
-    const checkMount = () => {
-      watchdogTimer = null;
-      if (getPerfSnapshot().mountMs !== null) return;
-      if (!hasMountStarted()) {
-        if (rearms++ >= MAX_REARMS) return; // Home still unopened — stop watching, keep the patch
-        watchdogTimer = setTimeout(checkMount, WATCHDOG_BUDGET_MS);
-        return;
-      }
-      logDiagnostic("warn", "Startup watchdog: Home didn't complete its first mount within budget — disabling Home patch for this session");
-      try { patch.uninstall(); } catch {}
-      try { recentsReplacePatch?.uninstall?.(); } catch {}
-    };
-    watchdogTimer = setTimeout(checkMount, WATCHDOG_BUDGET_MS);
-  }
+  if (deferToHost) return standIn();
+  const routerHook = pluginRouterHookOf(loaderRouterHook);
+  const isOwner = claimRenderer(shouldUseForcedHost(), loaderLaunched);
+  const { patch, recentsReplacePatch } = installHomePatches(routerHook, isOwner);
+  const uninstallWatchdog = installStartupWatchdog(patch, recentsReplacePatch);
   const uninstallRefresh = installShelfRefreshEmitter();
   const uninstallSystemEvents = installSystemEvents();
   const uninstallBatteryState = installBatteryState();
   const uninstallDeviceState = installDeviceState();
   const uninstallSessionState = installSessionState();
   const uninstallProfileTriggers = installProfileTriggers();
-  // Dev-only: expose the live device snapshot for on-device CDP inspection.
-  if (__DEV__) { try { (globalThis as any).__ds_device = getDeviceState; } catch {} }
-  // Dev-only navigation/nav-tree hooks for on-device drivers, via the host abstraction.
-  if (__DEV__) { try { registerDisposer(installDevNavHooks()); } catch {} }
+  installDevHooks();
   const uninstallPluginApi = installPluginApi();
-
-  /* Phase B (lazy bootstrap): trackers/pollers nothing else in boot() reads
-     synchronously — deferred to idle so they don't compete with the
-     critical path (Home injection, routes, state subscriptions above).
-     `disposed` + cancelSchedule guard the case where dismount happens
-     before idle ever fires. */
-  let uninstallDeviceHistoryTracker: (() => void) | null = null;
-  let uninstallFriendsState: (() => void) | null = null;
-  let uninstallLauncherCache: (() => void) | null = null;
-  let phaseBDisposed = false;
-  const schedulePhaseB = (globalThis as any).requestIdleCallback ?? ((cb: any) => setTimeout(cb, 2000));
-  const cancelPhaseB = (globalThis as any).cancelIdleCallback ?? ((id: any) => clearTimeout(id));
-  /* Phase C (feature demand): the friends poller and the launcher-cache poll
-     only start when the configuration can actually use their data, and start
-     later the moment a settings change introduces such a use. Each starts at
-     most once per boot; the settings subscription below is the only trigger. */
-  let unsubFeatureDemand: (() => void) | null = null;
-  const startOnDemand = (s: Settings | null) => {
-    if (phaseBDisposed) return;
-    if (!uninstallFriendsState && settingsNeedFriends(s)) uninstallFriendsState = installFriendsState();
-    if (!uninstallLauncherCache && settingsNeedLaunchers(s)) uninstallLauncherCache = installLauncherCachePoll();
-  };
-  const phaseBHandle = schedulePhaseB(() => {
-    if (phaseBDisposed) return;
-    uninstallDeviceHistoryTracker = installDeviceHistoryTracker();
-    startOnDemand(getCurrentSettings());
-    unsubFeatureDemand = subscribeSettings(startOnDemand);
-  });
-
-  try { routerHook?.addRoute?.(ABOUT_ROUTE, () => (
-    <AboutPage />
-  )); } catch (e) { logInfo("RUNTIME", "addRoute failed", String(e)); }
-
-  /* Full-page Settings route — registered eagerly so navigation works.
-     The QAM gear-icon button that triggers it stays gated behind the
-     `settingsPageEnabled` flag (off by default) until the page itself
-     is built out beyond its current placeholder. */
-  try { routerHook?.addRoute?.(SETTINGS_ROUTE, () => (
-    <SettingsPage />
-  )); } catch (e) { logInfo("RUNTIME", "settings route addRoute failed", String(e)); }
-
-  // Edit / Delete routes — opened from the card context menu; mount a
-  // standalone controller and show the modal via showModal in a portal.
-  try {
-    routerHook?.addRoute?.(EDIT_ROUTE, () => (
-      <ShelfEditRoute shelfId="" />
-    ), { exact: true });
-    routerHook?.addRoute?.(DELETE_ROUTE, () => (
-      <ShelfDeleteRoute shelfId="" />
-    ), { exact: true });
-    // Manage page route — flat MenuItem + navigation; nested groups
-    // disappear after the first menu open.
-    routerHook?.addRoute?.(MANAGE_ROUTE, () => (
-      <ShelfManageRoute shelfId="" />
-    ), { exact: true });
-    routerHook?.addRoute?.(COMPOSE_ROUTE, () => (
-      <ShelfComposeRoute sourceId="" targetId="" />
-    ), { exact: true });
-  } catch (e) { logInfo("RUNTIME", "shelf modal route addRoute failed", String(e)); }
-
-  logDiagnostic("info", enableHomePatch ? (patch ? "Home patch installed" : "Home patch unavailable") : "Home patch disabled in this build");
+  const uninstallLazyPhases = startLazyPhases();
+  registerPluginRoutes(routerHook);
 
   /* Random-sort cache is keyed by shelfId + idHash with a 24h TTL.
      Wipe all entries at boot so each Steam session gets a fresh shuffle
@@ -331,124 +346,9 @@ const __ds_entry = definePlugin((serverAPI?: any) => {
     logDiagnostic("info", "SteamOS version", v ?? "unknown");
   }).catch(() => {});
 
-  // Update notifier: probe always runs once the network is reachable.
-  // Toggle (default ON) gates whether to run at all; cache + dismiss
-  // gate whether to fire the toast.
-  /* Dev-only update-probe trace. The `probe` helper no-ops in release
-     (`if (!__DEV__) return;` is dead-code-eliminated) so `__dsUpdateProbe`
-     never lands on the global in distribution builds. */
-  const probe = (patch: Record<string, unknown>, reset = false): void => {
-    if (!__DEV__) return;
-    const g = globalThis as any;
-    g.__dsUpdateProbe = reset ? { ...patch } : Object.assign(g.__dsUpdateProbe || {}, patch);
-  };
-  const runUpdateProbe = async (reason: string): Promise<boolean> => {
-    try {
-      probe({ reason, at: Date.now(), step: 'start' }, true);
-      const s = getCurrentSettings();
-      probe({ notifyEnabled: s?.updateNotifyEnabled });
-      if (s?.updateNotifyEnabled === false) {
-        probe({ step: 'skipped-toggle-off' });
-        return false;
-      }
-      const online = await isOnline().catch(() => false);
-      probe({ online });
-      if (!online) {
-        probe({ step: 'skipped-offline' });
-        return false;
-      }
-      __resetUpdateCheckCache();
-      probe({ step: 'checking' });
-      const r = await checkForUpdate();
-      probe({ result: { hasUpdate: r.hasUpdate, latest: r.latestVersion, current: r.currentVersion } });
-      const fresh = r.hasUpdate && r.latestVersion && r.latestVersion !== s?.updateNotifyDismissedVersion;
-      if (fresh) {
-        probe({ step: 'firing-toast' });
-        notify("update", {
-          body: i18next.t("update_available", { version: r.latestVersion }),
-          onClick: () => { void installOrDownloadUpdate(r); },
-        });
-        probe({ step: 'toast-fired' });
-      } else {
-        probe({ step: 'no-update-or-dismissed' });
-      }
-      return true;
-    } catch (e) {
-      probe({ err: String(e) });
-      return false;
-    }
-  };
-
-  /* Boot retry: poll for network with backoff until a probe actually
-     runs (online + checked) or we hit the 10-min cap. Steam restart and
-     system reboot both land here; the loop self-terminates on first
-     successful probe so steady-state work is zero. */
-  const UPDATE_BACKOFFS_MS = [3000, 10000, 20000, 40000, 60000, 60000, 60000, 60000, 60000, 60000, 60000, 60000];
-  let updateBootTimer: ReturnType<typeof setTimeout> | null = null;
-  let updateBootStep = 0;
-  const scheduleBootProbe = () => {
-    if (updateBootStep >= UPDATE_BACKOFFS_MS.length) return;
-    const delay = UPDATE_BACKOFFS_MS[updateBootStep++];
-    updateBootTimer = setTimeout(async () => {
-      updateBootTimer = null;
-      const probed = await runUpdateProbe('boot');
-      if (!probed) scheduleBootProbe();
-    }, delay);
-  };
-  // A self-install host already polls this same release feed to update
-  // itself and the bundle — checking again here would just duplicate that
-  // request. The host owns the check and shows its own update notice.
-  if (!canSelfInstallUpdate()) scheduleBootProbe();
-
-  /* One-shot, ~18 s after boot (library + stats settled): if the user opted
-     into suggestions and there's a suggestion they haven't been told about,
-     fire a single branded, clickable toast that opens the Suggestions tab.
-     Self-gated + deduped in `pickNewSuggestions`; no polling. */
-  const suggestTimer = setTimeout(() => {
-    void pickNewSuggestions().then((fresh) => {
-      if (!fresh.length) return;
-      notify("suggestion", {
-        body: i18next.t("suggestion_toast_body"),
-        onClick: () => openSettingsPage("suggestions"),
-      });
-    }).catch(() => {});
-  }, 18000);
-
-  /* One-shot: the backend flags this the moment it recovers settings.json
-     from a `.bak`/backups snapshot after finding the primary file corrupted
-     (truncated write, disk error). Reading the flag clears it server-side,
-     so this only ever fires once per actual recovery, never on a normal boot. */
-  const corruptionCheckTimer = setTimeout(() => {
-    void wasSettingsRecovered().then((recovered) => {
-      if (!recovered) return;
-      notify("warning", {
-        body: i18next.t("settings_recovered_toast_body" as any),
-        onClick: () => openSettingsPage(),
-      });
-    }).catch(() => {});
-  }, 5000);
-
-  // Re-probe on the upward edge of the notify toggle (OFF → ON).
-  let lastToggle = getCurrentSettings()?.updateNotifyEnabled !== false;
-  const unsubUpdateNotify = subscribeSettings((s) => {
-    const now = s?.updateNotifyEnabled !== false;
-    if (!lastToggle && now && !canSelfInstallUpdate()) void runUpdateProbe('toggle-on');
-    lastToggle = now;
-  });
-
-  // Log system environment for easier support debugging
-  try {
-    const ua = typeof navigator !== "undefined" ? navigator.userAgent : "unavailable";
-    const client = (globalThis as any).SteamClient ?? (window as any)?.SteamClient;
-    // GetOSType is async in some versions; fire-and-forget with fallback to UA
-    Promise.resolve(client?.System?.GetOSType?.()).then((osType: any) => {
-      logDiagnostic("info", "System environment", JSON.stringify({ ua, osType: osType ?? "unavailable" }));
-    }).catch(() => {
-      logDiagnostic("info", "System environment", ua);
-    });
-  } catch {
-    try { logDiagnostic("info", "System environment", navigator?.userAgent ?? "unavailable"); } catch {}
-  }
+  const uninstallUpdateProbes = installUpdateProbes();
+  const uninstallBootToasts = scheduleBootToasts(openSettingsPage);
+  logSystemEnvironment();
 
   // The QAM settings editor as a factory, so it can render independently in the
   // loader's own panel and in a neutral host's native tab — a fresh element tree
@@ -476,90 +376,37 @@ const __ds_entry = definePlugin((serverAPI?: any) => {
     </>
   );
 
-  // If a neutral host injected its own native QAM tab, populate it so opening
-  // it shows Deck Shelves directly (`__SHELVES_QAM__` takes no part in host
-  // selection). The tab may inject after this body runs — retry + enqueue.
-  try {
-    // `QamPanel` / `window.__SHELVES_QAM__` / `__SHELVES_QAM_PENDING__` are all
-    // declared by the @deck-shelves/host contract's `Window` augmentation.
-    const qamPanel: QamPanel = { id: "deck-shelves", title: i18next.t("menu_deck_shelves"), content: renderNativeTabPanel };
-    const registerNativeTab = (): boolean => {
-      const q = window.__SHELVES_QAM__;
-      if (q?.registerPanel) { try { q.registerPanel(qamPanel); } catch {} return true; }
-      return false;
-    };
-    if (!registerNativeTab()) {
-      // Bridge not injected yet — leave the panel for the host runtime to drain
-      // when it installs (order-independent), and also poll briefly in case it is
-      // mid-injection right now.
-      (window.__SHELVES_QAM_PENDING__ ??= []).push(qamPanel);
-      let attempts = 0;
-      const timer = setInterval(() => { if (registerNativeTab() || ++attempts > 100) clearInterval(timer); }, 100);
-    }
-  } catch {}
-
-  // Own native QAM tab under Decky alone (opt-in, default OFF). Owner-only,
-  // Decky-loader-only, and never when a neutral host already provides its own
-  // native tab — the option itself is hidden in that case (settings UI).
-  const uninstallOwnQamTab = (isOwner && (serverAPI || loaderRouterHook) && !hostProvidesNativeTab())
-    ? installOwnQamTab({
-        title: i18next.t("menu_deck_shelves"),
-        icon: <DeckShelvesIcon />,
-        renderPanel: renderNativeTabPanel,
-        isEnabled: () => getCurrentSettings()?.ownQamTabEnabled === true,
-      })
-    : null;
-
+  registerHostQamPanel(renderNativeTabPanel);
+  const uninstallOwnQamTab = installOwnTabIfWanted(isOwner, loaderLaunched, renderNativeTabPanel);
   // Showcase / Dynamic Idle Mode (opt-in, default OFF). Only the renderer's
   // owner drives Home focus.
   const uninstallShowcaseMode = isOwner ? installShowcaseMode() : null;
-  /* Screensaver shelf injection (experimental, default OFF). Not gated on
-     isOwner. Wrapped defensively — it patches a live Steam internal of
-     unguaranteed shape, and this runs unconditionally at plugin init. */
-  let uninstallScreensaverInject: (() => void) | null = null;
-  try { uninstallScreensaverInject = installScreensaverInject(); } catch { uninstallScreensaverInject = null; }
-  /* Cross-device settings sync via SteamClient.RoamingStorage (experimental,
-     default OFF). Same defensive wrapping — a live Steam internal, not a
-     guaranteed-stable public contract. */
-  let uninstallCloudSync: (() => void) | null = null;
-  try { uninstallCloudSync = installCloudSync(); } catch { uninstallCloudSync = null; }
+  // Screensaver shelf injection (experimental, default OFF). Not gated on isOwner.
+  const uninstallScreensaverInject = tryInstall(installScreensaverInject);
+  // Cross-device settings sync via SteamClient.RoamingStorage (experimental, default OFF).
+  const uninstallCloudSync = tryInstall(installCloudSync);
 
-  // Named (not inline in onDismount) so it can ALSO be stashed on `window`
-  // for the next hot-swap's own instance to call first — see the
-  // dispose-previous-instance check at the top of this function.
+  /* Teardown steps, in order — run by `dispose`, which is named (not inline in
+     onDismount) so it can ALSO be stashed on `window` for the next hot-swap's
+     own instance to call first — see the dispose-previous-instance check at
+     the top of this function. */
+  const teardown: Array<() => void> = [
+    () => patch?.uninstall?.(),
+    () => recentsReplacePatch?.uninstall?.(),
+    () => unregisterPluginRoutes(routerHook),
+    uninstallRefresh, uninstallSystemEvents, uninstallBatteryState, uninstallDeviceState,
+    uninstallSessionState, uninstallProfileTriggers, uninstallPluginApi, uninstallLazyPhases,
+    () => uninstallOwnQamTab?.(),
+    () => uninstallShowcaseMode?.(),
+    () => uninstallScreensaverInject?.(),
+    () => uninstallCloudSync?.(),
+    uninstallUpdateProbes, uninstallWatchdog, uninstallBootToasts,
+    disposeAll,
+  ];
   const dispose = () => {
     try {
       logInfo("RUNTIME", "plugin dismount");
-      patch?.uninstall?.();
-      recentsReplacePatch?.uninstall?.();
-      routerHook?.removeRoute?.(ABOUT_ROUTE);
-      routerHook?.removeRoute?.(EDIT_ROUTE);
-      routerHook?.removeRoute?.(DELETE_ROUTE);
-      routerHook?.removeRoute?.(MANAGE_ROUTE);
-      routerHook?.removeRoute?.(COMPOSE_ROUTE);
-      uninstallRefresh();
-      uninstallSystemEvents();
-      uninstallBatteryState();
-      uninstallDeviceState();
-      uninstallSessionState();
-      uninstallProfileTriggers();
-      uninstallPluginApi();
-      phaseBDisposed = true;
-      try { cancelPhaseB(phaseBHandle); } catch {}
-      unsubFeatureDemand?.();
-      uninstallDeviceHistoryTracker?.();
-      uninstallFriendsState?.();
-      uninstallLauncherCache?.();
-      uninstallOwnQamTab?.();
-      uninstallShowcaseMode?.();
-      uninstallScreensaverInject?.();
-      uninstallCloudSync?.();
-      unsubUpdateNotify();
-      if (updateBootTimer !== null) { clearTimeout(updateBootTimer); updateBootTimer = null; }
-      if (watchdogTimer !== null) { clearTimeout(watchdogTimer); watchdogTimer = null; }
-      clearTimeout(suggestTimer);
-      clearTimeout(corruptionCheckTimer);
-      disposeAll();
+      for (const step of teardown) step();
     } catch (error) {
       logError("RUNTIME", "failed to remove patch", String(error));
     }
@@ -580,12 +427,23 @@ const __ds_entry = definePlugin((serverAPI?: any) => {
      the neutral host. The loader gets a minimal placeholder now; the real UI is
      driven by boot() once `__SHELVES_HOST__` appears (bounded — falls back to a
      normal boot if it never does). */
+  /* The loader's entry while this copy stands down (for the host's own copy, or
+     until the host appears): the stand-in note, replaced by the real editor the
+     moment this copy boots after all. */
+  const standIn = () => ({
+    name: "Deck Shelves", title: <></>, content: <StandInContent />, icon: <DeckShelvesIcon />,
+    onDismount: () => { try { standInEntry?.onDismount?.(); } catch {} },
+  });
+  const bootStandIn = (failure: string) => {
+    try {
+      standInEntry = boot() as StandInEntry;
+      standInWatchers.forEach((w) => w());
+    } catch (e) { logError("RUNTIME", failure, String(e)); }
+  };
   if (isForcedOwner() && !getInjectedHost()) {
     logInfo("RUNTIME", "cooperative force — awaiting injected host before boot");
-    void awaitInjectedHost(8000).then(() => {
-      try { boot(); } catch (e) { logError("RUNTIME", "deferred cooperative boot failed", String(e)); }
-    });
-    return { name: "Deck Shelves", title: <></>, content: <></>, icon: <DeckShelvesIcon /> } as unknown as ReturnType<typeof boot>;
+    void awaitInjectedHost(8000).then(() => bootStandIn("deferred cooperative boot failed"));
+    return standIn() as unknown as ReturnType<typeof boot>;
   }
   return boot();
 });

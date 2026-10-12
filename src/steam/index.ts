@@ -18,6 +18,7 @@ import { getPreferredSteamDocument, getPreferredSteamWindow } from "../runtime/s
 import { getLibraryCategoryOf, getLibraryIdOf, isLibraryLocationsWarm, refreshLibraryLocations, getDeviceProfile } from "../runtime/deviceState";
 import { compatCategoryForFamily } from "../domain/deviceProfile";
 import { getAppDescriptions as _getAppDescriptions } from "./appDescriptionsCache";
+import { steamAppStore, steamCollectionStore, steamClient, steamUIStore } from "./internals";
 
 export type SteamCollection = { id: string; name: string };
 
@@ -54,9 +55,9 @@ function getSteamWindows(): any[] {
     getPreferredSteamWindow(),
     window,
     (window as any).opener,
-    (window as any).SteamUIStore?.GetFocusedWindowInstance?.()?.BrowserWindow,
-    (window as any).SteamUIStore?.WindowStore?.GamepadUIMainWindowInstance?.BrowserWindow,
-    ...(((window as any).SteamUIStore?.WindowStore?.SteamUIWindows ?? []).map((entry: any) => entry?.BrowserWindow)),
+    steamUIStore()?.GetFocusedWindowInstance?.()?.BrowserWindow,
+    steamUIStore()?.WindowStore?.GamepadUIMainWindowInstance?.BrowserWindow,
+    ...((steamUIStore()?.WindowStore?.SteamUIWindows ?? []).map((entry: any) => entry?.BrowserWindow)),
   ].filter(Boolean);
 
   return Array.from(new Set(candidates));
@@ -591,7 +592,7 @@ function addUserCollectionTabs(cs: any, seen: Set<string>, out: PlatformTab[]): 
 // map to avoid the MobX userCollections poisoning path.
 function buildCollectionStoreTabs(): PlatformTab[] {
   try {
-    const cs = (globalThis as any).collectionStore;
+    const cs = steamCollectionStore();
     const extra: PlatformTab[] = [];
     const seen = new Set(NATIVE_LIBRARY_TAB_DEFAULTS.map((t) => t.id.toLowerCase()));
     addRecentCollectionTab(cs, seen, extra);
@@ -667,7 +668,7 @@ function tryRemoveFromStore(store: any, collectionId: string, appid: number): bo
 export function removeAppFromCollection(collectionId: string, appid: number): void {
   try {
     for (const win of getSteamWindows()) {
-      const store = win?.collectionStore ?? (globalThis as any).collectionStore;
+      const store = win?.collectionStore ?? steamCollectionStore();
       if (tryRemoveFromStore(store, collectionId, appid)) return;
     }
   } catch {}
@@ -764,7 +765,7 @@ function readCollectionsFromDoc(doc: any): SteamCollection[] {
 
 function listCollectionsFromStorage(hostWindows: any[]): SteamCollection[] {
   for (const hostWindow of hostWindows) {
-    const store = hostWindow?.collectionStore ?? (globalThis as any).collectionStore;
+    const store = hostWindow?.collectionStore ?? steamCollectionStore();
     if (!store) continue;
     const norm = readCollectionsFromStorageMap(store);
     if (norm.length) return norm;
@@ -853,7 +854,7 @@ function getUnifideckInstalledSet(): Set<number> {
   if (_ufInstalledCache && now - _ufInstalledCache.ts < 5000) return _ufInstalledCache.ids;
   const ids = new Set<number>();
   try {
-    const cs: any = (globalThis as any).collectionStore;
+    const cs: any = steamCollectionStore();
     const match = readCollectionList(cs).find(isUnifideckInstalledLabel);
     if (match) pushAppIdsFromCollection(match, ids);
   } catch {}
@@ -892,7 +893,7 @@ export function getUnifideckCloudPlaySet(): Set<number> {
   if (_ufCloudCache && now - _ufCloudCache.ts < 5000) return _ufCloudCache.ids;
   const ids = new Set<number>();
   try {
-    const cs: any = (globalThis as any).collectionStore;
+    const cs: any = steamCollectionStore();
     for (const c of readCollectionList(cs)) {
       if (readUnifideckCloudLabel(c) === null) continue;
       pushAppIdsFromCollection(c, ids);
@@ -953,7 +954,7 @@ function gatherLibraryFromStore(cs: any, includeNonSteam: boolean, includeCloudP
 export function getLocalLibraryAppIds(includeNonSteam: boolean, includeCloudPlay: boolean = false): Set<number> {
   const out = new Set<number>();
   try {
-    gatherLibraryFromStore((globalThis as any).collectionStore, includeNonSteam, includeCloudPlay, out);
+    gatherLibraryFromStore(steamCollectionStore(), includeNonSteam, includeCloudPlay, out);
     if (out.size > 0) return out;
     for (const hw of getSteamWindows()) {
       gatherLibraryFromStore((hw as any)?.collectionStore, includeNonSteam, includeCloudPlay, out);
@@ -1008,6 +1009,11 @@ export type AppOverview = {
   app_type?: number;
   cloud_available?: boolean;
   controller_support?: number;
+  // Steam fields the sort comparators read straight off the overview.
+  rt_original_release_date?: number;
+  size_on_disk?: number | string;
+  metacritic_score?: number;
+  review_percentage?: number;
   // Whether the app runs on the CURRENT platform (from the local client's
   // per_client_data). undefined when there's no client data (e.g. non-Steam).
   available_on_current_platform?: boolean;
@@ -2159,7 +2165,7 @@ function extractIdsFromCollectionEntry(col: any): Set<number> | null {
 }
 
 function lookupRawCollection(tab: string, id: string): any {
-  const cs = (globalThis as any).collectionStore;
+  const cs = steamCollectionStore();
   const rawMap = cs?.m_mapCollectionsFromStorage ?? cs?.collectionsFromStorage;
   if (!rawMap || typeof rawMap.get !== 'function') return null;
   return rawMap.get(tab) ?? rawMap.get(id);
@@ -2312,7 +2318,7 @@ function evalLibraryLocation(item: FilterItem, app: AppOverview): boolean {
 
 function evalAppStatus(item: FilterItem, app: AppOverview): boolean {
   const groups: string[] = Array.isArray(item.params?.groups) ? item.params!.groups : [];
-  let ds = (app as any).display_status as number | undefined;
+  let ds = app.display_status as number | undefined;
   /* Non-Steam shortcuts (e.g. Unifideck) usually carry no per-client
      display_status, so a status filter would match nothing. Synthesize
      installed / not-installed from the install heuristic so the installed_idle
@@ -2639,7 +2645,7 @@ function indexAppsToPlatform(c: any, platform: string, map: Map<number, string>)
 function buildNonSteamPlatformMap(): Map<number, string> {
   const map = new Map<number, string>();
   try {
-    const cs: any = (globalThis as any).collectionStore;
+    const cs: any = steamCollectionStore();
     // Raw storage map, not the `userCollections` computed (MobX-unsafe).
     for (const c of readCollectionList(cs)) {
       const platform = readUnifideckPlatformLabel(c);
@@ -2743,14 +2749,14 @@ type Cmp = (a: AppOverview, b: AppOverview) => number;
 const KEY_COMPARATOR_BUILDERS: Record<string, () => Cmp> = {
   recent: () => (a, b) => lastPlayedOf(b) - lastPlayedOf(a),
   playtime: () => (a, b) => (b.playtime_forever ?? 0) - (a.playtime_forever ?? 0),
-  release_date: () => (a, b) => ((b as any).rt_original_release_date ?? 0) - ((a as any).rt_original_release_date ?? 0),
-  size_on_disk: () => (a, b) => Number((b as any).size_on_disk ?? 0) - Number((a as any).size_on_disk ?? 0),
-  metacritic: () => (a, b) => ((b as any).metacritic_score ?? 0) - ((a as any).metacritic_score ?? 0),
-  review_score: () => (a, b) => ((b as any).review_percentage ?? 0) - ((a as any).review_percentage ?? 0),
+  release_date: () => (a, b) => (b.rt_original_release_date ?? 0) - (a.rt_original_release_date ?? 0),
+  size_on_disk: () => (a, b) => Number(b.size_on_disk ?? 0) - Number(a.size_on_disk ?? 0),
+  metacritic: () => (a, b) => (b.metacritic_score ?? 0) - (a.metacritic_score ?? 0),
+  review_score: () => (a, b) => (b.review_percentage ?? 0) - (a.review_percentage ?? 0),
   added: () => compareByAdded,
-  app_status: () => (a, b) => ((a as any).display_status ?? 0) - ((b as any).display_status ?? 0),
-  deck_compat: () => (a, b) => ((b as any).deck_compatibility_category ?? 0) - ((a as any).deck_compatibility_category ?? 0),
-  controller_support: () => (a, b) => ((b as any).controller_support ?? 0) - ((a as any).controller_support ?? 0),
+  app_status: () => (a, b) => (a.display_status ?? 0) - (b.display_status ?? 0),
+  deck_compat: () => (a, b) => (b.deck_compatibility_category ?? 0) - (a.deck_compatibility_category ?? 0),
+  controller_support: () => (a, b) => (b.controller_support ?? 0) - (a.controller_support ?? 0),
 };
 
 function priceComparator(key: string, priceMap: PriceMap): Cmp {
@@ -2769,7 +2775,7 @@ function priceComparator(key: string, priceMap: PriceMap): Cmp {
 }
 
 const alphaCmp: Cmp = (a, b) =>
-  String((a as any).sort_as ?? appNameOf(a)).localeCompare(String((b as any).sort_as ?? appNameOf(b)));
+  String(a.sort_as ?? appNameOf(a)).localeCompare(String(b.sort_as ?? appNameOf(b)));
 
 function buildBaseComparator(key: string, priceMap?: PriceMap): Cmp {
   const builder = KEY_COMPARATOR_BUILDERS[key];
@@ -2858,7 +2864,7 @@ function applyMultiKeySort(
 }
 
 function alphaCompare(a: AppOverview, b: AppOverview): number {
-  return String((a as any).sort_as ?? appNameOf(a)).localeCompare(String((b as any).sort_as ?? appNameOf(b)));
+  return String(a.sort_as ?? appNameOf(a)).localeCompare(String(b.sort_as ?? appNameOf(b)));
 }
 
 type AppComparator = (a: AppOverview, b: AppOverview) => number;
@@ -2866,14 +2872,14 @@ type AppComparator = (a: AppOverview, b: AppOverview) => number;
 const SINGLE_SORT_COMPARATORS: Record<string, AppComparator> = {
   recent: (a, b) => lastPlayedOf(b) - lastPlayedOf(a),
   playtime: (a, b) => (b.playtime_forever ?? 0) - (a.playtime_forever ?? 0),
-  release_date: (a, b) => ((b as any).rt_original_release_date ?? 0) - ((a as any).rt_original_release_date ?? 0),
-  size_on_disk: (a, b) => Number((b as any).size_on_disk ?? 0) - Number((a as any).size_on_disk ?? 0),
-  metacritic: (a, b) => ((b as any).metacritic_score ?? 0) - ((a as any).metacritic_score ?? 0),
-  review_score: (a, b) => ((b as any).review_percentage ?? 0) - ((a as any).review_percentage ?? 0),
+  release_date: (a, b) => (b.rt_original_release_date ?? 0) - (a.rt_original_release_date ?? 0),
+  size_on_disk: (a, b) => Number(b.size_on_disk ?? 0) - Number(a.size_on_disk ?? 0),
+  metacritic: (a, b) => (b.metacritic_score ?? 0) - (a.metacritic_score ?? 0),
+  review_score: (a, b) => (b.review_percentage ?? 0) - (a.review_percentage ?? 0),
   added: compareByAdded,
-  app_status: (a, b) => ((a as any).display_status ?? 0) - ((b as any).display_status ?? 0),
-  deck_compat: (a, b) => ((b as any).deck_compatibility_category ?? 0) - ((a as any).deck_compatibility_category ?? 0),
-  controller_support: (a, b) => ((b as any).controller_support ?? 0) - ((a as any).controller_support ?? 0),
+  app_status: (a, b) => (a.display_status ?? 0) - (b.display_status ?? 0),
+  deck_compat: (a, b) => (b.deck_compatibility_category ?? 0) - (a.deck_compatibility_category ?? 0),
+  controller_support: (a, b) => (b.controller_support ?? 0) - (a.controller_support ?? 0),
   alphabetical: alphaCompare,
   price_low: alphaCompare,
   discount_high: alphaCompare,
@@ -3179,7 +3185,7 @@ function sortDynamicTabApps(filtered: AppOverview[], rawTab: string, sort: any):
   if (sort) return filtered;
   if (slugifyTab(rawTab) === "recent") return filtered;
   return filtered.slice().sort((a, b) =>
-    String((a as any).sort_as ?? appNameOf(a)).localeCompare(String((b as any).sort_as ?? appNameOf(b))),
+    String(a.sort_as ?? appNameOf(a)).localeCompare(String(b.sort_as ?? appNameOf(b))),
   );
 }
 
@@ -3269,10 +3275,10 @@ async function tryBuiltInTabFallback(ctx: ResolverContext, rawTab: string): Prom
 const FILTER_SORT_DISPATCH: Record<string, (apps: AppOverview[], shelfId?: string) => AppOverview[]> = {
   recent: (apps) => apps.slice().sort((a, b) => lastPlayedOf(b) - lastPlayedOf(a)),
   playtime: (apps) => apps.slice().sort((a, b) => (b.playtime_forever ?? 0) - (a.playtime_forever ?? 0)),
-  release_date: (apps) => apps.slice().sort((a, b) => ((b as any).rt_original_release_date ?? 0) - ((a as any).rt_original_release_date ?? 0)),
-  size_on_disk: (apps) => apps.slice().sort((a, b) => Number((b as any).size_on_disk ?? 0) - Number((a as any).size_on_disk ?? 0)),
-  metacritic: (apps) => apps.slice().sort((a, b) => ((b as any).metacritic_score ?? 0) - ((a as any).metacritic_score ?? 0)),
-  review_score: (apps) => apps.slice().sort((a, b) => ((b as any).review_percentage ?? 0) - ((a as any).review_percentage ?? 0)),
+  release_date: (apps) => apps.slice().sort((a, b) => (b.rt_original_release_date ?? 0) - (a.rt_original_release_date ?? 0)),
+  size_on_disk: (apps) => apps.slice().sort((a, b) => Number(b.size_on_disk ?? 0) - Number(a.size_on_disk ?? 0)),
+  metacritic: (apps) => apps.slice().sort((a, b) => (b.metacritic_score ?? 0) - (a.metacritic_score ?? 0)),
+  review_score: (apps) => apps.slice().sort((a, b) => (b.review_percentage ?? 0) - (a.review_percentage ?? 0)),
   added: (apps) => apps.slice().sort(compareByAdded),
   random: (apps, shelfId) => {
     const fIds = apps.map((a) => appIdOf(a)).filter(Number.isFinite);
@@ -3284,7 +3290,7 @@ const FILTER_SORT_DISPATCH: Record<string, (apps: AppOverview[], shelfId?: strin
 function sortAppsByFilterKey(filtered: AppOverview[], fSort: string | undefined, shelfId?: string): AppOverview[] {
   const handler = fSort ? FILTER_SORT_DISPATCH[fSort] : undefined;
   if (handler) return handler(filtered, shelfId);
-  return filtered.slice().sort((a, b) => String((a as any).sort_as ?? appNameOf(a)).localeCompare(String((b as any).sort_as ?? appNameOf(b))));
+  return filtered.slice().sort((a, b) => String(a.sort_as ?? appNameOf(a)).localeCompare(String(b.sort_as ?? appNameOf(b))));
 }
 
 function resolveFilterReverse(f: CustomFilter, fallback: boolean | boolean[] | undefined): boolean {
@@ -4282,7 +4288,7 @@ async function getAppMetaFromAllOverviews(appid: number): Promise<PlatformAppMet
     const found = all.find((a) => Number(a.appid) === appid);
     if (!found) return undefined;
     let raw: any;
-    try { raw = (globalThis as any).appStore?.GetAppOverviewByAppID?.(appid); } catch {}
+    try { raw = steamAppStore()?.GetAppOverviewByAppID?.(appid); } catch {}
     return buildMetaFromOverview(appid, found, raw);
   } catch { return undefined; }
 }
@@ -4343,7 +4349,7 @@ export async function getAppMetaBatch(appids: number[]): Promise<Map<number, Pla
     const ov = byId.get(appid);
     if (ov) {
       let raw: any;
-      try { raw = (globalThis as any).appStore?.GetAppOverviewByAppID?.(appid); } catch {}
+      try { raw = steamAppStore()?.GetAppOverviewByAppID?.(appid); } catch {}
       out.set(appid, buildMetaFromOverview(appid, ov, raw));
     } else {
       missing.push(appid);
@@ -4440,7 +4446,7 @@ export function getAppPublisherCached(appid: number): string {
 }
 
 export async function preloadPublisherData(appids: number[]): Promise<void> {
-  const sc = (globalThis as any).SteamClient ?? getSteamWindows().find((w: any) => w?.SteamClient)?.SteamClient;
+  const sc = steamClient() ?? getSteamWindows().find((w: any) => w?.SteamClient)?.SteamClient;
   if (!sc?.Apps?.RegisterForAppDetails) return;
 
   const uncached = appids.filter((id) => !publisherCache.has(id));
@@ -4495,7 +4501,7 @@ export function getAppDeveloperCached(appid: number): string {
 }
 
 export async function preloadDeveloperData(appids: number[]): Promise<void> {
-  const sc = (globalThis as any).SteamClient ?? getSteamWindows().find((w: any) => w?.SteamClient)?.SteamClient;
+  const sc = steamClient() ?? getSteamWindows().find((w: any) => w?.SteamClient)?.SteamClient;
   if (!sc?.Apps?.RegisterForAppDetails) return;
 
   const uncached = appids.filter((id) => !developerCache.has(id));

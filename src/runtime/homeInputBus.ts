@@ -1,3 +1,4 @@
+import { devStamp } from "./devStamps";
 // Buttons received via Decky `Focusable.onButtonDown` on the home root
 /* are forwarded to subscribers here. Decky's Focusable IS the only path
    that reliably delivers controller events in this Steam build —
@@ -25,7 +26,7 @@ export function subscribeHomeButton(cb: Listener): () => void {
 export function dispatchHomeButtonDown(evt: { detail?: { button?: number } } | any): void {
   const button = evt?.detail?.button;
   if (typeof button !== "number") return;
-  try { (globalThis as any).__ds_home_btn_last = { button, t: Date.now() }; } catch {}
+  devStamp("__ds_home_btn_last", { button, t: Date.now() });
   for (const l of listeners) {
     try { l({ button }); } catch {}
   }
@@ -51,7 +52,7 @@ export function subscribeHomeKey(cb: (e: KeyEvent) => void): () => void {
 }
 
 export function dispatchHomeKey(ev: KeyEvent): void {
-  try { (globalThis as any).__ds_home_key_last = ev; } catch {}
+  devStamp("__ds_home_key_last", ev);
   for (const l of keyListeners) {
     try { l(ev); } catch {}
   }

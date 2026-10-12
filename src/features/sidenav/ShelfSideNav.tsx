@@ -1,3 +1,4 @@
+import { devStamp } from "../../runtime/devStamps";
 import { forwardRef, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Focusable } from "../../runtime/host/decky";
@@ -190,7 +191,7 @@ export function ShelfSideNav() {
       lockOverlay();
       void (async () => {
         await closeAmbientOverlays();
-        try { (globalThis as any).__ds_sidenav_open = { shelfId, appid, t: now }; } catch {}
+        devStamp("__ds_sidenav_open", { shelfId, appid, t: now });
         setAnchor({ shelfId, focusedAppid: Number.isFinite(appid) ? (appid as number) : null });
         trackFeature("sidenav");
       })();
@@ -199,10 +200,10 @@ export function ShelfSideNav() {
     const rawMatcherState = createMatcherState();
     const unsubBtn = subscribeHomeButton((e) => {
       if (!enabledRef.current) return;
-      try { (globalThis as any).__ds_sidenav_last_btn = { b: e.button, t: Date.now() }; } catch {}
+      devStamp("__ds_sidenav_last_btn", { b: e.button, t: Date.now() });
       const combo = parseCombo(resolveBindings(getCurrentSettings()?.buttonBindings as any, (getCurrentSettings() as any)?.buttonBindingsDisabled).navSideNav);
       if (matchEvent({ button: e.button }, combo, matcherState)) {
-        try { (globalThis as any).__ds_sidenav_fired = Date.now(); } catch {}
+        devStamp("__ds_sidenav_fired", Date.now());
         tryOpen();
       }
     });
@@ -392,7 +393,7 @@ function SideNavShell({ anchor, settings, onClose }: { anchor: Anchor; settings:
         if (cancelled) return;
         const el = rowRefs.current.get(targetId)
           ?? (firstShelfIdRef.current ? rowRefs.current.get(firstShelfIdRef.current) : null);
-        try { (globalThis as any).__ds_sidenav_focus = { delay, targetId, found: !!el }; } catch {}
+        devStamp("__ds_sidenav_focus", { delay, targetId, found: !!el });
         if (el) focusRowPreservingScroll(el, () => cancelled);
       }, delay);
     };
@@ -745,7 +746,7 @@ export function findNativeRecentsEl(doc: Document): HTMLElement | null {
     const top = el.getBoundingClientRect().top;
     if (top < bestTop) { best = el; bestTop = top; }
   }
-  try { (globalThis as any).__ds_native_probe = best ? { found: true, top: Math.round(best.getBoundingClientRect().top), candidates: candidates.length } : { found: false, candidates: candidates.length }; } catch {}
+  devStamp("__ds_native_probe", best ? { found: true, top: Math.round(best.getBoundingClientRect().top), candidates: candidates.length } : { found: false, candidates: candidates.length });
   return best;
 }
 

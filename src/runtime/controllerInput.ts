@@ -4,6 +4,7 @@
    This helper exposes a single subscribe-based stream so multiple
    features can listen without each one re-registering with Steam. */
 
+import { devStamp, devTrace } from "./devStamps";
 import { dispatchHomeKey } from "./homeInputBus";
 
 const DPAD_UP = 20;
@@ -54,19 +55,12 @@ let unregister: (() => void) | null = null;
 // Expose a debug bus for CDP probes. Tests can push a fake event and
 // observe what each subscriber does without needing a real controller.
 function publishToDebugBus(ev: ControllerEvent): void {
-  try {
-    const g = globalThis as any;
-    g.__ds_input_last = ev;
-    if (!Array.isArray(g.__ds_input_log)) g.__ds_input_log = [];
-    g.__ds_input_log.push(ev);
-    if (g.__ds_input_log.length > 50) g.__ds_input_log.shift();
-  } catch {}
+  devStamp("__ds_input_last", ev);
+  devTrace("__ds_input_log", ev, 50);
 }
 
 function exposeSubscribersForDebug(): void {
-  try {
-    (globalThis as any).__ds_input_bus = Array.from(listeners);
-  } catch {}
+  devStamp("__ds_input_bus", Array.from(listeners));
 }
 
 const inputApiOf = (owner: any) => owner?.SteamClient?.Input;
@@ -99,10 +93,7 @@ function getAllInputApis(): any[] {
     if (!fn || seen.has(fn)) return;
     seen.add(fn);
     candidates.push(v);
-    try {
-      if (!Array.isArray(g.__ds_input_sources)) g.__ds_input_sources = [];
-      g.__ds_input_sources.push(label);
-    } catch {}
+    devTrace("__ds_input_sources", label, 50);
   };
   for (const [label, get] of inputProbes(g)) {
     try { tryPush(get(), label); } catch {}
@@ -157,17 +148,15 @@ function installBPInjection(): boolean {
   const g = globalThis as any;
   const candidates = collectBrowserWindows(g);
   const view = candidates.find((c) => c?.SteamClient?.Input?.RegisterForControllerInputMessages) ?? null;
-  try {
-    g.__ds_bp_diag = {
-      cand: candidates.length,
-      hasView: !!view,
-      hasFunction: !!view?.Function,
-      hasDocument: !!view?.document,
-      typeofView: typeof view,
-    };
-  } catch {}
+  devStamp("__ds_bp_diag", {
+    cand: candidates.length,
+    hasView: !!view,
+    hasFunction: !!view?.Function,
+    hasDocument: !!view?.document,
+    typeofView: typeof view,
+  });
   if (!view) return false;
-  installBPKeydownLogger(view, g);
+  installBPKeydownLogger(view);
   if (view.__ds_bp_input_installed) {
     g.__ds_input_bp_view = view;
     return true;
@@ -179,7 +168,7 @@ function installBPInjection(): boolean {
    typing on the home (matches Big Picture's native "type to filter" UX). BP
    captures these even when no input has focus, but the events only fire in
    BP's JS context. */
-function installBPKeydownLogger(view: any, g: any): void {
+function installBPKeydownLogger(view: any): void {
   try {
     const kbBody = [
       "if (this.__ds_bp_keydown_installed) return;",
@@ -196,7 +185,7 @@ function installBPKeydownLogger(view: any, g: any): void {
     const kbFn = new view.Function(kbBody);
     kbFn.call(view);
   } catch (e) {
-    try { g.__ds_bp_keydown_err = String(e).slice(0, 200); } catch {}
+    devStamp("__ds_bp_keydown_err", String(e).slice(0, 200));
   }
 }
 
@@ -248,7 +237,7 @@ function installBPInputRegistration(view: any, g: any): boolean {
     g.__ds_input_bp_view = view;
     return true;
   } catch (e) {
-    try { g.__ds_input_bp_err = String(e).slice(0, 200); } catch {}
+    devStamp("__ds_input_bp_err", String(e).slice(0, 200));
     return false;
   }
 }
@@ -291,7 +280,7 @@ function ensureInstalled(): void {
   // for desktop testing and for OS variants where SharedJSContext does
   // see controller events.
   const apis = getAllInputApis();
-  try { (globalThis as any).__ds_input_api = apis.length; } catch {}
+  devStamp("__ds_input_api", apis.length);
   for (let i = 0; i < apis.length; i++) {
     const Input = apis[i];
     try {
@@ -300,7 +289,7 @@ function ensureInstalled(): void {
       });
       unregisterAll.push(() => { try { reg?.unregister?.(); } catch {} });
     } catch (e) {
-      try { (globalThis as any).__ds_input_err = String(e).slice(0, 200); } catch {}
+      devStamp("__ds_input_err", String(e).slice(0, 200));
     }
   }
   if (bpOk || unregisterAll.length > 0) {
@@ -313,7 +302,7 @@ function ensureInstalled(): void {
       pollCursor = 0;
     };
     installed = true;
-    try { (globalThis as any).__ds_input_installed = { sharedJs: unregisterAll.length, bp: bpOk }; } catch {}
+    devStamp("__ds_input_installed", { sharedJs: unregisterAll.length, bp: bpOk });
   }
 }
 

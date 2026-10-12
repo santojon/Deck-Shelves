@@ -68,5 +68,6 @@
   "report_issue_desc": "미리 채워진 보고서를 브라우저에서 엽니다. 검토 후 제출하기 전까지는 아무것도 전송되지 않습니다.",
   "report_issue_hardware": "하드웨어 정보 포함",
   "report_issue_hardware_desc": "모델, CPU, 메모리, GPU, 저장 공간 — 기기별 문제 진단에 도움이 됩니다.",
-  "sidecar_back": "뒤로"
+  "sidecar_back": "뒤로",
+  "coop_stand_in": "이 기기에서 Deck Shelves는 ShelvesHub 탭에서 실행됩니다."
 }

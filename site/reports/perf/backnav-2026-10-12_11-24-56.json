@@ -1,0 +1,93 @@
+{
+  "recordedAt": "2026-10-12T11:24:56",
+  "cycles": 5,
+  "fullMsAvg": 474,
+  "fullMsMax": 551,
+  "fullMeasured": 5,
+  "selectionKept": 0,
+  "selectionJudged": 0,
+  "maxRoots": 1,
+  "fallbackMounts": 0,
+  "recentsVisibleAtEnd": 0,
+  "leakDelta": {
+    "timers": 0,
+    "observers": 0,
+    "subs": 0
+  },
+  "heapMb": {
+    "start": 157,
+    "end": 146
+  },
+  "cyclesDetail": [
+    {
+      "i": 1,
+      "kind": "detail",
+      "preFocus": null,
+      "kept": null,
+      "maxRoots": 1,
+      "fallback": false,
+      "t_root": 393,
+      "t_reveal": 393,
+      "t_full": 393,
+      "t_recentsHidden": 393,
+      "t_focus": null,
+      "recentsVisibleAtEnd": false
+    },
+    {
+      "i": 2,
+      "kind": "library",
+      "preFocus": null,
+      "kept": null,
+      "maxRoots": 1,
+      "fallback": false,
+      "t_root": 433,
+      "t_reveal": 433,
+      "t_full": 433,
+      "t_recentsHidden": 433,
+      "t_focus": null,
+      "recentsVisibleAtEnd": false
+    },
+    {
+      "i": 3,
+      "kind": "detail",
+      "preFocus": null,
+      "kept": null,
+      "maxRoots": 1,
+      "fallback": false,
+      "t_root": 551,
+      "t_reveal": 551,
+      "t_full": 551,
+      "t_recentsHidden": 551,
+      "t_focus": null,
+      "recentsVisibleAtEnd": false
+    },
+    {
+      "i": 4,
+      "kind": "library",
+      "preFocus": null,
+      "kept": null,
+      "maxRoots": 1,
+      "fallback": false,
+      "t_root": 537,
+      "t_reveal": 537,
+      "t_full": 537,
+      "t_recentsHidden": 537,
+      "t_focus": null,
+      "recentsVisibleAtEnd": false
+    },
+    {
+      "i": 5,
+      "kind": "detail",
+      "preFocus": null,
+      "kept": null,
+      "maxRoots": 1,
+      "fallback": false,
+      "t_root": 454,
+      "t_reveal": 454,
+      "t_full": 454,
+      "t_recentsHidden": 454,
+      "t_focus": null,
+      "recentsVisibleAtEnd": false
+    }
+  ]
+}

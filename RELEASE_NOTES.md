@@ -7,6 +7,10 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+- **Under the hood, the home-screen rendering code and the plugin's startup were reorganized into smaller pieces, with no change in behavior** — verified on a real Steam Deck. Reloading the plugin now also cleans up its Settings page route.
+
+- **Release builds are a little leaner: diagnostics meant only for a debugger now stay in development builds.** Nothing visible changes.
+
 ## [3.3.4] - 2026-10-11
 
 - **On a standalone host that knows its own hardware, the plugin now trusts the host's device identity.** When the host reports what device it's running on (and which plugin version it loaded), device-aware shelves use that, falling back to the plugin's own detection otherwise — and the Diagnostics panel and bug-report text now show the host's device and that version too.
@@ -45,6 +49,7 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 - **No more second tour on a two-host install, and a one-button welcome banner.** With Decky Loader and the standalone host both delivering the plugin, a second copy of the first-run tour used to appear right after finishing the first; only the owning copy opens it now. The welcome banner offers just the Setup wizard (the default shelves stay available from the tour's closing choices), and its text was reworded to match.
 - **Under the hood: a housekeeping sweep.** Dead code and an unused dependency removed, the video scenario tooling unified, and 25 functions simplified into small helpers with no behaviour change; lint suppressions dropped from 46 to 19.
 - **Under the hood, round two.** Lint suppressions down to 10, the duplicated regular/smart dialogs and cards merged into shared pieces, the placeholder card's quick-launch hint now stays current, a legacy filter flag no longer trips settings validation at boot, and the compatibility checks pass again.
+- **The Living room setup pack turns on the whole living-room look** (hero art everywhere, full-page shelves, featured first game, logos), like the Machine pack, with its own shelves.
 - **Suggestions update themselves while you look at them**, and anything you have not seen before is marked "New".
 - **Under the hood, theme compatibility and plugin integrations were reorganized** so each supported theme and each third-party plugin is one self-contained piece. Nothing changes on screen; it makes supporting the next theme faster and safer.
 - **Shelves re-resolve only for the data that changed** — refresh signals are tagged (library, collections, friends, online, clock, session), fan out gradually, and slow down on battery.

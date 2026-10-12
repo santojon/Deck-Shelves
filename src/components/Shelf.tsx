@@ -1,5 +1,6 @@
 
-import { memo, useCallback, useEffect, useMemo, useState, useRef } from "react";
+import { memo, useCallback, useEffect, useMemo, useState, useRef, type ReactNode } from "react";
+import { withDefaults } from "./withDefaults";
 import { useTranslation } from "react-i18next";
 import type { Shelf } from "../types";
 import { usePlatform } from "../runtime/platformContext";
@@ -187,7 +188,71 @@ function renderUnavailableSourceNotice(title: string, message: string) {
   );
 }
 
-function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFirst = false, globalHighlightAll = false, globalHighlightRandom = false, globalHideStatusLine = false, globalHideNewBadge = false, globalHideDiscountBadge = false, globalHideCompatIcons = false, globalHideNonSteamBadge = false, globalHideShelfTitle = false, globalHideGameNames = false, globalHideInstallIndicator = false, globalHideSeeMore = false, globalHideRefreshCard = false, globalHeroEnabled = false, globalGameInfoAbove = false, globalFriendsPlayingOverlay = false, globalFriendsPlayingOverlayRecent = false, globalDedupeByName = false, globalEnableLogo = false, globalEnableIcon = false, globalEnableDescription = false, globalDescriptionBelowLogo = false, globalLogoBelowShelf = false, globalLogoPosition = 'left', globalDescriptionPosition = 'left', globalLogoSize = 100, globalLogoTopOffset = 20, globalFullPageShelf = false, globalIconVerticalAlign, globalShelfTitlePosition, globalGameNamePosition, globalPlaytimePosition, globalDescriptionHeight, heroForced = false, heroLabelMount = false, forceExpanded = false, forceLayoutAsRecents = false, forceCollapsed = false, autoCollapseWhenEmpty = false, eagerRender = true }: { shelf: Shelf; eagerRender?: boolean; globalMatchNativeSize?: boolean; globalHighlightFirst?: boolean; globalHighlightAll?: boolean; globalHighlightRandom?: boolean; globalHideStatusLine?: boolean; globalHideNewBadge?: boolean; globalHideDiscountBadge?: boolean; globalHideCompatIcons?: boolean; globalHideNonSteamBadge?: boolean; globalHideShelfTitle?: boolean; globalHideGameNames?: boolean; globalHideInstallIndicator?: boolean; globalHideSeeMore?: boolean; globalHideRefreshCard?: boolean; globalHeroEnabled?: boolean; globalGameInfoAbove?: boolean; globalFriendsPlayingOverlay?: boolean; globalFriendsPlayingOverlayRecent?: boolean; globalDedupeByName?: boolean; globalEnableLogo?: boolean; globalEnableIcon?: boolean; globalEnableDescription?: boolean; globalDescriptionBelowLogo?: boolean; globalLogoBelowShelf?: boolean; globalLogoPosition?: 'left' | 'center' | 'right'; globalDescriptionPosition?: 'left' | 'center' | 'right'; globalLogoSize?: number; globalLogoTopOffset?: number; globalFullPageShelf?: boolean; globalIconVerticalAlign?: 'top' | 'center' | 'bottom' | null; globalShelfTitlePosition?: 'left' | 'center' | 'right' | null; globalGameNamePosition?: 'left' | 'center' | 'right' | null; globalPlaytimePosition?: 'left' | 'center' | 'right' | null; globalDescriptionHeight?: number | null; heroForced?: boolean; heroLabelMount?: boolean; forceExpanded?: boolean; forceLayoutAsRecents?: boolean; forceCollapsed?: boolean; autoCollapseWhenEmpty?: boolean }) {
+type HPos = 'left' | 'center' | 'right';
+
+type ShelfViewProps = {
+  shelf: Shelf; eagerRender?: boolean; globalMatchNativeSize?: boolean; globalHighlightFirst?: boolean; globalHighlightAll?: boolean;
+  globalHighlightRandom?: boolean; globalHideStatusLine?: boolean; globalHideNewBadge?: boolean; globalHideDiscountBadge?: boolean;
+  globalHideCompatIcons?: boolean; globalHideNonSteamBadge?: boolean; globalHideShelfTitle?: boolean; globalHideGameNames?: boolean;
+  globalHideInstallIndicator?: boolean; globalHideSeeMore?: boolean; globalHideRefreshCard?: boolean; globalHeroEnabled?: boolean;
+  globalGameInfoAbove?: boolean; globalFriendsPlayingOverlay?: boolean; globalFriendsPlayingOverlayRecent?: boolean; globalDedupeByName?: boolean;
+  globalEnableLogo?: boolean; globalEnableIcon?: boolean; globalEnableDescription?: boolean; globalDescriptionBelowLogo?: boolean;
+  globalLogoBelowShelf?: boolean; globalLogoPosition?: HPos; globalDescriptionPosition?: HPos; globalLogoSize?: number; globalLogoTopOffset?: number;
+  globalFullPageShelf?: boolean; globalIconVerticalAlign?: 'top' | 'center' | 'bottom' | null; globalShelfTitlePosition?: HPos | null;
+  globalGameNamePosition?: HPos | null; globalPlaytimePosition?: HPos | null; globalDescriptionHeight?: number | null;
+  heroForced?: boolean; heroLabelMount?: boolean; forceExpanded?: boolean; forceLayoutAsRecents?: boolean; forceCollapsed?: boolean;
+  autoCollapseWhenEmpty?: boolean;
+};
+
+const SHELF_VIEW_DEFAULTS = {
+  globalMatchNativeSize: false, globalHighlightFirst: false, globalHighlightAll: false, globalHighlightRandom: false,
+  globalHideStatusLine: false, globalHideNewBadge: false, globalHideDiscountBadge: false, globalHideCompatIcons: false,
+  globalHideNonSteamBadge: false, globalHideShelfTitle: false, globalHideGameNames: false, globalHideInstallIndicator: false,
+  globalHideSeeMore: false, globalHideRefreshCard: false, globalHeroEnabled: false, globalGameInfoAbove: false,
+  globalFriendsPlayingOverlay: false, globalFriendsPlayingOverlayRecent: false, globalDedupeByName: false,
+  globalEnableLogo: false, globalEnableIcon: false, globalEnableDescription: false, globalDescriptionBelowLogo: false,
+  globalLogoBelowShelf: false, globalLogoPosition: 'left', globalDescriptionPosition: 'left', globalLogoSize: 100, globalLogoTopOffset: 20,
+  globalFullPageShelf: false, heroForced: false, heroLabelMount: false, forceExpanded: false, forceLayoutAsRecents: false,
+  forceCollapsed: false, autoCollapseWhenEmpty: false, eagerRender: true,
+} as const satisfies Partial<ShelfViewProps>;
+
+type PlaceholderArgs = {
+  shelf: Shelf; appIds: number[] | null; rowItemCount: number; itemCount: number; metaVersion: number; firstLoad: boolean;
+  near: boolean; onNear: () => void; hideTitle: boolean; t: ReturnType<typeof useTranslation>["t"];
+};
+
+/* What renders instead of the row, if anything — `undefined` means "render the
+   row". Skeletons keep the shelf's slot (title + card-sized boxes) from the
+   first commit, so the Home's structure is visible in its final order at once. */
+/* The meta-fetch spinner is gated to first load only: without that gate, every
+   refresh that updates `appIds` faster than the meta lookup briefly empties
+   `rowItems` (new ids haven't landed in the `items` map yet) and the shelf
+   flashes a 30 px band between shelves whenever the refresh emitter fires.
+   After the first successful render, transitions keep the prior content. */
+function shelfPlaceholder(a: PlaceholderArgs): ReactNode | undefined {
+  const { shelf, appIds, hideTitle } = a;
+  if (appIds === null) return <ShelfSkeleton shelf={shelf} count={Math.min(shelf.limit ?? 8, 8)} hideTitle={hideTitle} />;
+  if (!appIds.length) return null;
+  if (shouldShowMetaSpinner(a.rowItemCount, a.itemCount, a.metaVersion, a.firstLoad)) {
+    return <ShelfSkeleton shelf={shelf} count={Math.min(appIds.length, 10)} hideTitle={hideTitle} />;
+  }
+  if (!a.rowItemCount) {
+    return unavailableExternalSourceId(shelf) ? renderUnavailableSourceNotice(shelf.title, a.t('shelf_source_unavailable')) : null;
+  }
+  if (!a.near) return <ShelfSkeleton shelf={shelf} count={Math.min(a.rowItemCount, 10)} hideTitle={hideTitle} onNear={a.onNear} heightHint={recallShelfHeight(shelf.id)} />;
+  return undefined;
+}
+
+function ShelfViewImpl(props: ShelfViewProps) {
+  const {
+    shelf, globalMatchNativeSize, globalHighlightFirst, globalHighlightAll, globalHighlightRandom, globalHideStatusLine, globalHideNewBadge,
+    globalHideDiscountBadge, globalHideCompatIcons, globalHideNonSteamBadge, globalHideShelfTitle, globalHideGameNames, globalHideInstallIndicator,
+    globalHideSeeMore, globalHideRefreshCard, globalHeroEnabled, globalGameInfoAbove, globalFriendsPlayingOverlay, globalFriendsPlayingOverlayRecent,
+    globalDedupeByName, globalEnableLogo, globalEnableIcon, globalEnableDescription, globalDescriptionBelowLogo, globalLogoBelowShelf,
+    globalLogoPosition, globalDescriptionPosition, globalLogoSize, globalLogoTopOffset, globalFullPageShelf, globalIconVerticalAlign,
+    globalShelfTitlePosition, globalGameNamePosition, globalPlaytimePosition, globalDescriptionHeight, heroForced, heroLabelMount,
+    forceExpanded, forceLayoutAsRecents, forceCollapsed, autoCollapseWhenEmpty, eagerRender,
+  } = withDefaults(props, SHELF_VIEW_DEFAULTS);
   const { t } = useTranslation();
   const platform = usePlatform();
   const cacheKey = computeShelfCacheKey(shelf);
@@ -606,29 +671,12 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
   }, [manualOrder, sourceIds]);
 
   if (shouldSkipShelf(shelf)) return null;
-  // Skeletons keep the shelf's slot (title + card-sized boxes) from the first
-  // commit, so the Home's structure is visible in its final order at once.
   const hideSkeletonTitle = globalHideShelfTitle || (shelf as any).hideShelfTitle === true;
-  if (appIds === null) return <ShelfSkeleton shelf={shelf} count={Math.min(shelf.limit ?? 8, 8)} hideTitle={hideSkeletonTitle} />;
-  if (!appIds.length) return null;
-
-  // Spinner during the meta-fetch transition is gated to first load only.
-  // Without this gate, every refresh that updates `appIds` faster than the
-  // meta lookup briefly empties `rowItems` (new ids haven't landed in the
-  /* `items` map yet) and the shelf flashes a 30 px spinner band — visible
-     as a loading-space gap between shelves whenever the global refresh
-     emitter fires (game launch, install/uninstall, 30 s poll). After the
-     first successful render, transitions just keep the prior content
-     visible until the new meta lands. */
-  if (shouldShowMetaSpinner(rowItems.length, items.size, metaVersion, firstLoad.current)) {
-    return <ShelfSkeleton shelf={shelf} count={Math.min(appIds.length, 10)} hideTitle={hideSkeletonTitle} />;
-  }
-  if (!rowItems.length) {
-    return unavailableExternalSourceId(shelf)
-      ? renderUnavailableSourceNotice(shelf.title, t('shelf_source_unavailable'))
-      : null;
-  }
-  if (!near) return <ShelfSkeleton shelf={shelf} count={Math.min(rowItems.length, 10)} hideTitle={hideSkeletonTitle} onNear={onNear} heightHint={recallShelfHeight(shelf.id)} />;
+  const placeholder = shelfPlaceholder({
+    shelf, appIds, rowItemCount: rowItems.length, itemCount: items.size, metaVersion, firstLoad: firstLoad.current,
+    near, onNear, hideTitle: hideSkeletonTitle, t,
+  });
+  if (placeholder !== undefined) return placeholder;
 
   // Random-featured rule: stable per shelf id, ~25 % of cards. Implementation
   // pulled out to `computeRandomHighlightSet` to keep render complexity under

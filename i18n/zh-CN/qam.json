@@ -68,5 +68,6 @@
   "report_issue_desc": "在浏览器中打开预填写的报告。在你查看并提交之前，不会发送任何内容。",
   "report_issue_hardware": "包含硬件信息",
   "report_issue_hardware_desc": "型号、CPU、内存、GPU 和存储 — 有助于诊断设备特有的问题。",
-  "sidecar_back": "返回"
+  "sidecar_back": "返回",
+  "coop_stand_in": "在此设备上，Deck Shelves 通过 ShelvesHub 标签页运行。"
 }

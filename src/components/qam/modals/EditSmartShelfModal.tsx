@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  ConfirmModal,
   DialogButton,
   Dropdown,
   DropdownItem,
@@ -17,7 +16,7 @@ import { SHELF_LIMIT_MAX } from '../../../domain/shelfLimits'
 import type { SettingsController } from '../../../features/settings/controller'
 import type { SmartShelf, SmartShelfMode } from '../../../types'
 import { FilterPanel } from '../../FilterPanel'
-import { FieldContainer, ModalShell , DSSliderField} from '../../ui'
+import { FieldContainer, DSSliderField} from '../../ui'
 import { resolveShelfAppIds, invalidateRandomSortCache } from '../../../steam'
 import { isNonSteamBadgesAvailable } from '../../../integrations'
 import { usePlatform } from '../../../runtime/platformContext'
@@ -30,7 +29,7 @@ import type { PlatformAppMeta } from '../../../runtime/platform'
 import { PreviewPanel } from './editShelf/PreviewPanel'
 // SmartShelfModal also supports a modal-driven `create` mode that persists
 // only on Save (used by SmartShelfTemplateModal's custom button).
-import { ModalHeader } from './editShelf/ModalHeader'
+import { EditShelfFrame } from './editShelf/EditShelfFrame'
 import { FunnelIcon, EyeIcon, SparkleIcon, OnlineIcon } from '../../icons'
 import { TabLabel } from './editShelf/TabLabel'
 import { SortField } from './editShelf/SortField'
@@ -311,24 +310,16 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
   })()
 
   return (
-    <ModalShell>
-      <ConfirmModal
-        bAllowFullSize
-        onCancel={closeModal}
-        onEscKeypress={closeModal}
-        strTitle={`${t('editing')}: ${shelf.title}`}
-        onOK={handleSave}
-        strOKButtonText={t('save')}
-      >
-        <Focusable onMenuButton={handleSave} onMenuActionDescription={t('save')} style={{ paddingBottom: 8 }}>
-          <ModalHeader
-            t={t}
-            title={state.title}
-            onTitleChange={(next) => setState((prev) => ({ ...prev, title: next }))}
-            previewCount={previewCount}
-          />
-          <div style={{ display: 'flex', flexDirection: 'column', height: 'min(calc(100vh - 130px), 540px)', minHeight: 400 }}>
-          <div style={{ flex: '1 1 0', minHeight: 0, position: 'relative', overflow: 'hidden' }}>
+    <EditShelfFrame
+      t={t}
+      heading={`${t('editing')}: ${shelf.title}`}
+      title={state.title}
+      onTitleChange={(next) => setState((prev) => ({ ...prev, title: next }))}
+      previewCount={previewCount}
+      onSave={handleSave}
+      onClose={closeModal}
+      tabsOverflow='hidden'
+      tabs={(
             <Tabs
               activeTab={activeTab}
               onShowTab={(id: string) => setActiveTab(id as Tab)}
@@ -797,7 +788,8 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
                 },
               ]}
             />
-          </div>
+      )}
+      preview={(
           <PreviewPanel
             t={t}
             title={state.title}
@@ -824,9 +816,7 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
             removableSet={removableTail(state.manualOrder, resolvedIds)}
             onRemoveCard={(id) => setState((prev) => ({ ...prev, manualOrder: prev.manualOrder.filter((x) => x !== id) }))}
           />
-          </div>
-        </Focusable>
-      </ConfirmModal>
-    </ModalShell>
+      )}
+    />
   )
 }

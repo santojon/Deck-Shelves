@@ -53,12 +53,18 @@ describe("setup packs — preview, apply, revert", () => {
     const base: Settings = { ...defaultSettings(), enabled: true };
     const { next, record } = applySetupPack(base, setupPackById("living_room")!, titles);
     expect(next.shelfHeroBackground).toBe(true);
+    expect(next.globalHeroEnabled).toBe(true);
+    expect(next.globalFullPageShelf).toBe(true);
+    expect(next.globalEnableLogo).toBe(true);
     const withUserShelf: Settings = { ...next, shelves: [...next.shelves, { ...next.shelves[0], id: "user-1", title: "Mine" }] };
     const reverted = revertSetupApply(withUserShelf, record);
     expect(reverted.shelves.map((s) => s.id)).toEqual(["user-1"]);
     expect(reverted.smartShelves ?? []).toEqual([]);
     expect(reverted.shelfHeroBackground).toBe(false);
     expect(reverted.globalHighlightFirst).toBe(false);
+    // Optional keys come back as they were — unset — not as an explicit false.
+    expect(reverted.globalHeroEnabled).toBeFalsy();
+    expect(reverted.globalFullPageShelf).toBeFalsy();
     expect(reverted.smartShelvesEnabled).toBe(false);
     expect((reverted as any).lastSetupApply).toBeNull();
   });

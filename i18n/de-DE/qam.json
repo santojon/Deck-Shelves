@@ -68,5 +68,6 @@
   "report_issue_desc": "Öffnet einen vorausgefüllten Bericht in deinem Browser. Es wird nichts gesendet, bis du ihn prüfst und absendest.",
   "report_issue_hardware": "Hardware-Informationen einschließen",
   "report_issue_hardware_desc": "Modell, CPU, Arbeitsspeicher, GPU und Speicher – hilft bei gerätespezifischen Problemen.",
-  "sidecar_back": "Zurück"
+  "sidecar_back": "Zurück",
+  "coop_stand_in": "Deck Shelves läuft auf diesem Gerät über den ShelvesHub-Tab."
 }

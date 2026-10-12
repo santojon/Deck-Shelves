@@ -1,3 +1,4 @@
+import { devStamp } from "../../runtime/devStamps";
 /* Tiny in-memory index of resolved shelf items so Quick Search can hit
    EVERY item the user has on screen — including cards waiting to render,
    virtualised cards, or items below the fold whose DOM nodes haven't
@@ -25,7 +26,7 @@ export function publishShelf(shelfId: string, title: string, items: RegisteredIt
     order: prev?.order ?? ++orderCounter,
     updatedAt: Date.now(),
   });
-  try { (globalThis as any).__ds_shelf_registry_size = registry.size; } catch {}
+  devStamp("__ds_shelf_registry_size", registry.size);
 }
 
 export function unpublishShelf(shelfId: string): void {

@@ -1,3 +1,4 @@
+import { devStampKey, devCountKey } from "../../runtime/devStamps";
 import type { RefObject } from "react";
 import type { Shelf } from "../../types";
 import type { PlatformAppMeta } from "../../runtime/platform";
@@ -206,32 +207,20 @@ export function startManualRefreshIndicator(
 // Diagnostic: lets CDP inspection confirm a shelf isn't stuck re-resolving.
 export function traceResolveStart(shelfId: string, gen: number, currentGen: number, cancelled: boolean): number {
   const at = Date.now();
-  try {
-    const g = globalThis as any;
-    g.__ds_resolve_trace = g.__ds_resolve_trace || {};
-    g.__ds_resolve_trace[shelfId] = { state: "started", at, gen, currentGen, cancelled };
-  } catch {}
+  devStampKey("__ds_resolve_trace", shelfId, { state: "started", at, gen, currentGen, cancelled });
   return at;
 }
 
 export function traceResolveThen(shelfId: string, startedAt: number, gen: number, currentGen: number, cancelled: boolean, idCount: number | undefined): void {
-  try {
-    (globalThis as any).__ds_resolve_trace[shelfId] = { state: "then", at: Date.now(), tookMs: Date.now() - startedAt, gen, currentGen, cancelled, idCount };
-  } catch {}
+  devStampKey("__ds_resolve_trace", shelfId, { state: "then", at: Date.now(), tookMs: Date.now() - startedAt, gen, currentGen, cancelled, idCount });
 }
 
 export function traceResolveCatch(shelfId: string, startedAt: number, gen: number, currentGen: number, cancelled: boolean, err: unknown): void {
-  try {
-    (globalThis as any).__ds_resolve_trace[shelfId] = { state: "catch", at: Date.now(), tookMs: Date.now() - startedAt, gen, currentGen, cancelled, err: String(err).slice(0, 200) };
-  } catch {}
+  devStampKey("__ds_resolve_trace", shelfId, { state: "catch", at: Date.now(), tookMs: Date.now() - startedAt, gen, currentGen, cancelled, err: String(err).slice(0, 200) });
 }
 
 export function bumpResolveGenCounter(shelfId: string): void {
-  try {
-    const g = globalThis as any;
-    if (!g.__ds_resolve_gens) g.__ds_resolve_gens = {};
-    g.__ds_resolve_gens[shelfId] = (g.__ds_resolve_gens[shelfId] ?? 0) + 1;
-  } catch {}
+  devCountKey("__ds_resolve_gens", shelfId);
 }
 
 // Composite per-shelf exclude-owned toggles live on the online child —

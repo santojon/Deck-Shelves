@@ -1,3 +1,4 @@
+import { devStamp } from "./devStamps";
 /* Deck Shelves' own idle screensaver: replaces Steam's native one (idle
    timer disabled/restored via steamSettingsWriter, never left altered)
    with a slideshow of everything the home screen shows (native Recents +
@@ -271,14 +272,12 @@ export async function buildScreensaverPool(settings: Settings | null): Promise<S
     ? await resolveOnlineScreenshotPool(apps.map((a) => (a as { appid: number }).appid))
     : [];
   const pool = [...apps, ...screenshots, ...onlineScreenshots];
-  try {
-    (globalThis as any).__ds_screensaver_last_pool = {
-      t: Date.now(), includeScreenshots, includeOnlineScreenshots,
-      shelfCount: shelfIds.length, recentCount: recentIds.length,
-      appCount: apps.length, screenshotCount: screenshots.length,
-      onlineScreenshotCount: onlineScreenshots.length,
-    };
-  } catch { /* diagnostics must never throw */ }
+  devStamp("__ds_screensaver_last_pool", {
+    t: Date.now(), includeScreenshots, includeOnlineScreenshots,
+    shelfCount: shelfIds.length, recentCount: recentIds.length,
+    appCount: apps.length, screenshotCount: screenshots.length,
+    onlineScreenshotCount: onlineScreenshots.length,
+  });
   return pool;
 }
 

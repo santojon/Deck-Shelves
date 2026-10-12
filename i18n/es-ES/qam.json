@@ -68,5 +68,6 @@
   "report_issue_desc": "Abre un informe rellenado previamente en tu navegador. No se envía nada hasta que lo revises y lo envíes.",
   "report_issue_hardware": "Incluir información del hardware",
   "report_issue_hardware_desc": "Modelo, CPU, memoria, GPU y almacenamiento: ayuda a diagnosticar problemas específicos del dispositivo.",
-  "sidecar_back": "Atrás"
+  "sidecar_back": "Atrás",
+  "coop_stand_in": "Deck Shelves se ejecuta desde la pestaña ShelvesHub en este dispositivo."
 }

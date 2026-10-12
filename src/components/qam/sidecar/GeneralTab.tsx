@@ -4,6 +4,7 @@ import { hostProvidesNativeTab } from '../../../runtime/host/resolve'
 import { restartSteam } from '../../../runtime/ownQamTab'
 import { takeNavTreeFocus } from '../../../runtime/navFocus'
 import type { SettingsController } from '../../../features/settings/controller'
+import type { Settings } from '../../../types'
 import { CollapsibleSection, DSSliderField, PositionField, useLightMode, type HorizontalPosition } from '../../ui'
 import { SlidersIcon, SparkleIcon, WandIcon, PlusCircleIcon, SearchIcon, OnlineIcon, EyeIcon, EyeOffIcon, BookmarkIcon, CloudIcon } from '../../icons'
 import { openManagedModal } from '../common/openManagedModal'
@@ -54,7 +55,7 @@ function SectionEyeButton({
 
 interface GCtx {
   t: (k: any, opts?: any) => string;
-  settings: any;
+  settings: Settings;
   actions: any;
   row: (tk: string, node: ReactNode) => ReactNode;
   isSecHid: (id: string) => boolean;
@@ -110,7 +111,7 @@ function onlineSubsection(c: GCtx): ReactNode {
       {row('onlineWishlistEnabled', (
         <ToggleField label={t('online_wishlist')} checked={settings.onlineWishlistEnabled !== false} onChange={(v: boolean) => void actions.setOnlineWishlistEnabled(v)} />
       ))}
-      {(settings as any).advancedModeEnabled === true && row('onlineMetadataEnabled', (
+      {settings.advancedModeEnabled === true && row('onlineMetadataEnabled', (
         <ToggleField label={t('online_metadata')} checked={settings.onlineMetadataEnabled === true} onChange={(v: boolean) => void actions.setOnlineMetadataEnabled(v)} />
       ))}
       {row('onlinePriceSortEnabled', (
@@ -144,7 +145,7 @@ function additionalSection(c: GCtx): ReactNode {
       id='additional'
       icon={<PlusCircleIcon />}
       title={t('section_additional_features')}
-      count={[settings.updateNotifyEnabled !== false, (settings as any).lightModeEnabled === true, (settings as any).advancedModeEnabled === true, (settings as any).offlineModeEnabled === true].filter(Boolean).length}
+      count={[settings.updateNotifyEnabled !== false, settings.lightModeEnabled === true, settings.advancedModeEnabled === true, settings.offlineModeEnabled === true].filter(Boolean).length}
       headerExtra={eye(c, 'additional')}
     >
       {row('updateNotifyEnabled', (
@@ -153,18 +154,18 @@ function additionalSection(c: GCtx): ReactNode {
       {settings.updateNotifyEnabled !== false && (
         <div style={{ paddingLeft: 16 }}>
           {row('betaChannelEnabled', (
-            <ToggleField label={t('beta_channel_label' as any)} checked={(settings as any).betaChannelEnabled === true} onChange={(v: boolean) => (actions as any).setBetaChannelEnabled(v)} />
+            <ToggleField label={t('beta_channel_label' as any)} checked={settings.betaChannelEnabled === true} onChange={(v: boolean) => (actions as any).setBetaChannelEnabled(v)} />
           ))}
         </div>
       )}
       {row('lightModeEnabled', (
-        <ToggleField label={t('light_mode_enabled' as any)} checked={(settings as any).lightModeEnabled === true} onChange={(v: boolean) => { if (v && (settings as any).advancedModeEnabled === true) { confirmAction({ title: t('mode_switch_title' as any), body: t('mode_switch_light_body' as any), okText: t('confirm_continue' as any), cancelText: t('cancel'), onConfirm: () => (actions as any).setLightModeEnabled?.(true) }) } else { (actions as any).setLightModeEnabled?.(v) } }} />
+        <ToggleField label={t('light_mode_enabled' as any)} checked={settings.lightModeEnabled === true} onChange={(v: boolean) => { if (v && settings.advancedModeEnabled === true) { confirmAction({ title: t('mode_switch_title' as any), body: t('mode_switch_light_body' as any), okText: t('confirm_continue' as any), cancelText: t('cancel'), onConfirm: () => (actions as any).setLightModeEnabled?.(true) }) } else { (actions as any).setLightModeEnabled?.(v) } }} />
       ))}
       {row('advancedModeEnabled', (
-        <ToggleField label={t('advanced_mode_enabled' as any)} checked={(settings as any).advancedModeEnabled === true} onChange={(v: boolean) => { if (v && (settings as any).lightModeEnabled === true) { confirmAction({ title: t('mode_switch_title' as any), body: t('mode_switch_advanced_body' as any), okText: t('confirm_continue' as any), cancelText: t('cancel'), onConfirm: () => (actions as any).setAdvancedModeEnabled?.(true) }) } else { (actions as any).setAdvancedModeEnabled?.(v) } }} />
+        <ToggleField label={t('advanced_mode_enabled' as any)} checked={settings.advancedModeEnabled === true} onChange={(v: boolean) => { if (v && settings.lightModeEnabled === true) { confirmAction({ title: t('mode_switch_title' as any), body: t('mode_switch_advanced_body' as any), okText: t('confirm_continue' as any), cancelText: t('cancel'), onConfirm: () => (actions as any).setAdvancedModeEnabled?.(true) }) } else { (actions as any).setAdvancedModeEnabled?.(v) } }} />
       ))}
       {row('offlineModeEnabled', (
-        <ToggleField label={t('offline_mode_enabled' as any)} checked={(settings as any).offlineModeEnabled === true} onChange={(v: boolean) => (actions as any).setOfflineModeEnabled?.(v)} />
+        <ToggleField label={t('offline_mode_enabled' as any)} checked={settings.offlineModeEnabled === true} onChange={(v: boolean) => (actions as any).setOfflineModeEnabled?.(v)} />
       ))}
     </CollapsibleSection>
   )
@@ -178,24 +179,24 @@ function navigationSection(c: GCtx): ReactNode {
       id='navigation'
       icon={<SearchIcon />}
       title={t('section_navigation' as any)}
-      count={[(settings as any).contextSearchEnabled === true, (settings as any).sideNavEnabled === true].filter(Boolean).length}
+      count={[settings.contextSearchEnabled === true, settings.sideNavEnabled === true].filter(Boolean).length}
       headerExtra={eye(c, 'navigation')}
     >
       {row('contextSearchEnabled', (
-        <ToggleField label={t('context_search_toggle' as any)} checked={(settings as any).contextSearchEnabled === true} onChange={(v: boolean) => (actions as any).setContextSearchEnabled(v)} />
+        <ToggleField label={t('context_search_toggle' as any)} checked={settings.contextSearchEnabled === true} onChange={(v: boolean) => (actions as any).setContextSearchEnabled(v)} />
       ))}
-      {(settings as any).contextSearchEnabled === true && (
+      {settings.contextSearchEnabled === true && (
         <div style={{ paddingLeft: 14, fontSize: 12 }}>
           {row('contextSearchKeyboardEnabled', (
-            <ToggleField label={t('context_search_keyboard' as any)} checked={(settings as any).contextSearchKeyboardEnabled !== false} onChange={(v: boolean) => (actions as any).setContextSearchKeyboardEnabled(v)} />
+            <ToggleField label={t('context_search_keyboard' as any)} checked={settings.contextSearchKeyboardEnabled !== false} onChange={(v: boolean) => (actions as any).setContextSearchKeyboardEnabled(v)} />
           ))}
           {row('contextSearchOnEnter', (
-            <ToggleField label={t('context_search_on_enter' as any)} checked={(settings as any).contextSearchOnEnter === true} onChange={(v: boolean) => (actions as any).setContextSearchOnEnter(v)} />
+            <ToggleField label={t('context_search_on_enter' as any)} checked={settings.contextSearchOnEnter === true} onChange={(v: boolean) => (actions as any).setContextSearchOnEnter(v)} />
           ))}
         </div>
       )}
       {row('sideNavEnabled', (
-        <ToggleField label={t('side_nav_toggle' as any)} checked={(settings as any).sideNavEnabled === true} onChange={(v: boolean) => (actions as any).setSideNavEnabled(v)} />
+        <ToggleField label={t('side_nav_toggle' as any)} checked={settings.sideNavEnabled === true} onChange={(v: boolean) => (actions as any).setSideNavEnabled(v)} />
       ))}
     </CollapsibleSection>
   )
@@ -208,7 +209,7 @@ function onlineSection(c: GCtx): ReactNode {
       id='online'
       icon={<OnlineIcon />}
       title={t('section_online' as any)}
-      count={[settings.onlineFeaturesEnabled === true, hasCloudSync && (settings as any).cloudSyncEnabled === true].filter(Boolean).length}
+      count={[settings.onlineFeaturesEnabled === true, hasCloudSync && settings.cloudSyncEnabled === true].filter(Boolean).length}
       headerExtra={eye(c, 'online')}
     >
       {row('onlineFeaturesEnabled', (
@@ -239,7 +240,7 @@ function cloudSyncStatusText(t: any, lastSyncedAt: unknown): string {
 
 function cloudSyncGroup(c: GCtx): ReactNode {
   const { t, settings, actions, row } = c
-  const on = (settings as any).cloudSyncEnabled === true
+  const on = settings.cloudSyncEnabled === true
   return (<>
     {row('cloudSyncEnabled', (
       <ToggleField label={t('cloud_sync_enabled' as any)} checked={on} onChange={(v: boolean) => void (actions as any).setCloudSyncEnabled(v)} />
@@ -249,7 +250,7 @@ function cloudSyncGroup(c: GCtx): ReactNode {
     </div>
     {on && (
       <div style={{ paddingLeft: 14, fontSize: 11, opacity: 0.55 }}>
-        {cloudSyncStatusText(t, (settings as any).cloudSyncLastSyncedAt)}
+        {cloudSyncStatusText(t, settings.cloudSyncLastSyncedAt)}
       </div>
     )}
   </>)
@@ -262,7 +263,7 @@ function experimentalSection(c: GCtx): ReactNode {
       id='experimental'
       icon={<WandIcon />}
       title={t('section_experimental' as any)}
-      count={[settings.forceCssLoaderThemes === true, (settings as any).ownQamTabEnabled === true, (settings as any).showcaseModeEnabled === true, hasScreensaverSupport && (settings as any).screensaverShelvesEnabled === true].filter(Boolean).length}
+      count={[settings.forceCssLoaderThemes === true, settings.ownQamTabEnabled === true, settings.showcaseModeEnabled === true, hasScreensaverSupport && settings.screensaverShelvesEnabled === true].filter(Boolean).length}
       headerExtra={eye(c, 'experimental')}
     >
       {hasCssLoader && !lightMode && row('forceCssLoaderThemes', (
@@ -277,8 +278,8 @@ function experimentalSection(c: GCtx): ReactNode {
 
 function screensaverShelvesGroup(c: GCtx): ReactNode {
   const { t, settings, actions, row } = c
-  const on = (settings as any).screensaverShelvesEnabled === true
-  const logoOn = (settings as any).screensaverLogoEnabled !== false
+  const on = settings.screensaverShelvesEnabled === true
+  const logoOn = settings.screensaverLogoEnabled !== false
   return (<>
     {row('screensaverShelvesEnabled', (
       <ToggleField label={t('screensaver_shelves_enabled' as any)} checked={on} onChange={(v: boolean) => void (actions as any).setScreensaverShelvesEnabled(v)} />
@@ -286,25 +287,25 @@ function screensaverShelvesGroup(c: GCtx): ReactNode {
     {on && (
       <div style={{ paddingLeft: 14, fontSize: 12 }}>
         {row('screensaverShelvesIncludeScreenshots', (
-          <ToggleField label={t('screensaver_shelves_include_screenshots' as any)} checked={(settings as any).screensaverShelvesIncludeScreenshots === true} onChange={(v: boolean) => void (actions as any).setScreensaverShelvesIncludeScreenshots(v)} />
+          <ToggleField label={t('screensaver_shelves_include_screenshots' as any)} checked={settings.screensaverShelvesIncludeScreenshots === true} onChange={(v: boolean) => void (actions as any).setScreensaverShelvesIncludeScreenshots(v)} />
         ))}
         {row('screensaverOnlineScreenshotsEnabled', (
-          <ToggleField label={t('screensaver_online_screenshots' as any)} checked={(settings as any).screensaverOnlineScreenshotsEnabled === true} onChange={(v: boolean) => void (actions as any).setScreensaverOnlineScreenshotsEnabled(v)} />
+          <ToggleField label={t('screensaver_online_screenshots' as any)} checked={settings.screensaverOnlineScreenshotsEnabled === true} onChange={(v: boolean) => void (actions as any).setScreensaverOnlineScreenshotsEnabled(v)} />
         ))}
         {row('screensaverStartAfterSeconds', (
-          <DSSliderField label={t('screensaver_start_after_label' as any)} value={(settings as any).screensaverStartAfterSeconds ?? 60} min={15} max={600} step={15} unit='s' onChange={(v: number) => void (actions as any).setScreensaverStartAfterSeconds(v)} />
+          <DSSliderField label={t('screensaver_start_after_label' as any)} value={settings.screensaverStartAfterSeconds ?? 60} min={15} max={600} step={15} unit='s' onChange={(v: number) => void (actions as any).setScreensaverStartAfterSeconds(v)} />
         ))}
         {row('screensaverDwellSeconds', (
-          <DSSliderField label={t('screensaver_dwell_label' as any)} value={(settings as any).screensaverDwellSeconds ?? 8} min={3} max={120} step={1} unit='s' onChange={(v: number) => void (actions as any).setScreensaverDwellSeconds(v)} />
+          <DSSliderField label={t('screensaver_dwell_label' as any)} value={settings.screensaverDwellSeconds ?? 8} min={3} max={120} step={1} unit='s' onChange={(v: number) => void (actions as any).setScreensaverDwellSeconds(v)} />
         ))}
         {row('screensaverShelfBatchSize', (
-          <DSSliderField label={t('screensaver_shelf_batch_size_label' as any)} value={(settings as any).screensaverShelfBatchSize ?? 5} min={1} max={20} step={1} onChange={(v: number) => void (actions as any).setScreensaverShelfBatchSize(v)} />
+          <DSSliderField label={t('screensaver_shelf_batch_size_label' as any)} value={settings.screensaverShelfBatchSize ?? 5} min={1} max={20} step={1} onChange={(v: number) => void (actions as any).setScreensaverShelfBatchSize(v)} />
         ))}
         {row('screensaverLogoEnabled', (
           <ToggleField label={t('screensaver_logo_enabled' as any)} checked={logoOn} onChange={(v: boolean) => void (actions as any).setScreensaverLogoEnabled(v)} />
         ))}
         {logoOn && row('screensaverLogoSize', (
-          <DSSliderField label={t('screensaver_logo_size_label' as any)} value={(settings as any).screensaverLogoSize ?? 100} min={50} max={200} step={5} unit='%' onChange={(v: number) => void (actions as any).setScreensaverLogoSize(v)} />
+          <DSSliderField label={t('screensaver_logo_size_label' as any)} value={settings.screensaverLogoSize ?? 100} min={50} max={200} step={5} unit='%' onChange={(v: number) => void (actions as any).setScreensaverLogoSize(v)} />
         ))}
         {logoOn && screensaverLogoPlacementGroup(c)}
       </div>
@@ -316,25 +317,25 @@ function screensaverLogoPlacementGroup(c: GCtx): ReactNode {
   const { t, settings, actions, row } = c
   return (<>
     {row('screensaverLogoPosition', (
-      <PositionField labelKey='logo_position_label' value={(settings as any).screensaverLogoPosition ?? 'left'} t={t} onChange={(v: HorizontalPosition) => void (actions as any).setScreensaverLogoPosition(v)} />
+      <PositionField labelKey='logo_position_label' value={settings.screensaverLogoPosition ?? 'left'} t={t} onChange={(v: HorizontalPosition) => void (actions as any).setScreensaverLogoPosition(v)} />
     ))}
     {row('screensaverLogoAtTop', (
-      <ToggleField label={t('screensaver_logo_at_top_label' as any)} checked={(settings as any).screensaverLogoAtTop === true} onChange={(v: boolean) => void (actions as any).setScreensaverLogoAtTop(v)} />
+      <ToggleField label={t('screensaver_logo_at_top_label' as any)} checked={settings.screensaverLogoAtTop === true} onChange={(v: boolean) => void (actions as any).setScreensaverLogoAtTop(v)} />
     ))}
     {row('screensaverLogoOffset', (
-      <DSSliderField label={t('screensaver_logo_offset_label' as any)} value={(settings as any).screensaverLogoOffset ?? 8} min={0} max={50} step={1} unit='%' onChange={(v: number) => void (actions as any).setScreensaverLogoOffset(v)} />
+      <DSSliderField label={t('screensaver_logo_offset_label' as any)} value={settings.screensaverLogoOffset ?? 8} min={0} max={50} step={1} unit='%' onChange={(v: number) => void (actions as any).setScreensaverLogoOffset(v)} />
     ))}
-    {(settings as any).screensaverShelvesIncludeScreenshots === true && row('screensaverLogoOnScreenshots', (
-      <ToggleField label={t('screensaver_logo_on_screenshots_label' as any)} checked={(settings as any).screensaverLogoOnScreenshots !== false} onChange={(v: boolean) => void (actions as any).setScreensaverLogoOnScreenshots(v)} />
+    {settings.screensaverShelvesIncludeScreenshots === true && row('screensaverLogoOnScreenshots', (
+      <ToggleField label={t('screensaver_logo_on_screenshots_label' as any)} checked={settings.screensaverLogoOnScreenshots !== false} onChange={(v: boolean) => void (actions as any).setScreensaverLogoOnScreenshots(v)} />
     ))}
     {row('screensaverDescriptionEnabled', (
-      <ToggleField label={t('screensaver_description_enabled' as any)} checked={(settings as any).screensaverDescriptionEnabled === true} onChange={(v: boolean) => void (actions as any).setScreensaverDescriptionEnabled(v)} />
+      <ToggleField label={t('screensaver_description_enabled' as any)} checked={settings.screensaverDescriptionEnabled === true} onChange={(v: boolean) => void (actions as any).setScreensaverDescriptionEnabled(v)} />
     ))}
-    {(settings as any).screensaverDescriptionEnabled === true && row('screensaverDescriptionAboveLogo', (
-      <ToggleField label={t('screensaver_description_above_logo' as any)} checked={(settings as any).screensaverDescriptionAboveLogo === true} onChange={(v: boolean) => void (actions as any).setScreensaverDescriptionAboveLogo(v)} />
+    {settings.screensaverDescriptionEnabled === true && row('screensaverDescriptionAboveLogo', (
+      <ToggleField label={t('screensaver_description_above_logo' as any)} checked={settings.screensaverDescriptionAboveLogo === true} onChange={(v: boolean) => void (actions as any).setScreensaverDescriptionAboveLogo(v)} />
     ))}
-    {(settings as any).screensaverDescriptionEnabled === true && row('screensaverDescriptionLogoGap', (
-      <DSSliderField label={t('screensaver_description_logo_gap_label' as any)} value={(settings as any).screensaverDescriptionLogoGap ?? 10} min={-40} max={80} step={5} unit='px' onChange={(v: number) => void (actions as any).setScreensaverDescriptionLogoGap(v)} />
+    {settings.screensaverDescriptionEnabled === true && row('screensaverDescriptionLogoGap', (
+      <DSSliderField label={t('screensaver_description_logo_gap_label' as any)} value={settings.screensaverDescriptionLogoGap ?? 10} min={-40} max={80} step={5} unit='px' onChange={(v: number) => void (actions as any).setScreensaverDescriptionLogoGap(v)} />
     ))}
   </>)
 }
@@ -346,7 +347,7 @@ function ownQamTabGroup(c: GCtx): ReactNode {
   if (hostProvidesNativeTab()) return null
   return (
     row('ownQamTabEnabled', (
-      <ToggleField label={t('own_qam_tab_enabled' as any)} checked={(settings as any).ownQamTabEnabled === true} onChange={(v: boolean) => {
+      <ToggleField label={t('own_qam_tab_enabled' as any)} checked={settings.ownQamTabEnabled === true} onChange={(v: boolean) => {
         void (actions as any).setOwnQamTabEnabled(v);
         confirmAction({
           title: t('own_qam_tab_restart_title' as any),
@@ -362,7 +363,7 @@ function ownQamTabGroup(c: GCtx): ReactNode {
 
 function showcaseModeGroup(c: GCtx): ReactNode {
   const { t, settings, actions, row } = c
-  const on = (settings as any).showcaseModeEnabled === true
+  const on = settings.showcaseModeEnabled === true
   return (<>
     {row('showcaseModeEnabled', (
       <ToggleField label={t('showcase_mode_enabled' as any)} checked={on} onChange={(v: boolean) => void (actions as any).setShowcaseModeEnabled(v)} />
@@ -373,26 +374,26 @@ function showcaseModeGroup(c: GCtx): ReactNode {
     {on && (
       <div style={{ paddingLeft: 14, fontSize: 12 }}>
         {row('showcaseStartAfterSeconds', (
-          <DSSliderField label={t('showcase_start_after_label' as any)} value={(settings as any).showcaseStartAfterSeconds ?? 60} min={15} max={600} step={15} unit='s' onChange={(v: number) => void (actions as any).setShowcaseStartAfterSeconds(v)} />
+          <DSSliderField label={t('showcase_start_after_label' as any)} value={settings.showcaseStartAfterSeconds ?? 60} min={15} max={600} step={15} unit='s' onChange={(v: number) => void (actions as any).setShowcaseStartAfterSeconds(v)} />
         ))}
         {row('showcaseDwellSeconds', (
-          <DSSliderField label={t('showcase_dwell_label' as any)} value={(settings as any).showcaseDwellSeconds ?? 10} min={3} max={120} step={1} unit='s' onChange={(v: number) => void (actions as any).setShowcaseDwellSeconds(v)} />
+          <DSSliderField label={t('showcase_dwell_label' as any)} value={settings.showcaseDwellSeconds ?? 10} min={3} max={120} step={1} unit='s' onChange={(v: number) => void (actions as any).setShowcaseDwellSeconds(v)} />
         ))}
         {row('showcaseRandomize', (
-          <ToggleField label={t('showcase_randomize_label' as any)} checked={(settings as any).showcaseRandomize === true} onChange={(v: boolean) => void (actions as any).setShowcaseRandomize(v)} />
+          <ToggleField label={t('showcase_randomize_label' as any)} checked={settings.showcaseRandomize === true} onChange={(v: boolean) => void (actions as any).setShowcaseRandomize(v)} />
         ))}
         {row('showcaseStopOnInteraction', (
-          <ToggleField label={t('showcase_stop_on_interaction_label' as any)} checked={(settings as any).showcaseStopOnInteraction !== false} onChange={(v: boolean) => void (actions as any).setShowcaseStopOnInteraction(v)} />
+          <ToggleField label={t('showcase_stop_on_interaction_label' as any)} checked={settings.showcaseStopOnInteraction !== false} onChange={(v: boolean) => void (actions as any).setShowcaseStopOnInteraction(v)} />
         ))}
         {row('showcasePanCards', (
-          <ToggleField label={t('showcase_pan_cards_label' as any)} checked={(settings as any).showcasePanCards === true} onChange={(v: boolean) => void (actions as any).setShowcasePanCards(v)} />
+          <ToggleField label={t('showcase_pan_cards_label' as any)} checked={settings.showcasePanCards === true} onChange={(v: boolean) => void (actions as any).setShowcasePanCards(v)} />
         ))}
-        {(settings as any).showcasePanCards === true && (<>
+        {settings.showcasePanCards === true && (<>
           {row('showcaseCardsPerShelf', (
-            <DSSliderField label={t('showcase_cards_per_shelf_label' as any)} value={(settings as any).showcaseCardsPerShelf ?? 5} min={1} max={20} step={1} onChange={(v: number) => void (actions as any).setShowcaseCardsPerShelf(v)} />
+            <DSSliderField label={t('showcase_cards_per_shelf_label' as any)} value={settings.showcaseCardsPerShelf ?? 5} min={1} max={20} step={1} onChange={(v: number) => void (actions as any).setShowcaseCardsPerShelf(v)} />
           ))}
           {row('showcaseCardDwellSeconds', (
-            <DSSliderField label={t('showcase_card_dwell_label' as any)} value={(settings as any).showcaseCardDwellSeconds ?? 4} min={1} max={60} step={1} unit='s' onChange={(v: number) => void (actions as any).setShowcaseCardDwellSeconds(v)} />
+            <DSSliderField label={t('showcase_card_dwell_label' as any)} value={settings.showcaseCardDwellSeconds ?? 4} min={1} max={60} step={1} unit='s' onChange={(v: number) => void (actions as any).setShowcaseCardDwellSeconds(v)} />
           ))}
         </>)}
       </div>
@@ -421,7 +422,7 @@ function smartSection(c: GCtx): ReactNode {
           <ToggleField label={t('smart_surprise_me')} checked={settings.smartSurpriseMe === true} onChange={(v: boolean) => actions.setSmartSurpriseMe(v)} />
         ))}
         {row('unifiedListEnabled', (
-          <ToggleField label={t('unified_list_enabled' as any)} checked={(settings as any).unifiedListEnabled === true} onChange={(v: boolean) => (actions as any).setUnifiedListEnabled?.(v)} />
+          <ToggleField label={t('unified_list_enabled' as any)} checked={settings.unifiedListEnabled === true} onChange={(v: boolean) => (actions as any).setUnifiedListEnabled?.(v)} />
         ))}
       </div>
     </CollapsibleSection>
@@ -430,20 +431,20 @@ function smartSection(c: GCtx): ReactNode {
 
 function logoGroup(c: GCtx): ReactNode {
   const { t, settings, actions, row, lightMode } = c
-  const on = (settings as any).globalEnableLogo === true
+  const on = settings.globalEnableLogo === true
   return (
     <>
       {row('globalEnableLogo', (
         <ToggleField label={t('enable_logo')} checked={on} onChange={(v: boolean) => (actions as any).setGlobalEnableLogo(v)} />
       ))}
       {on && row('globalLogoPosition', (
-        <PositionField labelKey='logo_position_label' value={(settings as any).globalLogoPosition ?? 'left'} t={t} onChange={(v: HorizontalPosition) => (actions as any).setGlobalLogoPosition(v)} />
+        <PositionField labelKey='logo_position_label' value={settings.globalLogoPosition ?? 'left'} t={t} onChange={(v: HorizontalPosition) => (actions as any).setGlobalLogoPosition(v)} />
       ))}
       {on && !lightMode && row('globalLogoSize', (
-        <DSSliderField label={t('logo_size_label' as any)} value={(settings as any).globalLogoSize ?? 100} min={50} max={200} step={5} unit='%' onChange={(v: number) => (actions as any).setGlobalLogoSize(v)} />
+        <DSSliderField label={t('logo_size_label' as any)} value={settings.globalLogoSize ?? 100} min={50} max={200} step={5} unit='%' onChange={(v: number) => (actions as any).setGlobalLogoSize(v)} />
       ))}
       {on && !lightMode && row('globalLogoTopOffset', (
-        <DSSliderField label={t('logo_top_offset_label' as any)} value={(settings as any).globalLogoTopOffset ?? 20} min={-50} max={100} step={5} unit='%' onChange={(v: number) => (actions as any).setGlobalLogoTopOffset(v)} />
+        <DSSliderField label={t('logo_top_offset_label' as any)} value={settings.globalLogoTopOffset ?? 20} min={-50} max={100} step={5} unit='%' onChange={(v: number) => (actions as any).setGlobalLogoTopOffset(v)} />
       ))}
     </>
   )
@@ -454,9 +455,9 @@ function iconGroup(c: GCtx): ReactNode {
   return (
     <>
       {row('globalEnableIcon', (
-        <ToggleField label={t('enable_icon')} checked={(settings as any).globalEnableIcon === true} onChange={(v: boolean) => (actions as any).setGlobalEnableIcon(v)} />
+        <ToggleField label={t('enable_icon')} checked={settings.globalEnableIcon === true} onChange={(v: boolean) => (actions as any).setGlobalEnableIcon(v)} />
       ))}
-      {(settings as any).globalEnableIcon === true && row('globalIconVerticalAlign', (
+      {settings.globalEnableIcon === true && row('globalIconVerticalAlign', (
         <Field label={t('icon_vertical_align_label' as any)} childrenContainerWidth='min'>
           <Dropdown
             rgOptions={[
@@ -464,7 +465,7 @@ function iconGroup(c: GCtx): ReactNode {
               { data: 'center', label: t('icon_vertical_align_center' as any) },
               { data: 'bottom', label: t('icon_vertical_align_bottom' as any) },
             ]}
-            selectedOption={(settings as any).globalIconVerticalAlign ?? 'top'}
+            selectedOption={settings.globalIconVerticalAlign ?? 'top'}
             onChange={(opt: any) => (actions as any).setGlobalIconVerticalAlign(opt?.data ?? 'top')}
           />
         </Field>
@@ -475,25 +476,25 @@ function iconGroup(c: GCtx): ReactNode {
 
 function descriptionGroup(c: GCtx): ReactNode {
   const { t, settings, actions, row, lightMode } = c
-  if ((settings as any).globalEnableDescription !== true) return null
-  const belowLogo = (settings as any).globalDescriptionBelowLogo === true
+  if (settings.globalEnableDescription !== true) return null
+  const belowLogo = settings.globalDescriptionBelowLogo === true
   return (
     <>
       {row('globalDescriptionScale', (
-        <DSSliderField label={t('description_size_label')} value={(settings as any).globalDescriptionScale ?? 100} min={100} max={200} step={10} unit='%' onChange={(v: number) => (actions as any).setGlobalDescriptionScale(v)} />
+        <DSSliderField label={t('description_size_label')} value={settings.globalDescriptionScale ?? 100} min={100} max={200} step={10} unit='%' onChange={(v: number) => (actions as any).setGlobalDescriptionScale(v)} />
       ))}
       {row('globalDescriptionPosition', (
-        <PositionField labelKey='description_position_label' value={(settings as any).globalDescriptionPosition ?? 'left'} t={t} onChange={(v: HorizontalPosition) => (actions as any).setGlobalDescriptionPosition(v)} />
+        <PositionField labelKey='description_position_label' value={settings.globalDescriptionPosition ?? 'left'} t={t} onChange={(v: HorizontalPosition) => (actions as any).setGlobalDescriptionPosition(v)} />
       ))}
-      {(settings as any).globalEnableLogo === true && row('globalDescriptionBelowLogo', (
+      {settings.globalEnableLogo === true && row('globalDescriptionBelowLogo', (
         <ToggleField label={t('description_below_logo' as any)} checked={belowLogo} onChange={(v: boolean) => (actions as any).setGlobalDescriptionBelowLogo(v)} />
       ))}
       {belowLogo && !lightMode && (<>
         {row('globalDescriptionHeight', (
-          <DSSliderField label={t('description_height_label' as any)} value={(settings as any).globalDescriptionHeight ?? 2} min={1} max={3} step={1} onChange={(v: number) => (actions as any).setGlobalDescriptionHeight(v)} />
+          <DSSliderField label={t('description_height_label' as any)} value={settings.globalDescriptionHeight ?? 2} min={1} max={3} step={1} onChange={(v: number) => (actions as any).setGlobalDescriptionHeight(v)} />
         ))}
         {row('globalDescriptionLogoGap', (
-          <DSSliderField label={t('description_logo_gap_label' as any)} value={(settings as any).globalDescriptionLogoGap ?? 8} min={-40} max={80} step={5} unit='px' onChange={(v: number) => (actions as any).setGlobalDescriptionLogoGap(v)} />
+          <DSSliderField label={t('description_logo_gap_label' as any)} value={settings.globalDescriptionLogoGap ?? 8} min={-40} max={80} step={5} unit='px' onChange={(v: number) => (actions as any).setGlobalDescriptionLogoGap(v)} />
         ))}
       </>)}
     </>
@@ -509,7 +510,7 @@ const GLOBAL_VISUAL_COUNT_KEYS = [
   'globalHideNonSteamBadge', 'globalHideSeeMore', 'globalHideRefreshCard', 'globalDedupeByName',
 ] as const
 
-function globalVisualCount(settings: any): number {
+function globalVisualCount(settings: Settings): number {
   let n = (settings.globalDescriptionScale ?? 100) > 100 ? 1 : 0
   for (const k of GLOBAL_VISUAL_COUNT_KEYS) if (settings[k]) n++
   return n
@@ -535,10 +536,10 @@ function visualGlobalSection(c: GCtx): ReactNode {
         <ToggleField label={t('highlight_all')} checked={settings.globalHighlightAll === true} onChange={(v: boolean) => actions.setGlobalHighlightAll(v)} />
       ))}
       {row('globalHighlightRandom', (
-        <ToggleField label={t('highlight_random')} checked={(settings as any).globalHighlightRandom === true} onChange={(v: boolean) => (actions as any).setGlobalHighlightRandom(v)} />
+        <ToggleField label={t('highlight_random')} checked={settings.globalHighlightRandom === true} onChange={(v: boolean) => (actions as any).setGlobalHighlightRandom(v)} />
       ))}
       {row('globalHideShelfTitle', (
-        <ToggleField label={t('hide_shelf_titles')} checked={settings.globalHideShelfTitle === true} onChange={(v: boolean) => applyHideTitleToggle({ next: v, infoAbove: (settings as any).globalGameInfoAbove === true, t, setHideTitle: (x) => actions.setGlobalHideShelfTitle(x), setGameInfoAbove: (x) => void (actions as any).setGlobalGameInfoAbove(x) })} />
+        <ToggleField label={t('hide_shelf_titles')} checked={settings.globalHideShelfTitle === true} onChange={(v: boolean) => applyHideTitleToggle({ next: v, infoAbove: settings.globalGameInfoAbove === true, t, setHideTitle: (x) => actions.setGlobalHideShelfTitle(x), setGameInfoAbove: (x) => void (actions as any).setGlobalGameInfoAbove(x) })} />
       ))}
       {row('globalHideGameNames', (
         <ToggleField label={t('hide_game_names')} checked={settings.globalHideGameNames === true} onChange={(v: boolean) => actions.setGlobalHideGameNames(v)} />
@@ -553,7 +554,7 @@ function visualGlobalSection(c: GCtx): ReactNode {
         <ToggleField label={t('hide_new_badge')} checked={settings.globalHideNewBadge === true} onChange={(v: boolean) => actions.setGlobalHideNewBadge(v)} />
       ))}
       {row('globalHideDiscountBadge', (
-        <ToggleField label={t('hide_discount_badge')} checked={(settings as any).globalHideDiscountBadge === true} onChange={(v: boolean) => actions.setGlobalHideDiscountBadge(v)} />
+        <ToggleField label={t('hide_discount_badge')} checked={settings.globalHideDiscountBadge === true} onChange={(v: boolean) => actions.setGlobalHideDiscountBadge(v)} />
       ))}
       {row('globalHideCompatIcons', (
         <ToggleField label={t('hide_compat_icons')} checked={settings.globalHideCompatIcons === true} onChange={(v: boolean) => actions.setGlobalHideCompatIcons(v)} />
@@ -568,20 +569,20 @@ function visualGlobalSection(c: GCtx): ReactNode {
         <ToggleField label={t('hide_refresh_card')} checked={settings.globalHideRefreshCard === true} onChange={(v: boolean) => actions.setGlobalHideRefreshCard(v)} />
       ))}
       {row('globalDedupeByName', (
-        <ToggleField label={t('global_dedupe_by_name' as any)} checked={(settings as any).globalDedupeByName === true} onChange={(v: boolean) => (actions as any).setGlobalDedupeByName(v)} />
+        <ToggleField label={t('global_dedupe_by_name' as any)} checked={settings.globalDedupeByName === true} onChange={(v: boolean) => (actions as any).setGlobalDedupeByName(v)} />
       ))}
       {!lightMode && row('globalHeroEnabled', (
-        <ToggleField label={t('global_hero_enabled' as any)} checked={(settings as any).globalHeroEnabled === true} onChange={(v: boolean) => void (actions as any).setGlobalHeroEnabled(v)} />
+        <ToggleField label={t('global_hero_enabled' as any)} checked={settings.globalHeroEnabled === true} onChange={(v: boolean) => void (actions as any).setGlobalHeroEnabled(v)} />
       ))}
       {row('globalGameInfoAbove', (
-        <ToggleField label={t('global_game_info_above' as any)} checked={(settings as any).globalGameInfoAbove === true} onChange={(v: boolean) => applyGameInfoAboveToggle({ next: v, hideTitle: settings.globalHideShelfTitle === true, t, setGameInfoAbove: (x) => void (actions as any).setGlobalGameInfoAbove(x), setHideTitle: (x) => actions.setGlobalHideShelfTitle(x) })} />
+        <ToggleField label={t('global_game_info_above' as any)} checked={settings.globalGameInfoAbove === true} onChange={(v: boolean) => applyGameInfoAboveToggle({ next: v, hideTitle: settings.globalHideShelfTitle === true, t, setGameInfoAbove: (x) => void (actions as any).setGlobalGameInfoAbove(x), setHideTitle: (x) => actions.setGlobalHideShelfTitle(x) })} />
       ))}
       {row('globalFriendsPlayingOverlay', (
-        <ToggleField label={t('friends_overlay_label' as any)} checked={(settings as any).globalFriendsPlayingOverlay === true} onChange={(v: boolean) => void (actions as any).setGlobalFriendsPlayingOverlay(v)} />
+        <ToggleField label={t('friends_overlay_label' as any)} checked={settings.globalFriendsPlayingOverlay === true} onChange={(v: boolean) => void (actions as any).setGlobalFriendsPlayingOverlay(v)} />
       ))}
-      {(settings as any).globalFriendsPlayingOverlay === true && row('globalFriendsPlayingOverlayRecent', (
+      {settings.globalFriendsPlayingOverlay === true && row('globalFriendsPlayingOverlayRecent', (
         <div style={{ paddingLeft: 14 }}>
-          <ToggleField label={t('friends_overlay_recent_label' as any)} checked={(settings as any).globalFriendsPlayingOverlayRecent === true} onChange={(v: boolean) => void (actions as any).setGlobalFriendsPlayingOverlayRecent(v)} />
+          <ToggleField label={t('friends_overlay_recent_label' as any)} checked={settings.globalFriendsPlayingOverlayRecent === true} onChange={(v: boolean) => void (actions as any).setGlobalFriendsPlayingOverlayRecent(v)} />
         </div>
       ))}
       {/* Logo / icon / description decorations are stripped in light mode. */}
@@ -591,16 +592,16 @@ function visualGlobalSection(c: GCtx): ReactNode {
         {descriptionGroup(c)}
       </>)}
       {row('globalShelfTitlePosition', (
-        <PositionField labelKey='shelf_title_position_label' value={(settings as any).globalShelfTitlePosition ?? 'left'} t={t} onChange={(v: HorizontalPosition) => (actions as any).setGlobalShelfTitlePosition(v)} />
+        <PositionField labelKey='shelf_title_position_label' value={settings.globalShelfTitlePosition ?? 'left'} t={t} onChange={(v: HorizontalPosition) => (actions as any).setGlobalShelfTitlePosition(v)} />
       ))}
       {row('globalGameNamePosition', (
-        <PositionField labelKey='game_name_position_label' value={(settings as any).globalGameNamePosition ?? 'left'} t={t} onChange={(v: HorizontalPosition) => (actions as any).setGlobalGameNamePosition(v)} />
+        <PositionField labelKey='game_name_position_label' value={settings.globalGameNamePosition ?? 'left'} t={t} onChange={(v: HorizontalPosition) => (actions as any).setGlobalGameNamePosition(v)} />
       ))}
       {row('globalPlaytimePosition', (
-        <PositionField labelKey='playtime_position_label' value={(settings as any).globalPlaytimePosition ?? 'left'} t={t} onChange={(v: HorizontalPosition) => (actions as any).setGlobalPlaytimePosition(v)} />
+        <PositionField labelKey='playtime_position_label' value={settings.globalPlaytimePosition ?? 'left'} t={t} onChange={(v: HorizontalPosition) => (actions as any).setGlobalPlaytimePosition(v)} />
       ))}
       {row('globalFullPageShelf', (
-        <ToggleField label={t('full_page_shelves_label' as any)} checked={(settings as any).globalFullPageShelf === true} onChange={(v: boolean) => (actions as any).setGlobalFullPageShelf(v)} />
+        <ToggleField label={t('full_page_shelves_label' as any)} checked={settings.globalFullPageShelf === true} onChange={(v: boolean) => (actions as any).setGlobalFullPageShelf(v)} />
       ))}
     </CollapsibleSection>
   )
@@ -637,8 +638,8 @@ export function GeneralTab({ controller }: { controller: SettingsController }) {
   const settings = controller.settings
   const lightMode = useLightMode()
   if (!settings) return null
-  const hiddenToggles: string[] = (settings as any).qamHiddenToggles ?? []
-  const hiddenSections: string[] = (settings as any).qamHiddenSections ?? []
+  const hiddenToggles: string[] = settings.qamHiddenToggles ?? []
+  const hiddenSections: string[] = settings.qamHiddenSections ?? []
   const isHid = (k: string) => hiddenToggles.includes(k)
   const isSecHid = (id: string) => hiddenSections.includes(id)
   const setHid = (k: string, v: boolean) => (actions as any).setQamHiddenToggle(k, v)

@@ -21,6 +21,9 @@ const STALE_ARM_MS = 15_000;
 // render (Steam restart / host switch). One stale arm is retried as transient;
 // only repeated stale arms (a real crash-loop) latch the breaker.
 const MAX_STALE_STRIKES = 2;
+// A latched trip ages out after a day: churn from a host switch must not disable
+// the tab for good, while a real crash-loop re-trips within one boot.
+const TRIP_TTL_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_TAB_KEY = 901;
 const DEFAULT_AFTER_KEY = 5; // Steam's QuickAccessTab.Perf — sit just after Performance
 const MAX_INSTALL_ATTEMPTS = 20;
@@ -53,7 +56,11 @@ export function evaluateBreaker(
   now: number,
 ): { decision: "ok" | "tripped"; next: string | null } {
   if (!prior) return { decision: "ok", next: null };
-  if (prior.startsWith("tripped")) return { decision: "tripped", next: null };
+  if (prior.startsWith("tripped")) {
+    const trippedAt = Number(prior.split(":")[1]) || 0;
+    if (now - trippedAt <= TRIP_TTL_MS) return { decision: "tripped", next: null };
+    return { decision: "ok", next: `armed:${now}:${MAX_STALE_STRIKES - 1}` };
+  }
   if (!prior.startsWith("armed")) return { decision: "ok", next: null };
   const parts = prior.split(":");
   const armTs = Number(parts[1]) || 0;

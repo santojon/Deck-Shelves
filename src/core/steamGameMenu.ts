@@ -3,6 +3,7 @@ import { getPreferredSteamDocument, getPreferredSteamWindow, getAllSteamDocument
 import { isSteamOS38OrLater } from "./steamOSVersion";
 import i18n from "../i18n";
 import { saveFocusTarget } from "./focusRestore";
+import { steamAppStore, steamClient, steamUIStore, gamepadUIMainWindowStore, steamReact, steamJsxRuntime } from "../steam/internals";
 import {
   buildDeckShelvesMenuItems as buildDeckShelvesMenuItemsBase,
   buildShelfContextMenu,
@@ -47,11 +48,11 @@ let legacyCachedTemplateProps: Record<string, any> = {};
 let legacyLastAttempt = 0;
 
 function getSteamReact(): any {
-  return (globalThis as any).SP_REACT;
+  return steamReact();
 }
 
 function getAppStore(): any {
-  return (globalThis as any).appStore;
+  return steamAppStore();
 }
 
 // Cache of patched/wrapped captured components so we patch each component
@@ -71,7 +72,7 @@ function collectKnownDocsForMenu(): Document[] {
   const docs: Document[] = [];
   try { docs.push(document); } catch {}
   try {
-    const w = (globalThis as any).GamepadUIMainWindowStore?.BrowserView?.m_browser?.gamepadui?.document;
+    const w = gamepadUIMainWindowStore()?.BrowserView?.m_browser?.gamepadui?.document;
     if (w) docs.push(w);
   } catch {}
   return docs;
@@ -755,7 +756,7 @@ function installCaptureHooks(): {
   restore: () => void;
 } {
   const React = getSteamReact();
-  const jsxRuntime: any = (globalThis as any).SP_JSX;
+  const jsxRuntime: any = steamJsxRuntime();
 
   const origCreateElement: any = React?.createElement;
   const origJsx: any = jsxRuntime?.jsx;
@@ -907,7 +908,7 @@ function installPassiveHookFns(React: any, jsxRuntime: any, originals: { ce: any
 export function installPassiveMenuHook(): void {
   if (passiveHookInstalled || cachedMenuComponent) return;
   const React = getSteamReact();
-  const jsxRuntime: any = (globalThis as any).SP_JSX;
+  const jsxRuntime: any = steamJsxRuntime();
   if (!React?.createElement && typeof jsxRuntime?.jsx !== "function") return;
   const originals = { ce: React?.createElement, jsx: jsxRuntime?.jsx, jsxs: jsxRuntime?.jsxs };
   installPassiveHookFns(React, jsxRuntime, originals, makePassiveCaptureFn(React, jsxRuntime, originals));
@@ -1054,7 +1055,7 @@ function resolveLegacyCardEl(doc: Document, appid: number): HTMLElement {
 
 function resolveLegacyOwnerWindow(): any {
   return (getPreferredSteamWindow() as any)
-    ?? (globalThis as any).SteamUIStore?.WindowStore?.GamepadUIMainWindowInstance?.BrowserWindow
+    ?? steamUIStore()?.WindowStore?.GamepadUIMainWindowInstance?.BrowserWindow
     ?? window;
 }
 
@@ -1140,7 +1141,7 @@ function extractAppContextMenu(): boolean {
 
 function resolveOwnerWindow(anchorDoc?: Document): any {
   return (anchorDoc?.defaultView as any)
-    ?? (globalThis as any).SteamUIStore?.WindowStore?.GamepadUIMainWindowInstance?.BrowserWindow
+    ?? steamUIStore()?.WindowStore?.GamepadUIMainWindowInstance?.BrowserWindow
     ?? (getPreferredSteamWindow() as any)
     ?? window;
 }
@@ -1291,7 +1292,7 @@ function appendShelfItems(items: any[], shelfId: string, appid: number, fl: any,
 
 function buildFallbackItems(appid: number, shelfId: string | undefined, fl: any, R: any, installed: boolean): any[] {
   const items: any[] = [];
-  const sc: any = (globalThis as any).SteamClient;
+  const sc: any = steamClient();
   const nav = fl.Navigation ?? sc?.Navigation;
   for (const spec of FALLBACK_SPECS) {
     if (spec.installedOnly && !installed) continue;

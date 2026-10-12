@@ -1,3 +1,4 @@
+import { devTrace } from "../runtime/devStamps";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import {
   ConfirmModal,
@@ -58,24 +59,22 @@ import { VisualGlobalSection } from './qam/sections/VisualGlobalSection'
 import { getQamWindow, useQamCompositorSync, useIsActiveQamTab, shouldRenderSidecar } from './qam/sidecarActiveTab'
 import { SidecarPanel, useDpadExpandBridge, fireQamExpand, traceSidecarCollapse } from './qam/sidecar/SidecarPanel'
 
-try {
-  (globalThis as unknown as Record<string, unknown>).__ds_module_loaded__ = 'DeckQAMSettings@' + Date.now();
-  if (typeof window !== 'undefined') {
-    (window as unknown as Record<string, unknown>).__ds_module_loaded_w__ = 'win@' + Date.now();
-  }
-  try { document.documentElement.setAttribute('data-ds-module-loaded', 'yes@' + Date.now()); } catch {}
-} catch {}
+// Dev-only module-load stamps (the hot-swap diagnosis reads them over the debugger).
+if (__DEV__) {
+  try {
+    (globalThis as unknown as Record<string, unknown>).__ds_module_loaded__ = 'DeckQAMSettings@' + Date.now();
+    if (typeof window !== 'undefined') {
+      (window as unknown as Record<string, unknown>).__ds_module_loaded_w__ = 'win@' + Date.now();
+    }
+    try { document.documentElement.setAttribute('data-ds-module-loaded', 'yes@' + Date.now()); } catch {}
+  } catch {}
+}
 
 // Temporary diagnostic: remapped sidecar-open ("R2") reportedly doesn't
 // work — records raw controller events, read back via CDP as
 // globalThis.__ds_input_trace, instead of guessing again.
 function traceRawInput(button: number, pressed: boolean): void {
-  try {
-    const g = globalThis as any;
-    if (!Array.isArray(g.__ds_input_trace)) g.__ds_input_trace = [];
-    g.__ds_input_trace.push({ t: Date.now(), button, pressed });
-    if (g.__ds_input_trace.length > 40) g.__ds_input_trace.shift();
-  } catch { /* tracing must never throw */ }
+  devTrace("__ds_input_trace", { t: Date.now(), button, pressed }, 40);
 }
 
 // Parent → sub-toggle map used both for hiding sub-toggles from the QAM
@@ -298,12 +297,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
     const doc = scope?.ownerDocument ?? document;
     const win = doc.defaultView ?? window;
     const trace = (label: string) => {
-      try {
-        const g = globalThis as any;
-        if (!Array.isArray(g.__ds_sidecar_signals)) g.__ds_sidecar_signals = [];
-        g.__ds_sidecar_signals.push({ t: Date.now(), label, hidden: doc.hidden, hasFocus: doc.hasFocus?.() });
-        if (g.__ds_sidecar_signals.length > 40) g.__ds_sidecar_signals.shift();
-      } catch {}
+      devTrace("__ds_sidecar_signals", { t: Date.now(), label, hidden: doc.hidden, hasFocus: doc.hasFocus?.() }, 40);
     };
     /* Genuine hide signals (doc hidden / pagehide / freeze) collapse outright AND
        arm `sawHide`. The return-side signals (focus / resume) fire on focus GAIN,

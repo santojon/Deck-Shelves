@@ -1,32 +1,7 @@
 {
-  "src/components/DeckRow.tsx": {
-    "complexity": {
-      "count": 1
-    }
-  },
-  "src/components/Shelf.tsx": {
-    "complexity": {
-      "count": 1
-    }
-  },
-  "src/components/shelf/GameCard.tsx": {
-    "complexity": {
-      "count": 1
-    }
-  },
-  "src/components/shelf/PerShelfHero.tsx": {
-    "complexity": {
-      "count": 3
-    }
-  },
   "src/core/steamGameMenu.ts": {
     "max-lines": {
       "count": 1
-    }
-  },
-  "src/index.tsx": {
-    "complexity": {
-      "count": 2
     }
   },
   "src/steam/index.ts": {

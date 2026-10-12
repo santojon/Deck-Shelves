@@ -29,7 +29,7 @@ O **Assistente de configuração** (o ícone de varinha na barra de título do m
 | Resgate do backlog | Pacotes de configuração | Nunca Jogados + prateleiras inteligentes *Resgate do backlog* e *Melhores não jogados* |
 | Deck portátil | Pacotes de configuração | Instalados, Verificados para o Deck + prateleiras inteligentes *Pouca bateria*, *Modo viagem*, *Partida rápida* |
 | Redescobrir | Pacotes de configuração | Mais Jogados + prateleiras inteligentes *Redescobrir*, *Joias esquecidas*, *Joias escondidas* |
-| Sala de estar | Pacotes de configuração | Favoritos, Jogados Recentemente + prateleiras inteligentes *Sessão longa (noite)*, *Escolhas do Deck*; liga a arte de fundo da primeira prateleira e o primeiro jogo em destaque |
+| Sala de estar | Pacotes de configuração | Favoritos, Jogados Recentemente + prateleiras inteligentes *Sessão longa (noite)*, *Escolhas do Deck*; liga o mesmo visual de sala do pacote Machine: a arte de fundo da primeira prateleira, a arte de herói em todas as prateleiras, prateleiras de tela inteira, o primeiro jogo em destaque e os logos |
 | Frame | Por dispositivo | Jogos de VR, Só VR, Jogados Recentemente, Favoritos + prateleiras inteligentes *Partida rápida*, *Pouca bateria* |
 | Machine | Por dispositivo | Favoritos, Jogados Recentemente, Mais Jogados + prateleiras inteligentes *Sessão longa (noite)*, *Escolhas para este aparelho*; liga a arte de fundo da primeira prateleira, a arte de herói em todas as prateleiras, prateleiras de tela inteira, o primeiro jogo em destaque e os logos |
 | Stream | Por dispositivo | Steam Cloud, Jogados Recentemente + prateleira inteligente *Partida rápida* |

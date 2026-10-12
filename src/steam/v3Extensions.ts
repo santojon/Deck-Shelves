@@ -1,5 +1,6 @@
 import type { AppOverview } from "./index";
 import { getCachedCatalogMeta } from "../core/onlineStore";
+import { steamAppStore, steamCollectionStore, steamClient } from "./internals";
 
 function appIdOf(a: any): number {
   return Number(a?.appid ?? a?.m_unAppID ?? 0);
@@ -16,7 +17,7 @@ function isInstalledOf(a: any): boolean {
  *  fetched Store catalog metadata. */
 function rawLocalOverview(appid: number): any | null {
   try {
-    const store = (globalThis as any).appStore;
+    const store = steamAppStore();
     return store?.GetAppOverviewByAppID?.(appid) ?? null;
   } catch { return null; }
 }
@@ -39,7 +40,7 @@ function extractFranchiseName(raw: any): string | null {
 }
 
 async function fetchOneFranchise(appid: number): Promise<void> {
-  const client = (globalThis as any).SteamClient;
+  const client = steamClient();
   try {
     const raw = await client?.Apps?.GetCachedAppDetails?.(appid);
     _franchiseCache.set(appid, extractFranchiseName(raw));
@@ -227,7 +228,7 @@ function evalSoundtrackOwned(_item: any, app: AppOverview): boolean {
 function evalLaunchCount(item: any, app: AppOverview): boolean {
   const min = Number(item.params?.min ?? 0);
   const max = Number(item.params?.max ?? Number.POSITIVE_INFINITY);
-  const totalMinutes = Number((app as any).playtime_forever ?? 0);
+  const totalMinutes = Number(app.playtime_forever ?? 0);
   const launchCount = rawField<number>(appIdOf(app), "rt_launch_count", "launch_count")
     ?? Math.floor(totalMinutes / 45); // 45-min session proxy
   return launchCount >= min && launchCount <= max;
@@ -236,7 +237,7 @@ function evalLaunchCount(item: any, app: AppOverview): boolean {
 function evalAvgSessionMinutes(item: any, app: AppOverview): boolean {
   const minM = Number(item.params?.min ?? 0);
   const maxM = Number(item.params?.max ?? Number.POSITIVE_INFINITY);
-  const totalMinutes = Number((app as any).playtime_forever ?? 0);
+  const totalMinutes = Number(app.playtime_forever ?? 0);
   const launchCount = rawField<number>(appIdOf(app), "rt_launch_count", "launch_count") ?? Math.floor(totalMinutes / 45);
   if (!launchCount) return false;
   const avg = totalMinutes / launchCount;
@@ -249,7 +250,7 @@ function evalNeverCompleted(_item: any, app: AppOverview): boolean {
 }
 
 function evalRecentlyAbandoned(item: any, app: AppOverview): boolean {
-  const last = Number((app as any).last_played ?? 0);
+  const last = Number(app.last_played ?? 0);
   if (!last) return false;
   const minDaysAgo = Number(item.params?.minDaysAgo ?? 7);
   const maxDaysAgo = Number(item.params?.maxDaysAgo ?? 60);
@@ -259,13 +260,13 @@ function evalRecentlyAbandoned(item: any, app: AppOverview): boolean {
 
 function evalInstalledNeverPlayed(_item: any, app: AppOverview): boolean {
   const installed = isInstalledOf(app);
-  const played = Number((app as any).playtime_forever ?? 0);
+  const played = Number(app.playtime_forever ?? 0);
   return installed && played === 0;
 }
 
 function evalPlayedOnce(item: any, app: AppOverview): boolean {
   const max = Number(item.params?.maxMinutes ?? 60);
-  const played = Number((app as any).playtime_forever ?? 0);
+  const played = Number(app.playtime_forever ?? 0);
   return played > 0 && played <= max;
 }
 
@@ -295,7 +296,7 @@ function evalInstalledSizeRange(item: any, app: AppOverview): boolean {
 }
 
 function evalCompatDataQuality(_item: any, app: AppOverview): boolean {
-  const cat = Number((app as any).deck_compatibility_category ?? 0);
+  const cat = Number(app.deck_compatibility_category ?? 0);
   // 0 = unknown, 1 = unsupported, 2 = playable, 3 = verified.
   return cat > 0;
 }
@@ -428,7 +429,7 @@ function evalReviewScore(item: any, app: AppOverview): boolean {
 // Release date — `rt_original_release_date` is in SECONDS (native + enriched).
 // Param `ts` is a seconds timestamp; `op` after/before is inclusive.
 function releaseSecOf(app: AppOverview): number {
-  return Number((app as any).rt_original_release_date ?? (app as any).rt_steam_release_date ?? 0);
+  return Number(app.rt_original_release_date ?? (app as any).rt_steam_release_date ?? 0);
 }
 function evalReleaseDate(item: any, app: AppOverview): boolean {
   const ts = Number(item.params?.ts ?? 0);
@@ -446,7 +447,7 @@ function evalComingSoon(_item: any, app: AppOverview): boolean {
 
 // Demo — Steam EAppType demo bit (8). Non-Steam shortcuts never qualify.
 function evalDemo(_item: any, app: AppOverview): boolean {
-  return Number((app as any).app_type) === 8;
+  return Number(app.app_type) === 8;
 }
 
 export const FILTER_V3_EVALUATORS: Record<string, FilterEvaluator> = {
@@ -496,12 +497,12 @@ const cmpAsc  = (na: number, nb: number) => na - nb;
 function launchCountOf(app: AppOverview): number {
   const explicit = rawField<number>(appIdOf(app), "rt_launch_count", "launch_count");
   if (typeof explicit === "number") return explicit;
-  const total = Number((app as any).playtime_forever ?? 0);
+  const total = Number(app.playtime_forever ?? 0);
   return Math.floor(total / 45); // 45-min session proxy
 }
 
 function avgSessionMinutesOf(app: AppOverview): number {
-  const total = Number((app as any).playtime_forever ?? 0);
+  const total = Number(app.playtime_forever ?? 0);
   const count = launchCountOf(app);
   if (!count) return 0;
   return total / count;
@@ -563,13 +564,13 @@ export const SORT_V3_COMPARATORS: Record<string, SortComparator> = {
   longest_session:         (a, b) => cmpDesc(avgSessionMinutesOf(a), avgSessionMinutesOf(b)),
   shortest_session:        (a, b) => cmpAsc(avgSessionMinutesOf(a), avgSessionMinutesOf(b)),
   most_ignored: (a, b) => {
-    const aIdle = Date.now()/1000 - Number((a as any).last_played ?? 0);
-    const bIdle = Date.now()/1000 - Number((b as any).last_played ?? 0);
+    const aIdle = Date.now()/1000 - Number(a.last_played ?? 0);
+    const bIdle = Date.now()/1000 - Number(b.last_played ?? 0);
     return cmpDesc(aIdle, bIdle);
   },
   rediscovered_recently: (a, b) => {
-    const aIdle = Date.now()/1000 - Number((a as any).last_played ?? 0);
-    const bIdle = Date.now()/1000 - Number((b as any).last_played ?? 0);
+    const aIdle = Date.now()/1000 - Number(a.last_played ?? 0);
+    const bIdle = Date.now()/1000 - Number(b.last_played ?? 0);
     return cmpAsc(aIdle, bIdle);
   },
   completion_percent:      (a, b) => cmpDesc(completionPctOf(a), completionPctOf(b)),
@@ -581,8 +582,8 @@ export const SORT_V3_COMPARATORS: Record<string, SortComparator> = {
   newest_installed:        (a, b) => cmpDesc(installDateOf(a), installDateOf(b)),
   oldest_installed:        (a, b) => cmpAsc(installDateOf(a), installDateOf(b)),
   oldest_unplayed: (a, b) => {
-    const ax = Number((a as any).playtime_forever ?? 0) === 0 ? installDateOf(a) : Number.MAX_SAFE_INTEGER;
-    const bx = Number((b as any).playtime_forever ?? 0) === 0 ? installDateOf(b) : Number.MAX_SAFE_INTEGER;
+    const ax = Number(a.playtime_forever ?? 0) === 0 ? installDateOf(a) : Number.MAX_SAFE_INTEGER;
+    const bx = Number(b.playtime_forever ?? 0) === 0 ? installDateOf(b) : Number.MAX_SAFE_INTEGER;
     return cmpAsc(ax, bx);
   },
   newest_purchased:        (a, b) => cmpDesc(purchaseDateOf(a), purchaseDateOf(b)),
@@ -662,7 +663,7 @@ export const SOURCE_V3_RESOLVERS: Record<string, ShelfSourceResolver> = {
   // Steam-side
   dynamic_collections: (all) => {
     try {
-      const cs: any = (globalThis as any).collectionStore;
+      const cs: any = steamCollectionStore();
       const list: any[] = cs?.userCollections ?? [];
       const dynamic = list.filter((c) => c?.bIsDynamic === true || c?.m_bIsDynamic === true);
       const ids = collectCollectionAppIds(dynamic);
@@ -675,8 +676,8 @@ export const SOURCE_V3_RESOLVERS: Record<string, ShelfSourceResolver> = {
   ignored_games: (all) => bySteamFlag(all, (a) => {
     return rawField<boolean>(appIdOf(a), "rt_ignored", "ignored") === true;
   }),
-  dlc_source: (all) => bySteamFlag(all, (a) => (a as any).app_type === 32),
-  soundtrack_source: (all) => bySteamFlag(all, (a) => (a as any).app_type === 8192),
+  dlc_source: (all) => bySteamFlag(all, (a) => a.app_type === 32),
+  soundtrack_source: (all) => bySteamFlag(all, (a) => a.app_type === 8192),
   // Manual
   pinned_games: (all) => {
     const pinned = pinnedIdsFromStorage();
@@ -717,7 +718,7 @@ export const SOURCE_V3_RESOLVERS: Record<string, ShelfSourceResolver> = {
     return rawField<boolean>(appIdOf(a), "rt_workshop_update", "workshop_updated") === true;
   }),
   controller_specific_source: (all) => bySteamFlag(all, (a) => {
-    const n = Number((a as any).controller_support ?? 0);
+    const n = Number(a.controller_support ?? 0);
     return n >= 2;
   }),
   emudeck_collections:   (all) => filterByLauncherNames(all, "emudeck"),

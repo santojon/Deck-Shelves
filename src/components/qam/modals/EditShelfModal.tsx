@@ -1,6 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
 import {
-  ConfirmModal,
   DialogButton,
   DropdownItem,
   Field,
@@ -15,7 +14,7 @@ import { normalizeFilter } from '../../../domain/settings'
 import { SHELF_LIMIT_MAX } from '../../../domain/shelfLimits'
 import { consumePendingShelfModalTab } from '../../../core/shelfActions'
 import { FilterPanel } from '../../FilterPanel'
-import { FieldContainer, ModalShell , DSSliderField} from '../../ui'
+import { FieldContainer, DSSliderField} from '../../ui'
 import { logInfo } from '../../../runtime/logger'
 import { notify } from '../../notify'
 import { invalidateRandomSortCache } from '../../../steam'
@@ -37,7 +36,7 @@ import { PreviewPanel } from './editShelf/PreviewPanel'
 import { useModalCollections } from './editShelf/useModalCollections'
 import { TabLabel } from './editShelf/TabLabel'
 import { SortField } from './editShelf/SortField'
-import { ModalHeader } from './editShelf/ModalHeader'
+import { EditShelfFrame } from './editShelf/EditShelfFrame'
 import {
   sanitizeSyntheticCard,
   buildSortPatchFields,
@@ -693,24 +692,16 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
   })()
 
   return (
-    <ModalShell>
-      <ConfirmModal
-        bAllowFullSize
-        onCancel={closeModal}
-        onEscKeypress={closeModal}
-        strTitle={`${t('editing')}: ${shelf.title}`}
-        onOK={handleSave}
-        strOKButtonText={t('save')}
-      >
-        <Focusable onMenuButton={handleSave} onMenuActionDescription={t('save')} style={{ paddingBottom: 8 }}>
-          <ModalHeader
-            t={t}
-            title={state.title}
-            onTitleChange={(next) => setState((prev) => ({ ...prev, title: next }))}
-            previewCount={previewCount}
-          />
-          <div style={{ display: 'flex', flexDirection: 'column', height: 'min(calc(100vh - 130px), 540px)', minHeight: 400 }}>
-          <div style={{ flex: '1 1 0', minHeight: 0, position: 'relative', overflow: 'auto' }}>
+    <EditShelfFrame
+      t={t}
+      heading={`${t('editing')}: ${shelf.title}`}
+      title={state.title}
+      onTitleChange={(next) => setState((prev) => ({ ...prev, title: next }))}
+      previewCount={previewCount}
+      onSave={handleSave}
+      onClose={closeModal}
+      tabsOverflow='auto'
+      tabs={(
           <Tabs
             activeTab={activeTab}
             onShowTab={(id: string) => setActiveTab(id as EditTab)}
@@ -1025,7 +1016,8 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
               },
             ]}
           />
-          </div>
+      )}
+      preview={(
           <PreviewPanel
             t={t}
             title={state.title}
@@ -1070,9 +1062,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
             removableSet={removableTail(state.manualOrder, resolvedIds)}
             onRemoveCard={(id) => setState((prev) => ({ ...prev, manualOrder: prev.manualOrder.filter((x) => x !== id) }))}
           />
-          </div>
-        </Focusable>
-      </ConfirmModal>
-    </ModalShell>
+      )}
+    />
   )
 }

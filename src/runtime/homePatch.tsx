@@ -6,7 +6,7 @@ const HomeShelves = wrapHomeShelves(HomeShelvesRaw);
 import { SearchOverlay } from "../features/search/SearchOverlay";
 import { ShelfSideNav } from "../features/sidenav/ShelfSideNav";
 import { DeckScreensaverOverlay } from "../components/screensaver/DeckScreensaverOverlay";
-try { (globalThis as any).__ds_homepatch_loaded = Date.now(); (globalThis as any).__ds_overlays_imported = typeof SearchOverlay === 'function' && typeof ShelfSideNav === 'function'; } catch {}
+try { (globalThis as any).__ds_homepatch_loaded = Date.now(); } catch {}
 import { logDiagnostic } from "./diagnostics";
 import { logError, logInfo, logWarn } from "./logger";
 import { setPreferredSteamWindow, getAllSteamDocuments } from "./steamHost";
@@ -770,7 +770,6 @@ function HomeDomBridge() {
      Stand down so the two never both mount HomeShelves into ROOT_ID (the double
      shelves the user saw). On a loader (same window) the flag stays unset. */
   if ((globalThis as any).__ds_sole_home_owned) return null;
-  try { (globalThis as any).__ds_bridge_renders = (((globalThis as any).__ds_bridge_renders ?? 0) + 1); } catch {}
   getHostContext();
   return React.createElement(
     HomeBoundary,

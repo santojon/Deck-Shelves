@@ -265,6 +265,49 @@ const ManualBaseSortSchema = z.union([
   z.array(z.union([z.enum(MANUAL_BASE_SORT_KEYS), z.string()])),
 ]);
 
+type VisualFlag<D extends boolean> = D extends true ? z.ZodDefault<z.ZodBoolean> : z.ZodOptional<z.ZodBoolean>;
+
+/* The visual customization surface both shelf kinds share, built once: the
+   regular shelf defaults its boolean flags to false, the smart shelf leaves them
+   optional (`defaulted`). Same fields, same order, so persisted key order is unchanged. */
+function shelfVisualFields<D extends boolean>(defaulted: D) {
+  const flag = (): VisualFlag<D> => (defaulted ? z.boolean().default(false) : z.boolean().optional()) as VisualFlag<D>;
+  return {
+    matchNativeSize: flag(),
+    highlightFirst: flag(),
+    highlightAll: flag(),
+    highlightedAppIds: z.array(z.number().int()).optional(),
+    highlightRandom: z.boolean().optional(),
+    enableLogo: z.boolean().optional(),
+    enableIcon: z.boolean().optional(),
+    enableDescription: z.boolean().optional(),
+    descriptionScale: z.number().int().min(100).max(200).nullable().optional(),
+    descriptionBelowLogo: z.boolean().optional(),
+    logoBelowShelf: z.boolean().optional(),
+    logoPosition: z.enum(['left', 'center', 'right']).nullable().optional(),
+    descriptionPosition: z.enum(['left', 'center', 'right']).nullable().optional(),
+    logoSize: z.number().int().min(50).max(200).nullable().optional(),
+    logoTopOffset: z.number().int().min(-50).max(100).nullable().optional(),
+    fullPageShelf: z.boolean().optional(),
+    iconVerticalAlign: z.enum(['top', 'center', 'bottom']).nullable().optional(),
+    shelfTitlePosition: z.enum(['left', 'center', 'right']).nullable().optional(),
+    gameNamePosition: z.enum(['left', 'center', 'right']).nullable().optional(),
+    playtimePosition: z.enum(['left', 'center', 'right']).nullable().optional(),
+    descriptionHeight: z.number().int().min(1).max(3).nullable().optional(),
+    descriptionLogoGap: z.number().int().min(-40).max(80).nullable().optional(),
+    hideStatusLine: flag(),
+    hideNewBadge: flag(),
+    hideDiscountBadge: flag(),
+    hideCompatIcons: flag(),
+    hideNonSteamBadge: flag(),
+    hideShelfTitle: flag(),
+    hideGameNames: flag(),
+    hideInstallIndicator: flag(),
+    hideSeeMore: flag(),
+    hideRefreshCard: flag(),
+  };
+}
+
 export const SmartShelfSchema = z.object({
   id: z.string().min(1).max(64),
   updatedAt: z.number().int().nonnegative().optional(),
@@ -292,40 +335,8 @@ export const SmartShelfSchema = z.object({
   // applies uniformly, `boolean[]` aligned with the multi-key chain.
   manualBaseSortReverse: z.union([z.boolean(), z.array(z.boolean())]).optional(),
   filterGroup: FilterGroupSchema.optional(),
-  // Visual overrides — mirrored from `ShelfSchema` so smart shelves can
-  // share the regular-shelf visual customization surface.
-  matchNativeSize: z.boolean().optional(),
-  highlightFirst: z.boolean().optional(),
-  highlightAll: z.boolean().optional(),
-  highlightedAppIds: z.array(z.number().int()).optional(),
-  highlightRandom: z.boolean().optional(),
-  enableLogo: z.boolean().optional(),
-  enableIcon: z.boolean().optional(),
-  enableDescription: z.boolean().optional(),
-  descriptionScale: z.number().int().min(100).max(200).nullable().optional(),
-  descriptionBelowLogo: z.boolean().optional(),
-  logoBelowShelf: z.boolean().optional(),
-  logoPosition: z.enum(['left', 'center', 'right']).nullable().optional(),
-  descriptionPosition: z.enum(['left', 'center', 'right']).nullable().optional(),
-  logoSize: z.number().int().min(50).max(200).nullable().optional(),
-  logoTopOffset: z.number().int().min(-50).max(100).nullable().optional(),
-  fullPageShelf: z.boolean().optional(),
-  iconVerticalAlign: z.enum(['top', 'center', 'bottom']).nullable().optional(),
-  shelfTitlePosition: z.enum(['left', 'center', 'right']).nullable().optional(),
-  gameNamePosition: z.enum(['left', 'center', 'right']).nullable().optional(),
-  playtimePosition: z.enum(['left', 'center', 'right']).nullable().optional(),
-  descriptionHeight: z.number().int().min(1).max(3).nullable().optional(),
-  descriptionLogoGap: z.number().int().min(-40).max(80).nullable().optional(),
-  hideStatusLine: z.boolean().optional(),
-  hideNewBadge: z.boolean().optional(),
-  hideDiscountBadge: z.boolean().optional(),
-  hideCompatIcons: z.boolean().optional(),
-  hideNonSteamBadge: z.boolean().optional(),
-  hideShelfTitle: z.boolean().optional(),
-  hideGameNames: z.boolean().optional(),
-  hideInstallIndicator: z.boolean().optional(),
-  hideSeeMore: z.boolean().optional(),
-  hideRefreshCard: z.boolean().optional(),
+  // Visual overrides — the regular-shelf customization surface, shared (see shelfVisualFields).
+  ...shelfVisualFields(false),
   // Per-shelf hero opt-in (same semantics as the regular Shelf flag).
   heroEnabled: z.boolean().optional(),
   // Per-shelf: render the focused game's info (name, playtime, …) above the
@@ -455,38 +466,7 @@ export const ShelfSchema = z.object({
   // Reverse flag for the manual base sort. Mirrors `sortReverse`: boolean
   // applies uniformly, `boolean[]` aligned with the multi-key chain.
   manualBaseSortReverse: z.union([z.boolean(), z.array(z.boolean())]).optional(),
-  matchNativeSize: z.boolean().default(false),
-  highlightFirst: z.boolean().default(false),
-  highlightAll: z.boolean().default(false),
-  highlightedAppIds: z.array(z.number().int()).optional(),
-  highlightRandom: z.boolean().optional(),
-  enableLogo: z.boolean().optional(),
-  enableIcon: z.boolean().optional(),
-  enableDescription: z.boolean().optional(),
-  descriptionScale: z.number().int().min(100).max(200).nullable().optional(),
-  descriptionBelowLogo: z.boolean().optional(),
-  logoBelowShelf: z.boolean().optional(),
-  logoPosition: z.enum(['left', 'center', 'right']).nullable().optional(),
-  descriptionPosition: z.enum(['left', 'center', 'right']).nullable().optional(),
-  logoSize: z.number().int().min(50).max(200).nullable().optional(),
-  logoTopOffset: z.number().int().min(-50).max(100).nullable().optional(),
-  fullPageShelf: z.boolean().optional(),
-  iconVerticalAlign: z.enum(['top', 'center', 'bottom']).nullable().optional(),
-  shelfTitlePosition: z.enum(['left', 'center', 'right']).nullable().optional(),
-  gameNamePosition: z.enum(['left', 'center', 'right']).nullable().optional(),
-  playtimePosition: z.enum(['left', 'center', 'right']).nullable().optional(),
-  descriptionHeight: z.number().int().min(1).max(3).nullable().optional(),
-  descriptionLogoGap: z.number().int().min(-40).max(80).nullable().optional(),
-  hideStatusLine: z.boolean().default(false),
-  hideNewBadge: z.boolean().default(false),
-  hideDiscountBadge: z.boolean().default(false),
-  hideCompatIcons: z.boolean().default(false),
-  hideNonSteamBadge: z.boolean().default(false),
-  hideShelfTitle: z.boolean().default(false),
-  hideGameNames: z.boolean().default(false),
-  hideInstallIndicator: z.boolean().default(false),
-  hideSeeMore: z.boolean().default(false),
-  hideRefreshCard: z.boolean().default(false),
+  ...shelfVisualFields(true),
   /* Per-shelf "Enable hero art" toggle. When true, focusing any card in this
      shelf paints the hero image (same overlay used by the global
      `shelfHeroBackground`) tied to the focused appid. Independent of

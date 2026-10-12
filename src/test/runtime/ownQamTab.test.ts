@@ -32,6 +32,10 @@ describe("evaluateBreaker (own-tab crash breaker)", () => {
   it("passes when there is no prior state", () => {
     expect(evaluateBreaker(null, now).decision).toBe("ok");
   });
+  it("a trip older than a day gets one more try, carrying a strike so a real crash-loop re-trips", () => {
+    const dayAgo = now - 24 * 60 * 60 * 1000 - 1;
+    expect(evaluateBreaker(`tripped:${dayAgo}`, now)).toEqual({ decision: "ok", next: `armed:${now}:1` });
+  });
   it("latches once tripped", () => {
     expect(evaluateBreaker(`tripped:${now - 1}`, now)).toEqual({ decision: "tripped", next: null });
   });

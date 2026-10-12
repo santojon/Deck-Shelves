@@ -3,6 +3,14 @@ import { compareVersions, shouldDeferToHost, publishDeferSignal, readDeferSignal
 
 const hs = (caps: Record<string, boolean>, bundleVersion?: string): any => ({ hostKind: "shelveshub", hostVersion: "0.6.0", hostApiVersion: "1.4.0", capabilities: caps, bundleVersion });
 
+// The renderer's storage, where the host leaves its offer (the test runtime has none).
+const stored = new Map<string, string>();
+(globalThis as any).localStorage = {
+  getItem: (k: string) => stored.get(k) ?? null,
+  setItem: (k: string, v: string) => { stored.set(k, String(v)); },
+  removeItem: (k: string) => { stored.delete(k); },
+};
+
 describe("coopDefer — the loader copy stands down for a newer-or-equal host bundle", () => {
   beforeEach(() => { delete (globalThis as any)[DEFER_GLOBAL]; delete (globalThis as any)[HOST_BUNDLE_BOOTED_GLOBAL]; });
 
@@ -53,6 +61,47 @@ describe("coopDefer — the loader copy stands down for a newer-or-equal host bu
       expect(fallback).toHaveBeenCalledTimes(1);
       expect(mod.readDeferSignal()).toBeNull();
     } finally { vi.useRealTimers(); }
+  });
+
+  it("stands down on the host's stored offer at a cold start, and stamps it when the host never comes", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.resetModules();
+      const mod = await import("../../runtime/host/coopDefer");
+      const fallback = vi.fn();
+      localStorage.setItem(mod.COOP_OFFER_KEY, JSON.stringify({ bundleVersion: "v3.4.0", hostVersion: "0.6.0", at: 1 }));
+      const base = { loaderLaunched: true, forced: false, handshake: null, ownVersion: "3.4.0", onFallback: fallback };
+      expect(mod.tryDeferToHost(base)).toBe(true);
+      expect(mod.readDeferSignal()?.hostBundleVersion).toBe("v3.4.0");
+      // The stored offer waits the longer, cold-start window.
+      vi.advanceTimersByTime(DEFER_FALLBACK_MS);
+      expect(fallback).not.toHaveBeenCalled();
+      vi.advanceTimersByTime(mod.OFFER_FALLBACK_MS - DEFER_FALLBACK_MS);
+      expect(fallback).toHaveBeenCalledTimes(1);
+      expect(mod.readDeferSignal()).toBeNull();
+      expect(mod.readCoopOffer()?.fallbackAt).toBeTypeOf("number");
+    } finally { vi.useRealTimers(); localStorage.removeItem("shelveshub-coop-bundle"); }
+  });
+
+  it("ignores a stored offer that is older than this copy, answered by a fallback, or beside a live handshake", async () => {
+    vi.resetModules();
+    const mod = await import("../../runtime/host/coopDefer");
+    const base = { loaderLaunched: true, forced: false, handshake: null, ownVersion: "3.4.0", onFallback: vi.fn() };
+    localStorage.setItem(mod.COOP_OFFER_KEY, JSON.stringify({ bundleVersion: "3.3.4" }));
+    expect(mod.tryDeferToHost(base)).toBe(false);
+    localStorage.setItem(mod.COOP_OFFER_KEY, JSON.stringify({ bundleVersion: "3.5.0", fallbackAt: 5 }));
+    expect(mod.tryDeferToHost(base)).toBe(false);
+    localStorage.setItem(mod.COOP_OFFER_KEY, JSON.stringify({ bundleVersion: "3.5.0" }));
+    expect(mod.tryDeferToHost({ ...base, forced: true, handshake: hs({ coopBundle: false }, "3.5.0") })).toBe(false);
+    localStorage.removeItem(mod.COOP_OFFER_KEY);
+  });
+
+  it("a reloaded loader copy stands down while the host's copy is running", async () => {
+    vi.resetModules();
+    const mod = await import("../../runtime/host/coopDefer");
+    mod.markHostBundleBooted("3.4.0");
+    expect(mod.tryDeferToHost({ loaderLaunched: true, forced: false, handshake: null, ownVersion: "3.5.0", onFallback: vi.fn() })).toBe(true);
+    expect(mod.readDeferSignal()).toBeNull();
   });
 
   it("tryDeferToHost: no fallback boot once the host bundle has announced itself", async () => {
