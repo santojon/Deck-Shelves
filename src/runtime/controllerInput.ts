@@ -4,6 +4,7 @@
    This helper exposes a single subscribe-based stream so multiple
    features can listen without each one re-registering with Steam. */
 
+import { getSessionState } from "./sessionState";
 import { devStamp, devTrace } from "./devStamps";
 import { dispatchHomeKey } from "./homeInputBus";
 
@@ -242,30 +243,43 @@ function installBPInputRegistration(view: any, g: any): boolean {
   }
 }
 
-let pollCursor = 0;
-let keyPollCursor = 0;
+/* The injected logger records `{ src, args, t }`. Controller-input messages
+   carry (slot, button, pressed) and are forwarded only while no direct
+   registration has delivered (so one press never arrives twice); other messages
+   are forwarded as before, button-less, so idle detection still sees activity. */
+let directInputSeen = false;
+function inputArgsOf(entry: any): any[] | null {
+  const isInput = typeof entry?.src === "string" && entry.src.endsWith(".RegisterForControllerInputMessages");
+  return isInput && Array.isArray(entry.args) && typeof entry.args[1] === "number" ? entry.args : null;
+}
+function bpEntryToEvent(entry: any): ControllerEvent | null {
+  const args = inputArgsOf(entry);
+  if (!args) return { slot: entry?.s, button: entry?.b, pressed: entry?.p };
+  return directInputSeen ? null : { slot: Number(args[0]), button: args[1], pressed: !!args[2] };
+}
+
+// Drain the logs (the injected side caps them with shift(), so a growing read
+// cursor would stall once a cap is reached).
+function drain(log: unknown): any[] {
+  return Array.isArray(log) && log.length ? log.splice(0, log.length) : [];
+}
+
+// Behind a running game nothing here needs these; drop them so no stale presses
+// fire once the game ends.
+function drainLogs(view: any, discard: boolean): void {
+  for (const entry of drain(view?.__ds_bp_input_log)) {
+    const ev = entry && !discard ? bpEntryToEvent(entry) : null;
+    if (ev) dispatch(ev);
+  }
+  for (const entry of drain(view?.__ds_bp_keydown_log)) if (entry && !discard) dispatchHomeKey(entry);
+}
+
 function startPolling(): void {
   if (pollTimer != null) return;
   const g = globalThis as any;
   pollTimer = g.setInterval?.(() => {
     try {
-      const view = g.__ds_input_bp_view;
-      const log = view?.__ds_bp_input_log;
-      if (Array.isArray(log)) {
-        while (pollCursor < log.length) {
-          const entry = log[pollCursor++];
-          if (!entry) continue;
-          dispatch({ slot: entry.s, button: entry.b, pressed: entry.p });
-        }
-      }
-      const kbLog = view?.__ds_bp_keydown_log;
-      if (Array.isArray(kbLog)) {
-        while (keyPollCursor < kbLog.length) {
-          const entry = kbLog[keyPollCursor++];
-          if (!entry) continue;
-          dispatchHomeKey(entry);
-        }
-      }
+      drainLogs(g.__ds_input_bp_view, getSessionState().gameRunning);
     } catch {}
   }, 30);
 }
@@ -285,6 +299,7 @@ function ensureInstalled(): void {
     const Input = apis[i];
     try {
       const reg = Input.RegisterForControllerInputMessages((slot: number, button: number, pressed: boolean) => {
+        directInputSeen = true;
         dispatch({ slot, button, pressed });
       });
       unregisterAll.push(() => { try { reg?.unregister?.(); } catch {} });
@@ -299,7 +314,6 @@ function ensureInstalled(): void {
       unregisterAll = [];
       try { if (pollTimer != null) (globalThis as any).clearInterval?.(pollTimer); } catch {}
       pollTimer = null;
-      pollCursor = 0;
     };
     installed = true;
     devStamp("__ds_input_installed", { sharedJs: unregisterAll.length, bp: bpOk });

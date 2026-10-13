@@ -141,7 +141,8 @@ share, say, or two specific SD cards but not a third.
 | `hiddenLauncherShortcuts` | Hidden non-Steam shortcut | — |
 | `executableType` | Target executable extension | `ext`: string (e.g. `exe`, `sh`) |
 | `launchOptionTags` | Launch options contain any tag | `tags`: string[] |
-| `customTags` / `parserCategories` | Matches user/parser tags | `tags`: string[] |
+| `customTags` | Game carries any of your own tags (set them from the game menu: **Lists** → **Edit tags…**) | `tags`: string[] |
+| `parserCategories` | Non-Steam shortcut carries any of the categories the tool that added it wrote (ROM managers and launcher integrations store them in Steam's shortcuts file) | `tags`: string[] |
 
 ### Composite filters
 
@@ -292,6 +293,12 @@ as `{ "type": "builtin", "sourceId": "<id>" }` and takes no further parameters.
 | Manual | `pinned_games`, `history_source`, `session_queue_source`, `temporary_queue_source` |
 | Contextual | `recently_updated`, `with_events`, `with_workshop_updates`, `controller_specific_source` |
 | Launchers | `emudeck_collections`, `retrodeck_collections`, `heroic_library`, `lutris_library`, `moonlight_sessions`, `chiaki_sessions` |
+
+**Manual sources** fill from the game menu. Once a shelf, smart shelf, saved filter or
+profile uses one of them, every game menu gains a **Lists** submenu that toggles the game
+in **Pinned games**, the **Session queue** (kept until Steam restarts) or the **Temporary
+queue** (a game leaves it when you launch it). **Play history** fills by itself, newest
+launch first (the last 100). These lists, and the custom tags, are stored on this device.
 
 ## Multi-source shelves
 

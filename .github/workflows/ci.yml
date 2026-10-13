@@ -37,9 +37,9 @@ jobs:
         # Admin role, so a bot-token push is rejected with GH013. checkout's
         # persisted auth header overrides any later `git remote set-url`, so the
         # token has to be set HERE (same as version-dropdown / release.yml).
-        # submodules: recursive pulls api/ + deckprobe/ on every run — api
-        # exports the `PublicAppMeta` types `src/core/pluginApi.ts` imports
-        # via `../../api/src/types`; without it tsc fails with TS2307.
+        # submodules: recursive pulls api/ + host/ + deckprobe/ on every run —
+        # `@deck-shelves/api` and `@deck-shelves/host` resolve to the submodules'
+        # sources through aliases; without them tsc fails with TS2307.
         with:
           fetch-depth: 0
           submodules: recursive
@@ -66,7 +66,7 @@ jobs:
       - name: Ruff (Python — pyflakes bug catchers)
         run: |
           python3 -m pip install -U pip
-          python3 -m pip install ruff
+          python3 -m pip install ruff pytest
           pnpm run lint:py
 
       - name: Static validation
@@ -156,10 +156,8 @@ jobs:
         env:
           # SUBMIT_TOKEN (maintainer PAT) bypasses branch protection on main so
           # the report pushes DIRECTLY — same as release.yml / weekly-report.yml.
-          # Without it the push is rejected and commit-report.sh falls back to an
-          # `auto/reports-*` branch + PR that, since it only touches
-          # site/reports/** (paths-ignored here), can never satisfy the required
-          # `validate` check → the PR never auto-merges and the branch is orphaned.
+          # Without it the push is rejected; commit-report.sh retries with a
+          # rebase a few times and then only warns.
           SUBMIT_TOKEN: ${{ secrets.SUBMIT_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.SUBMIT_TOKEN || secrets.GITHUB_TOKEN }}
         run: bash scripts/ci/commit-report.sh

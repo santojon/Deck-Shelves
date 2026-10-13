@@ -38,7 +38,7 @@ want; keep it for a pinned Discussion post people will search later.
 - [showcase-mode.md](showcase-mode.md) — Showcase / Dynamic Idle Mode, a self-cycling shelf display
 
 **Distribution & sync**
-- [shelveshub-install.md](shelveshub-install.md) — ShelvesHub, the new recommended way to install (no Decky Loader needed)
+- [shelveshub-install.md](shelveshub-install.md) — the standalone host, the new recommended way to install (no Decky Loader needed)
 - [own-qam-tab.md](own-qam-tab.md) — Deck Shelves' own Quick Access tab under Decky Loader
 - [cloud-sync.md](cloud-sync.md) — sync your settings across every device on your Steam account
 
@@ -50,4 +50,4 @@ want; keep it for a pinned Discussion post people will search later.
 - [power-user-tools.md](power-user-tools.md) — snapshots, cache management, diagnostics, statistics & suggestions
 
 All of the above are optional and off by default unless the file says
-otherwise. Current versions: plugin v3.3.0+, ShelvesHub v0.1.0+.
+otherwise. Current versions: plugin v3.3.0+, standalone host v0.1.0+.

@@ -13,10 +13,10 @@ própria aba de plugins do Decky Loader, depois encontrar o Deck Shelves na
 lista. Com isso ativado, o Deck Shelves ganha uma aba real e dedicada na
 própria faixa de Acesso Rápido — mesmo editor, um toque em vez de dois.
 
-Esse é o mesmo mecanismo de aba que o [ShelvesHub](shelveshub-install.md) já
-te dá — essa configuração traz isso pra instalações só-Decky, sem precisar
-do ShelvesHub. Se você já tiver o ShelvesHub instalado também, essa
-configuração fica oculta automaticamente, já que o ShelvesHub já fornece a
+Esse é o mesmo mecanismo de aba que o [host independente](shelveshub-install.md)
+já te dá — essa configuração traz isso pra instalações só-Decky, sem precisar
+do host independente. Se você já tiver o host independente instalado também,
+essa configuração fica oculta automaticamente, já que o host já fornece a
 aba.
 
 ## Como ativar

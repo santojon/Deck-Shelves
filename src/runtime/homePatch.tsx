@@ -61,30 +61,27 @@ let pendingHideHomeTabs: boolean = false;
  *  bottom (fine when recents is collapsed); with replace active the recents row
  *  stays visible, so that overlap would push the next DS shelf's title into it
  *  (esp. under CSS Loader themes like SLH that extend recents visually). */
-export function applyReplaceActiveMargin(active: boolean): void {
+const MARGIN_RETRY_MAX = 5;
+let marginRetryTimer: ReturnType<typeof setTimeout> | null = null;
+/* Replace not active: restore the hide-recents margin (this runs right after
+   applyHideRecents in the same effect — a bare remove clobbered its 56px: the
+   first shelf then sat 88px too high and SLH's block ended mid-screen). */
+const replaceMarginValue = (active: boolean): string => (active ? "0px" : pendingHideRecents ? "56px" : "");
+function mountsInEveryDoc(): HTMLElement[] {
+  /* Every known doc rather than getHostContext()'s single guessed window —
+     HomeInject creates the mount via its own, separately-scored resolver, so the
+     two can disagree about which doc is "current". */
+  const docs = new Set<Document>([getHostContext().doc, ...getAllSteamDocuments()]);
+  return [...docs].map((doc) => doc?.getElementById?.(ROOT_ID) as HTMLElement | null).filter((m): m is HTMLElement => !!m);
+}
+export function applyReplaceActiveMargin(active: boolean, attempt = 0): void {
+  if (marginRetryTimer) { clearTimeout(marginRetryTimer); marginRetryTimer = null; }
   try {
-    /* Apply to the mount in EVERY known doc rather than trusting
-       getHostContext()'s single guessed window — HomeInject creates the
-       mount via its own, separately-scored preferred-document resolver, so
-       the two can disagree about which doc is "current" and silently no-op
-       on the wrong (mount-less) one. */
-    const docs = new Set<Document>([getHostContext().doc, ...getAllSteamDocuments()]);
-    let found = 0;
-    for (const doc of docs) {
-      const mount = doc?.getElementById?.(ROOT_ID) as HTMLElement | null;
-      if (!mount) continue;
-      found++;
-      if (active) mount.style.setProperty("margin-top", "0px", "important");
-      /* Replace not active: restore the hide-recents margin (this runs right
-         after applyHideRecents in the same effect — a bare remove clobbered its
-         56px, confirmed by a boot trace: the first shelf then sat 88px too high
-         and SLH's block ended mid-screen). Plain remove only when not hidden. */
-      else mount.style.setProperty("margin-top", pendingHideRecents ? "56px" : "", "important");
-    }
-    // The mount can be mid-(re)creation when settings finish loading —
-    // retry once shortly after instead of leaving the wrong margin in
-    // place until some unrelated dep change re-fires this effect.
-    if (found === 0) setTimeout(() => applyReplaceActiveMargin(active), 400);
+    const mounts = mountsInEveryDoc();
+    for (const mount of mounts) mount.style.setProperty("margin-top", replaceMarginValue(active), "important");
+    // The mount can be mid-(re)creation when settings finish loading — retry a
+    // few times (bounded, one pending timer at most).
+    if (!mounts.length && attempt < MARGIN_RETRY_MAX) marginRetryTimer = setTimeout(() => applyReplaceActiveMargin(active, attempt + 1), 400);
   } catch (e) { logInfo("HOME", "applyReplaceActiveMargin failed", String(e)); }
 }
 
@@ -463,9 +460,8 @@ function getWindowCandidates(): Array<{ win: Window; source: string }> {
 }
 
 /* Hardcoded fallback for the native shelf-section token. Used only when the
-   runtime classmap hasn't been populated yet (very early boot, before
-   `discoverClassMap` runs). Anywhere else, prefer the live token via
-   `shelfSectionSelector(doc)`. */
+   class map holds no entry for it (the bundled seed lacks the key). Anywhere
+   else, prefer the mapped token via `shelfSectionSelector(doc)`. */
 const FALLBACK_SHELF_SECTION = "_282X0J4BtrSF1IXctmOe-X";
 
 function shelfSectionSelector(doc: Document): string {
@@ -1268,7 +1264,8 @@ export function installHomePatch(_routerHook?: any) {
 
   const tearDownFallbackRoot = (): void => {
     teardownPreviousFallbackRoot();
-    try { hostDoc.getElementById(ROOT_ID)?.remove(); } catch {}
+    // The sole-host claim goes with the root, so a next instance's bridge can render.
+    try { hostDoc.getElementById(ROOT_ID)?.remove(); delete (globalThis as any).__ds_sole_home_owned; } catch {}
   };
 
   return {

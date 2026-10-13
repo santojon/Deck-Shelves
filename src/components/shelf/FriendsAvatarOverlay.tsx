@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { getPreferredSteamDocument, getAllSteamDocuments } from "../../runtime/steamHost";
 import { subscribeOverlayActive } from "./overlayState";
+import { getCurrentSettings, subscribeSettings } from "../../store/settingsStore";
+import { settingsNeedFriends } from "../../runtime/featureDemand";
 
 function findHomeRootDoc(): { doc: Document; root: HTMLElement } | null {
   for (const d of [getPreferredSteamDocument(), ...getAllSteamDocuments()]) {
@@ -20,7 +22,15 @@ type AvatarItem = { key: string; left: number; top: number; size: number; avatar
    adjacent cards (an in-card element is trapped in the focused card's stacking
    context + clipped by the row scroller). Each tracks its card's live
    `.ds-card-art` rect, so size + overhang scale with focus like native. */
+// Mounted only while the configuration uses friends data (the same demand check
+// that starts the friends poller), so its observers cost nothing otherwise.
 export function FriendsAvatarOverlay() {
+  const [needed, setNeeded] = useState(() => settingsNeedFriends(getCurrentSettings()));
+  useEffect(() => subscribeSettings((s) => setNeeded(settingsNeedFriends(s))), []);
+  return needed ? <FriendsAvatarLayer /> : null;
+}
+
+function FriendsAvatarLayer() {
   const [items, setItems] = useState<AvatarItem[]>([]);
   const [obscured, setObscured] = useState(false);
   const [hostKey, setHostKey] = useState(0);

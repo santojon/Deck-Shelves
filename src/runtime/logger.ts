@@ -3,7 +3,7 @@ import { logDiagnostic, type DiagnosticLevel } from "./diagnostics";
 export type DeckLogLevel = "INFO" | "WARN" | "ERROR";
 export type DeckLogScope = "HOME" | "STORAGE" | "SETTINGS" | "STEAM" | "RUNTIME" | "UPDATE" | "ONLINE";
 
-/* Verbose mode (Advanced → "Show all logs"). When on, every log — including
+/* Verbose mode (Developer tab → "Show all logs"). When on, every log — including
    the dev-only INFO ones — also lands in the on-device diagnostics buffer (the
    only log surface reachable without a console) so the user can inspect them.
    Toggled from the settings store as the setting loads/changes. */

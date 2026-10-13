@@ -46,3 +46,8 @@ export function settingsNeedFriends(settings: Settings | null | undefined): bool
 export function settingsNeedLaunchers(settings: Settings | null | undefined): boolean {
   return settingsMentionAny(settings, LAUNCHER_BACKED_SOURCE_IDS);
 }
+
+// The Parser categories filter reads the tags on non-Steam shortcuts.
+export function settingsNeedShortcutTags(settings: Settings | null | undefined): boolean {
+  return settingsMentionAny(settings, ["parserCategories"]);
+}

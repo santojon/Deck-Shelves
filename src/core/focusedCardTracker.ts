@@ -11,6 +11,7 @@ const listeners = new Set<(info: FocusedCardInfo | null) => void>();
 let installed = false;
 let installRetryTimer: ReturnType<typeof setTimeout> | null = null;
 let teardowns: Array<() => void> = [];
+let attachedRoot: HTMLElement | null = null;
 
 function notify(): void {
   for (const cb of listeners) {
@@ -53,6 +54,7 @@ function attach(): boolean {
   const located = findHomeRoot();
   if (!located) return false;
   const { root } = located;
+  attachedRoot = root;
   const onFocusIn = (e: Event): void => {
     const t = e.target as HTMLElement | null;
     const card = t?.closest?.(".ds-card") as HTMLElement | null;
@@ -72,15 +74,25 @@ function attach(): boolean {
   return true;
 }
 
-function ensureInstalled(): void {
+// Home root not in DOM yet — retry for a while (30 s); the next API call starts over.
+const INSTALL_RETRY_MAX = 150;
+function detachListeners(): void {
+  for (const fn of teardowns) { try { fn(); } catch {} }
+  teardowns = [];
+  attachedRoot = null;
+  installed = false;
+}
+
+function ensureInstalled(attempt = 0): void {
+  // The Home root is rebuilt when the Home remounts: follow it to the new one.
+  if (installed && attachedRoot && !attachedRoot.isConnected) detachListeners();
   if (installed) return;
   if (attach()) {
     installed = true;
     return;
   }
-  // Home root not in DOM yet — retry until it appears.
-  if (installRetryTimer === null) {
-    installRetryTimer = setTimeout(() => { installRetryTimer = null; ensureInstalled(); }, 200);
+  if (installRetryTimer === null && attempt < INSTALL_RETRY_MAX) {
+    installRetryTimer = setTimeout(() => { installRetryTimer = null; ensureInstalled(attempt + 1); }, 200);
   }
 }
 
@@ -98,9 +110,7 @@ export function subscribeFocusedCard(cb: (info: FocusedCardInfo | null) => void)
 }
 
 export function uninstallFocusedCardTracker(): void {
-  for (const fn of teardowns) { try { fn(); } catch {} }
-  teardowns = [];
-  installed = false;
+  detachListeners();
   if (installRetryTimer !== null) { clearTimeout(installRetryTimer); installRetryTimer = null; }
   listeners.clear();
   current = null;

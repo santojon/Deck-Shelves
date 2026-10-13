@@ -1,5 +1,5 @@
 """
-Unit tests for the settings-corruption recovery path (CRITICAL-NOW.md item 4):
+Unit tests for the settings-corruption recovery path:
 a truncated/unparseable primary settings.json used to silently reset to
 defaults AND, on the very next save, get rotated over the last known-good
 `.bak` — destroying it too. `_read_state` now recovers from `.bak` or the

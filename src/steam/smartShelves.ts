@@ -7,8 +7,8 @@ import { evalDeviceRule, isDeviceRuleKind, getDeviceProfile } from "../runtime/d
 import { compatCategoryForFamily } from "../domain/deviceProfile";
 import { evalTimeContextRule, isTimeContextKind } from "../domain/timeContext";
 import { evalSessionRule, isSessionRuleKind } from "../runtime/sessionState";
-import { evalPerfRule, isPerfRuleKind } from "../runtime/perfState";
-import { evalPeripheralRule, isPeripheralRuleKind } from "../runtime/peripheralsState";
+import { evalPerfRule, isPerfRuleKind, perfRuleHasData } from "../runtime/perfState";
+import { evalPeripheralRule, isPeripheralRuleKind, peripheralRuleHasData } from "../runtime/peripheralsState";
 import { getFriendsPlayingAppIds, getFriendsRecentlyPlayedAppIds } from "../runtime/friendsState";
 import { appHasAnyCategory, getAppAchievementPct, preloadAppDetailsSummaries } from "./appDetailsCache";
 import { getCurrentSettings } from "../store/settingsStore";
@@ -972,10 +972,29 @@ export function nextVisibilityFlip(entry: VisibilityLike, now: Date = new Date()
 /* A profile's `trigger` is a Visibility tree (same shape as shelf visibility).
    Unlike shelf visibility, an EMPTY trigger never fires — there is nothing to
    auto-apply, so an unconfigured profile is inert. */
+function isKnownRuleKind(kind: string): boolean {
+  return kind === "timeWindow" || kind === "dayOfWeek" || isTimeContextKind(kind) || isSessionRuleKind(kind)
+    || isPerfRuleKind(kind) || isPeripheralRuleKind(kind) || isDeviceRuleKind(kind);
+}
+
+// A rule a trigger cannot judge: an unknown kind, or perf / peripheral data that has not arrived.
+function ruleLacksData(rule: any): boolean {
+  const kind = String(rule?.kind ?? "");
+  if (!isKnownRuleKind(kind)) return true;
+  if (isPerfRuleKind(kind)) return !perfRuleHasData(rule);
+  if (isPeripheralRuleKind(kind)) return !peripheralRuleHasData(rule);
+  return false;
+}
+
+/* Unlike shelf visibility, a trigger acts only on evidence: a rule without data,
+   or of a kind this build does not know, counts as not matching (an "all"
+   trigger waits; an "any" trigger ignores it). */
 export function evalProfileTrigger(trigger: unknown, now: Date = new Date()): boolean {
   const t = trigger as any;
   if (!t || !Array.isArray(t.rules) || t.rules.length === 0) return false;
-  return evalVisibilityRules(t, now);
+  const known = t.rules.filter((r: any) => !ruleLacksData(r));
+  if (known.length === 0 || (t.mode === "all" && known.length !== t.rules.length)) return false;
+  return evalVisibilityRules({ ...t, rules: known }, now);
 }
 
 /* Name of the first profile whose trigger is currently active, or null.

@@ -18,6 +18,9 @@ export const SYNC_LISTS = ["shelves", "smartShelves", "savedFilters", "savedSmar
 // profile controller (controller/profiles.ts, runtime/profileTriggers.ts).
 export const DEVICE_LOCAL_FIELDS = [
   "devModeEnabled", "verboseLoggingEnabled", "ownQamTabEnabled",
+  // This device's backup of Steam's own idle timeout: a factory reset or a
+  // profile switch must keep it, or turning the screensaver off can't restore it.
+  "screensaverIdleBackupAcSec", "screensaverIdleBackupBatterySec",
   "debugOverlayEnabled", "debugOverlayCorner", "debugOverlayVertical",
   "debugOverlayFps", "debugOverlayStats", "debugOverlayPerShelf",
   "debugOverlayOutlines", "debugOverlayFocus", "debugOverlayTransparent",
@@ -26,7 +29,6 @@ export const DEVICE_LOCAL_FIELDS = [
 // Per-device, never synced — always kept from the local (first) argument.
 export const LOCAL_ONLY_FIELDS = [
   "cloudSyncEnabled", "cloudSyncLastSyncedAt",
-  "screensaverIdleBackupAcSec", "screensaverIdleBackupBatterySec",
   // The active profile is a device-local presentation — a merge must keep the
   // local one, never adopt the other device's (see cloudSync's matching list).
   "activeProfileName",

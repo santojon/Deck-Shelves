@@ -126,7 +126,6 @@ export function useCardActivation(params: {
     };
     // item.onActivate is read via closure (activateHandler), intentionally
     // not in deps — matches the pre-refactor effect exactly.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [item.onMenuButton, activate]);
 
   return { activate, quickLaunch };
@@ -159,6 +158,15 @@ function usesRawOnlyCombo(combo: string | null | undefined): boolean {
   if (!combo) return false;
   const tokens = String(combo).toUpperCase().split("+");
   return tokens.some((t) => t === "L4" || t === "L5" || t === "R4" || t === "R5");
+}
+
+/* Only the combos that use a back grip go through the raw stream; the rest stay
+   on buttonDownHandler, so a loader-known button never fires twice. */
+type CardBindings = ReturnType<typeof resolveBindings>;
+function rawOnlyBindings(b: CardBindings): CardBindings | null {
+  const pick = (c: string | null | undefined) => (usesRawOnlyCombo(c) ? c : null);
+  const out = { ...b, cardQuickLaunch: pick(b.cardQuickLaunch), cardHideRemove: pick(b.cardHideRemove), cardHighlightToggle: pick(b.cardHighlightToggle) } as CardBindings;
+  return out.cardQuickLaunch || out.cardHideRemove || out.cardHighlightToggle ? out : null;
 }
 
 /* Dispatches a captured keydown code against a card's keyboard bindings. */
@@ -219,9 +227,9 @@ export function useCardInputBindings(params: {
       raw: (e) => {
         try {
           const b = resolveBindings(getCurrentSettings()?.buttonBindings as any, (getCurrentSettings() as any)?.buttonBindingsDisabled, cardActionsEnabled());
-          const rawCombos = [b.cardQuickLaunch, b.cardHideRemove, b.cardHighlightToggle];
-          if (!rawCombos.some(usesRawOnlyCombo)) return;
-          const action = matchedCardAction(b, { button: e.button }, rawMatcherRef.current, true);
+          const rawOnly = rawOnlyBindings(b);
+          if (!rawOnly) return;
+          const action = matchedCardAction(rawOnly, { button: e.button }, rawMatcherRef.current, true);
           if (action) runCardAction(action, { quickLaunch, appid, removableSet, onRemoveCard, onHideCard, shelfId, toggleCardHighlight });
         } catch {}
       },
@@ -460,7 +468,6 @@ export function useNativeCardClassInjection(
       () => injectNativeClasses(cardRef, imgRef, featured, setNativeCardClass),
       NATIVE_CLASS_RETRY_INTERVALS_MS,
     )
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   ), []);
   return nativeCardClass;
 }

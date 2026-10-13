@@ -37,13 +37,26 @@ function ambientOverlayPresent(doc: Document): boolean {
   return false;
 }
 
-function clickOverlayDismissButtons(doc: Document): void {
-  // Most Steam modals carry a top-right close button with an aria-label
-  // that includes "close" or a translation thereof. We also pick up
-  // generic [data-testid*="close" i] used by some surfaces.
-  const closers = doc.querySelectorAll<HTMLElement>(
-    '[aria-label*="close" i], [aria-label*="cancel" i], [data-testid*="close" i]',
-  );
+const CLOSE_TOKENS = ["#Button_Close", "#Generic_Close", "#Button_Cancel"];
+
+/* Most Steam modals carry a close button labelled "close" / "cancel", or the
+   same words in Steam's UI language. The English words match as substrings;
+   the localized ones (read from Steam's own localizer) only as the whole
+   label, so a longer label that merely contains the word is left alone. */
+export function dismissButtonSelector(): string {
+  const parts = ['[aria-label*="close" i]', '[aria-label*="cancel" i]', '[data-testid*="close" i]'];
+  const lm = (globalThis as any).LocalizationManager;
+  for (const token of CLOSE_TOKENS) {
+    try {
+      const word = lm?.LocalizeString?.(token);
+      if (typeof word === "string" && word && !word.startsWith("#")) parts.push(`[aria-label="${word.replace(/["\\]/g, "\\$&")}" i]`);
+    } catch {}
+  }
+  return parts.join(", ");
+}
+
+function clickOverlayDismissButtons(doc: Document, selector: string): void {
+  const closers = doc.querySelectorAll<HTMLElement>(selector);
   closers.forEach((el) => {
     try {
       const rect = el.getBoundingClientRect();
@@ -65,11 +78,12 @@ function clickOverlayDismissButtons(doc: Document): void {
    menus without that side effect. */
 export function closeAmbientOverlays(timeoutMs: number = 1200): Promise<void> {
   const doc = getPreferredSteamDocument() ?? document;
+  const selector = dismissButtonSelector();
   try { (Navigation as any).CloseSideMenus?.(); } catch {}
-  clickOverlayDismissButtons(doc);
+  clickOverlayDismissButtons(doc, selector);
   return waitForOverlaysGone(timeoutMs, () => {
     try { (Navigation as any).CloseSideMenus?.(); } catch {}
-    clickOverlayDismissButtons(doc);
+    clickOverlayDismissButtons(doc, selector);
   });
 }
 

@@ -541,13 +541,10 @@ export function DeckQAMStyles() {
         outline: none;
       }
 
-      /* Sidecar panel — mirrors the native Friends & Chat second-column
-         pattern. Rendered via React Portal directly into the QAM body so
-         Steam's gamepad nav sees it as a top-level focusable sibling
-         (rather than buried inside the constrained Decky plugin tab
-         wrapper). position: fixed lays it over the otherwise-empty right
-         portion of the QAM panel (left edge ~351 = 51 tab strip +
-         300 DS plugin tab width). */
+      /* Sidecar panel — mirrors the native Friends & Chat second column.
+         Rendered inline, as a sibling of the main column inside the tab;
+         position: fixed lays it over the right portion of the widened QAM
+         (left edge ~351 = 51 tab strip + 300 plugin tab width). */
       .deck-shelves-qam-sidecar {
         /* Fixed to the QAM viewport (the measurement anchors it to the tab's
            content panel, whose box stays put when its content scrolls), so the

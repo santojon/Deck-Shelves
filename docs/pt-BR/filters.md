@@ -138,7 +138,8 @@ Visibilidade / gatilhos de perfil.
 | `hiddenLauncherShortcuts` | Atalho não-Steam oculto | — |
 | `executableType` | Extensão do executável-alvo | `ext`: string (ex.: `exe`, `sh`) |
 | `launchOptionTags` | Opções de inicialização contêm qualquer tag | `tags`: string[] |
-| `customTags` / `parserCategories` | Corresponde a tags de usuário/parser | `tags`: string[] |
+| `customTags` | O jogo tem alguma das suas tags (defina pelo menu do jogo: **Listas** → **Editar tags…**) | `tags`: string[] |
+| `parserCategories` | O atalho não-Steam tem alguma das categorias que a ferramenta que o adicionou gravou (gerenciadores de ROM e integrações de launchers guardam essas categorias no arquivo de atalhos da Steam) | `tags`: string[] |
 
 ### Filtros compostos
 
@@ -304,6 +305,13 @@ recebe parâmetros adicionais.
 | Manual | `pinned_games`, `history_source`, `session_queue_source`, `temporary_queue_source` |
 | Contextual | `recently_updated`, `with_events`, `with_workshop_updates`, `controller_specific_source` |
 | Launchers | `emudeck_collections`, `retrodeck_collections`, `heroic_library`, `lutris_library`, `moonlight_sessions`, `chiaki_sessions` |
+
+**Fontes manuais** são preenchidas pelo menu do jogo. Assim que uma prateleira, prateleira
+inteligente, filtro salvo ou perfil usa uma delas, todo menu de jogo ganha um submenu
+**Listas** que coloca ou tira o jogo de **Jogos fixados**, da **Fila de sessão** (mantida
+até a Steam reiniciar) ou da **Fila temporária** (o jogo sai dela quando você o inicia).
+O **Histórico de jogo** se preenche sozinho, do lançamento mais recente para o mais antigo
+(os últimos 100). Essas listas, e as tags personalizadas, ficam guardadas neste dispositivo.
 
 ## Prateleiras com múltiplas fontes
 

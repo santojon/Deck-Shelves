@@ -19,18 +19,17 @@ export function UpdateBanner({ controller }: { controller: SettingsController })
   const enabled = settings?.updateNotifyEnabled ?? true;
   const dismissed = settings?.updateNotifyDismissedVersion;
 
-  // Track previous toggle value to detect a within-session OFF → ON flip.
-  // On that edge (and only that edge), invalidate the 24h cache before the
-  /* network probe — matches the boot-time behaviour in `index.tsx` so the
-     user's explicit re-enable always reflects the latest release rather
-     than a stale cached answer. Initial mount + plain re-renders go
-     through the cached path as before (the banner does NOT spam the
-     network on every QAM open). */
+  // Track the previous toggle value to detect a within-session OFF → ON flip;
+  // on that edge, reset the stored update result before probing.
+  /* Every mount checks once: `checkForUpdate` asks the release feed when
+     online (sharing an in-flight request) and falls back to the stored
+     result offline. The boot-time probe is `installUpdateProbes`
+     (runtime/bootPhases.ts). */
   const prevEnabledRef = useRef<boolean>(enabled);
   useEffect(() => {
     if (!enabled) { prevEnabledRef.current = false; return; }
     // A self-install host already polls this same release feed and shows
-    // its own update notice — skip the duplicate check (see index.tsx).
+    // its own update notice — skip the duplicate check (see bootPhases.ts).
     if (canSelfInstallUpdate()) return;
     const wasOff = !prevEnabledRef.current;
     prevEnabledRef.current = true;

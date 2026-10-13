@@ -217,4 +217,85 @@ describe('installProfileTriggers', () => {
     expect(reverted.hideRecents).toBe(false)
     un()
   })
+
+  it('keeps triggers on when the applied profile was saved with them off', () => {
+    const offProfile = { id: 'p2', name: 'Old', snapshot: { enabled: true, profileTriggersEnabled: false } }
+    store.current = { profileTriggersEnabled: true, profiles: [offProfile], activeProfileName: null }
+    resolved.current = 'Old'
+    const un = installProfileTriggers()
+    expect(saved.list.length).toBe(1)
+    expect(saved.list[0].profileTriggersEnabled).toBe(true)
+    un()
+  })
+
+  it('reverts to the pre-trigger settings when triggers are switched off mid-trigger', () => {
+    store.current = { profileTriggersEnabled: true, profiles: [profile], activeProfileName: null, hideRecents: true }
+    resolved.current = 'Docked'
+    const un = installProfileTriggers()
+    expect(saved.list[0].activeProfileName).toBe('Docked')
+    store.current = { ...saved.list[0], profileTriggersEnabled: false }
+    saved.list = []
+    cb.settings!(store.current)
+    expect(saved.list.length).toBe(1)
+    expect(saved.list[0].activeProfileName).toBe(null)
+    expect(saved.list[0].hideRecents).toBe(true)
+    expect(saved.list[0].profileTriggersEnabled).toBe(false)
+    un()
+  })
+
+  it('reverts after a restart while the trigger was active (stored pre-trigger copy)', () => {
+    const mem = new Map<string, string>()
+    vi.stubGlobal('localStorage', { getItem: (k: string) => mem.get(k) ?? null, setItem: (k: string, v: string) => { mem.set(k, v) }, removeItem: (k: string) => { mem.delete(k) } })
+    store.current = { profileTriggersEnabled: true, profiles: [profile], activeProfileName: null, hideRecents: true }
+    resolved.current = 'Docked'
+    let un = installProfileTriggers()
+    un() // "restart": the in-memory baseline is gone, the stored copy stays
+    store.current = saved.list[0]
+    saved.list = []
+    un = installProfileTriggers() // still triggered: must not adopt the triggered state as the baseline
+    resolved.current = null
+    cb.settings!(store.current)
+    expect(saved.list.length).toBe(1)
+    expect(saved.list[0].hideRecents).toBe(true)
+    expect(saved.list[0].activeProfileName).toBe(null)
+    un()
+    vi.unstubAllGlobals()
+  })
+
+  it('keeps the edits made during a trigger when it reverts', () => {
+    const docked = { id: 'p1', name: 'Docked', snapshot: { enabled: true, hideRecents: true } }
+    store.current = { profileTriggersEnabled: true, profiles: [docked], activeProfileName: null, hideRecents: false, globalHideGameNames: false }
+    resolved.current = 'Docked'
+    const un = installProfileTriggers()
+    store.current = { ...saved.list[0], globalHideGameNames: true, shelves: [{ id: 'new', updatedAt: 5 }] } // the user edits while Docked is active
+    resolved.current = null
+    cb.settings!(store.current)
+    const reverted = saved.list[saved.list.length - 1]
+    expect(reverted.hideRecents).toBe(false)
+    expect(reverted.globalHideGameNames).toBe(true)
+    expect(reverted.shelves).toEqual([{ id: 'new', updatedAt: 5 }])
+    expect(reverted.activeProfileName).toBe(null)
+    un()
+  })
+
+  it('carries edits across a restart mid-trigger and still keeps them on revert', () => {
+    const mem = new Map<string, string>()
+    vi.stubGlobal('localStorage', { getItem: (k: string) => mem.get(k) ?? null, setItem: (k: string, v: string) => { mem.set(k, v) }, removeItem: (k: string) => { mem.delete(k) } })
+    const docked = { id: 'p1', name: 'Docked', snapshot: { enabled: true, hideRecents: true } }
+    store.current = { profileTriggersEnabled: true, profiles: [docked], activeProfileName: null, hideRecents: false, globalHideGameNames: false }
+    resolved.current = 'Docked'
+    let un = installProfileTriggers()
+    store.current = { ...saved.list[0], globalHideGameNames: true }
+    un() // restart with the edit in place
+    saved.list = []
+    un = installProfileTriggers()
+    expect(saved.list.every((s) => s.globalHideGameNames === true)).toBe(true) // the re-apply never drops the edit
+    resolved.current = null
+    cb.settings!(store.current)
+    const reverted = saved.list[saved.list.length - 1]
+    expect(reverted.hideRecents).toBe(false)
+    expect(reverted.globalHideGameNames).toBe(true)
+    un()
+    vi.unstubAllGlobals()
+  })
 })

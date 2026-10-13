@@ -107,7 +107,7 @@ function focusAdjacentEye(doc: Document, prev: HTMLElement, f: HTMLElement): voi
   if (target && target !== f) {
     takeNavTreeFocus(target);
     window.setTimeout(() => {
-      const cur = doc.querySelector('.gpfocus') as HTMLElement | null;
+      const cur = focusedInDoc(doc);
       if (cur !== target) takeNavTreeFocus(target);
     }, 30);
   }
@@ -213,7 +213,7 @@ export function SidecarPanel({ controller, onCollapse }: { controller: SettingsC
 }
 
 function focusKeyForExpand(doc: Document): string {
-  const el = doc.querySelector('.gpfocus') as HTMLElement | null;
+  const el = focusedInDoc(doc);
   if (!el) return '';
   const r = el.getBoundingClientRect();
   return `${Math.round(r.x)},${Math.round(r.y)},${Math.round(r.width)}`;
@@ -291,7 +291,7 @@ export function useDpadExpandBridge(
     const doc = scope?.ownerDocument ?? document;
     let prev: HTMLElement | null = null;
     const obs = new MutationObserver(() => {
-      const f = doc.querySelector('.gpfocus') as HTMLElement | null;
+      const f = focusedInDoc(doc);
       if (f && f.closest('.deck-shelves-qam-sidecar')) {
         lastFocusWasInSidecar = true;
       }

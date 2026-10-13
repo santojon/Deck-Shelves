@@ -77,7 +77,7 @@ def test_sanitize_settings_valid_shelf_passes_through():
 # A newer frontend build's field (added after this backend version shipped)
 # must round-trip through `_sanitize_settings` instead of vanishing on the
 # next save — cross-device sync, a downgrade, or a mixed hub/Decky-loader
-# install otherwise silently drops it (CRITICAL-NOW.md item 3). Mirrors
+# install otherwise silently drops it. Mirrors
 # schemas.test.ts's ".passthrough()" round-trip tests on the TS side.
 
 def test_sanitize_settings_preserves_unknown_root_field():

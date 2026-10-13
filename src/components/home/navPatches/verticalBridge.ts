@@ -2,6 +2,7 @@ import { getPreferredSteamDocument } from "../../../runtime/steamHost";
 import { logInfo } from "../../../runtime/logger";
 import { focusElement } from "../../../core/focusRestore";
 import { DIR_DOWN, DIR_UP, DS_BRIDGE_ATTACHED } from "./constants";
+import { registerDisposer } from "../../../runtime/runtimeDisposer";
 
 type VBridgeCtx = { mount: HTMLElement; parent: HTMLElement; before: HTMLElement; beforeRect: DOMRect };
 
@@ -98,5 +99,9 @@ export function installVerticalFocusBridge(mountEl: HTMLElement): void {
     } catch (e) { logInfo("HOME", "vertical bridge failed", String(e)); }
   };
   doc.addEventListener("vgp_ondirection", handler, true);
+  // Removed with this instance (a hot-swap's next instance attaches its own).
+  registerDisposer(() => {
+    try { doc.removeEventListener("vgp_ondirection", handler, true); delete (doc as any)[DS_BRIDGE_ATTACHED]; } catch {}
+  });
   void mountEl;
 }

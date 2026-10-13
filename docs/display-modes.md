@@ -28,7 +28,7 @@ profiles store it) and persists across reboots.
 | QAM/sidecar: smart "at bottom" / "Surprise me" | hidden | shown | shown |
 | Edit-shelf modal: multi-key sort, composite source, manual drag-sort | hidden | shown | shown |
 | Create picker: advanced smart templates | hidden | shown | shown |
-| **Advanced tools** (verbose logging, diagnostic log viewer, reset shortcuts) | — | — | **shown** (Settings → Advanced tab) |
+| **Advanced tools** (system information, snapshots, reset shortcuts; with developer mode on: verbose logging, diagnostic log viewer, performance panel) | — | — | **shown** (Settings → Advanced tab; Developer tab) |
 
 ## Normal mode (default)
 
@@ -66,10 +66,13 @@ turned off.
 
 Everything in normal mode, **plus**:
 
-- **Settings → Advanced tab** — the verbose-logging toggle, the on-device
-  diagnostic **log viewer** (with copy / clear), and reset shortcuts
-  (shelves / smart / all / custom-by-category). These tools live **only**
-  here, so they are completely inaccessible unless advanced mode is on.
+- **Settings → Advanced tab** — system information, snapshots, the
+  developer-mode switch and reset shortcuts (shelves / smart / all /
+  custom-by-category). With developer mode on, a **Developer tab** adds the
+  verbose-logging toggle, the on-device diagnostic **log viewer** (with copy /
+  clear), the performance panel and the source-resolver inspector. These tools
+  live **only** here, so they are completely inaccessible unless advanced mode
+  is on.
 - **Integrations tab** is always visible (even with no third-party
   plugin present).
 

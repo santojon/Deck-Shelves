@@ -55,17 +55,21 @@ export function canSelfInstallUpdate(): boolean {
   try { return !!getHostApi().updates?.canSelfInstall?.(); } catch { return false; }
 }
 
-async function runInstall(result: UpdateCheckResult): Promise<boolean> {
+type InstallOutcome = "installed" | "busy" | "failed";
+
+async function runInstall(result: UpdateCheckResult): Promise<InstallOutcome> {
   try {
     await getHostApi().updates!.applyUpdate({
       version: result.latestVersion ?? "",
       assetUrl: result.assetUrl ?? undefined,
       assetName: result.assetName ?? undefined,
     });
-    return true;
+    return "installed";
   } catch (e) {
     logInfo("UPDATE", "applyUpdate threw", String(e));
-    return false;
+    // The host refuses an install while its own update check runs; that is a
+    // moment's wait, not a failed install.
+    return /\bbusy\b/i.test(String(e)) ? "busy" : "failed";
   }
 }
 
@@ -74,18 +78,23 @@ export async function installOrDownloadUpdate(result: UpdateCheckResult | null |
   if (!canSelfInstallUpdate()) { await downloadUpdate(result); return; }
 
   const { latestVersion } = result;
-  // A blocking spinner modal makes the download+swap+reload step explicit (self-
-  // install ends by reloading the renderer — the reload closes this modal). The
-  // toast stays as a fallback if the reload is slow.
+  // A blocking spinner modal makes the download+swap step explicit. The host
+  // hot-swaps the new bundle in place a few seconds after applyUpdate resolves
+  // (no renderer reload), so the modal is closed here on either outcome.
   const closeModal = openManagedModal((close) =>
     createElement(UpdateInstallingModal, { version: latestVersion ?? undefined, closeModal: close }),
   );
   notifyUser(i18n.t("plugin_name"), i18n.t("update_installing", { version: latestVersion ?? "" }), "update", "update");
-  if (await runInstall(result)) {
+  const outcome = await runInstall(result);
+  try { closeModal(); } catch {}
+  if (outcome === "installed") {
     notifyUser(i18n.t("plugin_name"), i18n.t("update_installed", { version: latestVersion ?? "" }), "success", "update");
     return;
   }
-  try { closeModal(); } catch {}
+  if (outcome === "busy") {
+    notifyUser(i18n.t("plugin_name"), i18n.t("update_install_busy"), "update", "update");
+    return;
+  }
   notifyUser(i18n.t("plugin_name"), i18n.t("update_install_failed"), "error", "update");
   await downloadUpdate(result);
 }

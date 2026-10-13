@@ -5,7 +5,7 @@
    LWW-by-timestamp idea the dual-host canonical/loader mirror uses. */
 
 import { getCurrentSettings, saveSettings, subscribeSettings } from "../store/settingsStore";
-import { mergeSettings } from "../domain/settingsMerge";
+import { mergeSettings, LOCAL_ONLY_FIELDS } from "../domain/settingsMerge";
 import { isHomeOwner } from "./host/ownerGuard";
 import { notifyUser } from "./notify";
 import i18n from "../i18n";
@@ -23,17 +23,9 @@ const PUSH_DEBOUNCE_MS = 4000;
 // cloud periodically and merges anything new in without waiting for a restart.
 const PULL_INTERVAL_MS = 3 * 60 * 1000;
 
-/* Fields describing THIS machine's own local state, never synced: the
-   cloud-sync bookkeeping fields themselves, and the screensaver's cached
-   backup of this specific Deck's native idle-timeout value — meaningless,
-   and actively wrong, if transplanted onto another device. */
-const LOCAL_ONLY_FIELDS: readonly string[] = [
-  "cloudSyncEnabled", "cloudSyncLastSyncedAt",
-  "screensaverIdleBackupAcSec", "screensaverIdleBackupBatterySec",
-  // The active profile is a device-local presentation (a display trigger docks
-  // one machine while another stays handheld), so it never crosses devices.
-  "activeProfileName",
-];
+// Fields describing THIS machine's own state never leave it: the merge's own
+// list (sync bookkeeping, the idle-timeout backup, the active profile, the tour
+// flag and the device-local developer fields).
 
 type CloudPayload = { updatedAt: number; settings: Record<string, unknown> };
 

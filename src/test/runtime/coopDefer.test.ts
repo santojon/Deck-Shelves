@@ -14,10 +14,12 @@ const stored = new Map<string, string>();
 describe("coopDefer — the loader copy stands down for a newer-or-equal host bundle", () => {
   beforeEach(() => { delete (globalThis as any)[DEFER_GLOBAL]; delete (globalThis as any)[HOST_BUNDLE_BOOTED_GLOBAL]; });
 
-  it("compares numeric versions, ignoring a v prefix and pre-release tails", () => {
+  it("compares versions by semver precedence, ignoring a v prefix", () => {
     expect(compareVersions("3.4.0", "3.3.4")).toBeGreaterThan(0);
     expect(compareVersions("v3.4.0", "3.4.0")).toBe(0);
-    expect(compareVersions("3.4.0-beta.1", "3.4.0")).toBe(0);
+    // A stable release outranks a pre-release of the same core; the contract once ignored the tail.
+    expect(compareVersions("3.4.0-beta.1", "3.4.0")).toBeLessThan(0);
+    expect(compareVersions("3.4.0-beta.2", "3.4.0-beta.1")).toBeGreaterThan(0);
     expect(compareVersions("3.3.10", "3.3.9")).toBeGreaterThan(0);
     expect(compareVersions("2.9.9", "3.0.0")).toBeLessThan(0);
   });

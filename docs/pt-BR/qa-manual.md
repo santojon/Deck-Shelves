@@ -98,7 +98,7 @@ Checklist de teste manual para testes de regressão num Steam Deck real (SteamOS
 |---|----------|----------|
 | 7.1 | `smartShelvesEnabled=false` → seção de prateleiras inteligentes não mostrada no QAM | Seção oculta |
 | 7.2 | `enabled=false` → alternância de prateleiras inteligentes nem mostrada | Até a alternância fica oculta |
-| 7.3 | Adicionar prateleira inteligente → modal com 15 templates abre | SmartShelfTemplateModal |
+| 7.3 | Adicionar prateleira inteligente → o seletor de criação lista os templates smart por categoria (os que dependem de recursos online ficam ocultos com eles desligados) | CreateShelfModal |
 | 7.4 | prateleira inteligente sem resultados → não renderizada na Home | Prateleira invisível (render nulo) |
 | 7.5 | prateleira inteligente com resultados → renderizada na Home entre prateleiras normais | Aparece na posição correta |
 | 7.6 | `smartShelvesAtBottom=true` → prateleiras inteligentes aparecem abaixo das prateleiras normais | Ordem respeitada |

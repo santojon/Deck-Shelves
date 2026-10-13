@@ -13,7 +13,7 @@ import { createDeckyPlatform } from "../runtime/deckyPlatform";
 import { logInfo, logWarn } from "../runtime/logger";
 import { logDiagnostic } from "../runtime/diagnostics";
 import { getPreferredSteamDocument, getPreferredSteamWindow, getAllSteamDocuments } from "../runtime/steamHost";
-import { ROOT_ID, seededShuffle, isHomeRoute, hasHomeDomSignals, detectNavTreeApi, findOrCreateMount } from "./home/mountUtils";
+import { ROOT_ID, seededShuffle, isHomeRoute, hasHomeDomSignals, detectNavTreeApi, findOrCreateMount, homeBehindGame } from "./home/mountUtils";
 import { applyHideRecents, reapplyHomeHides, enforceHomeFocusSuppression, applyHideHomeTabs, applyReplaceActiveMargin, getMountFailed, getPendingHideRecents, getPendingHideHomeTabs } from "../runtime/homePatch";
 import { getRecentsReplaceFailed, subscribeRecentsReplaceFailed, isRecentsReplaceInjecting, subscribeRecentsReplaceInjecting } from "../runtime/recentsReplace";
 import { Focusable } from "../runtime/host/decky";
@@ -428,7 +428,7 @@ export function HomeShelves({ fallback = false }: { fallback?: boolean }) {
        work now rides the mutation/focus-driven path above. */
     const SAFETY_POLL_MS = 5000;
     const safetyPoll = window.setInterval(() => {
-      if (!alive || !(isHomeRoute() || hasHomeDomSignals())) return;
+      if (!alive || homeBehindGame() || !(isHomeRoute() || hasHomeDomSignals())) return;
       scheduleHomeReconcile();
     }, SAFETY_POLL_MS);
     timerCreated();
@@ -941,7 +941,7 @@ function ShelvesContainer(props: ShelvesContainerProps) {
        hashchange already cover every real reparent trigger; the interval
        only catches exotic Steam re-registers with no DOM mutation at all.
        Previously ran at 750ms — 4× the wake-ups for no measurable benefit. */
-    const poll = window.setInterval(reparentOnly, 3000);
+    const poll = window.setInterval(() => { if (!homeBehindGame()) reparentOnly(); }, 3000);
 
     /* Focus events also signal Steam-driven tree changes; run reparent on
        focusin at the document level (cheap; guard will no-op when correct).

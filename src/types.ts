@@ -564,7 +564,6 @@ export const SettingsSchema = z.object({
   globalLogoSize: z.number().int().min(50).max(200).nullable().optional(),
   globalLogoTopOffset: z.number().int().min(-50).max(100).nullable().optional(),
   globalFullPageShelf: z.boolean().optional(),
-  settingsPageEnabled: z.boolean().optional(),
   globalIconVerticalAlign: z.enum(['top', 'center', 'bottom']).nullable().optional(),
   globalShelfTitlePosition: z.enum(['left', 'center', 'right']).nullable().optional(),
   globalGameNamePosition: z.enum(['left', 'center', 'right']).nullable().optional(),
@@ -682,6 +681,7 @@ export const SettingsSchema = z.object({
      sources / wishlist / price). User toggles remain untouched so
      turning offline off restores their previous online behaviour. */
   offlineModeEnabled: z.boolean().nullable().optional().transform((v) => v ?? false),
+  // Reserved: nothing writes it yet; kept because the public API's settings snapshot exposes it.
   featureToggles: z.record(z.string(), z.boolean()).nullable().optional().transform((v) => v ?? {}),
   activeProfileName: z.string().nullable().optional(),
   /* Master opt-in for Visibility Rules v2 profile triggers. Off by default
@@ -728,12 +728,15 @@ export const SettingsSchema = z.object({
     // Hidden profiles stay in the list (crossed-out eye) but are omitted
     // from the quick-select dropdown.
     hidden: z.boolean().optional(),
+    // Applying a linked profile also applies its shelves (otherwise the
+    // current shelves are kept).
+    linkShelves: z.boolean().optional(),
     // VisibilityRule predicate that auto-
     /* applies the profile when its predicate becomes true (battery
        low, plugged in, external display, performance threshold, etc.).
-       Schema accepts the field; the resolver lands with the
-       visibility-rules v2 pass. Stored as `unknown` because the rule
-       shape belongs to that work — sanitizer round-trips it verbatim. */
+       Evaluated by runtime/profileTriggers.ts. Stored as `unknown` because
+       the rule shape belongs to the rule editor — the sanitizer round-trips
+       it verbatim. */
     trigger: z.unknown().optional(),
   })).nullable().optional().transform((v) => v ?? []),
   // Integrations detail panel per-row toggle. Keys are

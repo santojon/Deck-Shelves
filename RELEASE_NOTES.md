@@ -7,6 +7,18 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+- **Pinned games, play history, queues and custom tags now work.** A new **Lists** submenu in the game menu pins a game, queues it for this session or until you play it, and edits its tags; play history fills by itself, and Parser categories reads the categories your ROM manager or launcher integration gave each shortcut. Profile triggers now keep the settings you change while they are active, and the shortcut editor takes up to three buttons and can be cancelled.
+
+- **Updating through a self-installing host is smoother.** The "Installing update" dialog closes by itself once the new version is in (nothing restarts Steam), and on machines without a plugin loader your settings are no longer copied into a loader folder that nothing reads.
+
+- **Typing in Quick Search with the on-screen keyboard works again**, and profile triggers are more dependable: switching them off restores your previous settings, they survive a restart, and they wait for real readings before acting. Update notifications can now be muted like the other areas.
+
+- **Fixes for profiles, sync and shortcuts.** Linked profiles keep applying their shelves after a restart; cross-device sync keeps your latest profile and saved-filter edits; keyboard shortcuts keep working in long sessions; Quick Search no longer pops up during a game; a back-grip shortcut no longer makes another shortcut fire twice; turning off the sidecar's button shortcuts now sticks.
+
+- **Safer settings.** A damaged settings copy can no longer replace your last good backup, exports are written safely, and turning the screensaver off after a factory reset gives Steam back its own idle timeout.
+
+- **A bit lighter in the background.** Features you don't use (friends, launchers) no longer keep polling, and update downloads are checked more strictly.
+
 - **Under the hood, the home-screen rendering code, the plugin's startup, the library code that builds every shelf and the game-menu code were reorganized into smaller pieces, with no change in behavior** — verified on a real Steam Deck. Reloading the plugin now also cleans up its Settings page route.
 
 - **Release builds are a little leaner: diagnostics meant only for a debugger now stay in development builds.** Nothing visible changes.
@@ -115,7 +127,7 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 - **A profile switched on automatically (by a trigger like docking or charging) could revert a Smart Shelf's settings even when you'd chosen not to link shelves to that profile.** Fixed — auto-switched profiles now leave your shelves exactly as they are, same as switching manually.
 - **Card shadows and theme compatibility improvements.** The drop shadow under each card now matches the artwork exactly instead of extending past it. Fixed a couple of related visual issues that showed up with certain CSS Loader themes (Switch Like Home / Switch-like Banners): cards now correctly match the theme's resized native look, and "Use shelf as Recents" no longer renders invisibly off-screen or leaves the row's title stuck on the default text under the SLH theme.
-- **New recommended way to install: ShelvesHub.** A standalone host, no Decky Loader needed — one-click installers for Steam Deck, Linux, macOS and Windows, with automatic updates for itself and Deck Shelves. The Decky Store, manual-zip and install-from-URL options are all still there and unchanged; ShelvesHub is simply the easiest path for anyone starting fresh.
+- **New recommended way to install: the standalone host.** No Decky Loader needed — one-click installers for Steam Deck, Linux, macOS and Windows, with automatic updates for itself and Deck Shelves. The Decky Store, manual-zip and install-from-URL options are all still there and unchanged; the standalone host is simply the easiest path for anyone starting fresh.
 - **Screensaver improvements.** It now shows a fair mix from every shelf instead of mostly the first one, resumes where it left off instead of restarting each time, and can optionally show the game's description next to the logo (above or below, with an adjustable gap). A new setting also lets you control how many games it pulls from each shelf at a time. Fixed a bug where, with 2 or more shelves enabled, none of them could ever show their own full configured number of games. It can also now optionally include each game's official online screenshots, not just ones you've captured yourself (requires Online features to be on).
 - **Compatibility icons that fit your device.** On a Steam Deck / SteamOS, cards still show the Steam Deck compatibility rating; on macOS, Windows and desktop Linux they now show controller-support icons (full or partial) — the same thing native Steam shows there — instead of a Deck rating that doesn't apply. It's the same "compatibility icons" toggle you already have, per shelf or globally.
 - **Settings sync across devices is much more reliable.** If you use the optional cross-device sync, two devices now merge their changes shelf by shelf instead of one overwriting the other, and a bug that could make synced shelves disappear (or the whole plugin read as turned off) is fixed. If the same shelf was created separately on each device, they'll show as two — delete the extra once and it stays gone.
@@ -369,7 +381,7 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 - **Side panel could be pushed below the visible area** with logo + description on. Promoted (full-page) shelves no longer add extra padding for the logo zone — the logo composes inside the existing hero area instead of pushing the card row off the screen.
 - **Accidental side panel open** when moving onto the rightmost button in a row. Pressing right twice on the same focused element is now required to expand the panel; the first press just lands the focus there.
 
-> Plugin API changes (`registerSearchProvider`, `registerSideMenuProvider`, new descriptor types, public registry getters) are tracked in [api/RELEASE_NOTES.md](api/RELEASE_NOTES.md). CDP deckprobe additions are tracked in [deckprobe/RELEASE_NOTES.md](deckprobe/RELEASE_NOTES.md).
+> Plugin API changes (`registerSearchProvider`, `registerSideMenuProvider`, new descriptor types, public registry getters) are tracked in [api/RELEASE_NOTES.md](api/RELEASE_NOTES.md). CDP deckprobe additions are tracked in [deckprobe/RELEASE_NOTES.md](deckprobe/CHANGELOG.md).
 
 ## [2.4.3] - 2026-06-12
 

@@ -22,13 +22,14 @@
   "download_update": "Baixar atualização",
   "update_install": "Instalar atualização",
   "update_installing": "Instalando atualização {{version}}…",
-  "update_installed": "Atualizado para {{version}} — recarregando…",
+  "update_installed": "Atualizado para {{version}}.",
   "update_install_failed": "Falha na instalação — voltando para o download.",
+  "update_install_busy": "O host ainda está verificando atualizações — tente de novo em instantes.",
   "update_downloading": "Baixando a atualização {{version}}…",
   "update_downloaded": "Salvo em {{path}} — instale manualmente.",
   "update_download_failed": "Falha no download — abrindo a página da versão.",
   "shelf_type_normal": "Normal",
   "shelf_type_smart": "Inteligente",
   "update_installing_title": "Instalando atualização",
-  "update_will_reload": "O Steam vai recarregar ao concluir."
+  "update_will_reload": "A nova versão entra em vigor sozinha em alguns segundos."
 }

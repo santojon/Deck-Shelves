@@ -10,8 +10,8 @@ let tourOpen = false;
 
 /* Open the first-run feature showcase once — the first time the QAM mounts with
    settings loaded and the tour not yet seen. Marking it seen (Skip/Finish) keeps
-   it from reappearing; the AboutPage replay button clears the flag to bring it
-   back. The closing screen's choices act through the controller: "configure
+   it from reappearing; the About page's replay opens the tour directly, without
+   touching the flag. The closing screen's choices act through the controller: "configure
    now" opens the setup wizard, "default" creates the default shelves. */
 export function useFirstRunShowcase(settings: any, actions: any, controller?: any): void {
   const opened = useRef(false);

@@ -299,11 +299,11 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
     const trace = (label: string) => {
       devTrace("__ds_sidecar_signals", { t: Date.now(), label, hidden: doc.hidden, hasFocus: doc.hasFocus?.() }, 40);
     };
-    /* Genuine hide signals (doc hidden / pagehide / freeze) collapse outright AND
-       arm `sawHide`. The return-side signals (focus / resume) fire on focus GAIN,
-       which Steam raises spuriously while the QAM is still visible — gate those on
-       a real hide first so they don't collapse the sidecar under the user. The
-       m_eOpenSideMenu poll below is the authoritative leave-detector otherwise. */
+    /* Genuine hide signals (doc hidden / pagehide / freeze) collapse outright.
+       The return-side signals (focus / resume) fire on focus GAIN, which Steam
+       raises spuriously while the QAM is still visible — they act only while the
+       doc is still flagged hidden, so they never collapse the sidecar under the
+       user. The m_eOpenSideMenu poll below is the authoritative leave-detector. */
     /* The leave (Steam overlaying the QAM) fires NO event and m_eOpenSideMenu stays
        QuickAccess (see __ds_sidecar_signals); the reliable RETURN signal is focus /
        resume regained while the doc is still flagged hidden. Do NOT collapse on

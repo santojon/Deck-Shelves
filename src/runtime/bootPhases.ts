@@ -3,7 +3,9 @@ import { getCurrentSettings, subscribeSettings, wasSettingsRecovered } from "../
 import { installDeviceHistoryTracker } from "./deviceHistoryTracker";
 import { installFriendsState } from "./friendsState";
 import { installLauncherCachePoll } from "./launcherCache";
-import { settingsNeedFriends, settingsNeedLaunchers } from "./featureDemand";
+import { settingsNeedFriends, settingsNeedLaunchers, settingsNeedShortcutTags } from "./featureDemand";
+import { installShortcutTagsPoll } from "./shortcutTags";
+import { installGameLists } from "./gameLists";
 import { checkForUpdate, __resetUpdateCheckCache } from "../core/updateNotifier";
 import { installOrDownloadUpdate, canSelfInstallUpdate } from "./updateDownload";
 import { isOnline } from "../core/connectivity";
@@ -55,27 +57,39 @@ export function installStartupWatchdog(patch: Patch, recentsReplacePatch: Patch)
    synchronously — deferred to idle so they don't compete with the critical path
    (Home injection, routes, state subscriptions). `disposed` + cancel guard the
    case where dismount happens before idle ever fires. */
-/* Phase C (feature demand): the friends poller and the launcher-cache poll only
-   start when the configuration can actually use their data, and start later the
-   moment a settings change introduces such a use. Each starts at most once per
-   boot; the settings subscription is the only trigger. */
+/* Phase C (feature demand): the friends poller and the launcher-cache poll run
+   only while the configuration can actually use their data — started the moment
+   a settings change introduces such a use, stopped when the last one goes. The
+   settings subscription is the only trigger. */
+function followDemand(current: Uninstall | null, needed: boolean, install: () => Uninstall): Uninstall | null {
+  if (needed && !current) return install();
+  if (!needed && current) { current(); return null; }
+  return current;
+}
+
 export function startLazyPhases(): Uninstall {
   let uninstallDeviceHistoryTracker: Uninstall | null = null;
   let uninstallFriendsState: Uninstall | null = null;
   let uninstallLauncherCache: Uninstall | null = null;
+  let uninstallShortcutTags: Uninstall | null = null;
+  let uninstallGameLists: Uninstall | null = null;
   let unsubFeatureDemand: Uninstall | null = null;
   let disposed = false;
   const g = globalThis as any;
-  const schedule = g.requestIdleCallback ?? ((cb: any) => setTimeout(cb, 2000));
+  // A timeout is required: Steam's UI can starve an idle callback for a minute.
+  const schedule = g.requestIdleCallback ? (cb: () => void) => g.requestIdleCallback(cb, { timeout: 5000 }) : (cb: () => void) => setTimeout(cb, 2000);
   const cancel = g.cancelIdleCallback ?? ((id: any) => clearTimeout(id));
   const startOnDemand = (s: Settings | null) => {
     if (disposed) return;
-    if (!uninstallFriendsState && settingsNeedFriends(s)) uninstallFriendsState = installFriendsState();
-    if (!uninstallLauncherCache && settingsNeedLaunchers(s)) uninstallLauncherCache = installLauncherCachePoll();
+    if (!s) return;
+    uninstallFriendsState = followDemand(uninstallFriendsState, settingsNeedFriends(s), installFriendsState);
+    uninstallLauncherCache = followDemand(uninstallLauncherCache, settingsNeedLaunchers(s), installLauncherCachePoll);
+    uninstallShortcutTags = followDemand(uninstallShortcutTags, settingsNeedShortcutTags(s), installShortcutTagsPoll);
   };
   const handle = schedule(() => {
     if (disposed) return;
     uninstallDeviceHistoryTracker = installDeviceHistoryTracker();
+    uninstallGameLists = installGameLists();
     startOnDemand(getCurrentSettings());
     unsubFeatureDemand = subscribeSettings(startOnDemand);
   });
@@ -86,6 +100,8 @@ export function startLazyPhases(): Uninstall {
     uninstallDeviceHistoryTracker?.();
     uninstallFriendsState?.();
     uninstallLauncherCache?.();
+    uninstallShortcutTags?.();
+    uninstallGameLists?.();
   };
 }
 

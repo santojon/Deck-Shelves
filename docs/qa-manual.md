@@ -98,7 +98,7 @@ Manual test checklist for regression testing on a real Steam Deck (SteamOS Stabl
 |---|----------|----------|
 | 7.1 | `smartShelvesEnabled=false` → smart shelves section not shown in QAM | Section hidden |
 | 7.2 | `enabled=false` → smart shelves toggle not shown at all | Even toggle hidden |
-| 7.3 | Add smart shelf → modal with 15 templates opens | SmartShelfTemplateModal |
+| 7.3 | Add smart shelf → the create picker lists the smart templates by category (online-only ones hidden while online features are off) | CreateShelfModal |
 | 7.4 | Smart shelf with no results → not rendered on Home | Shelf invisible (null render) |
 | 7.5 | Smart shelf with results → rendered on Home between standard shelves | Appears in correct position |
 | 7.6 | `smartShelvesAtBottom=true` → smart shelves appear below standard shelves | Order respected |

@@ -71,7 +71,7 @@ import { visualFlagsOf, applyVisualPatch, previewHideFlags, removableTail } from
 /* to an empty list (a host-window store throwing on enumeration has been
    seen in the wild, and the controller's `.catch` falls back to `[]`), we
    still surface these so the source dropdown is never blank. The localized
-   labels later in `detectNativeKey` match against `id` slugs, so these IDs
+   labels in the `tabOptions` builder below match against `id` slugs, so these IDs
    are guaranteed to render with the right translated names. */
 const NATIVE_FALLBACK_TABS: import('../../../runtime/platform').PlatformTab[] = [
   { id: 'all',        name: 'All Games' },
@@ -205,7 +205,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
   /* Guard the dropdown against any failure mode in the controller's async
      `listLibraryTabs`: empty array, undefined, or never-resolved. Native
      defaults below are the same 5 IDs `listLibraryTabs` would have
-     returned, so localized labels via `detectNativeKey` still apply. */
+     returned, so localized labels from the `tabOptions` builder still apply. */
   const platformTabs = resolvePlatformTabs(controllerTabs)
   const platform = usePlatform()
   const externalSources = useMemo(() => getExternalSources(), [])

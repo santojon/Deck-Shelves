@@ -6,6 +6,7 @@ import { isFocusRoundCompatActive } from "../../core/cssLoaderDetect";
 import { applyDocumentThemeFlags } from "../../themes/registry";
 import { CARD_W, CARD_ART_H, CARD_GAP } from "./types";
 import { buildShelfStylesheet, type ShelfStylesheetCtx } from "./shelfStylesheetTemplate";
+import { homeBehindGame } from "../home/mountUtils";
 
 const FOCUS_RING_STYLE_ID = "deck-shelves-focus-ring-suppress";
 
@@ -639,6 +640,7 @@ function rearmStyleTimer() {
   if (globalStyleTimer) { clearInterval(globalStyleTimer); globalStyleTimer = null; }
   globalStyleTimerPeriod = wantPeriod;
   globalStyleTimer = setInterval(() => {
+    if (homeBehindGame()) return;
     ensureStyles();
     rearmStyleTimer();
   }, wantPeriod);

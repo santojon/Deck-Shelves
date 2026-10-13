@@ -679,7 +679,7 @@ function ShelfViewImpl(props: ShelfViewProps) {
   if (placeholder !== undefined) return placeholder;
 
   // Random-featured rule: stable per shelf id, ~25 % of cards. Implementation
-  // pulled out to `computeRandomHighlightSet` to keep render complexity under
+  // pulled out to `computeEffectiveHighlightedAppIds` to keep render complexity under
   // the lint cap.
   const effectiveHighlightedAppIds = computeEffectiveHighlightedAppIds(
     shelf.highlightedAppIds,

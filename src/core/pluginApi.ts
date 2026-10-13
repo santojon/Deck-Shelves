@@ -6,6 +6,7 @@
 
 import type { Settings } from "../types";
 import { registerTranslations } from "../i18n";
+import { logWarn } from "../runtime/logger";
 import { getCurrentSettings, saveSettings, subscribeSettings } from "../store/settingsStore";
 import { triggerShelfRefresh } from "./shelfRefresh";
 import { isTabMasterInstalled } from "../integrations/registry";
@@ -187,6 +188,24 @@ const recommendationProviders = new Map<string, RecommendationProviderDescriptor
 const exportHandlers = new Map<string, ExportHandlerDescriptor>();
 const importHandlers = new Map<string, ImportHandlerDescriptor>();
 
+// Ids a third-party registration may not take: every built-in's, and the plugin's own prefix.
+const RESERVED_ID_PREFIX = "deck-shelves.";
+const NOOP_UNSUB: Unsubscribe = () => {};
+
+function isReservedId(id: unknown, builtIns?: Set<string>): boolean {
+  const s = String(id ?? "");
+  if (!s.startsWith(RESERVED_ID_PREFIX) && !builtIns?.has(s)) return false;
+  logWarn("RUNTIME", `plugin API: id "${s}" is reserved by Deck Shelves; registration ignored`);
+  return true;
+}
+
+// Unregistering removes the entry only while it is still this registration's.
+function addExternal<D extends { id: string }>(map: Map<string, D>, d: D, builtIns?: Set<string>): Unsubscribe {
+  if (isReservedId(d?.id, builtIns)) return NOOP_UNSUB;
+  map.set(d.id, d);
+  return () => { if (map.get(d.id) === d) map.delete(d.id); };
+}
+
 /* A registered `resolve()` may throw synchronously instead of rejecting — a
    bare `Promise.resolve(fn()).catch(...)` doesn't catch that, since the
    throw happens before the promise is even constructed. Wrapping the call
@@ -353,9 +372,12 @@ export function getExternalImportTypesForTarget(target: ImportTarget): ExternalI
   return Array.from(importTypes.values()).filter((d) => (d.target ?? "shelves") === target);
 }
 
+const internalImportTypeIds = new Set<string>();
+
 export function registerInternalImportType(d: ExternalImportTypeDescriptor): () => void {
+  internalImportTypeIds.add(d.id);
   importTypes.set(d.id, d);
-  return () => { importTypes.delete(d.id); };
+  return () => { internalImportTypeIds.delete(d.id); importTypes.delete(d.id); };
 }
 
 const internalSmartSourceIds = new Set<string>();
@@ -628,43 +650,29 @@ export function makeApi(): DeckShelvesPublicAPI {
   return {
     version: 4,
 
-    registerShelfSource(d) {
-      shelfSources.set(d.id, d);
-      return () => { shelfSources.delete(d.id); };
-    },
+    registerShelfSource(d) { return addExternal(shelfSources, d, internalShelfSourceIds); },
     getRegisteredSources() { return Array.from(shelfSources.values()); },
 
     registerContextAwareShelfSource(d) {
       // Also into `shelfSources` (a structural superset) so the source
       // picker and `getExternalSources()` see it without special-casing.
+      if (isReservedId(d?.id, internalShelfSourceIds)) return NOOP_UNSUB;
       contextAwareShelfSources.set(d.id, d);
-      shelfSources.set(d.id, d);
-      return () => { contextAwareShelfSources.delete(d.id); shelfSources.delete(d.id); };
+      const unShelf = addExternal(shelfSources, d);
+      return () => { if (contextAwareShelfSources.get(d.id) === d) contextAwareShelfSources.delete(d.id); unShelf(); };
     },
     getRegisteredContextAwareShelfSources() { return Array.from(contextAwareShelfSources.values()); },
 
-    registerSmartShelfSource(d) {
-      smartSources.set(d.id, d);
-      return () => { smartSources.delete(d.id); };
-    },
+    registerSmartShelfSource(d) { return addExternal(smartSources, d, internalSmartSourceIds); },
     getRegisteredSmartSources() { return Array.from(smartSources.values()); },
 
-    registerFilterType(d) {
-      filterTypes.set(d.id, d);
-      return () => { filterTypes.delete(d.id); };
-    },
+    registerFilterType(d) { return addExternal(filterTypes, d, internalFilterTypeIds); },
     getRegisteredFilterTypes() { return Array.from(filterTypes.values()); },
 
-    registerSortOption(d) {
-      sortOptions.set(d.id, d);
-      return () => { sortOptions.delete(d.id); };
-    },
+    registerSortOption(d) { return addExternal(sortOptions, d, internalSortOptionIds); },
     getRegisteredSortOptions() { return Array.from(sortOptions.values()); },
 
-    registerImportType(d) {
-      importTypes.set(d.id, d);
-      return () => { importTypes.delete(d.id); };
-    },
+    registerImportType(d) { return addExternal(importTypes, d, internalImportTypeIds); },
     getRegisteredImportTypes() { return Array.from(importTypes.values()); },
     getRegisteredImportTypesForTarget(target) {
       return Array.from(importTypes.values()).filter((d) => (d.target ?? "shelves") === target);
@@ -675,60 +683,30 @@ export function makeApi(): DeckShelvesPublicAPI {
       return () => { void removeRegisteredSavedFilter(d.id); };
     },
 
-    registerExportHandler(d) {
-      exportHandlers.set(d.id, d);
-      return () => { exportHandlers.delete(d.id); };
-    },
-    registerImportHandler(d) {
-      importHandlers.set(d.id, d);
-      return () => { importHandlers.delete(d.id); };
-    },
+    registerExportHandler(d) { return addExternal(exportHandlers, d); },
+    registerImportHandler(d) { return addExternal(importHandlers, d); },
     getRegisteredExportHandlers() { return getExternalExportHandlers(); },
     getRegisteredImportHandlers() { return getExternalImportHandlers(); },
 
     hasTabMaster() { return isTabMasterInstalled(); },
 
-    registerSearchProvider(d) {
-      searchProviders.set(d.id, d);
-      return () => { searchProviders.delete(d.id); };
-    },
+    registerSearchProvider(d) { return addExternal(searchProviders, d, internalSearchProviderIds); },
     getRegisteredSearchProviders() { return getExternalSearchProviders(); },
 
-    registerSideMenuProvider(d) {
-      sideMenuProviders.set(d.id, d);
-      return () => { sideMenuProviders.delete(d.id); };
-    },
+    registerSideMenuProvider(d) { return addExternal(sideMenuProviders, d); },
     getRegisteredSideMenuProviders() { return getExternalSideMenuProviders(); },
 
-    registerContextProvider(d) {
-      contextProviders.set(d.id, d);
-      return () => { contextProviders.delete(d.id); };
-    },
+    registerContextProvider(d) { return addExternal(contextProviders, d); },
     getRegisteredContextProviders() { return getExternalContextProviders(); },
-    registerWidgetProvider(d) {
-      widgetProviders.set(d.id, d);
-      return () => { widgetProviders.delete(d.id); };
-    },
+    registerWidgetProvider(d) { return addExternal(widgetProviders, d); },
     getRegisteredWidgetProviders() { return getExternalWidgetProviders(); },
-    registerShelfRenderer(d) {
-      shelfRenderers.set(d.id, d);
-      return () => { shelfRenderers.delete(d.id); };
-    },
+    registerShelfRenderer(d) { return addExternal(shelfRenderers, d); },
     getRegisteredShelfRenderers() { return getExternalShelfRenderers(); },
-    registerMetadataProvider(d) {
-      metadataProviders.set(d.id, d);
-      return () => { metadataProviders.delete(d.id); };
-    },
+    registerMetadataProvider(d) { return addExternal(metadataProviders, d); },
     getRegisteredMetadataProviders() { return getExternalMetadataProviders(); },
-    registerStatisticsProvider(d) {
-      statisticsProviders.set(d.id, d);
-      return () => { statisticsProviders.delete(d.id); };
-    },
+    registerStatisticsProvider(d) { return addExternal(statisticsProviders, d, internalStatisticsProviderIds); },
     getRegisteredStatisticsProviders() { return getExternalStatisticsProviders(); },
-    registerRecommendationProvider(d) {
-      recommendationProviders.set(d.id, d);
-      return () => { recommendationProviders.delete(d.id); };
-    },
+    registerRecommendationProvider(d) { return addExternal(recommendationProviders, d); },
     getRegisteredRecommendationProviders() { return getExternalRecommendationProviders(); },
 
     registerTranslations(locale, dict) { registerTranslations(locale, dict); },
@@ -910,20 +888,29 @@ export function installPluginApi(): () => void {
   const integrationUnsubs: Unsubscribe[] = [];
   const teardownFns: Array<() => void | Promise<void>> = [];
 
+  // One registration per integration object: a queued plugin can arrive twice
+  // (the pending-queue drain and its own ready-event handler).
+  const registered = new Map<DeckShelvesIntegration, Unsubscribe>();
   const register = (integration: DeckShelvesIntegration): Unsubscribe => {
+    const existing = registered.get(integration);
+    if (existing) return existing;
     let unmountFired = false;
     void Promise.resolve()
       .then(() => integration.onMount(api))
       .catch(() => {});
-    if (integration.onUnmount) teardownFns.push(integration.onUnmount);
-    return () => {
+    const unsub: Unsubscribe = () => {
       if (unmountFired) return;
       unmountFired = true;
+      registered.delete(integration);
       try {
         const r = integration.onUnmount?.();
         if (r) void Promise.resolve(r).catch(() => {});
       } catch {}
     };
+    registered.set(integration, unsub);
+    // Teardown goes through the same guarded unsubscribe, so onUnmount runs once.
+    if (integration.onUnmount) teardownFns.push(unsub);
+    return unsub;
   };
 
   const deckShelves = {
@@ -943,6 +930,7 @@ export function installPluginApi(): () => void {
     for (const u of integrationUnsubs) { try { u(); } catch {} }
     try { delete (window as unknown as Record<string, unknown>).deckShelves; } catch {}
     try { uninstallInternals(); } catch {}
+    try { focusTracker.uninstallFocusedCardTracker(); } catch {}
     shelfSources.clear();
     contextAwareShelfSources.clear();
     smartSources.clear();

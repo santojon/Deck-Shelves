@@ -62,7 +62,8 @@ export function validateKeyCombo(raw: string | null | undefined, opts?: { allowN
   if (!tokens.length) return { ok: false, reason: "empty" };
   const issue = keyTokenIssue(tokens);
   if (issue) return { ok: false, reason: issue };
-  if (tokens.length === 2 && tokens[0] !== tokens[1] && new Set(tokens).size !== tokens.length) {
+  // Two identical keys are a double-tap; a repeat inside a longer chord is not.
+  if (tokens.length > 2 && new Set(tokens).size !== tokens.length) {
     return { ok: false, reason: "duplicate" };
   }
   return { ok: true };

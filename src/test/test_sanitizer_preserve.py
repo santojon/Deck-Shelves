@@ -1,4 +1,4 @@
-"""Tests for sanitizer forward-compat (§4A): known fields are validated, but
+"""Tests for sanitizer forward-compat: known fields are validated, but
 UNKNOWN fields (written by a newer plugin version) are preserved, not dropped —
 so a mixed-version dual-host install never loses newer-only settings."""
 import sanitizer
@@ -54,3 +54,36 @@ def test_known_invalid_field_not_resurrected_as_unknown():
     # whitelist; _preserve_unknown must not copy the raw (invalid) value back.
     out = sanitizer._sanitize_settings({"globalLogoPosition": "diagonal"})
     assert out["globalLogoPosition"] is None
+
+
+def test_entity_clocks_survive_sanitizing():
+    """Cloud-sync merge picks the newer copy of each entity by `updatedAt`;
+    saved filters, saved smart filters and profiles must keep it."""
+    out = sanitizer._sanitize_settings({
+        "savedFilters": [{"id": "f1", "name": "F", "group": {"mode": "and", "items": []}, "updatedAt": 222}],
+        "savedSmartFilters": [{"id": "g1", "name": "G", "mode": "recently_played", "updatedAt": 333}],
+        "profiles": [{"id": "p1", "name": "P", "createdAt": "x", "snapshot": {}, "updatedAt": 444}],
+    })
+    assert out["savedFilters"][0]["updatedAt"] == 222
+    assert out["savedSmartFilters"][0]["updatedAt"] == 333
+    assert out["profiles"][0]["updatedAt"] == 444
+
+
+def test_invalid_entity_clock_is_dropped():
+    out = sanitizer._sanitize_settings({
+        "profiles": [{"id": "p1", "name": "P", "createdAt": "x", "snapshot": {}, "updatedAt": -5},
+                     {"id": "p2", "name": "Q", "createdAt": "x", "snapshot": {}, "updatedAt": "soon"}],
+    })
+    assert all("updatedAt" not in p for p in out["profiles"])
+
+
+def test_profile_link_shelves_survives():
+    out = sanitizer._sanitize_settings({
+        "profiles": [{"id": "p1", "name": "P", "createdAt": "x", "snapshot": {}, "linkShelves": True}],
+    })
+    assert out["profiles"][0]["linkShelves"] is True
+
+
+def test_sidecar_gestures_can_be_disabled():
+    out = sanitizer._sanitize_settings({"buttonBindingsDisabled": ["navSidecarOpen", "navSidecarClose", "bogus"]})
+    assert out["buttonBindingsDisabled"] == ["navSidecarOpen", "navSidecarClose"]

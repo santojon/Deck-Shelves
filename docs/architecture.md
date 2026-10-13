@@ -12,7 +12,7 @@ Deck Shelves is a plugin that injects custom game shelves into the Steam Deck ho
 
 ### The plugin in its environment
 
-Deck Shelves runs standalone via ShelvesHub (no plugin loader needed), or
+Deck Shelves runs on its own standalone host (no plugin loader needed), or
 inside Decky Loader — the same bundle, injected either way — renders into
 Steam's Gaming Mode home screen, and reads from the local library plus a
 few optional external sources.
@@ -26,7 +26,7 @@ flowchart TB
     end
 
     subgraph host["Host platform"]
-        decky["ShelvesHub or Decky Loader<br/>host/plugin runtime"]
+        decky["Standalone host or Decky Loader<br/>host/plugin runtime"]
         steam["Steam client<br/>GamepadUI + app library"]
     end
 
@@ -192,7 +192,7 @@ src/
 │ ├── FilterPanel.tsx Filter group editor UI
 │ ├── AboutPage.tsx About / documentation page
 │ ├── Settings.tsx Settings page wrapper
-│ ├── SettingsPage.tsx Two-pane Settings shell (left toggle list + right card grid)
+│ ├── SettingsPage.tsx Full-page Settings: one tab per area (Shelves, Profiles, Integrations, Bindings, Backup, Suggestions, Statistics, Advanced, Developer)
 │ ├── ErrorBoundary.tsx React error boundary
 │ ├── icons.tsx Shared feather-style SVG icons (FunnelIcon, EyeIcon, …)
 │ ├── home/navPatches/ Split nav-patch modules (one concern per file)
@@ -208,18 +208,13 @@ src/
 │ │ ├── LabeledTextField Field + TextField + textFromDeckyChange
 │ │ ├── CollapsibleSection QAM collapsible section with localStorage state
 │ │ └── PageHeader Back arrow + title + trailing slot for dedicated routes
-│ ├── settings/ Two-pane Settings shell parts (SettingsPage children)
-│ │ ├── SettingsLeftPane Left toggle list (mirrors sidecar's GeneralTab) + PageHeader
-│ │ ├── SettingsCardGrid Right 2×3 grid of SettingsCard tiles
-│ │ ├── SettingsCard Single tile primitive (icon + title + description)
-│ │ ├── SettingsDetailPanel Slide-in right panel (B closes) — dispatches per card
-│ │ └── details/ One file per card detail panel
-│ │ ├── QuickDetail QAM-visibility eye-hide manager
+│ ├── settings/details/ One file per Settings tab (Profiles, Statistics and Suggestions live in src/features/)
 │ │ ├── ShelvesDetail Regular + smart shelves CRUD (chips, edit/delete, unified reorder ↑↓)
-│ │ ├── ProfilesDetail Usage profiles (save, apply, duplicate, rename, delete)
 │ │ ├── IntegrationsDetail Plugin descriptors with per-row enable/disable
+│ │ ├── ButtonBindingsDetail Gamepad + keyboard shortcut editor
 │ │ ├── BackupDetail 3-scope import/export wrap (regulars, smart, all)
-│ │ └── AdvancedDetail Live diagnostics log + factory-reset triple
+│ │ ├── AdvancedDetail System information, snapshots, developer-mode switch, factory reset
+│ │ └── DeveloperDetail Diagnostic log, performance panel, resolver inspector, device simulator
 │ ├── qam/
 │ │ ├── common/
 │ │ ├── list/
@@ -228,9 +223,8 @@ src/
 │ │ ├── EditSmartShelfModal.tsx Smart shelf editor (sort override, filterGroup, smartParams, refresh interval)
 │ │ ├── (Export/Import/Template/ResetAll/Delete/ImportFromCustomFilters with `scope`)
 │ │ └── editShelf/ Components shared by both edit modals
-│ │ ├── HighlightMiniCard.tsx Mini-card with fallback art chain + chevrons + selected/grabbed states
-│ │ ├── HighlightRow.tsx Horizontal row with focus-centered scroll + re-center
-│ │ ├── ManualSortRow.tsx Manual order row — gamepad grab + pointer-hold drag + chevrons
+│ │ ├── EditShelfFrame.tsx Shared modal frame (header, tabs, footer) for both editors
+│ │ ├── ShelfPreview.tsx Live preview row: highlight picker, manual order (gamepad grab + pointer drag)
 │ │ ├── SavedFiltersBar.tsx Saved-filters dropdown + "save current"
 │ │ ├── VisualTabContent.tsx Toggles + highlight picker + odd/even patterns + preview
 │ │ ├── DisplayTabContent.tsx hide-* toggles (status line, install indicator, new badge, compat icons, non-steam, shelf title, game names)
@@ -243,7 +237,8 @@ src/
 │ │ ├── MoreCard.tsx "View more" trailing tile (non-smart shelves)
 │ │ ├── RefreshCard.tsx Refresh trailing tile (refreshable smart shelves and sort=random)
 │ │ ├── PlaceholderCard.tsx Fallback card
-│ │ └── HeroBackground.tsx Two-layer cross-fade hero art + ArtHero label overlay
+│ │ ├── ShelfRow.tsx / ShelfSkeleton.tsx Card window rendering / below-the-fold placeholder
+│ │ └── PerShelfHero.tsx Per-shelf hero art (two-slot cross-fade) + ArtHero label overlay
 │ ├── about/
 │ │ ├── DocSection.tsx
 │ │ ├── DocCallout.tsx
@@ -255,12 +250,13 @@ src/
 │ └── DeckQAMStyles.tsx
 │
 ├── steam/
-│ ├── index.ts Steam API access: app overviews, collections,
-│ │ tabs, filters, sorting, developer data (~3500 LoC).
+│ ├── index.ts Source resolver dispatcher and facade; one module
+│ │ per concern beside it (collections, library tabs,
+│ │ filter evaluation, sorting, resolvers, online cache).
 │ │ Dispatches first-party v3 ids through `v3Extensions`
 │ │ BEFORE the external-plugin fallback so collisions
 │ │ resolve to built-in implementations.
-│ ├── v3Extensions.ts First-party Filter v3 (32 evaluators), Sort v3 (25
+│ ├── v3Extensions.ts First-party Filter v3 (32 evaluators), Sort v3 (27
 │ │ comparators), Shelf Source Ecosystem v3 (19
 │ │ resolvers) + descriptive registry entries used
 │ │ by `internalRegistry.ts` to surface them via
@@ -276,17 +272,17 @@ src/
 │ ├── shelfRefresh.ts Global shelf refresh emitter
 │ ├── steamAssets.ts Image URL generation (portrait, landscape, hero)
 │ ├── steamGameMenu.ts Native game context menu extraction
-│ ├── webpackCompat.ts Runtime class discovery (viewport + native shelf/card/section tokens)
+│ ├── webpackCompat.ts Native class-token lookups (viewport + native shelf/card/section tokens) over the bundled class map
 │ ├── reorder.ts useContainerDragReorder + pure helpers (findReorderTargetIndex, moveInOrder)
 │ ├── cssLoaderDetect.ts Compatibility facade over src/themes (same names, same import path)
 │ ├── steamOSVersion.ts getSteamOSVersion() helper
-│ ├── pluginApi.ts Public inter-plugin API (v2)
+│ ├── pluginApi.ts Public inter-plugin API (`window.deckShelves`, major version 4)
 │ └── perf.ts Performance marks/measures
 │
 ├── domain/
 │ ├── settings.ts Pure settings operations (patch, add, delete, move)
 │ ├── defaults.ts Default shelf/settings/filter factories
-│ ├── templates.ts Shelf preset templates (11 entries)
+│ ├── templates.ts Shelf preset templates (15 entries)
 │ ├── shelfOrder.ts pickFirstVisibleShelfId + interleaveSmartShelves (pure helpers)
 │ └── customfilters.ts TabMaster filter conversion
 │
@@ -303,14 +299,15 @@ src/
 │ ├── smartShelves.ts Smart-shelf CRUD + surprise-me + import/export
 │ ├── savedFilters.ts SavedFilter + SavedSmartFilter CRUD
 │ ├── online.ts Online-features toggles + acceptOnlinePrivacy
-│ ├── globalVisual.ts 30 global visual setters (consolidated)
+│ ├── globalVisual.ts 36 global visual setters (consolidated)
 │ └── profiles.ts Usage profiles + unified/lightMode/featureToggle setters
 │
 ├── integrations/
 │ ├── index.ts Integration barrel
-│ ├── registry.ts Plugin detection (TabMaster, UnifiDeck)
+│ ├── descriptors.ts One descriptor per third-party plugin (presence, capabilities, labels)
+│ ├── registry.ts Plugin detection over the descriptors
 │ ├── tabmaster.ts TabMaster settings file reader
-│ ├── unifideck.ts UnifiDeck non-Steam app detection
+│ ├── nonsteambadges.ts Non-Steam Badges integration
 │ └── domtabs.ts DOM-based tab discovery
 │
 ├── runtime/
@@ -320,7 +317,7 @@ src/
 │ ├── deckyPlatform.ts Platform interface implementation
 │ ├── platform.ts Platform interface definition
 │ ├── platformContext.tsx React context provider
-│ ├── logger.ts Colored console logger (__DEV__ gated)
+│ ├── logger.ts Colored console logger (info lines only in dev builds or with verbose logging)
 │ ├── diagnostics.ts Diagnostic event collection
 │ ├── systemEvents.ts Suspend/resume event handlers
 │ └── embeddedClassMap.ts Bootstrap webpack class seed
@@ -333,7 +330,7 @@ src/
  ├── core/ reorder, webpackCompat
  ├── domain/ settings, customfilters, shelfOrder, templates, schemas
  ├── qa/ qam-visibility
- ├── stubs/ decky-api / decky-manifest stubs (vitest aliases)
+ ├── stubs/ host-api / host-ui / host-manifest stubs (vitest aliases)
  ├── steam.test.ts
  ├── scrollUtils.test.ts
  └── test_main.py Python sanitizer tests (pytest)
@@ -342,8 +339,8 @@ main.py Python entry: DEFAULT_SETTINGS, _SSL_CTX, Plugin class
  (lifecycle + RPC). Re-exports helpers from below.
 src/backend/ Every sibling module main.py imports (paths, storage,
  sanitizer, launchers, css_themes, display_state,
- hardware_info, host_os, peripherals, perf_probe,
- plugin_host). Kept out of the plugin root — which
+ hardware_info, host_os, library_location,
+ peripherals, perf_probe, plugin_host). Kept out of the plugin root — which
  Decky requires main.py itself to stay at — via a
  sys.path splice at the top of main.py.
 src/backend/paths.py _steam_install_candidates, _normalize_path
@@ -364,38 +361,38 @@ plugin.json Plugin manifest
 ## Data Flow
 
 ```
-Settings (backend JSON) → settingsStore → controller → HomeInject → Shelf → DeckRow → GameCard
- ↓
- homePatch (fallback DOM renderer)
+Settings (backend JSON) → settingsStore ─┬→ controller → QAM / Settings pages
+                                         └→ HomeInject → ShelvesContainer → Shelf → DeckRow → GameCard
+homePatch: mount point + bridge component (or fallback root) → HomeInject
 ```
 
 1. **Settings** are persisted by the Python backend (`main.py` → atomic write via `src/backend/paths.py` + `src/backend/storage.py`; shape-checked through `src/backend/sanitizer.py` on every read AND write) and cached in `localStorage`
-2. **`settingsStore`** manages the cache, backend RPC calls, and subscriber notifications
-3. **`controller`** (React hook) provides actions and state to QAM components
-4. **`HomeInject`** creates a portal into the Steam home screen DOM
-5. **`Shelf`** resolves app IDs for each shelf source (collection, tab, filter)
-6. **`DeckRow`** renders the horizontal card row with scroll management
-7. **`homePatch`** provides a fallback DOM renderer when React portal is unavailable
+2. **`settingsStore`** manages the cache, backend RPC calls, and subscriber notifications; the UI renders from the cache first and adopts the backend copy only when no edit raced it
+3. **`controller`** (React hook) provides actions and state to the QAM and Settings components; `HomeInject` subscribes to the store directly
+4. **`homePatch`** creates the `#deck-shelves-home-root` mount next to the native recents row and registers a bridge component through the host's global-component store (four strategies, tried in order). When the bridge does not fill the Home, a React root is created directly in the mount after a grace window (`homePatchFallbackGate.ts`); a claim stamp keeps the two from both rendering
+5. **`HomeInject`** renders the shelves (plus search, side nav and screensaver) and portals them into the mount
+6. **`Shelf`** resolves app IDs for each shelf source (collection, tab, filter, online, composite, smart)
+7. **`DeckRow`** renders the horizontal card row with scroll management
 
 > **Note:** `HomeShelves` runs in `SharedJSContext`, but the portal is mounted into the Big Picture document. Any DOM query (e.g. `querySelector`) must use `getPreferredSteamDocument()` — querying `document` directly will target the wrong context and silently return nothing.
 
 ## Key Systems
 
-### Native Class Discovery (`webpackCompat.ts`)
-Steam's GamepadUI uses webpack-hashed CSS classes that change on updates. The plugin discovers these at runtime by inspecting the DOM and stores them in `window.__DS_CLASS_MAP__`. This allows shelf cards to receive native Steam classes for CSS Loader theme compatibility.
+### Native Class Map (`webpackCompat.ts` + `runtime/classmap.json`)
+Steam's GamepadUI uses webpack-hashed CSS classes that change on updates. The plugin ships a class map (semantic name → current hash) in `runtime/classmap.json`; `runtime/embeddedClassMap.ts` seeds it at boot into `window.__DS_CLASS_MAP` and `localStorage` (`ds_class_map`), and `webpackCompat.ts` reads tokens from it. This allows shelf cards to receive native Steam classes for CSS Loader theme compatibility. Selectors fall back to generic `[class*="…"]` patterns and to structural lookups. The map is refreshed from a device with the class-map tool when Steam changes (see [webpack-classmap.md](./webpack-classmap.md)).
 
-> **Caution:** class tokens in `window.__DS_CLASS_MAP__` are tied to specific SteamOS builds. A Steam update can rename them silently. The `webpackCompat` discovery re-runs on mount — never cache tokens in plugin settings or hardcode them in application logic.
+> **Caution:** class tokens are tied to specific SteamOS builds. A Steam update can rename them silently. Never cache tokens in plugin settings or hardcode them in application logic without a fallback.
 
-### Navigation Integration (`home/navPatches.ts`)
+### Navigation Integration (`home/navPatches/`)
 The plugin integrates with Steam's `FocusNavController` gamepad navigation system:
 - Reparents shelf nav tree nodes into the correct position
 - Patches `BTryInternalNavigation` to prevent horizontal focus escape
 - Intercepts the Options button to show the native game context menu
 
-> **Caution:** `home/navPatches.ts` is the most fragile part of the codebase. It monkey-patches `FocusNavController` on a single shared prototype. Any error here can break gamepad navigation across the entire Steam UI. Changes must be minimal and always preserve the stability guard that re-runs the reparent on remount.
+> **Caution:** `home/navPatches/` (one concern per file; `focusNav.ts` holds the shared lookups) is the most fragile part of the codebase. It monkey-patches `FocusNavController` on a single shared prototype. Any error here can break gamepad navigation across the entire Steam UI. Changes must be minimal and always preserve the stability guard that re-runs the reparent on remount.
 
-### Hero Background (`shelf/HeroBackground.tsx`)
-The hero background replicates the exact native SteamOS "Recent Games" hero structure, discovered via Chrome DevTools Protocol (CDP) inspection on SteamOS 3.8:
+### Per-shelf hero (`shelf/PerShelfHero.tsx`)
+Each shelf with hero art enabled renders its own hero: two stacked image slots cross-fade on focus changes (a 30 ms debounce coalesces fast D-pad moves), and the slow zoom pauses after 60 s without input. The hero replicates the exact native SteamOS "Recent Games" hero structure, discovered via Chrome DevTools Protocol (CDP) inspection on SteamOS 3.8:
 
 | Layer | Native Role | Implementation |
 |-------|-------------|----------------|
@@ -412,13 +409,13 @@ At runtime, the component discovers native classes from the recents section's si
 - `MutationObserver` replaces polling where possible (HomeInject, ShelvesContainer, navPatches)
 - Single global timer for `ensureStyles()` shared by all shelf rows
 - Focus restore uses MutationObserver with 500ms→2s polling fallback
-- `logInfo()` is a no-op in production builds (`__DEV__` flag)
+- `logInfo()` prints only in development builds (`__DEV__` flag) or when verbose logging is on
 - Collection cache uses 60s TTL; smart-shelf resolver cache TTL defaults to 60 min (per-shelf override via `refreshIntervalMinutes`)
 - Native dimension changes require 4px tolerance + 2-cycle confirmation
 - `Shelf` is `memo`ized + carries a generation-id token on each `resolveShelfAppIds` call; in-flight resolves drop their `then`/`catch` if a newer one started, so a slow previous resolve cannot overwrite a newer result
 - nav-tree reparent poll throttled from 750 ms → 3000 ms (relies on MutationObservers + focusin for fast paths)
 
-> **Note:** the API surface at `window.__DECK_SHELVES_API__` is **v2** — registries (`registerShelfSource` / `registerSmartShelfSource` / `registerFilterType` / `registerSortOption` / `registerImportType` / `registerSavedFilter`) are wired and live; the consumer-side accessors (`getShelves`, `getSmartShelves`, `getSavedFilters`, `subscribeTo*`) are stubbed and connect to the live `settingsStore` in v2.0.0. See [`plugin-api.md`](./plugin-api.md).
+> **Note:** the API surface is `window.deckShelves.api` (major version **4**) — registries (`registerShelfSource` / `registerSmartShelfSource` / `registerFilterType` / `registerSortOption` / `registerImportType` / `registerSavedFilter` and the provider registries) and the consumer-side accessors (`getShelves`, `getSmartShelves`, `getSavedFilters`, `subscribeShelves` and the other `subscribe*` methods) are all live against the settings store. See [`plugin-api.md`](./plugin-api.md).
 
 ### Recents Replace (`recentsReplace.tsx`)
 Experimental feature (`recentsReplaceSource` setting, gated behind `hideRecents`). Instead of visually hiding the native "Recently Played" section, it patches the section's render output via `routerHook.addPatch("/library/home",...)` + nested `afterPatch` calls to replace the `games` prop with the first visible shelf's app IDs. The native DOM, CSS, animations, hero background, and focus callbacks are preserved entirely. Safety mechanisms:
@@ -434,7 +431,7 @@ When enabled, hides the native Novidades/Amigos/Recomendados tab bar. Detection 
 ### Plugin API (`pluginApi.ts`)
 External plugins can register custom shelf sources, filter types, sort options, smart-shelf modes, import formats, statistics/recommendation providers, runtime translations, and pre-baked saved filters at runtime. `pluginApi.ts` is the authoritative runtime that exposes `window.deckShelves`; the canonical types live in the `@deck-shelves/api` package (`api/src/types.ts`), which it imports for leaf types and re-declares the interface against — keep both in sync. Everything first-party (the built-in statistics providers, v3 filters/sorts/sources, …) registers through the **same** registries third-party plugins use. The full API is documented in [`plugin-api.md`](./plugin-api.md). Quick example:
 ```ts
-const cleanup = window.__DECK_SHELVES_API__.registerShelfSource({
+const cleanup = window.deckShelves.api.registerShelfSource({
  id: "my-plugin-source",
  displayName: "My Custom Source",
  resolve: async (limit) => [appid1, appid2,...],
@@ -445,14 +442,14 @@ const cleanup = window.__DECK_SHELVES_API__.registerShelfSource({
 Pure aggregation in `domain/statistics.ts` (`computeLibraryStatistics`, `computeShelfStatistics`, `summarizeHistory`, `deriveSuggestions`) — no Steam APIs, no side-effects. The adapter in `steam/statistics.ts` gathers real data (`getAllAppOverviews`, settings) and exposes two built-in `StatisticsProviderDescriptor`s registered through the plugin API. The Settings → Statistics tab consumes the registry, rendering one area per provider; "over time" averages come from a per-day localStorage snapshot (no timer/polling).
 
 ### i18n (`i18n.ts`)
-Locales are sliced into `i18n/<locale>/<area>.json` (home / qam / about / settings / integrations / common). The loader merges every area file per locale via `import.meta.glob` — `en-US` eager, others lazy. External integrations add strings at runtime through `api.registerTranslations(locale, dict)`. `validate.mjs` enforces per-locale key-set parity + no cross-area collisions.
+Locales are sliced into `i18n/<locale>/<area>.json` (home / qam / about / settings / integrations / common / setup). The loader merges every area file per locale via `import.meta.glob` — `en-US` eager, others lazy. External integrations add strings at runtime through `api.registerTranslations(locale, dict)`. `validate.mjs` enforces per-locale key-set parity + no cross-area collisions.
 
 ### Theme compatibility (`src/themes`)
 One adapter per supported look, under `themes/adapters/` (Switch Like Home, Centered Home, Obsidian, Focus Highlight Color's round patch, TiltedHome, ArtHero, No Hero Gradient, Hero Fullscreen, native Big Art, Gray Uninstalled, Clean Library Capsule, No Home Text). A `ThemeAdapter` (`themes/types.ts`) bundles everything a theme needs: `id` / `label` (diagnostics), `scope` (`root` adapters read the injected theme styles and stamp `.deck-shelves-root`; `document` adapters read computed variables and stamp `<html>`), the `data-ds-*` `flags` it owns (plus optional `<html>` mirrors and all-roots stamping), `read()` (detect → flag values), optional `vars()` (CSS custom properties on `<html>`) and optional `css(ctx)` (the rules that mirror the theme on the shelves). `themes/registry.ts` holds the ordered list and is the only place that iterates it: `applyRootThemeFlags` / `clearRootThemeFlags` (called from `HomeInject` on every Steam `<head>` mutation and on unmount), `applyDocumentThemeFlags` (called from the `shelfStyles` poll), `themeStylesheet(ctx)` (appended to the shelf stylesheet, in registry order) and `activeThemeLabels()` (diagnostics / bug reports). Adding a theme = one adapter file + one registry entry. Shared detection primitives (injected style text, token matching against live class names, the theme names read from disk) live in `themes/detect.ts`; `core/cssLoaderDetect.ts` re-exports the same names so older call sites keep working.
 - `isCssLoaderActive()` / `isArtHeroActive()` read `<style class="css-loader-style">` tags in the active document.
 - `getNativeRecentsClassName(mountEl)` reads the live native-recents wrapper class from `mountEl.previousElementSibling` — never hardcoded.
 - When `hideRecents=true` and a CSS Loader theme is active, `HomeInject` adds `data-ds-recents-slot="true"` plus the live wrapper class to the first DS shelf — additively (existing `ds-*` classes are preserved). Invariants enforced by the guard chain are documented inline in `HomeInject.tsx`.
-- ArtHero label overlay (in `HeroBackground.tsx`) clones the focused card's `.ds-card-label` as a `position: fixed` overlay above the row; tracks the focused card horizontally on row scroll; reactive to runtime CSS Loader toggles via `MutationObserver` on the Big Picture document's `<head>`.
+- ArtHero label overlay (in `PerShelfHero.tsx`, while `HomeInject` marks the root with `data-ds-hero-label`) clones the focused card's `.ds-card-label` as a `position: fixed` overlay above the row; tracks the focused card horizontally on row scroll; reactive to runtime CSS Loader toggles via `MutationObserver` on the Big Picture document's `<head>`.
 - TiltedHome compat applies `skew(var(--ren-tilt-angle))` to the entire `.ds-card` (image + label + glow + MoreCard + RefreshCard). Focus state composes `skew + scale + translateZ` with `!important` to win over Steam's higher-specificity `.BasicUI.NATIVE.Focusable:focus { transform: translateZ(15px) }` rule. The selector intentionally omits `.gpfocuswithin` (Steam applies that to every card when any descendant of the row has focus — including it would scale every card and erase the focus indicator).
 
 ### Refresh card on shelves (`shelf/RefreshCard.tsx` + `shelf/types.ts > REFRESHABLE_SMART_MODES`)
@@ -482,15 +479,15 @@ Concurrent `saveSettings` calls coalesce: a save in flight latches the next payl
 
 ### Sidecar lifecycle (`components/qam/qamExpandedStore.ts` + `DeckQAMSettings.tsx`)
 
-QAM-expanded state is per-session: backed by `sessionStorage` in the QAM popup so it never survives a Steam-menu-over-QAM cycle that destroys the popup, and the `DeckQAMSettings` mount effect calls `resetQamExpanded()` to wipe even the persisted flag every time the plugin tab mounts. While the sidecar is expanded, a 300 ms poll watches three orthogonal signals — `document.hasFocus()`, a set-interval gap heuristic (catches Chromium-throttled inactive popups), and `m_MenuStore.m_eOpenSideMenu` change relative to the value captured at expand — and collapses on any of them. Multiple browser-lifecycle listeners (`visibilitychange`, `focus`, `pagehide`, `freeze`, `resume`) add belt-and-suspenders coverage. `SidecarPanel` itself bails (`return null`) when `controller.settings` is unhydrated so a freshly-remounted tab never renders the "open but empty body" bug-state.
+QAM-expanded state is per-session: a module value mirrored in `sessionStorage`, and the `DeckQAMSettings` mount effect calls `resetQamExpanded()` (only on the visible tab instance, `isActiveTab`) to wipe even the persisted flag every time the plugin tab mounts. While the sidecar is expanded, a 300 ms poll collapses it when `m_MenuStore.m_eOpenSideMenu` changes relative to the value captured at expand, or when a tick gap over 1.5 s while the document is not visible shows a resume from background. `document.hasFocus()` is not used: the QAM document never holds DOM focus, so it collapsed the sidecar within about 300 ms. Browser-lifecycle listeners add coverage: `visibilitychange` (hidden only), `pagehide` and `freeze` collapse; `focus` and `resume` collapse only while the document is hidden. `SidecarPanel` itself bails (`return null`) when `controller.settings` is unhydrated so a freshly-remounted tab never renders the "open but empty body" bug-state.
 
 ### Own QAM tab under Decky alone (`runtime/ownQamTab.ts`)
 
-Opt-in, off by default (`ownQamTabEnabled`). Ports a tab-injection mechanism already validated on-device in a neutral host's own runtime: register a numeric key in Steam's `QuickAccessTab` enum, then `afterPatch` the `QuickAccessMenuBrowserView` consumer to push a tab object onto its render output's `props.tabs` array — via Decky's own `afterPatch` / `findModuleByExport` / `findInReactTree`, not a hand-rolled webpack walk. A localStorage breaker mirrors that same safeguard (an unconfirmed arm trips and refuses to re-patch). Stands down completely whenever a neutral host's own QAM bridge (`window.__SHELVES_QAM__`) is present — that tab always wins. This mechanism still needs its own on-device validation pass before it's safe to default on.
+Opt-in, off by default (`ownQamTabEnabled`). Ports a tab-injection mechanism already validated on-device in a neutral host's own runtime: register a numeric key in Steam's `QuickAccessTab` enum, then `afterPatch` the `QuickAccessMenuBrowserView` consumer to push a tab object onto its render output's `props.tabs` array — via Decky's own `afterPatch` / `findModuleByExport` / `findInReactTree`, not a hand-rolled webpack walk. A localStorage breaker mirrors that same safeguard (two unconfirmed arms trip it and it refuses to re-patch for 24 h). Retracts whenever a neutral host's own tab has actually been inserted (the host stamps `window.__SHELVES_QAM_OWNER__`, or its tab object carries the host's marker) — never on the mere presence of the `window.__SHELVES_QAM__` bridge. That tab always wins. This mechanism still needs its own on-device validation pass before it's safe to default on.
 
 ### Showcase / Dynamic Idle Mode (`runtime/showcaseMode.ts`)
 
-Opt-in, off by default (`showcaseModeEnabled`). During Home inactivity, cycles focus through the user's own shelves on a timer, reusing the exact same focus-a-shelf's-first-card mechanism Side Nav's own "jump to shelf" already ships — never synthetic input. Any real interaction (a controller button via `subscribeControllerInput`, or a pointer/wheel/keydown event) stops it and re-arms the idle timer. MVP scope only; deferred: per-shelf pan/crossfade, a shelf-participation picker UI. Also exports `isNativeScreensaverActive()` (`ScreensaverPopup`/`BIsActive()` on the active `GamepadNavigationTree`), which both Showcase and the screensaver below use to stand down if Steam's own native screensaver is somehow active.
+Opt-in, off by default (`showcaseModeEnabled`). During Home inactivity, cycles focus through the user's own shelves on a timer, reusing the exact same focus-a-shelf's-first-card mechanism Side Nav's own "jump to shelf" already ships — never synthetic input. Any real interaction (a controller button via `subscribeControllerInput`, or a pointer/wheel/keydown event) stops it and re-arms the idle timer. Optional in-shelf pan (`showcasePanCards`) walks a few cards per shelf before moving on. Not built yet: a shelf-participation picker UI (the `showcaseShelfIds` setting exists without one). Also exports `isNativeScreensaverActive()` (`ScreensaverPopup`/`BIsActive()` on the active `GamepadNavigationTree`), which both Showcase and the screensaver below use to stand down if Steam's own native screensaver is somehow active.
 
 ### Keyboard bindings (`runtime/keyboardBindings.ts`)
 
@@ -516,7 +513,7 @@ Opt-in, off by default (`cloudSyncEnabled`). Mirrors settings across devices on 
 | `components/shelf/GameCard.tsx` | Game tile (image fallback chain, label, badges, compat) |
 | `components/shelf/MoreCard.tsx` | "View more in library" trailing tile (non-smart shelves) |
 | `components/shelf/RefreshCard.tsx` | "Refresh" trailing tile for refreshable smart shelves |
-| `components/shelf/HeroBackground.tsx` | Two-layer cross-fade hero art; ArtHero label overlay when promoted |
+| `components/shelf/PerShelfHero.tsx` | Per-shelf two-slot cross-fade hero art; ArtHero label overlay when promoted |
 | `components/home/navPatches/reparent.ts` | `reparentNavTreeNodes` — moves DS focus nodes between recents and tabs |
 | `components/home/navPatches/menuButton.ts` | MENU button interception → game context menu |
 | `components/home/navPatches/edgeNavigation.ts` | L/R throttle + DOWN tilt guard (when home tabs hidden) |
@@ -538,7 +535,7 @@ routerHook.addPatch("/library/home", patchFn)
         │
         ▼
    mutateRecentsElement(ret3, shelf, appIds)
-        │  • holder.props.apps ← appIds
+        │  • holder.props.games ← appIds
         │  • holder.props.showFeaturedItem ← from shelf highlight toggles
         ▼
    render()                                        native cross-fade preserved (no callback re-entry)
@@ -584,7 +581,7 @@ hideRecentsSetting = true ?  ── no ──► no promotion, no overlay
         ▼
    firstVisibleId scan:
      iterate shelves[] in CONFIG order (not DOM order)
-     skip type === "smart"
+     any source is eligible (smart and online shelves included)
      pick first with data-shelfid currently in DOM   (skips empty/0-app shelves)
         │
         ▼
@@ -599,12 +596,12 @@ hideRecentsSetting = true ?  ── no ──► no promotion, no overlay
                                                                 ADDITIVE — never strips ds-* classes
         │
         ▼
-   isArtHeroActive() ?  ── no ──► HeroBackground only (cross-fade two-layer)
+   isArtHeroActive() ?  ── no ──► PerShelfHero only (two-slot cross-fade)
         │ yes
         ▼
-   HeroBackground returns null when ArtHero paints its own hero
+   HomeInject marks the root with data-ds-hero-label (full-page hero layout)
    AND
-   HeroBackground renders the focused-card label clone as position:fixed overlay
+   PerShelfHero renders the focused-card label clone as position:fixed overlay
      • cloned from .ds-card-label of the focused tile
      • follows focused card horizontally on row scroll
      • reactive to runtime CSS Loader theme toggles via MutationObserver on Big Picture <head>

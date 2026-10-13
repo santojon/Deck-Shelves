@@ -12,6 +12,8 @@ import { subscribeControllerInput, Button as RawBtn } from "../../runtime/contro
 import { getPreferredSteamDocument, getAllSteamDocuments } from "../../runtime/steamHost";
 import { focusElement } from "../../core/focusRestore";
 import { closeAmbientOverlays, lockOverlay, isOverlayLocked } from "../../runtime/closeOverlays";
+import { getSessionState } from "../../runtime/sessionState";
+import { applyVirtualKey } from "./virtualKeyEdit";
 
 const MIN_CHARS = 3;
 const SEARCH_LIMIT = 30;
@@ -85,6 +87,28 @@ function dismissSteamKeyboard(): void {
       }
     }
   } catch {}
+}
+
+function steamKeyboardManager(): any {
+  try { return (globalThis as any).SteamUIStore?.WindowStore?.GamepadUIMainWindowInstance?.m_VirtualKeyboardManager ?? null; } catch { return null; }
+}
+
+/* Steam's on-screen keyboard injects its keys natively, and those keystrokes
+   never reach this overlay's input. Steam checks a text-entered override
+   before injecting, so while the pill is open its keys are routed here. */
+function routeVirtualKeyboard(input: HTMLInputElement, onValue: (v: string) => void, onEnter: () => void): () => void {
+  const m = steamKeyboardManager();
+  if (typeof m?.SetVRKeyboardOnTextEnteredOverride !== "function") return () => {};
+  const handler = (key: unknown): void => {
+    if (key === "Enter") { onEnter(); return; }
+    const end = input.value.length;
+    const edit = applyVirtualKey(input.value, input.selectionStart ?? end, input.selectionEnd ?? end, String(key ?? ""));
+    if (!edit) return;
+    onValue(edit.value);
+    window.setTimeout(() => { try { input.setSelectionRange(edit.caret, edit.caret); } catch {} }, 0);
+  };
+  try { m.SetVRKeyboardOnTextEnteredOverride(handler); } catch { return () => {}; }
+  return () => { try { if (m.m_fnVROnTextEnteredOverride === handler) m.SetVRKeyboardOnTextEnteredOverride(null); } catch {} };
 }
 
 function prepareSearchInput(input: HTMLInputElement): void {
@@ -242,7 +266,9 @@ export function SearchOverlay() {
   const rawMatcherStateRef = useRef(createMatcherState());
   const lastOpenAtRef = useRef(0);
   const openSearch = useCallback(() => {
-    if (!isHomeRoute()) return;
+    // Same gate as the side nav: the Home's route can stay current behind a
+    // running game, where L1+R1 must not pop the overlay and keyboard.
+    if (!isHomeRoute() || getSessionState().gameRunning) return;
     if (isOverlayLocked()) return;
     const now = Date.now();
     if (now - lastOpenAtRef.current < 350) return;
@@ -373,6 +399,11 @@ function SearchPill({ query, onChange, keyboardEnabled, onEnter }: {
   const onField = (e: React.ChangeEvent<HTMLInputElement>) => {
     onChange(e?.target?.value ?? "");
   };
+  // Latest callbacks for the on-screen keyboard route (bound once the input exists).
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+  const onEnterRef = useRef(onEnter);
+  onEnterRef.current = onEnter;
   /* Kick HTML focus + add the HTML5 attrs Steam Deck's on-screen
      keyboard looks for. Synthetic pointer sequence ONLY when the
      virtual-keyboard toggle is on — that's the trigger that pops the
@@ -381,12 +412,14 @@ function SearchPill({ query, onChange, keyboardEnabled, onEnter }: {
   useEffect(() => {
     let cancelled = false;
     let captured: HTMLInputElement | null = null;
+    let unroute: (() => void) | null = null;
     const tryFocus = (n: number) => {
       if (cancelled) return;
       const host = hostRef.current;
       const input = host?.querySelector<HTMLInputElement>("input");
       if (input && input.isConnected) {
         captured = input;
+        unroute ??= routeVirtualKeyboard(input, (v) => onChangeRef.current(v), () => onEnterRef.current?.());
         prepareSearchInput(input);
         try { input.focus(); } catch {}
         if (n === 8 && keyboardEnabled) tapInputForKeyboard(input);
@@ -415,6 +448,7 @@ function SearchPill({ query, onChange, keyboardEnabled, onEnter }: {
     inputEl?.addEventListener("focusout", reclaim);
     return () => {
       cancelled = true;
+      unroute?.();
       inputEl?.removeEventListener("focusout", reclaim);
       try { captured?.blur(); } catch {}
       dismissSteamKeyboard();

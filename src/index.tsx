@@ -49,18 +49,16 @@ import { SetupWizardEntry } from "./features/setup/SetupWizardEntry";
 import pkg from "../package.json";
 import { AboutPage } from "./components/AboutPage";
 import { SettingsPage } from "./components/SettingsPage";
-import { ShelfEditRoute, ShelfDeleteRoute, ShelfComposeRoute } from "./components/ShelfModalRoute";
+import { ShelfEditRoute, ShelfDeleteRoute, ShelfComposeRoute, GameTagsRoute } from "./components/ShelfModalRoute";
 import { ShelfManageRoute } from "./components/ShelfManageRoute";
 import { isForcedOwner, getInjectedHost, type HostApi, type QamPanel } from "./runtime/host/contract";
 initI18n();
 
-/* HostApi singleton — instantiated once at boot. Every `@decky/*`
-   dependency eventually routes through this contract as the migration
-   progresses; today only the pilot surfaces (EditShelfModal etc.) consume
-   it directly. */
+/* HostApi singleton — instantiated once at boot. Today only the handshake
+   and the self-install update path (runtime/updateDownload.ts) read it; RPC,
+   toasts and UI primitives go through the host shims. */
 let _hostApi: HostApi | null = null;
 export function getHostApi(): HostApi { if (!_hostApi) throw new Error("HostApi not booted"); return _hostApi; }
-export function __setHostApiForTest(h: HostApi | null) { _hostApi = h; }
 
 const ABOUT_ROUTE = "/deck-shelves/about";
 const SETTINGS_ROUTE = "/deck-shelves/settings";
@@ -68,6 +66,7 @@ const EDIT_ROUTE = "/deck-shelves/edit/:shelfId";
 const DELETE_ROUTE = "/deck-shelves/delete/:shelfId";
 const MANAGE_ROUTE = "/deck-shelves/manage/:shelfId";
 const COMPOSE_ROUTE = "/deck-shelves/compose/:sourceId/:targetId";
+const TAGS_ROUTE = "/deck-shelves/tags/:appid";
 
 // Decky plugin-tab / QAM icon. Simplified single-colour (tintable) glyph — the
 // same mark shipped as assets/tab-icon.svg (the designated plugin icon); keep
@@ -190,7 +189,7 @@ function installDevHooks(): void {
 
 type RouteSpec = { path: string; label: string; exact?: boolean; render: () => ReactNode };
 /* The full-page Settings route is registered eagerly so navigation works; the
-   QAM gear button that opens it stays gated behind `settingsPageEnabled`. Edit /
+   title bar's gear button opens it. Edit /
    Delete / Manage / Compose open from the card context menu — a standalone
    controller shows the modal via showModal in a portal; Manage is a flat
    MenuItem + navigation because nested groups disappear after the first open. */
@@ -201,6 +200,7 @@ const PLUGIN_ROUTES: RouteSpec[] = [
   { path: DELETE_ROUTE, label: "shelf modal", exact: true, render: () => <ShelfDeleteRoute shelfId="" /> },
   { path: MANAGE_ROUTE, label: "shelf modal", exact: true, render: () => <ShelfManageRoute shelfId="" /> },
   { path: COMPOSE_ROUTE, label: "shelf modal", exact: true, render: () => <ShelfComposeRoute sourceId="" targetId="" /> },
+  { path: TAGS_ROUTE, label: "tags modal", exact: true, render: () => <GameTagsRoute appid={0} /> },
 ];
 
 function registerPluginRoutes(routerHook: any): void {
@@ -219,7 +219,7 @@ function unregisterPluginRoutes(routerHook: any): void {
 /* If a neutral host injected its own native QAM tab, populate it so opening it
    shows Deck Shelves directly (`__SHELVES_QAM__` takes no part in host
    selection). The tab may inject after this body runs — retry + enqueue. */
-function registerHostQamPanel(renderPanel: QamPanel["content"]): void {
+function registerHostQamPanel(renderPanel: QamPanel["content"]): () => void {
   try {
     // `QamPanel` / `window.__SHELVES_QAM__` / `__SHELVES_QAM_PENDING__` are all
     // declared by the @deck-shelves/host contract's `Window` augmentation.
@@ -233,11 +233,15 @@ function registerHostQamPanel(renderPanel: QamPanel["content"]): void {
       // Bridge not injected yet — leave the panel for the host runtime to drain
       // when it installs (order-independent), and also poll briefly in case it is
       // mid-injection right now.
-      (window.__SHELVES_QAM_PENDING__ ??= []).push(qamPanel);
+      const pending = (window.__SHELVES_QAM_PENDING__ ??= []);
+      pending.push(qamPanel);
       let attempts = 0;
       const timer = setInterval(() => { if (registerNativeTab() || ++attempts > 100) clearInterval(timer); }, 100);
+      // Teardown: stop polling and withdraw the panel if the host never drained it.
+      return () => { clearInterval(timer); const i = pending.indexOf(qamPanel); if (i >= 0) pending.splice(i, 1); };
     }
   } catch {}
+  return () => {};
 }
 
 /* Own native QAM tab under Decky alone (opt-in, default OFF). Owner-only,
@@ -273,8 +277,8 @@ const __ds_entry = definePlugin((serverAPI?: any) => {
     logError("RUNTIME", "failed to dispose previous instance before hot-swap boot", String(error));
   }
   // Safety net: catches anything the old instance's manual dispose() list
-  // forgot to wire up by hand (see runtimeDisposer.ts) — a no-op today since
-  // no subsystem registers here yet, additive once one does.
+  // forgot to wire up by hand (see runtimeDisposer.ts); today only the dev
+  // navigation hooks register here.
   try { disposeAll(); } catch {}
   const platform = createDeckyPlatform();
   setPlatform(platform);
@@ -285,7 +289,9 @@ const __ds_entry = definePlugin((serverAPI?: any) => {
      every Steam restart felt like a full re-download to the user even
      though the persistent cache already had every blob. */
   try {
-    const schedule = (globalThis as any).requestIdleCallback ?? ((cb: any) => setTimeout(cb, 2000));
+    // A timeout is required: Steam's UI can starve an idle callback for a minute.
+    const ric = (globalThis as any).requestIdleCallback;
+    const schedule = ric ? (cb: () => void) => ric(cb, { timeout: 5000 }) : (cb: () => void) => setTimeout(cb, 2000);
     schedule(() => {
       try { void hydrateHotCacheFromStorage(); } catch {}
       try { void pruneImageCache(); } catch {}
@@ -339,7 +345,7 @@ const __ds_entry = definePlugin((serverAPI?: any) => {
   try { invalidateRandomSortCache(); } catch {}
 
   /* Prefetch SteamOS version asynchronously so synchronous version-gated
-     paths (e.g. `useLegacyMenuFlow()` in `steamGameMenu.ts`) hit the cache
+     paths (e.g. `isLegacyMenuFlow()` in `steamGameMenu.ts`) hit the cache
      by the time the user interacts. On 3.7.x the only source is the async
      `SteamClient.System.GetSystemInfo()` — sync sources return null there. */
   void prefetchSteamOSVersion().then((v) => {
@@ -376,7 +382,7 @@ const __ds_entry = definePlugin((serverAPI?: any) => {
     </>
   );
 
-  registerHostQamPanel(renderNativeTabPanel);
+  const uninstallHostQamPanel = registerHostQamPanel(renderNativeTabPanel);
   const uninstallOwnQamTab = installOwnTabIfWanted(isOwner, loaderLaunched, renderNativeTabPanel);
   // Showcase / Dynamic Idle Mode (opt-in, default OFF). Only the renderer's
   // owner drives Home focus.
@@ -400,7 +406,7 @@ const __ds_entry = definePlugin((serverAPI?: any) => {
     () => uninstallShowcaseMode?.(),
     () => uninstallScreensaverInject?.(),
     () => uninstallCloudSync?.(),
-    uninstallUpdateProbes, uninstallWatchdog, uninstallBootToasts,
+    uninstallUpdateProbes, uninstallWatchdog, uninstallBootToasts, uninstallHostQamPanel,
     disposeAll,
   ];
   const dispose = () => {

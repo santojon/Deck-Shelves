@@ -83,8 +83,8 @@ export function isNativeScreensaverActive(): boolean {
 
 /* Window blur/focus DOM events are unreliable in GamepadUI (confirmed live —
    `blur` never fires switching away to another app; `focus` on return arrives
-   late, with `document.hidden` still stale) — same gotcha already known from
-   the QAM sidecar's `hasFocus()` poll. Querying `hidden`/`hasFocus()` directly
+   late, with `document.hidden` still stale) — the same unreliability that made
+   the QAM sidecar drop `hasFocus()`. Querying `hidden`/`hasFocus()` directly
    on the existing step()/idle cadence is reliable and needs no extra timer. */
 function isWindowUnfocused(): boolean {
   const doc = getPreferredSteamDocument();

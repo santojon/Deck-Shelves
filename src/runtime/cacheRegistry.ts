@@ -9,10 +9,9 @@ export interface CacheGroup {
 }
 
 /* Only persisted (localStorage-backed) caches are listed, so every row shows a
-   real byte size. Deliberately NOT listed, each for its own reason:
-   `ds-pinned-games-v1` is a user choice, not a cache. `ds-history-v1` is
-   read-only from our side — not ours to offer clearing. `ds_device_history_v1`
-   backs the Statistics usage counters, not a performance cache. */
+   real byte size. Deliberately NOT listed: the user's game lists
+   (`ds-pinned-games-v1`, `ds-history-v1`, `ds-temp-queue-v1`, `ds-custom-tags-v1`)
+   and `ds_device_history_v1` (backs the Statistics counters). */
 export const CACHE_GROUPS: CacheGroup[] = [
   { id: "images", labelKey: "cache_group_images", keys: ["ds-images-v1"] },
   { id: "store", labelKey: "cache_group_store", keys: ["ds-store-cache-v1", "ds-store-cache-v3"] },

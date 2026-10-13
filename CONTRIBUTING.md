@@ -186,7 +186,7 @@ All checks should pass. The individual check scripts live in the `checks/` subfo
 - Base locale: the `i18n/en-US/` directory
 - Every locale must have the same merged key set as `en-US` (no cross-area key collisions)
 - When adding a new i18n key, add it to the matching area file in **all** locale directories
-- `pnpm run validate:compat` (and `pnpm run validate` for the build-time check) verifies per-locale key consistency automatically
+- `pnpm run validate:compat` (and `pnpm run check` for the build-time check) verifies per-locale key consistency automatically
 
 ## Tests
 

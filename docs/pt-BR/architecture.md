@@ -12,7 +12,7 @@ Deck Shelves é um plugin que injeta prateleiras de jogos personalizadas na tela
 
 ### O plugin no seu ambiente
 
-O Deck Shelves roda de forma independente via ShelvesHub (sem necessidade de
+O Deck Shelves roda no seu próprio host independente (sem necessidade de
 loader de plugin), ou dentro do Decky Loader — o mesmo bundle, injetado de
 qualquer uma das formas — renderiza na tela inicial do Gaming Mode da Steam, e
 lê da biblioteca local mais algumas fontes externas opcionais.
@@ -26,7 +26,7 @@ flowchart TB
     end
 
     subgraph host["Plataforma host"]
-        decky["ShelvesHub ou Decky Loader<br/>runtime de host/plugin"]
+        decky["Host independente ou Decky Loader<br/>runtime de host/plugin"]
         steam["Cliente Steam<br/>GamepadUI + biblioteca de apps"]
     end
 
@@ -193,7 +193,7 @@ src/
 │ ├── FilterPanel.tsx UI do editor de grupo de filtros
 │ ├── AboutPage.tsx Página Sobre / documentação
 │ ├── Settings.tsx Wrapper da página de Configurações
-│ ├── SettingsPage.tsx Shell de Configurações de dois painéis (lista de alternâncias à esquerda + grade de cards à direita)
+│ ├── SettingsPage.tsx Configurações em página inteira: uma aba por área (Prateleiras, Perfis, Integrações, Atalhos, Backup, Sugestões, Estatísticas, Avançado, Desenvolvedor)
 │ ├── ErrorBoundary.tsx Error boundary do React
 │ ├── icons.tsx Ícones SVG compartilhados no estilo feather (FunnelIcon, EyeIcon, …)
 │ ├── home/navPatches/ Módulos de nav-patch divididos (uma responsabilidade por arquivo)
@@ -209,18 +209,13 @@ src/
 │ │ ├── LabeledTextField Field + TextField + textFromDeckyChange
 │ │ ├── CollapsibleSection Seção colapsável do QAM com estado em localStorage
 │ │ └── PageHeader Seta de voltar + título + slot final para rotas dedicadas
-│ ├── settings/ Partes do shell de Configurações de dois painéis (filhos de SettingsPage)
-│ │ ├── SettingsLeftPane Lista de alternâncias à esquerda (espelha a GeneralTab do sidecar) + PageHeader
-│ │ ├── SettingsCardGrid Grade 2×3 à direita de tiles SettingsCard
-│ │ ├── SettingsCard Primitiva de tile único (ícone + título + descrição)
-│ │ ├── SettingsDetailPanel Painel deslizante à direita (B fecha) — despacha por card
-│ │ └── details/ Um arquivo por painel de detalhe de card
-│ │ ├── QuickDetail Gerenciador de olho-oculta de visibilidade no QAM
+│ ├── settings/details/ Um arquivo por aba de Configurações (Perfis, Estatísticas e Sugestões ficam em src/features/)
 │ │ ├── ShelvesDetail CRUD de shelves normais + smart (chips, editar/excluir, reordenação unificada ↑↓)
-│ │ ├── ProfilesDetail Perfis de uso (salvar, aplicar, duplicar, renomear, excluir)
 │ │ ├── IntegrationsDetail Descritores de plugin com ativar/desativar por linha
+│ │ ├── ButtonBindingsDetail Editor de atalhos de controle + teclado
 │ │ ├── BackupDetail Wrap de import/export em 3 escopos (normais, smart, tudo)
-│ │ └── AdvancedDetail Log de diagnóstico ao vivo + trio de reset de fábrica
+│ │ ├── AdvancedDetail Informações do sistema, snapshots, chave do modo desenvolvedor, reset de fábrica
+│ │ └── DeveloperDetail Log de diagnóstico, painel de desempenho, inspetor de resolução, simulador de dispositivo
 │ ├── qam/
 │ │ ├── common/
 │ │ ├── list/
@@ -229,9 +224,8 @@ src/
 │ │ ├── EditSmartShelfModal.tsx Editor de smart shelf (override de ordenação, filterGroup, smartParams, intervalo de refresh)
 │ │ ├── (Export/Import/Template/ResetAll/Delete/ImportFromCustomFilters com `scope`)
 │ │ └── editShelf/ Componentes compartilhados pelos dois modais de edição
-│ │ ├── HighlightMiniCard.tsx Mini-card com cadeia de fallback de arte + setas + estados selecionado/agarrado
-│ │ ├── HighlightRow.tsx Linha horizontal com rolagem centrada no foco + recentralização
-│ │ ├── ManualSortRow.tsx Linha de ordem manual — agarrar via controle + arrastar segurando o ponteiro + setas
+│ │ ├── EditShelfFrame.tsx Moldura compartilhada do modal (cabeçalho, abas, rodapé) para os dois editores
+│ │ ├── ShelfPreview.tsx Linha de prévia ao vivo: seletor de destaque, ordem manual (agarrar via controle + arrastar com ponteiro)
 │ │ ├── SavedFiltersBar.tsx Menu suspenso de filtros salvos + "salvar atual"
 │ │ ├── VisualTabContent.tsx Alternâncias + seletor de destaque + padrões ímpar/par + prévia
 │ │ ├── DisplayTabContent.tsx Alternâncias hide-* (linha de status, indicador de instalação, selo novo, ícones de compat, não-steam, título da shelf, nomes dos jogos)
@@ -244,7 +238,8 @@ src/
 │ │ ├── MoreCard.tsx Tile final "Ver mais" (shelves não-smart)
 │ │ ├── RefreshCard.tsx Tile final de atualização (smart shelves atualizáveis e sort=random)
 │ │ ├── PlaceholderCard.tsx Card de fallback
-│ │ └── HeroBackground.tsx Hero art com cross-fade em duas camadas + overlay de rótulo do ArtHero
+│ │ ├── ShelfRow.tsx / ShelfSkeleton.tsx Renderização da janela de cards / placeholder abaixo da dobra
+│ │ └── PerShelfHero.tsx Hero art por prateleira (cross-fade de dois slots) + overlay de rótulo do ArtHero
 │ ├── about/
 │ │ ├── DocSection.tsx
 │ │ ├── DocCallout.tsx
@@ -256,12 +251,13 @@ src/
 │ └── DeckQAMStyles.tsx
 │
 ├── steam/
-│ ├── index.ts Acesso à API da Steam: visões gerais de apps, coleções,
-│ │ abas, filtros, ordenação, dados de desenvolvedor (~3500 LoC).
+│ ├── index.ts Despachante e fachada dos resolvedores de fonte; um módulo
+│ │ por assunto ao lado (coleções, abas, avaliação de filtros,
+│ │ ordenação, resolvedores, cache online).
 │ │ Despacha os ids v3 nativos via `v3Extensions`
 │ │ ANTES do fallback de plugin externo para que colisões
 │ │ resolvam para as implementações nativas.
-│ ├── v3Extensions.ts Filter v3 nativo (32 avaliadores), Sort v3 (25
+│ ├── v3Extensions.ts Filter v3 nativo (32 avaliadores), Sort v3 (27
 │ │ comparadores), Shelf Source Ecosystem v3 (19
 │ │ resolvers) + entradas de registro descritivas usadas
 │ │ por `internalRegistry.ts` para expô-los via
@@ -277,17 +273,17 @@ src/
 │ ├── shelfRefresh.ts Emissor global de refresh de shelf
 │ ├── steamAssets.ts Geração de URL de imagem (portrait, landscape, hero)
 │ ├── steamGameMenu.ts Extração do menu de contexto nativo do jogo
-│ ├── webpackCompat.ts Descoberta de classe em runtime (viewport + tokens nativos de shelf/card/section)
+│ ├── webpackCompat.ts Consulta de tokens de classe nativos (viewport + tokens nativos de shelf/card/section) sobre o mapa de classes embutido
 │ ├── reorder.ts useContainerDragReorder + helpers puros (findReorderTargetIndex, moveInOrder)
 │ ├── cssLoaderDetect.ts Fachada de compatibilidade sobre src/themes (mesmos nomes, mesmo caminho de import)
 │ ├── steamOSVersion.ts helper getSteamOSVersion()
-│ ├── pluginApi.ts API pública entre plugins (v2)
+│ ├── pluginApi.ts API pública entre plugins (`window.deckShelves`, versão principal 4)
 │ └── perf.ts Marks/measures de performance
 │
 ├── domain/
 │ ├── settings.ts Operações puras de configurações (patch, add, delete, move)
 │ ├── defaults.ts Fábricas de shelf/settings/filter padrão
-│ ├── templates.ts Templates de preset de shelf (11 entradas)
+│ ├── templates.ts Templates de preset de shelf (15 entradas)
 │ ├── shelfOrder.ts pickFirstVisibleShelfId + interleaveSmartShelves (helpers puros)
 │ └── customfilters.ts Conversão de filtro do TabMaster
 │
@@ -304,14 +300,15 @@ src/
 │ ├── smartShelves.ts CRUD de smart shelf + surprise-me + import/export
 │ ├── savedFilters.ts CRUD de SavedFilter e SavedSmartFilter
 │ ├── online.ts Alternâncias de funcionalidades online + acceptOnlinePrivacy
-│ ├── globalVisual.ts 30 setters visuais globais (consolidados)
+│ ├── globalVisual.ts 36 setters visuais globais (consolidados)
 │ └── profiles.ts Perfis de uso + setters de unified/lightMode/featureToggle
 │
 ├── integrations/
 │ ├── index.ts Barrel de integrações
-│ ├── registry.ts Detecção de plugin (TabMaster, UnifiDeck)
+│ ├── descriptors.ts Um descritor por plugin de terceiros (presença, capacidades, rótulos)
+│ ├── registry.ts Detecção de plugin sobre os descritores
 │ ├── tabmaster.ts Leitor do arquivo de configurações do TabMaster
-│ ├── unifideck.ts Detecção de apps não-Steam do UnifiDeck
+│ ├── nonsteambadges.ts Integração com o Non-Steam Badges
 │ └── domtabs.ts Descoberta de abas baseada em DOM
 │
 ├── runtime/
@@ -321,7 +318,7 @@ src/
 │ ├── deckyPlatform.ts Implementação da interface de plataforma
 │ ├── platform.ts Definição da interface de plataforma
 │ ├── platformContext.tsx Provedor de contexto React
-│ ├── logger.ts Logger de console colorido (protegido por __DEV__)
+│ ├── logger.ts Logger de console colorido (linhas de info só em builds de desenvolvimento ou com log detalhado)
 │ ├── diagnostics.ts Coleta de eventos de diagnóstico
 │ ├── systemEvents.ts Handlers de eventos de suspensão/retomada
 │ └── embeddedClassMap.ts Seed de bootstrap do classmap do webpack
@@ -334,7 +331,7 @@ src/
  ├── core/ reorder, webpackCompat
  ├── domain/ settings, customfilters, shelfOrder, templates, schemas
  ├── qa/ qam-visibility
- ├── stubs/ decky-api / decky-manifest stubs (aliases do vitest)
+ ├── stubs/ stubs de host-api / host-ui / host-manifest (aliases do vitest)
  ├── steam.test.ts
  ├── scrollUtils.test.ts
  └── test_main.py Testes do sanitizer em Python (pytest)
@@ -343,8 +340,8 @@ main.py Entrada em Python: DEFAULT_SETTINGS, _SSL_CTX, classe Plugin
  (ciclo de vida + RPC). Reexporta os helpers abaixo.
 src/backend/ Todo módulo irmão que main.py importa (paths, storage,
  sanitizer, launchers, css_themes, display_state,
- hardware_info, host_os, peripherals, perf_probe,
- plugin_host). Mantido fora da raiz do plugin — onde
+ hardware_info, host_os, library_location,
+ peripherals, perf_probe, plugin_host). Mantido fora da raiz do plugin — onde
  o Decky exige que o próprio main.py fique — via um
  splice de sys.path no topo de main.py.
 src/backend/paths.py _steam_install_candidates, _normalize_path
@@ -365,38 +362,38 @@ plugin.json Manifesto do plugin
 ## Fluxo de dados
 
 ```
-Configurações (JSON do backend) → settingsStore → controller → HomeInject → Shelf → DeckRow → GameCard
- ↓
- homePatch (renderizador de DOM de fallback)
+Configurações (JSON do backend) → settingsStore ─┬→ controller → QAM / páginas de Configurações
+                                                 └→ HomeInject → ShelvesContainer → Shelf → DeckRow → GameCard
+homePatch: ponto de montagem + componente ponte (ou raiz de fallback) → HomeInject
 ```
 
 1. **As configurações** são persistidas pelo backend Python (`main.py` → escrita atômica via `src/backend/paths.py` + `src/backend/storage.py`; verificação de forma via `src/backend/sanitizer.py` em toda leitura E escrita) e armazenadas em cache em `localStorage`
-2. **`settingsStore`** gerencia o cache, as chamadas RPC do backend, e as notificações aos assinantes
-3. **`controller`** (hook React) fornece ações e estado para os componentes do QAM
-4. **`HomeInject`** cria um portal no DOM da tela inicial da Steam
-5. **`Shelf`** resolve os app IDs de cada fonte de prateleira (coleção, aba, filtro)
-6. **`DeckRow`** renderiza a linha horizontal de cards com gerenciamento de rolagem
-7. **`homePatch`** fornece um renderizador de DOM de fallback quando o portal React não está disponível
+2. **`settingsStore`** gerencia o cache, as chamadas RPC do backend, e as notificações aos assinantes; a UI renderiza primeiro a partir do cache e só adota a cópia do backend quando nenhuma edição concorreu com ela
+3. **`controller`** (hook React) fornece ações e estado para os componentes do QAM e das Configurações; o `HomeInject` assina o store diretamente
+4. **`homePatch`** cria o ponto de montagem `#deck-shelves-home-root` ao lado da linha nativa de recentes e registra um componente ponte no store de componentes globais do host (quatro estratégias, tentadas em ordem). Quando a ponte não preenche a Home, uma raiz React é criada direto no ponto de montagem após uma janela de tolerância (`homePatchFallbackGate.ts`); um carimbo de posse impede que as duas renderizem ao mesmo tempo
+5. **`HomeInject`** renderiza as prateleiras (mais busca, navegação lateral e protetor de tela) e as envia por portal ao ponto de montagem
+6. **`Shelf`** resolve os app IDs de cada fonte de prateleira (coleção, aba, filtro, online, composta, smart)
+7. **`DeckRow`** renderiza a linha horizontal de cards com gerenciamento de rolagem
 
 > **Nota:** `HomeShelves` roda em `SharedJSContext`, mas o portal é montado no documento do Big Picture. Qualquer consulta de DOM (ex.: `querySelector`) deve usar `getPreferredSteamDocument()` — consultar `document` diretamente vai mirar no contexto errado e retornar nada silenciosamente.
 
 ## Sistemas-chave
 
-### Descoberta de classe nativa (`webpackCompat.ts`)
-O GamepadUI da Steam usa classes CSS com hash do webpack que mudam nas atualizações. O plugin descobre essas classes em runtime inspecionando o DOM e as armazena em `window.__DS_CLASS_MAP__`. Isso permite que os cards de prateleira recebam classes nativas da Steam para compatibilidade com temas do CSS Loader.
+### Mapa de classes nativo (`webpackCompat.ts` + `runtime/classmap.json`)
+O GamepadUI da Steam usa classes CSS com hash do webpack que mudam nas atualizações. O plugin traz um mapa de classes (nome semântico → hash atual) em `runtime/classmap.json`; `runtime/embeddedClassMap.ts` o semeia no boot em `window.__DS_CLASS_MAP` e no `localStorage` (`ds_class_map`), e o `webpackCompat.ts` lê os tokens dele. Isso permite que os cards de prateleira recebam classes nativas da Steam para compatibilidade com temas do CSS Loader. Os seletores recorrem a padrões genéricos `[class*="…"]` e a buscas estruturais. O mapa é atualizado a partir de um dispositivo com a ferramenta de mapa de classes quando a Steam muda (veja [webpack-classmap.md](webpack-classmap.md)).
 
-> **Atenção:** os tokens de classe em `window.__DS_CLASS_MAP__` estão vinculados a builds específicas do SteamOS. Uma atualização da Steam pode renomeá-los silenciosamente. A descoberta do `webpackCompat` é executada novamente a cada mount — nunca faça cache dos tokens nas configurações do plugin nem os hardcode na lógica da aplicação.
+> **Atenção:** os tokens de classe estão vinculados a builds específicas do SteamOS. Uma atualização da Steam pode renomeá-los silenciosamente. Nunca faça cache dos tokens nas configurações do plugin nem os hardcode na lógica da aplicação sem um fallback.
 
-### Integração de navegação (`home/navPatches.ts`)
+### Integração de navegação (`home/navPatches/`)
 O plugin se integra com o sistema de navegação por controle `FocusNavController` da Steam:
 - Reparenta os nós da árvore de navegação das prateleiras para a posição correta
 - Faz patch em `BTryInternalNavigation` para evitar o escape horizontal do foco
 - Intercepta o botão Options para mostrar o menu de contexto nativo do jogo
 
-> **Atenção:** `home/navPatches.ts` é a parte mais frágil do código-base. Ele faz monkey-patch em `FocusNavController` num único protótipo compartilhado. Qualquer erro aqui pode quebrar a navegação por controle em toda a UI da Steam. Mudanças devem ser mínimas e sempre preservar a proteção de estabilidade que reexecuta o reparent no remount.
+> **Atenção:** `home/navPatches/` (um assunto por arquivo; `focusNav.ts` guarda as buscas compartilhadas) é a parte mais frágil do código-base. Ele faz monkey-patch em `FocusNavController` num único protótipo compartilhado. Qualquer erro aqui pode quebrar a navegação por controle em toda a UI da Steam. Mudanças devem ser mínimas e sempre preservar a proteção de estabilidade que reexecuta o reparent no remount.
 
-### Hero Background (`shelf/HeroBackground.tsx`)
-O hero background replica exatamente a estrutura nativa do hero de "Jogos Recentes" do SteamOS, descoberta via inspeção com o Chrome DevTools Protocol (CDP) no SteamOS 3.8:
+### Hero por prateleira (`shelf/PerShelfHero.tsx`)
+Cada prateleira com hero art ativada renderiza seu próprio hero: dois slots de imagem empilhados fazem cross-fade nas mudanças de foco (um debounce de 30 ms agrupa movimentos rápidos do D-pad), e o zoom lento pausa após 60 s sem entrada. O hero replica exatamente a estrutura nativa do hero de "Jogos Recentes" do SteamOS, descoberta via inspeção com o Chrome DevTools Protocol (CDP) no SteamOS 3.8:
 
 | Camada | Papel nativo | Implementação |
 |-------|-------------|----------------|
@@ -413,13 +410,13 @@ Em runtime, o componente descobre as classes nativas a partir do elemento irmão
 - `MutationObserver` substitui polling onde possível (HomeInject, ShelvesContainer, navPatches)
 - Timer global único para `ensureStyles()` compartilhado por todas as linhas de prateleira
 - A restauração de foco usa MutationObserver com fallback de polling 500ms→2s
-- `logInfo()` é um no-op em builds de produção (flag `__DEV__`)
+- `logInfo()` só imprime em builds de desenvolvimento (flag `__DEV__`) ou com o log detalhado ativado
 - O cache de coleção usa TTL de 60s; o TTL do cache do resolver de smart-prateleira é 60 min por padrão (override por prateleira via `refreshIntervalMinutes`)
 - Mudanças de dimensão nativa exigem tolerância de 4px + confirmação em 2 ciclos
 - `Shelf` é `memo`izado + carrega um token de generation-id em cada chamada a `resolveShelfAppIds`; resoluções em andamento descartam seu `then`/`catch` se uma mais nova começou, então uma resolução anterior lenta não pode sobrescrever um resultado mais novo
 - polling do reparent da árvore de navegação reduzido de 750 ms → 3000 ms (depende de MutationObservers + focusin para os caminhos rápidos)
 
-> **Nota:** a superfície de API em `window.__DECK_SHELVES_API__` é **v2** — os registros (`registerShelfSource` / `registerSmartShelfSource` / `registerFilterType` / `registerSortOption` / `registerImportType` / `registerSavedFilter`) estão conectados e ativos; os acessores do lado consumidor (`getShelves`, `getSmartShelves`, `getSavedFilters`, `subscribeTo*`) são stubs e se conectam ao `settingsStore` ativo na v2.0.0. Veja [`plugin-api.md`](plugin-api.md).
+> **Nota:** a superfície de API é `window.deckShelves.api` (versão principal **4**) — os registros (`registerShelfSource` / `registerSmartShelfSource` / `registerFilterType` / `registerSortOption` / `registerImportType` / `registerSavedFilter` e os registros de provedores) e os acessores do lado consumidor (`getShelves`, `getSmartShelves`, `getSavedFilters`, `subscribeShelves` e os demais métodos `subscribe*`) estão todos ativos sobre o store de configurações. Veja [`plugin-api.md`](plugin-api.md).
 
 ### Recents Replace (`recentsReplace.tsx`)
 Funcionalidade experimental (configuração `recentsReplaceSource`, condicionada a `hideRecents`). Em vez de ocultar visualmente a seção nativa "Jogados recentemente", ela faz patch na saída de renderização da seção via `routerHook.addPatch("/library/home",...)` + chamadas `afterPatch` aninhadas para substituir a prop `games` pelos app IDs da primeira prateleira visível. O DOM nativo, CSS, animações, hero background e callbacks de foco são preservados por inteiro. Mecanismos de segurança:
@@ -435,7 +432,7 @@ Quando ativado, oculta a barra nativa de abas Novidades/Amigos/Recomendados. A d
 ### Plugin API (`pluginApi.ts`)
 Plugins externos podem registrar fontes de prateleira personalizadas, tipos de filtro, opções de ordenação, modos de smart-prateleira, formatos de importação, provedores de estatísticas/recomendação, traduções de runtime, e filtros salvos pré-prontos em runtime. `pluginApi.ts` é o runtime autoritativo que expõe `window.deckShelves`; os tipos canônicos vivem no pacote `@deck-shelves/api` (`api/src/types.ts`), que ele importa para os tipos-folha e contra o qual redeclara a interface — mantenha os dois sincronizados. Tudo o que é nativo (os provedores de estatísticas embutidos, filtros/ordenações/fontes v3, …) se registra através dos **mesmos** registros que plugins de terceiros usam. A API completa está documentada em [`plugin-api.md`](plugin-api.md). Exemplo rápido:
 ```ts
-const cleanup = window.__DECK_SHELVES_API__.registerShelfSource({
+const cleanup = window.deckShelves.api.registerShelfSource({
  id: "my-plugin-source",
  displayName: "My Custom Source",
  resolve: async (limit) => [appid1, appid2,...],
@@ -446,14 +443,14 @@ const cleanup = window.__DECK_SHELVES_API__.registerShelfSource({
 Agregação pura em `domain/statistics.ts` (`computeLibraryStatistics`, `computeShelfStatistics`, `summarizeHistory`, `deriveSuggestions`) — sem APIs da Steam, sem efeitos colaterais. O adapter em `steam/statistics.ts` reúne dados reais (`getAllAppOverviews`, configurações) e expõe dois `StatisticsProviderDescriptor`s nativos registrados através da API de plugin. A aba Configurações → Estatísticas consome o registro, renderizando uma área por provedor; as médias "ao longo do tempo" vêm de um snapshot diário em localStorage (sem timer/polling).
 
 ### i18n (`i18n.ts`)
-Os locales são divididos em `i18n/<locale>/<area>.json` (home / qam / about / settings / integrations / common). O loader mescla todo arquivo de área por locale via `import.meta.glob` — `en-US` é carregado de forma eager (ansiosa), os demais de forma preguiçosa (lazy). Integrações externas adicionam strings em runtime através de `api.registerTranslations(locale, dict)`. `validate.mjs` garante paridade do conjunto de chaves por locale + nenhuma colisão entre áreas.
+Os locales são divididos em `i18n/<locale>/<area>.json` (home / qam / about / settings / integrations / common / setup). O loader mescla todo arquivo de área por locale via `import.meta.glob` — `en-US` é carregado de forma eager (ansiosa), os demais de forma preguiçosa (lazy). Integrações externas adicionam strings em runtime através de `api.registerTranslations(locale, dict)`. `validate.mjs` garante paridade do conjunto de chaves por locale + nenhuma colisão entre áreas.
 
 ### Compatibilidade com temas (`src/themes`)
 Um adaptador por visual suportado, em `themes/adapters/` (Switch Like Home, Centered Home, Obsidian, o patch redondo do Focus Highlight Color, TiltedHome, ArtHero, No Hero Gradient, Hero Fullscreen, o Big Art nativo, Gray Uninstalled, Clean Library Capsule, No Home Text). Um `ThemeAdapter` (`themes/types.ts`) reúne tudo o que um tema precisa: `id` / `label` (diagnóstico), `scope` (adaptadores `root` leem os estilos de tema injetados e gravam em `.deck-shelves-root`; adaptadores `document` leem variáveis computadas e gravam em `<html>`), as `flags` `data-ds-*` que ele possui (mais espelhos opcionais em `<html>` e gravação em todas as raízes), `read()` (detectar → valores das flags), `vars()` opcional (propriedades CSS em `<html>`) e `css(ctx)` opcional (as regras que espelham o tema nas shelves). `themes/registry.ts` guarda a lista ordenada e é o único lugar que a percorre: `applyRootThemeFlags` / `clearRootThemeFlags` (chamados pelo `HomeInject` a cada mutação do `<head>` da Steam e ao desmontar), `applyDocumentThemeFlags` (chamado pelo poll do `shelfStyles`), `themeStylesheet(ctx)` (anexado à folha de estilo das shelves, na ordem do registro) e `activeThemeLabels()` (diagnóstico / relatórios de bug). Adicionar um tema = um arquivo de adaptador + uma entrada no registro. As primitivas compartilhadas de detecção (texto dos estilos injetados, casamento de tokens com classes ao vivo, nomes dos temas lidos do disco) ficam em `themes/detect.ts`; `core/cssLoaderDetect.ts` reexporta os mesmos nomes para que os pontos de uso antigos continuem funcionando.
 - `isCssLoaderActive()` / `isArtHeroActive()` leem tags `<style class="css-loader-style">` no documento ativo.
 - `getNativeRecentsClassName(mountEl)` lê a classe do wrapper nativo de recentes ao vivo a partir de `mountEl.previousElementSibling` — nunca hardcoded.
 - Quando `hideRecents=true` e um tema do CSS Loader está ativo, `HomeInject` adiciona `data-ds-recents-slot="true"` mais a classe do wrapper ao vivo à primeira prateleira do DS — de forma aditiva (as classes `ds-*` existentes são preservadas). As invariantes garantidas pela cadeia de proteção estão documentadas inline em `HomeInject.tsx`.
-- O overlay de rótulo do ArtHero (em `HeroBackground.tsx`) clona o `.ds-card-label` do card em foco como um overlay `position: fixed` acima da linha; acompanha o card em foco horizontalmente na rolagem da linha; reativo a alternâncias de runtime do CSS Loader via `MutationObserver` no `<head>` do documento do Big Picture.
+- O overlay de rótulo do ArtHero (em `PerShelfHero.tsx`, enquanto o `HomeInject` marca a raiz com `data-ds-hero-label`) clona o `.ds-card-label` do card em foco como um overlay `position: fixed` acima da linha; acompanha o card em foco horizontalmente na rolagem da linha; reativo a alternâncias de runtime do CSS Loader via `MutationObserver` no `<head>` do documento do Big Picture.
 - A compatibilidade com TiltedHome aplica `skew(var(--ren-tilt-angle))` a todo o `.ds-card` (imagem + rótulo + brilho + MoreCard + RefreshCard). O estado de foco compõe `skew + scale + translateZ` com `!important` para vencer a regra de maior especificidade da Steam `.BasicUI.NATIVE.Focusable:focus { transform: translateZ(15px) }`. O seletor omite intencionalmente `.gpfocuswithin` (a Steam aplica isso a todo card quando qualquer descendente da linha tem foco — incluí-lo escalaria todo card e apagaria o indicador de foco).
 
 ### Card de atualização nas prateleiras (`shelf/RefreshCard.tsx` + `shelf/types.ts > REFRESHABLE_SMART_MODES`)
@@ -483,15 +480,15 @@ Chamadas concorrentes a `saveSettings` se fundem: um salvamento em andamento tra
 
 ### Ciclo de vida do sidecar (`components/qam/qamExpandedStore.ts` + `DeckQAMSettings.tsx`)
 
-O estado de expansão do QAM é por sessão: apoiado por `sessionStorage` no popup do QAM para que nunca sobreviva a um ciclo de menu-da-Steam-sobre-o-QAM que destrói o popup, e o efeito de mount de `DeckQAMSettings` chama `resetQamExpanded()` para apagar até a flag persistida toda vez que a aba do plugin é montada. Enquanto o sidecar está expandido, um polling de 300 ms observa três sinais ortogonais — `document.hasFocus()`, uma heurística de intervalo por set-interval (pega popups inativos com throttle do Chromium), e a mudança de `m_MenuStore.m_eOpenSideMenu` em relação ao valor capturado na expansão — e colapsa se qualquer um deles disparar. Múltiplos listeners de ciclo de vida do navegador (`visibilitychange`, `focus`, `pagehide`, `freeze`, `resume`) adicionam cobertura redundante. O próprio `SidecarPanel` desiste (`return null`) quando `controller.settings` não está hidratado, para que uma aba recém-remontada nunca renderize o estado de bug "aberto mas com corpo vazio".
+O estado de expansão do QAM é por sessão: um valor de módulo espelhado em `sessionStorage`, e o efeito de mount de `DeckQAMSettings` chama `resetQamExpanded()` (só na instância visível da aba, `isActiveTab`) para apagar até a flag persistida toda vez que a aba do plugin é montada. Enquanto o sidecar está expandido, um polling de 300 ms o colapsa quando `m_MenuStore.m_eOpenSideMenu` muda em relação ao valor capturado na expansão, ou quando um intervalo entre ticks acima de 1,5 s com o documento não visível indica uma volta do segundo plano. `document.hasFocus()` não é usado: o documento do QAM nunca detém o foco do DOM, então ele colapsava o sidecar em cerca de 300 ms. Listeners de ciclo de vida do navegador adicionam cobertura: `visibilitychange` (só hidden), `pagehide` e `freeze` colapsam; `focus` e `resume` colapsam apenas enquanto o documento está oculto. O próprio `SidecarPanel` desiste (`return null`) quando `controller.settings` não está hidratado, para que uma aba recém-remontada nunca renderize o estado de bug "aberto mas com corpo vazio".
 
 ### Aba própria de QAM apenas sob o Decky (`runtime/ownQamTab.ts`)
 
-Opcional, desativado por padrão (`ownQamTabEnabled`). Porta um mecanismo de injeção de aba já validado no dispositivo no runtime de um host neutro: registra uma chave numérica no enum `QuickAccessTab` da Steam, então faz `afterPatch` no consumidor `QuickAccessMenuBrowserView` para inserir um objeto de aba no array `props.tabs` da saída de renderização — via o próprio `afterPatch` / `findModuleByExport` / `findInReactTree` do Decky, não uma varredura de webpack feita à mão. Um disjuntor em localStorage espelha essa mesma proteção (um armamento não confirmado dispara e se recusa a fazer patch de novo). Recua completamente sempre que a própria ponte de QAM de um host neutro (`window.__SHELVES_QAM__`) está presente — essa aba sempre vence. Esse mecanismo ainda precisa da sua própria validação no dispositivo antes de ser seguro deixá-lo ativado por padrão.
+Opcional, desativado por padrão (`ownQamTabEnabled`). Porta um mecanismo de injeção de aba já validado no dispositivo no runtime de um host neutro: registra uma chave numérica no enum `QuickAccessTab` da Steam, então faz `afterPatch` no consumidor `QuickAccessMenuBrowserView` para inserir um objeto de aba no array `props.tabs` da saída de renderização — via o próprio `afterPatch` / `findModuleByExport` / `findInReactTree` do Decky, não uma varredura de webpack feita à mão. Um disjuntor em localStorage espelha essa mesma proteção (dois armamentos não confirmados o disparam e ele se recusa a fazer patch de novo por 24 h). Recua sempre que a aba própria de um host neutro foi de fato inserida (o host carimba `window.__SHELVES_QAM_OWNER__`, ou o objeto da aba traz o marcador do host) — nunca pela mera presença da ponte `window.__SHELVES_QAM__`. Essa aba sempre vence. Esse mecanismo ainda precisa da sua própria validação no dispositivo antes de ser seguro deixá-lo ativado por padrão.
 
 ### Modo Vitrine / Ociosidade Dinâmica (`runtime/showcaseMode.ts`)
 
-Opcional, desativado por padrão (`showcaseModeEnabled`). Durante a inatividade na Home, percorre o foco pelas próprias prateleiras do usuário num timer, reutilizando exatamente o mesmo mecanismo de "focar o primeiro card de uma prateleira" que o próprio "pular para prateleira" da Navegação Lateral já usa — nunca entrada sintética. Qualquer interação real (um botão de controle via `subscribeControllerInput`, ou um evento de ponteiro/roda/tecla) interrompe e rearma o timer de ociosidade. Escopo apenas de MVP; adiado: pan/crossfade por prateleira, uma UI seletora de participação de prateleira. Também exporta `isNativeScreensaverActive()` (`ScreensaverPopup`/`BIsActive()` na `GamepadNavigationTree` ativa), que tanto o Vitrine quanto o protetor de tela abaixo usam para recuar caso o próprio protetor de tela nativo da Steam esteja de alguma forma ativo.
+Opcional, desativado por padrão (`showcaseModeEnabled`). Durante a inatividade na Home, percorre o foco pelas próprias prateleiras do usuário num timer, reutilizando exatamente o mesmo mecanismo de "focar o primeiro card de uma prateleira" que o próprio "pular para prateleira" da Navegação Lateral já usa — nunca entrada sintética. Qualquer interação real (um botão de controle via `subscribeControllerInput`, ou um evento de ponteiro/roda/tecla) interrompe e rearma o timer de ociosidade. Um pan opcional dentro da prateleira (`showcasePanCards`) percorre alguns cards de cada prateleira antes de seguir. Ainda não existe: uma UI seletora de participação de prateleira (a configuração `showcaseShelfIds` existe sem ela). Também exporta `isNativeScreensaverActive()` (`ScreensaverPopup`/`BIsActive()` na `GamepadNavigationTree` ativa), que tanto o Vitrine quanto o protetor de tela abaixo usam para recuar caso o próprio protetor de tela nativo da Steam esteja de alguma forma ativo.
 
 ### Vínculos de teclado (`runtime/keyboardBindings.ts`)
 
@@ -517,7 +514,7 @@ Opcional, desativado por padrão (`cloudSyncEnabled`). Espelha as configuraçõe
 | `components/shelf/GameCard.tsx` | Tile de jogo (cadeia de fallback de imagem, rótulo, selos, compat) |
 | `components/shelf/MoreCard.tsx` | Tile final "Ver mais na biblioteca" (prateleiras não-smart) |
 | `components/shelf/RefreshCard.tsx` | Tile final "Atualizar" para prateleiras inteligentes atualizáveis |
-| `components/shelf/HeroBackground.tsx` | Hero art com cross-fade em duas camadas; overlay de rótulo do ArtHero quando promovido |
+| `components/shelf/PerShelfHero.tsx` | Hero art por prateleira com cross-fade de dois slots; overlay de rótulo do ArtHero quando promovido |
 | `components/home/navPatches/reparent.ts` | `reparentNavTreeNodes` — move os nós de foco do DS entre recentes e abas |
 | `components/home/navPatches/menuButton.ts` | Interceptação do botão MENU → menu de contexto do jogo |
 | `components/home/navPatches/edgeNavigation.ts` | Throttle de L/R + guarda de inclinação DOWN (quando as abas da home estão ocultas) |
@@ -539,7 +536,7 @@ routerHook.addPatch("/library/home", patchFn)
         │
         ▼
    mutateRecentsElement(ret3, shelf, appIds)
-        │  • holder.props.apps ← appIds
+        │  • holder.props.games ← appIds
         │  • holder.props.showFeaturedItem ← das alternâncias de destaque da shelf
         ▼
    render()                                        cross-fade nativo preservado (sem reentrada de callback)
@@ -585,7 +582,7 @@ hideRecentsSetting = true ?  ── não ──► sem promoção, sem overlay
         ▼
    varredura de firstVisibleId:
      itera shelves[] na ordem da CONFIG (não na ordem do DOM)
-     pula type === "smart"
+     qualquer fonte é elegível (incluindo prateleiras smart e online)
      escolhe a primeira com data-shelfid presente no DOM   (pula shelves vazias/com 0 apps)
         │
         ▼
@@ -600,12 +597,12 @@ hideRecentsSetting = true ?  ── não ──► sem promoção, sem overlay
                                                                 ADITIVO — nunca remove classes ds-*
         │
         ▼
-   isArtHeroActive() ?  ── não ──► apenas HeroBackground (cross-fade de duas camadas)
+   isArtHeroActive() ?  ── não ──► apenas PerShelfHero (cross-fade de dois slots)
         │ sim
         ▼
-   HeroBackground retorna null quando o ArtHero pinta seu próprio hero
+   HomeInject marca a raiz com data-ds-hero-label (layout de hero em página inteira)
    E
-   HeroBackground renderiza o clone do rótulo do card em foco como overlay position:fixed
+   PerShelfHero renderiza o clone do rótulo do card em foco como overlay position:fixed
      • clonado a partir do .ds-card-label do tile em foco
      • acompanha o card em foco horizontalmente na rolagem da linha
      • reativo a alternâncias de tema do CSS Loader em runtime via MutationObserver no <head> do Big Picture

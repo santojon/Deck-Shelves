@@ -435,11 +435,11 @@ All families return an **empty shelf** gracefully when the runtime data isn't re
 
 When **Surprise Me** is enabled (sub-toggle under Smart Shelves in the QAM), the manual smart shelf list is hidden entirely. Instead, the system picks a set of smart shelf templates automatically each day using a deterministic daily seed — same day, same selection.
 
-**Count:** the slider sets how many templates appear (1–5). When set to 0, the system decides: `1 + (dayIndex % 3)`, cycling 2, 3, or 4 shelves per day.
+**Count:** the slider sets how many templates appear (1–5). When set to 0, the system decides: `1 + (dayIndex % 3)`, cycling 1, 2 or 3 shelves per day.
 
 > **Note:** the count is the **maximum** number of shelves, not a guarantee. Templates that return no games for your library follow the normal null-render path and simply don't appear — the actual number of visible shelves may be lower.
 
-**Selection:** all 13 templates are shuffled with the daily seed. The first `count` entries from the shuffled list are used. Templates that return no games still follow the natural null-render path and disappear from the home screen — the count is the maximum, not a guarantee.
+**Selection:** the 15 surprise modes are shuffled with the daily seed. The first `count` entries from the shuffled list are used. Templates that return no games still follow the natural null-render path and disappear from the home screen — the count is the maximum, not a guarantee.
 
 **Reset time:** the seed is derived from the local calendar date (`YYYYMMDD`). The selection resets at **local midnight** — when the device clock rolls over to a new day.
 

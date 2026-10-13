@@ -7,6 +7,7 @@ import {
   isRecentsReplaceInjecting,
 } from "../../../runtime/recentsReplace";
 import { OPTIONS_BUTTON } from "./constants";
+import { registerDisposer } from "../../../runtime/runtimeDisposer";
 import { resolveFocusNavController } from "./focusNav";
 
 const patchedMenuControllers = new WeakSet<object>();
@@ -82,6 +83,14 @@ function installDocumentMenuListeners(handleMenu: (evt: Event) => void): void {
     (d as any)[DS_DOC_MENU] = true;
     d.addEventListener("vgp_onmenubutton", handleMenu, true);
     d.addEventListener("contextmenu", handleMenu, true);
+    // Removed with this instance (a hot-swap's next instance attaches its own).
+    registerDisposer(() => {
+      try {
+        d.removeEventListener("vgp_onmenubutton", handleMenu, true);
+        d.removeEventListener("contextmenu", handleMenu, true);
+        delete (d as any)[DS_DOC_MENU];
+      } catch {}
+    });
   }
 }
 

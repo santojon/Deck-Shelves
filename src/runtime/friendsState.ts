@@ -174,7 +174,8 @@ export function installFriendsState(): () => void {
   };
   // First attempt deferred to idle so the boot path stays responsive; the
   // friend list isn't usually ready yet at plugin boot, hence the retries.
-  const schedule = (globalThis as any).requestIdleCallback ?? ((cb: any) => setTimeout(cb, 2000));
+  const ric = (globalThis as any).requestIdleCallback;
+  const schedule = ric ? (cb: () => void) => ric(cb, { timeout: 5000 }) : (cb: () => void) => setTimeout(cb, 2000);
   schedule(() => attemptFirstRefresh(1));
   _pollTimer = window.setInterval(() => {
     try { refresh(); } catch {}

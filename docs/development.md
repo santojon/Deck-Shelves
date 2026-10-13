@@ -274,7 +274,7 @@ directories automatically.
 
 Locales are sliced into per-area files: `i18n/<locale>/<area>.json`, where
 `<area>` is one of `home`, `qam`, `about`, `settings`, `integrations`,
-`common`. The loader (`src/i18n.ts`) merges every area file per locale into a
+`common`, `setup`. The loader (`src/i18n.ts`) merges every area file per locale into a
 single bundle via `import.meta.glob` — `en-US` ships eagerly (first-paint
 labels), every other locale loads its area chunks lazily for the detected
 language. Adding a locale or a new sub-area is just a new JSON file; no loader

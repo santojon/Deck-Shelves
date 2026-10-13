@@ -278,7 +278,7 @@ mesclam os dois diretórios automaticamente.
 
 Os locales são divididos em arquivos por área: `i18n/<locale>/<area>.json`,
 onde `<area>` é um de `home`, `qam`, `about`, `settings`, `integrations`,
-`common`. O loader (`src/i18n.ts`) mescla todo arquivo de área por locale num
+`common`, `setup`. O loader (`src/i18n.ts`) mescla todo arquivo de área por locale num
 único bundle via `import.meta.glob` — `en-US` é carregado de forma eager
 (rótulos do primeiro paint), todo outro locale carrega seus chunks de área de
 forma lazy para o idioma detectado. Adicionar um locale ou uma nova sub-área

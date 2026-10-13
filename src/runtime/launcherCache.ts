@@ -32,8 +32,8 @@ async function refreshLauncherCache(force = false): Promise<void> {
 
 export function installLauncherCachePoll(): () => void {
   const schedule = (cb: () => void) => {
-    const ric = (globalThis as any).requestIdleCallback as ((cb: () => void) => number) | undefined;
-    if (ric) ric(cb);
+    const ric = (globalThis as any).requestIdleCallback as ((cb: () => void, opts?: { timeout: number }) => number) | undefined;
+    if (ric) ric(cb, { timeout: 5000 });
     else setTimeout(cb, 1500);
   };
   let cancelled = false;

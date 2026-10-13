@@ -13,10 +13,10 @@ own plugin tab, then finding Deck Shelves in the list. With this on, Deck
 Shelves gets a real, dedicated tab in the Quick Access strip itself — same
 editor, one tap away instead of two.
 
-This is the same tab mechanism [ShelvesHub](shelveshub-install.md) already
-gives you — this setting brings it to Decky-only installs, no ShelvesHub
-required. If you do have ShelvesHub installed too, this setting is hidden
-automatically, since ShelvesHub is already providing the tab.
+This is the same tab mechanism the [standalone host](shelveshub-install.md)
+already gives you — this setting brings it to Decky-only installs, no
+standalone host required. If you do have the standalone host installed too,
+this setting is hidden automatically, since the host already provides the tab.
 
 ## How to enable it
 

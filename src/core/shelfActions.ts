@@ -147,6 +147,16 @@ export function dispatchShelfModal(kind: ShelfModalKind, shelfId: string, opts?:
   pendingModal = { kind, shelfId };
 }
 
+// Same standalone-route trick, for the per-game tag editor (game menu → Lists).
+export function dispatchTagsModal(appid: number): void {
+  try {
+    const nav = resolveNavigationApi();
+    if (typeof nav?.Navigate !== "function") return;
+    try { nav?.CloseSideMenus?.(); } catch {}
+    nav.Navigate(`/deck-shelves/tags/${encodeURIComponent(String(appid))}`);
+  } catch {}
+}
+
 // Same standalone-route trick as `dispatchShelfModal`, for the one action
 // that takes a shelf pair instead of a single id — the native game-menu
 // context has no QAM controller to open `showComposeConfirm` directly in.

@@ -8,8 +8,8 @@ name: "Triage · Stale issues"
 #   2 · untriaged-idle (no type::/priority) warn 30d → close 60d
 #   3 · confirmed/accepted (type::/prio)    label `stale` at 60d, NEVER close
 #
-# Bucket 4 (won't-converge: old + high comment count) is handled read-only by
-# stale-digest.yml — actions/stale can't filter by age or comment count.
+# Bucket 4 (won't-converge: old + high comment count) is not automated —
+# actions/stale can't filter by age or comment count.
 #
 # Global exemptions: keep-open, priority::critical, priority::high, any
 # assigned issue, any milestoned issue. PRs are never touched.

@@ -466,12 +466,12 @@ sistema escolhe um conjunto de templates de prateleira inteligente automaticamen
 dia usando uma semente diária determinística — mesmo dia, mesma seleção.
 
 **Contagem:** o slider define quantos templates aparecem (1–5). Quando
-definido como 0, o sistema decide: `1 + (dayIndex % 3)`, alternando entre 2, 3
-ou 4 prateleiras por dia.
+definido como 0, o sistema decide: `1 + (dayIndex % 3)`, alternando entre 1, 2
+ou 3 prateleiras por dia.
 
 > **Nota:** a contagem é o número **máximo** de prateleiras, não uma garantia. Templates que não retornam jogos para sua biblioteca seguem o caminho normal de render nulo e simplesmente não aparecem — o número real de prateleiras visíveis pode ser menor.
 
-**Seleção:** todos os 13 templates são embaralhados com a semente diária. As
+**Seleção:** os 15 modos surpresa são embaralhados com a semente diária. As
 primeiras `count` entradas da lista embaralhada são usadas. Templates que não
 retornam jogos ainda seguem o caminho natural de render nulo e desaparecem
 da tela inicial — a contagem é o máximo, não uma garantia.

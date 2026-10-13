@@ -16,7 +16,7 @@ name: "PR · Checklist"
 # but only PR body text is read — never code from the PR head.
 on:
   workflow_run:
-    workflows: ["PR Autofill"]
+    workflows: ["PR · Autofill"]
     types: [completed]
   pull_request_target:
     types: [opened, synchronize, reopened, edited, ready_for_review]

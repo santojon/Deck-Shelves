@@ -55,6 +55,19 @@ if (!h.buildOk) {
   deviceOk = h.step("device", "Device availability", ssh, { device: true });
 }
 
+// Copies both settings stores (the loader's and the canonical one) into a local
+// tarball. POSIX shells only; on Windows the step is skipped with a note.
+function backupDeviceSettings(sshUser, sshHost) {
+  if (process.platform === "win32") {
+    h.note("Device settings backup", "skip", "Not automated on Windows — copy settings.json by hand before a fixture run.");
+    return true;
+  }
+  const dest = join(reportDir, `device-settings-${ts}.tgz`);
+  const remote = 'cd ~ && f=$(ls homebrew/settings/deck-shelves/settings.json .local/share/deck-shelves/settings.json 2>/dev/null); [ -z "$f" ] || tar czf - $f';
+  const cmd = `ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=5 -o BatchMode=yes ${q(`${sshUser}@${sshHost}`)} '${remote}' > ${q(dest)}`;
+  return h.step("settings_backup", "Back up device settings", cmd, { device: true });
+}
+
 // ── Device steps ─────────────────────────────────────────────────────────────
 if (!deviceOk) {
   h.skip("Deploy hard", "Device not available — skipped.");
@@ -101,7 +114,10 @@ if (!deviceOk) {
   const deployEnv = stress
     ? { ...process.env, DS_QA_STRESS_FIXTURE: "1" }
     : { ...process.env, DS_QA_DECORATION_FIXTURE: "1" };
-  const deployed = h.step("deploy", stress ? "Deploy hard (stress fixture)" : "Deploy hard (QA decoration fixture)", deploy, {
+  // Keep a local copy of the device's real settings before any fixture deploy
+  // (site/reports/local is git-ignored). No copy, no fixture.
+  const backedUp = backupDeviceSettings(user, host);
+  const deployed = backedUp && h.step("deploy", stress ? "Deploy hard (stress fixture)" : "Deploy hard (QA decoration fixture)", deploy, {
     device: true,
     env: deployEnv,
   });

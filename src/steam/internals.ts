@@ -165,8 +165,3 @@ export function steamReact(): any {
 export function steamJsxRuntime(): any {
   return scope().SP_JSX;
 }
-
-// A plugin-side overview or a raw node, viewed through Steam's field names.
-export function rawOverview(app: unknown): SteamAppOverviewRaw {
-  return app as SteamAppOverviewRaw;
-}

@@ -4,9 +4,9 @@ import { useEffect, useState } from 'react';
 // QAM open/close cycles, even when the plugin tab itself stays mounted
 /* in SharedJSContext. Persisting at the module level produced stale-open
    reports — every fresh QAM open inherited the previous session's state.
-   Backed by sessionStorage so the EXTERNAL setter (dpad bridge, CDP
-   probes) can write before the React hook subscribes, and the popup's
-   own browser context clears the store when Steam tears it down. */
+   Backed by SharedJSContext's sessionStorage (this module runs there) so the
+   EXTERNAL setter can write before the hook subscribes; that storage outlives
+   the QAM popup, so the tab's mount resets it (`resetQamExpanded`). */
 const STORAGE_KEY = '__ds_qam_expanded__';
 const emitter = new EventTarget();
 const EVENT = 'ds-qam-expanded-changed';

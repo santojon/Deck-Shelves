@@ -130,7 +130,7 @@ export const Field = frontendLib.Field ?? fieldFallback;
 export const Focusable = frontendLib.Focusable ?? passthroughComponent;
 /* Runtime enum that Decky exposes via FooterLegend. Required for
    gamepad-button comparison in the local ReorderableList. Fallback keeps
-   the numeric values stable (see @host/ui FooterLegend.d.ts) so any
+   the numeric values stable (the loader's FooterLegend enum) so any
    destructuring still works when Decky's global hasn't initialised yet. */
 export const GamepadButton = frontendLib.GamepadButton ?? {
   INVALID: 0, OK: 1, CANCEL: 2, SECONDARY: 3, OPTIONS: 4,

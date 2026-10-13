@@ -24,6 +24,6 @@ for (const [bin, ...prefix] of candidates) {
 console.error(
   "[py] No Python 3 interpreter found (tried: " +
     candidates.map((c) => c.join(" ")).join(", ") +
-    "). Install Python 3.10+.",
+    "). Install Python 3.10+ (tooling; the plugin backend itself runs on 3.9+).",
 );
 process.exit(1);

@@ -35,8 +35,6 @@ export { invalidateOnlineResolveCache } from "./onlineCache";
 export { mergeCompositeResults } from "./resolveShared";
 export type { CustomFilter } from "./filterResolver";
 
-// Keep the old name as an alias for the component that still uses it
-export const findCustomFiltersContextValue = findTabMasterContextValue;
 
 function bidirectionalContains(a: string, b: string): boolean {
   return a.includes(b) || b.includes(a);

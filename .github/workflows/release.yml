@@ -11,6 +11,8 @@ env:
 
 permissions:
   contents: write
+  id-token: write
+  attestations: write
 
 jobs:
   release:
@@ -54,7 +56,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ci-release-report-${{ github.run_id }}
-          path: site/reports/ci/
+          # Tag runs write to release/; manual runs write to ci/.
+          path: |
+            site/reports/release/
+            site/reports/ci/
           retention-days: 90
 
       - name: Commit release report
@@ -81,6 +86,11 @@ jobs:
       - name: Package release zip
         run: pnpm run dist
 
+      # Same package audit CI runs: refuse a package carrying a binary for a
+      # foreign architecture.
+      - name: Audit package architecture
+        run: python3 scripts/ci/elf-arch-audit.py "$(ls deck-shelves-v*.zip | head -1)" --forbid x86_64 --forbid i386
+
       # Standalone backend archive: the Python backend (`main.py` + `src/backend/`)
       # published so it can run without a plugin loader (e.g. on macOS/Windows). The
       # archive root mirrors the repo so `main.py`'s own `sys.path` splice of
@@ -91,7 +101,24 @@ jobs:
       # Lets anyone (or the hub, before it installs a download) verify the
       # release assets weren't corrupted or tampered with in transit.
       - name: Generate SHA256SUMS
-        run: sha256sum deck-shelves-v*.zip dist/index.iife.js deck-shelves-backend.tar.gz > SHA256SUMS
+        # The bundle is uploaded as `index.iife.js`, and the host matches checksum
+        # lines by that exact asset name — hash it from inside dist/.
+        run: |
+          sha256sum deck-shelves-v*.zip deck-shelves-backend.tar.gz > SHA256SUMS
+          (cd dist && sha256sum index.iife.js) >> SHA256SUMS
+
+      # Build provenance (signed by GitHub, no key or secret): verify a download
+      # with `gh attestation verify <file> --repo santojon/Deck-Shelves`. Adds no
+      # release asset, so the store submission and the host's checksum check are
+      # unchanged; never blocks the release.
+      - name: Attest build provenance
+        continue-on-error: true
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            deck-shelves-v*.zip
+            dist/index.iife.js
+            deck-shelves-backend.tar.gz
 
       - name: Resolve release tag
         id: tag

@@ -1,4 +1,5 @@
 import { mark, measure } from "./perf";
+import { registerDisposer } from "../runtime/runtimeDisposer";
 
 /* Lightweight, pure in-memory registry for the Diagnostics -> Performance
    panel. Additive instrumentation only — counters are bumped at existing
@@ -122,6 +123,8 @@ function ensureLongTaskObserver(): void {
       }
     });
     obs.observe({ entryTypes: ['longtask'] });
+    // Disconnected with this instance; the shared flag lets the next one restart it.
+    registerDisposer(() => { try { obs.disconnect(); } catch {} S.longTaskObserverStarted = false; });
   } catch {}
 }
 

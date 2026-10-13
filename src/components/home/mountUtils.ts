@@ -3,6 +3,7 @@
 import { getPreferredSteamDocument, getPreferredSteamWindow, getAllSteamDocuments } from "../../runtime/steamHost";
 import { getRuntimeClassMap } from "../../core/webpackCompat";
 import { logInfo } from "../../runtime/logger";
+import { getSessionState } from "../../runtime/sessionState";
 
 export const ROOT_ID = "deck-shelves-home-root";
 
@@ -37,6 +38,11 @@ function windowIsOnHome(win: Window): boolean {
     const href = `${win.location?.pathname ?? ""}${win.location?.hash ?? ""}`.toLowerCase();
     return href.includes("/library/home");
   } catch { return false; }
+}
+
+// The Home stays mounted behind a running game; its upkeep polls skip that time.
+export function homeBehindGame(): boolean {
+  return getSessionState().gameRunning && !isHomeRoute();
 }
 
 export function isHomeRoute(): boolean {

@@ -53,8 +53,10 @@ describe("validateKeyCombo", () => {
   it("accepts null when allowNull", () => {
     expect(validateKeyCombo(null, { allowNull: true })).toEqual({ ok: true });
   });
-  it("only checks for duplicates on a 2-token combo, mirroring validateCombo", () => {
-    expect(validateKeyCombo("KeyF+KeyG+KeyF")).toEqual({ ok: true });
+  it("treats two identical keys as a double-tap but refuses a repeat inside a longer chord, mirroring validateCombo", () => {
+    expect(validateKeyCombo("KeyF+KeyF")).toEqual({ ok: true });
+    expect(validateKeyCombo("KeyF+KeyG+KeyF")).toEqual({ ok: false, reason: "duplicate" });
+    expect(validateKeyCombo("ControlLeft+ShiftLeft+KeyF")).toEqual({ ok: true });
   });
 });
 

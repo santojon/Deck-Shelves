@@ -498,12 +498,11 @@ export function beginFocusRestoreLoop(): void {
   const observeRoot = (doc.querySelector(".deck-shelves-root") as HTMLElement | null) ?? doc.body;
   observer.observe(observeRoot, { subtree: true, attributes: true, attributeFilter: ["class"], childList: true });
 
-  // setTimeout-based poll — NOT requestAnimationFrame. The plugin runs in the
-  /* headless SharedJSContext, which has no render loop, so rAF callbacks never
-     fire there; an rAF-driven retry would silently never run. Polling every
-     ~120ms keeps re-issuing BTakeFocus until the rebuilt nav tree settles and
-     the focus actually sticks. 3.5s window covers a shelf below the fold that
-     renders ~2-3s after the home remounts. */
+  // setTimeout-based poll — NOT requestAnimationFrame: rAF does fire in
+  /* SharedJSContext, but it is throttled whenever that context is hidden, and
+     this retry needs a steady cadence. Polling every ~120ms keeps re-issuing
+     BTakeFocus until the rebuilt nav tree settles and the focus sticks. The
+     3.5s window covers a shelf below the fold that renders ~2-3s later. */
   const DEADLINE = Date.now() + 3500;
   const tick = () => {
     if (isDone()) return;

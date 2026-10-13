@@ -20,7 +20,7 @@ first-party ids third-party plugins may collide with.
 ## Runtime globals
 
 Deck Shelves exposes the API at `window.deckShelves` (`{ version, api,
-register }`) and mirrors the registry on `window.__DECK_SHELVES_API__`. Plugins
+register }`). Plugins
 register through `window.deckShelves.register({ name, onMount(api) })`; the
 `@deck-shelves/api` package handles the load-order timing (plugin before /
 after / simultaneously with the host).
@@ -105,9 +105,13 @@ does not bump the API `version`.
 
 ## First-party Filter / Sort / Source IDs (v3)
 
-These ids are registered through the same public registries. A third-party
-plugin targeting the same id overwrites the built-in implementation
-(last-write-wins); pick a `my-plugin.` prefix to avoid collisions.
+These ids are registered through the same public registries and are
+**reserved**: a third-party registration that uses a built-in id, or any id
+starting with `deck-shelves.`, is ignored (a warning is logged and the returned
+unsubscribe does nothing), so a plugin can never replace a first-party entry.
+Pick a `my-plugin.` prefix for your own ids. Unregistering only removes the
+entry while it is still yours, so an older unsubscribe never removes a newer
+registration under the same id.
 
 ### Filter v3
 

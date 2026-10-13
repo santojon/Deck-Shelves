@@ -10,6 +10,7 @@ import {
   type ScreensaverItem,
 } from "../../runtime/screensaverInject";
 import { isNativeScreensaverActive } from "../../runtime/showcaseMode";
+import { getSessionState } from "../../runtime/sessionState";
 import type { Settings } from "../../types";
 
 const IDLE_CHECK_MS = 1000;
@@ -230,6 +231,8 @@ export function DeckScreensaverOverlay() {
     doc.addEventListener("wheel", wake);
     const unsubInput = subscribeControllerInput((e) => { if (e.pressed) wake(); });
     const idleCheck = window.setInterval(() => {
+      // Never over a game; time in a game counts as activity.
+      if (getSessionState().gameRunning) { lastActivityRef.current = Date.now(); return; }
       const qamOpen = isQamOrMenuOpen();
       const nativeActive = isNativeScreensaverActive();
       const elapsedMs = Date.now() - lastActivityRef.current;

@@ -31,6 +31,8 @@ on:
 permissions:
   contents: write
   issues: write
+  id-token: write
+  attestations: write
 
 jobs:
   prerelease:
@@ -101,10 +103,34 @@ jobs:
       - name: Package zip
         run: pnpm run dist
 
+      # Same package audit CI runs: refuse a package carrying a binary for a
+      # foreign architecture.
+      - name: Audit package architecture
+        run: python3 scripts/ci/elf-arch-audit.py "$(ls deck-shelves-v*.zip | head -1)" --forbid x86_64 --forbid i386
+
       # Standalone backend archive (see release.yml) — so beta installs without a
       # plugin loader (macOS/Windows) also get the Python backend.
       - name: Package backend archive
         run: tar -czf deck-shelves-backend.tar.gz --exclude='__pycache__' main.py src/backend
+
+      # Checksums by uploaded asset name, as in release.yml.
+      - name: Generate SHA256SUMS
+        run: |
+          sha256sum deck-shelves-v*.zip deck-shelves-backend.tar.gz > SHA256SUMS
+          (cd dist && sha256sum index.iife.js) >> SHA256SUMS
+
+      # Build provenance (signed by GitHub, no key or secret): verify a download
+      # with `gh attestation verify <file> --repo santojon/Deck-Shelves`. Adds no
+      # release asset, so the store submission and the host's checksum check are
+      # unchanged; never blocks the release.
+      - name: Attest build provenance
+        continue-on-error: true
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            deck-shelves-v*.zip
+            dist/index.iife.js
+            deck-shelves-backend.tar.gz
 
       - name: Extract [Unreleased] notes
         id: notes
@@ -140,6 +166,7 @@ jobs:
             deck-shelves-v*.zip
             dist/index.iife.js
             deck-shelves-backend.tar.gz
+            SHA256SUMS
 
       - name: Comment on [Unreleased]-linked issues
         env:

@@ -1,6 +1,8 @@
 import type { AppOverview } from "./index";
 import { getCachedCatalogMeta } from "../core/onlineStore";
 import { steamAppStore, steamCollectionStore, steamClient, type SteamCollectionLike } from "./internals";
+import { customTagsFor, historyIds, pinnedIds, sessionQueueIds, temporaryQueueIds } from "../runtime/gameLists";
+import { shortcutTagsFor } from "../runtime/shortcutTags";
 
 function appIdOf(a: any): number {
   return Number(a?.appid ?? a?.m_unAppID ?? 0);
@@ -348,17 +350,21 @@ function evalLaunchOptionTags(item: any, app: AppOverview): boolean {
   return want.some((t) => tokens.includes(t));
 }
 
-function evalCustomTags(item: any, app: AppOverview): boolean {
+function anyTagMatches(item: any, tags: readonly string[]): boolean {
   const want: string[] = Array.isArray(item.params?.tags) ? item.params.tags.map((t: string) => String(t).toLowerCase()) : [];
   if (!want.length) return true;
-  const cache = (globalThis as any).__ds_custom_tags_v1 ?? {};
-  const tags = (cache[appIdOf(app)] ?? []) as string[];
   const have = tags.map((t) => t.toLowerCase());
   return want.some((t) => have.includes(t));
 }
 
+// Tags the user set on the game (game menu → Lists → Edit tags).
+function evalCustomTags(item: any, app: AppOverview): boolean {
+  return anyTagMatches(item, customTagsFor(appIdOf(app)));
+}
+
+// Tags the tool that added a non-Steam shortcut wrote into Steam's shortcuts file.
 function evalParserCategories(item: any, app: AppOverview): boolean {
-  return evalCustomTags(item, app);
+  return anyTagMatches(item, shortcutTagsFor(appIdOf(app)));
 }
 
 function evalHiddenLauncherShortcuts(_item: any, app: AppOverview): boolean {
@@ -612,37 +618,12 @@ function bySteamFlag(all: AppOverview[], pred: (a: AppOverview) => boolean): App
   return all.filter(pred);
 }
 
-function asNumberArray(value: unknown): number[] {
-  if (!Array.isArray(value)) return [];
-  return value.map(Number).filter(Number.isFinite);
-}
-
 function pinnedIdsFromStorage(): Set<number> {
-  try {
-    const raw = (globalThis as any).localStorage?.getItem?.("ds-pinned-games-v1");
-    return new Set(asNumberArray(JSON.parse(raw ?? "[]")));
-  } catch { return new Set(); }
+  return new Set(pinnedIds());
 }
 
 function historyIdsFromStorage(): number[] {
-  try {
-    const raw = (globalThis as any).localStorage?.getItem?.("ds-history-v1");
-    return asNumberArray(JSON.parse(raw ?? "[]"));
-  } catch { return []; }
-}
-
-function sessionQueueIds(): number[] {
-  try {
-    const raw = (globalThis as any).__ds_session_queue;
-    return asNumberArray(raw);
-  } catch { return []; }
-}
-
-function temporaryQueueIds(): number[] {
-  try {
-    const raw = (globalThis as any).__ds_temp_queue;
-    return asNumberArray(raw);
-  } catch { return []; }
+  return historyIds();
 }
 
 // Collect every appid held by a set of (dynamic) Steam collections, tolerant of

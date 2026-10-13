@@ -13,7 +13,7 @@
 
 ## Runtime tokens (current keys)
 
-The runtime map (`window.__DS_CLASS_MAP__` and the seed in `src/runtime/classmap.json`) carries these keys. New keys are filled in by `discoverClassMap()` on each mount; existing values from the seed win on conflicts so a partial discovery never erases a known-good token.
+The runtime map carries these keys. It is the seed in `src/runtime/classmap.json`, written at boot to `localStorage['ds_class_map']` (shared between Steam's windows); a `window.__DS_CLASS_MAP` set in the target window by a development snippet takes precedence. The plugin no longer discovers tokens at run time: when Steam changes, refresh the seed from a device with the discovery snippet below.
 
 | Key | Discovered from | Use |
 |---|---|---|
@@ -69,21 +69,21 @@ The runtime map (`window.__DS_CLASS_MAP__` and the seed in `src/runtime/classmap
  Notes:
  - `DeckRow` searches, in order: (1) known hard-coded selector; (2) `window.__DS_CLASS_MAP` / `localStorage['ds_class_map']`; (3) hashed-token heuristic; (4) generic fallback.
  - Values in `__DS_CLASS_MAP` may include or omit the leading dot. If omitted, the plugin converts the token into a class selector.
- - **Discovery + seed merge order:** on each mount `homePatch` calls `getRuntimeClassMap()` (existing) and `discoverClassMap()` (fresh), then merges with **existing wins on conflicts**. This protects manually-pinned tokens while still filling in missing keys after a SteamOS update.
+ - **Lookup order:** `getRuntimeClassMap()` reads the target window's `__DS_CLASS_MAP` first, then `localStorage['ds_class_map']` (the bundled seed). There is no run-time discovery merge; a SteamOS update that renames a token needs a refreshed seed.
 
  ## Verify using the unified CDP CLI
 
- The CDP CLI (`devkit/cdp.py`, see [cdp.md](./cdp.md)) replaces the older `cdp_probe.py`. To inspect the live classmap on a running Deck:
+ The CDP CLI (`deckprobe/cdp.py`, see [cdp.md](./cdp.md)) replaces the older `cdp_probe.py`. To inspect the live classmap on a running Deck:
 
  ```bash
  # List the current runtime classmap (after the plugin mounts)
- python3 devkit/cdp.py eval bp 'JSON.stringify(window.__DS_CLASS_MAP__ || null)'
+ python3 deckprobe/cdp.py eval bp 'JSON.stringify(window.__DS_CLASS_MAP || localStorage.getItem("ds_class_map"))'
 
  # Inspect a focused element's class chain
- python3 devkit/cdp.py eval bp 'document.activeElement?.className'
+ python3 deckprobe/cdp.py eval bp 'document.activeElement?.className'
 
- # Force a re-discovery (development helper)
- python3 devkit/cdp.py eval bp 'window.__DS_CLASS_MAP__ = null; location.reload()'
+ # Drop a pinned map so the bundled seed applies again (development helper)
+ python3 deckprobe/cdp.py eval bp 'delete window.__DS_CLASS_MAP'
  ```
 
  Tokens like `_3PhGYbMWIcIaZCfllWN19N` appear as values of the runtime map keys.

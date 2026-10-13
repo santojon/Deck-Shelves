@@ -102,7 +102,7 @@ describe('SettingsSchema with new templates', () => {
 // A newer build's field (added after an older backend/frontend build shipped)
 // must round-trip through `.parse()` instead of vanishing — cross-device sync,
 // a downgrade, or a mixed hub/Decky-loader install otherwise silently drops it
-// on the very next save (CRITICAL-NOW.md item 3). `.passthrough()` on the
+// on the very next save. `.passthrough()` on the
 // schema is the frontend half; `_preserve_unknown` in sanitizer.py is the
 // backend half (see test_main.py's mirroring test).
 describe('unknown-field round-trip (.passthrough())', () => {
@@ -126,5 +126,15 @@ describe('unknown-field round-trip (.passthrough())', () => {
       smartShelves: [{ id: 'ss', title: 'Smart', mode: 'quick_play', futureSmartField: 'x' }],
     } as any)
     expect((r.smartShelves[0] as any).futureSmartField).toBe('x')
+  })
+})
+
+describe('profile fields survive parsing', () => {
+  it('keeps linkShelves and the sync clock on a profile', () => {
+    const r = SettingsSchema.parse({
+      profiles: [{ id: 'p', name: 'P', createdAt: 'x', snapshot: {}, linkShelves: true, updatedAt: 42 }],
+    } as any)
+    expect(r.profiles[0].linkShelves).toBe(true)
+    expect(r.profiles[0].updatedAt).toBe(42)
   })
 })

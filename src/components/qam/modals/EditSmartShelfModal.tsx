@@ -28,7 +28,7 @@ import { VisibilityRulesEditor } from './editShelf/VisibilityRulesEditor'
 import type { PlatformAppMeta } from '../../../runtime/platform'
 import { PreviewPanel } from './editShelf/PreviewPanel'
 // SmartShelfModal also supports a modal-driven `create` mode that persists
-// only on Save (used by SmartShelfTemplateModal's custom button).
+// only on Save (opened by the create picker in CreateShelfModal).
 import { EditShelfFrame } from './editShelf/EditShelfFrame'
 import { FunnelIcon, EyeIcon, SparkleIcon, OnlineIcon } from '../../icons'
 import { TabLabel } from './editShelf/TabLabel'
@@ -44,7 +44,7 @@ import { visualFlagsOf, applyVisualPatch, previewHideFlags, removableTail } from
 
 /* Ordered list of every internal smart-shelf mode, used by the Source-tab
    mode dropdown + the composite-mixing picker. Order mirrors the catalogue
-   in `SmartShelfTemplateModal` (highest-result-probability first); `custom`
+   in `smartTemplates.ts` (highest-result-probability first); `custom`
    is excluded — it's a special-purpose mode for filter-only shelves and
    switching INTO it would silently strip the user's smart-mode tuning. */
 const SMART_MODE_OPTIONS: SmartShelfMode[] = [

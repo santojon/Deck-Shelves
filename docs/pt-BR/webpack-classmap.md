@@ -13,7 +13,7 @@ Um guia curto para descobrir as classes com hash do webpack da Steam (viewport /
 
 ## Tokens em runtime (chaves atuais)
 
-O mapa em runtime (`window.__DS_CLASS_MAP__` e a semente em `src/runtime/classmap.json`) carrega estas chaves. Novas chaves são preenchidas por `discoverClassMap()` a cada mount; valores já existentes na semente prevalecem em conflitos, então uma descoberta parcial nunca apaga um token que já se sabe funcionar.
+O mapa em runtime carrega estas chaves. Ele é a semente em `src/runtime/classmap.json`, gravada no boot em `localStorage['ds_class_map']` (compartilhado entre as janelas da Steam); um `window.__DS_CLASS_MAP` definido na janela alvo por um snippet de desenvolvimento tem precedência. O plugin não descobre mais tokens em runtime: quando a Steam muda, atualize a semente a partir de um dispositivo com o snippet de descoberta abaixo.
 
 | Chave | Descoberta a partir de | Uso |
 |---|---|---|
@@ -69,21 +69,21 @@ localStorage.setItem('ds_class_map', JSON.stringify(window.__DS_CLASS_MAP));
 Notas:
 - O `DeckRow` busca, nesta ordem: (1) seletor fixo conhecido; (2) `window.__DS_CLASS_MAP` / `localStorage['ds_class_map']`; (3) heurística de token com hash; (4) fallback genérico.
 - Os valores em `__DS_CLASS_MAP` podem incluir ou omitir o ponto inicial. Se omitido, o plugin converte o token em um seletor de classe.
-- **Ordem de merge entre descoberta e semente:** a cada mount, `homePatch` chama `getRuntimeClassMap()` (existente) e `discoverClassMap()` (nova), depois faz o merge com **o valor existente prevalecendo em conflitos**. Isso protege tokens fixados manualmente enquanto ainda preenche chaves faltantes após uma atualização do SteamOS.
+- **Ordem de busca:** `getRuntimeClassMap()` lê primeiro o `__DS_CLASS_MAP` da janela alvo, depois `localStorage['ds_class_map']` (a semente embutida). Não há merge com descoberta em runtime; uma atualização do SteamOS que renomeie um token exige uma semente atualizada.
 
 ## Verificar usando a CLI unificada de CDP
 
-A CLI de CDP (`devkit/cdp.py`, veja [cdp.md](./cdp.md)) substitui o antigo `cdp_probe.py`. Para inspecionar o classmap ao vivo em um Deck em execução:
+A CLI de CDP (`deckprobe/cdp.py`, veja [cdp.md](./cdp.md)) substitui o antigo `cdp_probe.py`. Para inspecionar o classmap ao vivo em um Deck em execução:
 
 ```bash
 # List the current runtime classmap (after the plugin mounts)
-python3 devkit/cdp.py eval bp 'JSON.stringify(window.__DS_CLASS_MAP__ || null)'
+python3 deckprobe/cdp.py eval bp 'JSON.stringify(window.__DS_CLASS_MAP || localStorage.getItem("ds_class_map"))'
 
 # Inspect a focused element's class chain
-python3 devkit/cdp.py eval bp 'document.activeElement?.className'
+python3 deckprobe/cdp.py eval bp 'document.activeElement?.className'
 
-# Force a re-discovery (development helper)
-python3 devkit/cdp.py eval bp 'window.__DS_CLASS_MAP__ = null; location.reload()'
+# Drop a pinned map so the bundled seed applies again (development helper)
+python3 deckprobe/cdp.py eval bp 'delete window.__DS_CLASS_MAP'
 ```
 
 Tokens como `_3PhGYbMWIcIaZCfllWN19N` aparecem como valores das chaves do mapa em runtime.
