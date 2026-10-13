@@ -1,6 +1,6 @@
 import type { AppOverview } from "./index";
 import { getCachedCatalogMeta } from "../core/onlineStore";
-import { steamAppStore, steamCollectionStore, steamClient } from "./internals";
+import { steamAppStore, steamCollectionStore, steamClient, type SteamCollectionLike } from "./internals";
 
 function appIdOf(a: any): number {
   return Number(a?.appid ?? a?.m_unAppID ?? 0);
@@ -34,7 +34,7 @@ function getCachedFranchise(appid: number): string | undefined {
 
 function extractFranchiseName(raw: any): string | null {
   const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
-  const assoc = Array.isArray(parsed) ? parsed.find((s: any) => s?.[0] === "associations") : null;
+  const assoc = Array.isArray(parsed) ? parsed.find((s: unknown) => (s as Record<number, unknown> | null | undefined)?.[0] === "associations") : null;
   const franchises = assoc?.[1]?.data?.rgFranchises;
   return Array.isArray(franchises) && franchises[0]?.strName ? String(franchises[0].strName) : null;
 }
@@ -663,8 +663,8 @@ export const SOURCE_V3_RESOLVERS: Record<string, ShelfSourceResolver> = {
   // Steam-side
   dynamic_collections: (all) => {
     try {
-      const cs: any = steamCollectionStore();
-      const list: any[] = cs?.userCollections ?? [];
+      const cs = steamCollectionStore();
+      const list: SteamCollectionLike[] = cs?.userCollections ?? [];
       const dynamic = list.filter((c) => c?.bIsDynamic === true || c?.m_bIsDynamic === true);
       const ids = collectCollectionAppIds(dynamic);
       return all.filter((a) => ids.has(appIdOf(a)));

@@ -1,3 +1,4 @@
+import type { SteamAppDetails } from "./internals";
 
 
 type AppDetailsSummary = {
@@ -63,7 +64,7 @@ function preloadAppDetailsSummary(appid: number): void {
     cache.set(appid, summary);
   };
   try {
-    const handle = sc?.Apps?.RegisterForAppDetails?.(appid, (details: any) => {
+    const handle = sc?.Apps?.RegisterForAppDetails?.(appid, (details: SteamAppDetails) => {
       try { handle?.unregister?.(); } catch {}
       finish({ categories: extractCategories(details), achievementProgress: extractAchievementProgress(details) });
     });

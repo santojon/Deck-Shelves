@@ -949,7 +949,7 @@ export function evalVisibility(entry: VisibilityLike, now: Date = new Date()): b
 function hasClockRule(entry: VisibilityLike): boolean {
   const rules = Array.isArray(entry?.visibility?.rules) ? entry!.visibility.rules : [];
   if (rules.length > 0) {
-    return rules.some((r: any) => r?.kind === "timeWindow" || r?.kind === "dayOfWeek" || isTimeContextKind(String(r?.kind || "")));
+    return rules.some((r: { kind?: unknown } | null | undefined) => r?.kind === "timeWindow" || r?.kind === "dayOfWeek" || isTimeContextKind(String(r?.kind || "")));
   }
   return normalizeWindow(entry?.visibleHours).length > 0 || ((entry?.visibleDaysOfWeek?.length ?? 0) > 0);
 }

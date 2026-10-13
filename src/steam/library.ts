@@ -1,6 +1,6 @@
 import { type AppOverview, normalizeAppOverview, readOptionalBoolean, uniqApps } from "./appOverview";
 import type { SteamAppOverviewRaw, SteamAppStore, SteamCollectionLike, SteamCollectionStore, SteamHostWindow, SteamPerClientData } from "./internals";
-import { getSteamClients, getSteamWindows, uniqNumbers } from "./steamAccess";
+import { appIdOfRow, getSteamClients, getSteamWindows, uniqNumbers } from "./steamAccess";
 import { logInfo, logWarn } from "../runtime/logger";
 import { extractAppIdsDeep, extractCollectionAppIds, isMapLike, isSetLike } from "./steamGraph";
 
@@ -19,13 +19,13 @@ export function invalidateAppOverviewCache(): void {
 
 function extractStatefulAppIds(value: unknown): number[] {
   if (Array.isArray(value)) {
-    return uniqNumbers(value.map((item) => Number(item?.appid ?? item?.appId ?? item)));
+    return uniqNumbers(value.map((item: unknown) => appIdOfRow(item, "appid", "appId")));
   }
   if (value instanceof Set) {
-    return uniqNumbers(Array.from(value.values()).map((item: any) => Number(item?.appid ?? item?.appId ?? item)));
+    return uniqNumbers(Array.from(value.values()).map((item: unknown) => appIdOfRow(item, "appid", "appId")));
   }
   if (value instanceof Map) {
-    return uniqNumbers(Array.from(value.values()).map((item: any) => Number(item?.appid ?? item?.appId ?? item)));
+    return uniqNumbers(Array.from(value.values()).map((item: unknown) => appIdOfRow(item, "appid", "appId")));
   }
   return [];
 }

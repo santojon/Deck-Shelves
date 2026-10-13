@@ -1,5 +1,5 @@
 import { type AppOverview, appIdOf, appNameOf, isFavoriteOf, isHiddenOf, isInstalledOf, isNonSteamOf, lastPlayedOf } from "./appOverview";
-import type { FilterGroup, FilterItem } from "../types";
+import type { FilterGroup, FilterItem, ShelfSource } from "../types";
 import type { LooseSource, ResolverContext } from "./resolverContext";
 import { type SteamCollectionLike, steamCollectionStore } from "./internals";
 import { type TabMasterTab, findTabMasterContextValue, getTabAppIdsFromStore, listLibraryTabs, slugifyTab, tabIdFrom, tabNameFrom } from "./libraryTabs";
@@ -10,7 +10,7 @@ import { extractAppIdsDeep, extractCollectionAppIds } from "./steamGraph";
 import { getAdaptiveTimeout, recordDuration } from "../core/adaptiveTimeout";
 import { getAllAppOverviews } from "./library";
 import { getCollectionApps, listCollections, normalizeText } from "./collections";
-import { getSteamClients, getSteamWindows, uniqNumbers } from "./steamAccess";
+import { appIdOfRow, getSteamClients, getSteamWindows, uniqNumbers } from "./steamAccess";
 import { logInfo, logWarn } from "../runtime/logger";
 import { withOnlineSwr } from "./onlineCache";
 import { deduplicateNonSteam, enrichForSort, mergeCompositeResults } from "./resolveShared";
@@ -110,7 +110,7 @@ async function favoritesFromClientApi(): Promise<number[]> {
         if (typeof fn !== "function") continue;
         const res = await fn.call(sc.Collections);
         if (Array.isArray(res) && res.length) {
-          return res.map((x: any) => Number(x?.appid ?? x)).filter(Number.isFinite);
+          return res.map((x: unknown) => appIdOfRow(x, "appid")).filter(Number.isFinite);
         }
       } catch {}
     }
@@ -159,10 +159,11 @@ function resolveInstalledTab(all: AppOverview[]): AppOverview[] {
 const TAB_DYNAMIC_TAG_FIELDS = ["tab", "tab_name", "collection_name", "category"];
 
 function resolveByTags(all: AppOverview[], id: string): AppOverview[] {
-  return all.filter((a: any) => {
+  return all.filter((a) => {
+    const raw = a as unknown as Record<string, unknown>;
     const tagList: string[] = [];
-    for (const k of TAB_DYNAMIC_TAG_FIELDS) tagList.push(String(a?.[k] ?? ""));
-    if (Array.isArray(a?.tags)) for (const t of a.tags) tagList.push(String(t ?? ""));
+    for (const k of TAB_DYNAMIC_TAG_FIELDS) tagList.push(String(raw?.[k] ?? ""));
+    if (Array.isArray(raw?.tags)) for (const t of raw.tags) tagList.push(String(t ?? ""));
     return tagList.map(slugifyTab).filter(Boolean).includes(id);
   });
 }
@@ -173,7 +174,7 @@ function extractIdsFromCollectionEntry(col: SteamCollectionLike | null | undefin
     return new Set(Array.from(appsSet).map(Number).filter(Number.isFinite));
   }
   if (Array.isArray(appsSet) && appsSet.length) {
-    return new Set(appsSet.map((a: any) => Number(a?.appid ?? a)).filter(Number.isFinite));
+    return new Set(appsSet.map((a: unknown) => appIdOfRow(a, "appid")).filter(Number.isFinite));
   }
   return null;
 }
@@ -269,7 +270,7 @@ async function findTabAppIdsByNameOrId(rawTab: string): Promise<number[]> {
   return [];
 }
 
-function sortDynamicTabApps(filtered: AppOverview[], rawTab: string, sort: any): AppOverview[] {
+function sortDynamicTabApps(filtered: AppOverview[], rawTab: string, sort: string | string[] | undefined): AppOverview[] {
   if (sort) return filtered;
   if (slugifyTab(rawTab) === "recent") return filtered;
   return filtered.slice().sort((a, b) =>
@@ -289,7 +290,7 @@ async function resolveTabUuidViaTabMaster(rawTab: string, limit: number, shelfId
     if (!tmTab || !tmTab.filters || tmTab.filters.length === 0) return null;
     const filterGroup = convertFiltersToGroup(tmTab.filters);
     try { logInfo("STEAM", "resolveShelfAppIds(tab): UUID fallback via TabMaster filters", { tab: rawTab, title: tmTab.title }); } catch {}
-    return resolveShelfAppIds({ type: 'filter', filter: { filterGroup } } as any, limit, undefined, shelfId);
+    return resolveShelfAppIds({ type: 'filter', filter: { filterGroup } } as ShelfSource, limit, undefined, shelfId);
   } catch { return null; }
 }
 
@@ -400,7 +401,7 @@ function compositeChildLimit(overShootLimit: number): number {
   return Math.min(Math.max(overShootLimit * 4, 200), 600);
 }
 
-async function resolveCompositeChildren(childSources: any[], ctx: ResolverContext): Promise<number[][]> {
+async function resolveCompositeChildren(childSources: LooseSource[], ctx: ResolverContext): Promise<number[][]> {
   const { sort, shelfId, sortReverse, options, depth: _depth, overShootLimit } = ctx;
   const childLimit = compositeChildLimit(overShootLimit);
   /* Ceiling per child (15s max) so a single hung online source can't park
@@ -493,7 +494,7 @@ function computeOvershootLimit(source: { type: string }, limit: number, hiddenSe
    list. The resolver receives `all` and returns the filtered AppOverview[],
    which we then map to ids + apply sort + finish overshoot trimming. */
 async function resolveViaV3Extension(
-  source: { type: string; [k: string]: any },
+  source: LooseSource,
   all: AppOverview[],
   sort: string | string[] | undefined,
   shelfId: string | undefined,
@@ -516,7 +517,7 @@ async function resolveViaV3Extension(
 }
 
 export async function resolveShelfAppIds(
-  source: { type: string; [k: string]: any },
+  source: ShelfSource,
   limit: number,
   sort?: string | string[],
   shelfId?: string,

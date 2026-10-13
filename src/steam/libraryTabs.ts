@@ -1,7 +1,7 @@
 import type { PlatformTab } from "../runtime/platform";
 import { type SteamCollectionLike, type SteamCollectionStore, type SteamHostWindow, steamCollectionStore } from "./internals";
 import { getPreferredSteamDocument } from "../runtime/steamHost";
-import { firstStringFromKeys, getSteamClients, getSteamWindows, hasAnyMethod } from "./steamAccess";
+import { type SteamObject, appIdOfRow, firstStringFromKeys, getSteamClients, getSteamWindows, hasAnyMethod } from "./steamAccess";
 
 /* Library tabs: the native tab list, TabMaster's custom tabs (read through React fibers), and the app ids behind a tab. */
 
@@ -42,10 +42,13 @@ function extractTabMasterFromFiberValue(val: unknown): TabMasterContext | null {
   return null;
 }
 
-function walkFiberForTabMasterContext(startFiber: any): TabMasterContext | null {
+// The slice of a React fiber the walk reads.
+type FiberNode = { memoizedProps?: { value?: unknown } | null; child?: FiberNode | null; sibling?: FiberNode | null };
+
+function walkFiberForTabMasterContext(startFiber: FiberNode | null | undefined): TabMasterContext | null {
   if (!startFiber) return null;
-  const stack: any[] = [startFiber];
-  const visited = new WeakSet();
+  const stack: FiberNode[] = [startFiber];
+  const visited = new WeakSet<FiberNode>();
   while (stack.length > 0) {
     const fiber = stack.pop();
     if (!fiber || visited.has(fiber)) continue;
@@ -123,7 +126,7 @@ function getCustomFiltersList(): PlatformTab[] {
   return out;
 }
 
-function collectDynamicTabStores(): any[] {
+function collectDynamicTabStores(): SteamObject[] {
   const clients = getSteamClients();
   const hostWindows = getSteamWindows();
   const methodNames = [
@@ -145,7 +148,7 @@ function collectDynamicTabStores(): any[] {
     ]),
   ].filter(Boolean);
 
-  const dynamic: any[] = [];
+  const dynamic: SteamObject[] = [];
   for (const hostWindow of hostWindows) {
     try {
       for (const [key, value] of Object.entries(hostWindow ?? {})) {
@@ -169,7 +172,7 @@ function unwrapStoreApps(result: unknown): any[] {
 function coerceStoreAppIds(arr: unknown): number[] {
   if (!Array.isArray(arr)) return [];
   return arr
-    .map((item: any) => Number(item?.appid ?? item?.appId ?? item?.id ?? item))
+    .map((item: unknown) => appIdOfRow(item, "appid", "appId", "id"))
     .filter((n: number) => Number.isFinite(n));
 }
 

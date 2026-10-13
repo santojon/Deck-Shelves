@@ -234,7 +234,7 @@ async function _resolveFilterGroupPath(
   // Hosts whose local Steam client omits per-platform availability leave
   // `available_on_current_platform` undefined (the system-compatibility filter
   // would then pass everything) — fill it from the store first when present.
-  if (flatItems.some((it: any) => it?.type === "systemCompatibility")) {
+  if (flatItems.some((it) => it?.type === "systemCompatibility")) {
     const om = await import("../core/onlineMetadata");
     if (om.onlineStoreFallbackOn()) await om.enrichPlatformAvailability(all).catch(() => {});
   }

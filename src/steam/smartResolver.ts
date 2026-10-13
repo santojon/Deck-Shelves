@@ -1,4 +1,6 @@
 import { type AppOverview, appIdOf } from "./appOverview";
+import type { FilterGroup, SmartShelfMode } from "../types";
+import type { resolveSmartShelf } from "./smartShelves";
 import type { LooseSource, ResolverContext } from "./resolverContext";
 import { applySortToIds } from "./sorting";
 import { evaluateFilterGroup } from "./filterEval";
@@ -12,7 +14,7 @@ import { collectFilterGroupItemsFlat, mergeCompositeResults, prefetchCatalogFilt
 type SmartResolverDeps = {
   apps: AppOverview[];
   internalModes: ReadonlySet<string>;
-  resolveSmart: (mode: any, apps: AppOverview[], limit: number, params: any, ttlMs: number | undefined, shelfId?: string) => number[];
+  resolveSmart: typeof resolveSmartShelf;
   hasExternal: (mode: string) => boolean;
   resolveExternal: (mode: string, limit: number, params: Record<string, number>) => Promise<number[]>;
 };
@@ -27,7 +29,7 @@ async function resolveSmartModeIds(
 ): Promise<number[]> {
   if (mode === "custom") return deps.apps.map((a) => appIdOf(a)).filter(Number.isFinite);
   if (deps.internalModes.has(mode)) {
-    return deps.resolveSmart(mode as any, deps.apps, smartFetchLimit, smartParams, ttlMs, shelfId);
+    return deps.resolveSmart(mode as SmartShelfMode, deps.apps, smartFetchLimit, smartParams, ttlMs, shelfId);
   }
   if (deps.hasExternal(mode)) {
     return deps.resolveExternal(mode, smartFetchLimit, smartParams ?? {});
@@ -63,7 +65,7 @@ async function resolveSmartCompositeIds(
   return mergeCompositeResults(childResults, combine);
 }
 
-async function applySmartFilterGroup(ids: number[], filterGroup: any, apps: AppOverview[]): Promise<number[]> {
+async function applySmartFilterGroup(ids: number[], filterGroup: FilterGroup | null | undefined, apps: AppOverview[]): Promise<number[]> {
   if (!filterGroup || !Array.isArray(filterGroup.items) || filterGroup.items.length === 0) return ids;
   const byId = new Map(apps.map((a) => [appIdOf(a), a] as const));
   const candidates = ids.map((id) => byId.get(id)).filter(Boolean) as AppOverview[];
@@ -86,7 +88,7 @@ export async function _resolveSmart(ctx: ResolverContext): Promise<number[]> {
     const smartFetchLimit = wantsPostProcess ? Math.max(limit * 4, 200) : limit;
     const deps: SmartResolverDeps = {
       apps, internalModes: INTERNAL_SMART_MODES,
-      resolveSmart: resolveSmartShelf as any,
+      resolveSmart: resolveSmartShelf,
       hasExternal: hasExternalSmartSource,
       resolveExternal: resolveExternalSmartSource,
     };

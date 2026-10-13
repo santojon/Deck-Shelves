@@ -1,5 +1,5 @@
 import { type SteamAppOverviewRaw, type SteamClientLike, type SteamCollectionLike, type SteamCollectionStore, type SteamHostWindow, steamCollectionStore } from "./internals";
-import { firstStringFromKeys, getSteamClients, getSteamWindows, hasAnyMethod, uniqNumbers } from "./steamAccess";
+import { type SteamObject, appIdOfRow, firstStringFromKeys, getSteamClients, getSteamWindows, hasAnyMethod, uniqNumbers } from "./steamAccess";
 import { getAdaptiveTimeout, recordDuration } from "../core/adaptiveTimeout";
 import { getPreferredSteamDocument } from "../runtime/steamHost";
 import { extractAppIdsDeep, extractCollectionAppIds } from "./steamGraph";
@@ -10,7 +10,7 @@ export type SteamCollection = { id: string; name: string };
 
 const COLLECTION_CACHE_TTL = 60_000;
 
-const collectionRawCache = new Map<string, { data: any; ts: number }>();
+const collectionRawCache = new Map<string, { data: unknown; ts: number }>();
 
 export function candidateCollectionIds(raw: string): string[] {
   const base = String(raw ?? "").trim();
@@ -30,7 +30,7 @@ function normalizeCollectionToken(value: string): string {
   return String(value ?? "").toLowerCase().replace(/[^a-z0-9]/g, "").trim();
 }
 
-function cacheCollectionRaw(id: string, name: string, raw: any) {
+function cacheCollectionRaw(id: string, name: string, raw: unknown) {
   const exactId = String(id ?? "").trim();
   const exactName = String(name ?? "").trim();
   const entry = { data: raw, ts: Date.now() };
@@ -45,9 +45,9 @@ function cacheCollectionRaw(id: string, name: string, raw: any) {
   if (tokenId) collectionRawCache.set(`tid:${tokenId}`, entry);
 }
 
-function getCachedCollectionRawCandidates(idCandidates: string[], nameCandidates: string[]): any[] {
-  const out: any[] = [];
-  const seen = new Set<any>();
+function getCachedCollectionRawCandidates(idCandidates: string[], nameCandidates: string[]): unknown[] {
+  const out: unknown[] = [];
+  const seen = new Set<unknown>();
   const now = Date.now();
   const keys = [
     ...idCandidates.flatMap((value) => {
@@ -362,7 +362,7 @@ function resolveCollectionIdsFromStoreDeep(store: any, idCandidates: string[], n
   return uniqNumbers(out);
 }
 
-function collectDynamicCollectionStores(): any[] {
+function collectDynamicCollectionStores(): SteamObject[] {
   const clients = getSteamClients();
   const hostWindows = getSteamWindows();
   const methodNames = [
@@ -383,7 +383,7 @@ function collectDynamicCollectionStores(): any[] {
     ...hostWindows.flatMap((win) => [win?.CollectionStore, win?.collectionStore, win?.LibraryStore, win?.TabMasterStore, win?.UnifiDeckStore, win?.UnifyDeckStore]),
   ].filter(Boolean);
 
-  const dynamic: any[] = [];
+  const dynamic: SteamObject[] = [];
   for (const hostWindow of hostWindows) {
     try {
       for (const [key, value] of Object.entries(hostWindow ?? {})) {
@@ -424,7 +424,7 @@ async function tryClientCollectionFetch(fn: unknown, id: string, out: number[]):
   try {
     const res = await withRpcTimeout(Promise.resolve(fn(id)), ms);
     recordDuration(COLLECTION_RPC_TIMEOUT_KEY, Date.now() - startedAt);
-    if (Array.isArray(res)) out.push(...res.map((x: any) => Number(x.appid ?? x)));
+    if (Array.isArray(res)) out.push(...res.map((x: unknown) => Number((x as { appid?: unknown }).appid ?? x)));
   } catch {}
 }
 
@@ -472,7 +472,7 @@ async function harvestStoreMethodResults(store: any, idCandidates: string[], out
     for (const id of idCandidates) {
       try {
         const arr = pickResultArray(await fn.call(store, id));
-        out.push(...arr.map((x: any) => Number(x?.appid ?? x?.appId ?? x)));
+        out.push(...arr.map((x: unknown) => appIdOfRow(x, "appid", "appId")));
       } catch {}
     }
   }

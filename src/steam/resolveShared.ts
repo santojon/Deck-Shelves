@@ -30,13 +30,13 @@ export function isOnlineEnabledForSettings(s: Settings | null | undefined): bool
 // Flattens a filter group's items (walking `merge` nesting, same as the
 // dev/pub preload above) — used to pre-warm genre/category/franchise data
 // before evaluation, the same reason dev/pub caches are warmed here.
-export function collectFilterGroupItemsFlat(group: FilterGroup): any[] {
-  const out: any[] = [];
+export function collectFilterGroupItemsFlat(group: FilterGroup): FilterItem[] {
+  const out: FilterItem[] = [];
   const walk = (g: FilterGroup) => {
     for (const item of g.items ?? []) {
       out.push(item);
-      if (item.type === "merge" && Array.isArray((item as any).params?.items)) {
-        walk({ mode: ((item as any).params.mode ?? "and") as "and" | "or", items: (item as any).params.items as FilterItem[] });
+      if (item.type === "merge" && Array.isArray(item.params?.items)) {
+        walk({ mode: (item.params?.mode ?? "and") as "and" | "or", items: item.params?.items as FilterItem[] });
       }
     }
   };
