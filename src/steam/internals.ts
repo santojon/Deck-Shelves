@@ -9,7 +9,7 @@ export interface SteamAppOverviewRaw {
   appid: number;
   display_name?: string;
   sort_as?: string;
-  app_type?: number;
+  app_type?: number | string;
   display_status?: number;
   size_on_disk?: number | string;
   rt_original_release_date?: number;
@@ -25,7 +25,32 @@ export interface SteamAppOverviewRaw {
   BIsSteamFrameCompatible?(): boolean;
   BIsSteamMachineCompatible?(): boolean;
   BIsVR?(): boolean;
-  [key: string]: unknown;
+  per_client_data?: SteamPerClientData[] | SteamPerClientData;
+  local_per_client_data?: SteamPerClientData[] | SteamPerClientData;
+  remote_per_client_data?: SteamPerClientData[];
+  // Steam adds and renames fields across versions; the plugin reads others opportunistically.
+  [key: string]: any;
+}
+
+// One entry of an overview's `per_client_data` (the local client is `clientid` "0").
+export interface SteamPerClientData {
+  clientid?: string | number;
+  installed?: boolean;
+  is_installed?: boolean;
+  display_status?: number;
+  is_available_on_current_platform?: boolean;
+  bytes_to_download?: number;
+  m_nBytesToDownload?: number;
+  bytes_to_stage?: number;
+  m_nBytesToStage?: number;
+  [key: string]: any;
+}
+
+// What `SteamClient.Apps.RegisterForAppDetails` hands back.
+export interface SteamAppDetails {
+  strPublisherName?: string;
+  strDeveloperName?: string;
+  [key: string]: any;
 }
 
 export interface SteamAppStore {
@@ -47,7 +72,7 @@ export interface SteamCollectionLike {
 
 export interface SteamCollectionStore {
   userCollections?: SteamCollectionLike[];
-  userCollectionStore?: unknown;
+  userCollectionStore?: { CommitCollection?(...args: any[]): unknown; [key: string]: any };
   allAppsCollection?: SteamCollectionLike;
   allGamesCollection?: SteamCollectionLike;
   allShortcutsCollection?: SteamCollectionLike;
@@ -58,8 +83,8 @@ export interface SteamCollectionStore {
   myGamesCollection?: SteamCollectionLike;
   nonSteamCollection?: SteamCollectionLike;
   shortcutsCollection?: SteamCollectionLike;
-  collectionsFromStorage?: Map<string, unknown>;
-  m_mapCollectionsFromStorage?: Map<string, unknown>;
+  collectionsFromStorage?: Map<string, SteamCollectionLike>;
+  m_mapCollectionsFromStorage?: Map<string, SteamCollectionLike>;
   GetCollection?(id: string): SteamCollectionLike | null | undefined;
   BIsSystemCollectionId?(id: string): boolean;
   [key: string]: any;
@@ -90,6 +115,16 @@ export interface SteamClientLike {
   System?: Record<string, any>;
   Apps?: Record<string, any>;
   Input?: Record<string, any>;
+  [key: string]: any;
+}
+
+// A Steam window (or the shared context) with the stores and client it exposes.
+export interface SteamHostWindow {
+  SteamClient?: SteamClientLike;
+  appStore?: SteamAppStore;
+  collectionStore?: SteamCollectionStore;
+  SteamUIStore?: SteamUIStoreLike;
+  document?: Document;
   [key: string]: any;
 }
 

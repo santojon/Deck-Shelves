@@ -7,7 +7,7 @@ técnico completo, veja [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
-- **Por baixo do capô, o código de renderização da tela inicial e a inicialização do plugin foram reorganizados em peças menores, sem mudança de comportamento** — verificado num Steam Deck real. Recarregar o plugin agora também limpa a rota da página de Configurações.
+- **Por baixo do capô, o código de renderização da tela inicial, a inicialização do plugin, o código da biblioteca que monta cada prateleira e o código do menu do jogo foram reorganizados em peças menores, sem mudança de comportamento** — verificado num Steam Deck real. Recarregar o plugin agora também limpa a rota da página de Configurações.
 
 - **Os builds de release ficaram um pouco mais enxutos: diagnósticos destinados só a um depurador agora ficam nos builds de desenvolvimento.** Nada visível muda.
 

@@ -6,8 +6,8 @@ Checks the state of online features: settings, caches, store fetch,
 wishlist backend call, and price cache.
 
 Usage:
-    python3 deckprobe/probes/online_features.py
-    python3 deckprobe/probes/online_features.py --clear-caches
+    python3 scripts/deckprobe-ext/probes/online_features.py
+    python3 scripts/deckprobe-ext/probes/online_features.py --clear-caches
 
 Flags:
     --clear-caches   Remove ds-store-cache-v1 and ds-price-cache-v1 from
@@ -21,8 +21,8 @@ import json
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[5]))
-from devkit.probes._base import connect, ev, sep  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "lib"))
+from probe_base import connect, ev, sep  # noqa: E402
 
 
 def check_settings(sjc) -> dict:

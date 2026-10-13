@@ -1,12 +1,2 @@
 {
-  "src/core/steamGameMenu.ts": {
-    "max-lines": {
-      "count": 1
-    }
-  },
-  "src/steam/index.ts": {
-    "max-lines": {
-      "count": 1
-    }
-  }
 }

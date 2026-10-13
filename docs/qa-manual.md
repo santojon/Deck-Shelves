@@ -211,13 +211,18 @@ Scenarios and their driving helpers live in `scripts/deckprobe-ext/videos/scenar
 ## 14. Ad-hoc probes and maintainer scripts
 
 One-off diagnostics kept beside the probe suites. They read the live client over the debug
-protocol and print what they find; none of them changes settings.
+protocol and print what they find; none of them changes settings. The cooperative-bundle check
+is the one that restarts Steam and the host service.
 
 | Script | What it does |
 |---|---|
 | `python3 scripts/deckprobe-ext/probes/perf_card_count.py [--max-count N --steps …]` | Raises the first shelf's limit step by step and measures home render time per card count, to find where the frame budget degrades (restores the limit afterwards) |
 | `python3 scripts/deckprobe-ext/probes/native_shelf_detection.py` | Lists every candidate for Steam's native recents row with position, parent and native-card count, so the heuristic the side nav and Quick Search use can be checked on a given client build |
 | `python3 scripts/deckprobe-ext/probes/hwcompat.py` | Prints the device's system-info fields and decodes the packed hardware-compat category for a sample of owned apps, cross-checked against the named getters |
+| `pnpm run qa:coop-fallback` (`-- --phase=live`, `-- --setup`) | Cooperative-bundle fallback boots, with the standalone host owning through its own copy: the loader copy must boot itself ~20 s after standing down when the host's copy never boots (host injected), and ~60 s after standing down on the host's stored offer (host stopped); then the hand-over is restored. Checks its preconditions, refuses to start while a game is running, restarts Steam twice (use a test device) and the host service; `--setup` turns the host's `coop_bundle` on first. Exit 0 pass / 1 a phase failed / 2 a precondition failed. Writes `site/reports/perf/coop-fallback-latest.json`, judged by `pnpm run perf:gate:check` |
+| `python3 scripts/deckprobe-ext/probes/menu_injection.py` | Opens the game menu on cards of three shelves and checks that the per-card actions and the Shelf group (Management / Display / Visual) are injected once each, identified by their keys so any UI language works |
+| `python3 scripts/deckprobe-ext/probes/shelf_render.py` | Lists every shelf on the home with its card count and whether its apps resolve |
 | `bash scripts/dev/ensure-repo-settings.sh` | Maintainers only: checks the GitHub repository's merge settings (squash-only, delete branch on merge) and patches them when they drift; needs the `gh` CLI |
 | `pnpm run deck:debug` | Opens the device's DevTools target list (`http://<host>:<port>`) in the browser |
 | `scripts/deckprobe-ext/lib/ds_qam.py` (helper, import it) | `open_decky_ds_tab(host, port)`: opens the loader's Deck Shelves tab until the panel is really visible — the toolkit's own navigation helper is satisfied by the standalone host's hidden copy of the panel on a two-host device |
+| `scripts/deckprobe-ext/lib/probe_base.py` (helper, import it) | `connect()` / `ev()` / `sep()` — the session helpers the older probes share |

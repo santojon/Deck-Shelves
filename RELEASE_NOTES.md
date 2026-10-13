@@ -7,7 +7,7 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
-- **Under the hood, the home-screen rendering code and the plugin's startup were reorganized into smaller pieces, with no change in behavior** — verified on a real Steam Deck. Reloading the plugin now also cleans up its Settings page route.
+- **Under the hood, the home-screen rendering code, the plugin's startup, the library code that builds every shelf and the game-menu code were reorganized into smaller pieces, with no change in behavior** — verified on a real Steam Deck. Reloading the plugin now also cleans up its Settings page route.
 
 - **Release builds are a little leaner: diagnostics meant only for a debugger now stay in development builds.** Nothing visible changes.
 

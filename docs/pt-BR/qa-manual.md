@@ -217,13 +217,18 @@ do runner grava, imprime cada ponto de marcação com o tempo e os escreve ao la
 ## 14. Sondas avulsas e scripts de manutenção
 
 Diagnósticos pontuais guardados ao lado das suítes de sondas. Eles leem o cliente ao vivo pelo
-protocolo de depuração e imprimem o que encontram; nenhum deles altera configurações.
+protocolo de depuração e imprimem o que encontram; nenhum deles altera configurações. A verificação
+do bundle cooperativo é a única que reinicia o Steam e o serviço do host.
 
 | Script | O que faz |
 |---|---|
 | `python3 scripts/deckprobe-ext/probes/perf_card_count.py [--max-count N --steps …]` | Aumenta o limite da primeira prateleira passo a passo e mede o tempo de renderização da home por quantidade de cards, para achar onde o orçamento de frame degrada (restaura o limite depois) |
 | `python3 scripts/deckprobe-ext/probes/native_shelf_detection.py` | Lista todo candidato à fileira nativa de recentes do Steam com posição, pai e contagem de cards nativos, para conferir num dado build a heurística que o side nav e a Busca rápida usam |
 | `python3 scripts/deckprobe-ext/probes/hwcompat.py` | Imprime os campos de informação de sistema do aparelho e decodifica a categoria de compatibilidade de hardware empacotada para uma amostra de jogos, conferida contra os getters nomeados |
+| `pnpm run qa:coop-fallback` (`-- --phase=live`, `-- --setup`) | Boots de fallback do bundle cooperativo, com o host independente dono pela própria cópia: a cópia do loader precisa subir sozinha ~20 s depois de se retirar quando a cópia do host nunca sobe (host injetado), e ~60 s depois de se retirar pela oferta guardada do host (host parado); depois a passagem é restaurada. Confere as pré-condições, se recusa a começar com um jogo rodando, reinicia o Steam duas vezes (use um aparelho de teste) e o serviço do host; `--setup` liga antes o `coop_bundle` do host. Saída 0 passou / 1 uma fase falhou / 2 uma pré-condição falhou. Grava `site/reports/perf/coop-fallback-latest.json`, julgado por `pnpm run perf:gate:check` |
+| `python3 scripts/deckprobe-ext/probes/menu_injection.py` | Abre o menu do jogo em cards de três prateleiras e confere que as ações por card e o grupo Prateleira (Gerenciamento / Exibição / Visual) são injetados uma vez cada, identificados pelas chaves para funcionar em qualquer idioma da interface |
+| `python3 scripts/deckprobe-ext/probes/shelf_render.py` | Lista cada prateleira da home com a quantidade de cards e se os apps dela resolvem |
 | `bash scripts/dev/ensure-repo-settings.sh` | Só para mantenedores: confere as configurações de merge do repositório no GitHub (só squash, apagar branch ao mesclar) e as corrige quando divergem; precisa do CLI `gh` |
 | `pnpm run deck:debug` | Abre a lista de alvos do DevTools do aparelho (`http://<host>:<porta>`) no navegador |
 | `scripts/deckprobe-ext/lib/ds_qam.py` (helper, para importar) | `open_decky_ds_tab(host, port)`: abre a aba Deck Shelves do loader até o painel estar visível de verdade — o helper de navegação do toolkit se contenta com a cópia oculta do painel que o host independente mantém num aparelho com dois hosts |
+| `scripts/deckprobe-ext/lib/probe_base.py` (helper, para importar) | `connect()` / `ev()` / `sep()` — os helpers de sessão que as sondas mais antigas compartilham |
