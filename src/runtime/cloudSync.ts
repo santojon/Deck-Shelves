@@ -29,6 +29,17 @@ const PULL_INTERVAL_MS = 3 * 60 * 1000;
 // flag and the device-local developer fields).
 
 type CloudPayload = { updatedAt: number; settings: Record<string, unknown> };
+/* The pusher's active profile rides along as information only (never adopted as
+   the local active name): each device activates its own profile, so a receiver
+   needs it to tell whether the scalar settings on the wire describe the profile
+   it runs itself. */
+const ACTIVE_PROFILE_KEY = "syncActiveProfile";
+type Remote = { settings: Settings; active: string | null } | null;
+
+function activeNameOf(settings: Settings | null): string | null {
+  const n = (settings as any)?.activeProfileName;
+  return typeof n === "string" && n ? n : null;
+}
 
 function isFeatureEnabled(settings: Settings | null): boolean {
   return (settings as any)?.cloudSyncEnabled === true;
@@ -57,10 +68,25 @@ function stripNullish(value: unknown): unknown {
   return value;
 }
 
-function preparePayload(settings: Settings): Record<string, unknown> {
+function preparePayload(settings: Settings, active: string | null): Record<string, unknown> {
   const out: Record<string, unknown> = { ...(settings as any) };
   for (const key of LOCAL_ONLY_FIELDS) delete out[key];
-  return stripNullish(out) as Record<string, unknown>;
+  delete out[ACTIVE_PROFILE_KEY];
+  const payload = stripNullish(out) as Record<string, unknown>;
+  if (active) payload[ACTIVE_PROFILE_KEY] = active;
+  return payload;
+}
+
+function payloadJson(settings: Settings, active: string | null): string {
+  return JSON.stringify(preparePayload(settings, active));
+}
+
+function remoteOf(cloud: CloudPayload | null): Remote {
+  if (!cloud) return null;
+  const settings = { ...cloud.settings } as any;
+  const active = typeof settings[ACTIVE_PROFILE_KEY] === "string" ? settings[ACTIVE_PROFILE_KEY] as string : null;
+  delete settings[ACTIVE_PROFILE_KEY];
+  return { settings: settings as Settings, active };
 }
 
 async function readCloud(): Promise<CloudPayload | null> {
@@ -75,11 +101,11 @@ async function readCloud(): Promise<CloudPayload | null> {
 
 // Store the snapshot as an opaque JSON string (SetString) so Steam's object
 // serializer never rewrites the keys; verify with a round-trip read.
-async function writeCloud(settings: Settings): Promise<number | null> {
+async function writeCloud(settings: Settings, active: string | null): Promise<number | null> {
   const updatedAt = Date.now();
   try {
     const rs = (globalThis as any).SteamClient.RoamingStorage;
-    await rs.SetString(CLOUD_KEY, JSON.stringify({ updatedAt, settings: preparePayload(settings) }));
+    await rs.SetString(CLOUD_KEY, JSON.stringify({ updatedAt, settings: preparePayload(settings, active) }));
     const confirmed = await readCloud();
     return confirmed?.updatedAt === updatedAt ? updatedAt : null;
   } catch { return null; }
@@ -137,6 +163,24 @@ function foldIntoActiveProfile(local: Settings, merged: Settings): Settings {
   return { ...m, profiles: next } as Settings;
 }
 
+/* Profiles (settings + triggers) sync as entities and each device activates its
+   own, so the scalar settings on the wire are the pusher's live look: adopt them
+   (and fold them into the active profile) only between devices running the same
+   profile, or none. Otherwise keep this device's look, merge the lists, and hand
+   the other device's look back under its own profile name. */
+type Plan = { merged: Settings; toPublish: Settings; publishActive: string | null; localActive: string | null };
+function planSync(local: Settings, remote: Remote): Plan {
+  const localActive = activeNameOf(local);
+  if (!remote) return { merged: local, toPublish: local, publishActive: localActive, localActive };
+  if (remote.active === localActive) {
+    const merged = foldIntoActiveProfile(local, mergeSettings(local, remote.settings));
+    return { merged, toPublish: merged, publishActive: localActive, localActive };
+  }
+  const merged = mergeSettings(local, remote.settings, { scalars: "keepLocal" });
+  const toPublish = mergeSettings(remote.settings, merged, { scalars: "keepLocal" });
+  return { merged, toPublish, publishActive: remote.active, localActive };
+}
+
 export function installCloudSync(): () => void {
   let disposed = false;
   let debounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -162,25 +206,27 @@ export function installCloudSync(): () => void {
     return !disposed && isHomeOwner() && hasCloudSyncSupport();
   }
 
-  // The cloud's own stamp when it already holds `payload`, else the stamp of our write.
-  async function publish(merged: Settings, payload: string, cloud: CloudPayload | null): Promise<number | null> {
-    if (cloud && payload === JSON.stringify(preparePayload(cloud.settings as unknown as Settings))) return cloud.updatedAt;
-    return writeCloud(merged);
+  // The cloud's own stamp when it already holds what we would publish, else the stamp of our write.
+  async function publish(toPublish: Settings, active: string | null, cloud: CloudPayload | null, remote: Remote): Promise<number | null> {
+    if (cloud && remote && payloadJson(toPublish, active) === payloadJson(remote.settings, remote.active)) return cloud.updatedAt;
+    return writeCloud(toPublish, active);
   }
 
   async function syncOnce(local: Settings): Promise<void> {
     if (!canSync()) return;
     const cloud = await readCloud();
-    const merged = cloud ? foldIntoActiveProfile(local, mergeSettings(local, cloud.settings as unknown as Settings)) : local;
+    const remote = remoteOf(cloud);
+    const plan = planSync(local, remote);
+    const merged = plan.merged;
     if (!isReal(merged)) return;
-    const mergedPayload = JSON.stringify(preparePayload(merged));
-    const adopted = mergedPayload !== JSON.stringify(preparePayload(local));
+    const mergedPayload = payloadJson(merged, plan.localActive);
+    const adopted = mergedPayload !== payloadJson(local, plan.localActive);
     if (adopted) {
       lastKnownJson = mergedPayload; // suppress the re-entrant push from the adopt save
       await saveSettings(merged, { fromSync: true });
       notifyUser(i18n.t("plugin_name"), i18n.t("cloud_sync_applied"), "import", "cloudSync");
     }
-    const at = await publish(merged, mergedPayload, cloud);
+    const at = await publish(plan.toPublish, plan.publishActive, cloud, remote);
     if (!at) return;
     lastKnownJson = mergedPayload;
     // "Last synced" moves on a write and on an adoption; a pull that changed nothing leaves it.
@@ -191,7 +237,7 @@ export function installCloudSync(): () => void {
 
   function schedulePush(s: Settings): void {
     if (disposed || !hasCloudSyncSupport() || !isHomeOwner()) return;
-    const json = JSON.stringify(preparePayload(s));
+    const json = payloadJson(s, activeNameOf(s));
     if (json === lastKnownJson) return;
     if (debounceTimer) clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => {

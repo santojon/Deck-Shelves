@@ -3,7 +3,7 @@ import { SmartShelfModeSchema, type SmartShelfMode } from "../types";
 import { getParam, type SmartParams } from "./smartParams";
 import { weightedRank, multiFactorRank, timeDecayScore, applyCooldown, rotateWindow } from "./heuristics";
 import { getBatteryState } from "../runtime/batteryState";
-import { evalDeviceRule, isDeviceRuleKind, getDeviceProfile } from "../runtime/deviceState";
+import { evalDeviceRule, isDeviceRuleKind, getDeviceProfile, deviceRuleHasData } from "../runtime/deviceState";
 import { compatCategoryForFamily } from "../domain/deviceProfile";
 import { evalTimeContextRule, isTimeContextKind } from "../domain/timeContext";
 import { evalSessionRule, isSessionRuleKind } from "../runtime/sessionState";
@@ -977,12 +977,13 @@ function isKnownRuleKind(kind: string): boolean {
     || isPerfRuleKind(kind) || isPeripheralRuleKind(kind) || isDeviceRuleKind(kind);
 }
 
-// A rule a trigger cannot judge: an unknown kind, or perf / peripheral data that has not arrived.
+// A rule a trigger cannot judge: an unknown kind, or perf / peripheral / display data that has not arrived.
 function ruleLacksData(rule: any): boolean {
   const kind = String(rule?.kind ?? "");
   if (!isKnownRuleKind(kind)) return true;
   if (isPerfRuleKind(kind)) return !perfRuleHasData(rule);
   if (isPeripheralRuleKind(kind)) return !peripheralRuleHasData(rule);
+  if (isDeviceRuleKind(kind)) return !deviceRuleHasData(rule);
   return false;
 }
 

@@ -9,7 +9,7 @@
 
 [![CI](https://github.com/santojon/Deck-Shelves/actions/workflows/ci.yml/badge.svg)](https://github.com/santojon/Deck-Shelves/actions/workflows/ci.yml)
 [![Release](https://github.com/santojon/Deck-Shelves/actions/workflows/release.yml/badge.svg)](https://github.com/santojon/Deck-Shelves/actions/workflows/release.yml)
-[![Tests](https://img.shields.io/badge/vitest-1190%20passed-brightgreen?logo=vitest&logoColor=white)](src/test/)
+[![Tests](https://img.shields.io/badge/vitest-1199%20passed-brightgreen?logo=vitest&logoColor=white)](src/test/)
 [![pytest](https://img.shields.io/badge/pytest-241%20passed-brightgreen?logo=pytest&logoColor=white)](src/test/test_main.py)
 [![TypeCheck](https://img.shields.io/badge/typecheck-clean-brightgreen?logo=typescript&logoColor=white)](tsconfig.json)
 [![Compatibility](https://img.shields.io/badge/checks-40%2F40-brightgreen?logo=steamdeck&logoColor=white)](scripts/build/validate-compat.mjs)
@@ -138,7 +138,7 @@
 - **Own Quick Access tab (experimental, opt-in)** — puts Deck Shelves in the Quick Access tab strip itself, next to Notifications and Settings, instead of only inside Decky's plugin list. Off by default; restart Steam after enabling
 - **Showcase mode (opt-in)** — while idle on the Home, slowly cycles through your shelves like a screensaver; any input stops it instantly. Configurable delay, time per shelf, and randomize order
 - **Screensaver (opt-in, experimental)** — a full-screen slideshow of everything your home screen shows, optionally mixing in your local screenshots too, in place of the built-in one. Your own start delay and time per image, plus an optional game-logo overlay you can resize and reposition to any corner
-- **Cross-device settings sync (opt-in, experimental)** — keep shelves, filters, profiles and every other preference in sync across every device on the same Steam account, using that account's own cloud storage — no extra sign-in, no cost. The **currently-active profile is device-local** (manual or trigger): a *Showcase* profile that docks one machine never flips a handheld device on the same account into it — each device keeps its own current profile while the underlying settings and the profile list still sync
+- **Cross-device settings sync (opt-in, experimental)** — keep shelves, filters, profiles and every other preference in sync across every device on the same Steam account, using that account's own cloud storage — no extra sign-in, no cost. The **currently-active profile is device-local** (manual or trigger): a *Showcase* profile that docks one machine never flips a handheld device on the same account into it — each device keeps its own current profile and its look, while the profile list (each profile's settings and triggers), your shelves and filters still sync, and the plain settings follow only between devices running the same profile
 - Import / export all shelves and smart shelf configuration as JSON
 - Persistent settings across plugin reinstalls
 - Crash protection with automatic retry

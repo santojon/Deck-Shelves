@@ -7,15 +7,17 @@ técnico completo, veja [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+- **Uma linha "Exibir ou ocultar configurações" abaixo do toggle mestre abre ou fecha o sidecar de configurações rápidas**, o mesmo painel que o D-pad direita duas vezes abre, para quem prefere um toque. O sidecar se chama "Exibir ou ocultar", num cabeçalho em abas como o do host independente, e Ctrl+Shift+S o abre por padrão.
+
 - **A Busca Rápida chega ao jogo sempre**, inclusive jogos mais adiante numa fileira ou numa prateleira abaixo da dobra, e reabri-la mantém o texto anterior selecionado em vez de anexar a ele. Um hot-swap do bundle pelo host independente agora entrega a Home à nova instância, com a Home visível de imediato.
 
-- **Jogos fixados, histórico de jogo, filas e tags personalizadas agora funcionam.** Um novo submenu **Listas** no menu do jogo fixa o jogo, coloca-o na fila desta sessão ou até você jogá-lo e edita as tags dele; o histórico de jogo se preenche sozinho, e Categorias do analisador lê as categorias que o seu gerenciador de ROM ou integração de launcher deu a cada atalho. Os gatilhos de perfil agora preservam as configurações que você muda enquanto estão ativos, e o editor de atalhos aceita até três botões e pode ser cancelado.
+- **Jogos fixados, histórico de jogo, filas e tags personalizadas agora funcionam.** Quando uma prateleira, prateleira inteligente, filtro salvo ou perfil usa uma dessas fontes, o menu do jogo de um card de prateleira ganha um submenu **Listas** que fixa o jogo, coloca-o na fila desta sessão ou até você jogá-lo e edita as tags dele; o histórico de jogo se preenche sozinho, e Categorias do analisador lê as categorias que o seu gerenciador de ROM ou integração de launcher deu a cada atalho. Os gatilhos de perfil agora preservam as configurações que você muda enquanto estão ativos, e o editor de atalhos aceita até três botões e pode ser cancelado.
 
 - **Atualizar por um host que instala sozinho ficou mais suave.** O diálogo "Instalando atualização" fecha sozinho assim que a nova versão entra (nada reinicia o Steam), e em máquinas sem um carregador de plugins suas configurações não são mais copiadas para uma pasta de carregador que nada lê.
 
 - **Digitar na Busca Rápida com o teclado na tela voltou a funcionar**, e os gatilhos de perfil ficaram mais confiáveis: desligá-los restaura suas configurações anteriores, eles sobrevivem a um reinício e esperam leituras reais antes de agir. As notificações de atualização agora podem ser silenciadas como as outras áreas.
 
-- **Correções em perfis, sincronização e atalhos.** Perfis vinculados continuam aplicando suas prateleiras após reiniciar; a sincronização entre dispositivos mantém suas edições mais recentes em perfis e filtros salvos; os atalhos de teclado continuam funcionando em sessões longas; a Busca Rápida não aparece mais durante um jogo; um atalho nos botões traseiros não faz mais outro atalho disparar duas vezes; desativar os atalhos de botão do sidecar agora persiste.
+- **Correções em perfis, sincronização e atalhos.** Perfis vinculados continuam aplicando suas prateleiras após reiniciar; a sincronização entre dispositivos mantém suas edições mais recentes em perfis e filtros salvos e, com um perfil diferente ativo em cada dispositivo, o visual de um não sobrescreve mais o do outro; os atalhos de teclado continuam funcionando em sessões longas; a Busca Rápida não aparece mais durante um jogo; um atalho nos botões traseiros não faz mais outro atalho disparar duas vezes; desativar os atalhos de botão do sidecar agora persiste.
 
 - **Configurações mais seguras.** Uma cópia danificada das configurações não pode mais substituir seu último backup bom, as exportações são gravadas com segurança, e desligar o protetor de tela após um reset de fábrica devolve à Steam o seu próprio tempo de inatividade.
 

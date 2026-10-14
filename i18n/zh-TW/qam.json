@@ -71,5 +71,6 @@
   "report_issue_hardware": "包含硬體資訊",
   "report_issue_hardware_desc": "型號、CPU、記憶體、GPU 和儲存空間 — 有助於診斷裝置特有的問題。",
   "sidecar_back": "返回",
-  "coop_stand_in": "在此裝置上，Deck Shelves 透過 ShelvesHub 分頁執行。"
+  "coop_stand_in": "在此裝置上，Deck Shelves 透過 ShelvesHub 分頁執行。",
+  "qam_sidecar_toggle": "顯示或隱藏設定"
 }

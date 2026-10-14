@@ -497,5 +497,15 @@ describe('profile triggers act only on evidence', () => {
     expect(evalProfileTrigger(mixed, MONDAY_NOON)).toBe(true)
     expect(evalProfileTrigger({ ...mixed, mode: 'all' as const }, MONDAY_NOON)).toBe(false)
   })
+
+  it('an external-display rule never fires a trigger before the display probe has answered, while shelf visibility still fails open', () => {
+    // deviceState starts with external = null (not probed yet); nothing here refreshes it.
+    const docked = { mode: 'any' as const, rules: [{ kind: 'externalDisplay' }] }
+    const handheld = { mode: 'any' as const, rules: [{ kind: 'externalDisplay', not: true }] }
+    expect(evalProfileTrigger(docked)).toBe(false)
+    expect(evalProfileTrigger(handheld)).toBe(false)
+    expect(evalVisibilityRules(docked)).toBe(true)
+    expect(resolveTriggeredProfile([{ name: 'Docked', trigger: docked }, { name: 'Handheld', trigger: handheld }])).toBeNull()
+  })
 })
 

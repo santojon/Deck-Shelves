@@ -71,5 +71,6 @@
   "report_issue_hardware": "Incluir informações de hardware",
   "report_issue_hardware_desc": "Modelo, CPU, memória, GPU e armazenamento — ajuda a diagnosticar problemas específicos do dispositivo.",
   "sidecar_back": "Voltar",
-  "coop_stand_in": "O Deck Shelves corre a partir do separador ShelvesHub neste dispositivo."
+  "coop_stand_in": "O Deck Shelves corre a partir do separador ShelvesHub neste dispositivo.",
+  "qam_sidecar_toggle": "Mostrar ou ocultar configurações"
 }

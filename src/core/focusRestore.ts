@@ -35,6 +35,13 @@ export function saveFocusTarget(appid: number, shelfId?: string): void {
   } catch {}
 }
 
+/* Drop a pending restore target and stop its loop: for a driver that takes
+   the focus itself (a dev hook), so no earlier target pulls it back. */
+export function clearFocusTarget(): void {
+  activeAbort?.abort();
+  clearPending();
+}
+
 // The card a Home rebuild should land on, if a restore is pending.
 export function getPendingFocusTarget(): { appid: number; shelfId: string | null } | null {
   if (!pendingAppid || Date.now() - pendingTimestamp > FOCUS_RESTORE_TIMEOUT) return null;
@@ -137,7 +144,9 @@ function hookNavNode(fiber: any, el: HTMLElement): any {
   return null;
 }
 
-function navNodeFromFiber(el: HTMLElement): any {
+// The nav node a Steam Focusable keeps on its own fiber (a ref hook) — found
+// even when the node hangs off a parent that does not list it.
+export function navNodeFromFiber(el: HTMLElement): any {
   try {
     const key = Object.keys(el).find((k) => k.startsWith("__reactFiber$"));
     let fiber: any = key ? (el as any)[key] : null;

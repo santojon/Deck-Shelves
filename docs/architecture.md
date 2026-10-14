@@ -479,7 +479,7 @@ Concurrent `saveSettings` calls coalesce: a save in flight latches the next payl
 
 ### Sidecar lifecycle (`components/qam/qamExpandedStore.ts` + `DeckQAMSettings.tsx`)
 
-QAM-expanded state is per-session: a module value mirrored in `sessionStorage`, and the `DeckQAMSettings` mount effect calls `resetQamExpanded()` (only on the visible tab instance, `isActiveTab`) to wipe even the persisted flag every time the plugin tab mounts. While the sidecar is expanded, a 300 ms poll collapses it when `m_MenuStore.m_eOpenSideMenu` changes relative to the value captured at expand, or when a tick gap over 1.5 s while the document is not visible shows a resume from background. `document.hasFocus()` is not used: the QAM document never holds DOM focus, so it collapsed the sidecar within about 300 ms. Browser-lifecycle listeners add coverage: `visibilitychange` (hidden only), `pagehide` and `freeze` collapse; `focus` and `resume` collapse only while the document is hidden. `SidecarPanel` itself bails (`return null`) when `controller.settings` is unhydrated so a freshly-remounted tab never renders the "open but empty body" bug-state.
+QAM-expanded state is per-session: a module value mirrored in `sessionStorage`, and the `DeckQAMSettings` mount effect calls `resetQamExpanded()` (only on the visible tab instance, `isActiveTab`) to wipe even the persisted flag every time the plugin tab mounts. While the sidecar is expanded, a 300 ms poll collapses it when `m_MenuStore.m_eOpenSideMenu` changes relative to the value captured at expand, or when a tick gap over 1.5 s while the document is not visible shows a resume from background. `document.hasFocus()` is not used: the QAM document never holds DOM focus, so it collapsed the sidecar within about 300 ms. Browser-lifecycle listeners add coverage: `visibilitychange` (hidden only), `pagehide` and `freeze` collapse; `focus` and `resume` collapse only while the document is hidden. `SidecarPanel` itself bails (`return null`) when `controller.settings` is unhydrated so a freshly-remounted tab never renders the "open but empty body" bug-state. A compact action row right under the master toggle (`toggleSidecar`, the sidecar's gear icon) opens or closes the sidecar through the same `fireQamExpand` path as the dpad-right chord and the B button, so the compositor widens or narrows together with the store flag.
 
 ### Own QAM tab under Decky alone (`runtime/ownQamTab.ts`)
 
@@ -491,7 +491,7 @@ Opt-in, off by default (`showcaseModeEnabled`). During Home inactivity, cycles f
 
 ### Keyboard bindings (`runtime/keyboardBindings.ts`)
 
-Every gamepad binding (card hide/highlight/quick-launch, Quick Search, Side Nav, Sidecar open/close) also has an independent keyboard shortcut slot — either input fires the same action, neither replaces the other. Uses `KeyboardEvent.code` (layout-independent) with the same single/chord/double-tap grammar the gamepad parser already has, including modifier chords. Card-action and nav-search/side-nav keys are captured via the existing Home input bus (already proven for "type to filter"); the QAM sidecar's own open/close keys use a plain `keydown` listener scoped to that window. Ignored while a text field has focus.
+Every gamepad binding (card hide/highlight/quick-launch, Quick Search, Side Nav, Sidecar open/close) also has an independent keyboard shortcut slot — either input fires the same action, neither replaces the other. Uses `KeyboardEvent.code` (layout-independent) with the same single/chord/double-tap grammar the gamepad parser already has, including modifier chords. Card-action and nav-search/side-nav keys are captured via the existing Home input bus (already proven for "type to filter"); the QAM sidecar's own open/close keys use a plain `keydown` listener scoped to that window. Ignored while a text field has focus. Keyboard slots start unset, except the sidecar open key, which defaults to Ctrl+Shift+S (`ControlLeft+ShiftLeft+KeyS`).
 
 ### Own idle screensaver (`runtime/screensaverInject.ts`, `runtime/steamSettingsWriter.ts`)
 
@@ -499,7 +499,7 @@ Opt-in, off by default (`screensaverShelvesEnabled`). Replaces Steam's native id
 
 ### Cross-device settings sync (`runtime/cloudSync.ts`)
 
-Opt-in, off by default (`cloudSyncEnabled`). Mirrors settings across devices on the same Steam account via `SteamClient.RoamingStorage` — not real Steam Cloud (`ISteamRemoteStorage` is per-appid; a plugin has none). Local storage stays authoritative; this is a timestamp-LWW third mirror, reconciled once at boot/toggle-on and pushed on a debounce afterward, no polling.
+Opt-in, off by default (`cloudSyncEnabled`). Mirrors settings across devices on the same Steam account via `SteamClient.RoamingStorage` — not real Steam Cloud (`ISteamRemoteStorage` is per-appid; a plugin has none). Local storage stays authoritative; this is a timestamp-LWW third mirror, reconciled once at boot/toggle-on and pushed on a debounce afterward, no polling. The payload carries the pusher's active profile name (`syncActiveProfile`, information only; `activeProfileName` itself stays device-local): the scalar settings are adopted, and folded into the active profile, only between devices running the same profile or none; otherwise each device keeps its own and only the list entities merge.
 
 ## Home internals
 

@@ -34,12 +34,15 @@ const screenshotsFixture = __DEV__ && typeof __QA_SCREENSHOTS_FIXTURE__ !== "und
 // seen, the setup wizard never applied — exercises tour → wizard end to end.
 const freshInstall = __DEV__ && typeof __QA_FRESH_INSTALL__ !== "undefined" && __QA_FRESH_INSTALL__;
 let freshSeeded = false;
+// The video fixture is a seed as well: the content-script recordings edit a
+// shelf and must see the edit stick on the Home, not be re-forced away.
+let videoSeeded = false;
 
-/* True once the fresh-install seed has been applied this session: the store
-   then ignores untagged payloads (backend refreshes), which would otherwise
-   re-seed and undo what the session did in memory. */
+/* True once a seed fixture (fresh install, video) has been applied this
+   session: the store then ignores untagged payloads (backend refreshes), which
+   would otherwise re-seed and undo what the session did in memory. */
 export function qaSeedActive(): boolean {
-  return freshInstall && freshSeeded;
+  return (freshInstall && freshSeeded) || (videoFixture && videoSeeded);
 }
 // perf:bench baseline matrix (vanilla/empty/typical/stress/large/huge) — scenario
 // picked at RUNTIME from localStorage (not a build constant) so one build covers all six without
@@ -800,6 +803,8 @@ export function applyQASettingsOverride(s: Settings): Settings {
     } as Settings);
   }
   if (videoFixture) {
+    if (videoSeeded && (s as any).__dsQaOverride === true) return s;
+    videoSeeded = true;
     const f = qaVideoFixture();
     return tag({
       // Built on the defaults, like the screenshots fixture, so a recording looks

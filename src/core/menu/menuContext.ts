@@ -106,6 +106,9 @@ export const DS_ROOT_KEYS = new Set([
      shouldComponentUpdate hook fired against the same menu instance. */
   "ds-card-add-shelf", "ds-card-remove-shelf",
   "ds-lib-add-shelf", "ds-lib-remove-shelf",
+  // The Lists group (pinned games, queues, tags) on both paths; a group key
+  // missing here is re-added on every render pass of the menu.
+  "ds-lists", "ds-lib-lists",
   // Synthetic-card top-level decoration shortcut (when the user opens
   // the menu on a decoration card from showSyntheticCardMenu).
   "ds-syn-decoration-top",

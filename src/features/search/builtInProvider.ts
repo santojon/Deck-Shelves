@@ -236,7 +236,7 @@ function revealAndFocus(doc: Document, appid: number, shelfId: string): void {
   beginFocusRestoreLoop();
 }
 
-function focusShelfCard(appid: number, shelfId: string | null): void {
+export function focusShelfCard(appid: number, shelfId: string | null): void {
   const g = globalThis as unknown as { CSS?: { escape?: (s: string) => string } };
   const escape = (s: string) => g.CSS?.escape?.(s) ?? s.replace(/["\\]/g, "\\$&");
   const doc = getPreferredSteamDocument() ?? document;

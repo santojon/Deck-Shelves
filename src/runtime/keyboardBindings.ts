@@ -132,16 +132,18 @@ export function findKeyCollisions(b: KeyboardBindings): string[][] {
   return Array.from(seen.values()).filter((arr) => arr.length > 1);
 }
 
-// Unlike gamepad bindings, every keyboard binding defaults to unset —
-// opting a keyboard into an action is something the user turns on
-// explicitly, not something that should suddenly claim a key press.
+/* Unlike gamepad bindings, keyboard bindings default to unset — opting a
+   keyboard into an action is something the user turns on explicitly, not
+   something that should suddenly claim a key press. The one exception is the
+   quick-settings sidecar: Ctrl+Shift+S opens it out of the box (the same
+   chord family the standalone host's sidecar uses). */
 export const DEFAULT_KEYBOARD_BINDINGS: Required<KeyboardBindings> = {
   cardHideRemove: null,
   cardHighlightToggle: null,
   cardQuickLaunch: null,
   navSearch: null,
   navSideNav: null,
-  navSidecarOpen: null,
+  navSidecarOpen: "ControlLeft+ShiftLeft+KeyS",
   navSidecarClose: null,
 };
 
@@ -153,8 +155,9 @@ export function resolveKeyboardBindings(
   cardActionsEnabled: boolean = true,
 ): Required<KeyboardBindings> {
   const ds = new Set(disabled ?? []);
+  // An absent field takes the default; an explicit null is a cleared slot and stays unset.
   const pick = (key: keyof KeyboardBindings, raw: string | null | undefined) =>
-    (!cardActionsEnabled && CARD_BINDING_KEYS.has(key)) || ds.has(key) ? null : (raw ?? null);
+    (!cardActionsEnabled && CARD_BINDING_KEYS.has(key)) || ds.has(key) ? null : (raw === undefined ? DEFAULT_KEYBOARD_BINDINGS[key] : raw);
   return {
     cardHideRemove: pick("cardHideRemove", b?.cardHideRemove),
     cardHighlightToggle: pick("cardHighlightToggle", b?.cardHighlightToggle),

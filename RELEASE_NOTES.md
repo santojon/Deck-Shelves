@@ -7,15 +7,17 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+- **A "Show or hide settings" row under the master toggle opens or closes the quick-settings sidecar**, the same panel the double dpad-right opens, for anyone who prefers a tap. The sidecar is titled "Show or hide" in a tab header like the standalone host's, and Ctrl+Shift+S opens it by default.
+
 - **Quick Search lands on the game every time**, including games further along a row or on a shelf below the fold, and reopening it keeps the previous text selected instead of appending to it. A bundle hot-swap by the standalone host now hands the Home to the new instance, with the Home visible right away.
 
-- **Pinned games, play history, queues and custom tags now work.** A new **Lists** submenu in the game menu pins a game, queues it for this session or until you play it, and edits its tags; play history fills by itself, and Parser categories reads the categories your ROM manager or launcher integration gave each shortcut. Profile triggers now keep the settings you change while they are active, and the shortcut editor takes up to three buttons and can be cancelled.
+- **Pinned games, play history, queues and custom tags now work.** Once a shelf, smart shelf, saved filter or profile uses one of these sources, the game menu of a shelf card gains a **Lists** submenu that pins a game, queues it for this session or until you play it, and edits its tags; play history fills by itself, and Parser categories reads the categories your ROM manager or launcher integration gave each shortcut. Profile triggers now keep the settings you change while they are active, and the shortcut editor takes up to three buttons and can be cancelled.
 
 - **Updating through a self-installing host is smoother.** The "Installing update" dialog closes by itself once the new version is in (nothing restarts Steam), and on machines without a plugin loader your settings are no longer copied into a loader folder that nothing reads.
 
 - **Typing in Quick Search with the on-screen keyboard works again**, and profile triggers are more dependable: switching them off restores your previous settings, they survive a restart, and they wait for real readings before acting. Update notifications can now be muted like the other areas.
 
-- **Fixes for profiles, sync and shortcuts.** Linked profiles keep applying their shelves after a restart; cross-device sync keeps your latest profile and saved-filter edits; keyboard shortcuts keep working in long sessions; Quick Search no longer pops up during a game; a back-grip shortcut no longer makes another shortcut fire twice; turning off the sidecar's button shortcuts now sticks.
+- **Fixes for profiles, sync and shortcuts.** Linked profiles keep applying their shelves after a restart; cross-device sync keeps your latest profile and saved-filter edits and, with a different profile active on each device, one device's look no longer overwrites the other's; keyboard shortcuts keep working in long sessions; Quick Search no longer pops up during a game; a back-grip shortcut no longer makes another shortcut fire twice; turning off the sidecar's button shortcuts now sticks.
 
 - **Safer settings.** A damaged settings copy can no longer replace your last good backup, exports are written safely, and turning the screensaver off after a factory reset gives Steam back its own idle timeout.
 

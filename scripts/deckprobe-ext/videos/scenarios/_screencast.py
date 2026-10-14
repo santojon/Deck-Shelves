@@ -65,6 +65,12 @@ class _Timed:
                 self.session.call("Page.screencastFrameAck", {"sessionId": sid}, timeout=2.0)
             except Exception:  # noqa: BLE001
                 pass
+            # The call above stretches the socket timeout to 15 s; the receive
+            # loop needs its short one back to notice a stop promptly.
+            try:
+                self.session.sock.settimeout(0.5)
+            except Exception:  # noqa: BLE001
+                pass
 
     def start(self) -> None:
         self.session.call("Page.startScreencast", {"format": "jpeg", "quality": 80, "maxWidth": 1280, "maxHeight": 800, "everyNthFrame": 1}, timeout=5.0)
@@ -72,7 +78,10 @@ class _Timed:
         self._thread.start()
 
     def stop(self) -> float:
+        """Stop recording; returns the moment the recording ended (the last
+        frame holds until then), taken before the connection teardown."""
         time.sleep(0.6)
+        ended = time.time()
         self._stop.set()
         self._thread.join(timeout=5.0)
         try:
@@ -80,7 +89,7 @@ class _Timed:
         except Exception:  # noqa: BLE001
             pass
         self.session.close()
-        return time.time()
+        return ended
 
 
 def _encode(frames: List[Tuple[float, Path]], started: float, ended: float, out_path: Path, fps: int) -> None:

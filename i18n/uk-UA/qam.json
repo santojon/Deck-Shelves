@@ -71,5 +71,6 @@
   "report_issue_hardware": "Включити відомості про обладнання",
   "report_issue_hardware_desc": "Модель, CPU, пам'ять, GPU і сховище — допомагає діагностувати проблеми конкретного пристрою.",
   "sidecar_back": "Назад",
-  "coop_stand_in": "Deck Shelves працює на цьому пристрої через вкладку ShelvesHub."
+  "coop_stand_in": "Deck Shelves працює на цьому пристрої через вкладку ShelvesHub.",
+  "qam_sidecar_toggle": "Показати або приховати налаштування"
 }

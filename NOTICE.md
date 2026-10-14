@@ -12,7 +12,9 @@ not a claim of endorsement or affiliation.
 
 - **[Decky Loader](https://github.com/SteamDeckHomebrew/decky-loader)** — the homebrew plugin platform Deck
   Shelves runs on. The plugin uses the Decky SDK (`@decky/api`, `@decky/ui`)
-  for its Python↔frontend bridge, UI primitives, routing, and toasts.
+  for its Python↔frontend bridge, UI primitives, routing, and toasts, through
+  one adapter module (`src/runtime/host/decky.ts`) so the same code also runs
+  on a standalone host runtime by the same author.
   *Used throughout.*
 
 ## Inspirations & interoperability
@@ -21,13 +23,14 @@ not a claim of endorsement or affiliation.
   Shelves' filter model: the nested **filter-group** shape (AND/OR groups of
   typed filters). Deck Shelves also reads TabMaster's tab context at runtime so
   shelves can reuse user-defined tabs when TabMaster is installed.
-  *Used in: the filter-group system (`src/types.ts`, the filter evaluation in
-  `src/steam/`) and TabMaster interop (`src/integrations/tabmaster.ts`,
-  `findTabMasterContextValue`).*
+  *Used in: the filter-group system (`src/types.ts`, `src/steam/filterEval.ts`)
+  and TabMaster interop (`src/integrations/tabmaster.ts`: reading its saved
+  tabs and turning a tab into a shelf source or an import).*
 
 - **[UnifiDeck](https://github.com/mubaraknumann/unifideck)** — Deck Shelves
-  interoperates with UnifiDeck, reading its public state so the two coexist on
-  the home. *Used in: `src/integrations/unifideck.ts`.*
+  interoperates with UnifiDeck, reading the collections and library tabs it
+  publishes so shelves and filters can tell its games apart and the two coexist
+  on the home. *Used in: `src/steam/localLibrary.ts`, `src/steam/libraryTabs.ts`.*
 
 - **[SteamGridDB](https://github.com/SteamGridDB/decky-steamgriddb)** — Deck
   Shelves' compatibility checks validate that custom art applied by the
@@ -60,9 +63,14 @@ not a claim of endorsement or affiliation.
   *Used in: `src/runtime/recentsReplace.tsx`.*
 
 - **[SDH-CssLoader](https://github.com/DeckThemes/SDH-CssLoader) and community
-  home themes** — *ArtHero*, *Centered Home*, *TiltedHome / Renaissance*, *Obsidian*, and *Round* (on [DeckThemes](https://github.com/DeckThemes)). Deck Shelves detects these and visually mirrors their home treatments so shelves stay consistent with the active theme.
-  *Used in: theme detection + visual mirroring (`src/core/cssLoaderDetect.ts`,
-  the per-shelf hero / tilt rendering).*
+  home themes** — *ArtHero*, *Big Art*, *Centered Home*, *Clean Library Capsule*,
+  *Gray Uninstalled*, *Hero Fullscreen*, *No Hero Gradient*, *No Home Text*,
+  *Obsidian*, *Round* (focus highlight colour), *Switch Like Home*, and
+  *TiltedHome / Renaissance* (on [DeckThemes](https://github.com/DeckThemes)).
+  Deck Shelves detects these and visually mirrors their home treatments so
+  shelves stay consistent with the active theme.
+  *Used in: one adapter per theme under `src/themes/adapters/` with the
+  registry in `src/themes/`, detection in `src/core/cssLoaderDetect.ts`.*
 
 ## Steam / SteamOS
 
@@ -71,7 +79,22 @@ recents, and Quick Access surfaces). Steam, SteamOS, and Steam Deck are
 trademarks of Valve Corporation. Deck Shelves is an unofficial, community
 plugin and is not affiliated with or endorsed by Valve.
 
+## Online services
+
+Everything works offline by default. The opt-in online shelves (wishlist,
+prices, deals) read Steam's own store and community endpoints
+(`store.steampowered.com`, `api.steampowered.com`, `steamcommunity.com`) and
+Steam's artwork CDNs; update checks ask GitHub's releases API for this
+repository (the pre-release channel is opt-in). No other server is contacted,
+and nothing is sent anywhere except those requests. The project website (built
+from `site/`) uses GoatCounter for cookie-free page counts.
+
 ## Dependencies
 
-Third-party libraries (notably `@decky/ui`, `@decky/api`, `react-i18next`, and
-`zod`) are used under their respective licenses; see each package for details.
+Runtime libraries: `react` / `react-dom`, `i18next` / `react-i18next` and `zod`,
+plus the Decky SDK packages the loader provides (`@decky/ui`, `@decky/api`), each
+under its own license; see the packages for details. The Python backend uses
+only the standard library. Build and test tooling (Vite, esbuild, TypeScript,
+ESLint, Vitest) never ships. The `api`, `host` and `deckprobe` folders are git
+submodules of the author's own sibling projects (the public plugin API, the host
+contract and the device QA toolkit), each with its own notices.

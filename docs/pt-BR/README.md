@@ -9,7 +9,7 @@
 
 [![CI](https://github.com/santojon/Deck-Shelves/actions/workflows/ci.yml/badge.svg)](https://github.com/santojon/Deck-Shelves/actions/workflows/ci.yml)
 [![Release](https://github.com/santojon/Deck-Shelves/actions/workflows/release.yml/badge.svg)](https://github.com/santojon/Deck-Shelves/actions/workflows/release.yml)
-[![Tests](https://img.shields.io/badge/vitest-1190%20passed-brightgreen?logo=vitest&logoColor=white)](../../src/test/)
+[![Tests](https://img.shields.io/badge/vitest-1199%20passed-brightgreen?logo=vitest&logoColor=white)](../../src/test/)
 [![pytest](https://img.shields.io/badge/pytest-241%20passed-brightgreen?logo=pytest&logoColor=white)](../../src/test/test_main.py)
 [![TypeCheck](https://img.shields.io/badge/typecheck-clean-brightgreen?logo=typescript&logoColor=white)](../../tsconfig.json)
 [![Compatibility](https://img.shields.io/badge/checks-40%2F40-brightgreen?logo=steamdeck&logoColor=white)](../../scripts/build/validate-compat.mjs)
@@ -138,7 +138,7 @@
 - **Aba própria no Quick Access (experimental, opcional)** — coloca o Deck Shelves na própria faixa de abas do Quick Access, ao lado de Notificações e Configurações, em vez de só dentro da lista de plugins do Decky. Desativado por padrão; reinicie a Steam após ativar
 - **Modo Vitrine (opcional)** — enquanto ocioso na Home, percorre lentamente suas prateleiras como um protetor de tela; qualquer entrada o interrompe instantaneamente. Atraso configurável, tempo por prateleira, e ordem aleatória
 - **Protetor de tela (opcional, experimental)** — uma apresentação de slides em tela cheia de tudo que sua tela inicial mostra, opcionalmente misturando suas próprias capturas de tela locais também, no lugar do protetor de tela nativo. Seu próprio atraso de início e tempo por imagem, além de uma sobreposição opcional do logo do jogo que você pode redimensionar e reposicionar para qualquer canto
-- **Sincronização de configurações entre dispositivos (opcional, experimental)** — mantenha prateleiras, filtros, perfis e todas as outras preferências sincronizadas entre todos os dispositivos da mesma conta Steam, usando o armazenamento em nuvem dessa própria conta — sem login extra, sem custo. O **perfil ativo no momento é local por dispositivo** (manual ou por gatilho): um perfil *Vitrine* que ativa numa máquina ao encaixar nunca vira um dispositivo portátil na mesma conta para esse perfil — cada dispositivo mantém seu próprio perfil atual enquanto as configurações subjacentes e a lista de perfis continuam sincronizando
+- **Sincronização de configurações entre dispositivos (opcional, experimental)** — mantenha prateleiras, filtros, perfis e todas as outras preferências sincronizadas entre todos os dispositivos da mesma conta Steam, usando o armazenamento em nuvem dessa própria conta — sem login extra, sem custo. O **perfil ativo no momento é local por dispositivo** (manual ou por gatilho): um perfil *Vitrine* que ativa numa máquina ao encaixar nunca vira um dispositivo portátil na mesma conta para esse perfil — cada dispositivo mantém seu próprio perfil atual e seu visual, enquanto a lista de perfis (as configurações e os gatilhos de cada perfil), suas prateleiras e filtros continuam sincronizando, e as configurações comuns só acompanham entre dispositivos rodando o mesmo perfil
 - Importe/exporte todas as prateleiras e a configuração de prateleira inteligente como JSON
 - Configurações persistentes entre reinstalações do plugin
 - Proteção contra falhas com nova tentativa automática

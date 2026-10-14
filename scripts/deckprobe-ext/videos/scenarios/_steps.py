@@ -165,6 +165,11 @@ def prepare_home(sjc: Session, host: str, port: int, timeout: float = 25.0) -> b
     force_locale(sjc)
     nav.ensure_bp_clean(sjc, host, port)
     ok = settle_home(host, port, timeout)
+    # Every clip opens from the same state: the first shelf's first card
+    # focused (its row back at the start, the hero art following it).
+    first = nav._bp_eval(host, port, "(function(){var s=document.querySelector('.ds-shelf[data-shelfid]');return s?s.getAttribute('data-shelfid'):null;})()")
+    if first:
+        focus_shelf(host, port, first)
     time.sleep(1.5)
     gamepad_glyphs(sjc)
     return ok
@@ -209,6 +214,31 @@ def focus_shelf(host: str, port: int, shelf_id: str, offset: int = 200) -> bool:
     its row only when it comes near)."""
     nav._bp_eval(host, port, f"(function(){{var s=document.querySelector('.ds-shelf[data-shelfid=\"{shelf_id}\"]');if(s)s.scrollIntoView({{block:'center'}});}})()")
     await_shelf_cards(host, port, shelf_id, timeout=8.0)
+    # Steam's own focus through the plugin's hook when the build has it (a
+    # plain DOM focus is not what the nav tree remembers, and it can jump
+    # back to its last node on the next re-render).
+    appid = nav._bp_eval(host, port, f"(function(){{var c=document.querySelector('.ds-shelf[data-shelfid=\"{shelf_id}\"] .ds-card[data-appid]');return c?c.getAttribute('data-appid'):null;}})()")
+    if appid:
+        try:
+            sjc = open_session(host, port, "SharedJSContext")
+            try:
+                hook = f"(function(){{try{{return window.__ds_dev_focus_card ? window.__ds_dev_focus_card({int(appid)}, {shelf_id!r}) : null;}}catch(e){{return null;}}}})()"
+                hooked = sjc.evaluate(hook)
+                # A re-render right after the call can put the focus back where the
+                # nav tree had it; check the focused card's shelf and insist once.
+                for _ in range(2):
+                    if hooked is not True:
+                        break
+                    time.sleep(0.5)
+                    if focused_shelf(host, port) == shelf_id:
+                        return True
+                    hooked = sjc.evaluate(hook)
+            finally:
+                sjc.close()
+            if hooked is True:
+                return True
+        except Exception:  # noqa: BLE001
+            pass
     r = nav._bp_eval(host, port, f"""
 (function(){{
   const shelf = document.querySelector('.ds-shelf[data-shelfid="{shelf_id}"]'); if (!shelf) return false;
@@ -228,6 +258,88 @@ def focus_shelf(host: str, port: int, shelf_id: str, offset: int = 200) -> bool:
   return true;
 }})()""")
     return r is True
+
+
+def _focus_card_hook(host: str, port: int, appid: str, shelf_id: str) -> bool:
+    try:
+        sjc = open_session(host, port, "SharedJSContext")
+        try:
+            return sjc.evaluate(f"(function(){{try{{return window.__ds_dev_focus_card ? window.__ds_dev_focus_card({int(appid)}, {shelf_id!r}) : null;}}catch(e){{return null;}}}})()") is True
+        finally:
+            sjc.close()
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def walk_cards(host: str, port: int, shelf_id: str, steps: int, pause: float = 0.6) -> int:
+    """Move the focus card by card along a shelf the way the Side Nav and the
+    search do (Steam's own focus through the plugin's hook): no key events, so
+    the footer keeps its controller glyphs. Negative `steps` walk left.
+    Returns how many moves landed."""
+    moved = 0
+    direction = 1 if steps > 0 else -1
+    for _ in range(abs(steps)):
+        target = nav._bp_eval(host, port, f"""
+(function(){{
+  const shelf = document.querySelector('.ds-shelf[data-shelfid="{shelf_id}"]'); if (!shelf) return null;
+  const cards = Array.from(shelf.querySelectorAll('.ds-card[data-appid]'));
+  const focused = shelf.querySelector('.ds-card.gpfocus') || (document.activeElement && document.activeElement.closest && document.activeElement.closest('.ds-card[data-appid]'));
+  const i = cards.indexOf(focused);
+  const next = cards[(i < 0 ? 0 : i) + {direction}];
+  return next ? next.getAttribute('data-appid') : null;
+}})()""")
+        if not target or not _focus_card_hook(host, port, target, shelf_id):
+            break
+        moved += 1
+        time.sleep(pause)
+    return moved
+
+
+def sidenav_pick(host: str, port: int, index: int) -> bool:
+    """Choose the n-th entry of the open Side Nav by clicking it."""
+    r = nav._bp_eval(host, port, f"""
+(function(){{
+  const items = Array.from(document.querySelectorAll('.ds-sidenav-overlay button, .ds-sidenav-overlay [role=button], .ds-sidenav-overlay .Focusable'))
+    .filter((e) => (e.textContent || '').trim().length > 0 && e.getBoundingClientRect().height > 10);
+  const el = items[{index}]; if (!el) return false;
+  el.click(); return true;
+}})()""")
+    return r is True
+
+
+def scroll_page(host: str, port: int, px: int) -> bool:
+    """Scroll the full-page Settings / About route content smoothly by `px`."""
+    r = nav._bp_eval(host, port, f"""
+(function(){{
+  const page = document.querySelector('.deck-shelves-settings-page') || document.body;
+  let el = page;
+  while (el) {{ try {{ const oy = (getComputedStyle(el).overflowY || '').toLowerCase(); if ((oy === 'auto' || oy === 'scroll' || oy === 'overlay') && el.scrollHeight > el.clientHeight) break; }} catch (e) {{}} el = el.parentElement; }}
+  if (!el) return false;
+  try {{ el.scrollBy({{ top: {px}, behavior: 'smooth' }}); }} catch (e) {{ el.scrollTop += {px}; }}
+  return true;
+}})()""")
+    return r is True
+
+
+def focused_shelf(host: str, port: int):
+    """The shelf id holding Steam's focused card, or None."""
+    return nav._bp_eval(host, port, "(function(){var f=document.querySelector('.gpfocus')||document.activeElement;var s=f&&f.closest?f.closest('.ds-shelf[data-shelfid]'):null;return s?s.getAttribute('data-shelfid'):null;})()")
+
+
+def await_card_art(host: str, port: int, shelf_id: str, min_ready: int = 4, timeout: float = 10.0) -> bool:
+    """Wait until the shelf's first cards have their art loaded (online shelves
+    fetch it over the network, and a grey card is not what a clip should open on)."""
+    deadline = time.time() + timeout
+    expr = f"""
+(function(){{
+  const imgs = Array.from(document.querySelectorAll('.ds-shelf[data-shelfid="{shelf_id}"] .ds-card img')).slice(0, {min_ready});
+  return imgs.length >= {min_ready} && imgs.every(i => i.complete && i.naturalWidth > 32);
+}})()"""
+    while time.time() < deadline:
+        if nav._bp_eval(host, port, expr) is True:
+            return True
+        time.sleep(0.5)
+    return False
 
 
 def await_shelf_cards(host: str, port: int, shelf_id: str, timeout: float = 12.0) -> bool:
@@ -301,6 +413,16 @@ def open_profile_trigger(host: str, port: int, profile_name: str) -> bool:
 
 def overlay_open(host: str, port: int, selector: str) -> bool:
     return nav._bp_eval(host, port, f"!!document.querySelector({selector!r})") is True
+
+
+def await_gone(host: str, port: int, selector: str, timeout: float = 8.0) -> bool:
+    """Wait until no element matches `selector` (an overlay closed by itself)."""
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if not overlay_open(host, port, selector):
+            return True
+        time.sleep(0.3)
+    return False
 
 
 def card_query(sjc: Session, host: str, port: int, index: int = 0) -> str:

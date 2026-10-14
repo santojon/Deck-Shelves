@@ -71,5 +71,6 @@
   "report_issue_hardware": "Includi informazioni hardware",
   "report_issue_hardware_desc": "Modello, CPU, memoria, GPU e archiviazione: aiuta a diagnosticare problemi specifici del dispositivo.",
   "sidecar_back": "Indietro",
-  "coop_stand_in": "Deck Shelves viene eseguito dalla scheda ShelvesHub su questo dispositivo."
+  "coop_stand_in": "Deck Shelves viene eseguito dalla scheda ShelvesHub su questo dispositivo.",
+  "qam_sidecar_toggle": "Mostra o nascondi le impostazioni"
 }

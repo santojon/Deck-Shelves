@@ -71,5 +71,6 @@
   "report_issue_hardware": "Dołącz informacje o sprzęcie",
   "report_issue_hardware_desc": "Model, CPU, pamięć, GPU i pamięć masowa — pomaga diagnozować problemy specyficzne dla urządzenia.",
   "sidecar_back": "Wstecz",
-  "coop_stand_in": "Deck Shelves działa na tym urządzeniu z karty ShelvesHub."
+  "coop_stand_in": "Deck Shelves działa na tym urządzeniu z karty ShelvesHub.",
+  "qam_sidecar_toggle": "Pokaż lub ukryj ustawienia"
 }

@@ -56,12 +56,12 @@ def _custom_shelves(ctx: Context) -> None:
     s.focus_shelf(ctx.host, ctx.port, "vid_favorites")
     s.wait(0.8)
     ctx.cue("walk the first shelf")
-    s.press(ctx.host, ctx.port, "right", times=4, pause=0.55)
+    s.walk_cards(ctx.host, ctx.port, "vid_favorites", 4, pause=0.7)
     s.wait(1.0)
-    s.press(ctx.host, ctx.port, "down", times=1)
+    s.focus_shelf(ctx.host, ctx.port, "vid_sm_quick")
     s.wait(1.2)
     ctx.cue("second shelf")
-    s.press(ctx.host, ctx.port, "right", times=3, pause=0.55)
+    s.walk_cards(ctx.host, ctx.port, "vid_sm_quick", 3, pause=0.7)
     s.wait(1.0)
     ctx.cue("the shelf editor: source, sort, limit")
     if _open_editor(ctx, "vid_favorites"):
@@ -86,12 +86,12 @@ def _smart_shelves(ctx: Context) -> None:
     s.focus_shelf(ctx.host, ctx.port, "vid_sm_quick")
     ctx.cue("Quick Play (smart)")
     s.wait(2.0)
-    s.press(ctx.host, ctx.port, "right", times=3, pause=0.6)
+    s.walk_cards(ctx.host, ctx.port, "vid_sm_quick", 3, pause=0.7)
     s.wait(1.0)
-    s.press(ctx.host, ctx.port, "down", times=1)
+    s.focus_shelf(ctx.host, ctx.port, "vid_sm_deck")
     s.wait(1.2)
     ctx.cue("Deck Picks (smart)")
-    s.press(ctx.host, ctx.port, "right", times=3, pause=0.6)
+    s.walk_cards(ctx.host, ctx.port, "vid_sm_deck", 3, pause=0.7)
     s.wait(1.5)
 
 
@@ -106,7 +106,7 @@ def _filters(ctx: Context) -> None:
     s.focus_shelf(ctx.host, ctx.port, "vid_acclaimed")
     ctx.cue("filtered shelf: installed + played, by playtime")
     s.wait(2.0)
-    s.press(ctx.host, ctx.port, "right", times=4, pause=0.55)
+    s.walk_cards(ctx.host, ctx.port, "vid_acclaimed", 4, pause=0.7)
     s.wait(1.0)
     ctx.cue("its editor, Filters tab: two stacked conditions")
     if _open_editor(ctx, "vid_acclaimed", tab="filter"):
@@ -125,18 +125,18 @@ def filters(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Path
 
 def _visual(ctx: Context) -> None:
     s.wait(1.0)
-    s.focus_shelf(ctx.host, ctx.port, "vid_now_playing")
-    ctx.cue("featured first card + hero art")
+    s.focus_shelf(ctx.host, ctx.port, "vid_favorites")
+    ctx.cue("the first shelf in the recents row, with hero art")
     s.wait(2.5)
-    s.press(ctx.host, ctx.port, "right", times=2, pause=0.8)
+    s.walk_cards(ctx.host, ctx.port, "vid_favorites", 2, pause=1.0)
     s.wait(1.0)
-    s.press(ctx.host, ctx.port, "right", times=2, pause=0.8)
-    ctx.cue("hero follows the focused game")
+    s.walk_cards(ctx.host, ctx.port, "vid_favorites", 2, pause=1.0)
+    ctx.cue("the hero art follows the focused game")
     s.wait(2.5)
-    s.press(ctx.host, ctx.port, "left", times=4, pause=0.4)
+    s.walk_cards(ctx.host, ctx.port, "vid_favorites", -4, pause=0.5)
     s.wait(1.0)
     ctx.cue("the Visual tab: highlight, hero, labels")
-    if _open_editor(ctx, "vid_now_playing", tab="visual"):
+    if _open_editor(ctx, "vid_favorites", tab="visual"):
         s.wait(4.0)
         s.dismiss_modal(ctx.host, ctx.port)
     s.home(ctx.sjc, ctx.host, ctx.port)
@@ -158,20 +158,22 @@ def _search_sidenav(ctx: Context) -> None:
     # exposes an opener so a script can show it, seeded with a query that
     # matches a game on this device, without input emulation.
     # A query for a card further along the shelf: the pill opens with the
-    # on-screen keyboard, the match is revealed and focused, the pill closes.
+    # on-screen keyboard, and once the match is found the search lands on
+    # that card and the pill closes by itself.
     query = s.card_query(ctx.sjc, ctx.host, ctx.port, index=4)
     s.run_in_plugin(ctx.sjc, OPEN_SEARCH % json.dumps(query))
-    s.wait(3.5)
-    ctx.cue(f"typed '{query}': the matching card is focused")
-    s.run_in_plugin(ctx.sjc, CLOSE_SEARCH)
-    s.wait(2.0)
+    ctx.cue(f"typed '{query}'")
+    landed = s.await_gone(ctx.host, ctx.port, ".ds-search-overlay", timeout=8.0)
+    ctx.cue("landed on the matching card" if landed else "the pill stayed open")
+    if not landed:
+        s.run_in_plugin(ctx.sjc, CLOSE_SEARCH)
+    s.wait(2.5)
     ctx.cue("L1 twice: Side Nav")
     s.run_in_plugin(ctx.sjc, OPEN_SIDENAV)
     s.wait(2.5)
     if s.overlay_open(ctx.host, ctx.port, ".ds-sidenav-overlay"):
-        s.press(ctx.host, ctx.port, "down", times=2, pause=0.7)
         s.wait(1.0)
-        s.press(ctx.host, ctx.port, "enter", times=1)
+        s.sidenav_pick(ctx.host, ctx.port, 2)
         s.wait(2.0)
         ctx.cue("landed on the chosen shelf")
     else:
@@ -213,17 +215,17 @@ def profiles_triggers(sjc: Session, host: str, port: int, out_dir: Path) -> Dict
 
 def _online(ctx: Context) -> None:
     s.wait(1.0)
-    s.await_shelf_cards(ctx.host, ctx.port, "vid_wishlist", timeout=15.0)
     s.focus_shelf(ctx.host, ctx.port, "vid_wishlist")
+    s.await_card_art(ctx.host, ctx.port, "vid_wishlist")
     ctx.cue("Wishlist shelf: prices and discounts on the home")
     s.wait(2.0)
-    s.press(ctx.host, ctx.port, "right", times=4, pause=0.6)
+    s.walk_cards(ctx.host, ctx.port, "vid_wishlist", 4, pause=0.7)
     s.wait(1.0)
-    s.await_shelf_cards(ctx.host, ctx.port, "vid_on_sale", timeout=10.0)
     s.focus_shelf(ctx.host, ctx.port, "vid_on_sale")
+    s.await_card_art(ctx.host, ctx.port, "vid_on_sale")
     ctx.cue("On sale now: the store's deals")
     s.wait(1.5)
-    s.press(ctx.host, ctx.port, "right", times=4, pause=0.6)
+    s.walk_cards(ctx.host, ctx.port, "vid_on_sale", 4, pause=0.7)
     s.wait(1.5)
     ctx.cue("opt in, browse, plan")
     s.wait(1.0)
@@ -247,7 +249,9 @@ def _power_tools(ctx: Context) -> None:
     s.click_tab(ctx.host, ctx.port, "advanced")
     ctx.cue("Advanced tools: snapshots, caches, diagnostics, performance")
     s.wait(3.5)
-    s.press(ctx.host, ctx.port, "down", times=3, pause=0.9)
+    s.scroll_page(ctx.host, ctx.port, 320)
+    s.wait(1.5)
+    s.scroll_page(ctx.host, ctx.port, 320)
     s.wait(2.0)
     s.home(ctx.sjc, ctx.host, ctx.port)
     s.wait(1.0)

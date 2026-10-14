@@ -93,9 +93,14 @@ describe("matchKeyEvent", () => {
 });
 
 describe("resolveKeyboardBindings", () => {
-  it("defaults every field to null when nothing is set", () => {
+  it("takes the defaults when nothing is set: every slot unset except the sidecar open chord", () => {
     expect(resolveKeyboardBindings(null)).toEqual(DEFAULT_KEYBOARD_BINDINGS);
     expect(resolveKeyboardBindings(undefined)).toEqual(DEFAULT_KEYBOARD_BINDINGS);
+    expect(DEFAULT_KEYBOARD_BINDINGS.navSidecarOpen).toBe("ControlLeft+ShiftLeft+KeyS");
+    expect(parseKeyCombo(DEFAULT_KEYBOARD_BINDINGS.navSidecarOpen)).toEqual({ kind: "chord", codes: ["ControlLeft", "ShiftLeft", "KeyS"] });
+    expect(resolveKeyboardBindings({}).navSidecarOpen).toBe("ControlLeft+ShiftLeft+KeyS"); // absent field → default
+    expect(resolveKeyboardBindings({ navSidecarOpen: null }).navSidecarOpen).toBeNull(); // cleared by the user → stays unset
+    expect(resolveKeyboardBindings({}, ["navSidecarOpen"]).navSidecarOpen).toBeNull(); // disabled → unset
   });
   it("carries through a set value", () => {
     expect(resolveKeyboardBindings({ cardQuickLaunch: "KeyF" }).cardQuickLaunch).toBe("KeyF");

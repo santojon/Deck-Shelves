@@ -50,7 +50,7 @@ import { SavedFilterRow } from './qam/list/SavedFilterRow'
 import { SavedSmartFilterRow } from './qam/list/SavedSmartFilterRow'
 import { SmartShelvesFirstRunBanner } from '../features/setup/SmartShelvesFirstRunBanner'
 import { CollapsibleSection, DSSliderField, PositionField, VersionFooter, type HorizontalPosition } from './ui'
-import { SlidersIcon, StackIcon, SparkleIcon, BookmarkIcon, PlusCircleIcon, OnlineIcon, SearchIcon, WandIcon, CloudIcon } from './icons'
+import { SlidersIcon, StackIcon, SparkleIcon, BookmarkIcon, PlusCircleIcon, OnlineIcon, SearchIcon, WandIcon, CloudIcon, GearIcon, ChevronRightIcon } from './icons'
 import { UpdateBanner } from './qam/UpdateBanner'
 import { useQamExpanded, resetQamExpanded } from './qam/qamExpandedStore'
 import { confirmAction } from './qam/modals/ConfirmActionModal'
@@ -199,6 +199,13 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
     const win = dsScopeRef.current?.ownerDocument?.defaultView ?? getQamWindow();
     fireQamExpand(win, false, setQamExpanded);
   }, [setQamExpanded]);
+  /* The button under the master toggle takes the same open/close path as the
+     dpad-right chord and the B button, so the compositor widens or narrows
+     together with the store flag (the flag alone leaves the panel off-screen). */
+  const toggleSidecar = useCallback(() => {
+    const win = dsScopeRef.current?.ownerDocument?.defaultView ?? getQamWindow();
+    fireQamExpand(win, !qamExpanded, setQamExpanded);
+  }, [qamExpanded, setQamExpanded]);
   /* Hard reset on mount: wipe both the live ref and the sessionStorage
      flag so a freshly-mounted DS QAM tab never inherits a stale expanded
      state. Doing this OUTSIDE the React setter avoids racing the
@@ -537,6 +544,20 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
         disabled={mountCrashed}
         onChange={(value: boolean) => actions.setEnabled(value)}
       />
+      {/* Compact action row (the standalone host's "View status" row style):
+          icon + label, transparent, focus tint from DeckQAMStyles. */}
+      <Focusable
+        className='deck-shelves-qam-sidecar-row'
+        noFocusRing
+        onClick={toggleSidecar}
+        onOKButton={toggleSidecar}
+        onOKActionDescription={t('qam_sidecar_toggle' as any)}
+        style={{ display: 'flex', alignItems: 'center', gap: '10px', minHeight: '40px', width: '100%', boxSizing: 'border-box', padding: '6px 16px', fontSize: '13px', color: '#fff', cursor: 'pointer' }}
+      >
+        <GearIcon size={16} />
+        <span style={{ flex: '1 1 auto', textAlign: 'left' }}>{t('qam_sidecar_toggle' as any)}</span>
+        <ChevronRightIcon size={16} style={{ flex: '0 0 auto', opacity: 0.7 }} />
+      </Focusable>
       {(() => mountCrashed && (
         <MountCrashBanner controller={controller} error={crashError} onDismiss={() => { setMountCrashed(false); setCrashError(null) }} />
       ))()}

@@ -1,4 +1,5 @@
 import { logInfo } from "../../../runtime/logger";
+import { navNodeFromFiber } from "../../../core/focusRestore";
 import { findMainNavRoot, navNodeElement, resolveFocusNavController } from "./focusNav";
 
 // Every nav node whose element is one of our `.deck-shelves-root` wrappers.
@@ -13,6 +14,25 @@ function findOurNavNodes(root: any): any[] {
     for (const child of (node.m_rgChildren || [])) findWrapper(child);
   })(root);
   return ourNodes;
+}
+
+/* The standalone host mounts our root outside Steam's React tree: the
+   Focusable still makes its node, but the node hangs off a parent that does
+   not list it, so a walk from the root never meets it (D-pad traversal then
+   skips every shelf). The node is still on the wrapper element's fiber. */
+function findOurNavNodesByFiber(mountEl: HTMLElement): any[] {
+  const out: any[] = [];
+  for (const el of Array.from(mountEl.querySelectorAll<HTMLElement>(".deck-shelves-root"))) {
+    const node = navNodeFromFiber(el);
+    if (node && !out.includes(node)) out.push(node);
+  }
+  return out;
+}
+
+// Our wrapper nodes: the ones the tree walk reaches, else the ones on the fibers.
+function locateOurNavNodes(root: any, mountEl: HTMLElement): any[] {
+  const walked = findOurNavNodes(root);
+  return walked.length ? walked : findOurNavNodesByFiber(mountEl);
 }
 
 /* -2: our DOM is on screen but Steam's live tree has no node for it (the
@@ -98,18 +118,22 @@ function insertionIndexFor(ourEl: HTMLElement | null, targetChildren: any[]): nu
   return targetChildren.length;
 }
 
+function listedUnder(node: any, parent: any): boolean {
+  return !!parent && (parent.m_rgChildren || []).includes(node);
+}
+
 function moveNodeUnder(ourNode: any, target: any): boolean {
   const mParent = ourNode.m_Parent;
-  if (mParent === target) return false;
-  const parentChildren: any[] = mParent?.m_rgChildren;
-  if (!parentChildren) return false;
-  const idx = parentChildren.indexOf(ourNode);
-  if (idx < 0) return false;
-  parentChildren.splice(idx, 1);
+  if (mParent === target && listedUnder(ourNode, target)) return false;
+  // Detach from the old parent when it lists us; a node its parent does not
+  // list (the standalone host's root) is simply attached below.
+  const parentChildren: any[] | undefined = mParent?.m_rgChildren;
+  const idx = parentChildren ? parentChildren.indexOf(ourNode) : -1;
+  if (idx >= 0) parentChildren!.splice(idx, 1);
 
-  const targetChildren: any[] = target.m_rgChildren || [];
+  const targetChildren: any[] = target.m_rgChildren || (target.m_rgChildren = []);
   targetChildren.splice(insertionIndexFor(navNodeElement(ourNode), targetChildren), 0, ourNode);
-  if ("m_Parent" in ourNode) ourNode.m_Parent = target;
+  ourNode.m_Parent = target;
   return true;
 }
 
@@ -121,7 +145,7 @@ export function reparentNavTreeNodes(mountEl: HTMLElement): number {
   const root = findMainNavRoot(context);
   if (!root) return -1;
 
-  const ourNodes = findOurNavNodes(root);
+  const ourNodes = locateOurNavNodes(root, mountEl);
   if (!ourNodes.length) return missingNodesResult(mountEl);
   if (focusIsInsideOurNodes(ctrl, context, ourNodes)) return 0;
 
@@ -129,7 +153,7 @@ export function reparentNavTreeNodes(mountEl: HTMLElement): number {
   if (!target) return -1;
 
   // Stability guard: once ourNodes are under the chosen target, no churn.
-  if (ourNodes.every((n) => n.m_Parent === target)) return 0;
+  if (ourNodes.every((n) => n.m_Parent === target && listedUnder(n, target))) return 0;
 
   let moved = 0;
   for (const ourNode of ourNodes) {

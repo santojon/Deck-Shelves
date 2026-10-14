@@ -496,6 +496,15 @@ export function evalDeviceRule(rule: any): boolean {
   return evalDisplayRule(rule); // externalDisplay/resolution/ultrawide + unknown→true
 }
 
+/* Trigger evidence for the display kinds: `externalDisplay` has data only once
+   the display probe has answered (null = not probed yet, or a host that cannot
+   tell). Shelf visibility keeps failing open above; a trigger must not switch
+   profiles on a guess. */
+export function deviceRuleHasData(rule: any): boolean {
+  if (String(rule?.kind ?? '') === 'externalDisplay') return getDeviceState().external != null;
+  return true;
+}
+
 const DEVICE_RULE_KINDS = [
   'battery', 'charging', 'offline', 'externalDisplay', 'resolution', 'ultrawide',
   'controllerConnected', 'libraryAvailable', 'device', 'inputMode',

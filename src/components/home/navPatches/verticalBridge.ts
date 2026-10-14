@@ -52,6 +52,19 @@ function computeDownRedirectTarget(mount: HTMLElement, parent: HTMLElement, befo
   return mount.querySelector<HTMLElement>(".ds-card");
 }
 
+/* Steam moved the focus from a sibling above the mount straight to a sibling
+   below it: the home tabs after the recents row, every shelf skipped. That is
+   what the fallback host gets (our root has no node in Steam's tree), so the
+   move is corrected onto the first card. */
+function skippedOverMount(mount: HTMLElement, parent: HTMLElement, before: HTMLElement, after: HTMLElement): boolean {
+  if (mount.contains(before) || mount.contains(after)) return false;
+  const kids = Array.from(parent.children);
+  const mountIdx = kids.indexOf(mount);
+  const beforeIdx = kids.findIndex((c) => c.contains(before));
+  const afterIdx = kids.findIndex((c) => c.contains(after));
+  return beforeIdx >= 0 && beforeIdx < mountIdx && afterIdx > mountIdx;
+}
+
 export function installVerticalFocusBridge(mountEl: HTMLElement): void {
   const doc = getPreferredSteamDocument();
   if (!doc || (doc as any)[DS_BRIDGE_ATTACHED]) return;
@@ -90,7 +103,7 @@ export function installVerticalFocusBridge(mountEl: HTMLElement): void {
           if (btn === DIR_DOWN && !mount.contains(after)) {
             const afterRect = after.getBoundingClientRect();
             const afterInvisible = !after.offsetParent || afterRect.height < 4;
-            if (afterInvisible || afterRect.top <= beforeRect.top + 10) {
+            if (afterInvisible || afterRect.top <= beforeRect.top + 10 || skippedOverMount(mount, parent, before, after)) {
               focusElement(redirectTarget!);
             }
           }

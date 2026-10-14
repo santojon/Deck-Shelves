@@ -1,0 +1,53 @@
+{
+  "mode": "sleepwake",
+  "coexist": false,
+  "recordedAt": "2026-10-12T11:53:01",
+  "cycles": 2,
+  "ok": 2,
+  "baseline": {
+    "owner": "shelveshub",
+    "timers": 3,
+    "observers": 5,
+    "subs": 3,
+    "instances": 1,
+    "scope": "section",
+    "safeMode": false
+  },
+  "results": [
+    {
+      "i": 1,
+      "ok": true,
+      "problems": [],
+      "readyS": 1.2,
+      "cycleS": 32.3,
+      "loaderSelfStops": 0,
+      "sjc": {
+        "owner": "shelveshub",
+        "timers": 3,
+        "observers": 5,
+        "subs": 3,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    },
+    {
+      "i": 2,
+      "ok": true,
+      "problems": [],
+      "readyS": 0.0,
+      "cycleS": 28.5,
+      "loaderSelfStops": 0,
+      "sjc": {
+        "owner": "shelveshub",
+        "timers": 3,
+        "observers": 5,
+        "subs": 3,
+        "instances": 1,
+        "scope": "section",
+        "safeMode": false
+      }
+    }
+  ],
+  "version": "3.3.4"
+}

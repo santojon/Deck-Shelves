@@ -71,5 +71,6 @@
   "report_issue_hardware": "하드웨어 정보 포함",
   "report_issue_hardware_desc": "모델, CPU, 메모리, GPU, 저장 공간 — 기기별 문제 진단에 도움이 됩니다.",
   "sidecar_back": "뒤로",
-  "coop_stand_in": "이 기기에서 Deck Shelves는 ShelvesHub 탭에서 실행됩니다."
+  "coop_stand_in": "이 기기에서 Deck Shelves는 ShelvesHub 탭에서 실행됩니다.",
+  "qam_sidecar_toggle": "설정 표시 또는 숨기기"
 }

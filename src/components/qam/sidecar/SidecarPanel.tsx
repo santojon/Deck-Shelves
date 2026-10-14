@@ -15,7 +15,7 @@ import { getCurrentSettings } from '../../../store/settingsStore'
 import { trackFeature } from '../../../steam/usageTracking'
 import { absorbCancelButton } from '../sidecarCancel'
 import { type OpenerWithInput } from '../sidecarActiveTab'
-import { ChevronLeftIcon, GearIcon } from '../../icons'
+import {ChevronLeftIcon} from '../../icons'
 import { ErrorBoundary } from '../../ErrorBoundary'
 import { GeneralTab } from './GeneralTab'
 
@@ -200,8 +200,9 @@ export function SidecarPanel({ controller, onCollapse }: { controller: SettingsC
         >
           <ChevronLeftIcon size={16} />
         </Focusable>
-        <GearIcon size={16} />
-        {controller.t('settings_title')}
+        <div className='ds-sidecar-tabs' role='tablist'>
+          <div className='ds-sidecar-tab' role='tab' aria-selected='true' data-active='1'>{controller.t('settings_title')}</div>
+        </div>
       </div>
       <div className='ds-sidecar-body' ref={innerRef}>
         <ErrorBoundary title={`Deck Shelves — ${controller.t('settings_title')}`}>

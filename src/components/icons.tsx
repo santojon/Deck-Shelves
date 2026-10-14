@@ -261,6 +261,14 @@ export function OnlineIcon({ size = 12, style }: IconProps) {
 // Left-pointing chevron — back / dismiss control on dedicated page
 // routes (PageHeader, detail panels). Bigger default size since the
 // header button it sits inside is much larger than a row indicator.
+export function ChevronRightIcon({ size = 22, style }: IconProps) {
+  return (
+    <svg {...baseProps(size, style)} strokeWidth={2.5}>
+      <polyline points="9 18 15 12 9 6" />
+    </svg>
+  )
+}
+
 export function ChevronLeftIcon({ size = 22, style }: IconProps) {
   return (
     <svg {...baseProps(size, style)} strokeWidth={2.5}>

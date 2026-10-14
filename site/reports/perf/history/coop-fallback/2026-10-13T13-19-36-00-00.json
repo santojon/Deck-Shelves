@@ -1,0 +1,31 @@
+{
+  "recordedAt": "2026-10-13T13:19:36+00:00",
+  "build": "2026-10-13 13:14 dev",
+  "phase": "all",
+  "ok": true,
+  "phases": {
+    "live": {
+      "ok": true,
+      "bootAfterS": 20.6,
+      "expectedS": 20,
+      "owner": "shelveshub",
+      "shelves": 5
+    },
+    "offer": {
+      "ok": true,
+      "bootAfterS": 66.7,
+      "expectedS": 60,
+      "owner": "decky",
+      "fallbackStamped": true,
+      "hostHeldOffer": true,
+      "shelves": 5
+    },
+    "restore": {
+      "ok": true,
+      "owner": "shelveshub",
+      "shelves": 5,
+      "hostLoggedHandOver": true
+    }
+  },
+  "version": "3.3.4"
+}

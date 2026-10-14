@@ -770,8 +770,11 @@ function scanHomeChildren(parent: HTMLElement, mount: HTMLElement): { recentsVis
   let tabsVisible = false;
   for (const child of Array.from(parent.children) as HTMLElement[]) {
     if (child === mount) continue;
+    // The tabs block can be 0 px tall itself with its bar overflowing below
+    // (seen on the standalone host): judge it by the tab bar's own height.
+    const tablist = child.querySelector<HTMLElement>('[role="tablist"]');
+    if (tablist) { if (child.offsetHeight > 8 || tablist.offsetHeight > 8) tabsVisible = true; continue; }
     if (child.offsetHeight <= 8) continue;
-    if (child.querySelector('[role="tablist"]')) { tabsVisible = true; continue; }
     recentsVisible = true;
   }
   return { recentsVisible, tabsVisible };

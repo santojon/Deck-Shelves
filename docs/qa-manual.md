@@ -177,7 +177,7 @@ The build accepts environment flags that force specific UI states for repeatable
 | `DS_QA_SMART_SHELVES_FIXTURE` | `pnpm qa:smart-fixture` | Seeds 4 smart shelves so the smart section renders populated |
 | `DS_QA_SAVED_FILTERS_FIXTURE` | `pnpm qa:saved-filters-fixture` | Seeds saved filters so the QAM Saved Filters section is visible |
 | `DS_QA_FORCE_HIDDEN_SHELF` | `pnpm qa:hidden-shelf` | Adds one hidden shelf to the curated fixture (for the `shelf-hidden.png` capture) |
-| `DS_QA_VIDEO_FIXTURE` | `pnpm qa:video-fixture` | Presentable shelves (three library-backed, a wishlist and a store-deals shelf), two smart shelves and a profile with a charging trigger, with the online features and Advanced mode on — the base the video scenarios (`pnpm run videos`) record |
+| `DS_QA_VIDEO_FIXTURE` | `pnpm qa:video-fixture` | Presentable shelves (three library-backed, a wishlist and a store-deals shelf), two smart shelves and a profile with a charging trigger, with the online features and Advanced mode on — the base the video scenarios (`pnpm run videos`) record; applied once per session, so an edit a recording makes stays on the Home (in memory only) |
 | `DS_QA_SCREENSHOTS_FIXTURE` | `pnpm qa:screenshots-fixture` | The video fixture plus a hidden shelf, two saved filters and a second profile, built on the default settings (not the device's own) with Quick Search and the Side Nav on and the first shelf in the native recents row under its hero art — everything the screenshot run (`pnpm run screenshots`) captures, in memory only |
 | `DS_QA_SMART_SURPRISE_ME` | `pnpm qa:surprise-me` | Forces `smartSurpriseMe=true` so the daily-rotation logic runs |
 | `DS_QA_FORCE_TABMASTER` | — | `present` / `absent` overrides TabMaster detection |

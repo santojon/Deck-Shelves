@@ -540,6 +540,11 @@ export function DeckQAMStyles() {
         background: rgba(255, 255, 255, 0.14);
         outline: none;
       }
+      .deck-shelves-qam-scope .deck-shelves-qam-sidecar-row.gpfocus,
+      .deck-shelves-qam-scope .deck-shelves-qam-sidecar-row:focus {
+        background: rgba(255, 255, 255, 0.1);
+        outline: none;
+      }
 
       /* Sidecar panel — mirrors the native Friends & Chat second column.
          Rendered inline, as a sibling of the main column inside the tab;
@@ -585,6 +590,33 @@ export function DeckQAMStyles() {
         border-bottom: 1px solid rgba(255, 255, 255, 0.06);
         box-sizing: border-box;
         z-index: 2;
+      }
+      /* Tab strip in the sidecar header (the standalone host's sidecar pattern:
+         the active tab bright with a tinted pill, the others dimmed). */
+      .ds-sidecar-tabs {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        flex: 1 1 auto;
+        min-width: 0;
+      }
+      .ds-sidecar-tab {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        height: 32px;
+        padding: 0 12px;
+        border-radius: 4px;
+        font-size: 13px;
+        font-weight: 500;
+        letter-spacing: 0;
+        color: rgba(255, 255, 255, 0.6);
+        background: transparent;
+      }
+      .ds-sidecar-tab[data-active="1"] {
+        font-weight: 700;
+        color: #ffffff;
+        background: rgba(255, 255, 255, 0.14);
       }
       .ds-sidecar-back {
         display: inline-flex;

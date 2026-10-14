@@ -79,10 +79,13 @@ function computeShelfRootPaddingTop(params: { fullPageLayoutActive: boolean; inf
 // cards at the bottom via flex so the hero composes inside the shelf's own
 // 100vh bounds.
 function computeFullPageFlexStyle(fullPageLayoutActive: boolean): {
-  minHeight: string | undefined; display: 'flex' | undefined; flexDirection: 'column' | undefined; justifyContent: 'flex-end' | undefined;
+  minHeight: string | undefined; boxSizing: 'border-box' | undefined; display: 'flex' | undefined; flexDirection: 'column' | undefined; justifyContent: 'flex-end' | undefined;
 } {
-  if (!fullPageLayoutActive) return { minHeight: undefined, display: undefined, flexDirection: undefined, justifyContent: undefined };
-  return { minHeight: '100vh', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' };
+  if (!fullPageLayoutActive) return { minHeight: undefined, boxSizing: undefined, display: undefined, flexDirection: undefined, justifyContent: undefined };
+  /* border-box: the first shelf's hero band (a top padding from the stylesheet)
+     stays inside the 100vh, so that shelf is as tall as the others and its row
+     lands at the same place when centered. */
+  return { minHeight: '100vh', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' };
 }
 
 export function computeShelfRootStyle(params: {
@@ -90,7 +93,7 @@ export function computeShelfRootStyle(params: {
   fullPageLayoutActive: boolean; infoAbove: boolean; logoBelowShelf: boolean; logoBandPx: number;
 }): {
   marginBottom: number; overflow: 'visible' | 'hidden'; background: string;
-  minHeight: string | undefined; display: 'flex' | undefined; flexDirection: 'column' | undefined; justifyContent: 'flex-end' | undefined;
+  minHeight: string | undefined; boxSizing: 'border-box' | undefined; display: 'flex' | undefined; flexDirection: 'column' | undefined; justifyContent: 'flex-end' | undefined;
   paddingTop: number | undefined; paddingBottom: number | undefined;
 } {
   const { heroEnabled, enableLogo, enableDescription, hideStatusLine, fullPageLayoutActive, infoAbove, logoBelowShelf, logoBandPx } = params;
