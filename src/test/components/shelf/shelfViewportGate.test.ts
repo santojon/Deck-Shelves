@@ -28,7 +28,7 @@ function shelfIn(root: HTMLElement): HTMLElement {
   return el;
 }
 
-describe("shelfViewportGate — one observer per scroll root, counted and cleaned up", () => {
+describe("shelfViewportGate — one observer per scroll root plus the viewport safety net, counted and cleaned up", () => {
   beforeEach(() => {
     FakeIO.instances = [];
     vi.stubGlobal("IntersectionObserver", FakeIO);
@@ -37,14 +37,28 @@ describe("shelfViewportGate — one observer per scroll root, counted and cleane
     __resetPerfMetricsForTest();
   });
 
-  it("shares one observer between the shelves of a scroll root and counts it once", () => {
+  it("shares one rooted observer and one viewport observer between the shelves of a scroll root", () => {
     const root = scroller();
     observeShelfNear(shelfIn(root), () => {});
     observeShelfNear(shelfIn(root), () => {});
-    expect(FakeIO.instances.length).toBe(1);
+    expect(FakeIO.instances.length).toBe(2);
     expect(FakeIO.instances[0].opts.root).toBe(root);
+    expect(FakeIO.instances[1].opts.root ?? null).toBeNull();
     expect(FakeIO.instances[0].observed.size).toBe(2);
-    expect(getPerfSnapshot().activeObservers).toBe(1);
+    expect(FakeIO.instances[1].observed.size).toBe(2);
+    expect(getPerfSnapshot().activeObservers).toBe(2);
+  });
+
+  it("whichever observer fires first mounts the shelf once and both stop watching it", () => {
+    const a = shelfIn(scroller());
+    const cb = vi.fn();
+    observeShelfNear(a, cb);
+    const [rooted, viewport] = FakeIO.instances;
+    viewport.cb([{ target: a, isIntersecting: true }]);
+    rooted.cb([{ target: a, isIntersecting: true }]);
+    expect(cb).toHaveBeenCalledTimes(1);
+    expect(rooted.observed.has(a)).toBe(false);
+    expect(viewport.observed.has(a)).toBe(false);
   });
 
   it("fires a shelf's callback once when it comes near, then stops watching that shelf", () => {
@@ -65,10 +79,11 @@ describe("shelfViewportGate — one observer per scroll root, counted and cleane
     observeShelfNear(shelfIn(old), () => {});
     old.remove();
     observeShelfNear(shelfIn(scroller()), () => {});
-    expect(FakeIO.instances.length).toBe(2);
+    expect(FakeIO.instances.length).toBe(3);
     expect(FakeIO.instances[0].disconnected).toBe(true);
     expect(FakeIO.instances[1].disconnected).toBe(false);
-    expect(getPerfSnapshot().activeObservers).toBe(1);
+    expect(FakeIO.instances[2].disconnected).toBe(false);
+    expect(getPerfSnapshot().activeObservers).toBe(2);
   });
 
   it("runs the callback at once when there is nothing to observe", () => {

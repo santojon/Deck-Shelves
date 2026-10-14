@@ -52,13 +52,20 @@ function observerFor(root: Element | null, doc: Document): IntersectionObserver 
   return io;
 }
 
+/* Two observers per placeholder: the one rooted on its scroll container gives
+   the 75 % look-ahead; the viewport one is the safety net. In a Home mounted by
+   a hot-swapped bundle the rooted observer reports "not intersecting" once and
+   never updates (measured on a device; the root stays connected and a fresh
+   observer on the same node works), while the viewport one keeps firing. */
 export function observeShelfNear(el: Element | null, cb: () => void): () => void {
   if (!el) { cb(); return () => {}; }
-  const io = observerFor(scrollRootOf(el), el.ownerDocument);
-  if (!io) { cb(); return () => {}; }
-  callbacks.set(el, cb);
-  io.observe(el);
-  return () => { callbacks.delete(el); io.unobserve(el); };
+  const doc = el.ownerDocument;
+  const ios = [observerFor(scrollRootOf(el), doc), observerFor(null, doc)].filter((io): io is IntersectionObserver => !!io);
+  if (!ios.length) { cb(); return () => {}; }
+  const stop = () => { callbacks.delete(el); for (const io of ios) io.unobserve(el); };
+  callbacks.set(el, () => { stop(); cb(); });
+  for (const io of ios) io.observe(el);
+  return stop;
 }
 
 export function rememberShelfHeight(shelfId: string | undefined, h: number): void {

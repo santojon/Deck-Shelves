@@ -202,6 +202,8 @@ function releaseWronglyCollapsedRecentsEl(el: HTMLElement): void {
 }
 
 function applyRecentsCollapse(hidden: boolean): void {
+  // A collapse left by an earlier instance carries our marker; release it too.
+  if (!hidden) for (const d of getAllSteamDocuments()) d.querySelectorAll<HTMLElement>('[data-ds-hidden-collapse="1"]').forEach((el) => setRecentsCollapsedStyle(el, false));
   if (!cachedRecentsEl) return;
   try {
     if (hidden) armRecentsHardCollapse();
@@ -288,10 +290,11 @@ function collectHomeTabSiblings(mountEl: HTMLElement): HTMLElement[] {
   return out;
 }
 
+// Every home tab this plugin hid, whichever instance did it: a hot-swap
+// predecessor's set is not ours, but its markers are.
 function restoreAllHomeTabs(): void {
-  for (const el of Array.from(hiddenHomeTabs)) {
-    if (el.isConnected) setSiblingHidden(el, false);
-  }
+  const marked = getAllSteamDocuments().flatMap((d) => Array.from(d.querySelectorAll<HTMLElement>('[data-ds-ht-hidden="1"]')));
+  for (const el of new Set([...hiddenHomeTabs, ...marked])) if (el.isConnected) setSiblingHidden(el, false);
   hiddenHomeTabs.clear();
 }
 
@@ -926,6 +929,8 @@ export function installHomePatch(_routerHook?: any) {
     routerHookKeys: Object.keys(routerHook ?? {}).slice(0, 20),
   });
 
+  // Hides a predecessor left behind (a hot-swap from an older build) would misplace our mount.
+  restoreAllHomeTabs(); applyRecentsCollapse(false);
   // Fallback-vs-bridge grace bookkeeping (pure rules in homePatchFallbackGate.ts).
   const gate = createBridgeGateState(Date.now());
 
@@ -1255,10 +1260,8 @@ export function installHomePatch(_routerHook?: any) {
 
   const tearDownObserversAndListeners = (): void => {
     if (timer) { window.clearInterval(timer); timer = 0; timerDisposed(); }
-    if (observer) observerDisposed();
-    observer?.disconnect(); observer = null;
-    hostWin.removeEventListener("hashchange", onRouteSignal);
-    hostWin.removeEventListener("popstate", onRouteSignal);
+    if (observer) observerDisposed(); observer?.disconnect(); observer = null;
+    hostWin.removeEventListener("hashchange", onRouteSignal); hostWin.removeEventListener("popstate", onRouteSignal);
     globalThis.removeEventListener?.("deck-shelves-settings-changed", onRouteSignal as EventListener);
   };
 
@@ -1271,9 +1274,10 @@ export function installHomePatch(_routerHook?: any) {
   return {
     uninstall() {
       logInfo("HOME", "uninstalling home patch");
-      runUninstallHooks();
-      tearDownObserversAndListeners();
-      tearDownFallbackRoot();
+      // Give Steam its Home back as it was: a successor (a hot-swap) anchors next
+      // to the native rows, and must not find them hidden by this instance.
+      applyHideHomeTabs(false); applyHideRecents(false); runUninstallHooks();
+      tearDownObserversAndListeners(); tearDownFallbackRoot();
     },
   };
 }

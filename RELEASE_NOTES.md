@@ -7,7 +7,7 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
-- **Quick Search lands on the game every time**, including games further along a row or on a shelf below the fold, and reopening it keeps the previous text selected instead of appending to it. A bundle hot-swap by the standalone host now hands the Home to the new instance.
+- **Quick Search lands on the game every time**, including games further along a row or on a shelf below the fold, and reopening it keeps the previous text selected instead of appending to it. A bundle hot-swap by the standalone host now hands the Home to the new instance, with the Home visible right away.
 
 - **Pinned games, play history, queues and custom tags now work.** A new **Lists** submenu in the game menu pins a game, queues it for this session or until you play it, and edits its tags; play history fills by itself, and Parser categories reads the categories your ROM manager or launcher integration gave each shortcut. Profile triggers now keep the settings you change while they are active, and the shortcut editor takes up to three buttons and can be cancelled.
 

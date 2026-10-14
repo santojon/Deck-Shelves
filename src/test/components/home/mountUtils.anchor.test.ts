@@ -50,6 +50,32 @@ describe("mountUtils — anchor next to recents, never inside it", () => {
     expect(anchor?.before).toBe(recents.nextSibling);
   });
 
+  it("never anchors inside a recents block a previous instance left hidden", () => {
+    const { panel, recents } = buildEarlyHome();
+    // The outgoing instance hid the native rows (hideHomeTabs) and the inner grid
+    // is the first overflow:auto panel the lenient walk would otherwise pick.
+    recents.style.display = "none";
+    (recents.querySelector(".ReactVirtualized__Grid") as HTMLElement).style.overflowY = "auto";
+    const anchor = resolveAnchor(document);
+    expect(anchor?.parent).toBe(panel);
+    expect(anchor?.before).toBe(recents.nextSibling);
+  });
+
+  it("ignores the chip row when the block holding it is hidden", () => {
+    document.body.innerHTML = "";
+    const panel = document.createElement("div");
+    panel.style.overflowY = "auto";
+    const hidden = document.createElement("div");
+    hidden.style.display = "none";
+    const row = document.createElement("div");
+    for (const label of ["Novidades", "Amigos", "Recomendados"]) { const b = document.createElement("button"); b.textContent = label; row.appendChild(b); }
+    hidden.appendChild(row);
+    panel.appendChild(hidden);
+    document.body.appendChild(panel);
+    const anchor = resolveAnchor(document);
+    expect(anchor === null || !hidden.contains(anchor.parent)).toBe(true);
+  });
+
   it("moves a mount that landed inside the recents block out to the panel", () => {
     const { panel, recents, wrapper } = buildEarlyHome();
     const mount = mountEl();

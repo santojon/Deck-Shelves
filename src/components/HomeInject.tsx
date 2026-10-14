@@ -13,7 +13,7 @@ import { createDeckyPlatform } from "../runtime/deckyPlatform";
 import { logInfo, logWarn } from "../runtime/logger";
 import { logDiagnostic } from "../runtime/diagnostics";
 import { getPreferredSteamDocument, getPreferredSteamWindow, getAllSteamDocuments } from "../runtime/steamHost";
-import { ROOT_ID, seededShuffle, isHomeRoute, hasHomeDomSignals, detectNavTreeApi, findOrCreateMount, homeBehindGame } from "./home/mountUtils";
+import { ROOT_ID, seededShuffle, isHomeRoute, hasHomeDomSignals, detectNavTreeApi, findOrCreateMount, homeBehindGame, removeOwnMounts } from "./home/mountUtils";
 import { applyHideRecents, reapplyHomeHides, enforceHomeFocusSuppression, applyHideHomeTabs, applyReplaceActiveMargin, getMountFailed, getPendingHideRecents, getPendingHideHomeTabs } from "../runtime/homePatch";
 import { getRecentsReplaceFailed, subscribeRecentsReplaceFailed, isRecentsReplaceInjecting, subscribeRecentsReplaceInjecting } from "../runtime/recentsReplace";
 import { Focusable } from "../runtime/host/decky";
@@ -145,11 +145,12 @@ function notifyHomeInstances(): void {
   for (const l of homeInstanceListeners) { try { l(); } catch {} }
   if (__DEV__) { try { (globalThis as any).__ds_home_instances = Array.from(liveHomeInstances.entries()); } catch {} }
 }
-// Remove the mount from every doc we may have created it in, not just
-// preferred — unless a newer instance is still live and portaling into it.
+// Remove this instance's mount from every doc we may have created it in, not
+// just preferred — unless a newer instance of this module is still live and
+// portaling into it. A hot-swap successor's mount carries its own stamp.
 function removeSharedMountIfLast(docs: Iterable<Document>): void {
   if (liveHomeInstances.size !== 0) return;
-  for (const d of docs) { try { d.getElementById(ROOT_ID)?.remove(); } catch {} }
+  removeOwnMounts(docs);
 }
 function useHomeInstanceRegistry(isFallback: boolean): boolean {
   const idRef = useRef(0);
@@ -277,7 +278,7 @@ export function HomeShelves({ fallback = false }: { fallback?: boolean }) {
             if (!alive) return;
             if (!isHomeRoute() && !hasHomeDomSignals()) {
               setMountEl(null);
-              getPreferredSteamDocument().getElementById(ROOT_ID)?.remove();
+              removeOwnMounts([getPreferredSteamDocument()]);
             }
           }, 600);
         }
