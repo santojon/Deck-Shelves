@@ -30,7 +30,7 @@ export const DEVICE_LOCAL_FIELDS = [
 export const LOCAL_ONLY_FIELDS = [
   "cloudSyncEnabled", "cloudSyncLastSyncedAt",
   // The active profile is a device-local presentation — a merge must keep the
-  // local one, never adopt the other device's (see cloudSync's matching list).
+  // local one, never adopt the other device's (cloudSync strips this list before a push).
   "activeProfileName",
   // The first-run tour flag: per-device, same reasoning as above (profiles
   // already keep it sticky via stickyShowcaseSeen; a sync merge must too).
