@@ -232,7 +232,7 @@ export function ShelfSideNav() {
       if (!enabledRef.current || isEditableKeyTarget(e.tag)) return;
       const navSideNavKey = resolveKeyboardBindings(getCurrentSettings()?.keyboardBindings as any, (getCurrentSettings() as any)?.keyboardBindingsDisabled).navSideNav;
       if (!navSideNavKey) return;
-      if (matchKeyEvent(e.code ?? null, parseKeyCombo(navSideNavKey), keyMatcherState)) tryOpen();
+      if (matchKeyEvent(e.code ?? null, parseKeyCombo(navSideNavKey), keyMatcherState, Date.now(), { ctrl: e.ctrl, shift: e.shift, alt: e.alt })) tryOpen();
     });
     return () => { unsubBtn(); unsubRaw(); unsubKey(); };
   }, [anchor, enabled, gameRunning]);

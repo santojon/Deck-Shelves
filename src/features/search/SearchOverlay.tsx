@@ -351,7 +351,7 @@ export function SearchOverlay() {
       if (isEditableKeyTarget(e.tag)) return;
       const navSearchKey = resolveKeyboardBindings(getCurrentSettings()?.keyboardBindings as any, (getCurrentSettings() as any)?.keyboardBindingsDisabled).navSearch;
       if (!navSearchKey) return;
-      if (!matchKeyEvent(e.code ?? null, parseKeyCombo(navSearchKey), keyMatcherStateRef.current)) return;
+      if (!matchKeyEvent(e.code ?? null, parseKeyCombo(navSearchKey), keyMatcherStateRef.current, Date.now(), { ctrl: e.ctrl, shift: e.shift, alt: e.alt })) return;
       openSearch();
     });
   }, [enabled, open, openSearch]);

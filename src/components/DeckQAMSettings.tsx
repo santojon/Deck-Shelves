@@ -27,7 +27,7 @@ import { ImportMenuButton, type ImportEntry } from './qam/common/ImportMenuButto
 import { openManagedModal } from './qam/common/openManagedModal'
 import { getExternalImportTypesForTarget, registerInternalImportType } from '../core/pluginApi'
 import { formatComboForDisplay, resolveBindings, parseRawCombo, matchEvent, createMatcherState, DEFAULT_BINDINGS } from '../runtime/buttonBindings'
-import { resolveKeyboardBindings, parseKeyCombo, matchKeyEvent, createKeyMatcherState, isEditableKeyTarget } from '../runtime/keyboardBindings'
+import { resolveKeyboardBindings, parseKeyCombo, matchKeyEvent, createKeyMatcherState, isEditableKeyTarget, heldModifiers, type KeyModifierFlags } from '../runtime/keyboardBindings'
 import { subscribeControllerInput } from '../runtime/controllerInput'
 import { sidecarCancelHandler, mainCancelButtonDown } from './qam/sidecarCancel'
 import { getCurrentSettings } from '../store/settingsStore'
@@ -275,9 +275,10 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
   const closeKeyMatcherRef = useRef(createKeyMatcherState());
   useEffect(() => {
     if (!isActiveTab) return;
-    const matchSidecarKey = (code: string | null, kb: ReturnType<typeof resolveKeyboardBindings>) => {
-      const open = !!kb.navSidecarOpen && matchKeyEvent(code, parseKeyCombo(kb.navSidecarOpen), openKeyMatcherRef.current);
-      const close = !open && !!kb.navSidecarClose && matchKeyEvent(code, parseKeyCombo(kb.navSidecarClose), closeKeyMatcherRef.current);
+    const matchSidecarKey = (code: string | null, kb: ReturnType<typeof resolveKeyboardBindings>, held: KeyModifierFlags) => {
+      const now = Date.now();
+      const open = !!kb.navSidecarOpen && matchKeyEvent(code, parseKeyCombo(kb.navSidecarOpen), openKeyMatcherRef.current, now, held);
+      const close = !open && !!kb.navSidecarClose && matchKeyEvent(code, parseKeyCombo(kb.navSidecarClose), closeKeyMatcherRef.current, now, held);
       return { open, close };
     };
     // Same window resolution as closeSidecar/the reset effect above —
@@ -288,7 +289,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
       if (e.repeat || isEditableKeyTarget((e.target as HTMLElement | null)?.tagName)) return;
       const s = getCurrentSettings();
       const kb = resolveKeyboardBindings(s?.keyboardBindings as any, (s as any)?.keyboardBindingsDisabled);
-      const { open, close } = matchSidecarKey(e.code, kb);
+      const { open, close } = matchSidecarKey(e.code, kb, heldModifiers(e));
       if (!open && !close) return;
       fireQamExpand(resolveQamWin(), open, setQamExpanded);
     };

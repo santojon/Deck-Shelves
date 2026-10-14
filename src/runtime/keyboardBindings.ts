@@ -87,12 +87,25 @@ export function createKeyMatcherState(): KeyMatcherState {
   return { lastPress: new Map() };
 }
 
+/* Modifier state carried by the keydown itself (`ctrlKey` / `shiftKey` /
+   `altKey`): a held modifier went down long before the letter and its repeats
+   are skipped, so a chord such as Ctrl+Shift+S can never meet the 200 ms rule
+   on timestamps alone. */
+export interface KeyModifierFlags { ctrl?: boolean; shift?: boolean; alt?: boolean }
+const MODIFIER_FLAG: Record<string, keyof KeyModifierFlags> = {
+  ControlLeft: "ctrl", ControlRight: "ctrl", ShiftLeft: "shift", ShiftRight: "shift", AltLeft: "alt", AltRight: "alt",
+};
+export function heldModifiers(e: { ctrlKey?: boolean; shiftKey?: boolean; altKey?: boolean }): KeyModifierFlags {
+  return { ctrl: !!e.ctrlKey, shift: !!e.shiftKey, alt: !!e.altKey };
+}
+
 // Call on every keydown. Returns true when the combo fires.
 export function matchKeyEvent(
   code: string | null | undefined,
   combo: KeyCombo | null,
   state: KeyMatcherState,
   now: number = Date.now(),
+  held?: KeyModifierFlags,
 ): boolean {
   if (!combo || !code) return false;
   if (combo.kind === "single") {
@@ -108,6 +121,8 @@ export function matchKeyEvent(
   state.lastPress.set(code, now);
   if (!combo.codes.includes(code)) return false;
   return combo.codes.every((c) => {
+    const flag = MODIFIER_FLAG[c];
+    if (flag && held?.[flag]) return true; // a modifier still held counts, whenever it went down
     const t = state.lastPress.get(c) ?? 0;
     return t > 0 && (now - t) <= 200;
   });

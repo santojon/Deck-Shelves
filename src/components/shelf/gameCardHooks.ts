@@ -12,7 +12,7 @@ import { trackCardLaunch, trackShelfView } from "../../steam/usageTracking";
 import { logInfo } from "../../runtime/logger";
 import { getCurrentSettings } from "../../store/settingsStore";
 import { createMatcherState, matchEvent, parseCombo, parseRawCombo, resolveBindings } from "../../runtime/buttonBindings";
-import { resolveKeyboardBindings, parseKeyCombo, matchKeyEvent, createKeyMatcherState, isEditableKeyTarget, type KeyMatcherState } from "../../runtime/keyboardBindings";
+import { resolveKeyboardBindings, parseKeyCombo, matchKeyEvent, createKeyMatcherState, type KeyModifierFlags, isEditableKeyTarget, type KeyMatcherState } from "../../runtime/keyboardBindings";
 import { resolveQuickLaunchAction, EAppDisplayStatus } from "../../steam/appDisplayStatus";
 import { subscribeShelfRefresh } from "../../core/shelfRefresh";
 import { resolveNativeCardClass, retryWithIntervals } from "./cardUtils";
@@ -174,12 +174,14 @@ function handleCardKeyEvent(
   code: string | null,
   state: KeyMatcherState,
   actions: { quickLaunch: () => void; removeOrHide: () => void; toggleHighlight: () => void },
+  held?: KeyModifierFlags,
 ): void {
   try {
     const kb = resolveKeyboardBindings(getCurrentSettings()?.keyboardBindings as any, (getCurrentSettings() as any)?.keyboardBindingsDisabled, cardActionsEnabled());
-    if (kb.cardQuickLaunch && matchKeyEvent(code, parseKeyCombo(kb.cardQuickLaunch), state)) { actions.quickLaunch(); return; }
-    if (kb.cardHideRemove && matchKeyEvent(code, parseKeyCombo(kb.cardHideRemove), state)) { actions.removeOrHide(); return; }
-    if (kb.cardHighlightToggle && matchKeyEvent(code, parseKeyCombo(kb.cardHighlightToggle), state)) actions.toggleHighlight();
+    const now = Date.now();
+    if (kb.cardQuickLaunch && matchKeyEvent(code, parseKeyCombo(kb.cardQuickLaunch), state, now, held)) { actions.quickLaunch(); return; }
+    if (kb.cardHideRemove && matchKeyEvent(code, parseKeyCombo(kb.cardHideRemove), state, now, held)) { actions.removeOrHide(); return; }
+    if (kb.cardHighlightToggle && matchKeyEvent(code, parseKeyCombo(kb.cardHighlightToggle), state, now, held)) actions.toggleHighlight();
   } catch {}
 }
 
@@ -239,7 +241,7 @@ export function useCardInputBindings(params: {
           quickLaunch,
           removeOrHide: () => { if (removableSet?.has(appid) && onRemoveCard) onRemoveCard(appid); else onHideCard?.(appid); },
           toggleHighlight: () => { try { toggleCardHighlight(shelfId, appid); } catch {} },
-        });
+        }, { ctrl: e.ctrl, shift: e.shift, alt: e.alt });
       },
     });
   }, [appid, previewMode, quickLaunch, removableSet, onRemoveCard, onHideCard, shelfId, toggleCardHighlight, cardRef]);

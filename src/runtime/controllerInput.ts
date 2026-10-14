@@ -178,7 +178,7 @@ function installBPKeydownLogger(view: any): void {
       "var _klog = this.__ds_bp_keydown_log;",
       "this.document.addEventListener('keydown', function (e) {",
       "  try {",
-      "    _klog.push({ key: e.key, code: e.code, ctrl: e.ctrlKey, meta: e.metaKey, alt: e.altKey, tag: e.target && e.target.tagName, t: Date.now() });",
+      "    _klog.push({ key: e.key, code: e.code, ctrl: e.ctrlKey, shift: e.shiftKey, meta: e.metaKey, alt: e.altKey, tag: e.target && e.target.tagName, t: Date.now() });",
       "    if (_klog.length > 100) _klog.shift();",
       "  } catch (err) {}",
       "}, true);",

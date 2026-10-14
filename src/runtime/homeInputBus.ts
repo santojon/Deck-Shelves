@@ -39,6 +39,7 @@ export interface KeyEvent {
   key: string;
   code?: string;
   ctrl?: boolean;
+  shift?: boolean;
   meta?: boolean;
   alt?: boolean;
   tag?: string;

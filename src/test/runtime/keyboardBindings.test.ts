@@ -85,6 +85,23 @@ describe("matchKeyEvent", () => {
     expect(matchKeyEvent("ControlLeft", combo, state, 1000)).toBe(false);
     expect(matchKeyEvent("KeyF", combo, state, 1050)).toBe(true);
   });
+  it("matches a chord with held modifiers however long ago they went down, when the event carries the flags", () => {
+    const state = createKeyMatcherState();
+    const combo = parseKeyCombo("ControlLeft+ShiftLeft+KeyS");
+    expect(matchKeyEvent("ControlLeft", combo, state, 1000, { ctrl: true })).toBe(false);
+    expect(matchKeyEvent("ShiftLeft", combo, state, 1300, { ctrl: true, shift: true })).toBe(false);
+    expect(matchKeyEvent("KeyS", combo, state, 2400, { ctrl: true, shift: true })).toBe(true); // 1.4 s after Ctrl
+    expect(matchKeyEvent("KeyS", combo, state, 5000, { ctrl: true, shift: true })).toBe(true); // right-side modifiers count the same
+    expect(matchKeyEvent("KeyS", combo, state, 6000, { ctrl: true })).toBe(false); // Shift released
+    expect(matchKeyEvent("KeyS", combo, state, 7000)).toBe(false); // no flags: back to the timing rule
+  });
+  it("keeps the timing rule for chord members that are not modifiers", () => {
+    const state = createKeyMatcherState();
+    const combo = parseKeyCombo("KeyA+KeyB");
+    expect(matchKeyEvent("KeyA", combo, state, 1000, { ctrl: true })).toBe(false);
+    expect(matchKeyEvent("KeyB", combo, state, 1500, { ctrl: true })).toBe(false);
+    expect(matchKeyEvent("KeyA", combo, state, 1600)).toBe(true);
+  });
   it("returns false for a null code or combo", () => {
     const state = createKeyMatcherState();
     expect(matchKeyEvent(null, parseKeyCombo("KeyF"), state)).toBe(false);
