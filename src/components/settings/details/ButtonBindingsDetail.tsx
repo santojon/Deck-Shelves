@@ -3,7 +3,7 @@ import { DialogButton, Focusable, ToggleField } from "../../../runtime/host/deck
 import type { useSettingsController } from "../../../features/settings/controller";
 import { subscribeControllerInput, Button as RawBtn } from "../../../runtime/controllerInput";
 import { DEFAULT_BINDINGS, findCollisions, resolveBindings, validateCombo } from "../../../runtime/buttonBindings";
-import { validateKeyCombo, formatKeyComboForDisplay } from "../../../runtime/keyboardBindings";
+import { validateKeyCombo, formatKeyComboForDisplay, DEFAULT_KEYBOARD_BINDINGS } from "../../../runtime/keyboardBindings";
 import type { ButtonBindings, KeyboardBindings } from "../../../types";
 import { CollapsibleSection } from "../../ui/CollapsibleSection";
 import { BanIcon, CheckIcon, RefreshIcon, TargetIcon, TrashIcon, GamepadIcon, KeyboardIcon } from "../../icons";
@@ -135,7 +135,7 @@ export function ButtonBindingsDetail({ controller, t }: ButtonBindingsDetailProp
       for (const r of rows) {
         void (controller.actions as any).setButtonBinding?.(r.key, (DEFAULT_BINDINGS as any)[r.key]);
         if (disabledList.includes(r.key)) void (controller.actions as any).setBindingDisabled?.(r.key, false);
-        void (controller.actions as any).setKeyboardBinding?.(r.key, null);
+        void (controller.actions as any).setKeyboardBinding?.(r.key, (DEFAULT_KEYBOARD_BINDINGS as any)[r.key] ?? null);
         if (keyDisabledList.includes(r.key)) void (controller.actions as any).setKeyboardBindingDisabled?.(r.key, false);
       }
     },
@@ -156,7 +156,7 @@ export function ButtonBindingsDetail({ controller, t }: ButtonBindingsDetailProp
           effectiveValue={(bindings as any)[row.key] ?? null}
           disabled={masterOff || disabledList.includes(row.key)}
           colliding={collisionTokens.has(row.key)}
-          rawKeyValue={(rawKeyBindings as any)[row.key] ?? null}
+          rawKeyValue={row.key in rawKeyBindings ? ((rawKeyBindings as any)[row.key] ?? null) : ((DEFAULT_KEYBOARD_BINDINGS as any)[row.key] ?? null)}
           keyDisabled={masterOff || keyDisabledList.includes(row.key)}
           controller={controller}
           t={t}
