@@ -21,7 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Profile triggers keep your own edits.** Settings you change while a trigger is active survive when it ends (and across a restart); only what the trigger itself changed is reverted. A trigger also no longer fires on a rule type this version does not know ([`profileTriggers.ts`](src/runtime/profileTriggers.ts)).
 
-- **The shortcut editor captures up to three buttons and can be cancelled** with B, Escape or the capture button; a capture nobody finishes ends by itself after 10 seconds. Keyboard combos now refuse a repeated key inside a longer chord, like controller combos.
+- **The shortcut editor captures up to three buttons and can be cancelled** with B, Escape or the capture button, without leaving the page; a capture nobody finishes ends by itself after 10 seconds. Keyboard combos now refuse a repeated key inside a longer chord, like controller combos.
 
 - **Opening Quick Search also closes dialogs in your Steam language**, not only those labelled in English.
 
@@ -48,6 +48,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Four device probes run again.** The game-menu, shelf-render, card-count and online-features probes imported a helper module that no longer existed; they now share a small helper in the project's probe folder ([`probe_base.py`](scripts/deckprobe-ext/lib/probe_base.py)). The game-menu probe also checks the menu as it is today — the per-card actions and the Shelf group with its Management / Display / Visual sub-groups, found by their keys so the UI language does not matter, plus a check that nothing is injected twice — instead of a single submenu the menu no longer has ([`menu_injection.py`](scripts/deckprobe-ext/probes/menu_injection.py)).
 
 ### Fixed
+
+- **Cloud sync now fills an empty device.** A machine whose settings held no shelves yet (a fresh install, or one that never finished its first sync) never read the cloud, because the guard against pushing a cold-boot snapshot also blocked the read; that guard now applies to pushing and adopting only, so such a device adopts the other devices' shelves at once, and "last synced" is stamped on an adoption too ([`cloudSync.ts`](src/runtime/cloudSync.ts)).
+
+- **Cloud sync keeps running while a profile is active.** A device on a triggered profile (a handheld on "Handheld" while a dock trigger exists) stopped syncing in both directions for as long as the profile stayed active — on a Deck that never leaves handheld, for good. It now syncs its shelves and preferences like any other device; what a sync adopts is also written into the active profile's saved snapshot, so the trigger's re-apply keeps it, and the active profile's name itself stays on the device. Unit tests cover both cases ([`cloudSync.ts`](src/runtime/cloudSync.ts), [`profiles.ts`](src/features/settings/controller/profiles.ts)).
+
+- **Quick Search lands on every game it finds.** A match whose card the row had not mounted yet (a long row, or a shelf still waiting below the fold) closed the search without moving the focus, so the game looked "not found"; the search now brings the shelf into view, has the row mount the card and lands the focus on it ([`builtInProvider.ts`](src/features/search/builtInProvider.ts)). Reopening the search within 30 seconds no longer appends to the previous query: the kept text is selected, so typing replaces it and Enter re-runs it.
+
+- **A bundle hot-swap by the standalone host hands the Home to the new instance.** The previous instance of the same host is disposed before the new one patches the Home (the other copy of a dual install keeps running), and the host's own teardown runs the plugin's dispose; before, the old Home tree could keep rendering with the old code under the new instance ([`index.tsx`](src/index.tsx)).
 
 - **The "Installing update" dialog closes by itself.** A self-installing host (a neutral host) swaps the new version in place without reloading Steam, so the dialog is now closed once the install settles instead of staying open; the toast and the dialog say the new version takes effect on its own in a few seconds, and a host that is busy with its own update check asks for a retry instead of falling back to a manual download ([`updateDownload.ts`](src/runtime/updateDownload.ts), [`UpdateInstallingModal.tsx`](src/components/update/UpdateInstallingModal.tsx)).
 

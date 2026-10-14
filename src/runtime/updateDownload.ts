@@ -67,9 +67,9 @@ async function runInstall(result: UpdateCheckResult): Promise<InstallOutcome> {
     return "installed";
   } catch (e) {
     logInfo("UPDATE", "applyUpdate threw", String(e));
-    // The host refuses an install while its own update check runs; that is a
-    // moment's wait, not a failed install.
-    return /\bbusy\b/i.test(String(e)) ? "busy" : "failed";
+    // A host that cannot take the install right now rejects with a `busy: ` message (contract
+    // HostUpdates.applyUpdate): a moment's wait, not a failed install. Any other error is one.
+    return /(?:^|:\s)busy: /.test(String(e)) ? "busy" : "failed";
   }
 }
 

@@ -99,6 +99,33 @@ describe("installOrDownloadUpdate", () => {
     ]);
   });
 
+  it("asks for a retry on any busy: rejection", async () => {
+    applyUpdateImpl = async () => { throw new Error("applyUpdate: busy: a rollback is running"); };
+    await installOrDownloadUpdate(release);
+    expect(events).toEqual([
+      "openModal",
+      "toast:update:update_installing",
+      "applyUpdate",
+      "closeModal",
+      "toast:update:update_install_busy",
+    ]);
+  });
+
+  it("treats an I/O error that merely mentions busy as a failed install", async () => {
+    applyUpdateImpl = async () => { throw new Error("applyUpdate: swap failed: Device or resource busy (os error 16)"); };
+    await installOrDownloadUpdate(release);
+    expect(events).toEqual([
+      "openModal",
+      "toast:update:update_installing",
+      "applyUpdate",
+      "closeModal",
+      "toast:error:update_install_failed",
+      "toast:update:update_downloading",
+      "call:download_release",
+      "toast:success:update_downloaded",
+    ]);
+  });
+
   it("downloads without a modal when the host cannot self-install", async () => {
     selfInstall = false;
     expect(canSelfInstallUpdate()).toBe(false);

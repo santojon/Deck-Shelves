@@ -6,6 +6,7 @@
 
 import { getCurrentSettings, saveSettings, subscribeSettings } from "../store/settingsStore";
 import { mergeSettings, LOCAL_ONLY_FIELDS } from "../domain/settingsMerge";
+import { takeSnapshot } from "../features/settings/controller/profiles";
 import { isHomeOwner } from "./host/ownerGuard";
 import { notifyUser } from "./notify";
 import i18n from "../i18n";
@@ -107,21 +108,41 @@ async function patchSettingsVerified(
   return false;
 }
 
+// Bookkeeping every save rewrites; never a value worth folding into a profile.
+const SYNC_CLOCKS = new Set(["preferencesUpdatedAt", "syncTombstones"]);
+
+// Top-level keys of `after` whose value differs from `before`, clocks aside.
+function changedFields(before: Record<string, unknown>, after: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const k of Object.keys(after)) {
+    if (!SYNC_CLOCKS.has(k) && JSON.stringify(after[k]) !== JSON.stringify(before[k])) out[k] = after[k];
+  }
+  return out;
+}
+
+/* While a profile is active the device keeps syncing. What a sync pass adopts
+   is also written into that profile's saved snapshot, so the trigger's next
+   re-apply keeps the adopted values instead of rolling them back; the active
+   name itself stays device-local (LOCAL_ONLY_FIELDS). The synthetic Default
+   profile has no saved snapshot, so nothing is folded for it. */
+function foldIntoActiveProfile(local: Settings, merged: Settings): Settings {
+  const m = merged as any;
+  const profiles: any[] = Array.isArray(m.profiles) ? m.profiles : [];
+  const idx = profiles.findIndex((p) => p && p.name === m.activeProfileName);
+  if (idx < 0) return merged;
+  const adopted = changedFields(takeSnapshot(local), takeSnapshot(merged));
+  if (Object.keys(adopted).length === 0) return merged;
+  const next = [...profiles];
+  next[idx] = { ...profiles[idx], snapshot: { ...profiles[idx].snapshot, ...adopted }, updatedAt: Date.now() };
+  return { ...m, profiles: next } as Settings;
+}
+
 export function installCloudSync(): () => void {
   let disposed = false;
   let debounceTimer: ReturnType<typeof setTimeout> | null = null;
   let lastKnownJson: string | null = null;
   let wasEnabled = false;
   let unsub: (() => void) | null = null;
-
-  /* A profile override is a device-local presentation (a display trigger docks
-     one machine while another stays handheld). While one is active THIS device's
-     sync is frozen — no adopt, no push — so its profile settings never cross
-     devices and nothing fights the profile trigger (which re-applies on device/
-     settings events). Sync resumes when no profile is active. */
-  function overrideActive(s: Settings): boolean {
-    return (s as any)?.activeProfileName != null;
-  }
 
   /* One sync pass: merge the local snapshot with the cloud copy per-entity
      (settingsMerge), adopt the result locally if it changed, and push the merge
@@ -130,36 +151,42 @@ export function installCloudSync(): () => void {
      unique shelves survive and deletions propagate via tombstones. */
   /* A snapshot with no shelves AND no smart shelves is almost always the
      transient cold-boot default, not a real "user deleted everything" state.
-     Never sync it — pushing it would poison the cloud, and adopting a merge
-     that came out empty would wipe a healthy device. */
+     Never push it (it would poison the cloud) and never adopt a merge that came
+     out empty (it would wipe a healthy device). An empty device still READS the
+     cloud: that is how a fresh or wiped machine adopts the other devices' shelves. */
   function isReal(s: Settings): boolean {
     return ((s as any).shelves?.length ?? 0) > 0 || ((s as any).smartShelves?.length ?? 0) > 0;
   }
 
-  function canSync(local: Settings): boolean {
-    return !disposed && isHomeOwner() && hasCloudSyncSupport() && isReal(local);
+  function canSync(): boolean {
+    return !disposed && isHomeOwner() && hasCloudSyncSupport();
+  }
+
+  // The cloud's own stamp when it already holds `payload`, else the stamp of our write.
+  async function publish(merged: Settings, payload: string, cloud: CloudPayload | null): Promise<number | null> {
+    if (cloud && payload === JSON.stringify(preparePayload(cloud.settings as unknown as Settings))) return cloud.updatedAt;
+    return writeCloud(merged);
   }
 
   async function syncOnce(local: Settings): Promise<void> {
-    if (!canSync(local)) return;
-    // Frozen while a profile is active — device-local presentation, see above.
-    if (overrideActive(local)) return;
+    if (!canSync()) return;
     const cloud = await readCloud();
-    const remote = cloud ? (cloud.settings as unknown as Settings) : null;
-    const merged = remote ? mergeSettings(local, remote) : local;
+    const merged = cloud ? foldIntoActiveProfile(local, mergeSettings(local, cloud.settings as unknown as Settings)) : local;
     if (!isReal(merged)) return;
     const mergedPayload = JSON.stringify(preparePayload(merged));
-    if (mergedPayload !== JSON.stringify(preparePayload(local))) {
+    const adopted = mergedPayload !== JSON.stringify(preparePayload(local));
+    if (adopted) {
       lastKnownJson = mergedPayload; // suppress the re-entrant push from the adopt save
       await saveSettings(merged, { fromSync: true });
       notifyUser(i18n.t("plugin_name"), i18n.t("cloud_sync_applied"), "import", "cloudSync");
     }
-    // Cloud already holds the merged result → nothing to write.
-    if (remote && mergedPayload === JSON.stringify(preparePayload(remote))) { lastKnownJson = mergedPayload; return; }
-    const at = await writeCloud(merged);
+    const at = await publish(merged, mergedPayload, cloud);
     if (!at) return;
     lastKnownJson = mergedPayload;
-    await patchSettingsVerified({ cloudSyncLastSyncedAt: at }, (s) => (s as any).cloudSyncLastSyncedAt === at);
+    // "Last synced" moves on a write and on an adoption; a pull that changed nothing leaves it.
+    if (adopted || at !== cloud?.updatedAt) {
+      await patchSettingsVerified({ cloudSyncLastSyncedAt: at }, (s) => (s as any).cloudSyncLastSyncedAt === at);
+    }
   }
 
   function schedulePush(s: Settings): void {

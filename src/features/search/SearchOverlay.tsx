@@ -389,6 +389,17 @@ export function SearchOverlay() {
   );
 }
 
+/* One focus attempt on the pill's input: focus it, pop the keyboard on the
+   first try, and select a query kept from the last session so typing
+   replaces it and Enter re-runs it. */
+function focusSearchInput(input: HTMLInputElement, n: number, keyboardEnabled: boolean, first: boolean): void {
+  prepareSearchInput(input);
+  try { input.focus(); } catch {}
+  if (n === 8 && keyboardEnabled) tapInputForKeyboard(input);
+  if (first && input.value) { try { input.select(); } catch {} }
+  publishSearchFocusDiag(input, n, keyboardEnabled);
+}
+
 function SearchPill({ query, onChange, keyboardEnabled, onEnter }: {
   query: string;
   onChange: (q: string) => void;
@@ -418,12 +429,10 @@ function SearchPill({ query, onChange, keyboardEnabled, onEnter }: {
       const host = hostRef.current;
       const input = host?.querySelector<HTMLInputElement>("input");
       if (input && input.isConnected) {
+        const first = !captured;
         captured = input;
         unroute ??= routeVirtualKeyboard(input, (v) => onChangeRef.current(v), () => onEnterRef.current?.());
-        prepareSearchInput(input);
-        try { input.focus(); } catch {}
-        if (n === 8 && keyboardEnabled) tapInputForKeyboard(input);
-        publishSearchFocusDiag(input, n, keyboardEnabled);
+        focusSearchInput(input, n, keyboardEnabled, first);
       }
       if (n > 0) window.setTimeout(() => tryFocus(n - 1), 120);
     };

@@ -47,8 +47,9 @@ function randomProfileId(): string {
 /* `showcaseSeen` is an installation-level flag, not a per-profile one — a
    profile saved before the tour was completed would otherwise re-trigger it
    on every later switch. DEVICE_LOCAL_FIELDS excluded for the same reason
-   (`keepDeviceLocalFields` restores them on apply). */
-function takeSnapshot(s: Settings): Record<string, unknown> {
+   (`keepDeviceLocalFields` restores them on apply). Exported for the cloud
+   sync, which folds what it adopts into the active profile the same way. */
+export function takeSnapshot(s: Settings): Record<string, unknown> {
   const { profiles: _p, activeProfileName: _n, showcaseSeen: _s, ...rest } = s as any;
   for (const f of DEVICE_LOCAL_FIELDS) delete (rest as any)[f];
   return rest as Record<string, unknown>;

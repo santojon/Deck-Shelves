@@ -9,6 +9,7 @@ import { CollapsibleSection } from "../../ui/CollapsibleSection";
 import { BanIcon, CheckIcon, RefreshIcon, TargetIcon, TrashIcon, GamepadIcon, KeyboardIcon } from "../../icons";
 import { BTN_ICON_STYLE } from "../../ui/buttonStyles";
 import { confirmAction } from "../../qam/modals/ConfirmActionModal";
+import { absorbCancelButton } from "../../qam/sidecarCancel";
 
 // Maps the raw controller event button id (from `controllerInput`) to
 // the token name used by the bindings parser. Required because this
@@ -235,6 +236,7 @@ function BindingRowButtons({
       <DialogButton
         onClick={capturing ? cancelCapture : startCapture}
         onOKButton={capturing ? cancelCapture : startCapture}
+        onButtonDown={cancelOnButtonDown(capturing, cancelCapture)}
         style={BTN_ICON_STYLE}
         aria-label={capturing ? t("binding_cancel") : t("binding_capture")}
       >
@@ -272,6 +274,12 @@ function BindingRowButtons({
     </>
   );
 }
+
+/* While capturing, the focused capture button takes Steam's cancel (B, or Escape on a
+   keyboard, which Steam turns into cancel before the page sees it) and ends the capture,
+   so the press never reaches the page's back handler. */
+const cancelOnButtonDown = (capturing: boolean, cancel: () => void) =>
+  capturing ? (evt: any) => absorbCancelButton(evt, cancel) : undefined;
 
 const CAPTURE_WINDOW_MS = 300;
 const CAPTURE_MAX_TOKENS = 3;
@@ -388,7 +396,7 @@ function KeyBindingRow({ keyState, rawKeyValue, keyDisabled, t }: {
           {t("binding_keyboard_label")}
         </div>
         <BindingStatus capturing={keyState.capturing} disabled={keyDisabled} value={keyState.captured ?? rawKeyValue} t={t} render={renderKeyCombo} />
-        <DialogButton onClick={keyState.capturing ? keyState.cancelCapture : keyState.startCapture} onOKButton={keyState.capturing ? keyState.cancelCapture : keyState.startCapture} style={BTN_ICON_STYLE} aria-label={t(keyState.capturing ? "binding_cancel" : "binding_capture")}>
+        <DialogButton onClick={keyState.capturing ? keyState.cancelCapture : keyState.startCapture} onOKButton={keyState.capturing ? keyState.cancelCapture : keyState.startCapture} onButtonDown={cancelOnButtonDown(keyState.capturing, keyState.cancelCapture)} style={BTN_ICON_STYLE} aria-label={t(keyState.capturing ? "binding_cancel" : "binding_capture")}>
           <TargetIcon size={16} />
         </DialogButton>
         <DialogButton onClick={keyState.toggleDisabled} onOKButton={keyState.toggleDisabled} disabled={keyBusy} style={BTN_ICON_STYLE} aria-label={t(keyDisabled ? "binding_enable" : "binding_disable")}>

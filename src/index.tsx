@@ -42,7 +42,7 @@ import { markBootStart, recordBootCritical } from "./core/perfMetrics";
 import { installStartupWatchdog, startLazyPhases, installUpdateProbes, scheduleBootToasts, logSystemEnvironment } from "./runtime/bootPhases";
 import { Navigation, Focusable, DialogButton, quickAccessMenuClasses } from "./runtime/host/decky";
 import { resolveHost, hostProvidesNativeTab, shouldUseForcedHost, awaitInjectedHost } from "./runtime/host/resolve";
-import { claimHomeOwnership } from "./runtime/host/ownerGuard";
+import { claimHomeOwnership, getOwnerKind, type HostKind } from "./runtime/host/ownerGuard";
 import { setHostHandshake, getHostHandshake } from "./runtime/hostHandshake";
 import { tryDeferToHost, readDeferSignal, hostBundleBooted } from "./runtime/host/coopDefer";
 import { SetupWizardEntry } from "./features/setup/SetupWizardEntry";
@@ -160,6 +160,28 @@ function cacheHostHandshake(host: HostApi): void {
    there's one injector and one writer. Under cooperative force this single
    instance runs on the neutral host and claims under that host's own kind even
    though a loader launched it (resolveHost already bound it to the injected host). */
+/* A hot-swap (the same host re-evaluating this bundle) skips the OLD instance's
+   onDismount, leaving its patches, listeners and timers live. `window` survives
+   the swap where module state doesn't, so boot() stashes each instance there by
+   host kind and the next instance of the SAME kind disposes it first; the other
+   copy of a dual install is another host's instance and keeps running. */
+function disposePreviousInstance(kind: HostKind): void {
+  try {
+    (globalThis as any).__DECK_SHELVES_INSTANCES__?.[kind]?.dispose?.();
+  } catch (error) {
+    logError("RUNTIME", "failed to dispose previous instance before hot-swap boot", String(error));
+  }
+}
+
+function stashInstance(kind: HostKind, dispose: () => void): void {
+  try {
+    const w = globalThis as any;
+    const entry = { dispose, kind };
+    w.__DECK_SHELVES_INSTANCE__ = entry;
+    (w.__DECK_SHELVES_INSTANCES__ ??= {})[kind] = entry;
+  } catch {}
+}
+
 function claimRenderer(coopForce: boolean, loaderLaunched: boolean): boolean {
   const isOwner = claimHomeOwnership((coopForce || !loaderLaunched) ? "shelveshub" : "decky");
   if (!isOwner) logInfo("RUNTIME", "another Deck Shelves instance owns the renderer — standing down (no home patch / no settings writes)");
@@ -265,17 +287,6 @@ function tryInstall(install: () => () => void): (() => void) | null {
 const __ds_entry = definePlugin((serverAPI?: any) => {
   markBootStart();
   logInfo("RUNTIME", "plugin bootstrap start");
-  /* A hot-swap (same host re-evaluating this bundle) skips the OLD
-     instance's onDismount, leaving its patches/listeners/timers live
-     alongside the new ones. `window` survives the swap where module state
-     doesn't — dispose whatever's left (registered by boot(), below)
-     first. First-ever boot finds nothing here — inert no-op. */
-  try {
-    const w = globalThis as any;
-    w.__DECK_SHELVES_INSTANCE__?.dispose?.();
-  } catch (error) {
-    logError("RUNTIME", "failed to dispose previous instance before hot-swap boot", String(error));
-  }
   // Safety net: catches anything the old instance's manual dispose() list
   // forgot to wire up by hand (see runtimeDisposer.ts); today only the dev
   // navigation hooks register here.
@@ -325,6 +336,7 @@ const __ds_entry = definePlugin((serverAPI?: any) => {
   if (deferToHost) return standIn();
   const routerHook = pluginRouterHookOf(loaderRouterHook);
   const isOwner = claimRenderer(shouldUseForcedHost(), loaderLaunched);
+  disposePreviousInstance(getOwnerKind());
   const { patch, recentsReplacePatch } = installHomePatches(routerHook, isOwner);
   const uninstallWatchdog = installStartupWatchdog(patch, recentsReplacePatch);
   const uninstallRefresh = installShelfRefreshEmitter();
@@ -409,7 +421,11 @@ const __ds_entry = definePlugin((serverAPI?: any) => {
     uninstallUpdateProbes, uninstallWatchdog, uninstallBootToasts, uninstallHostQamPanel,
     disposeAll,
   ];
+  // Runs once: the host's teardown, a loader's onDismount and the next instance may each call it.
+  let disposed = false;
   const dispose = () => {
+    if (disposed) return;
+    disposed = true;
     try {
       logInfo("RUNTIME", "plugin dismount");
       for (const step of teardown) step();
@@ -417,7 +433,9 @@ const __ds_entry = definePlugin((serverAPI?: any) => {
       logError("RUNTIME", "failed to remove patch", String(error));
     }
   };
-  try { (globalThis as any).__DECK_SHELVES_INSTANCE__ = { dispose }; } catch {}
+  stashInstance(getOwnerKind(), dispose);
+  // A neutral host runs its unmount handlers before hot-swapping the bundle (host contract).
+  try { _hostApi.lifecycle.onUnmount(dispose); } catch {}
   recordBootCritical();
 
   return {

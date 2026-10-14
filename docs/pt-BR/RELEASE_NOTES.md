@@ -7,6 +7,8 @@ técnico completo, veja [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+- **A Busca Rápida chega ao jogo sempre**, inclusive jogos mais adiante numa fileira ou numa prateleira abaixo da dobra, e reabri-la mantém o texto anterior selecionado em vez de anexar a ele. Um hot-swap do bundle pelo host independente agora entrega a Home à nova instância.
+
 - **Jogos fixados, histórico de jogo, filas e tags personalizadas agora funcionam.** Um novo submenu **Listas** no menu do jogo fixa o jogo, coloca-o na fila desta sessão ou até você jogá-lo e edita as tags dele; o histórico de jogo se preenche sozinho, e Categorias do analisador lê as categorias que o seu gerenciador de ROM ou integração de launcher deu a cada atalho. Os gatilhos de perfil agora preservam as configurações que você muda enquanto estão ativos, e o editor de atalhos aceita até três botões e pode ser cancelado.
 
 - **Atualizar por um host que instala sozinho ficou mais suave.** O diálogo "Instalando atualização" fecha sozinho assim que a nova versão entra (nada reinicia o Steam), e em máquinas sem um carregador de plugins suas configurações não são mais copiadas para uma pasta de carregador que nada lê.

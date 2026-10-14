@@ -100,9 +100,9 @@ function scalarBag(la: any, rb: any, lp: number, rp: number, keepLocal: boolean)
    on SYNCED fields (so both devices converge from the same pair); the device-local
    fields in LOCAL_ONLY_FIELDS always come from `local` (the first argument). */
 /* `scalars: "keepLocal"` pins the whole scalar bag (and its clock) to `local`
-   while the per-entity lists still merge — used while a profile override is
-   active so the scalar settings a profile applies stay device-local and never
-   tug-of-war across devices. This mode is intentionally NOT symmetric. */
+   while the per-entity lists still merge — for a caller that wants the scalar
+   settings a profile applies to stay device-local; the cloud sync itself merges
+   them and folds the result into the active profile. NOT symmetric. */
 /* A neutral host's own config entity rides the sync as per-key LWW (its
    `updatedAt` map), independent of the scalar bag: a device that never had it
    adopts it, ties keep local, and an empty remote never erases local keys. */
