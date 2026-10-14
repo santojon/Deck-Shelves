@@ -136,9 +136,20 @@ O `plugin.json` é distribuído sem a flag `debug` (exigido para a Decky Store).
 ## Screenshots
 
 O tooling de CDP vive no pacote `deckprobe/` (host/porta vêm do `.env`:
-`DECK_HOST`, `DECK_CDP_PORT`). Faça o deploy do plugin primeiro (exige pelo
-menos 2 prateleiras com 1+ jogo cada; `smart-shelf-edit.png` precisa de Smart
-Prateleiras ativado com uma entrada).
+`DECK_HOST`, `DECK_CDP_PORT`). Faça primeiro o deploy do fixture de screenshots:
+
+```bash
+pnpm run qa:screenshots-fixture
+```
+
+É um build de desenvolvimento cujas prateleiras, prateleiras inteligentes,
+filtros salvos, perfis e modo Avançado vivem só em memória (nada é gravado no
+dispositivo), então toda captura — inclusive as que precisam de uma prateleira
+oculta, de um filtro salvo ou da aba Ferramentas avançadas — tem o que precisa,
+e os hooks exclusivos de dev que abrem o sidecar, a Busca Rápida e a Side Nav
+existem. Cada cenário força a UI do plugin para en-US; o chrome do próprio
+Steam fica no idioma do dispositivo. Depois, coloque o build normal de volta
+(`pnpm run deploy:deck:release`).
 
 ```bash
 # Captura todos os screenshots via automação CDP
@@ -181,6 +192,8 @@ fallback de frame em branco) e `run.py` (orquestrador sobre `ALL_SCENARIOS`).
 | `home.png` | Home com o portal do Deck Shelves montado após os recentes nativos |
 | `home-shelves.png` | Home rolada para mostrar a segunda prateleira do DS por completo |
 | `game-menu.png` | Menu de contexto aberto num card de prateleira (botão MENU) |
+| `search.png` | Busca Rápida aberta sobre a Home, com os resultados de uma consulta digitada |
+| `sidenav.png` | A Side Nav de prateleiras aberta ao lado do card focado |
 | `qam.png` | QAM com a aba do plugin Deck Shelves ativa |
 | `shelf-create.png` | Modal do seletor de templates (agrupado por categoria) |
 | `shelf-actions.png` | Menu de ações por prateleira (Editar / Duplicar / Ocultar / Excluir / reordenar) |
@@ -195,8 +208,9 @@ fallback de frame em branco) e `run.py` (orquestrador sobre `ALL_SCENARIOS`).
 | `smart-shelves-qam.png` | QAM rolado até a seção Prateleiras Inteligentes |
 | `smart-shelf-modal.png` | Seletor de templates de Prateleira Inteligente (acordeões por categoria) |
 | `smart-shelf-edit.png` | Modal de edição de Prateleira Inteligente (override de ordenação + filtros + visual) |
-| `saved-filters-qam.png` | **Opcional** — seção Filtros Salvos no QAM; capturado só quando um filtro foi salvo |
+| `saved-filters-qam.png` | Seção Filtros Salvos no QAM (o fixture semeia dois filtros) |
 | `global-toggles.png` | Seção Aplicar Globalmente no QAM |
+| `settings-backup.png` | Página de Configurações — aba Backup |
 
 ## Suíte local de testes de UI
 

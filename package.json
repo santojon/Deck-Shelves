@@ -53,6 +53,7 @@
     "qa:decoration-fixture": "DS_QA_DECORATION_FIXTURE=1 pnpm run deploy:deck:hard",
     "qa:stress-fixture": "DS_QA_STRESS_FIXTURE=1 pnpm run deploy:deck:hard",
     "qa:video-fixture": "DS_QA_VIDEO_FIXTURE=1 pnpm run deploy:deck:hard",
+    "qa:screenshots-fixture": "DS_QA_SCREENSHOTS_FIXTURE=1 pnpm run deploy:deck:hard",
     "qa:fresh-install": "DS_QA_FRESH_INSTALL=1 pnpm run deploy:deck:hard",
     "qa:device-frame": "DS_QA_FORCE_DEVICE=frame pnpm run deploy:deck:hard",
     "qa:device-machine": "DS_QA_FORCE_DEVICE=machine pnpm run deploy:deck:hard",

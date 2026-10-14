@@ -117,6 +117,19 @@ Visível no QAM quando pelo menos um filtro foi salvo a partir da aba
   <img src="../../assets/screenshots/global-toggles.png" alt="Deck Shelves — Global Toggles" width="768">
 </p>
 
+## Busca Rápida e Side Nav
+
+A Busca Rápida (L1+R1) encontra qualquer jogo entre as prateleiras e pousa no
+card dele; a Side Nav (L1 duas vezes) pula entre prateleiras.
+
+<p align="center">
+  <img src="../../assets/screenshots/search.png" alt="Deck Shelves — Quick Search" width="768">
+</p>
+
+<p align="center">
+  <img src="../../assets/screenshots/sidenav.png" alt="Deck Shelves — Shelf Side Nav" width="768">
+</p>
+
 ## Página de Configurações
 
 A rota de Configurações em página inteira, aberta pelo ícone de engrenagem na barra de título do QAM.
@@ -127,6 +140,10 @@ A rota de Configurações em página inteira, aberta pelo ícone de engrenagem n
 
 <p align="center">
   <img src="../../assets/screenshots/settings-profiles.png" alt="Deck Shelves — Settings page (Profiles tab)" width="768">
+</p>
+
+<p align="center">
+  <img src="../../assets/screenshots/settings-backup.png" alt="Deck Shelves — Settings page (Backup tab)" width="768">
 </p>
 
 <p align="center">

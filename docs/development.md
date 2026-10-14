@@ -134,9 +134,19 @@ The `plugin.json` ships without the `debug` flag (required for Decky Store). Dur
 ## Screenshots
 
 The CDP tooling lives in the `deckprobe/` package (host/port come from
-`.env`: `DECK_HOST`, `DECK_CDP_PORT`). Deploy the plugin first (requires at
-least 2 shelves with 1+ game each; `smart-shelf-edit.png` needs Smart Shelves
-enabled with one entry).
+`.env`: `DECK_HOST`, `DECK_CDP_PORT`). Deploy the screenshots fixture first:
+
+```bash
+pnpm run qa:screenshots-fixture
+```
+
+It is a dev build whose shelves, smart shelves, saved filters, profiles and
+Advanced mode live in memory only (nothing is written to the device), so every
+capture — including the ones that need a hidden shelf, a saved filter or the
+Advanced tools tab — has what it needs, and the dev-only hooks that open the
+sidecar, Quick Search and the Side Nav exist. Each scenario forces the plugin
+UI to en-US; Steam's own chrome stays in the device's language. Put the normal
+build back afterwards (`pnpm run deploy:deck:release`).
 
 ```bash
 # Capture all screenshots via CDP automation
@@ -179,6 +189,8 @@ dir and returns a `{filename: Path}` map. The runner is split into `lib/cdp.py`
 | `home.png` | Home with the Deck Shelves portal mounted after native recents |
 | `home-shelves.png` | Home scrolled to show the second DS shelf in full |
 | `game-menu.png` | Context menu opened on a shelf card (MENU button) |
+| `search.png` | Quick Search open over the Home, with the results for a typed query |
+| `sidenav.png` | The shelf Side Nav open beside the focused card |
 | `qam.png` | QAM with the Deck Shelves plugin tab active |
 | `shelf-create.png` | Template picker modal (grouped by category) |
 | `shelf-actions.png` | Per-shelf action menu (Edit / Duplicate / Hide / Delete / reorder) |
@@ -193,8 +205,9 @@ dir and returns a `{filename: Path}` map. The runner is split into `lib/cdp.py`
 | `smart-shelves-qam.png` | QAM scrolled to the Smart Shelves section |
 | `smart-shelf-modal.png` | Smart Shelf template picker (category accordions) |
 | `smart-shelf-edit.png` | Edit Smart Shelf modal (sort override + filters + visual) |
-| `saved-filters-qam.png` | **Optional** — Saved Filters section in QAM; captured only when a filter has been saved |
+| `saved-filters-qam.png` | Saved Filters section in QAM (the fixture seeds two filters) |
 | `global-toggles.png` | Apply Globally section in QAM |
+| `settings-backup.png` | Settings page — Backup tab |
 
 ## Local UI test suite
 

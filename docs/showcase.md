@@ -117,6 +117,19 @@ Visible in the QAM when at least one filter has been saved from the
   <img src="../assets/screenshots/global-toggles.png" alt="Deck Shelves — Global Toggles" width="768">
 </p>
 
+## Quick Search and Side Nav
+
+Quick Search (L1+R1) finds any game across the shelves and lands on its card;
+the Side Nav (L1 twice) jumps between shelves.
+
+<p align="center">
+  <img src="../assets/screenshots/search.png" alt="Deck Shelves — Quick Search" width="768">
+</p>
+
+<p align="center">
+  <img src="../assets/screenshots/sidenav.png" alt="Deck Shelves — Shelf Side Nav" width="768">
+</p>
+
 ## Settings page
 
 The full-page Settings route, opened from the gear icon in the QAM title bar.
@@ -127,6 +140,10 @@ The full-page Settings route, opened from the gear icon in the QAM title bar.
 
 <p align="center">
   <img src="../assets/screenshots/settings-profiles.png" alt="Deck Shelves — Settings page (Profiles tab)" width="768">
+</p>
+
+<p align="center">
+  <img src="../assets/screenshots/settings-backup.png" alt="Deck Shelves — Settings page (Backup tab)" width="768">
 </p>
 
 <p align="center">

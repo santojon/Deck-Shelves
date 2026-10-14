@@ -294,13 +294,21 @@ export function SearchOverlay() {
   useEffect(() => {
     if (!__DEV__) return;
     const g = globalThis as any;
-    g.__ds_dev_open_search = (q?: string) => {
+    const open = (q?: string) => {
       setOpen(true);
       if (typeof q === "string") setQuery(q);
       return true;
     };
-    g.__ds_dev_close_search = () => setOpen(false);
-    return () => { try { delete g.__ds_dev_open_search; delete g.__ds_dev_close_search; } catch {} };
+    const closeHook = () => close({ restorePrior: false });
+    g.__ds_dev_open_search = open;
+    g.__ds_dev_close_search = closeHook;
+    // A remounted Home registers before the old root's cleanup runs; only remove our own.
+    return () => {
+      try {
+        if (g.__ds_dev_open_search === open) delete g.__ds_dev_open_search;
+        if (g.__ds_dev_close_search === closeHook) delete g.__ds_dev_close_search;
+      } catch {}
+    };
   }, []);
   useEffect(() => {
     if (!enabled) return;

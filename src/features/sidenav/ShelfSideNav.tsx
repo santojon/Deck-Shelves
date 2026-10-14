@@ -168,14 +168,22 @@ export function ShelfSideNav() {
   useEffect(() => {
     if (!__DEV__) return;
     const g = globalThis as any;
-    g.__ds_dev_open_sidenav = (shelfId?: string, appid?: number) => {
+    const open = (shelfId?: string, appid?: number) => {
       const next = resolveDevSidenavAnchor(shelfId, appid, lastFirstCardRef.current);
       if (!next) return false;
       setAnchor(next);
       return true;
     };
-    g.__ds_dev_close_sidenav = () => setAnchor(null);
-    return () => { try { delete g.__ds_dev_open_sidenav; delete g.__ds_dev_close_sidenav; } catch {} };
+    const closeHook = () => setAnchor(null);
+    g.__ds_dev_open_sidenav = open;
+    g.__ds_dev_close_sidenav = closeHook;
+    // A remounted Home registers before the old root's cleanup runs; only remove our own.
+    return () => {
+      try {
+        if (g.__ds_dev_open_sidenav === open) delete g.__ds_dev_open_sidenav;
+        if (g.__ds_dev_close_sidenav === closeHook) delete g.__ds_dev_close_sidenav;
+      } catch {}
+    };
   }, []);
 
   useEffect(() => {

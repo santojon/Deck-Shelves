@@ -34,10 +34,11 @@ from pathlib import Path
 from typing import Dict, Optional
 
 from deckprobe.screenshots.lib.cdp import Session, open_session
-from deckprobe.screenshots.lib.nav import navigate_home, navigate_settings, navigate, _bp_eval
+from deckprobe.screenshots.lib.nav import navigate_home, _bp_eval
 from deckprobe.videos.lib.registry import register
-from deckprobe.videos.lib.capture import record
+from ._screencast import record_timed as record
 from ._locale import force_locale
+from ._routes import navigate_route
 
 _MODAL_SEL = "[class*=GenericConfirmDialog]"
 
@@ -115,7 +116,7 @@ def _navigate_edit_route(host: str, port: int, shelf_id: str, settle_ms: int = 2
     per call is a safe defensive fix either way."""
     fresh = open_session(host, port, "SharedJSContext")
     try:
-        navigate(fresh, f"/deck-shelves/edit/{shelf_id}", settle_ms=settle_ms)
+        navigate_route(fresh, f"/deck-shelves/edit/{shelf_id}", settle_ms=settle_ms)
     finally:
         fresh.close()
 
@@ -428,7 +429,7 @@ def profiles_triggers(sjc: Session, host: str, port: int, out_dir: Path) -> Dict
         return f"Array.from(document.querySelector({page_sel!r})?.querySelectorAll({row_sel!r}) || [])"
 
     with record(host, port, "Big Picture", out_dir, name):
-        navigate_settings(sjc, settle_ms=2500)
+        navigate_route(sjc, "/deck-shelves/settings", settle_ms=2500)
         landed = _bp_eval(host, port, f"!!document.querySelector({page_sel!r})")
         if landed is not True:
             return {}

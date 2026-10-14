@@ -177,6 +177,8 @@ The build accepts environment flags that force specific UI states for repeatable
 | `DS_QA_SMART_SHELVES_FIXTURE` | `pnpm qa:smart-fixture` | Seeds 4 smart shelves so the smart section renders populated |
 | `DS_QA_SAVED_FILTERS_FIXTURE` | `pnpm qa:saved-filters-fixture` | Seeds saved filters so the QAM Saved Filters section is visible |
 | `DS_QA_FORCE_HIDDEN_SHELF` | `pnpm qa:hidden-shelf` | Adds one hidden shelf to the curated fixture (for the `shelf-hidden.png` capture) |
+| `DS_QA_VIDEO_FIXTURE` | `pnpm qa:video-fixture` | Presentable shelves (three library-backed, a wishlist and a store-deals shelf), two smart shelves and a profile with a charging trigger, with the online features and Advanced mode on — the base the video scenarios (`pnpm run videos`) record |
+| `DS_QA_SCREENSHOTS_FIXTURE` | `pnpm qa:screenshots-fixture` | The video fixture plus a hidden shelf, two saved filters and a second profile, built on the default settings (not the device's own) with Quick Search and the Side Nav on and the first shelf in the native recents row under its hero art — everything the screenshot run (`pnpm run screenshots`) captures, in memory only |
 | `DS_QA_SMART_SURPRISE_ME` | `pnpm qa:surprise-me` | Forces `smartSurpriseMe=true` so the daily-rotation logic runs |
 | `DS_QA_FORCE_TABMASTER` | — | `present` / `absent` overrides TabMaster detection |
 | `DS_QA_FORCE_UNIFIDECK` | — | `present` / `absent` overrides UnifiDeck detection |
@@ -193,20 +195,27 @@ Combine flags as needed (e.g. `DS_QA_SMART_SHELVES_FIXTURE=1 DS_QA_SAVED_FILTERS
 
 Scripted, repeatable sequences for the eight content scripts (custom shelves, smart shelves,
 filters, visual customization, Quick Search + Side Nav, profiles + triggers, online shelves,
-power-user tools), registered with the same `videos` runner as the content-script recordings.
-Deploy the video fixture first (`pnpm run qa:video-fixture`), then:
+power-user tools) plus the quick-settings sidecar, registered with the same `videos` runner as
+the content-script recordings (the five `custom_shelves` … `profiles_triggers` scenarios, which
+perform a real edit and show its result). Deploy the video fixture first
+(`pnpm run qa:video-fixture`), then:
 
 ```bash
-pnpm run videos:list                          # every registered scenario (content scripts + 01…08)
+pnpm run videos:list                          # every registered scenario (content scripts + 01…09)
 pnpm run videos -- --only 01_custom_shelves,02_smart_shelves
 pnpm run videos -- --video-fps 8              # encode rate (default 10)
 ```
 
-Each scenario drives the Big Picture window through a timed sequence while the runner's
-screencast records it, prints each cue point with its timestamp and writes them beside the mp4
-(`<name>.cues.txt`); recordings land in `tmp/videos/` (gitignored) and need `ffmpeg` on PATH.
-Scenarios and their driving helpers live in `scripts/deckprobe-ext/videos/scenarios/`
-(`feature_scripts.py`, `_steps.py`).
+Each scenario drives the Big Picture window (the sidecar one, the Quick Access menu's own
+window) through a timed sequence while the runner's screencast records it, prints each cue point
+with its timestamp and writes them beside the mp4 (`<name>.cues.txt`); recordings land in
+`tmp/videos/` (gitignored) and need `ffmpeg` on PATH. Scenarios and their driving helpers live
+in `scripts/deckprobe-ext/videos/scenarios/` (`feature_scripts.py`, `content_scripts.py`,
+`_steps.py`; `_screencast.py` records with each frame's real arrival time, so a clip lasts as
+long as the sequence did even where the screen stays still). The overlays, the editors and the
+sidecar open through dev-build hooks and routes, so the sequences need the dev build the fixture
+deploys; every recording starts on a settled Home with the plugin UI in en-US and the controller
+glyphs restored after each key sent over the debug protocol.
 
 ## 14. Ad-hoc probes and maintainer scripts
 

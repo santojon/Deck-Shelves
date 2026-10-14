@@ -180,6 +180,8 @@ config do Vite). Cada script `pnpm qa:*` envolve uma variável de ambiente
 | `DS_QA_SMART_SHELVES_FIXTURE` | `pnpm qa:smart-fixture` | Semeia 4 prateleiras inteligentes para que a seção smart renderize populada |
 | `DS_QA_SAVED_FILTERS_FIXTURE` | `pnpm qa:saved-filters-fixture` | Semeia filtros salvos para que a seção Filtros Salvos do QAM fique visível |
 | `DS_QA_FORCE_HIDDEN_SHELF` | `pnpm qa:hidden-shelf` | Adiciona uma prateleira oculta à fixture selecionada (para a captura `shelf-hidden.png`) |
+| `DS_QA_VIDEO_FIXTURE` | `pnpm qa:video-fixture` | Prateleiras apresentáveis (três da biblioteca, uma de lista de desejos e uma de promoções da loja), duas prateleiras inteligentes e um perfil com trigger de carregamento, com os recursos online e o modo Avançado ligados — a base que os cenários de vídeo (`pnpm run videos`) gravam |
+| `DS_QA_SCREENSHOTS_FIXTURE` | `pnpm qa:screenshots-fixture` | O fixture de vídeo mais uma prateleira oculta, dois filtros salvos e um segundo perfil, montado sobre as configurações padrão (não as do dispositivo), com a Busca Rápida e a Side Nav ligadas e a primeira prateleira no lugar da fileira de recentes sob sua arte de fundo — tudo o que a rodada de screenshots (`pnpm run screenshots`) captura, só em memória |
 | `DS_QA_SMART_SURPRISE_ME` | `pnpm qa:surprise-me` | Força `smartSurpriseMe=true` para que a lógica de rotação diária rode |
 | `DS_QA_FORCE_TABMASTER` | — | `present` / `absent` sobrepõe a detecção do TabMaster |
 | `DS_QA_FORCE_UNIFIDECK` | — | `present` / `absent` sobrepõe a detecção do UnifiDeck |
@@ -198,21 +200,28 @@ Cada uma é independente e aditiva.
 
 Sequências roteirizadas e repetíveis para os oito roteiros de conteúdo (prateleiras
 personalizadas, smart shelves, filtros, personalização visual, Busca rápida + Side Nav, perfis +
-gatilhos, prateleiras online, ferramentas avançadas), registradas no mesmo runner `videos` das
-gravações dos roteiros de conteúdo. Implante primeiro a fixture de vídeo
-(`pnpm run qa:video-fixture`) e então:
+gatilhos, prateleiras online, ferramentas avançadas) mais o sidecar de configurações rápidas,
+registradas no mesmo runner `videos` das gravações dos roteiros de conteúdo (os cinco cenários
+`custom_shelves` … `profiles_triggers`, que fazem uma edição real e mostram o resultado). Implante
+primeiro a fixture de vídeo (`pnpm run qa:video-fixture`) e então:
 
 ```bash
-pnpm run videos:list                          # todos os cenários registrados (roteiros de conteúdo + 01…08)
+pnpm run videos:list                          # todos os cenários registrados (roteiros de conteúdo + 01…09)
 pnpm run videos -- --only 01_custom_shelves,02_smart_shelves
 pnpm run videos -- --video-fps 8              # taxa de codificação (padrão 10)
 ```
 
-Cada cenário conduz a janela Big Picture por uma sequência cronometrada enquanto o screencast
-do runner grava, imprime cada ponto de marcação com o tempo e os escreve ao lado do mp4
-(`<nome>.cues.txt`); as gravações vão para `tmp/videos/` (ignorado pelo git) e precisam do
-`ffmpeg` no PATH. Os cenários e seus helpers de condução ficam em
-`scripts/deckprobe-ext/videos/scenarios/` (`feature_scripts.py`, `_steps.py`).
+Cada cenário conduz a janela Big Picture (o do sidecar, a janela própria do Menu de Acesso
+Rápido) por uma sequência cronometrada enquanto o screencast do runner grava, imprime cada ponto
+de marcação com o tempo e os escreve ao lado do mp4 (`<nome>.cues.txt`); as gravações vão para
+`tmp/videos/` (ignorado pelo git) e precisam do `ffmpeg` no PATH. Os cenários e seus helpers de
+condução ficam em `scripts/deckprobe-ext/videos/scenarios/` (`feature_scripts.py`,
+`content_scripts.py`, `_steps.py`; `_screencast.py` grava com o instante real de chegada de cada
+frame, então um clipe dura o que a sequência durou mesmo onde a tela fica parada). Os overlays,
+os editores e o sidecar abrem por hooks e rotas do build de desenvolvimento, então as sequências
+precisam do build que a fixture implanta; toda gravação começa numa Home assentada, com a UI do
+plugin em en-US e os glyphs do controle restaurados após cada tecla enviada pelo protocolo de
+depuração.
 
 ## 14. Sondas avulsas e scripts de manutenção
 

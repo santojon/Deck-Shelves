@@ -18,10 +18,13 @@ from pathlib import Path
 from typing import Dict
 
 from deckprobe.screenshots.lib.cdp import Session
-from deckprobe.screenshots.lib.nav import navigate_about, _bp_eval, _dismiss_bp_modal
+from deckprobe.screenshots.lib.nav import _bp_eval, _dismiss_bp_modal
 from deckprobe.screenshots.lib.capture import capture_bigpicture
 from deckprobe.screenshots.lib.registry import register
-from ._locale import force_english
+from ._locale import force_english, gamepad_glyphs
+from ._routes import navigate_route
+
+_ABOUT_ROUTE = "/deck-shelves/about"
 
 _LANDED_CHECK = "document.querySelectorAll('[role=\"tab\"]').length > 0"
 
@@ -29,12 +32,12 @@ _LANDED_CHECK = "document.querySelectorAll('[role=\"tab\"]').length > 0"
 def _open_about(sjc: Session, host: str, port: int) -> bool:
     force_english(sjc)
     _dismiss_bp_modal(host, port)
-    navigate_about(sjc, settle_ms=2000)
+    navigate_route(sjc, _ABOUT_ROUTE, settle_ms=2000)
     # One retry: a route nav right after a modal-dismiss can occasionally
     # land before the About page's own tab bar has mounted.
     if _bp_eval(host, port, _LANDED_CHECK) is True:
         return True
-    navigate_about(sjc, settle_ms=1500)
+    navigate_route(sjc, _ABOUT_ROUTE, settle_ms=1500)
     return _bp_eval(host, port, _LANDED_CHECK) is True
 
 
@@ -60,6 +63,7 @@ def about_overview(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[st
     if not _open_about(sjc, host, port):
         return {}
     out = out_dir / "about-page.png"
+    gamepad_glyphs(host, port)
     p = capture_bigpicture(host, port, out)
     _dismiss_bp_modal(host, port)
     return {"about-page.png": p} if p else {}
@@ -73,6 +77,7 @@ def about_filters(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str
         return {}
     _switch_tab(host, port, "filter")
     out = out_dir / "about-filters.png"
+    gamepad_glyphs(host, port)
     p = capture_bigpicture(host, port, out)
     _dismiss_bp_modal(host, port)
     return {"about-filters.png": p} if p else {}
@@ -84,6 +89,7 @@ def about_smart(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, 
         return {}
     _switch_tab(host, port, "smart")
     out = out_dir / "about-smart.png"
+    gamepad_glyphs(host, port)
     p = capture_bigpicture(host, port, out)
     _dismiss_bp_modal(host, port)
     return {"about-smart.png": p} if p else {}
@@ -96,6 +102,7 @@ def about_support(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str
     if _switch_tab(host, port, "support") != "ok":
         _switch_tab(host, port, "about")
     out = out_dir / "about-support.png"
+    gamepad_glyphs(host, port)
     p = capture_bigpicture(host, port, out)
     _dismiss_bp_modal(host, port)
     return {"about-support.png": p} if p else {}

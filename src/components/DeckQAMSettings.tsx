@@ -225,9 +225,16 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
   useEffect(() => {
     if (!__DEV__ || !isActiveTab) return;
     const g = globalThis as any;
-    g.__ds_dev_open_sidecar = () => { fireQamExpand(getQamWindow(), true, setQamExpanded); return true; };
-    g.__ds_dev_close_sidecar = () => { fireQamExpand(getQamWindow(), false, setQamExpanded); };
-    return () => { try { delete g.__ds_dev_open_sidecar; delete g.__ds_dev_close_sidecar; } catch {} };
+    const open = () => { fireQamExpand(getQamWindow(), true, setQamExpanded); return true; };
+    const closeHook = () => { fireQamExpand(getQamWindow(), false, setQamExpanded); };
+    g.__ds_dev_open_sidecar = open;
+    g.__ds_dev_close_sidecar = closeHook;
+    return () => {
+      try {
+        if (g.__ds_dev_open_sidecar === open) delete g.__ds_dev_open_sidecar;
+        if (g.__ds_dev_close_sidecar === closeHook) delete g.__ds_dev_close_sidecar;
+      } catch {}
+    };
   }, [setQamExpanded, isActiveTab]);
   /* Remappable open / close sidecar shortcuts. The defaults (dpad-right ×2 to
      open, dpad-left to close) are served by the nav-aware positional handler

@@ -12,7 +12,7 @@ from deckprobe.screenshots.lib.cdp import Session
 from deckprobe.screenshots.lib.nav import navigate_to_ds_qam, close_qam, _qam_eval, expand_qam_sections
 from deckprobe.screenshots.lib.capture import capture_qam
 from deckprobe.screenshots.lib.registry import register
-from ._locale import force_locale
+from ._locale import force_locale, gamepad_glyphs
 
 
 def _scroll_qam_to_section(host: str, port: int, section_id: str) -> str:
@@ -21,10 +21,12 @@ def _scroll_qam_to_section(host: str, port: int, section_id: str) -> str:
     Decky's Focusable may not forward data-* props to the DOM, so falls back
     to index-based lookup (known section order) then fractional scroll.
     """
-    # Known section order: behavior=0, shelves=1, smart=2, visual_global=3, saved_filters=4
-    # Known fractional scroll positions (rough) for each section.
-    order_map = {"behavior": 0, "shelves": 1, "smart": 2, "visual_global": 3, "saved_filters": 4}
-    frac_map  = {"behavior": 0.0, "shelves": 0.05, "smart": 0.35, "visual_global": 0.65, "saved_filters": 0.85}
+    # Section order as the panel renders them (deckprobe.config.json QAM_SECTIONS),
+    # and rough fractional scroll positions for each.
+    order_map = {"profiles": 0, "behavior": 1, "additional": 2, "navigation": 3, "online": 4, "experimental": 5,
+                 "shelves": 6, "visual_global": 7, "saved_filters": 8}
+    frac_map  = {"profiles": 0.0, "behavior": 0.1, "additional": 0.2, "navigation": 0.3, "online": 0.35, "experimental": 0.45,
+                 "shelves": 0.55, "visual_global": 0.75, "saved_filters": 0.9}
     idx  = order_map.get(section_id, -1)
     frac = frac_map.get(section_id, 0.5)
 
@@ -52,6 +54,25 @@ def _scroll_qam_to_section(host: str, port: int, section_id: str) -> str:
 }})()
 """
     result = _qam_eval(host, port, expr) or "no-result"
+    time.sleep(0.5)
+    return result
+
+
+def _scroll_qam_to_top(host: str, port: int) -> str:
+    """Scroll the panel back to its top. The scrolling element is an ancestor
+    of the plugin's scope (the menu's own panel), so resetting the scope's
+    scrollTop alone does nothing after an earlier scenario scrolled down."""
+    result = _qam_eval(host, port, """
+(function(){
+  var scope = document.querySelector('.deck-shelves-qam-scope');
+  if (!scope) return 'no-scope';
+  var el = scope, n = 0;
+  while (el) { if (el.scrollTop > 0) { el.scrollTop = 0; n++; } el = el.parentElement; }
+  var first = scope.firstElementChild;
+  if (first) first.scrollIntoView({ behavior: 'instant', block: 'start' });
+  return 'reset:' + n;
+})()
+""") or "no-result"
     time.sleep(0.5)
     return result
 
@@ -91,7 +112,9 @@ def qam(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Path]:
     force_locale(sjc)
     navigate_to_ds_qam(sjc, host, port)
     expand_qam_sections(host, port)
+    _scroll_qam_to_top(host, port)
     out = out_dir / "qam.png"
+    gamepad_glyphs(host, port)
     p = capture_qam(host, port, out)
     close_qam(sjc)
     return {"qam.png": p} if p else {}
@@ -99,14 +122,23 @@ def qam(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Path]:
 
 @register("smart_shelves_qam")
 def smart_shelves_qam(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Path]:
-    """QAM scrolled to the Smart Shelves section (expanded)."""
+    """QAM scrolled to the smart shelves: their own section when the panel has
+    one, otherwise the smart rows at the end of the Shelves list."""
     force_locale(sjc)
     navigate_to_ds_qam(sjc, host, port)
     expand_qam_sections(host, port)
-    # Scroll to the smart section header (data-ds-section="smart").
-    _scroll_qam_to_section(host, port, "smart")
+    _qam_eval(host, port, """
+(function(){
+  var hdr = document.querySelector('[data-ds-section="smart"]');
+  if (hdr) { hdr.scrollIntoView({ behavior: 'instant', block: 'start' }); return 'section'; }
+  var row = document.querySelector('[data-ds-smart-actions]');
+  if (row) { row.scrollIntoView({ behavior: 'instant', block: 'center' }); return 'row'; }
+  return 'none';
+})()
+""")
     time.sleep(0.8)
     out = out_dir / "smart-shelves-qam.png"
+    gamepad_glyphs(host, port)
     p = capture_qam(host, port, out)
     close_qam(sjc)
     return {"smart-shelves-qam.png": p} if p else {}
@@ -121,6 +153,7 @@ def global_toggles(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[st
     _scroll_qam_to_section(host, port, "visual_global")
     time.sleep(0.8)
     out = out_dir / "global-toggles.png"
+    gamepad_glyphs(host, port)
     p = capture_qam(host, port, out)
     close_qam(sjc)
     return {"global-toggles.png": p} if p else {}
@@ -141,6 +174,7 @@ def saved_filters_qam(sjc: Session, host: str, port: int, out_dir: Path) -> Dict
     _scroll_qam_to_section(host, port, "saved_filters")
     time.sleep(0.8)
     out = out_dir / "saved-filters-qam.png"
+    gamepad_glyphs(host, port)
     p = capture_qam(host, port, out)
     close_qam(sjc)
     return {"saved-filters-qam.png": p} if p else {}
@@ -177,6 +211,7 @@ def sidecar(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Path
         close_qam(sjc)
         return {}
     out = out_dir / "sidecar.png"
+    gamepad_glyphs(host, port)
     p = capture_qam(host, port, out)
     try:
         sjc.evaluate("try{window.__ds_dev_close_sidecar&&window.__ds_dev_close_sidecar();}catch(e){}")
