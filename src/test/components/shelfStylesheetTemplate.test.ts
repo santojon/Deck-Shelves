@@ -16,3 +16,14 @@ describe('buildShelfStylesheet — .ds-new-badge color', () => {
     expect(css).toContain('color: var(--ds-new-badge-color, var(--colored-toggles-friends-text-color, #fff));')
   })
 })
+
+describe('buildShelfStylesheet — controller focus invalidation', () => {
+  it('avoids document-root card-focus dependencies while retaining local focus and Round Compatibility rules', () => {
+    const css = buildShelfStylesheet(CTX).replace(/\/\*[\s\S]*?\*\//g, '')
+    // Root :has(card focus) caused whole-document recalculation on each move.
+    // Keep this guard independent of Steam's current hashed FocusRing class.
+    expect(css).not.toMatch(/(?:html|body|:root)\s*:has\([^)]*\.ds-card/)
+    expect(css).toContain('#deck-shelves-home-root .ds-card.gpfocus')
+    expect(css).toContain('html[data-ds-theme-focus-round-compat="true"] ._1wPplsegQqCoe06wXPhzKT')
+  })
+})

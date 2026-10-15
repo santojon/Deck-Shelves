@@ -219,21 +219,10 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
       animation: none !important;
     }
     #deck-shelves-home-root { z-index: 10 !important; }
-    /* Round Compat OFF: the FocusRing carries TWO visual layers — a static
-       white border (Steam native) and a themed colored outline (animated
-       blinker). Suppress the border AND switch box-sizing to border-box so
-       the ring's box stays the exact card size on all four sides (default
-       content-box made the border push the right/bottom edges 4px out).
-       Then outline-offset: 2px places the colored outline 2px outside the
-       card edge symmetrically. Scoped via:has() to apply only when a ds-card
-       is the focused element, leaving other Steam screens alone. */
-    html:has(.ds-card.gpfocus):not([data-ds-theme-focus-round-compat="true"]) ._1wPplsegQqCoe06wXPhzKT,
-    html:has(.ds-card:focus):not([data-ds-theme-focus-round-compat="true"]) ._1wPplsegQqCoe06wXPhzKT {
-      box-sizing: border-box !important;
-      border: 0 none transparent !important;
-      margin: 0 !important;
-      outline-offset: 2px !important;
-    }
+    /* Let Steam style its external FocusRing. A document-root relational
+       selector tied to card focus invalidates the whole page during controller
+       navigation. Keep card-local styling here; the Round Compatibility
+       adapter retains its separate, settings-driven ring suppression. */
     /* Layout-only ::after: matches the card's art height/radius so any
        theme overlay (e.g. Game Cover Shine focus animation) targets the
        right region. Opacity is NOT forced here — the cover-shine theme
