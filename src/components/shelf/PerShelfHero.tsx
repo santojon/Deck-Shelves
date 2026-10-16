@@ -8,6 +8,7 @@ import { getAppDescriptions, preloadAppDescriptions } from "../../steam/appDescr
 import { computeHeroVisualGeometry, resolveOverlayPositionStyle, resolveOverlayOffset, findFirstVisibleCard, type HorizontalPosition } from "./perShelfHeroHelpers";
 import { withDefaults } from "../withDefaults";
 import { subscribeSessionState, getSessionState } from "../../runtime/sessionState";
+import { reuseHeroLabel, isHeroLabelOutputMutation } from "./perShelfHeroLabel";
 
 let _nativeAssetProto: any = null;
 
@@ -793,7 +794,7 @@ function PerShelfHero(props: PerShelfHeroProps) {
     if (!host) return;
     while (host.firstChild) host.removeChild(host.firstChild);
     if (labelNode) host.appendChild(labelNode);
-  }, [labelNode]);
+  }, [labelNode, infoAbove]);
   // The "game info above the cards" label is driven by the user's gameInfoAbove
   // setting (threaded in as `infoAbove`), fully decoupled from theme detection —
   // it shows with or without an ArtHero theme.
@@ -991,12 +992,11 @@ function PerShelfHero(props: PerShelfHeroProps) {
       // Align the overlay label with the focused card's left edge — mirrors
       // native ArtHero. Read after a frame so the row's centering scroll has settled.
       requestAnimationFrame(() => { const left = labelLeftOf(el, focused); if (left !== null) setLabelLeft(left); });
-      /* Always re-clone the card's label DOM so the overlay mirrors it
-         byte-for-byte. Online shelves resolve game names asynchronously — if
-         the first clone happened during the brief "#appid" window, re-cloning
-         picks up the resolved name once it lands. */
+      /* Reuse an unchanged clone so observer notifications cannot keep
+         replacing the overlay. Compare the full label DOM, not just appid:
+         online titles and status text can resolve after initial focus. */
       const labelEl = focused.querySelector('.ds-card-label') as HTMLElement | null;
-      setLabelNode(labelEl ? (labelEl.cloneNode(true) as HTMLElement) : null);
+      setLabelNode((previous) => reuseHeroLabel(previous, labelEl));
       onAppFocused(appid);
       setVisible(true);
     };
@@ -1014,7 +1014,9 @@ function PerShelfHero(props: PerShelfHeroProps) {
         update();
       });
     };
-    const obs = new MutationObserver(scheduleUpdate);
+    const obs = new MutationObserver((records) => {
+      if (records.some((record) => !isHeroLabelOutputMutation(record))) scheduleUpdate();
+    });
     // characterData (with subtree) catches the async name resolution on
     // online shelves — the card label's text changes from "#appid" to the
     // real name, which is neither a class nor a childList mutation.

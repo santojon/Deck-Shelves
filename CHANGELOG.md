@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Performance
+
+- Stop the game-info overlay from observing its own cloned-label mutations. Reuse an equal label node while still detecting asynchronous title/status changes, and repopulate the label host when game info is re-enabled. This prevents a self-triggering observer/render loop on custom shelves.
+
+- Remove the document-root `:has(.ds-card.gpfocus)` / `:has(.ds-card:focus)` FocusRing override. Controller focus changes could invalidate the entire HTML subtree and force repeated synchronous style recalculations. Custom cards now retain Steam's native FocusRing geometry; card-local focus styles and the settings-driven Round Compatibility suppression remain unchanged.
+
 ### Added
 
 - **A "Show or hide settings" row under the master toggle opens or closes the quick-settings sidecar.** Same effect as the double dpad-right (or the remapped chord) and the B button, for anyone who prefers a tap; labelled in every language, with a chevron at its end. The sidecar itself is now titled "Show or hide" in a tab header that matches the standalone host's sidecar, and **Ctrl+Shift+S opens it by default** (the first keyboard shortcut that ships set; change or clear it under Settings → Shortcuts).
