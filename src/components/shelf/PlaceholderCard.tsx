@@ -6,7 +6,7 @@ import { getPreferredSteamDocument } from "../../runtime/steamHost";
 import { type DeckRowItem, CARD_W, CARD_ART_H } from "./types";
 import { getCachedCardRadius } from "./shelfStyles";
 import { resolveNativeCardClass, retryWithIntervals, applyNativeAfterAnimation } from "./cardUtils";
-import { toggleCardHighlight } from "./GameCard";
+import { toggleCardHighlight, CardBadgeHost } from "./GameCard";
 import { useCardQuickLaunchState } from "./gameCardHooks";
 
 type Handler = (() => void) | undefined;
@@ -51,6 +51,21 @@ function optionsAction(appid: number, previewMode: boolean, shelfId: string | un
   return { description: i18n.t('card_highlight_toggle'), handler: () => { try { toggleCardHighlight(shelfId, appid); } catch {} } };
 }
 
+// Discount wins over "New", as on the art card.
+function placeholderBadges(item: DeckRowItem): { showDiscountBadge: boolean; showNewBadge: boolean } {
+  const showDiscountBadge = typeof item.discountPercent === 'number' && item.discountPercent > 0;
+  return { showDiscountBadge, showNewBadge: item.isNew === true && !showDiscountBadge };
+}
+
+// `data-isnew` / `data-discount` feed the Home's focus badge overlay, as on the art card.
+function badgeDataAttrs(item: DeckRowItem): { "data-isnew"?: string; "data-discount"?: string } {
+  const badges = placeholderBadges(item);
+  return {
+    "data-isnew": badges.showNewBadge ? 'true' : undefined,
+    "data-discount": badges.showDiscountBadge ? String(item.discountPercent) : undefined,
+  };
+}
+
 // Class, activation, menu and data attributes — the item-driven part of the card.
 function placeholderFocusProps(item: DeckRowItem, previewMode: boolean, featured: boolean, nativeCardClass: string) {
   return {
@@ -62,13 +77,14 @@ function placeholderFocusProps(item: DeckRowItem, previewMode: boolean, featured
     onContextMenu: item.onMenuButton,
     "data-appid": item.appid || undefined,
     "data-shelfid": item.shelfId || undefined,
+    ...badgeDataAttrs(item),
   };
 }
 
-function PlaceholderArt({ featured, name, discount, isNew, radius }: { featured: boolean; name: string; discount: number | undefined; isNew: boolean; radius: number | string }) {
-  const { t } = useTranslation();
-  const showDiscountBadge = typeof discount === 'number' && discount > 0;
-  const showNewBadge = isNew && !showDiscountBadge;
+/* The badges render beside this block (CardBadgeHost), not inside it: the art
+   clips its overflow, so a band in here sat under the focus ring instead of
+   over it. */
+function PlaceholderArt({ featured, name, radius }: { featured: boolean; name: string; radius: number | string }) {
   return (
     <div
       className="ds-card-art"
@@ -80,7 +96,10 @@ function PlaceholderArt({ featured, name, discount, isNew, radius }: { featured:
         justifyContent: "center",
         padding: featured ? 16 : 6,
         boxSizing: "border-box",
-        borderRadius: radius,
+        // Same variable the art cards use (themes such as Round set it); the
+        // detected native radius is only the fallback — it can be cached as
+        // 0px before Steam's own cards render, which squared these cards.
+        borderRadius: `var(--ds-card-radius, ${radius})`,
       }}
     >
       <span className="ds-card-text" style={{
@@ -92,18 +111,6 @@ function PlaceholderArt({ featured, name, discount, isNew, radius }: { featured:
       }}>
         {name}
       </span>
-      {showDiscountBadge && (
-        <div className="ds-new-badge-band">
-          <div className="ds-new-badge" style={{ background: '#2a7f2a' }}>
-            {t('badge_discount', { count: discount }) ?? `${discount}% off`}
-          </div>
-        </div>
-      )}
-      {showNewBadge && (
-        <div className="ds-new-badge-band">
-          <div className="ds-new-badge">{t('badge_new')}</div>
-        </div>
-      )}
     </div>
   );
 }
@@ -183,6 +190,8 @@ export function PlaceholderCard({
     } catch {}
   }, [appid, previewMode, quickLaunch]);
 
+  const { t } = useTranslation();
+  const badges = placeholderBadges(item);
   const size = cardSizeVars(featured, cardW, cardH, artH);
   const secondary = secondaryAction({ appid, previewMode, removableSet, onRemoveCard, hiddenSet, onHideCard });
   const options = optionsAction(appid, previewMode, item.shelfId);
@@ -219,7 +228,8 @@ export function PlaceholderCard({
         ["--ds-card-art-h" as string]: size.cssArtH,
       }}
     >
-      <PlaceholderArt featured={featured} name={item.name} discount={item.discountPercent} isNew={item.isNew === true} radius={getCachedCardRadius()} />
+      <CardBadgeHost hasBadge={badges.showDiscountBadge || badges.showNewBadge} showDiscountBadge={badges.showDiscountBadge} showNewBadge={badges.showNewBadge} discount={item.discountPercent} t={t} />
+      <PlaceholderArt featured={featured} name={item.name} radius={getCachedCardRadius()} />
     </Focusable>
   );
 }

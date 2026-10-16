@@ -45,11 +45,21 @@ export function useQamCompositorSync(qamExpanded: boolean, enabled = true): void
 // This panel can mount twice at once (a loader's tab AND a neutral host's
 // native tab) — only the VISIBLE instance should manage the shared sidecar
 // state, so callers gate their singleton effects behind this.
+/* Starts inactive and measures on mount: starting active let a hidden copy (the
+   host tab's 0×0 panel) run the singleton effects for one commit — reset the
+   shared state and post "QamFriendsHidden" under the visible copy's open sidecar. */
+function isShown(el: HTMLElement): boolean {
+  if (el.getClientRects().length === 0) return false;
+  const r = el.getBoundingClientRect();
+  return r.width > 0 && r.height > 0;
+}
+
 export function useIsActiveQamTab(scopeRef: { current: HTMLElement | null }): boolean {
-  const [isActive, setIsActive] = useState(true);
+  const [isActive, setIsActive] = useState(false);
   useEffect(() => {
     const el = scopeRef.current;
     if (!el) return;
+    setIsActive(isShown(el));
     const io = new IntersectionObserver(
       (entries) => setIsActive(entries.some((e) => e.isIntersecting && e.intersectionRatio > 0)),
       { threshold: 0 },
