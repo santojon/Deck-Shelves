@@ -7,6 +7,10 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+- **Game info above the cards no longer repeatedly rebuilds its own label.** Late-arriving titles and status changes still update, and toggling the option back on restores the label.
+
+- **Smoother controller navigation on custom Home shelves.** Remove a focus-border adjustment that could repeatedly recalculate styling across the whole Home screen. Steam's native focus border is retained; the Recents replacement and Round Compatibility setting still work as before.
+
 - **A "Show or hide settings" row under the master toggle opens or closes the quick-settings sidecar**, the same panel the double dpad-right opens, for anyone who prefers a tap. The sidecar is titled "Show or hide" in a tab header like the standalone host's, and Ctrl+Shift+S opens it by default.
 
 - **Quick Search lands on the game every time**, including games further along a row or on a shelf below the fold, and reopening it keeps the previous text selected instead of appending to it. A bundle hot-swap by the standalone host now hands the Home to the new instance, with the Home visible right away.
