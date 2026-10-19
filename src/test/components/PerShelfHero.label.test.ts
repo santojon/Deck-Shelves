@@ -41,6 +41,7 @@ beforeEach(() => {
 
 afterEach(async () => {
   await act(async () => root.unmount())
+  vi.restoreAllMocks()
   vi.clearAllTimers()
   vi.useRealTimers()
   vi.unstubAllGlobals()
@@ -62,6 +63,54 @@ async function frames(count = 4) {
 const displayed = () => shelf.querySelector('.ds-promoted-hero-label > .ds-card-label')
 
 describe('PerShelfHero label observer', () => {
+  it.each(['class', 'text', 'children'] as const)('does not schedule an update for output-only %s mutations, but still schedules source updates', async (kind) => {
+    await render()
+    await frames()
+    const host = shelf.querySelector<HTMLElement>('.ds-promoted-hero-label')!
+    const clone = displayed()!
+    const raf = vi.spyOn(globalThis, 'requestAnimationFrame')
+
+    // Let the real observer deliver the mutation without advancing a frame.
+    // A stable output node alone would also pass if the filter were missing.
+    await act(async () => {
+      if (kind === 'class') host.classList.toggle('visible')
+      else if (kind === 'text') clone.firstChild!.textContent = 'Output-only text'
+      else host.append(document.createElement('span'))
+    })
+    expect(raf).not.toHaveBeenCalled()
+    await frames()
+    expect(raf).not.toHaveBeenCalled()
+
+    await act(async () => { source.firstChild!.textContent = 'Updated source title' })
+    expect(raf).toHaveBeenCalledTimes(1)
+    await frames()
+    expect(displayed()?.textContent).toBe('Updated source title')
+    raf.mockClear()
+    await frames()
+    expect(raf).not.toHaveBeenCalled()
+  })
+
+  it.each(['output-first', 'source-first'] as const)('schedules one update for a mixed mutation batch (%s)', async (order) => {
+    await render()
+    await frames()
+    const host = shelf.querySelector<HTMLElement>('.ds-promoted-hero-label')!
+    const raf = vi.spyOn(globalThis, 'requestAnimationFrame')
+    const changeOutput = () => host.classList.toggle('visible')
+    const changeSource = () => { source.firstChild!.textContent = 'Mixed-batch title' }
+
+    // Synchronous writes enter the same observer delivery in either order.
+    await act(async () => {
+      if (order === 'output-first') { changeOutput(); changeSource() }
+      else { changeSource(); changeOutput() }
+    })
+    expect(raf).toHaveBeenCalledTimes(1)
+    await frames()
+    expect(displayed()?.textContent).toBe('Mixed-batch title')
+    raf.mockClear()
+    await frames()
+    expect(raf).not.toHaveBeenCalled()
+  })
+
   it('settles after mounting and updates a late title once without replacing unchanged output', async () => {
     await render()
     await frames()
