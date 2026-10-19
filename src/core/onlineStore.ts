@@ -97,17 +97,28 @@ function readCommunityWishlistUrl(): string {
   return "";
 }
 
-/* Route through the Python backend to bypass CORS. Hard 6 s timeout so a
-   hung Decky RPC can't park composite/wishlist resolves forever. Null on a
+/* Route through the Python backend to bypass CORS. The backend may take 15 s ×
+   2 attempts, and a standalone host can be starting its backend (one call at a
+   time) on the first request — 6 s gave up on every cold call there and then
+   backed off for 10 min, so the wishlist shelf stayed empty. Null on a
    backend error or an empty list (the caller serves the stale cache). */
+const WISHLIST_RPC_TIMEOUT_MS = 35000;
+const WISHLIST_TIMEOUT_BACKOFF_MS = 2 * 60 * 1000;
+const WISHLIST_ERROR_BACKOFF_MS = 10 * 60 * 1000;
+
 async function fetchWishlistFromBackend(communityUrl: string): Promise<number[] | null> {
-  const resp = await rpcWithTimeout<any>("get_wishlist", { community_url: communityUrl }, 6000);
+  const resp = await rpcWithTimeout<any>("get_wishlist", { community_url: communityUrl }, WISHLIST_RPC_TIMEOUT_MS);
   if (!resp?.ok || !Array.isArray(resp.ids)) {
     logWarn("ONLINE", "wishlist backend error", resp?.error ?? "unknown");
     return null;
   }
   const ids = (resp.ids as unknown[]).map(Number).filter(Number.isFinite);
+  if (!ids.length) logInfo("ONLINE", "wishlist backend returned no games");
   return ids.length ? ids : null;
+}
+
+function wishlistBackoffMs(e: unknown): number {
+  return /timeout/i.test(String(e)) ? WISHLIST_TIMEOUT_BACKOFF_MS : WISHLIST_ERROR_BACKOFF_MS;
 }
 
 export async function getWishlistIds(): Promise<number[] | null> {
@@ -119,7 +130,10 @@ export async function getWishlistIds(): Promise<number[] | null> {
   wishlistInFlight = (async () => {
     try {
       // In backoff: serve stale cache rather than hang the resolver.
-      if (Date.now() < (backoffUntil[WISHLIST_KEY] ?? 0)) return staleWishlistIds();
+      if (Date.now() < (backoffUntil[WISHLIST_KEY] ?? 0)) {
+        logInfo("ONLINE", "wishlist: retry backed off", { seconds: Math.round(((backoffUntil[WISHLIST_KEY] ?? 0) - Date.now()) / 1000) });
+        return staleWishlistIds();
+      }
       // No isOnline() guard — the Python backend handles its own connectivity.
       const communityUrl = readCommunityWishlistUrl();
       if (!communityUrl) {
@@ -133,9 +147,9 @@ export async function getWishlistIds(): Promise<number[] | null> {
       return ids;
     } catch (e) {
       logWarn("ONLINE", "wishlist fetch failed", String(e));
-      // Soft-backoff for 10 min so the next resolve doesn't immediately
-      // retry the same hung RPC.
-      backoffUntil[WISHLIST_KEY] = Date.now() + 10 * 60 * 1000;
+      // Back off so the next resolve doesn't immediately retry the same call:
+      // briefly after a timeout (a host still starting), longer after an error.
+      backoffUntil[WISHLIST_KEY] = Date.now() + wishlistBackoffMs(e);
       return staleWishlistIds();
     } finally {
       wishlistInFlight = null;

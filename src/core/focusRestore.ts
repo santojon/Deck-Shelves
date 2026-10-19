@@ -1,4 +1,6 @@
 import { getPreferredSteamDocument } from "../runtime/steamHost";
+import { getSessionState } from "../runtime/sessionState";
+import { registerDisposer } from "../runtime/runtimeDisposer";
 
 let pendingAppid: number | null = null;
 let pendingShelfId: string | null = null;
@@ -16,10 +18,38 @@ function findDsCard(appid: number, shelfId?: string | null): HTMLElement | null 
   return (doc?.querySelector(sel) as HTMLElement | null) ?? null;
 }
 
+/* Once the player moves around the Home themselves, a pending restore is stale.
+   Left alone it fired later, when its shelf finally mounted, and pulled focus
+   into that shelf in the middle of their navigation. */
+const STALE_AFTER_MS = 1500;
+let watchedDoc: Document | null = null;
+
+function onHomeDirection(evt: Event): void {
+  if (!pendingAppid || Date.now() - pendingTimestamp < STALE_AFTER_MS) return;
+  const doc = watchedDoc;
+  const root = doc?.getElementById("deck-shelves-home-root");
+  const home = root?.parentElement ?? root;
+  const target = evt.target as Node | null;
+  if (home && target && typeof (target as any).nodeType === "number" && home.contains(target)) clearPending();
+}
+
+function watchHomeNavigation(): void {
+  const doc = getPreferredSteamDocument();
+  if (!doc || watchedDoc === doc) return;
+  watchedDoc?.removeEventListener("vgp_ondirection", onHomeDirection, true);
+  watchedDoc = doc;
+  doc.addEventListener("vgp_ondirection", onHomeDirection, true);
+  registerDisposer(() => {
+    try { doc.removeEventListener("vgp_ondirection", onHomeDirection, true); } catch {}
+    if (watchedDoc === doc) watchedDoc = null;
+  });
+}
+
 export function saveFocusTarget(appid: number, shelfId?: string): void {
   pendingAppid = appid;
   pendingShelfId = shelfId ?? null;
   pendingTimestamp = Date.now();
+  try { watchHomeNavigation(); } catch {}
   // Sync Steam's nav tree m_lastFocusNode to the current card BEFORE
   // navigation pushes history. Steam's native popstate restoration reads
   // m_lastFocusNode, so landing becomes deterministic — no post-hoc race.
@@ -234,6 +264,14 @@ function isUnintegratedDsElement(el: HTMLElement): boolean {
   return !!el.closest?.(".ds-card, .deck-shelves-root");
 }
 
+/* No automatic focus grabs while a game runs. The Home can stay mounted behind
+   the game, and taking focus there steals input from the Steam menu and Quick
+   Access. The pending target is kept; user-driven focusElement still works. */
+function autoTakeNavFocus(navNode: any): boolean {
+  try { if (getSessionState().gameRunning) return false; } catch {}
+  return takeNavFocus(navNode);
+}
+
 export function focusElement(el: HTMLElement): boolean {
   const navNode = findNavNodeForElement(el);
   if (navNode && takeNavFocus(navNode)) return true;
@@ -295,7 +333,7 @@ export function tryRestoreFocus(): boolean {
   }
 
   const navNode = findNavNodeForElement(card);
-  if (navNode) takeNavFocus(navNode);
+  if (navNode) autoTakeNavFocus(navNode);
   // No navNode: skip the raw DOM-focus fallback (see focusElement above).
   // Keep the pending state so a later call retries once the rebuilt nav
   // tree actually registers the node.
@@ -323,7 +361,7 @@ function walkBackToEarlierShelf(doc: Document, orderedShelfIds: string[], focuse
     const earlier = doc.querySelector(`.ds-card[data-shelfid="${orderedShelfIds[i]}"]`) as HTMLElement | null;
     if (!earlier) continue;
     const navNode = findNavNodeForElement(earlier);
-    if (navNode) takeNavFocus(navNode);
+    if (navNode) autoTakeNavFocus(navNode);
     break;
   }
 }
@@ -349,7 +387,7 @@ function claimFirstCardFocus(doc: Document, orderedShelfIds: string[]): boolean 
     const first = doc.querySelector(`.ds-card[data-shelfid="${id}"]`) as HTMLElement | null;
     if (!first) continue;
     const navNode = findNavNodeForElement(first);
-    return !!navNode && takeNavFocus(navNode);
+    return !!navNode && autoTakeNavFocus(navNode);
   }
   return false;
 }
@@ -431,7 +469,7 @@ export function beginFocusRestoreLoop(): void {
 
   const isDone = () => abort.signal.aborted || !pendingAppid || pendingAppid !== targetAppid;
 
-  // Steam's native "focus first card on home mount" (issue #38) fires once,
+  // Steam's native "focus first card on home mount" fires once,
   // ~0.8-1.8s after the home remounts — well AFTER our initial restore lands.
   // Poll for 2s and, the first time focus has drifted off the target card,
   /* re-take it. Bounded to one re-take so the user's own later navigation is
@@ -457,7 +495,7 @@ export function beginFocusRestoreLoop(): void {
       const card = findCard();
       if (card && !card.classList.contains("gpfocus") && reTakes < 5) {
         const navNode = findNavNodeForElement(card);
-        if (navNode && takeNavFocus(navNode)) reTakes++;
+        if (navNode && autoTakeNavFocus(navNode)) reTakes++;
       }
       if (Date.now() - start < 5000) { setTimeout(check, 200); return; }
       stopListening();
@@ -481,7 +519,7 @@ export function beginFocusRestoreLoop(): void {
     if (card.classList.contains("gpfocus")) { succeed(); return true; }
     const navNode = findNavNodeForElement(card);
     if (navNode) {
-      takeNavFocus(navNode);
+      autoTakeNavFocus(navNode);
       // Not confirmed yet — let the next poll verify gpfocus landed.
       return false;
     }

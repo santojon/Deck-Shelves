@@ -456,7 +456,7 @@ function DeckRowImpl(props: DeckRowProps) {
     const maybeCenter = () => {
       try {
         // The 300ms verify pass below can outlive the focus that scheduled it
-        // (issue #118) — `onCardFocus` further down already guards the same
+        // — `onCardFocus` further down already guards the same
         // way; this handler was missing it. See isFocusStillWithin.
         if (!isFocusStillWithin(el)) return;
         const scr = findScrollableAncestor(el);

@@ -50,6 +50,16 @@ e este projeto segue o [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ### Corrigido
 
+- **Voltar da página de um jogo cai no mesmo jogo e na mesma prateleira, e a navegação lateral não pula mais para outra prateleira.** Abrir um card arma um alvo de "devolver o foco aqui". Quando a prateleira desse card ficava abaixo da primeira tela, ela ainda era um placeholder na volta, e a restauração não a encontrava; e o alvo continuava armado e disparava depois, quando a prateleira finalmente montava, puxando o foco para lá no meio da navegação do jogador. Essa prateleira agora monta na hora, e o alvo é descartado assim que o jogador se move pela Home.
+
+- **A prateleira da lista de desejos não desiste mais de uma primeira resposta lenta.** O plugin esperava 6 s pela chamada de lista de desejos do backend, que pode levar 15 s por tentativa; no host independente, cujo backend pode ainda estar iniciando nessa primeira chamada, toda partida a frio estourava o tempo e depois esperava 10 minutos para tentar de novo, deixando a prateleira vazia. A chamada agora tem 35 s, um estouro de tempo tenta de novo após 2 minutos, e o log de diagnóstico diz por que uma prateleira de lista de desejos está vazia (recursos online desligados, nada retornado, nova tentativa pendente).
+
+- **O menu do Steam e o Acesso Rápido voltam a abrir durante um jogo.** Depois que um card era aberto ou o menu dele usado, a Home guardava por até dez minutos um alvo pendente de "devolver o foco a este card", e a Home continua montada atrás de um jogo iniciado a partir dela; a cada atualização da Home, ela reativava o próprio contexto de navegação e tomava de volta o foco do controle, longe do menu que o jogador tinha acabado de abrir sobre o jogo. A restauração automática de foco agora espera não haver jogo rodando (o alvo é mantido, então a Home ainda volta ao card certo depois); movimentos do D-pad e a Busca Rápida numa Home aberta sobre um jogo não mudam.
+
+- O overlay de informações do jogo deixa de observar as mutações do próprio label clonado. Reaproveita um nó de label igual e ainda detecta mudanças assíncronas de título/status, e repopula o host do label quando as informações do jogo são reativadas. Isso evita um loop de observer/renderização que se disparava sozinho nas prateleiras personalizadas.
+
+- Remove o override do FocusRing na raiz do documento com `:has(.ds-card.gpfocus)` / `:has(.ds-card:focus)`. Mudanças de foco do controle podiam invalidar toda a subárvore do HTML e forçar recálculos síncronos de estilo repetidos. Os cards personalizados agora mantêm a geometria nativa do FocusRing do Steam; os estilos de foco locais do card e a supressão do Round Compatibility controlada pelas configurações continuam iguais.
+
 - **Com a sincronização na nuvem ligada e um perfil diferente ativo em cada dispositivo, um dispositivo não assume mais o visual do outro.** Os perfis (suas configurações e gatilhos) sincronizam como antes e cada dispositivo ativa o seu, mas as configurações ao vivo viajavam como um único pacote que o salvamento mais recente vencia, e o que um dispositivo adotava também era gravado no seu próprio perfil ativo: o "Showcase" de uma máquina docked podia reescrever o perfil "Handheld" de um portátil com o visual Showcase. A sincronização agora carrega qual perfil o dispositivo está rodando; as configurações só são adotadas (e dobradas no perfil) entre dispositivos rodando o mesmo perfil, ou nenhum. Caso contrário cada dispositivo mantém seu visual e só as listas se fundem (prateleiras, prateleiras inteligentes, filtros salvos, perfis). Se um dos seus perfis já pegou o visual do outro dispositivo, salve-o de novo a partir daquele dispositivo.
 - **O sidecar de configurações rápidas não sobrepõe mais a coluna principal no carregador de plugins quando a aba do host independente também está no menu.** O sidecar media sua posição contra o primeiro painel do plugin no menu, que era a cópia oculta da aba do host; agora mede contra o painel ao qual pertence.
 - **O sidecar abre e fecha de forma confiável pela aba do host independente quando o carregador também mostra o plugin.** As duas cópias do painel compartilhavam um único estado de aberto/fechado, e a cópia oculta agia como a visível por um instante sempre que montava: ela zerava esse estado sem a cópia visível saber, e a partir daí a linha "Exibir ou ocultar configurações" não fazia nada. Agora cada cópia espera saber que está na tela, e toda mudança ressincroniza as duas.
@@ -277,7 +287,7 @@ e este projeto segue o [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - **Trocar de perfil, uma troca automática de perfil ou um reset de fábrica podiam silenciosamente alterar suas configurações de desenvolvedor/depuração e a alternância "aba própria no QAM"** para o que quer que estivessem quando o perfil foi salvo (ou de volta ao padrão, num reset de fábrica) — são específicas do dispositivo/instalação, não algo que um perfil deveria carregar. Elas — mais a flag do tour de primeiro uso, já corrigida dessa forma para perfis — agora também permanecem intocadas numa sincronização de configurações entre dispositivos ([`src/domain/settingsMerge.ts`](../../src/domain/settingsMerge.ts), [`src/features/settings/controller/profiles.ts`](../../src/features/settings/controller/profiles.ts), [`src/runtime/profileTriggers.ts`](../../src/runtime/profileTriggers.ts)).
 - **A substituição de horário por dia de uma prateleira inteligente (aba "Substituições" do editor — ex.: uma prateleira Horas Vagas aberta o dia todo no fim de semana em vez das janelas curtas de sempre) virava uma janela de horário comum, todo dia, assim que você salvava**, e a alternância "permitir substituições por dia" parecia ter se desligado sozinha. O backend descartava a restrição de dia de cada faixa a cada salvamento; agora ela é preservada ([`src/backend/sanitizer.py`](../../src/backend/sanitizer.py)).
 
-### Alterado
+### Modificado
 
 - **A checagem de atualização não roda mais de dentro do plugin quando o host independente já cuida disso.** Esse host já verifica sozinho o mesmo feed de releases para se manter atualizado (a si e ao plugin) e mostra seu próprio aviso de atualização, então a checagem no boot do plugin e o banner "Atualização disponível" ficam quietos ali, em vez de duplicar a mesma requisição ([`src/index.tsx`](../../src/index.tsx), [`src/components/qam/UpdateBanner.tsx`](../../src/components/qam/UpdateBanner.tsx)).
 
@@ -344,7 +354,7 @@ e este projeto segue o [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - **Fixtures de referência (golden) para o caminho de atualização de configurações v2.0.0 → atual.** `src/test/fixtures/v2.0.0/{minimal,complex,smart-shelves,many-shelves,custom-filters}.json` são construídos contra o `SettingsSchema` real como existia na tag git `v2.0.0` (antes mesmo de `schemaVersion` existir), e um novo `upgradeFromV2.test.ts` passa cada um pelo `SettingsSchema.safeParse` + `migrate()` de hoje, verificando que não há travamento nem perda de dados de prateleira/smart-prateleira/filtro salvo, independente de quão antigo ou incomum for o formato. `custom-filters.json` inclui deliberadamente a prateleira legada `{type:"tab",tab:"recent"}` para exercitar a única migração real para frente que existe hoje, confirmando que ela ainda converte corretamente ([`src/test/fixtures/v2.0.0/`](../../src/test/fixtures/v2.0.0/), [`src/test/store/upgradeFromV2.test.ts`](../../src/test/store/upgradeFromV2.test.ts)).
 - **Instalar por URL documentado como um terceiro método de instalação**, ao lado da Decky Store e da instalação manual via `.zip`, tanto no README quanto no site — uma opção do modo desenvolvedor do Decky, anotada como menos confiável que o fluxo `.zip` já que o Decky deriva o nome do plugin da própria URL em vez do arquivo. A grade de cards de instalação do site mudou para `auto-fit` para que um método futuro possa ser adicionado sem mudança de CSS ([`README.md`](../../README.md), [`site/index.html`](../../site/index.html)).
 
-### Alterado
+### Modificado
 
 - **`pnpm screenshots` — a etapa de navegação da home da qual depende (`navigate_to_ds_qam`, e `dismiss_bp_modals`, que todo cenário de modal chama primeiro) era avaliada na janela do Big Picture, onde `SteamUIStore` não existe — todo `try` capturava silenciosamente um `ReferenceError` e caía para `'failed'`, então nunca navegava para a home de fato.** Roteado através da sessão SharedJSContext em vez disso, onde esse global realmente existe. Além disso: `run.py` descartava um cenário tanto da contagem de capturados quanto de falhos sempre que ele retornava nenhuma saída (só um resultado não vazio com arquivo ausente era contado) — agora é registrado como falha com um motivo, então uma pré-condição quebrada aparece em vez de silenciosamente sumir do relatório ([`deckprobe/screenshots/lib/nav.py`](../../deckprobe/screenshots/lib/nav.py), [`deckprobe/screenshots/run.py`](../../deckprobe/screenshots/run.py)).
 - **`vite.plugin.config.ts` não dispara mais o aviso do carregador de configuração nativo do Vite 8 a cada build.** Usava `__dirname`, não suportado sob `configLoader: 'native'`; trocado por `import.meta.dirname`, mesmo resultado, sem mudança de comportamento.
@@ -438,7 +448,7 @@ e este projeto segue o [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - **Notas de release para a versão que você está rodando** estão vinculadas a partir da página About, ao lado dos links de comunidade já existentes ([`src/components/about/SupportPage.tsx`](../../src/components/about/SupportPage.tsx)).
 - **Ícones dedicados do plugin.** Um glifo simplificado de prateleira de livros em cor única (tingível pelo tema) ([`assets/tab-icon.svg`](../../assets/tab-icon.svg)) substitui a arte de linha carregada mostrada na aba de plugin do Decky — livros preenchidos leem muito melhor que contornos finos nesse tamanho — e é o ícone designado do manifesto (`icon` do `plugin.json`), empacotado no pacote de release. Uma marca separada em cores completas ([`assets/icon.svg`](../../assets/icon.svg), derivada parametricamente do logo da marca) impulsiona a identidade visual de notificação / About e o favicon do site. O empacotador e seu verificador garantem que o ícone designado seja distribuído e que a referência do manifesto resolva, e uma verificação de documentação mantém cada glifo embutido em sincronia com seu `.svg`.
 
-### Alterado
+### Modificado
 
 - **Notificações de atualização baixam o pacote.** O banner de atualização, o ícone do cabeçalho e o toast de atualização agora buscam o `.zip` de release para sua pasta de Downloads (ou o equivalente mais próximo do seu sistema) em vez de só abrir a página de release — o ícone de download antes só navegava. Instalar continua manual e ainda não há atualização automática ([`src/core/updateNotifier.ts`](../../src/core/updateNotifier.ts), [`src/runtime/updateDownload.ts`](../../src/runtime/updateDownload.ts), [`main.py`](../../main.py) `download_release`). A transferência aceita apenas hosts de release do GitHub sobre `https`, escreve um nome de arquivo `.zip` sanitizado, transmite para um arquivo temporário e o renomeia atomicamente, e roda fora do loop principal.
 - **O pacote de API pública é a definição única do contrato.** [`src/core/pluginApi.ts`](../../src/core/pluginApi.ts) não declara mais nenhum tipo público próprio — ele reexporta todos a partir de `@deck-shelves/api`, então o contrato publicado e o código em execução não podem divergir. Dois formatos publicados foram corrigidos para corresponder ao que o plugin sempre emitiu e chamou: a fonte de coleção de uma prateleira é `{ type: "collection", collectionId }`, e um resolvedor de fonte inteligente é `resolve(limit, params?)`. O comportamento em tempo de execução permanece inalterado e `api.version` continua `4`.
@@ -491,7 +501,7 @@ e este projeto segue o [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - **Links de comunidade na página About** — botões rápidos para Discord e Reddit ao lado dos links já existentes de GitHub/reportar problema ([`src/components/about/SupportPage.tsx`](../../src/components/about/SupportPage.tsx)).
 - **Alternâncias de notificação por área.** Abaixo da alternância mestre "desativar notificações", sub-alternâncias permitem silenciar só as notificações de Prateleiras, Perfis, Filtros ou Gatilhos mantendo o resto — todas ativadas por padrão, mostradas só enquanto as notificações estão ativadas ([`src/components/qam/NotificationAreaToggles.tsx`](../../src/components/qam/NotificationAreaToggles.tsx), `notificationsDisabledAreas`).
 
-### Alterado
+### Modificado
 
 - **O perfil "Padrão" não desativa mais o plugin nem limpa suas prateleiras.** Aplicá-lo reseta as configurações para os padrões mas mantém o plugin **ativado** e, a menos que você marque a nova opção **Também resetar prateleiras** no diálogo de confirmação (desativada por padrão), deixa suas prateleiras atuais intocadas ([`src/features/settings/controller/profiles.ts`](../../src/features/settings/controller/profiles.ts) `applyFactoryProfile`). "Resetar tudo" continua sendo a limpeza completa.
 - **Auto-fixar/auto-colapsar estão disponíveis em toda prateleira.** Os editores de regra de auto-fixar e auto-colapsar (antes só em prateleira inteligente) agora aparecem em prateleiras normais também, na aba **Exibição** do editor de prateleira; as alternâncias globais **Auto-colapso** e **Desativar notificações** foram movidas para a seção **Comportamento** do QAM ([`src/components/qam/modals/EditShelfModal.tsx`](../../src/components/qam/modals/EditShelfModal.tsx), [`src/components/DeckQAMSettings.tsx`](../../src/components/DeckQAMSettings.tsx)).
@@ -531,7 +541,7 @@ e este projeto segue o [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - **Tamanho de texto de descrição ajustável** — um slider `descriptionScale` global + por prateleira (100–200%), substituindo o antigo booleano de descrição grande.
 - **Estatísticas → Tendências da biblioteca.** Uma linha de KPI/números mais tipos de gráfico adicionais e mais variados na aba Estatísticas ([`src/components/settings/details/StatisticsDetail.tsx`](../../src/features/statistics/StatisticsDetail.tsx)).
 
-### Alterado
+### Modificado
 
 - **Iconografia padronizada em Configurações e no QAM.** Exportar usa uma seta para cima, importar uma seta para baixo, excluir uma lixeira e restaurar seu próprio ícone (substituindo o disquete); seções colapsáveis carregam ícones em toda aba de configurações, e os ícones de importar/exportar do QAM correspondem às páginas de configuração.
 
@@ -552,7 +562,7 @@ e este projeto segue o [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - **Exportação/importação portátil de snapshot** ([`src/domain/snapshot.ts`](../../src/domain/snapshot.ts) + controlador `exportSnapshot` / `importSnapshot`). Empacota prateleiras normais, prateleiras inteligentes, filtros salvos e filtros inteligentes salvos num único JSON versionado; `merge` anexa com deduplicação de id, `replace` sobrescreve. Compatível em formato com as exportações por conceito já existentes.
 - **Handlers de exportação/importação de plugin para plugin** ([`src/core/pluginApi.ts`](../../src/core/pluginApi.ts) + [`api/src/types.ts`](../../api/src/types.ts)). Novos `registerExportHandler` / `registerImportHandler` (+ `getRegisteredExportHandlers` / `getRegisteredImportHandlers`) permitem que um plugin terceiro ofereça "Exportar para o formato X" / "Importar do formato Y". Handlers são agnósticos de formato — eles traduzem entre o JSON de snapshot e seu próprio formato, então a transferência é sem perdas. Conectado pelo controlador `exportViaHandler` / `importViaHandler` e exposto em Configurações → Backup. Aditivo ao contrato congelado (sem incremento de `version`).
 
-### Alterado
+### Modificado
 
 - **A seção Perfis do QAM foi refeita para uma lista no estilo de prateleiras** ([`src/components/qam/sections/ProfilesSection.tsx`](../../src/features/profiles/ProfilesSection.tsx)). Um único dropdown no estilo CSS-Loader seleciona um perfil — com **"Salvar atual" e "Resetar para padrão" como entradas do dropdown** (sem botões separados) — e os perfis salvos são uma **lista reordenável** abaixo dele (arrastar/subir-descer; a ordem também controla o dropdown). Cada linha espelha a lista de prateleiras: uma **marca de perfil ativo**, um **olho** (riscado quando oculto), o nome alinhado à esquerda, e um menu de contexto `[…]` (aplicar/atualizar/duplicar/renomear/ocultar-mostrar/exportar/excluir). **Perfis ocultos** (`profiles[].hidden`, persistido) permanecem na lista mas são omitidos do dropdown de seleção rápida. Novas ações de controlador `toggleProfileHidden` / `setProfilesOrder` + um pequeno `RenameProfileModal`. No sidecar, o seletor de perfil e a lista ganham cada um seu próprio olho (`profileDropdown` / `profileList`) via um `HideableRow` compartilhado, e a lista colapsa para um único item "Lista de perfis" (nova string `profile_list_label`, todos os 19 idiomas). O painel de perfis da página Configurações permanece inalterado.
 - **O espaçamento padrão logo↔informação agora é 10px (era 8px).** O espaçamento de descrição para logo (`descriptionLogoGap`) tem padrão `10` para novas prateleiras e para qualquer prateleira que nunca definiu o valor explicitamente ([`src/components/DeckRow.tsx`](../../src/components/DeckRow.tsx), [`src/components/Shelf.tsx`](../../src/components/Shelf.tsx), [`src/components/shelf/PerShelfHero.tsx`](../../src/components/shelf/PerShelfHero.tsx), ambos editores de prateleira). Prateleiras com um espaçamento salvo não são afetadas.
@@ -653,7 +663,7 @@ e este projeto segue o [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - **Ações do controlador:** as novas `setQamHiddenToggle(key, hidden)` e `setQamHiddenSection(id, hidden)` pulam o diff `JSON.stringify` de `persist` — elas chamam `setSettings` de forma síncrona e disparam `saveSettings` sem aguardar, para que o clique no botão de olho pareça instantâneo. A chave mestre `enabled` é rejeitada de imediato em `setQamHiddenToggle`.
 - **Dica "Pausar" do GameCard.** A dica do botão de visualização agora lê `menu_pause` quando o estado do app do card é um dos códigos de download-ativo / na fila / instalação-pausada (`3, 5, 7, 12, 13, 19`), com `action: 'resume_update'`. Tradução adicionada em todos os 19 idiomas.
 
-### Alterado
+### Modificado
 
 - **`CollapsibleSection` aceita `headerExtra: ReactNode`.** Quando fornecido, a linha de cabeçalho é envolvida num `Focusable flow-children='row'` para que o cabeçalho da seção e seu elemento final (ex.: o olho da seção) formem uma única linha navegável. Sem `headerExtra`, o wrapper `<div>` original é mantido — nenhuma mudança de comportamento para seções do QAM já existentes que não usam o slot extra.
 - **`OnlinePrivacyModal`, `SavedFiltersList`, `SavedSmartFiltersList` exportados** de `DeckQAMSettings.tsx` para que o `GeneralTab` do sidecar possa montar o mesmo modal de divulgação de privacidade de recursos online que o QAM usa. As listas de filtro salvo são exportadas mas deliberadamente **não** renderizadas no sidecar (o sidecar só carrega os cabeçalhos de seção para ocultar-do-QAM, nunca as linhas por item nem os botões de ação `[…]`).
@@ -666,7 +676,7 @@ e este projeto segue o [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - **Flag de prateleira `highlightRandom`.** ~25% determinístico dos cards de uma prateleira renderiza no tamanho destacado (paisagem) — estável por id de prateleira + conjunto de appid para que os cards não embaralhem seu tamanho entre renderizações. Exposto como uma flag no menu de contexto, na aba Visual do modal de edição (normal + inteligente), e como alternância global na seção Visual do QAM.
 - **Fallback do template `installed`.** Quando a loja de abas do Steam retorna vazio para `tab=installed` (corrida no boot ou esquisitice de tema), o resolvedor passa por `_resolveFilter({ installed: true })` para que o template nunca produza uma prateleira vazia. As outras abas embutidas continuam usando o caminho primário.
 
-### Alterado
+### Modificado
 
 - **A animação do card corresponde aos recentes nativos do Steam.** As transições do card agora são `filter + box-shadow + transform 0.4s cubic-bezier(0, 0.73, 0.48, 1)` (era 0.16s com uma curva diferente). O "pop" de foco usa `scale(1.02)` (sem wrapper de perspectiva para manter baixa a latência de navegação — `translateZ(7px)` exige contexto de perspectiva por card, o que deixava a navegação horizontal 17 s lenta num scroller apertado). A rolagem suave de linha foi mantida; o nativo usa rolagem orientada por transform que o DS não consegue replicar sem uma reestruturação maior.
 - **Engolimento de navegação horizontal eliminado.** A transição anterior de transform de 160 ms se somava ao debounce do controlador de navegação do Steam, engolindo a cada duas presses de ArrowRight. A transição alinhada ao nativo não dispara mais isso, então 14/14 presses agora têm sucesso com latência média de ~85 ms.
@@ -706,7 +716,7 @@ e este projeto segue o [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - **Hidratação do cache quente no boot (`hydrateHotCacheFromStorage`).** Percorre o Cache Storage persistente quando ocioso, decodifica todo blob, registra no mapa quente em memória. Depois da hidratação, o primeiro foco em todo card é um hit instantâneo de blob-URL em vez de percorrer a cadeia de 404.
 - **Auxiliar `firstCacheableUrl(urls)`** para que a lógica de aquecimento aponte para a URL CDN real em vez da primeira entrada local `/customimages/<appid>p.png` que retorna 404 para ~99% dos usuários.
 
-### Alterado
+### Modificado
 
 - **O notificador de atualização agora sonda ativamente assim que a rede fica alcançável.** O formato anterior fazia uma sonda sob demanda 3s depois do boot — se a pilha de rede ainda não estivesse pronta, a sonda rodava offline e o `latestVersion` em cache suprimia o toast pelo resto da janela de cache de 24h. Novo formato: um polling com backoff (3s, 10s, 20s, 40s, depois 60s até ~10 min no total) que chama `runUpdateProbe('boot')` até que uma sonda realmente rode online — então para. O portão de alternância ainda se aplica (pulado por completo quando `updateNotifyEnabled === false`); o loop também cancela ao desmontar o plugin. Tanto reinicialização do sistema QUANTO reinicialização do Steam caem nesse caminho.
 - **`shelfStyles.ts` dividido — 1580 → 721 linhas** (abaixo do teto). O corpo do template `buildStylesheet()` de ~900 linhas foi movido para `shelfStylesheetTemplate.ts`, exportando `buildShelfStylesheet(ctx)`. Extração puramente mecânica.
@@ -787,7 +797,7 @@ e este projeto segue o [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - **Aba de filtros online em prateleiras com fonte online** (`wishlist` / `store` diretamente, ou uma fonte composta com pelo menos um filho online). A aba usa o rótulo "Filtros online" (chave de i18n `edit_tab_online_filters` × 19 idiomas) já que a paleta de filtro inclui predicados só-online (% de desconto, faixas de preço). Numa prateleira composta, a aba escreve um `childFilter` em nível de pai na fonte `composite` — aplicado DEPOIS da mesclagem de união / interseção, para que toda fonte contribuinte esteja sujeita à mesma cadeia de filtro online. O `childFilter` por filho já existente em fontes de coleção / aba / lista de desejos / loja ainda dispara dentro do seu próprio ramo de resolvedor.
 - **i18n em todos os 19 idiomas** para toda nova opção, nome de template, parâmetro inteligente, campo de decoração, e entrada de menu de contexto.
 
-### Alterado
+### Modificado
 
 - **O seletor de fonte composta em prateleiras normais foi visualmente alinhado ao seletor de modo composto de prateleira inteligente.** O dropdown de combinação (União / Interseção) agora aparece ANTES das linhas de fonte adicional (era embaixo) e ganhou uma linha de `description` explicando a semântica do operador — espelha o tratamento Field-com-descrição de "Combinar modos" da prateleira inteligente, para que ambos os tipos de prateleira usem o mesmo modelo mental logo de início.
 - **O seletor de ordenação multi-chave ganhou uma descrição de cabeçalho** ("Ordenação multi-chave — linhas anteriores são a ordem primária; linhas posteriores desempatam") quando o usuário adiciona uma segunda chave de ordenação. Prateleiras de chave única inalteradas.
@@ -878,7 +888,7 @@ e este projeto segue o [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - **Proteção contra travamento no sidecar.** `<GeneralTab>` envolvido em `<ErrorBoundary>` para que um único erro de renderização nos novos campos visuais não consiga derrubar toda a superfície do sidecar.
 - **Slider no QAM nunca dispara a expansão do sidecar.** Dpad-direita com foco em `[class*="slider" i]` / `[role="slider"]` desiste antes que a heurística "foco não se moveu → expandir" dispare, então ajustar um slider no meio do valor nunca abre o sidecar.
 
-### Alterado
+### Modificado
 
 - **Polimento do `CollapsibleSection` reutilizável em Configurações + QAM.** O colapsável compartilhado agora restringe sua "caixa" com borda à página de Configurações (o QAM permanece plano), destaca toda a linha de cabeçalho como uma única unidade de foco mesmo quando carrega um botão de ação inline (dpad-baixo passa por título → botão → próxima seção), e dá ao seu conteúdo mais respiro abaixo do cabeçalho. A dica de caminho padrão da aba Backup se mudou para o topo da página (correspondendo a Estatísticas), e os badges de contagem vitest/pytest do README foram atualizados.
 - **A captura de tela mudou para o executor modular; o monólito foi removido.** `pnpm run screenshots` (`deckprobe/cli.py screenshot`) agora conduz `deckprobe.screenshots.run` sobre os cenários `@register` em [`scripts/deckprobe-ext/screenshots/scenarios`](../../scripts/deckprobe-ext/screenshots/scenarios) em vez do `screenshot.py` monolítico (excluído junto com `screenshot_modals.py` / `screenshot_pages.py`). Os cenários já cobrem todo o conjunto obrigatório mais extras; um novo cenário `settings.py` captura as abas da página Configurações. Chave de configuração `screenshots_script` → `screenshots_scenarios_dir` (env `DECKPROBE_SCREENSHOTS_SCENARIOS_DIR`); o CLI roda o pacote como um módulo para que suas importações relativas resolvam independente da profundidade de vendoring.
@@ -937,7 +947,7 @@ e este projeto segue o [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - **A arte de hero mostra um placeholder shimmer enquanto carrega** (mesmos keyframes `ds-shelf-shimmer` que os cards de jogo usam), com uma proteção extra `naturalWidth > 0` em `onLoad` para que uma resposta 200-OK-mas-corrompida do CDN do Steam passe pela cadeia de fallback em vez de pintar como uma imagem quebrada. O rastreamento de carregamento por slot mudou de um booleano para "URL carregada é igual ao src atual", então uma mudança de foco que troca `slotA` vira o hero para "carregando" sincronamente com a atualização de src — sem frame desatualizado onde a imagem anterior ainda está visível em opacidade total sobre o novo src.
 - **Os pills do painel agora são alternâncias de filtro interativas.** Os pills já existentes `com Deck / sem Deck / com stress / sem stress` acima dos KPIs são clicáveis: tocar num pill restringe o painel a execuções que correspondem a esse eixo, tocar no pill ativo de novo o limpa. Eixos Deck + Stress E junto com os chips de escopo (`Todos/Local/CI/Release`); o hash da URL (`#scope=local&deck=yes&stress=no`) preserva a seleção combinada entre recargas. Hashes de token único legados (`#local`) ainda resolvem.
 
-### Alterado
+### Modificado
 
 - **Os pills do painel permanecem clicáveis quando uma combinação de filtro esvazia a visualização.** Antes `pills(rs)` retornava uma string vazia quando `rs.length === 0`, removendo a linha de pills inteira — uma vez que o usuário clicasse num pill que resultasse em zero resultados, não havia como clicar de volta para desfazer. Os pills agora renderizam contra o array `runs` não filtrado (as contagens são referências estáveis ao conjunto de dados completo), com o estilo ativo ainda rastreando a seleção atual.
 - **Notificador de atualização — mais três proteções empilhadas sobre a invalidação de cache online-primeiro.** Juntas elas cobrem os modos de falha que encontramos testando v2.3.0 local → v2.3.1 publicada:
@@ -953,7 +963,7 @@ e este projeto segue o [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ## [2.3.1] - 2026-05-27
 
-### Alterado
+### Modificado
 
 - **O badge de desconto não aparece mais em jogos possuídos.** O desconto de preço em cache agora só é anexado a cards de fonte online que renderizam jogos que não estão na biblioteca local; cards apoiados por um `AppOverview` local (sempre possuído/na biblioteca) não carregam mais `discountPercent`, então a tag verde de desconto para de decorar jogos que você já possui.
 - **Descrições de ação "Abrir opções" / "Abrir opções da prateleira" traduzidas.** A dica do botão OK mostrada ao lado do botão ⋯ em cada linha de prateleira inteligente e prateleira agora lê no idioma do usuário em todos os 19 idiomas.
@@ -989,7 +999,7 @@ e este projeto segue o [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - **Compatibilidade de tema Game Cover Shine Animation Color.** Documentado e validado via `checks/plugins/cssloader/game-cover-shine.sh`: o brilho ::after alcança cards DS através da promoção de classe nativa, a opacidade é deixada para o tema (sem 1 forçado), e o ::after é suprimido sob a flag Round Compatibility.
 - **Overlay de badge via portal React.** Badges de novo/desconto são renderizados no `<body>` do BP via `createPortal`, com posicionamento fixo à viewport sincronizado ao card via `MutationObserver` + listeners de rolagem/redimensionamento + um loop rAF só-quando-em-foco para a transição de escala de 0,3s. O portal escapa do z-index do `FocusRingRoot` do Steam (`10000`) para que o badge sempre pinte na frente dos anéis de foco de tema.
 
-### Alterado
+### Modificado
 
 - **Filtro de possuído online reescrito para usar `collectionStore.allGamesCollection` e `[Unifideck] Instalados`** (resolvedor + tempo de renderização). A heurística anterior — tratar qualquer appid com um `AppOverview` em cache como "possuído" — ocultava incorretamente jogos visualizados via lista de desejos/loja (ex.: um jogo também catalogado via uma loja de jogos em nuvem). Novo `getLocalLibraryAppIds(includeNonSteam, includeCloudPlay)` lê só as coleções de biblioteca reais; o `ownedNames` em tempo de renderização vem do mesmo conjunto para que a deduplicação por nome pare de vazar. O preview do modal agora aplica o mesmo filtro para que a contagem "encontrado X" corresponda ao que a prateleira de fato renderiza.
 - **Excesso de busca do resolvedor de prateleira online.** `resolveShelfAppIds` para fontes de lista de desejos/loja busca `limit + max(10, 50% do limit)` candidatos (limitado a 3x) para que a filtragem de possuído/nome em tempo de renderização possa descartar alguns itens sem deixar a prateleira abaixo do limite configurado do usuário. `Shelf.tsx` limita a `shelf.limit` depois da filtragem.
@@ -1041,7 +1051,7 @@ e este projeto segue o [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 - **Alternâncias de "Ocultar jogos possuídos" em dois níveis (global + por prateleira).** Tanto o `onlineHideOwnedGames` global (Recursos Adicionais do QAM) quanto o `excludeOwned` por prateleira (aba Fonte do modal de edição) agora expõem uma sub-alternância (`onlineHideOwnedNonSteam` / `excludeOwnedNonSteam`) visível só quando o pai está ativado. A alternância principal oculta jogos possuídos no Steam (correspondência de appid); a sub-alternância também oculta atalhos não-Steam (correspondência de nome via `getAllAppOverviews()`). Novos campos de schema, novas entradas na lista branca do sanitizador em `main.py`, novas chaves de i18n `hide_owned_non_steam` / `hide_owned_non_steam_desc` em todos os 19 idiomas. Strings `online_hide_owned*` / `exclude_owned*` já existentes reformuladas para esclarecer o escopo só-Steam da alternância principal.
 
-### Alterado
+### Modificado
 
 - **Padrão de `onlineHideOwnedGames` trocado de `true` para `false`.** Instalações novas (e qualquer configuração faltando o campo) agora mostram jogos possuídos em prateleiras online por padrão; o usuário precisa optar por ativar. Transformação de schema, `defaults.ts`, fallbacks inline de `controller.tsx`, e sanitizador de `main.py` alinhados ao novo padrão.
 - **Caminho de filtro de jogo possuído global + por prateleira unificado em `Shelf.tsx`.** A verificação antes incondicional de "ocultar jogos da biblioteca de prateleiras online" na camada de renderização agora é bloqueada por `shouldHideOwned = globalHideOwned || excludeOwned`. O conjunto de nomes possuídos (`ownedNames`) é construído quando qualquer alternância está ativada, com atalhos não-Steam incluídos quando a sub-alternância correspondente está ativa. `globalHideOwned` / `globalHideOwnedNonSteam` são estado React sincronizado com `deck-shelves-settings-changed` para que trocas de alternância re-renderizem a prateleira sem recarregar.
@@ -1077,7 +1087,7 @@ e este projeto segue o [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - **Menu de fallback DFL enriquecido com ações equivalentes ao nativo.** Quando o caminho de menu capturado não consegue renderizar (builds do Steam mais antigos/não padrão), o fallback DFL agora também expõe **Verificar integridade dos arquivos instalados**, **Desinstalar** (tom destrutivo), e **Navegar capturas de tela** ao lado dos já existentes Jogar/Propriedades/Ver Detalhes. Todas as entradas chamam os mesmos métodos `SteamClient.Apps.*` que o próprio Steam usa, bloqueados por capacidade + estado de instalação. Novas chaves de i18n: `menu_uninstall`, `menu_verify_integrity`, `menu_browse_screenshots` — traduzidas em todos os 19 idiomas. Um `MenuSeparator` é inserido antes do submenu Deck Shelves quando ambos são renderizados.
 - **Três novas opções de ordenação: Status do App, Compatibilidade com Deck, Suporte a Controle.** `app_status` ordena pelo valor de `display_status` crescente (status menor primeiro; invertível para trazer Rodando/Instalando para o topo); `deck_compat` ordena decrescente por `deck_compatibility_category` (Verificado → Jogável → Não suportado → Desconhecido); `controller_support` ordena decrescente por nível de suporte (Total → Parcial → Nenhum). Todos os três respeitam `sortReverse` via o caminho de inversão já existente em `applySortToIds` (`steam/index.ts`), idêntico a toda outra ordenação não-manual/não-aleatória. Adicionado a `SORT_OPTIONS` em `editShelf/constants.ts`. Novas chaves de i18n `sort_app_status`, `sort_deck_compat`, `sort_controller_support` em todos os 19 idiomas — texto alinhado com os rótulos de tipo de filtro correspondentes (`filter_type_appStatus`, `filter_type_deckCompatibility`, `filter_type_controllerSupport`).
 
-### Alterado
+### Modificado
 
 - **Ordenações e filtros online ocultos de seletores de fonte não-online.** As ordenações de preço/desconto (`price_low`, `discount_high`, `original_price_high`) e o tipo de filtro `discount` dependem do cache de preço populado por fontes online — não têm dados para avaliar em fontes `collection`/`tab`/`filter`/`external`/`smart`. O dropdown de ordenação em `EditShelfModal` agora os filtra quando a fonte atual não é `wishlist`/`store`; `EditSmartShelfModal` os exclui incondicionalmente; `FilterPanel` aceita uma nova prop `allowOnlineFilters` que se propaga para filtros de mesclagem aninhados via `MergeFilterOptions`. Valores persistidos em prateleiras existentes permanecem intactos — só o conteúdo do seletor muda. Novos testes de regressão fixam a flag `requiresOnline` em SORT_OPTIONS e `isOnlineFilterType('discount')`.
 - **Decisão de card final extraída.** `src/components/shelf/trailingCards.ts` expõe `shouldShowRefreshCard` / `shouldShowMoreCard`. `Shelf.tsx` e o `ShelfPreview` do modal consomem o mesmo auxiliar para que a prateleira da home e o preview do modal de edição sempre concordem sobre quais cards finais se aplicam (inteligente-atualizável, aleatório-não-inteligente, inteligente-determinístico, etc.). Nenhuma mudança de comportamento na prateleira da home.
@@ -1136,7 +1146,7 @@ e este projeto segue o [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - **Filtro `appStatus` — correspondência granular de estado de app.** Novo tipo de filtro apoiado em `EAppDisplayStatus` (o `per_client_data[0].display_status` do Steam). Quatro grupos de alternância: `downloading` (transferindo/preparando/commitando/validando ativamente: ds 19/12/13/6), `queued` (atualização pendente mas ocioso: ds 7/8/3), `installing` (instalação pela primeira vez: ds 4), `running` (atualmente iniciando ou jogando: ds 5/2). Seleção padrão: `[downloading, queued]`. Invertível. Habilita uma prateleira de "Fila de Downloads" e outros filtros conscientes de status além do booleano `updatePending`. Novas chaves de i18n: `filter_type_appStatus`, `app_status_downloading`, `app_status_queued`, `app_status_installing`, `app_status_running`, `docs_filter_appStatus_desc`.
 - **Enum `EAppDisplayStatus`** (`src/steam/appDisplayStatus.ts`). Constantes nomeadas para todos os valores confirmados de `display_status` observados no `per_client_data` do Steam. Substitui números mágicos brutos na detecção de `update_pending` e `checkUpdatePendingRaw`. Exporta `UPDATE_PENDING_STATUSES`, `UPDATE_ACTIVE_STATUSES`, `UPDATE_QUEUED_STATUSES`, e `APP_STATUS_GROUPS` para uso pelo avaliador de filtro e camada de UI.
 
-### Alterado
+### Modificado
 
 - **Duplicação do modal de edição reduzida.** Componentes compartilhados `PreviewPanel`, `TabLabel`, e `SortField` extraídos, usados tanto por `EditShelfModal` quanto por `EditSmartShelfModal`. A região de preview inferior (carregando/seletor de ocultos/ordenação manual/seletor de destaque/preview de prateleira) agora é um único componente; ambos os modais também usam a mesma linha parametrizada de ordenação + direção-reversa para ordenações primária e base-manual. `EditSmartShelfModal` agora aplica ordenação manual ao seletor de jogos ocultos (paridade com `EditShelfModal`) e não renderiza mais a linha de ordenação manual duas vezes quando na aba fonte.
 
@@ -1159,7 +1169,7 @@ e este projeto segue o [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - **Preview de prateleira ao vivo em ambos os modais de edição.** Novo componente `ShelfPreview` ([src/components/qam/modals/editShelf/ShelfPreview.tsx](../../src/components/qam/modals/editShelf/ShelfPreview.tsx)) substitui a antiga linha de mini-card nas abas Fonte/Filtros/Visual/Exibição. Renderiza instâncias reais de `GameCard` em tamanho compacto (78l × 168a, arte de retrato 110a; cards destacados usam o mesmo multiplicador de largura 3,21× que a prateleira da home para uma proporção de hero paisagem adequada) mais tiles finais opcionais `MoreCard` e `RefreshCard`. Toda alternância da aba Exibição (`hideStatusLine`, `hideNewBadge`, `hideCompatIcons`, `hideNonSteamBadge`, `hideGameNames`, `hideInstallIndicator`, `hideSeeMore`, `hideRefreshCard`) alimenta o preview ao vivo. O título renderiza acima do preview no nível do modal (então aparece tanto para o preview normal, o seletor de jogos ocultos, a linha de ordenação manual, quanto o seletor de destaque) bloqueado por `hideShelfTitle`. Sobrescritas de estilo restritas (`[data-ds-preview-row="1"]...`) encolhem `.ds-more-card-text` para 10px e `.ds-refresh-card svg` para 22px para que os tiles finais correspondam à pegada de card menor sem tocar nos estilos da tela inicial. `resolvedMeta` foi ampliado de `{ name, portraitUrl, heroUrl }` para o `PlatformAppMeta` completo para que o preview tenha acesso a `installed`, `isSteam`, `deckCompatCategory`, `playtimeMinutes`, `updatePending`, `addedTimestamp` (usado para calcular `isNew` por card).
 - **Padrão de delegação `onFocus` na linha de preview.** O wrapper da linha usa `noFocusRing` + um handler `onFocus` que delega para o primeiro `.ds-card` quando a navegação do Steam cai no próprio wrapper — mesmo padrão que `DeckRow` usa na tela inicial. Um listener de `focusin` também chama `scrollIntoView({ behavior: 'instant', inline: 'center' })` em qualquer card que receba foco, então segurar entrada de D-pad mantém o card em foco na janela visível em vez de deixar a navegação do Steam derivar além da viewport.
 
-### Alterado
+### Modificado
 
 - **Altura do modal aumentada** tanto em `EditShelfModal` quanto em `EditSmartShelfModal` — o contêiner externo passou de `min(calc(100vh - 220px), 720px)` para `min(calc(100vh - 160px), 800px)`. O teto de `FieldContainer scrollable` passou de `min(calc(100vh - 280px), 660px)` para `min(calc(100vh - 220px), 720px)`. ~60-80px a mais de espaço vertical para conteúdo de aba; a altura do preview permanece inalterada.
 - **As chamadas de `getAppMeta` agora são paralelizadas** — `Shelf.tsx`, `EditShelfModal`, e `EditSmartShelfModal` antes percorriam `appIds` com `for (...) await platform.getAppMeta(id)`, serializando N idas e voltas por prateleira no início frio (reinicialização do Steam) quando os caches em memória estão vazios. Substituído por `Promise.all(ids.map(...))`; cada chamada é independente e o fallback subjacente `getAllAppOverviews` já memoiza por 10s, então chamadores concorrentes compartilham o trabalho em vez de duplicá-lo. Corta o tempo de população de N×latência para ~max(latência).
@@ -1186,7 +1196,7 @@ e este projeto segue o [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - **Botão de ícone asc/desc ao lado dos dropdowns de ordenação.** Novos booleanos opcionais `sortReverse` (e `manualBaseSortReverse`) em `ShelfSchema`, `SmartShelfSchema`, e `FilterSchema`. Um `DialogButton` só de ícone 40×40 renderiza ao lado de cada dropdown de ordenação em `EditShelfModal`/`EditSmartShelfModal` ([SortDirectionButton.tsx](../../src/components/qam/modals/editShelf/SortDirectionButton.tsx)) — mesmo formato dos botões de ícone usados por `SavedFiltersBar`. Novos SVGs `icons.sortDesc` / `icons.sortAsc` (barras horizontais empilhadas + seta chevron à direita) substituem os placeholders anteriores de chevron-cima/baixo para que o botão leia como "direção de ordenação" à primeira vista. O clique alterna entre decrescente (padrão — ordem natural) e crescente (invertido). Ambas as linhas agora usam o `<Field childrenLayout="inline">` no estilo FilterPanel com `<Dropdown>` nu em vez de `<DropdownItem>` — as margens horizontais negativas embutidas do `DropdownItem` (`margin: 0 -42px`) escapavam do pai flex e sobrepunham o botão de ação; o padrão `Field` + `Dropdown` nu mantém ambos os elementos dentro do padding do modal para que a navegação lateral por D-pad funcione sem corte visual. Oculto para ordenações `manual` e `random`. `applySortToIds` aceita uma flag `reverse` e inverte o resultado pós-ordenação; `resolveShelfAppIds` e a interface `PlatformApi` ganham um parâmetro opcional `sortReverse` que flui do estado persistido da prateleira. **Correção crítica**: quando nenhuma ordenação explícita está persistida (prateleiras normais têm padrão `"alphabetical"` armazenado como `undefined`) e reverse está ativado, o closure de resolução agora substitui `"alphabetical"` pelo argumento de ordenação do resolvedor para que `applySortToIds` de fato rode e a flag reverse tenha onde se aplicar — sem esse fallback, sem-ordenação + reverse deixava a ordem natural da fonte intocada. O array de dependências do efeito de resolução de `Shelf.tsx` agora inclui `sortReverse` e `manualBaseSortReverse` para que alternar dispare uma reresolução imediata. Chaves de tradução `sort_direction_asc` / `sort_direction_desc` distribuídas em todos os 16 idiomas.
 - **Ícones de Steam Cloud (☁️) e Deck Verified (🛡✓) nos botões de template de prateleira normal.** Novos SVGs `Cloud` e `ShieldCheck` adicionados a `SHELF_TPL_ICON` ([src/components/qam/modals/templateIcons.tsx](../../src/components/qam/modals/templateIcons.tsx)) para os ids de template `steam_cloud` e `deck_verified` — antes renderizavam como botões só de texto porque nenhum ícone estava registrado. Paridade visual com o resto do seletor.
 
-### Alterado
+### Modificado
 
 - **Limite de jogo por prateleira elevado para 50** (era 40 no slider; o teto de schema já era 100). Tanto `EditShelfModal` quanto `EditSmartShelfModal` refletem o novo máximo. Sem migração de dados; prateleiras existentes mantêm seu limite armazenado.
 - **`.ds-new-badge` espelha a resolução de cor do badge nativo "Novo / New".** O fundo agora resolve via `var(--ds-new-badge-bg, var(--colored-toggles-main-color, rgb(26, 159, 255)))`. A variável do meio é a **mesma** contra a qual o badge de recentes nativo do SteamOS resolve — então temas que já recolorem o badge nativo do Steam (Colored Toggles, Obsidian, Outrun, etc.) automaticamente tingem nosso badge na mesma cor sem nenhum trabalho extra de tema. Autores de plugin/tema ainda podem sobrescrever à força via `--ds-new-badge-bg`. Confirmado por sonda CDP da linha de recentes ao vivo do SteamOS: a regra nativa correspondida é `.<classe-minificada> { background: rgb(26, 159, 255); }` seguida de uma sobrescrita `{ background: var(--colored-toggles-main-color); }`. Posição mantida em `top: -2px` / `z-index: 20` (corresponde exatamente à faixa nativa).
@@ -1221,7 +1231,7 @@ e este projeto segue o [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - **Nova aba "Filtros inteligentes"** (`SparkleIcon`) entre Fonte e Filtros em `EditSmartShelfModal`. Hospeda tudo que é ajuste específico de modo: o banner informativo de `time_of_day`, os widgets `smartParams` por modo, os controles de janela de visibilidade e os chips de dia da semana. A aba Fonte agora contém só os controles de prateleira sempre aplicáveis (título/ordenação/limite/intervalo de atualização/linha de ordenação manual).
 - **Chips de dia compactos.** O layout removeu o prefixo `✓` e apertou padding/fonte (`fontSize: 11`, `padding: 2px 0`, `minHeight: 30`, `gap: 4`) para que todos os 7 caibam numa linha em qualquer largura de modal sem truncamento; o estado ativo agora é indicado só por um fundo tingido, correspondendo ao padrão já existente.
 
-### Alterado
+### Modificado
 
 - **As abas Filtros/Filtros adicionais usam um botão primário de largura total e empilham o aviso acima dele.** O botão "+ Adicionar filtro" do `FilterPanel` agora ocupa a largura da linha como o botão "Salvar atual como filtro" abaixo dele, e a mensagem "complete o filtro atual primeiro" renderiza alinhada à esquerda em sua própria linha acima do botão desativado em vez de compartilhar uma linha flex. O "Salvar atual como filtro" da `SavedFiltersBar` foi elevado para `width: 100%` para paridade visual.
 - **Harness de QA expandido.** Novas flags de build (`DS_QA_SMART_SHELVES_FIXTURE`, `DS_QA_SAVED_FILTERS_FIXTURE`, `DS_QA_FORCE_HIDDEN_SHELF`, `DS_QA_SMART_SURPRISE_ME`, `DS_QA_FORCE_HOME_CRASH`, `DS_QA_FORCE_REPLACE_FAILED`) semeiam fixtures extras (prateleiras inteligentes, filtros salvos, prateleira oculta), forçam o caminho Me Surpreenda, o `ErrorBoundary` da home, e a UI de disjuntor `RecentsReplaceErrorBanner`. Scripts `pnpm qa:*` correspondentes envolvem as variáveis de ambiente e rodam o deploy hard. Documentado em `docs/qa-manual.md §12`.
@@ -1257,7 +1267,7 @@ e este projeto segue o [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - **Alternância para ocultar nomes de jogo (por prateleira + global).** Novo campo `hideGameNames` em `ShelfSchema`/`SmartShelfSchema` (padrão `false`) e `globalHideGameNames` em `SettingsSchema`. Alternância por prateleira na aba Exibição de ambos os modais de edição; alternância global na seção Visual do QAM (`hide_game_names`). O bloqueio de renderização em `GameCard.tsx` pula o elemento `.ds-card-label-name` quando ativo. `hide_game_name` singular para por prateleira, `hide_game_names` plural para global. Nova ação de controlador `setGlobalHideGameNames`. Chaves de tradução distribuídas em todos os 16 idiomas.
 - **Alternância para ocultar indicador de instalação (por prateleira + global).** Novo campo `hideInstallIndicator` em `ShelfSchema`/`SmartShelfSchema` (padrão `false`) e `globalHideInstallIndicator` em `SettingsSchema`. Oculta os ícones de instalação/download/atualização/jogar dentro de `.ds-card-status` mantendo o tempo de jogo visível. Alternância por prateleira na aba Exibição de ambos os modais de edição; alternância global na seção Visual do QAM (`hide_install_indicators`). Nova ação de controlador `setGlobalHideInstallIndicator`. Chaves de tradução distribuídas em todos os 16 idiomas.
 
-### Alterado
+### Modificado
 
 - **A prop Focusable `flow-children` agora é descartada no SteamOS ≤ 3.7** para evitar o `Assertion Failed: Unhandled flow-children: <value>` lançado pelo `library.js` do Steam nesse release. A asserção sobe através da renderização React e o ErrorBoundary do Decky a captura — deixando o painel do QAM em branco ([investigado via CDP na 3.7.21 — 108 erros capturados/5s](../cdp.md)). Novo auxiliar `flowChildrenProps()` em `src/core/steamOSVersion.ts` retorna `{ "flow-children": <direção> }` (moderno) ou `{}` (legado ≤ 3.7); espalhado em `<Focusable>` nos pontos de chamada em `HomeInject.tsx` (coluna), `DeckRow.tsx` (horizontal), e `about/SupportPage.tsx` (horizontal). Comportamento em 3.8/3.9 inalterado. Conservador em `null` (SO desconhecido): mantém a prop para que o caminho moderno nunca regrida.
 - **`getSteamOSVersion()` agora resolve no SteamOS 3.7.x.** A cadeia anterior (`SteamClient.System.GetOSVersion()` → `SteamUIStore.DeckySettings` → regex de UA) todas retornavam `null` na 3.7.21 porque `GetOSVersion` não existe ali, a estrutura de configurações do Decky tem formato diferente, e o UA só carrega `Steam Deck [Steam Deck Stable]/<build>` (sem token `SteamOS/<x.y.z>`). Adicionado fallback assíncrono para `SteamClient.System.GetSystemInfo()` (retorna `sOSVersionId: "3.7.21"` neste release; também existe em 3.8/3.9) conectado via um novo `prefetchSteamOSVersion()` exportado chamado uma vez na inicialização do plugin em `src/index.tsx`. Chamadas síncronas subsequentes (ex.: `useLegacyMenuFlow()` em `steamGameMenu.ts`, `flowChildrenProps()` em caminhos de renderização) atingem o cache resolvido.
@@ -1281,7 +1291,7 @@ e este projeto segue o [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - **Ícones utilitários pré-existentes consolidados no módulo compartilhado**: `CheckIcon`, `XIcon`, `ChevronIcon`, `TrashIcon` (antes inline em `src/components/filter/utils.tsx`) e `SteamIcon` (antes inline em `ImportFromCustomFiltersModal.tsx`) movidos para `src/components/icons.tsx`. O `Chevron` duplicado em `DocAccordion.tsx` foi excluído em favor do `ChevronIcon` compartilhado. `filter/utils.tsx` reexporta os ícones que antes definia para que importações existentes continuem funcionando sem alteração. Líquido: 35 linhas a menos de marcação SVG duplicada em toda a base de código. Ícones altamente contextuais permanecem locais e intocados: indicadores de compatibilidade de `GameCard.tsx` (precisam das classes `.ds-compat-*` para temas do CSS Loader), chevrons de `HighlightMiniCard.tsx` (posicionamento transparente específico 8×14), coração Ko-fi em `SupportPage.tsx` (preenchido, cor de marca), o logo do plugin em `index.tsx`, e todo o conjunto `templateIcons.tsx`.
 - **Rótulo plural "Ocultar títulos de prateleira" para a alternância global**: a alternância por prateleira na aba Exibição do modal mantém o singular `hide_shelf_title` ("Ocultar título da prateleira"), enquanto a seção Visual Global do QAM usa a nova chave plural `hide_shelf_titles` ("Ocultar títulos de prateleira") já que a configuração global afeta toda prateleira de uma vez. Chave plural distribuída em todos os 16 idiomas.
 
-### Alterado
+### Modificado
 
 - **Limpeza de i18n + passada de tradução**: removidas 20 chaves não usadas de todos os 16 idiomas (`about_changes_*`, `apply_globally`, `docs_filters_sort_title`, `edit_filters_na`, `filter_inverted`/`filter_max_playtime`/`filter_min_playtime`/`filter_no_items`/`filter_not_inverted`/`filter_regex`/`filter_remove`/`filter_section_title`/`filter_type_label`, `folder_label`, `game_options`, `highlight_games_list`, `highlight_specific_games_desc`, `image_not_found`, `remove_from_shelf`) — 320 remoções de linha. Traduzidas 380 strings com fallback em inglês em 15 idiomas não ingleses: 16 chaves `docs_smart_sort_*` (Ordenar: alfabético/Ordenar: última sessão/etc.), 7 rótulos `smart_param_*`, `smart_refresh_interval*`, `smart_unit_months`, e 4 nomes de categoria `docs_smart_group_*`. Arquivos de idioma reserializados em ordem alfabética para diffs estáveis. Idioma base em 409 chaves (era 429); todos os 16 idiomas passam a verificação de consistência de `i18n.sh`.
 - **O script `precommit` agora roda `test:all`** (Vitest + pytest) em vez de só Vitest, correspondendo ao pipeline de CI para que um precommit limpo dê o mesmo sinal que uma execução de CI limpa. O fluxo de trabalho de CI já roda ambas as suítes desenroladas (testes unitários TS + testes unitários Python + build:release + dist + validate-compat).
@@ -1318,7 +1328,7 @@ e este projeto segue o [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - **Auto-desativação de HeroBackground no ArtHero**: quando um tema da família ArtHero está ativo na montagem, `HeroBackground` retorna `null` para evitar empilhar nossa animação de zoom/brilho/saturação em cima da própria imagem de hero do tema.
 - **`checks/plugins/cssloader/arthero.sh`**: validador estático para coexistência com ArtHero — verifica o auxiliar de detecção, a proteção do HeroBackground, a promoção de classe aditiva, a leitura de DOM em tempo de execução (sem token nativo fixo), a sonda `css-loader-style`, e os quatro invariantes de escopo da promoção de slot de recentes (hideRecents obrigatório, só primeira prateleira, CSS Loader obrigatório, bloqueio de renderização).
 
-### Alterado
+### Modificado
 
 - **A varredura de primeira-prateleira-visível agora usa a ordem de CONFIGURAÇÃO, não ordem de DOM** (`src/components/HomeInject.tsx`): `firstVisibleId` percorre `shelves` na ordem de configuração do usuário e escolhe a primeira prateleira não-inteligente atualmente renderizada (tem `data-shelfid` no DOM). Dois motivos: (1) pular prateleiras vazias/não resolvidas para que uma primeira prateleira com 0 apps não seja promovida enquanto o conteúdo da próxima prateleira fica abaixo, com o título da prateleira vazia ainda nominalmente reivindicando o slot; (2) manter o candidato estável independente de qual prateleira termina de resolver primeiro — varreduras puras por ordem de DOM escolhem o resolvedor mais rápido, frequentemente uma prateleira não-Steam/menor em vez da primeira prateleira pretendida pelo usuário.
 - **Layout de modal responsivo à viewport**:
@@ -1351,7 +1361,7 @@ e este projeto segue o [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - **Filtros salvos**: a aba Filtros de EditShelfModal ganha uma `SavedFiltersBar` no topo — um dropdown para aplicar um grupo de filtro salvo à prateleira atual, mais um botão "Salvar atual como filtro…" que pede um nome e persiste o `filterGroup` atual para reuso. O QAM ganha uma seção colapsável **Filtros salvos** (oculta quando vazia) listando cada entrada com botões inline **Renomear** (abre um TextField) e **Excluir**. Persiste através do sanitizador Python como `settings.savedFilters: { id, name, group }[]`.
 - **Editar prateleiras inteligentes**: prateleiras inteligentes agora têm um modal de edição completo (não só seletor de template). Suporta sobrescrever a ordenação natural do modo com qualquer uma das opções de ordenação padrão (incluindo manual + `manualOrder` + `manualBaseSort`), aplicar **filtros adicionais** em cima dos candidatos do modo via `FilterPanel`, editar título + limite, e a superfície completa de personalização visual/exibição (corresponder tamanho nativo, destacar primeiro/todos, seletor de destaque com padrões par/ímpar, ocultar linha de status/badge novo/ícones de compatibilidade/badge não-steam). Todos os campos são opcionais; quando ausentes o modo renderiza exatamente como antes.
 
-### Alterado
+### Modificado
 
 - **Importação/exportação restrita**: a importação/exportação de prateleiras agora cobre **só prateleiras** em vez do arquivo de configurações completo. prateleiras inteligentes ganham seus próprios botões de importar/exportar ao lado de "Adicionar prateleira inteligente", escrevendo/lendo o subconjunto inteligente (prateleiras, enabled, atBottom, config de me-surpreenda). Um novo par geral de importar/exportar fica no fim ao lado do botão de resetar, cobrindo as configurações completas. Os três escopos compartilham o mesmo `ExportModal`/`ImportModal` via uma prop `scope: 'all' | 'shelves' | 'smart'`; cada um escreve/lê através de um par de auxiliar de backend genérico `write_json_file`/`read_json_file`. Resetar agora é só ícone à direita dessa mesma linha, importar/exportar à esquerda — correspondendo ao padrão da linha de prateleiras.
 - **Botões de resetar restritos**: a seção de prateleiras e a seção de prateleiras inteligentes cada uma ganhou um botão de resetar só de ícone à direita (depois do TabMaster quando instalado). `ResetAllModal` agora aceita uma prop `scope: 'all' | 'shelves' | 'smart'` e despacha para `actions.resetShelves`/`actions.resetSmartShelves`/`actions.resetAll`. O reset de prateleiras inteligentes também desativa recursos inteligentes e limpa a config de me-surpreenda.
@@ -1433,7 +1443,7 @@ e este projeto segue o [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - **`highlightAll` / `globalHighlightAll` não persistindo**: ambos os campos estavam ausentes em `_sanitize_settings()` em `main.py` — eram silenciosamente descartados a cada salvamento, fazendo as alternâncias parecerem se desmarcar sozinhas. `highlightAll` por prateleira e o `globalHighlightAll` global agora são preservados corretamente; `DEFAULT_SETTINGS` atualizado para incluir `globalHighlightAll`.
 - **Navegação por controle na aba de filtros**: os filtros dentro do editor de prateleira eram inalcançáveis via controle. Duas causas corrigidas — (1) `FilterSectionAccordion` envolvia tanto o cabeçalho do acordeão quanto seu conteúdo expandido num único `Focusable` com `onOKButton`, que interceptava OK e bloqueava a navegação para os elementos filhos; a alternância e o conteúdo agora são nós separados para que o D-pad alcance os dropdowns e botões internos. (2) `FilterEntry` era renderizado dentro da prop `description` de um `Field`, que não faz parte da árvore de navegação por controle; agora é renderizado diretamente.
 
-### Alterado
+### Modificado
 
 - **i18n**: traduzidas `docs_filter_developer_desc`, `docs_filter_publisher_desc`, e `docs_filter_appidlist_desc` em todos os 15 idiomas não ingleses — essas strings de documentação estavam antes deixadas em inglês em de-DE, es-ES, es-419, fr-FR, it-IT, ja-JP, ko-KR, nl-NL, pl-PL, pt-BR, pt-PT, ru-RU, tr-TR, uk-UA, zh-CN.
 
@@ -1451,7 +1461,7 @@ e este projeto segue o [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - Estudo de compatibilidade de tema CSS Loader: estrutura DOM, cadeia de classes de recentes nativo, auditoria de isolamento (Delly, Obsidian, Metropolitan). Confirmado que nossas prateleiras `ds-*` já estão isoladas de seletores de tema; estudo específico de ArtHero pendente de dispositivo com ArtHero instalado.
 - **Slot de primeira prateleira do CSS Loader**: quando `hideRecents=true` e temas CSS Loader estão ativos, a primeira prateleira agora recebe `data-ds-recents-slot="true"` e a classe raiz de recentes nativo (`_39tNvaLedsTrVh0fFsP4Jm`) para que ArtHero e outros temas CSS Loader possam mirá-la com seus estilos de área de recentes. Quando CSS Loader está ausente, a prateleira mantém sua aparência `ds-*` normal inalterada.
 
-### Alterado
+### Modificado
 
 - **Visibilidade do QAM**: a seção Prateleiras Inteligentes e as alternâncias Aplicar Globalmente agora ficam ocultas quando o plugin está desativado (`enabled=false`). Só a alternância principal e a lista de prateleiras permanecem visíveis, mantendo o QAM organizado quando as prateleiras estão desligadas.
 
@@ -1487,7 +1497,7 @@ e este projeto segue o [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - Todas as chaves i18n de prateleira inteligente e template totalmente traduzidas em todos os 16 idiomas suportados.
 - Documentação dentro do plugin (About → Prateleiras) atualizada com a seção Prateleiras Inteligentes listando todos os 12 templates com descrições, totalmente traduzida.
 
-### Alterado
+### Modificado
 
 - Mapeamento de tag de título de PR → bump de versão: `[FEATURE]` agora é minor (era major), `[REFACTOR]` agora é major (era minor), `[CLEANUP]` continua minor.
 - **Centralização de prateleira para prateleira**: mudado para matemática direta de `scrollTo` no ancestral rolável resolvido e consolidado para uma rolagem suave por evento de foco, com uma nova tentativa de verificação de 300ms para prateleiras recém-expandidas. Elimina a trepidação causada por chamadas concorrentes de `scrollIntoView({ block: "center" })`.
@@ -1515,7 +1525,7 @@ e este projeto segue o [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - Array `rowItems` em `ShelfView` envolvido em `useMemo` (deps: `appIds`, `items`, identidade da prateleira) — evita `flatMap` a cada re-renderização não relacionada a mudanças de dados.
 - `sortOptions` em `EditShelfModal` envolvido em `useMemo`; `BASE_SOURCE_TYPES` extraído para constante de nível de módulo.
 
-### Alterado
+### Modificado
 
 - `docs/architecture.md`: adicionado `recentsReplace.tsx` à listagem do diretório runtime/; adicionadas entradas de Sistemas Chave para Recents Replace e Hide Home Tabs.
 - `docs/filters.md`: corrigidos nomes de tipo (`storeTag`, `achievements`, `friends`); adicionados tipos ausentes (`isNew`, `playtimeRange`, `collection`); anotados tipos pass-through ainda não avaliados; corrigidos parâmetros de `playtimeRange` (`minHours`/`maxHours`).
@@ -1537,7 +1547,7 @@ e este projeto segue o [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - Descoberta do webpack expandida com tokens `heroRoot`, `heroInner`, `shelfSection`, `scrollGrid`, populados tanto via descoberta em tempo de execução quanto da seed embutida `classmap.json`.
 - Screenshot destrutivo de `Reset all` capturado pela automação e validado junto com as outras capturas de home/QAM.
 
-### Alterado
+### Modificado
 
 - Mapeamento de tag de título de PR → bump de versão: `[FEATURE]` agora é minor (era major), `[REFACTOR]` agora é major (era minor), `[CLEANUP]` continua minor.
 - **Centralização de prateleira para prateleira**: mudado para matemática direta de `scrollTo` no ancestral rolável resolvido e consolidado para uma rolagem suave por evento de foco, com uma nova tentativa de verificação de 300ms para prateleiras recém-expandidas. Elimina a trepidação causada por chamadas concorrentes de `scrollIntoView({ block: "center" })`.
@@ -1574,7 +1584,7 @@ e este projeto segue o [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - **`MountCrashBanner` do QAM**: abaixo da alternância mestre, explica por que as prateleiras estão ocultas, com um botão "resetar estado de crash"; o banner aparece só enquanto um crash de renderização de prateleira está ativo.
 - Botão **"Reset all"** no fundo do QAM que abre um `ConfirmModal` destrutivo. Ao confirmar, apaga todas as prateleiras + configurações e limpa chaves de `localStorage` de propriedade do plugin (prefixos `ds-`, `ds_`, `deck-shelves-`), deixando o plugin no estado de primeira execução. Cobertura i18n completa em todos os 16 idiomas.
 
-### Alterado
+### Modificado
 
 - Quando um crash de renderização de prateleira está ativo, as alternâncias do QAM permanecem visíveis mas ficam `disabled` (acinzentadas, não interativas) em vez de ocultas — mantém o layout da UI estável e sinaliza o estado inativo.
 - Intervalos de fallback de detecção de mount da home reduzidos de 10s → 2s em [HomeInject.tsx](../../src/components/HomeInject.tsx) e [homePatch.tsx](../../src/runtime/homePatch.tsx). Cobre navegação SPA do SteamOS (ex.: biblioteca → home) que não dispara `popstate`/`hashchange` — prateleiras agora aparecem em ~2s em vez de até ~10s quando o MutationObserver perde a mudança de rota.
@@ -1591,7 +1601,7 @@ e este projeto segue o [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ## [1.2.4] - 2026-04-14
 
-### Alterado
+### Modificado
 
 - MutationObserver de restauração de foco com escopo reduzido de `document.body` para `.deck-shelves-root` — menos callbacks de mutação durante ociosidade e navegação do usuário
 - Efeito de validação de recentes tornado reativo às deps `shelves` / `hideRecentsSetting` em vez de fazer polling a cada 5s — zero trabalho ocioso quando nada muda
@@ -1631,7 +1641,7 @@ e este projeto segue o [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - **Automação de screenshots**: novas capturas para o modal "Criar Prateleira" (seletor de template) e modal "Importar Prateleiras"
 - **Navegação do QAM de screenshot reescrita**: navega para a última aba (plugins Decky), depois encontra e clica em "Deck Shelves" dentro da lista de plugins — não depende mais de correspondência de texto de aba
 
-### Alterado
+### Modificado
 
 - **Lógica de validação da home reescrita**: os recentes são sempre forçados visíveis quando o plugin está desativado, nenhuma prateleira visível existe, todas as prateleiras estão ocultas, ou nenhuma prateleira resolve para resultados — os valores das alternâncias nunca são forçados a mudar, só o estado do DOM é sobrescrito
 - Alternância **"Ocultar recentes"**: oculta quando o plugin não está ativado na home; desativada quando nenhuma prateleira tem resultados
@@ -1671,7 +1681,7 @@ e este projeto segue o [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - Componente **PlaceholderCard**: jogos sem arte mostram um card estilizado com o nome do jogo em vez de uma imagem quebrada
 - **Suporte a hover do mouse**: rótulos de card, brilho, e badges de compatibilidade ativam no hover (só CSS, sem interferência com controle)
 
-### Alterado
+### Modificado
 
 - DeckRow.tsx dividido em arquivos modulares: `shelf/types.ts`, `shelf/shelfStyles.ts`, `shelf/GameCard.tsx`, `shelf/MoreCard.tsx`, `shelf/PlaceholderCard.tsx`, `shelf/HeroBackground.tsx`
 - Patches de navegação extraídos de HomeInject.tsx para `home/navPatches.ts` (210 linhas)
@@ -1700,7 +1710,7 @@ e este projeto segue o [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - **Tipo de filtro Desenvolvedor / Editora** com pré-carregamento em lote via `RegisterForAppDetails`
 - 8 novas chaves i18n traduzidas em todos os 16 idiomas
 
-### Alterado
+### Modificado
 
 - Polling de mount do HomeInject substituído por `MutationObserver`; timer de fallback de 1 segundo aumentado para 10 segundos (otimização de bateria)
 - Loop de patch da árvore de navegação do ShelvesContainer substituído por `MutationObserver` + fallback de 10 segundos em vez de polling de 1 segundo
@@ -1730,7 +1740,7 @@ e este projeto segue o [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - A propriedade string `DS_MENU_PATCHED` substituída por um `WeakSet<object>` (`patchedMenuControllers`), evitando poluir objetos de controle Steam externos com chaves string de propriedade do plugin
 - O proto-patch de `BTryInternalNavigation` agora documenta possíveis conflitos com outros plugins que fazem patch no mesmo método; o encadeamento via closure `orig()` é preservado
 
-### Alterado
+### Modificado
 
 - Throttle de rolagem horizontal implementado via Set `__ds_scroll_throttle_rows` compartilhado entre `DeckRow` e `BTryInternalNavigation`: enquanto uma linha está em throttle, a entrada de D-pad é bloqueada na camada de navegação para que foco e rolagem avancem juntos card por card
 - Set global `__ds_centering_rows` removido; substituído por locais `rafPending` + `throttleTimer` por linha sem estado global
@@ -1744,7 +1754,7 @@ e este projeto segue o [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - Cores de animação de foco nativo: `--custom-sp-color-border` e suas variantes de crescimento/desvanecimento definidas como fallbacks `:root` para que temas ativos propaguem sua cor de destaque para o anel de foco da prateleira sem conflitos de sobrescrita
 - Detecção em tempo de execução de classes de arte de card nativo (`nativeCardArt`, `nativeCardArtOuter`, `nativeCardArtPortrait`, `nativeCardImg`, `nativeCardImgFade`) injetadas nos elementos DOM de card de prateleira
 
-### Alterado
+### Modificado
 
 - A detecção de cor de título (`--ds-native-heading-color`) agora aplica uma verificação de saturação: títulos brancos/cinza vanilla são pulados para que o fallback CSS (ícone de play verde, inherit para texto) seja usado quando nenhum tema está ativo
 - `--ds-native-heading-color` é limpo e redetectado a cada chamada de `ensureStyles()` para que mudanças de tema tenham efeito ao vivo sem exigir um reload do Steam
@@ -1773,7 +1783,7 @@ e este projeto segue o [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - **Testes unitários para o módulo `webpackCompat`** (ambiente jsdom, Vitest): descoberta de token de viewport, descoberta de token de linha/card, fallback de varredura de ancestral, e round-trip de persistência no localStorage
 - `docs/webpack-classmap.md`: guia de desenvolvedor para descoberta de classe webpack, injeção em tempo de execução, e workflow de verificação CDP
 
-### Alterado
+### Modificado
 
 - Workflow `enforce-repo-settings.yml`: trigger mudado de `pull_request`/`push` para `workflow_dispatch` + agendamento semanal; adicionado `continue-on-error: true` para prevenir bloqueio de merges em erros 403
 - Workflow `ci.yml`: pula execuções redundantes em commits de bump de versão
@@ -1801,7 +1811,7 @@ e este projeto segue o [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - Nova tentativa de prontidão de inicialização — as prateleiras esperam pelos dados de app do Steam antes de resolver em vez de mostrar vazio
 - i18n expandido para 16 idiomas totalmente traduzidos: adicionados PT-PT, ES-419, RU, PL, NL, TR, UK, JA, KO, ZH-CN
 
-### Alterado
+### Modificado
 
 - Cards de prateleira agora herdam border-radius de cards Steam nativos e temas CSS Loader via propriedade customizada `--ds-card-radius`
 - A navegação horizontal de prateleira agora centraliza o card de jogo em foco em vez de fixar na borda esquerda
@@ -1833,7 +1843,7 @@ e este projeto segue o [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - **Diagnósticos**: detecção de versão do SteamOS adicionada aos diagnósticos de inicialização
 - **Escritas atômicas de configurações** e backup `settings.json.bak` no backend Python
 
-### Alterado
+### Modificado
 
 - **Automação de screenshots**: troca de idioma só-i18n antes das capturas; verificações de alcançabilidade CDP; exclusão adiada de screenshots até os alvos serem verificados
 - **Testes**: testes TypeScript movidos de `src/__tests__` para `src/test`; CI atualizado para instalar e rodar `pytest` do Python junto com Vitest
@@ -1864,7 +1874,7 @@ e este projeto segue o [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - A seleção de aba de biblioteca agora mostra suas abas de biblioteca reais (incluindo abas customizadas criadas por outros plugins) em vez de uma lista estática.
 - Apps não-Steam agora são incluídos nos resultados de prateleira de filtro.
 
-### Alterado
+### Modificado
 
 - Editor de prateleira de filtro redesenhado para suportar a nova UI de filtro baseada em grupo.
 - A seleção de fonte de aba reflete abas reais em tempo de execução da biblioteca do usuário.

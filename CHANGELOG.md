@@ -50,6 +50,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Coming back from a game page lands on the same game and shelf, and sideways navigation no longer jumps to another shelf.** Opening a card arms a "return focus here" target. When that card's shelf was below the first screen it was still a placeholder on return, so the restore missed it; and the target then stayed armed and fired later, when the shelf finally mounted, pulling the focus there in the middle of the player's own navigation. That shelf now mounts at once, and the target is dropped as soon as the player moves around the Home.
+
+- **The wishlist shelf no longer gives up on a slow first answer.** The plugin waited 6 s for its backend's wishlist call, which itself may take 15 s per attempt; on the standalone host, whose backend may still be starting on that first call, every cold start timed out and then waited 10 minutes before retrying, leaving the wishlist shelf empty. The call now gets 35 s, a timeout retries after 2 minutes, and the diagnostics log says why a wishlist shelf is empty (online features off, nothing returned, retry pending).
+
+- **The Steam menu and Quick Access open again during a game.** After a card was opened or its menu used, the Home kept a pending "return focus to this card" target for up to ten minutes, and the Home stays mounted behind a game launched from it; every update of the Home then re-activated its navigation context and took the controller focus back, away from the menu the player had just opened over the game. The automatic focus restore now waits until no game is running (the target is kept, so the Home still lands on the right card afterwards); D-pad moves and Quick Search on a Home opened over a game are unaffected.
+
 - Stop the game-info overlay from observing its own cloned-label mutations. Reuse an equal label node while still detecting asynchronous title/status changes, and repopulate the label host when game info is re-enabled. This prevents a self-triggering observer/render loop on custom shelves.
 
 - Remove the document-root `:has(.ds-card.gpfocus)` / `:has(.ds-card:focus)` FocusRing override. Controller focus changes could invalidate the entire HTML subtree and force repeated synchronous style recalculations. Custom cards now retain Steam's native FocusRing geometry; card-local focus styles and the settings-driven Round Compatibility suppression remain unchanged.

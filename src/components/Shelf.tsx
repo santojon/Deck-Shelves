@@ -33,6 +33,7 @@ import { readShelfMetaCache, writeShelfMetaCache } from "./shelf/shelfMetaCache"
 import { ShelfSkeleton } from "./shelf/ShelfSkeleton";
 import { stabilizeRowItems } from "./shelf/rowItemsStable";
 import { recallShelfHeight } from "./shelf/shelfViewportGate";
+import { getPendingFocusTarget } from "../core/focusRestore";
 
 // Cross-source name key: same normalisation as the wishlist compare so
 // "Kingdom Come Deliverance" (non-Steam) matches "Kingdom Come: Deliverance".
@@ -216,6 +217,10 @@ const SHELF_VIEW_DEFAULTS = {
   forceCollapsed: false, autoCollapseWhenEmpty: false, eagerRender: true,
 } as const satisfies Partial<ShelfViewProps>;
 
+function pendingRestoreShelf(shelfId: string): boolean {
+  try { return getPendingFocusTarget()?.shelfId === shelfId; } catch { return false; }
+}
+
 type PlaceholderArgs = {
   shelf: Shelf; appIds: number[] | null; rowItemCount: number; itemCount: number; metaVersion: number; firstLoad: boolean;
   near: boolean; onNear: () => void; hideTitle: boolean; t: ReturnType<typeof useTranslation>["t"];
@@ -306,7 +311,8 @@ function ShelfViewImpl(props: ShelfViewProps) {
   /* Vertical virtualization: a shelf below the first screenful keeps a
      same-height placeholder until it comes within reach of the viewport
      (observed by the placeholder), then mounts its row for good. */
-  const [near, setNear] = useState(eagerRender);
+  // The shelf a pending focus restore returns to mounts at once, or the restore misses it.
+  const [near, setNear] = useState(() => eagerRender || pendingRestoreShelf(shelf.id));
   const onNear = useCallback(() => setNear(true), []);
   const [metaVersion, setMetaVersion] = useState(0);
   /* Increments on every `resolve()` call; each in-flight promise captures

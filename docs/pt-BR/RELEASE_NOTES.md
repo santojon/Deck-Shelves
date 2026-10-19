@@ -7,6 +7,16 @@ técnico completo, veja [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+- **Ao voltar da página de um jogo, o foco retorna ao mesmo jogo e à mesma prateleira**, e rolar para os lados não pula mais para outra prateleira.
+
+- **A prateleira da lista de desejos também se preenche no host independente.** Uma primeira resposta lenta do backend não a deixa mais vazia por dez minutos.
+
+- **O menu do Steam e o Acesso Rápido voltam a abrir com um jogo rodando.** A Home não puxa mais o foco do controle de volta para um card de prateleira atrás do jogo.
+
+- **As informações do jogo acima dos cards não reconstroem mais o próprio label repetidamente.** Títulos que chegam depois e mudanças de status continuam atualizando, e religar a opção restaura o label.
+
+- **Navegação com o controle mais fluida nas prateleiras personalizadas da Home.** Foi removido um ajuste da borda de foco que podia recalcular estilos repetidamente em toda a tela da Home. A borda de foco nativa do Steam é mantida; a substituição dos Recentes e a opção Round Compatibility continuam funcionando como antes.
+
 - **Uma linha "Exibir ou ocultar configurações" abaixo do toggle mestre abre ou fecha o sidecar de configurações rápidas**, o mesmo painel que o D-pad direita duas vezes abre, para quem prefere um toque. O sidecar se chama "Exibir ou ocultar", num cabeçalho em abas como o do host independente, e Ctrl+Shift+S o abre por padrão.
 
 - **A Busca Rápida chega ao jogo sempre**, inclusive jogos mais adiante numa fileira ou numa prateleira abaixo da dobra, e reabri-la mantém o texto anterior selecionado em vez de anexar a ele. Um hot-swap do bundle pelo host independente agora entrega a Home à nova instância, com a Home visível de imediato.

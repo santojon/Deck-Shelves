@@ -133,6 +133,18 @@
       if (btn) setLang(btn.getAttribute("data-lang"));
     });
     document.body.insertBefore(wrap, document.body.firstChild);
+    keepBelowHeader(wrap);
+  }
+
+  // The header wraps to two or three lines on narrow screens; a fixed top
+  // value then put the pill over its links. Follow the header's real height.
+  function keepBelowHeader(wrap) {
+    var header = document.querySelector("header");
+    if (!header) return;
+    var place = function () { wrap.style.top = Math.round(header.getBoundingClientRect().height + 12) + "px"; };
+    place();
+    if (window.ResizeObserver) new ResizeObserver(place).observe(header);
+    else window.addEventListener("resize", place);
   }
 
   var lang = detectLang();

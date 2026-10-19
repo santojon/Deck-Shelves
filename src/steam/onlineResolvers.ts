@@ -120,9 +120,15 @@ export async function _resolveWishlist(ctx: ResolverContext): Promise<number[]> 
     const { getWishlistIds, getPriceMap } = await import("../core/onlineStore");
     const s = getCurrentSettings();
     const onlineEnabled = isOnlineEnabledForSettings(s);
-    if (!onlineEnabled || s?.onlineWishlistEnabled === false) return [];
+    if (!onlineEnabled || s?.onlineWishlistEnabled === false) {
+      logInfo("STEAM", "resolveShelfAppIds(wishlist) skipped", { onlineEnabled, wishlistEnabled: s?.onlineWishlistEnabled !== false });
+      return [];
+    }
     const wishlistIds = await getWishlistIds();
-    if (!wishlistIds) return [];
+    if (!wishlistIds) {
+      logInfo("STEAM", "resolveShelfAppIds(wishlist) no wishlist ids");
+      return [];
+    }
 
     const flags = computeWishlistHideFlags(source, s);
     const ownedSet = flags.hideOwned

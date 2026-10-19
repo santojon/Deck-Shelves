@@ -109,7 +109,7 @@ export function triggerShelfRefresh(opts?: RefreshOptions): void {
 
 // AppOverviewChanges throttle (5 s leading + 1 trailing). Steam fires this
 // on every download tick — without the throttle, a long download flooded
-// the resolver (#66).
+// the resolver.
 function installOverviewChangesThrottle(): (() => void) | null {
   try {
     const client = (globalThis as any).SteamClient ?? (window as any).SteamClient;

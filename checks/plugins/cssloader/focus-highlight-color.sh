@@ -43,8 +43,9 @@ run_checks() {
   fi
 
   # 4. Suppression rule for focus drop-shadow + Game Cover Shine ::after under
-  # Round Compat — lives in shelfStylesheetTemplate.ts (CSS) since the split.
-  if grep -q 'data-ds-theme-focus-round-compat="true"' "$src/components/shelf/shelfStylesheetTemplate.ts" "$src/components/shelf/shelfStyles.ts" 2>/dev/null; then
+  # Round Compat — lives in the theme adapter (src/themes/adapters) since the
+  # adapter split; the base stylesheet no longer carries a root-level rule.
+  if grep -q 'data-ds-theme-focus-round-compat="true"' "$src/themes/adapters/focusRoundCompat.ts" "$src/components/shelf/shelfStylesheetTemplate.ts" "$src/components/shelf/shelfStyles.ts" 2>/dev/null; then
     echo "  ✅ Round Compat suppression rule present in shelfStyles"
     ((pass++))
   else

@@ -137,7 +137,7 @@ function validAppIds(ids: number[]): number[] {
 function filterKnownAppIds(ids: number[]): number[] {
   const store: any = (globalThis as any).appStore;
   if (!store || typeof store.GetAppOverviewByAppID !== "function") return [];
-  /* `getOwnedAppIdSet()` non-null is the issue-#60 readiness gate (collectionStore
+  /* `getOwnedAppIdSet()` non-null is the readiness gate (collectionStore
      has hydrated) — keep it. We DON'T require per-id owned-set membership: a valid
      renderable overview from appStore is what's actually safe to inject, and the
      membership check wrongly dropped running/update-pending Proton/runtime apps
@@ -291,7 +291,7 @@ function scheduleResolve(shelf: any) {
         if (valid.length > 0 && !getOwnedAppIdSet()) {
           // Fresh-boot window: collectionStore hasn't built
           // allAppsCollection yet. Injecting ids before that's ready
-          /* crashes Steam's userCollections getter (issue #60). Don't
+          /* crashes Steam's userCollections getter. Don't
              promote to next candidate either — every shelf will look
              "empty" until the store loads. Bail silently; the periodic
              tick + RegisterForAppOverviewChanges will retry once
@@ -418,7 +418,7 @@ function mutateRecentsElement(ret3: any, shelf: any, appIds: number[]): boolean 
 function isOurCrashFingerprint(msg: string): boolean {
   if (!msg) return false;
   if (msg.includes("Cannot read properties of undefined") && msg.includes("values")) return true;
-  // issue #113 — reading a system-collection getter before collectionStore has
+  // Reading a system-collection getter before collectionStore has
   // hydrated throws inside Steam's SystemCollectionIdToName (undefined `.get`).
   // Match on the stack (below) so we don't over-catch generic `.get` errors.
   if (msg.includes("SystemCollectionIdToName") || msg.includes("recentAppsCollection")) return true;
@@ -431,7 +431,7 @@ function isOurCrashFingerprint(msg: string): boolean {
 
 function extractErrorMessage(evt: any): string {
   const e = evt || {};
-  // Include the stack: issue #113's message is a generic "reading 'get'"; only
+  // Include the stack: the crash message is a generic "reading 'get'"; only
   // the stack names the collection getter that identifies it as our crash.
   const cands = [e.error?.message, e.message, e.reason?.message, e.reason];
   for (const c of cands) if (c) return `${String(c)}\n${String(e.error?.stack ?? e.reason?.stack ?? "")}`;

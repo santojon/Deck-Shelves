@@ -7,6 +7,12 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+- **Back from a game page, the focus returns to the same game and shelf**, and scrolling sideways no longer jumps to another shelf.
+
+- **The wishlist shelf fills on the standalone host too.** A slow first answer from the backend no longer leaves it empty for ten minutes.
+
+- **The Steam menu and Quick Access open again while a game is running.** The Home no longer pulls the controller focus back to a shelf card behind the game.
+
 - **Game info above the cards no longer repeatedly rebuilds its own label.** Late-arriving titles and status changes still update, and toggling the option back on restores the label.
 
 - **Smoother controller navigation on custom Home shelves.** Remove a focus-border adjustment that could repeatedly recalculate styling across the whole Home screen. Steam's native focus border is retained; the Recents replacement and Round Compatibility setting still work as before.

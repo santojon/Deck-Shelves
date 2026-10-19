@@ -44,7 +44,8 @@ body::before {
 }
 a { color: inherit; text-decoration: none; }
 img, svg { display: block; }
-.container { width: min(1140px, calc(100vw - 40px)); margin: 0 auto; }
+:root { --container-w: min(1400px, calc(100vw - 40px)); }
+.container { width: var(--container-w); margin: 0 auto; }
 .accent { color: var(--blue-soft); }
 .eyebrow { color: var(--blue); font-weight: 600; font-size: 0.82rem; letter-spacing: 0.14em; text-transform: uppercase; }
 .icon { width: 24px; height: 24px; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; flex: none; }
@@ -281,7 +282,9 @@ section { scroll-margin-top: 80px; }
 .nav-social { display: inline-flex; align-items: center; gap: 8px; }
 /* Fixed floating language pill, self-mounted by i18n.js at the top of
    <body> on every page that loads it — same pattern as the ShelvesHub site. */
-.lang-switch { position: fixed; top: 93px; right: 14px; z-index: 39; display: inline-flex; gap: 2px; padding: 3px; border: 1px solid var(--border-strong); border-radius: 999px; background: var(--panel); box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35); }
+/* Pinned to the content's right edge (not the window's), above the sticky header so a
+   wrapped header can never cover it and swallow the click. */
+.lang-switch { position: fixed; top: 93px; right: max(14px, calc((100vw - var(--container-w)) / 2)); z-index: 41; display: inline-flex; gap: 2px; padding: 3px; border: 1px solid var(--border-strong); border-radius: 999px; background: var(--panel); box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35); }
 .lang-switch button { border: none; background: transparent; color: var(--muted); font: inherit; font-size: 0.8rem; font-weight: 700; letter-spacing: 0.03em; padding: 4px 10px; border-radius: 999px; cursor: pointer; line-height: 1; }
 .lang-switch button[aria-pressed="true"] { background: var(--blue); color: #fff; }
 .lang-switch button:hover[aria-pressed="false"] { color: var(--text); }

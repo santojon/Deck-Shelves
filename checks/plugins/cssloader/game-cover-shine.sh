@@ -21,7 +21,7 @@ run_checks() {
   # 2. .ds-card::after opacity must NOT be forced — theme drives anim via
   # opacity 0 → 0.8 on :focus. Forced opacity 1 → static purple stripe.
   # Stylesheet template moved to shelfStylesheetTemplate.ts after the split.
-  local _shine_files="$src/components/shelf/shelfStylesheetTemplate.ts $src/components/shelf/shelfStyles.ts"
+  local _shine_files="$src/components/shelf/shelfStylesheetTemplate.ts $src/components/shelf/shelfStyles.ts $src/themes/adapters/focusRoundCompat.ts"
   if grep -qs '::after' $_shine_files \
      && ! grep -qs '\.ds-card::after\s*{[^}]*opacity:\s*1' $_shine_files; then
     echo "  ✅ ::after opacity left to the theme (no forced opacity 1)"

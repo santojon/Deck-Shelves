@@ -856,7 +856,7 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
     /* DS hero-background (compact promoted first shelf, recents hidden): bleed
        only the ART up under the header (like the non-slot rule below) instead of
        margin-top-ing the whole shelf — a whole-box pull glued the cards/title to
-       the very top; the cards/title now keep the native recents top spacing (#110). */
+       the very top; the cards/title now keep the native recents top spacing. */
     .deck-shelves-root[data-ds-hero-background="true"][data-ds-recents-hidden="true"]:not([data-ds-theme-hero-fullscreen="true"]) > .ds-shelf[data-ds-recents-slot="true"]:first-child [data-ds-per-shelf-hero="true"] {
       --ds-hero-top: -56px;
       --ds-hero-h: calc(100% + 56px);

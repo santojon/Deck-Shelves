@@ -84,7 +84,7 @@ export function isFavoriteOf(a: SteamAppOverviewRaw): boolean {
 
 export function isHiddenOf(a: SteamAppOverviewRaw): boolean {
   // SteamOS 3.x marks hidden via `visible_in_game_list === false`; older
-  // bool fields aren't populated there (#63).
+  // bool fields aren't populated there.
   if (a?.visible_in_game_list === false) return true;
   return !!(a?.is_hidden ?? a?.hidden ?? a?.m_bHidden ?? a?.bHidden);
 }

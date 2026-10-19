@@ -401,7 +401,7 @@ export function HomeShelves({ fallback = false }: { fallback?: boolean }) {
          on screen; listeners still fire but do no work). With the Home opened
          over a running game, Steam swaps in its in-game Home a few seconds
          later and that swap must re-discover the mount like any other —
-         skipping it left the root empty until the game exited (#101). */
+         skipping it left the root empty until the game exited. */
       if (!alive || reconcileScheduled || (getSessionState().gameRunning && !isHomeRoute())) return;
       reconcileScheduled = true;
       requestAnimationFrame(() => {
@@ -558,7 +558,7 @@ export function HomeShelves({ fallback = false }: { fallback?: boolean }) {
     };
   }, [mountEl]);
 
-  // Issue #68: restore focus to the native recents shelf when the plugin is
+  // Restore focus to the native recents shelf when the plugin is
   // disabled while focus is inside DS shelves — otherwise focus disappears
   // and the user must navigate blindly.
   const prevEnabledRef = useRef(sv.enabled);
