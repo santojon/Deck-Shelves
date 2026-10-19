@@ -7,19 +7,19 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
-- **Shelf look settings and global ones work together**: the global section only overrides what you set there, every global choice can go back to "Per shelf", and a reset button returns the whole section to its defaults.
+- **Shelf look settings and global ones work together (#132)**: the global section only overrides what you set there, every global choice can go back to "Per shelf", and a reset button returns the whole section to its defaults.
 
-- **Game names line up with the card**: centre and right alignment now match the card exactly, and game info shown above the card follows that alignment without leaving the screen.
+- **Game names line up with the card (#129)**: centre and right alignment now match the card exactly, and game info shown above the card follows that alignment without leaving the screen.
 
-- **Highlight as many games as you like**: shelves with six or more highlighted games no longer show empty spaces where cards should be.
+- **Highlight as many games as you like (#134)**: shelves with six or more highlighted games no longer show empty spaces where cards should be.
 
-- **The Installed filter and tab are right for non-Steam games**: Unifideck's games count by their real install state with or without its collections, manual shortcuts, Heroic and emulators keep their own, and Proton / runtimes stay out of the Installed tab.
+- **The Installed filter and tab are right for non-Steam games (#130)**: Unifideck's games count by their real install state with or without its collections, manual shortcuts, Heroic and emulators keep their own, and Proton / runtimes stay out of the Installed tab.
 
 - **Back from a game page, the focus returns to the same game and shelf**, and scrolling sideways no longer jumps to another shelf.
 
-- **The wishlist shelf fills on the standalone host too.** A slow first answer from the backend no longer leaves it empty for ten minutes.
+- **The wishlist shelf fills on the standalone host too (#128).** A slow first answer from the backend no longer leaves it empty for ten minutes.
 
-- **The Steam menu and Quick Access open again while a game is running.** The Home no longer pulls the controller focus back to a shelf card behind the game.
+- **The Steam menu and Quick Access open again while a game is running (#135).** The Home no longer pulls the controller focus back to a shelf card behind the game.
 
 - **Game info above the cards no longer repeatedly rebuilds its own label.** Late-arriving titles and status changes still update, and toggling the option back on restores the label.
 
