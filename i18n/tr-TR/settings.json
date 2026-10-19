@@ -1281,5 +1281,11 @@
   "showcase_extras_body": "İsteğe bağlı ekstralar: raflarını dolaşan bir boşta vitrini, eklentinin kendi ekran koruyucusu ve Steam hesabını cihazlar arasında takip eden ayarlar.",
   "template_vr_games": "VR oyunları",
   "template_vr_only": "Yalnızca VR",
-  "filter_type_device_compatibility": "Bu cihazdaki uyumluluk"
+  "filter_type_device_compatibility": "Bu cihazdaki uyumluluk",
+  "per_shelf_option": "Rafa göre",
+  "global_visual_override_hint": "Burada ayarlanan değer tüm raflara uygulanır. \"Rafa göre\" her rafın kendi değerini kullanmasını sağlar.",
+  "global_logo_size_same": "Tüm raflarda aynı logo boyutu ve boşluğu",
+  "global_description_size_same": "Tüm raflarda aynı açıklama boyutu",
+  "reset_global_visual": "Genel görseli sıfırla",
+  "reset_global_visual_body": "Tüm genel görsel ayarlar varsayılana döner ve her raf yeniden kendi görünümünü kullanır."
 }

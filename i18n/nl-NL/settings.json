@@ -1281,5 +1281,11 @@
   "showcase_extras_body": "Optionele extra's: een inactieve etalage die door je planken bladert, de eigen schermbeveiliging van de plug-in en instellingen die je Steam-account volgen tussen apparaten.",
   "template_vr_games": "VR-games",
   "template_vr_only": "Alleen VR",
-  "filter_type_device_compatibility": "Compatibiliteit op dit apparaat"
+  "filter_type_device_compatibility": "Compatibiliteit op dit apparaat",
+  "per_shelf_option": "Per plank",
+  "global_visual_override_hint": "Een hier ingestelde waarde geldt voor alle planken. \"Per plank\" laat elke plank zijn eigen waarde gebruiken.",
+  "global_logo_size_same": "Zelfde logogrootte en marge op alle planken",
+  "global_description_size_same": "Zelfde beschrijvingsgrootte op alle planken",
+  "reset_global_visual": "Globaal visueel resetten",
+  "reset_global_visual_body": "Alle globale visuele instellingen gaan terug naar hun standaard en elke plank gebruikt weer zijn eigen uiterlijk."
 }

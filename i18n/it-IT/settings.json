@@ -1281,5 +1281,11 @@
   "showcase_extras_body": "Extra facoltativi: una vetrina in inattività che scorre i tuoi scaffali, il salvaschermo del plugin stesso e impostazioni che seguono il tuo account Steam tra dispositivi.",
   "template_vr_games": "Giochi VR",
   "template_vr_only": "Solo VR",
-  "filter_type_device_compatibility": "Compatibilità su questo dispositivo"
+  "filter_type_device_compatibility": "Compatibilità su questo dispositivo",
+  "per_shelf_option": "Per scaffale",
+  "global_visual_override_hint": "Un valore impostato qui vale per tutti gli scaffali. \"Per scaffale\" lascia che ognuno usi il proprio.",
+  "global_logo_size_same": "Stessa dimensione e distanza del logo su tutti gli scaffali",
+  "global_description_size_same": "Stessa dimensione della descrizione su tutti gli scaffali",
+  "reset_global_visual": "Ripristina stile globale",
+  "reset_global_visual_body": "Tutte le impostazioni di stile globali tornano ai valori predefiniti e ogni scaffale torna a usare il proprio aspetto."
 }

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, afterEach } from 'vitest'
-import { reuseHeroLabel, isHeroLabelOutputMutation } from '../../components/shelf/perShelfHeroLabel'
+import { reuseHeroLabel, isHeroLabelOutputMutation, heroLabelAlign, heroLabelLeft } from '../../components/shelf/perShelfHeroLabel'
 
 afterEach(() => { document.body.replaceChildren() })
 
@@ -65,5 +65,33 @@ describe('hero label synchronization', () => {
     expect(input.every(record => !isHeroLabelOutputMutation(record))).toBe(true)
     expect([...output, ...input].some(record => !isHeroLabelOutputMutation(record))).toBe(true)
     observer.disconnect()
+  })
+})
+
+
+describe('hero label placement above the focused card', () => {
+  const shelf = { left: 0, width: 1280 }
+
+  it('aligns to the card like its own label: left edge, centre, right edge', () => {
+    const card = { left: 400, width: 188 }
+    expect(heroLabelLeft(shelf, card, 120, 'left')).toBe(400)
+    expect(heroLabelLeft(shelf, card, 120, 'center')).toBe(434)
+    expect(heroLabelLeft(shelf, card, 120, 'right')).toBe(468)
+  })
+
+  it('keeps a long title on screen at both ends', () => {
+    expect(heroLabelLeft(shelf, { left: 36, width: 188 }, 500, 'center')).toBe(0)
+    expect(heroLabelLeft(shelf, { left: 36, width: 188 }, 500, 'right')).toBe(0)
+    expect(heroLabelLeft(shelf, { left: 1100, width: 188 }, 600, 'left')).toBe(680)
+    expect(heroLabelLeft(shelf, { left: 1100, width: 188 }, 2000, 'left')).toBe(0)
+  })
+
+  it('reads the alignment from the card label: name first, then playtime, else left', () => {
+    const card = document.createElement('div')
+    card.innerHTML = '<div class="ds-card-label"><div data-ds-playtime-position="right"><div class="ds-card-label-name" style="text-align: center">X</div></div></div>'
+    expect(heroLabelAlign(card)).toBe('center')
+    card.querySelector('.ds-card-label-name')!.remove()
+    expect(heroLabelAlign(card)).toBe('right')
+    expect(heroLabelAlign(document.createElement('div'))).toBe('left')
   })
 })

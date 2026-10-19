@@ -1281,5 +1281,11 @@
   "showcase_extras_body": "Optionale Extras: ein Leerlauf-Schaufenster, das durch deine Regale blättert, der eigene Bildschirmschoner des Plugins und Einstellungen, die deinem Steam-Konto auf andere Geräte folgen.",
   "template_vr_games": "VR-Spiele",
   "template_vr_only": "Nur VR",
-  "filter_type_device_compatibility": "Kompatibilität auf diesem Gerät"
+  "filter_type_device_compatibility": "Kompatibilität auf diesem Gerät",
+  "per_shelf_option": "Pro Regal",
+  "global_visual_override_hint": "Ein hier gesetzter Wert gilt für alle Regale. „Pro Regal“ lässt jedes Regal seinen eigenen Wert nutzen.",
+  "global_logo_size_same": "Gleiche Logo-Größe und gleicher Versatz auf allen Regalen",
+  "global_description_size_same": "Gleiche Beschreibungsgröße auf allen Regalen",
+  "reset_global_visual": "Globales Erscheinungsbild zurücksetzen",
+  "reset_global_visual_body": "Alle globalen Darstellungseinstellungen kehren zu ihren Standardwerten zurück, und jedes Regal nutzt wieder sein eigenes Aussehen."
 }

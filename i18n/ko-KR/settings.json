@@ -1281,5 +1281,11 @@
   "showcase_extras_body": "선택 기능: 선반을 차례로 보여 주는 유휴 쇼케이스, 플러그인 자체 화면 보호기, 기기 간에 Steam 계정을 따라가는 설정.",
   "template_vr_games": "VR 게임",
   "template_vr_only": "VR 전용",
-  "filter_type_device_compatibility": "이 기기의 호환성"
+  "filter_type_device_compatibility": "이 기기의 호환성",
+  "per_shelf_option": "선반별",
+  "global_visual_override_hint": "여기서 설정한 값은 모든 선반에 적용됩니다. \"선반별\"을 선택하면 각 선반이 자체 값을 사용합니다.",
+  "global_logo_size_same": "모든 선반에 같은 로고 크기와 여백",
+  "global_description_size_same": "모든 선반에 같은 설명 크기",
+  "reset_global_visual": "전역 시각 설정 초기화",
+  "reset_global_visual_body": "모든 전역 시각 설정이 기본값으로 돌아가고 각 선반이 다시 자체 모양을 사용합니다."
 }

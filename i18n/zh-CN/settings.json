@@ -1281,5 +1281,11 @@
   "showcase_extras_body": "可选附加功能：轮播你的货架的闲置展示、插件自带的屏保，以及跟随你的 Steam 账号在设备间同步的设置。",
   "template_vr_games": "VR 游戏",
   "template_vr_only": "仅限 VR",
-  "filter_type_device_compatibility": "此设备上的兼容性"
+  "filter_type_device_compatibility": "此设备上的兼容性",
+  "per_shelf_option": "按书架",
+  "global_visual_override_hint": "此处设置的值适用于所有书架。选择“按书架”则每个书架使用自己的值。",
+  "global_logo_size_same": "所有书架使用相同的标志大小和偏移",
+  "global_description_size_same": "所有书架使用相同的描述大小",
+  "reset_global_visual": "重置全局视觉",
+  "reset_global_visual_body": "所有全局视觉设置将恢复默认值，每个书架重新使用自己的外观。"
 }

@@ -1281,5 +1281,11 @@
   "showcase_extras_body": "Optional extras: an idle showcase that cycles your shelves, the plugin's own screensaver, and settings that follow your Steam account across devices.",
   "template_vr_games": "VR games",
   "template_vr_only": "VR only",
-  "filter_type_device_compatibility": "Compatibility on this device"
+  "filter_type_device_compatibility": "Compatibility on this device",
+  "per_shelf_option": "Per shelf",
+  "global_visual_override_hint": "A value set here overrides every shelf. \"Per shelf\" lets each shelf use its own.",
+  "global_logo_size_same": "Same logo size and offset on every shelf",
+  "global_description_size_same": "Same description size on every shelf",
+  "reset_global_visual": "Reset global visual settings",
+  "reset_global_visual_body": "Every global visual setting goes back to its default, and each shelf uses its own look again."
 }

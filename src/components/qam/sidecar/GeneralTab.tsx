@@ -9,6 +9,7 @@ import { CollapsibleSection, DSSliderField, PositionField, useLightMode, type Ho
 import { SlidersIcon, SparkleIcon, WandIcon, PlusCircleIcon, SearchIcon, OnlineIcon, EyeIcon, EyeOffIcon, BookmarkIcon, CloudIcon } from '../../icons'
 import { openManagedModal } from '../common/openManagedModal'
 import { applyGameInfoAboveToggle, applyHideTitleToggle } from '../common/gameInfoCoupling'
+import { DESCRIPTION_SIZE_GROUP, LOGO_SIZE_GROUP, ResetGlobalVisualButton, groupPatch, isGroupSet } from '../common/globalVisualGroups'
 import { confirmAction } from '../modals/ConfirmActionModal'
 import { OnlinePrivacyModal } from '../../DeckQAMSettings'
 import { ProfilesSection } from '../../../features/profiles/ProfilesSection'
@@ -438,12 +439,26 @@ function logoGroup(c: GCtx): ReactNode {
         <ToggleField label={t('enable_logo')} checked={on} onChange={(v: boolean) => (actions as any).setGlobalEnableLogo(v)} />
       ))}
       {on && row('globalLogoPosition', (
-        <PositionField labelKey='logo_position_label' value={settings.globalLogoPosition ?? 'left'} t={t} onChange={(v: HorizontalPosition) => (actions as any).setGlobalLogoPosition(v)} />
+        <PositionField labelKey='logo_position_label' value={settings.globalLogoPosition ?? null} t={t} perShelfLabel={t('per_shelf_option' as any)} onPerShelf={() => (actions as any).setGlobalLogoPosition(null)} onChange={(v: HorizontalPosition) => (actions as any).setGlobalLogoPosition(v)} />
       ))}
-      {on && !lightMode && row('globalLogoSize', (
+      {on && !lightMode && logoSizeRows(c)}
+    </>
+  )
+}
+
+// "Same size and offset on every shelf" and, when on, its sliders.
+function logoSizeRows(c: GCtx): ReactNode {
+  const { t, settings, actions, row } = c
+  const sized = isGroupSet(settings, LOGO_SIZE_GROUP)
+  return (
+    <>
+      {row('globalLogoSizeSame', (
+        <ToggleField label={t('global_logo_size_same' as any)} checked={sized} onChange={(v: boolean) => (actions as any).setGlobalVisualValues(groupPatch(settings, LOGO_SIZE_GROUP, v))} />
+      ))}
+      {sized && row('globalLogoSize', (
         <DSSliderField label={t('logo_size_label' as any)} value={settings.globalLogoSize ?? 100} min={50} max={200} step={5} unit='%' onChange={(v: number) => (actions as any).setGlobalLogoSize(v)} />
       ))}
-      {on && !lightMode && row('globalLogoTopOffset', (
+      {sized && row('globalLogoTopOffset', (
         <DSSliderField label={t('logo_top_offset_label' as any)} value={settings.globalLogoTopOffset ?? 20} min={-50} max={100} step={5} unit='%' onChange={(v: number) => (actions as any).setGlobalLogoTopOffset(v)} />
       ))}
     </>
@@ -461,12 +476,13 @@ function iconGroup(c: GCtx): ReactNode {
         <Field label={t('icon_vertical_align_label' as any)} childrenContainerWidth='min'>
           <Dropdown
             rgOptions={[
+              { data: 'per_shelf', label: t('per_shelf_option' as any) },
               { data: 'top', label: t('icon_vertical_align_top' as any) },
               { data: 'center', label: t('icon_vertical_align_center' as any) },
               { data: 'bottom', label: t('icon_vertical_align_bottom' as any) },
             ]}
-            selectedOption={settings.globalIconVerticalAlign ?? 'top'}
-            onChange={(opt: any) => (actions as any).setGlobalIconVerticalAlign(opt?.data ?? 'top')}
+            selectedOption={settings.globalIconVerticalAlign ?? 'per_shelf'}
+            onChange={(opt: any) => (actions as any).setGlobalIconVerticalAlign(opt?.data === 'per_shelf' ? null : (opt?.data ?? 'top'))}
           />
         </Field>
       ))}
@@ -478,25 +494,37 @@ function descriptionGroup(c: GCtx): ReactNode {
   const { t, settings, actions, row, lightMode } = c
   if (settings.globalEnableDescription !== true) return null
   const belowLogo = settings.globalDescriptionBelowLogo === true
+  const sized = isGroupSet(settings, DESCRIPTION_SIZE_GROUP)
   return (
     <>
-      {row('globalDescriptionScale', (
+      {row('globalDescriptionSizeSame', (
+        <ToggleField label={t('global_description_size_same' as any)} checked={sized} onChange={(v: boolean) => (actions as any).setGlobalVisualValues(groupPatch(settings, DESCRIPTION_SIZE_GROUP, v))} />
+      ))}
+      {sized && row('globalDescriptionScale', (
         <DSSliderField label={t('description_size_label')} value={settings.globalDescriptionScale ?? 100} min={100} max={200} step={10} unit='%' onChange={(v: number) => (actions as any).setGlobalDescriptionScale(v)} />
       ))}
       {row('globalDescriptionPosition', (
-        <PositionField labelKey='description_position_label' value={settings.globalDescriptionPosition ?? 'left'} t={t} onChange={(v: HorizontalPosition) => (actions as any).setGlobalDescriptionPosition(v)} />
+        <PositionField labelKey='description_position_label' value={settings.globalDescriptionPosition ?? null} t={t} perShelfLabel={t('per_shelf_option' as any)} onPerShelf={() => (actions as any).setGlobalDescriptionPosition(null)} onChange={(v: HorizontalPosition) => (actions as any).setGlobalDescriptionPosition(v)} />
       ))}
       {settings.globalEnableLogo === true && row('globalDescriptionBelowLogo', (
         <ToggleField label={t('description_below_logo' as any)} checked={belowLogo} onChange={(v: boolean) => (actions as any).setGlobalDescriptionBelowLogo(v)} />
       ))}
-      {belowLogo && !lightMode && (<>
-        {row('globalDescriptionHeight', (
-          <DSSliderField label={t('description_height_label' as any)} value={settings.globalDescriptionHeight ?? 2} min={1} max={3} step={1} onChange={(v: number) => (actions as any).setGlobalDescriptionHeight(v)} />
-        ))}
-        {row('globalDescriptionLogoGap', (
-          <DSSliderField label={t('description_logo_gap_label' as any)} value={settings.globalDescriptionLogoGap ?? 8} min={-40} max={80} step={5} unit='px' onChange={(v: number) => (actions as any).setGlobalDescriptionLogoGap(v)} />
-        ))}
-      </>)}
+      {sized && belowLogo && !lightMode && descriptionLogoRows(c)}
+    </>
+  )
+}
+
+// Height and gap of a description shown under the logo.
+function descriptionLogoRows(c: GCtx): ReactNode {
+  const { t, settings, actions, row } = c
+  return (
+    <>
+      {row('globalDescriptionHeight', (
+        <DSSliderField label={t('description_height_label' as any)} value={settings.globalDescriptionHeight ?? 2} min={1} max={3} step={1} onChange={(v: number) => (actions as any).setGlobalDescriptionHeight(v)} />
+      ))}
+      {row('globalDescriptionLogoGap', (
+        <DSSliderField label={t('description_logo_gap_label' as any)} value={settings.globalDescriptionLogoGap ?? 8} min={-40} max={80} step={5} unit='px' onChange={(v: number) => (actions as any).setGlobalDescriptionLogoGap(v)} />
+      ))}
     </>
   )
 }
@@ -592,17 +620,18 @@ function visualGlobalSection(c: GCtx): ReactNode {
         {descriptionGroup(c)}
       </>)}
       {row('globalShelfTitlePosition', (
-        <PositionField labelKey='shelf_title_position_label' value={settings.globalShelfTitlePosition ?? 'left'} t={t} onChange={(v: HorizontalPosition) => (actions as any).setGlobalShelfTitlePosition(v)} />
+        <PositionField labelKey='shelf_title_position_label' value={settings.globalShelfTitlePosition ?? null} t={t} perShelfLabel={t('per_shelf_option' as any)} onPerShelf={() => (actions as any).setGlobalShelfTitlePosition(null)} onChange={(v: HorizontalPosition) => (actions as any).setGlobalShelfTitlePosition(v)} />
       ))}
       {row('globalGameNamePosition', (
-        <PositionField labelKey='game_name_position_label' value={settings.globalGameNamePosition ?? 'left'} t={t} onChange={(v: HorizontalPosition) => (actions as any).setGlobalGameNamePosition(v)} />
+        <PositionField labelKey='game_name_position_label' value={settings.globalGameNamePosition ?? null} t={t} perShelfLabel={t('per_shelf_option' as any)} onPerShelf={() => (actions as any).setGlobalGameNamePosition(null)} onChange={(v: HorizontalPosition) => (actions as any).setGlobalGameNamePosition(v)} />
       ))}
       {row('globalPlaytimePosition', (
-        <PositionField labelKey='playtime_position_label' value={settings.globalPlaytimePosition ?? 'left'} t={t} onChange={(v: HorizontalPosition) => (actions as any).setGlobalPlaytimePosition(v)} />
+        <PositionField labelKey='playtime_position_label' value={settings.globalPlaytimePosition ?? null} t={t} perShelfLabel={t('per_shelf_option' as any)} onPerShelf={() => (actions as any).setGlobalPlaytimePosition(null)} onChange={(v: HorizontalPosition) => (actions as any).setGlobalPlaytimePosition(v)} />
       ))}
       {row('globalFullPageShelf', (
         <ToggleField label={t('full_page_shelves_label' as any)} checked={settings.globalFullPageShelf === true} onChange={(v: boolean) => (actions as any).setGlobalFullPageShelf(v)} />
       ))}
+      <ResetGlobalVisualButton t={t} />
     </CollapsibleSection>
   )
 }

@@ -1,5 +1,5 @@
 import { EAppDisplayStatus, UPDATE_PENDING_STATUSES } from "./appDisplayStatus";
-import { type SteamAppOverviewRaw, type SteamCollectionLike, type SteamCollectionStore, type SteamPerClientData, steamCollectionStore } from "./internals";
+import { type SteamAppOverviewRaw, type SteamCollectionLike, type SteamCollectionStore, type SteamPerClientData } from "./internals";
 
 /* The plugin's view of a library entry: the `AppOverview` shape, its normalization from Steam's raw overview, and the small field readers every resolver shares. */
 
@@ -33,42 +33,12 @@ export function isNonSteamOf(a: SteamAppOverviewRaw): boolean {
   return !!(a?.is_non_steam) || a?.is_steam === false || a?.m_eAppType === 1073741824 || a?.app_type === 1073741824 || a?.app_type === "shortcut";
 }
 
-// Unifideck shortcuts are always overview-installed; ground truth is
-// the "[Unifideck] Installed" collection. Cached for O(1) checks.
-let _ufInstalledCache: { ids: Set<number>; ts: number } | null = null;
-
-const UF_INSTALLED_LABELS = new Set([
-  "installed", "instalados", "instalado", "installés", "installierte",
-  "installiert", "installati", "zainstalowane", "geïnstalleerd",
-  "installerade", "установленные", "установлено", "インストール済み",
-  "已安装", "已安裝", "설치됨", "ติดตั้งแล้ว",
-]);
-
-function isUnifideckInstalledLabel(c: SteamCollectionLike): boolean {
-  const name = String(c?.displayName ?? c?.m_strName ?? "");
-  if (!/^\[Unifideck\]/i.test(name)) return false;
-  const label = name.replace(/^\[Unifideck\]\s*/i, "").trim().toLowerCase();
-  return UF_INSTALLED_LABELS.has(label);
-}
-
-function getUnifideckInstalledSet(): Set<number> {
-  const now = Date.now();
-  if (_ufInstalledCache && now - _ufInstalledCache.ts < 5000) return _ufInstalledCache.ids;
-  const ids = new Set<number>();
-  try {
-    const cs = steamCollectionStore();
-    const match = readCollectionList(cs).find(isUnifideckInstalledLabel);
-    if (match) pushAppIdsFromCollection(match, ids);
-  } catch {}
-  _ufInstalledCache = { ids, ts: now };
-  return ids;
-}
-
+// Collection entries can be overview objects or bare ids (number or string).
 export function pushAppIdsFromCollection(c: SteamCollectionLike, out: Set<number>): void {
   const apps = c?.allApps ?? c?.m_rgApps ?? [];
   for (const a of apps) {
-    const n = Number(a?.appid);
-    if (Number.isFinite(n)) out.add(n);
+    const n = Number(a !== null && typeof a === "object" ? a.appid : a);
+    if (Number.isFinite(n) && n > 0) out.add(n);
   }
 }
 
@@ -89,13 +59,30 @@ export function isHiddenOf(a: SteamAppOverviewRaw): boolean {
   return !!(a?.is_hidden ?? a?.hidden ?? a?.m_bHidden ?? a?.bHidden);
 }
 
-function isNonSteamInstalled(a: any): boolean {
-  const uf = getUnifideckInstalledSet();
-  if (uf.size > 0) return uf.has(Number(a?.appid));
+function hasRawInstallSignals(a: any): boolean {
+  return a?.size_on_disk !== undefined || a?.rt_last_time_locally_played !== undefined;
+}
+
+function rawInstallSignals(a: any): boolean {
   const sod = Number(a?.size_on_disk ?? 0);
   if (Number.isFinite(sod) && sod > 0) return true;
   const lp = Number(a?.rt_last_time_locally_played ?? 0);
   return Number.isFinite(lp) && lp > 0;
+}
+
+// Steam's own flag on the local client entry; tools like Unifideck write the real state there.
+function localClientInstalled(a: any): boolean | undefined {
+  const pcd = a?.per_client_data;
+  const local = Array.isArray(pcd) ? pcd.find((c: any) => String(c?.clientid) === "0") : undefined;
+  return typeof local?.installed === "boolean" ? local.installed : undefined;
+}
+
+function isNonSteamInstalled(a: any): boolean {
+  const local = localClientInstalled(a);
+  if (local !== undefined) return local;
+  // No explicit flag: the raw overview's signals, or what normalization derived from them.
+  if (hasRawInstallSignals(a)) return rawInstallSignals(a);
+  return a?.installed === true;
 }
 
 export function isInstalledOf(a: any): boolean {

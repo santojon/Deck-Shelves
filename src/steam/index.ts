@@ -346,10 +346,12 @@ async function tryBuiltInTabFallback(ctx: ResolverContext, rawTab: string): Prom
   const slug = slugifyTab(rawTab);
   if (slug !== "installed") return null;
   try {
-    const result = await _resolveFilter({
+    const viaFilter = await _resolveFilter({
       ...ctx,
       source: { type: "filter", filter: { installed: true } } as any,
     });
+    // Same contents as the native Installed tab: no shortcuts, no Proton / runtimes / tools.
+    const result = makeNativeInstalledFilter(slug, ctx.all)(viaFilter);
     if (result.length) {
       logInfo("STEAM", "resolveShelfAppIds(tab) using installed-filter fallback", { tab: rawTab, count: result.length });
       return result;

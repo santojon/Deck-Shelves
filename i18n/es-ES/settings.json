@@ -1281,5 +1281,11 @@
   "showcase_extras_body": "Extras opcionales: un escaparate inactivo que recorre tus estanterías, el salvapantallas propio del plugin y ajustes que siguen tu cuenta de Steam entre dispositivos.",
   "template_vr_games": "Juegos de RV",
   "template_vr_only": "Solo RV",
-  "filter_type_device_compatibility": "Compatibilidad en este dispositivo"
+  "filter_type_device_compatibility": "Compatibilidad en este dispositivo",
+  "per_shelf_option": "Por estante",
+  "global_visual_override_hint": "Un valor definido aquí se aplica a todos los estantes. \"Por estante\" deja que cada uno use el suyo.",
+  "global_logo_size_same": "Mismo tamaño y distancia del logo en todos los estantes",
+  "global_description_size_same": "Mismo tamaño de descripción en todos los estantes",
+  "reset_global_visual": "Restablecer visual global",
+  "reset_global_visual_body": "Todos los ajustes visuales globales vuelven a sus valores predeterminados y cada estante vuelve a usar su propio aspecto."
 }

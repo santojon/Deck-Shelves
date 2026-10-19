@@ -91,10 +91,10 @@ type ShelfDisplayGlobals = {
   enableDescription: boolean;
   descriptionBelowLogo: boolean;
   logoBelowShelf: boolean;
-  logoPosition: 'left' | 'center' | 'right';
-  descriptionPosition: 'left' | 'center' | 'right';
-  logoSize: number;
-  logoTopOffset: number;
+  logoPosition: 'left' | 'center' | 'right' | undefined;
+  descriptionPosition: 'left' | 'center' | 'right' | undefined;
+  logoSize: number | undefined;
+  logoTopOffset: number | undefined;
   fullPageShelf: boolean;
   iconVerticalAlign: 'top' | 'center' | 'bottom' | null | undefined;
   shelfTitlePosition: 'left' | 'center' | 'right' | null | undefined;
@@ -118,8 +118,9 @@ function resolveBoolFlag(globalVal: boolean, shelfVal: unknown, forceOn = false)
   if (globalVal === true) return true;
   return shelfVal === true || forceOn;
 }
-function resolveEnableFlag(lightMode: boolean, globalVal: boolean): boolean {
-  return !lightMode && globalVal === true;
+// Global on forces it on every shelf; off lets each shelf decide.
+function resolveEnableFlag(lightMode: boolean, globalVal: boolean, shelfVal: unknown): boolean {
+  return !lightMode && (globalVal === true || shelfVal === true);
 }
 function resolveClampedNumber(globalVal: unknown, shelfVal: unknown, lo: number, hi: number, fallback: number): number {
   if (typeof globalVal === 'number') return Math.max(lo, Math.min(hi, globalVal));
@@ -137,7 +138,7 @@ function resolvePosition<T extends string>(valid: (v: unknown) => v is T, global
    small resolvers above; `g` is already-defaulted (applied at destructuring
    in ShelfViewImpl). No behaviour change — every rule is copied verbatim
    from the body it replaced, just table-driven instead of inlined. */
-function computeEffectiveShelfDisplayProps(shelf: any, isOnlineShelf: boolean, g: ShelfDisplayGlobals) {
+export function computeEffectiveShelfDisplayProps(shelf: any, isOnlineShelf: boolean, g: ShelfDisplayGlobals) {
   const lightMode = readGlobalSetting('lightModeEnabled') === true;
   const descriptionScalePercent = resolveClampedNumber(readGlobalSetting('globalDescriptionScale'), shelf.descriptionScale, 100, 200, 100);
   return {
@@ -150,16 +151,16 @@ function computeEffectiveShelfDisplayProps(shelf: any, isOnlineShelf: boolean, g
     effectiveHideShelfTitle: resolveBoolFlag(g.hideShelfTitle, shelf.hideShelfTitle),
     effectiveHideGameNames: resolveBoolFlag(g.hideGameNames, shelf.hideGameNames),
     effectiveHideInstallIndicator: resolveBoolFlag(g.hideInstallIndicator, shelf.hideInstallIndicator, isOnlineShelf),
-    effectiveEnableLogo: resolveEnableFlag(lightMode, g.enableLogo),
-    effectiveEnableIcon: resolveEnableFlag(lightMode, g.enableIcon),
-    effectiveEnableDescription: resolveEnableFlag(lightMode, g.enableDescription),
+    effectiveEnableLogo: resolveEnableFlag(lightMode, g.enableLogo, shelf.enableLogo),
+    effectiveEnableIcon: resolveEnableFlag(lightMode, g.enableIcon, shelf.enableIcon),
+    effectiveEnableDescription: resolveEnableFlag(lightMode, g.enableDescription, shelf.enableDescription),
     effectiveDescriptionScale: descriptionScalePercent / 100,
     effectiveDescriptionBelowLogo: resolveBoolFlag(g.descriptionBelowLogo, shelf.descriptionBelowLogo),
     effectiveLogoBelowShelf: resolveBoolFlag(g.logoBelowShelf, shelf.logoBelowShelf),
     effectiveLogoPosition: resolvePosition(isValidPos, g.logoPosition, shelf.logoPosition, 'left'),
     effectiveDescriptionPosition: resolvePosition(isValidPos, g.descriptionPosition, shelf.descriptionPosition, 'left'),
     effectiveLogoSize: resolveClampedNumber(g.logoSize, shelf.logoSize, 50, 200, 100),
-    effectiveLogoTopOffset: resolveClampedNumber(g.logoTopOffset, shelf.logoTopOffset, 0, 100, 20),
+    effectiveLogoTopOffset: resolveClampedNumber(g.logoTopOffset, shelf.logoTopOffset, -50, 100, 20),
     fullPageLayout: resolveBoolFlag(g.fullPageShelf, shelf.fullPageShelf),
     effectiveIconVerticalAlign: resolvePosition(isValidVAlign, g.iconVerticalAlign, shelf.iconVerticalAlign, 'top'),
     effectiveShelfTitlePosition: resolvePosition(isValidPos, g.shelfTitlePosition, shelf.shelfTitlePosition, 'left'),
@@ -212,7 +213,7 @@ const SHELF_VIEW_DEFAULTS = {
   globalHideSeeMore: false, globalHideRefreshCard: false, globalHeroEnabled: false, globalGameInfoAbove: false,
   globalFriendsPlayingOverlay: false, globalFriendsPlayingOverlayRecent: false, globalDedupeByName: false,
   globalEnableLogo: false, globalEnableIcon: false, globalEnableDescription: false, globalDescriptionBelowLogo: false,
-  globalLogoBelowShelf: false, globalLogoPosition: 'left', globalDescriptionPosition: 'left', globalLogoSize: 100, globalLogoTopOffset: 20,
+  globalLogoBelowShelf: false,
   globalFullPageShelf: false, heroForced: false, heroLabelMount: false, forceExpanded: false, forceLayoutAsRecents: false,
   forceCollapsed: false, autoCollapseWhenEmpty: false, eagerRender: true,
 } as const satisfies Partial<ShelfViewProps>;

@@ -35,6 +35,29 @@ describe("computeCardWindow — visible span plus overscan", () => {
       .toEqual({ start: 0, end: 5 });
   });
 
+  it("keeps the on-screen cards mounted after several highlighted (wide) cards", () => {
+    const slotW = 146, wideSlotW = 430 + 12, overscan = 9;
+    const isWide = (i: number) => i < 6;
+    // Scrolled to the 6th highlighted card (index 5); a flat slot width unmounts it.
+    const scrollLeft = 5 * wideSlotW;
+    const flat = computeCardWindow({ scrollLeft, viewportW: 1280, slotW, count: 40, overscan });
+    expect(flat.start).toBeGreaterThan(5);
+    const w = computeCardWindow({ scrollLeft, viewportW: 1280, slotW, count: 40, overscan, wideSlotW, isWide });
+    expect(w.start).toBe(0);
+    expect(w.end).toBeGreaterThanOrEqual(10 + overscan);
+  });
+
+  it("walks to the right index past the wide cards and handles a short row", () => {
+    const slotW = 146, wideSlotW = 442;
+    const isWide = (i: number) => i < 6;
+    const past = 6 * wideSlotW + 20 * slotW;
+    const w = computeCardWindow({ scrollLeft: past, viewportW: 1280, slotW, count: 60, overscan: 9, wideSlotW, isWide });
+    expect(w.start).toBe(26 - 9);
+    expect(w.end).toBe(26 + 10 + 9);
+    expect(computeCardWindow({ scrollLeft: 0, viewportW: 1280, slotW, count: 3, overscan: 9, wideSlotW, isWide }))
+      .toEqual({ start: 0, end: 3 });
+  });
+
   it("sameWindow compares bounds only", () => {
     expect(sameWindow({ start: 1, end: 5 }, { start: 1, end: 5 })).toBe(true);
     expect(sameWindow({ start: 1, end: 5 }, { start: 1, end: 6 })).toBe(false);

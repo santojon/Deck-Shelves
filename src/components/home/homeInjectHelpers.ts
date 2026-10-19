@@ -44,12 +44,13 @@ export function computeInterleaveSmart(params: { unifiedOn: boolean; settings: S
   return !(replaceInjecting && !replaceKillSwitch);
 }
 
-function resolvePositionSetting(value: unknown): 'left' | 'center' | 'right' {
-  return value === 'center' || value === 'right' ? value : 'left';
+// An unset global stays undefined so each shelf keeps its own value.
+function resolvePositionSetting(value: unknown): 'left' | 'center' | 'right' | undefined {
+  return value === 'left' || value === 'center' || value === 'right' ? value : undefined;
 }
 
-function resolveClampedSize(value: unknown, min: number, max: number, fallback: number): number {
-  return typeof value === 'number' ? Math.max(min, Math.min(max, value)) : fallback;
+function resolveClampedSize(value: unknown, min: number, max: number): number | undefined {
+  return typeof value === 'number' ? Math.max(min, Math.min(max, value)) : undefined;
 }
 
 /* The handful of ShelvesContainer props that are actually DERIVED (ternary/
@@ -62,8 +63,8 @@ export function computeDerivedGlobalFlags(params: { settings: Settings; replaceI
   return {
     globalLogoPosition: resolvePositionSetting(s.globalLogoPosition),
     globalDescriptionPosition: resolvePositionSetting(s.globalDescriptionPosition),
-    globalLogoSize: resolveClampedSize(s.globalLogoSize, 50, 200, 100),
-    globalLogoTopOffset: resolveClampedSize(s.globalLogoTopOffset, 0, 100, 20),
+    globalLogoSize: resolveClampedSize(s.globalLogoSize, 50, 200),
+    globalLogoTopOffset: resolveClampedSize(s.globalLogoTopOffset, -50, 100),
     shelfHeroBackground: settings.hideRecents === true && settings.shelfHeroBackground === true && replaceInactive,
     perShelfHeroAllowed: replaceInactive,
     hideRecentsSetting: settings.hideRecents === true && (settings.recentsReplaceSource !== true || replaceKillSwitch),

@@ -506,6 +506,13 @@ type CardLabelBlockProps = {
   logoOwnsDescription: boolean; descriptionPosition: 'left' | 'center' | 'right';
 };
 
+// Left keeps the long-title spill; centre / right stay inside the card.
+const NAME_STYLE: Record<'left' | 'center' | 'right', React.CSSProperties> = {
+  left: { textAlign: 'left', width: '100%' },
+  center: { textAlign: 'center', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis' },
+  right: { textAlign: 'right', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis' },
+};
+
 /* Non-library items have no meaningful install state — CardStatusLine
    already hides per card. Description renders below the install/playtime
    row, unless `descriptionBelowLogo` moved it into the logo overlay
@@ -516,7 +523,7 @@ function CardLabelBlock(props: CardLabelBlockProps) {
     <div
       className={`ds-card-label${hideStatusLine ? ' ds-card-label--compact' : ''}`}
       style={{
-        position: "absolute", top: cssArtH, left: 0, width: `calc(${cssW} + 20px)`, paddingTop: 10,
+        position: "absolute", top: cssArtH, left: 0, width: cssW, paddingTop: 10,
         pointerEvents: "none", display: "flex", flexDirection: "row", alignItems: labelAlignItems(iconVerticalAlign), gap: 6,
       }}
     >
@@ -525,7 +532,7 @@ function CardLabelBlock(props: CardLabelBlockProps) {
       )}
       <div data-ds-playtime-position={playtimePosition} style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: '1 1 auto', position: 'relative' }}>
         {!hideGameName && (
-          <div className="ds-card-label-name" style={{ textAlign: gameNamePosition, width: '100%' }}>{gameName}</div>
+          <div className="ds-card-label-name" style={NAME_STYLE[gameNamePosition] ?? NAME_STYLE.left}>{gameName}</div>
         )}
         <CardStatusLine {...statusLine} />
         {enableDescription && description && !logoOwnsDescription && (

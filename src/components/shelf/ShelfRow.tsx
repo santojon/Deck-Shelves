@@ -86,8 +86,10 @@ type RowProps = ShelfRowProps & Required<Pick<ShelfRowProps, keyof typeof ROW_DE
 
 const withRowDefaults = (props: ShelfRowProps): RowProps => withDefaults(props, ROW_DEFAULTS);
 
+type WideRule = Pick<ShelfRowProps, "highlightFirst" | "highlightAll" | "highlightedSet">;
+
 // Featured-size card: the first one, all of them, or a listed appid.
-function isHighlighted(item: DeckRowItem, idx: number, p: RowProps): boolean {
+function isHighlighted(item: DeckRowItem, idx: number, p: WideRule): boolean {
   if (p.highlightAll) return true;
   if (p.highlightFirst && idx === 0) return true;
   return !!p.highlightedSet && item.appid !== undefined && p.highlightedSet.has(item.appid);
@@ -101,11 +103,15 @@ function cardSize(wide: boolean, p: RowProps): { w: number; h: number; artH: num
   };
 }
 
+// Whether this item takes the featured width; DeckRow's card window uses the same rule.
+export function isWideItem(item: DeckRowItem, idx: number, p: WideRule): boolean {
+  if (item.synthetic) return item.synthetic.size === "featured";
+  return !item.isRefresh && !item.isMoreLink && isHighlighted(item, idx, p);
+}
+
 // Same-sized, non-focusable stand-in for a card outside the mounted window.
 function renderSlot(item: DeckRowItem, idx: number, p: RowProps) {
-  const wide = item.synthetic ? item.synthetic.size === "featured"
-    : (!item.isRefresh && !item.isMoreLink && isHighlighted(item, idx, p));
-  const { w, h } = cardSize(wide, p);
+  const { w, h } = cardSize(isWideItem(item, idx, p), p);
   return <div key={item.id} className="ds-card-slot" aria-hidden="true" style={{ width: w, minWidth: w, height: h, flexShrink: 0 }} />;
 }
 

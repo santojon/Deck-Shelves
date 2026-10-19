@@ -1281,5 +1281,11 @@
   "showcase_extras_body": "Opcjonalne dodatki: witryna bezczynności przeglądająca twoje półki, własny wygaszacz ekranu wtyczki i ustawienia podążające za twoim kontem Steam między urządzeniami.",
   "template_vr_games": "Gry VR",
   "template_vr_only": "Tylko VR",
-  "filter_type_device_compatibility": "Zgodność na tym urządzeniu"
+  "filter_type_device_compatibility": "Zgodność na tym urządzeniu",
+  "per_shelf_option": "Dla każdej półki",
+  "global_visual_override_hint": "Wartość ustawiona tutaj dotyczy wszystkich półek. „Dla każdej półki” pozwala każdej półce używać własnej.",
+  "global_logo_size_same": "Ten sam rozmiar i margines logo na wszystkich półkach",
+  "global_description_size_same": "Ten sam rozmiar opisu na wszystkich półkach",
+  "reset_global_visual": "Resetuj globalny wygląd",
+  "reset_global_visual_body": "Wszystkie globalne ustawienia wyglądu wracają do domyślnych, a każda półka znów używa własnego wyglądu."
 }

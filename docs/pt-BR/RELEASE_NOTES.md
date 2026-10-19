@@ -7,6 +7,14 @@ técnico completo, veja [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+- **As configurações visuais da prateleira e as globais funcionam juntas**: a seção global só sobrescreve o que você definiu nela, cada escolha global pode voltar para "Por prateleira", e um botão de redefinir devolve a seção inteira ao padrão.
+
+- **Os nomes dos jogos se alinham ao card**: centro e direita agora batem exatamente com o card, e as informações do jogo acima do card seguem esse alinhamento sem sair da tela.
+
+- **Destaque quantos jogos quiser**: prateleiras com seis ou mais jogos em destaque não mostram mais espaços vazios no lugar dos cards.
+
+- **O filtro e a aba Instalados ficam certos para jogos não-Steam**: os jogos do Unifideck contam pelo estado real de instalação, com ou sem as coleções dele; atalhos manuais, Heroic e emuladores mantêm o próprio, e Proton / runtimes ficam fora da aba Instalados.
+
 - **Ao voltar da página de um jogo, o foco retorna ao mesmo jogo e à mesma prateleira**, e rolar para os lados não pula mais para outra prateleira.
 
 - **A prateleira da lista de desejos também se preenche no host independente.** Uma primeira resposta lenta do backend não a deixa mais vazia por dez minutos.

@@ -8,7 +8,7 @@ import { getAppDescriptions, preloadAppDescriptions } from "../../steam/appDescr
 import { computeHeroVisualGeometry, resolveOverlayPositionStyle, resolveOverlayOffset, findFirstVisibleCard, type HorizontalPosition } from "./perShelfHeroHelpers";
 import { withDefaults } from "../withDefaults";
 import { subscribeSessionState, getSessionState } from "../../runtime/sessionState";
-import { reuseHeroLabel, isHeroLabelOutputMutation } from "./perShelfHeroLabel";
+import { reuseHeroLabel, isHeroLabelOutputMutation, heroLabelAlign, heroLabelLeft } from "./perShelfHeroLabel";
 
 let _nativeAssetProto: any = null;
 
@@ -488,12 +488,10 @@ function resolveFocusedCard(el: HTMLElement, e: Event | undefined, focusedAnyCar
   return findFirstVisibleCard(el.querySelectorAll<HTMLElement>('.ds-card[data-appid]'));
 }
 
-// Offset of the focused card's left edge inside the shelf — the overlay label tracks it, like native ArtHero.
-function labelLeftOf(el: HTMLElement, card: HTMLElement): number | null {
+// Where the overlay label sits inside the shelf: tracks the focused card like native ArtHero.
+function labelLeftOf(el: HTMLElement, card: HTMLElement, label: HTMLElement | null): number | null {
   try {
-    const sr = el.getBoundingClientRect();
-    const cr = card.getBoundingClientRect();
-    return Math.max(0, Math.round(cr.left - sr.left));
+    return heroLabelLeft(el.getBoundingClientRect(), card.getBoundingClientRect(), label?.offsetWidth ?? 0, heroLabelAlign(card));
   } catch { return null; }
 }
 
@@ -657,6 +655,8 @@ function PromotedLabel({ mountRef, left, bottom, visible }: { mountRef: React.Re
         position: 'absolute',
         left,
         bottom,
+        width: 'max-content',
+        maxWidth: '100%',
         zIndex: 20,
         pointerEvents: 'none',
         opacity: visible ? 1 : 0,
@@ -991,7 +991,7 @@ function PerShelfHero(props: PerShelfHeroProps) {
       if (appid <= 0) { setLabelNode(null); return; }
       // Align the overlay label with the focused card's left edge — mirrors
       // native ArtHero. Read after a frame so the row's centering scroll has settled.
-      requestAnimationFrame(() => { const left = labelLeftOf(el, focused); if (left !== null) setLabelLeft(left); });
+      requestAnimationFrame(() => { const left = labelLeftOf(el, focused, labelMountRef.current); if (left !== null) setLabelLeft(left); });
       /* Reuse an unchanged clone so observer notifications cannot keep
          replacing the overlay. Compare the full label DOM, not just appid:
          online titles and status text can resolve after initial focus. */
@@ -1027,7 +1027,7 @@ function PerShelfHero(props: PerShelfHeroProps) {
     const onRowScroll = () => {
       const fc = el.querySelector('.ds-card.gpfocus, .ds-card:focus') as HTMLElement | null;
       if (!fc) return;
-      const left = labelLeftOf(el, fc);
+      const left = labelLeftOf(el, fc, labelMountRef.current);
       if (left !== null) setLabelLeft(left);
     };
     row?.addEventListener('scroll', onRowScroll, { passive: true });

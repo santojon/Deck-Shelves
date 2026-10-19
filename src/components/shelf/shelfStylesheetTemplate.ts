@@ -97,6 +97,8 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
       line-height: 1.15 !important;
       color: rgb(255, 255, 255) !important;
       white-space: nowrap !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
       text-shadow: 0 2px 12px rgba(0, 0, 0, 0.85);
     }
     .ds-promoted-hero-label .ds-card-status {

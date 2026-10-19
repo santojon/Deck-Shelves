@@ -14,7 +14,8 @@ export function createGlobalVisualActions(deps: GlobalVisualDeps) {
     if (!s || (s as any)[key] === value) return;
     await persist({ ...s, [key]: value } as any);
   };
-  const setEnum = async <T extends string>(key: string, value: T) => {
+  // null hands the value back to each shelf.
+  const setEnum = async <T extends string>(key: string, value: T | null) => {
     const s = liveSettings();
     if (!s || (s as any)[key] === value) return;
     await persist({ ...s, [key]: value } as any);
@@ -25,7 +26,14 @@ export function createGlobalVisualActions(deps: GlobalVisualDeps) {
     if (!s || (s as any)[key] === c) return;
     await persist({ ...s, [key]: c } as any);
   };
+  // Several values in one save (a group switching between "same on every shelf" and per shelf).
+  const setValues = async (patch: Record<string, number | null>) => {
+    const s = liveSettings();
+    if (!s || Object.keys(patch).every((k) => (s as any)[k] === patch[k])) return;
+    await persist({ ...s, ...patch } as any);
+  };
   return {
+    setGlobalVisualValues: (patch: Record<string, number | null>) => setValues(patch),
     setGlobalHeroEnabled: (v: boolean) => setBool("globalHeroEnabled" as any, v),
     setGlobalGameInfoAbove: (v: boolean) => setBool("globalGameInfoAbove" as any, v),
     setGlobalFriendsPlayingOverlay: (v: boolean) => setBool("globalFriendsPlayingOverlay" as any, v),
@@ -44,15 +52,15 @@ export function createGlobalVisualActions(deps: GlobalVisualDeps) {
     setGlobalDescriptionScale: (v: number) => setClampedNumber("globalDescriptionScale" as any, v, 100, 200),
     setGlobalDescriptionBelowLogo: (v: boolean) => setBool("globalDescriptionBelowLogo" as any, v),
     setGlobalLogoBelowShelf: (v: boolean) => setBool("globalLogoBelowShelf" as any, v),
-    setGlobalLogoPosition: (v: "left" | "center" | "right") => setEnum("globalLogoPosition", v),
-    setGlobalDescriptionPosition: (v: "left" | "center" | "right") => setEnum("globalDescriptionPosition", v),
+    setGlobalLogoPosition: (v: "left" | "center" | "right" | null) => setEnum("globalLogoPosition", v),
+    setGlobalDescriptionPosition: (v: "left" | "center" | "right" | null) => setEnum("globalDescriptionPosition", v),
     setGlobalLogoSize: (v: number) => setClampedNumber("globalLogoSize", v, 50, 200),
     setGlobalLogoTopOffset: (v: number) => setClampedNumber("globalLogoTopOffset", v, -50, 100),
     setGlobalFullPageShelf: (v: boolean) => setBool("globalFullPageShelf" as any, v),
-    setGlobalIconVerticalAlign: (v: "top" | "center" | "bottom") => setEnum("globalIconVerticalAlign", v),
-    setGlobalShelfTitlePosition: (v: "left" | "center" | "right") => setEnum("globalShelfTitlePosition", v),
-    setGlobalGameNamePosition: (v: "left" | "center" | "right") => setEnum("globalGameNamePosition", v),
-    setGlobalPlaytimePosition: (v: "left" | "center" | "right") => setEnum("globalPlaytimePosition", v),
+    setGlobalIconVerticalAlign: (v: "top" | "center" | "bottom" | null) => setEnum("globalIconVerticalAlign", v),
+    setGlobalShelfTitlePosition: (v: "left" | "center" | "right" | null) => setEnum("globalShelfTitlePosition", v),
+    setGlobalGameNamePosition: (v: "left" | "center" | "right" | null) => setEnum("globalGameNamePosition", v),
+    setGlobalPlaytimePosition: (v: "left" | "center" | "right" | null) => setEnum("globalPlaytimePosition", v),
     setGlobalDescriptionHeight: (v: number) => setClampedNumber("globalDescriptionHeight", v, 1, 3),
     setGlobalDescriptionLogoGap: (v: number) => setClampedNumber("globalDescriptionLogoGap", v, -40, 80),
     setGlobalHideNewBadge: (v: boolean) => setBool("globalHideNewBadge", v),

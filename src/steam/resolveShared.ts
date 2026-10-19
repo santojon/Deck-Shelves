@@ -1,4 +1,4 @@
-import { type AppOverview, appIdOf, appNameOf, isNonSteamOf, readCollectionList } from "./appOverview";
+import { type AppOverview, appIdOf, appNameOf, isNonSteamOf, readCollectionList, pushAppIdsFromCollection } from "./appOverview";
 import type { FilterGroup, FilterItem, Settings } from "../types";
 import type { ResolverContext } from "./resolverContext";
 import { type SteamCollectionLike, steamCollectionStore } from "./internals";
@@ -51,27 +51,37 @@ function readUnifideckPlatformLabel(c: SteamCollectionLike): string | null {
   return m[1].trim().toLowerCase();
 }
 
-function indexAppsToPlatform(c: SteamCollectionLike, platform: string, map: Map<number, string>): void {
-  const apps = c?.allApps ?? c?.m_rgApps ?? [];
-  for (const a of apps) {
-    const n = Number(a?.appid);
-    if (Number.isFinite(n)) map.set(n, platform);
+function indexAppsToPlatform(c: SteamCollectionLike, platform: string, groups: Map<number, string[]>): void {
+  const ids = new Set<number>();
+  pushAppIdsFromCollection(c, ids);
+  for (const n of ids) {
+    const list = groups.get(n);
+    if (list) list.push(platform); else groups.set(n, [platform]);
   }
 }
 
+// Each Unifideck game keyed by ALL its "[Unifideck] …" collections, so a store is never
+// overwritten by "Installed" / "All Games" and no translated collection name is matched.
+let platformCache: { map: Map<number, string>; ts: number } | null = null;
+
 function buildNonSteamPlatformMap(): Map<number, string> {
+  const now = Date.now();
+  if (platformCache && now - platformCache.ts < 5000) return platformCache.map;
   const map = new Map<number, string>();
   try {
-    const cs = steamCollectionStore();
+    const groups = new Map<number, string[]>();
     // Raw storage map, not the `userCollections` computed (MobX-unsafe).
-    for (const c of readCollectionList(cs)) {
+    for (const c of readCollectionList(steamCollectionStore())) {
       const platform = readUnifideckPlatformLabel(c);
-      if (!platform) continue;
-      indexAppsToPlatform(c, platform, map);
+      if (platform) indexAppsToPlatform(c, platform, groups);
     }
+    for (const [id, labels] of groups) map.set(id, labels.sort().join("\x00"));
   } catch {}
+  platformCache = { map, ts: now };
   return map;
 }
+
+export function __resetPlatformMapForTest(): void { platformCache = null; }
 
 export function deduplicateNonSteam(ids: number[], all: AppOverview[]): number[] {
   const byId = new Map<number, AppOverview>();

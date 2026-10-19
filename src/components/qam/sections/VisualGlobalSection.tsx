@@ -2,6 +2,7 @@ import { ToggleField, Field, Dropdown } from '../../../runtime/host/decky';
 import { CollapsibleSection, DSSliderField, PositionField, type HorizontalPosition } from '../../ui';
 import { WandIcon } from '../../icons';
 import { applyGameInfoAboveToggle, applyHideTitleToggle } from '../common/gameInfoCoupling';
+import { DESCRIPTION_SIZE_GROUP, LOGO_SIZE_GROUP, ResetGlobalVisualButton, groupPatch, isGroupSet } from '../common/globalVisualGroups';
 import type { SettingsController } from '../../../features/settings/controller';
 
 /* Global visual defaults section, extracted from DeckQAMSettings to keep that
@@ -17,6 +18,10 @@ export function VisualGlobalSection({ controller, hidden, isHid, lightMode, moun
 }) {
   const { t, settings, actions } = controller;
   if (!settings || !settings.enabled || hidden) return null;
+  const perShelf = t('per_shelf_option' as any);
+  const logoSizes = (settings as any).globalEnableLogo === true && isGroupSet(settings, LOGO_SIZE_GROUP);
+  const descriptionSizes = (settings as any).globalEnableDescription === true && isGroupSet(settings, DESCRIPTION_SIZE_GROUP);
+  const descriptionUnderLogo = descriptionSizes && (settings as any).globalDescriptionBelowLogo === true;
   return (
       <CollapsibleSection
         id='visual_global'
@@ -24,6 +29,7 @@ export function VisualGlobalSection({ controller, hidden, isHid, lightMode, moun
         title={t('section_visual_global')}
         count={[settings.globalMatchNativeSize, settings.globalHighlightFirst, settings.globalHighlightAll, (settings as any).globalHighlightRandom, (settings as any).globalEnableLogo, (settings as any).globalEnableIcon, (settings as any).globalEnableDescription, ((settings as any).globalDescriptionScale ?? 100) > 100, (settings as any).globalDescriptionBelowLogo, (settings as any).globalHeroEnabled, (settings as any).globalGameInfoAbove, (settings as any).globalFriendsPlayingOverlay, (settings as any).globalFriendsPlayingOverlayRecent, (settings as any).globalFullPageShelf, settings.globalHideShelfTitle, settings.globalHideGameNames, settings.globalHideStatusLine, settings.globalHideInstallIndicator, settings.globalHideNewBadge, (settings as any).globalHideDiscountBadge, settings.globalHideCompatIcons, settings.globalHideNonSteamBadge, settings.globalHideSeeMore, settings.globalHideRefreshCard, (settings as any).globalDedupeByName].filter(Boolean).length}
       >
+        <div style={{ paddingLeft: 16, paddingRight: 8, paddingBottom: 4, fontSize: 11, opacity: 0.65, lineHeight: 1.4 }}>{t('global_visual_override_hint' as any)}</div>
         {(() => (<>
         {!isHid('globalMatchNativeSize') && <ToggleField label={t('match_native_size')} checked={settings.globalMatchNativeSize === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalMatchNativeSize(value)} />}
         {!isHid('globalHighlightFirst') && <ToggleField label={t('highlight_first')} checked={settings.globalHighlightFirst === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalHighlightFirst(value)} />}
@@ -37,14 +43,15 @@ export function VisualGlobalSection({ controller, hidden, isHid, lightMode, moun
         {(() => (<>
         {!isHid('globalEnableLogo') && <ToggleField label={t('enable_logo')} checked={(settings as any).globalEnableLogo === true} disabled={mountCrashed} onChange={(value: boolean) => (actions as any).setGlobalEnableLogo(value)} />}
         {(settings as any).globalEnableLogo === true && !isHid('globalLogoPosition') && (
-          <PositionField labelKey='logo_position_label' value={(settings as any).globalLogoPosition ?? 'left'} t={t} onChange={(v: HorizontalPosition) => (actions as any).setGlobalLogoPosition(v)} />
+          <PositionField labelKey='logo_position_label' value={(settings as any).globalLogoPosition ?? null} t={t} perShelfLabel={perShelf} onPerShelf={() => (actions as any).setGlobalLogoPosition(null)} onChange={(v: HorizontalPosition) => (actions as any).setGlobalLogoPosition(v)} />
         )}
         </>))()}
         {(() => (<>
-        {(settings as any).globalEnableLogo === true && !isHid('globalLogoSize') && (
+        {(settings as any).globalEnableLogo === true && !isHid('globalLogoSizeSame') && <ToggleField label={t('global_logo_size_same' as any)} checked={logoSizes} disabled={mountCrashed} onChange={(value: boolean) => (actions as any).setGlobalVisualValues(groupPatch(settings, LOGO_SIZE_GROUP, value))} />}
+        {logoSizes && !isHid('globalLogoSize') && (
           <DSSliderField label={t('logo_size_label' as any)} value={(settings as any).globalLogoSize ?? 100} min={50} max={200} step={5} unit='%' onChange={(v: number) => (actions as any).setGlobalLogoSize(v)} />
         )}
-        {(settings as any).globalEnableLogo === true && !isHid('globalLogoTopOffset') && (
+        {logoSizes && !isHid('globalLogoTopOffset') && (
           <DSSliderField label={t('logo_top_offset_label' as any)} value={(settings as any).globalLogoTopOffset ?? 20} min={-50} max={100} step={5} unit='%' onChange={(v: number) => (actions as any).setGlobalLogoTopOffset(v)} />
         )}
         </>))()}
@@ -56,12 +63,13 @@ export function VisualGlobalSection({ controller, hidden, isHid, lightMode, moun
           <Field label={t('icon_vertical_align_label' as any)} childrenContainerWidth='min'>
             <Dropdown
               rgOptions={[
+                { data: 'per_shelf', label: perShelf },
                 { data: 'top', label: t('icon_vertical_align_top' as any) },
                 { data: 'center', label: t('icon_vertical_align_center' as any) },
                 { data: 'bottom', label: t('icon_vertical_align_bottom' as any) },
               ]}
-              selectedOption={(settings as any).globalIconVerticalAlign ?? 'top'}
-              onChange={(opt: any) => (actions as any).setGlobalIconVerticalAlign(opt?.data ?? 'top')}
+              selectedOption={(settings as any).globalIconVerticalAlign ?? 'per_shelf'}
+              onChange={(opt: any) => (actions as any).setGlobalIconVerticalAlign(opt?.data === 'per_shelf' ? null : (opt?.data ?? 'top'))}
             />
           </Field>
         )}
@@ -70,9 +78,10 @@ export function VisualGlobalSection({ controller, hidden, isHid, lightMode, moun
         {/* Group: Description + position + (paired) below-logo + height */}
         {(() => (<>
         {!isHid('globalEnableDescription') && <ToggleField label={t('enable_description')} checked={(settings as any).globalEnableDescription === true} disabled={mountCrashed} onChange={(value: boolean) => (actions as any).setGlobalEnableDescription(value)} />}
-        {(settings as any).globalEnableDescription === true && !isHid('globalDescriptionScale') && <DSSliderField label={t('description_size_label')} value={(settings as any).globalDescriptionScale ?? 100} min={100} max={200} step={10} unit='%' onChange={(v: number) => (actions as any).setGlobalDescriptionScale(v)} />}
+        {(settings as any).globalEnableDescription === true && !isHid('globalDescriptionSizeSame') && <ToggleField label={t('global_description_size_same' as any)} checked={descriptionSizes} disabled={mountCrashed} onChange={(value: boolean) => (actions as any).setGlobalVisualValues(groupPatch(settings, DESCRIPTION_SIZE_GROUP, value))} />}
+        {descriptionSizes && !isHid('globalDescriptionScale') && <DSSliderField label={t('description_size_label')} value={(settings as any).globalDescriptionScale ?? 100} min={100} max={200} step={10} unit='%' onChange={(v: number) => (actions as any).setGlobalDescriptionScale(v)} />}
         {(settings as any).globalEnableDescription === true && !isHid('globalDescriptionPosition') && (
-          <PositionField labelKey='description_position_label' value={(settings as any).globalDescriptionPosition ?? 'left'} t={t} onChange={(v: HorizontalPosition) => (actions as any).setGlobalDescriptionPosition(v)} />
+          <PositionField labelKey='description_position_label' value={(settings as any).globalDescriptionPosition ?? null} t={t} perShelfLabel={perShelf} onPerShelf={() => (actions as any).setGlobalDescriptionPosition(null)} onChange={(v: HorizontalPosition) => (actions as any).setGlobalDescriptionPosition(v)} />
         )}
         </>))()}
         {(() => (<>
@@ -82,10 +91,10 @@ export function VisualGlobalSection({ controller, hidden, isHid, lightMode, moun
         )}
         </>))()}
         {(() => (<>
-        {(settings as any).globalEnableDescription === true && (settings as any).globalDescriptionBelowLogo === true && !isHid('globalDescriptionHeight') && (
+        {descriptionUnderLogo && !isHid('globalDescriptionHeight') && (
           <DSSliderField label={t('description_height_label' as any)} value={(settings as any).globalDescriptionHeight ?? 2} min={1} max={3} step={1} onChange={(v: number) => (actions as any).setGlobalDescriptionHeight(v)} />
         )}
-        {(settings as any).globalEnableDescription === true && (settings as any).globalDescriptionBelowLogo === true && !isHid('globalDescriptionLogoGap') && (
+        {descriptionUnderLogo && !isHid('globalDescriptionLogoGap') && (
           <DSSliderField label={t('description_logo_gap_label' as any)} value={(settings as any).globalDescriptionLogoGap ?? 8} min={-40} max={80} step={5} unit='px' onChange={(v: number) => (actions as any).setGlobalDescriptionLogoGap(v)} />
         )}
         </>))()}
@@ -94,13 +103,13 @@ export function VisualGlobalSection({ controller, hidden, isHid, lightMode, moun
 
         {(() => (<>
         {!isHid('globalShelfTitlePosition') && (
-          <PositionField labelKey='shelf_title_position_label' value={(settings as any).globalShelfTitlePosition ?? 'left'} t={t} onChange={(v: HorizontalPosition) => (actions as any).setGlobalShelfTitlePosition(v)} />
+          <PositionField labelKey='shelf_title_position_label' value={(settings as any).globalShelfTitlePosition ?? null} t={t} perShelfLabel={perShelf} onPerShelf={() => (actions as any).setGlobalShelfTitlePosition(null)} onChange={(v: HorizontalPosition) => (actions as any).setGlobalShelfTitlePosition(v)} />
         )}
         {!isHid('globalGameNamePosition') && (
-          <PositionField labelKey='game_name_position_label' value={(settings as any).globalGameNamePosition ?? 'left'} t={t} onChange={(v: HorizontalPosition) => (actions as any).setGlobalGameNamePosition(v)} />
+          <PositionField labelKey='game_name_position_label' value={(settings as any).globalGameNamePosition ?? null} t={t} perShelfLabel={perShelf} onPerShelf={() => (actions as any).setGlobalGameNamePosition(null)} onChange={(v: HorizontalPosition) => (actions as any).setGlobalGameNamePosition(v)} />
         )}
         {!isHid('globalPlaytimePosition') && (
-          <PositionField labelKey='playtime_position_label' value={(settings as any).globalPlaytimePosition ?? 'left'} t={t} onChange={(v: HorizontalPosition) => (actions as any).setGlobalPlaytimePosition(v)} />
+          <PositionField labelKey='playtime_position_label' value={(settings as any).globalPlaytimePosition ?? null} t={t} perShelfLabel={perShelf} onPerShelf={() => (actions as any).setGlobalPlaytimePosition(null)} onChange={(v: HorizontalPosition) => (actions as any).setGlobalPlaytimePosition(v)} />
         )}
         </>))()}
         {(() => (<>
@@ -127,6 +136,7 @@ export function VisualGlobalSection({ controller, hidden, isHid, lightMode, moun
         {!isHid('globalFriendsPlayingOverlay') && (settings as any).globalFriendsPlayingOverlay === true && <div style={{ paddingLeft: 14 }}><ToggleField label={t('friends_overlay_recent_label' as any)} checked={(settings as any).globalFriendsPlayingOverlayRecent === true} disabled={mountCrashed} onChange={(value: boolean) => void (actions as any).setGlobalFriendsPlayingOverlayRecent(value)} /></div>}
         {!isHid('globalFullPageShelf') && <ToggleField label={t('full_page_shelves_label' as any)} checked={(settings as any).globalFullPageShelf === true} disabled={mountCrashed} onChange={(value: boolean) => (actions as any).setGlobalFullPageShelf(value)} />}
         </>))()}
+        <ResetGlobalVisualButton t={t} />
       </CollapsibleSection>
   );
 }

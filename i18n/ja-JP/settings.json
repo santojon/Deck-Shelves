@@ -1281,5 +1281,11 @@
   "showcase_extras_body": "任意の追加機能: シェルフを順に表示するアイドル時のショーケース、プラグイン独自のスクリーンセーバー、Steam アカウントに紐づいてデバイス間で引き継がれる設定。",
   "template_vr_games": "VR ゲーム",
   "template_vr_only": "VR 専用",
-  "filter_type_device_compatibility": "このデバイスでの互換性"
+  "filter_type_device_compatibility": "このデバイスでの互換性",
+  "per_shelf_option": "シェルフごと",
+  "global_visual_override_hint": "ここで設定した値はすべてのシェルフに適用されます。「シェルフごと」にすると各シェルフの設定が使われます。",
+  "global_logo_size_same": "すべてのシェルフで同じロゴサイズと位置",
+  "global_description_size_same": "すべてのシェルフで同じ説明サイズ",
+  "reset_global_visual": "グローバルビジュアルをリセット",
+  "reset_global_visual_body": "グローバルビジュアルの設定がすべて既定値に戻り、各シェルフが自分の見た目を使うようになります。"
 }

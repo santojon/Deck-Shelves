@@ -1281,5 +1281,11 @@
   "showcase_extras_body": "Extras opcionais: uma montra em repouso que percorre as prateleiras, a proteção de ecrã do próprio plugin e definições que seguem a sua conta Steam entre dispositivos.",
   "template_vr_games": "Jogos de VR",
   "template_vr_only": "Só VR",
-  "filter_type_device_compatibility": "Compatibilidade neste dispositivo"
+  "filter_type_device_compatibility": "Compatibilidade neste dispositivo",
+  "per_shelf_option": "Por prateleira",
+  "global_visual_override_hint": "Um valor definido aqui aplica-se a todas as prateleiras. \"Por prateleira\" deixa cada uma usar o seu.",
+  "global_logo_size_same": "Mesmo tamanho e distância do logo em todas as prateleiras",
+  "global_description_size_same": "Mesmo tamanho de descrição em todas as prateleiras",
+  "reset_global_visual": "Repor visual global",
+  "reset_global_visual_body": "Todas as definições visuais globais voltam ao padrão e cada prateleira volta a usar o seu próprio visual."
 }

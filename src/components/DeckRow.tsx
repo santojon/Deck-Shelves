@@ -15,7 +15,7 @@ export { type DeckRowItem } from "./shelf/types";
 export { GameCard } from "./shelf/GameCard";
 
 import { type DeckRowItem, CARD_W, CARD_ART_H, CARD_GAP } from "./shelf/types";
-import { ShelfRow } from "./shelf/ShelfRow";
+import { ShelfRow, isWideItem } from "./shelf/ShelfRow";
 import {
   getCachedNativeDims,
   globalStylesStart,
@@ -301,8 +301,9 @@ function DeckRowImpl(props: DeckRowProps) {
   const windowFor = useCallback((scrollLeft: number, viewportW: number): CardWindow => {
     const target = getPendingFocusTarget();
     const anchor = target && (!target.shelfId || target.shelfId === shelfId) ? items.findIndex((i) => i.appid === target.appid) : -1;
-    return computeCardWindow({ scrollLeft, viewportW: viewportW || 1280, slotW: effectiveW + effectiveGap, count: items.length, overscan: hasWideCards ? 9 : 6, anchor });
-  }, [items, shelfId, effectiveW, effectiveGap, hasWideCards]);
+    const wide = hasWideCards ? { wideSlotW: finalFeaturedW + effectiveGap, isWide: (i: number) => isWideItem(items[i], i, { highlightAll, highlightFirst, highlightedSet }) } : {};
+    return computeCardWindow({ scrollLeft, viewportW: viewportW || 1280, slotW: effectiveW + effectiveGap, count: items.length, overscan: hasWideCards ? 9 : 6, anchor, ...wide });
+  }, [items, shelfId, effectiveW, effectiveGap, hasWideCards, finalFeaturedW, highlightAll, highlightFirst, highlightedSet]);
   const [cardWindow, setCardWindow] = useState<CardWindow>(() => windowFor(0, 0));
   const windowRef = useRef<CardWindow>(cardWindow);
   useEffect(() => {

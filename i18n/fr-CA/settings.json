@@ -1281,5 +1281,11 @@
   "showcase_extras_body": "Extras facultatifs : une vitrine d'inactivité qui parcourt vos étagères, l'économiseur d'écran du plugiciel lui-même et des réglages qui suivent votre compte Steam d'un appareil à l'autre.",
   "template_vr_games": "Jeux RV",
   "template_vr_only": "RV uniquement",
-  "filter_type_device_compatibility": "Compatibilité sur cet appareil"
+  "filter_type_device_compatibility": "Compatibilité sur cet appareil",
+  "per_shelf_option": "Par étagère",
+  "global_visual_override_hint": "Une valeur définie ici s'applique à toutes les étagères. « Par étagère » laisse chacune utiliser la sienne.",
+  "global_logo_size_same": "Même taille et décalage du logo sur toutes les étagères",
+  "global_description_size_same": "Même taille de description sur toutes les étagères",
+  "reset_global_visual": "Réinitialiser le visuel global",
+  "reset_global_visual_body": "Tous les réglages visuels globaux reviennent à leurs valeurs par défaut et chaque étagère retrouve son propre style."
 }
