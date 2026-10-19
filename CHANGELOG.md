@@ -9,12 +9,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Performance
-
-- Stop the game-info overlay from observing its own cloned-label mutations. Reuse an equal label node while still detecting asynchronous title/status changes, and repopulate the label host when game info is re-enabled. This prevents a self-triggering observer/render loop on custom shelves.
-
-- Remove the document-root `:has(.ds-card.gpfocus)` / `:has(.ds-card:focus)` FocusRing override. Controller focus changes could invalidate the entire HTML subtree and force repeated synchronous style recalculations. Custom cards now retain Steam's native FocusRing geometry; card-local focus styles and the settings-driven Round Compatibility suppression remain unchanged.
-
 ### Added
 
 - **A "Show or hide settings" row under the master toggle opens or closes the quick-settings sidecar.** Same effect as the double dpad-right (or the remapped chord) and the B button, for anyone who prefers a tap; labelled in every language, with a chevron at its end. The sidecar itself is now titled "Show or hide" in a tab header that matches the standalone host's sidecar, and **Ctrl+Shift+S opens it by default** (the first keyboard shortcut that ships set; change or clear it under Settings → Shortcuts).
@@ -55,6 +49,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Four device probes run again.** The game-menu, shelf-render, card-count and online-features probes imported a helper module that no longer existed; they now share a small helper in the project's probe folder ([`probe_base.py`](scripts/deckprobe-ext/lib/probe_base.py)). The game-menu probe also checks the menu as it is today — the per-card actions and the Shelf group with its Management / Display / Visual sub-groups, found by their keys so the UI language does not matter, plus a check that nothing is injected twice — instead of a single submenu the menu no longer has ([`menu_injection.py`](scripts/deckprobe-ext/probes/menu_injection.py)).
 
 ### Fixed
+
+- Stop the game-info overlay from observing its own cloned-label mutations. Reuse an equal label node while still detecting asynchronous title/status changes, and repopulate the label host when game info is re-enabled. This prevents a self-triggering observer/render loop on custom shelves.
+
+- Remove the document-root `:has(.ds-card.gpfocus)` / `:has(.ds-card:focus)` FocusRing override. Controller focus changes could invalidate the entire HTML subtree and force repeated synchronous style recalculations. Custom cards now retain Steam's native FocusRing geometry; card-local focus styles and the settings-driven Round Compatibility suppression remain unchanged.
 
 - **With cloud sync on and a different profile active on each device, one device no longer takes on the other's look.** Profiles (their settings and triggers) sync as before and each device activates its own, but the live settings travelled as one bag that the newest save won, and whatever a device adopted was also written into its own active profile: a docked machine's "Showcase" could rewrite a handheld's "Handheld" profile into the Showcase look. The sync now carries which profile a device runs; settings are adopted (and folded into the profile) only between devices running the same profile, or none. Otherwise each device keeps its look and only the lists merge (shelves, smart shelves, saved filters, profiles). If one of your profiles already picked up the other device's look, re-save it from that device.
 - **The quick-settings sidecar no longer overlaps the main column under the plugin loader while the standalone host's tab is also in the menu.** The sidecar measured its place against the first plugin panel in the menu, which was the host tab's hidden copy; it now measures against the panel it belongs to.
