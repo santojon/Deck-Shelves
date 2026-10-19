@@ -15,7 +15,7 @@ import { getCurrentSettings } from '../../../store/settingsStore'
 import { trackFeature } from '../../../steam/usageTracking'
 import { absorbCancelButton } from '../sidecarCancel'
 import { type OpenerWithInput } from '../sidecarActiveTab'
-import {ChevronLeftIcon} from '../../icons'
+import { ChevronLeftIcon } from '../../icons'
 import { ErrorBoundary } from '../../ErrorBoundary'
 import { GeneralTab } from './GeneralTab'
 
@@ -152,10 +152,13 @@ export function SidecarPanel({ controller, onCollapse }: { controller: SettingsC
     const doc = innerEl.ownerDocument;
     const win = doc.defaultView ?? window;
     const measure = () => {
-      const sideEl = doc.querySelector('.deck-shelves-qam-sidecar') as HTMLElement | null;
+      /* Walk up from this sidecar, never the first match in the document: with a
+         host's own QAM tab present, a hidden copy of the plugin panel (0×0) comes
+         first, and measuring against it put the sidecar over the main column. */
+      const sideEl = innerEl.closest('.deck-shelves-qam-sidecar') as HTMLElement | null;
       if (!sideEl) return;
-      const scope = doc.querySelector('.deck-shelves-qam-scope') as HTMLElement | null;
-      const main = doc.querySelector('.deck-shelves-qam-main') as HTMLElement | null;
+      const scope = sideEl.closest('.deck-shelves-qam-scope') as HTMLElement | null;
+      const main = (scope?.querySelector('.deck-shelves-qam-main') ?? null) as HTMLElement | null;
       // The QAM tab's dark panel that hosts every plugin tab content area.
       // The class is obfuscated but consistently present; if Steam ever
       // renames it we fall back to the viewport.

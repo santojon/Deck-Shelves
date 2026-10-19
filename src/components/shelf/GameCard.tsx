@@ -474,7 +474,7 @@ function CardSelectionMarkOverlay({ mark, cssArtH }: { mark: DeckRowItem['select
   );
 }
 
-function CardBadgeHost({ hasBadge, showDiscountBadge, showNewBadge, discount, t }: { hasBadge: boolean; showDiscountBadge: boolean; showNewBadge: boolean; discount: number | undefined; t: (k: string, o?: any) => string }) {
+export function CardBadgeHost({ hasBadge, showDiscountBadge, showNewBadge, discount, t }: { hasBadge: boolean; showDiscountBadge: boolean; showNewBadge: boolean; discount: number | undefined; t: (k: string, o?: any) => string }) {
   if (!hasBadge) return null;
   return (
     <div

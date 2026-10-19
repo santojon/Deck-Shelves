@@ -48,10 +48,15 @@ function setQamExpanded(next: boolean | ((prev: boolean) => boolean)): void {
     g.__ds_last_set__ = { type: typeof next, t: Date.now() };
   }
   const value = typeof next === 'function' ? next(current) : next;
-  if (value === current) return;
-  current = value;
-  writeSession(value);
-  notifyCompositor(value);
+  /* Same value: nothing to store or post, but still resync every mounted panel —
+     `resetQamExpanded` changes `current` silently, so a panel can be showing an
+     open sidecar while the store already says closed, and every toggle would
+     then be a no-op. */
+  if (value !== current) {
+    current = value;
+    writeSession(value);
+    notifyCompositor(value);
+  }
   emitter.dispatchEvent(new Event(EVENT));
 }
 
