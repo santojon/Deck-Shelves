@@ -27,3 +27,15 @@ describe('buildShelfStylesheet — controller focus invalidation', () => {
     expect(css).toContain('html[data-ds-theme-focus-round-compat="true"] ._1wPplsegQqCoe06wXPhzKT')
   })
 })
+
+describe('buildShelfStylesheet — card tags on hover', () => {
+  it('hides the inline tag only on cards the focus overlay draws over, never on a merely hovered card', () => {
+    const css = buildShelfStylesheet(CTX).replace(/\/\*[\s\S]*?\*\//g, '')
+    const rule = css.slice(0, css.indexOf('visibility: hidden', css.indexOf('.ds-card-badge-host--inline')))
+    const selectors = rule.slice(rule.lastIndexOf('}') + 1)
+    expect(selectors).toContain('.ds-card.gpfocus .ds-card-badge-host--inline')
+    expect(selectors).toContain('.ds-card:focus .ds-card-badge-host--inline')
+    expect(selectors).toContain('.ds-card.is-selected .ds-card-badge-host--inline')
+    expect(selectors).not.toContain(':hover')
+  })
+})

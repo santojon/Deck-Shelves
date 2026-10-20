@@ -20,6 +20,7 @@ from __future__ import annotations
 import html
 import json
 import os
+import posixpath
 import re
 import shutil
 import sys
@@ -44,13 +45,20 @@ def _root() -> Path:
     return Path(__file__).resolve().parents[2]
 
 
-def _md_inline(text: str) -> str:
-    """Convert a small subset of Markdown (bold, code, links) to HTML."""
+def _md_inline(text: str, base: str = "") -> str:
+    """Convert a small subset of Markdown (bold, code, links) to HTML. `base` is
+    the source file's folder: its relative links point at the repo on GitHub,
+    since Pages serves site/ only."""
     s = html.escape(text.strip(), quote=False)
     s = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", s)
     s = re.sub(r"`([^`]+?)`", r"<code>\1</code>", s)
-    s = re.sub(r"\[([^\]]+)\]\(([^)]+)\)", r'<a href="\2">\1</a>', s)
-    return s
+    return re.sub(r"\[([^\]]+)\]\(([^)]+)\)", lambda m: f'<a href="{_repo_link(m[2], base)}">{m[1]}</a>', s)
+
+
+def _repo_link(href: str, base: str) -> str:
+    if re.match(r"^(?:[a-z]+:|#|/)", href):
+        return href
+    return f"{REPO}/blob/main/{posixpath.normpath(posixpath.join(base, href))}"
 
 
 def _fmt_date(iso: str) -> str:
@@ -95,7 +103,8 @@ def _parse_release(root: Path, notes: Path | None = None):
         if not bullet:
             continue
         title = bullet.group(1).strip().rstrip(".")
-        rest = bullet.group(2).strip()
+        # The text after the bold title often opens with ":", "—" or ",".
+        rest = bullet.group(2).strip().lstrip(",;:\u2014\u2013-").strip()
         # First sentence or a trimmed lead-in keeps the card compact.
         sentence = re.split(r"(?<=[.!?])\s", rest, maxsplit=1)[0] if rest else ""
         if len(sentence) > 210:
@@ -328,7 +337,7 @@ def _parse_features(root: Path, readme: Path | None = None, heading: str = "Feat
         content = raw.strip()
         if not content.startswith("- "):
             continue
-        html_items.append((indent, _md_inline(content[2:])))
+        html_items.append((indent, _md_inline(content[2:], readme.parent.relative_to(root).as_posix())))
     return html_items or None
 
 
@@ -632,7 +641,7 @@ _PT_BR_KEY_RE = re.compile(r'^\s*"([^"]+)"\s*:', re.MULTILINE)
 # one-line notice in the footer. Markers keep the step idempotent; an empty
 # code strips both again.
 _ANALYTICS_RE = re.compile(r"\s*<!-- analytics -->[\s\S]*?<!-- /analytics -->")
-_NOTICE_RE = re.compile(r"\s*<!-- analytics-notice -->[\s\S]*?<!-- /analytics-notice -->")
+_NOTICE_RE = re.compile(r"<!-- analytics-notice -->[\s\S]*?<!-- /analytics-notice -->")
 _FOOT_BOTTOM_RE = re.compile(r'(<div class="foot-bottom">[\s\S]*?)(</div>)')
 
 

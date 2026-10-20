@@ -7,6 +7,10 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+- **Game pages open with the focus on them**: opening a game from the Home no longer leaves its page with nothing selected.
+
+- **Tags stay on the card you touch (#133)**: discount and "New" tags no longer vanish from a card you touch or point at with a mouse.
+
 - **Shelf look settings and global ones work together (#132)**: the global section only overrides what you set there, every global choice can go back to "Per shelf", and a reset button returns the whole section to its defaults.
 
 - **Game names line up with the card (#129)**: centre and right alignment now match the card exactly, and game info shown above the card follows that alignment without leaving the screen.

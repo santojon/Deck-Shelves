@@ -96,7 +96,28 @@
     }
   }
 
+  // English lives only in the page itself: keep it before the first switch, so
+  // going back to EN restores it without a reload.
+  function collectEnglish() {
+    var en = {};
+    var text = document.querySelectorAll("[data-i18n]");
+    for (var i = 0; i < text.length; i++) en[text[i].getAttribute("data-i18n")] = text[i].textContent;
+    var html = document.querySelectorAll("[data-i18n-html]");
+    for (var j = 0; j < html.length; j++) en[html[j].getAttribute("data-i18n-html")] = html[j].innerHTML;
+    var attrs = document.querySelectorAll("[data-i18n-attr]");
+    for (var k = 0; k < attrs.length; k++) {
+      var pairs = attrs[k].getAttribute("data-i18n-attr").split(";");
+      for (var p = 0; p < pairs.length; p++) {
+        var parts = pairs[p].split(":");
+        var value = parts.length === 2 ? attrs[k].getAttribute(parts[0].trim()) : null;
+        if (value !== null) en[parts[1].trim()] = value;
+      }
+    }
+    return en;
+  }
+
   function applyLang(lang) {
+    if (!DICTS.en) DICTS.en = collectEnglish();
     var dict = DICTS[lang] || {};
     document.documentElement.setAttribute("lang", lang);
     applyTextNodes(dict);

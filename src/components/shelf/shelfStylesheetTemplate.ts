@@ -586,9 +586,10 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
        root — modals (ShelfPreview, ManualSortRow, …) have no such overlay,
        so leaving this unscoped made their badges vanish for good the moment
        a card was focused/hovered/selected, with nothing to bring them back. */
+    /* Not on :hover: the overlay follows focus, and a touch leaves a sticky
+       hover on the card under the finger, which then lost its tag. */
     #deck-shelves-home-root .ds-card.gpfocus .ds-card-badge-host--inline,
     #deck-shelves-home-root .ds-card:focus .ds-card-badge-host--inline,
-    #deck-shelves-home-root .ds-card:hover .ds-card-badge-host--inline,
     #deck-shelves-home-root .ds-card.is-selected .ds-card-badge-host--inline {
       visibility: hidden;
     }

@@ -7,6 +7,10 @@ técnico completo, veja [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+- **As páginas de jogo abrem com o foco nelas**: abrir um jogo pela Home não deixa mais a página sem nada selecionado.
+
+- **As etiquetas ficam no card que você toca (#133)**: as etiquetas de desconto e de "Novo" não somem mais de um card que você toca ou aponta com o mouse.
+
 - **As configurações visuais da prateleira e as globais funcionam juntas (#132)**: a seção global só sobrescreve o que você definiu nela, cada escolha global pode voltar para "Por prateleira", e um botão de redefinir devolve a seção inteira ao padrão.
 
 - **Os nomes dos jogos se alinham ao card (#129)**: centro e direita agora batem exatamente com o card, e as informações do jogo acima do card seguem esse alinhamento sem sair da tela.

@@ -1,6 +1,7 @@
 import { getPreferredSteamDocument } from "../runtime/steamHost";
 import { getSessionState } from "../runtime/sessionState";
 import { registerDisposer } from "../runtime/runtimeDisposer";
+import { steamUIStore } from "../steam/internals";
 
 let pendingAppid: number | null = null;
 let pendingShelfId: string | null = null;
@@ -264,11 +265,22 @@ function isUnintegratedDsElement(el: HTMLElement): boolean {
   return !!el.closest?.(".ds-card, .deck-shelves-root");
 }
 
-/* No automatic focus grabs while a game runs. The Home can stay mounted behind
-   the game, and taking focus there steals input from the Steam menu and Quick
-   Access. The pending target is kept; user-driven focusElement still works. */
+/* Another page (a game page that is opening) covers the Home, which stays
+   mounted behind it for a moment. Read from Steam's own router; a client that
+   doesn't expose it counts as not covered. */
+function homeCovered(): boolean {
+  try {
+    const path = steamUIStore()?.WindowStore?.GamepadUIMainWindowInstance?.m_history?.location?.pathname;
+    return typeof path === "string" && !path.startsWith("/library/home");
+  } catch { return false; }
+}
+
+/* No automatic focus grabs while a game runs or another page covers the Home:
+   taking focus then steals input from the Steam menu / Quick Access, or leaves
+   the opening page with none. The pending target is kept. */
 function autoTakeNavFocus(navNode: any): boolean {
   try { if (getSessionState().gameRunning) return false; } catch {}
+  if (homeCovered()) return false;
   return takeNavFocus(navNode);
 }
 
@@ -323,6 +335,8 @@ export function tryRestoreFocus(): boolean {
     clearPending();
     return false;
   }
+  // The card can still hold focus while its game page opens: that is not a restore.
+  if (homeCovered()) return false;
 
   const card = findPendingCard();
   if (!card) return false;
@@ -511,6 +525,7 @@ export function beginFocusRestoreLoop(): void {
 
   const attempt = (): boolean => {
     if (isDone()) return true;
+    if (homeCovered()) return false;
     const card = findCard();
     if (!card) return false;
     // Success is declared ONLY when the card actually holds gamepad focus.

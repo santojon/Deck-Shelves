@@ -133,3 +133,39 @@ describe("focusRestore — a pending restore stands down once the player navigat
     expect(hasPendingFocus()).toBe(true);
   });
 });
+
+describe("focusRestore — never takes focus while another page covers the Home", () => {
+  afterEach(() => { document.body.innerHTML = ""; delete (globalThis as any).SteamUIStore; clearFocusTarget(); });
+
+  function onRoute(pathname: string) {
+    (globalThis as any).SteamUIStore = { RunningApps: [], WindowStore: { GamepadUIMainWindowInstance: { m_history: { location: { pathname } } } } };
+  }
+
+  it("leaves focus on a game page that is opening and keeps the target for the way back", () => {
+    onRoute("/library/app/620");
+    const made = cardWithNavNode({ activeCtx: null });
+    made.card.setAttribute("data-appid", "620");
+    made.card.setAttribute("data-shelfid", "s1");
+    saveFocusTarget(620, "s1");
+    expect(tryRestoreFocus()).toBe(false);
+    expect(made.node.BTakeFocus).not.toHaveBeenCalled();
+    expect(hasPendingFocus()).toBe(true);
+    onRoute("/library/home");
+    tryRestoreFocus();
+    expect(made.node.BTakeFocus).toHaveBeenCalledWith(2);
+  });
+
+  it("does not count a card that still holds focus while its game page opens as restored", () => {
+    onRoute("/library/app/620");
+    const made = cardWithNavNode({ activeCtx: null });
+    made.card.setAttribute("data-appid", "620");
+    made.card.setAttribute("data-shelfid", "s1");
+    made.card.classList.add("gpfocus");
+    saveFocusTarget(620, "s1");
+    expect(tryRestoreFocus()).toBe(false);
+    expect(hasPendingFocus()).toBe(true);
+    onRoute("/library/home");
+    expect(tryRestoreFocus()).toBe(true);
+    expect(hasPendingFocus()).toBe(false);
+  });
+});

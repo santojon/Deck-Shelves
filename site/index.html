@@ -719,11 +719,10 @@
       // published site (Pages serves site/ only, so assets/ is URL-only there).
       var LB_RAW = "https://raw.githubusercontent.com/santojon/Deck-Shelves/main/assets/screenshots/";
       var buttons = Array.prototype.slice.call(gallery.querySelectorAll('.shot-btn'));
+      // Caption elements, read when shown: they follow the current language.
       var slides = buttons.map(function (b) {
         var img = b.querySelector('img');
-        var t = b.querySelector('b');
-        var s = b.querySelector('span:last-child');
-        return { src: img.getAttribute('src'), file: (img.getAttribute('src') || '').split('/').pop(), alt: img.getAttribute('alt'), title: t ? t.textContent : '', sub: s ? s.textContent : '' };
+        return { src: img.getAttribute('src'), file: (img.getAttribute('src') || '').split('/').pop(), alt: img.getAttribute('alt'), title: b.querySelector(':scope > b'), sub: b.querySelector(':scope > span:last-child') };
       });
 
       var imgEl = lb.querySelector('[data-lb-img]');
@@ -747,8 +746,8 @@
         imgEl.onerror = function () { imgEl.onerror = null; imgEl.src = LB_RAW + sl.file; };
         imgEl.setAttribute('src', sl.src);
         imgEl.setAttribute('alt', sl.alt);
-        titleEl.textContent = sl.title;
-        subEl.textContent = sl.sub;
+        titleEl.textContent = sl.title ? sl.title.textContent : '';
+        subEl.textContent = sl.sub ? sl.sub.textContent : '';
         dots.forEach(function (d, di) { d.classList.toggle('active', di === current); });
       }
       function open(i) { show(i); lb.classList.add('open'); lb.setAttribute('aria-hidden', 'false'); document.body.style.overflow = 'hidden'; }
