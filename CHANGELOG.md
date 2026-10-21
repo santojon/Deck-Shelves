@@ -50,6 +50,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The Home finds Steam's own rows in every Steam language.** The plugin recognised the native Recent Games row and the Home's tabs only by their English and Portuguese names, so in any other Steam language it fell back to a less precise way of placing the shelves. It now asks Steam for those names in your language (and in English), with no word lists of its own. The toast shown when a trigger switches to the factory profile also uses its translated name instead of "Padrão".
+
 - **Opening a game from the Home no longer leaves its page without focus.** For a moment after a card opens its game page, the Home is still mounted behind it; a change in a shelf with background art then pulled the focus back to that card, which disappeared with the Home a moment later, so the game page opened with nothing selected and the controller seemed stuck. Automatic focus moves now wait until the Home is the current page again, and the card you opened is no longer marked as already restored while its page opens, so it is still the one you land on when you come back.
 
 - **Discount and "New" tags stay on a card you touch (#133).** Touching a card, or pointing at it with a mouse, gave it the focused look but hid its tag, while the tag drawn above the focused card stayed with the focus elsewhere — so the card that looked highlighted had no tag. A card that is only touched or hovered now keeps its own tag; the focused card still shows its tag above the focus ring.

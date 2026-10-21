@@ -1,10 +1,11 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
-const { store, saved, resolved, cb } = vi.hoisted(() => ({
+const { store, saved, resolved, cb, toasts } = vi.hoisted(() => ({
   store: { current: null as any },
   saved: { list: [] as any[] },
   resolved: { current: null as string | null },
   cb: { settings: null as null | ((s: any) => void) },
+  toasts: { list: [] as string[] },
 }))
 
 vi.mock('../../store/settingsStore', () => ({
@@ -14,6 +15,7 @@ vi.mock('../../store/settingsStore', () => ({
 }))
 vi.mock('../../runtime/deviceState', () => ({ subscribeDeviceState: () => () => {} }))
 vi.mock('../../runtime/sessionState', () => ({ subscribeSessionState: () => () => {} }))
+vi.mock('../../runtime/notify', () => ({ notifyUser: (_title: string, body: string) => { toasts.list.push(body) } }))
 vi.mock('../../steam/smartShelves', () => ({
   resolveTriggeredProfile: () => resolved.current,
   nextProfileTriggerFlip: () => null,
@@ -83,6 +85,17 @@ describe('installProfileTriggers', () => {
     const un = installProfileTriggers()
     expect(saved.list.length).toBe(1)
     expect(saved.list[0].showcaseSeen).toBe(true)
+    un()
+  })
+
+  it('names the factory profile by its translated name in the trigger toast, not its stored id', () => {
+    toasts.list = []
+    store.current = { profileTriggersEnabled: true, profiles: [], activeProfileName: null, factoryProfileTrigger: { rules: [{ kind: 'charging' }] } }
+    resolved.current = 'Padrão' // FACTORY_PROFILE_NAME
+    const un = installProfileTriggers()
+    expect(toasts.list.length).toBe(1)
+    expect(toasts.list[0]).not.toContain('Padrão')
+    expect(toasts.list[0]).toContain('Default')
     un()
   })
 

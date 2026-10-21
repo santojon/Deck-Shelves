@@ -7,6 +7,8 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+- **Shelves placed right in every Steam language**: the Home now recognises Steam's own rows and tabs in any language, not only English and Portuguese.
+
 - **Game pages open with the focus on them**: opening a game from the Home no longer leaves its page with nothing selected.
 
 - **Tags stay on the card you touch (#133)**: discount and "New" tags no longer vanish from a card you touch or point at with a mouse.

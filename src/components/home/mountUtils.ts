@@ -4,6 +4,7 @@ import { getPreferredSteamDocument, getPreferredSteamWindow, getAllSteamDocument
 import { getRuntimeClassMap } from "../../core/webpackCompat";
 import { logInfo } from "../../runtime/logger";
 import { getSessionState } from "../../runtime/sessionState";
+import { matchesSteamText, steamTextSelectors } from "../../steam/steamText";
 
 export const ROOT_ID = "deck-shelves-home-root";
 
@@ -53,7 +54,7 @@ export function hasHomeDomSignals(): boolean {
   const doc = getPreferredSteamDocument();
   if (!doc) return false;
   if (doc.querySelector('[class*="libraryhome"], [class*="LibraryHome"], [class*="BasicHomeView"], [class*="gamepadlibrary"]')) return true;
-  if (doc.querySelector('[aria-label="Jogos recentes"], [aria-label="Recent Games"], [class*="ReactVirtualized__Grid"][aria-label]')) return true;
+  if (doc.querySelector([...steamTextSelectors("recentGames", "aria-label", "exact"), '[class*="ReactVirtualized__Grid"][aria-label]'].join(", "))) return true;
   try {
     const token = getRuntimeClassMap(doc)?.shelfSection || FALLBACK_SHELF_SECTION;
     if (doc.querySelector(`div.${token}, [class*="${token}"]`)) return true;
@@ -104,9 +105,6 @@ export function detectNavTreeApi(): { available: boolean; detail: string } {
     return { available: false, detail: String(e) };
   }
 }
-
-const RECENT_LABELS = ["jogos recentes", "recent games", "recently played", "jogados recentemente"];
-const CHIP_LABELS = ["what's new", "friends", "recommended", "novidades", "amigos", "recomendados"];
 
 /* `lenient` accepts an `overflow-y: auto|scroll` panel that doesn't overflow
    yet — early on, the Home holds only the native recents row, so the strict
@@ -163,8 +161,8 @@ function findScrollableAnchorAfterRecents(doc: Document): { parent: HTMLElement;
   const body = doc.body;
   const candidates = Array.from(doc.querySelectorAll('[role="list"],[aria-label],[class*="ReactVirtualized__Grid"]'));
   for (const node of candidates) {
-    const txt = `${(node.getAttribute?.("aria-label") || "")} ${(node.textContent || "")}`.toLowerCase();
-    if (!RECENT_LABELS.some((l) => txt.includes(l))) continue;
+    const txt = `${(node.getAttribute?.("aria-label") || "")} ${(node.textContent || "")}`;
+    if (!matchesSteamText(txt, "recentGames", "contains")) continue;
     const start = node as HTMLElement;
     const scrollable = walkToScrollableAncestor(start, body, 12) ?? walkToScrollableAncestor(start, body, 12, true);
     if (scrollable) return scrollable;
@@ -181,8 +179,7 @@ function chipRowAnchor(row: HTMLElement | null, doc: Document): { parent: HTMLEl
 
 function findAnchorByChipRow(doc: Document): { parent: HTMLElement; before: ChildNode | null } | null {
   for (const node of Array.from(doc.querySelectorAll('button, [role="tab"]'))) {
-    const text = (node.textContent || "").trim().toLowerCase();
-    if (!CHIP_LABELS.includes(text)) continue;
+    if (!matchesSteamText(node.textContent || "", "homeTabs", "exact")) continue;
     let row: HTMLElement | null = node.parentElement as HTMLElement;
     while (row && row.childElementCount <= 1 && row !== doc.body) row = row.parentElement;
     const anchor = chipRowAnchor(row, doc);
@@ -289,7 +286,7 @@ function isRecentsAdjacent(mount: HTMLElement): boolean {
   const prev = mount.previousElementSibling as HTMLElement | null;
   if (!prev || mountNestedInRecents(mount)) return false;
   const txt = `${(prev.getAttribute?.("aria-label") || "")} ${(prev.textContent || "")}`.toLowerCase();
-  if (RECENT_LABELS.some((l) => txt.includes(l))) return true;
+  if (matchesSteamText(txt, "recentGames", "contains")) return true;
   return !!prev.querySelector('[class*="ReactVirtualized"]');
 }
 

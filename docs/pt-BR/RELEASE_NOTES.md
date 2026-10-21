@@ -7,6 +7,8 @@ técnico completo, veja [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+- **Prateleiras no lugar certo em qualquer idioma do Steam**: a Home agora reconhece as linhas e abas do próprio Steam em qualquer idioma, não só em inglês e português.
+
 - **As páginas de jogo abrem com o foco nelas**: abrir um jogo pela Home não deixa mais a página sem nada selecionado.
 
 - **As etiquetas ficam no card que você toca (#133)**: as etiquetas de desconto e de "Novo" não somem mais de um card que você toca ou aponta com o mouse.

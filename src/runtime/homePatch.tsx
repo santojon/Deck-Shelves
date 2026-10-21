@@ -16,6 +16,7 @@ import { notify } from "../components/notify";
 import { findModuleByExport } from "./host/decky";
 import { recordRemountTry, timerCreated, timerDisposed, observerCreated, observerDisposed } from "../core/perfMetrics";
 import { createBridgeGateState, noteFallbackTick, bridgeGraceActive, hrefOf } from "./homePatchFallbackGate";
+import { matchesSteamText, steamText, steamTextSelectors } from "../steam/steamText";
 
 const ROOT_ID = "deck-shelves-home-root";
 const GLOBAL_COMPONENT_ID = "DeckShelvesHomeDomBridge";
@@ -85,7 +86,6 @@ export function applyReplaceActiveMargin(active: boolean, attempt = 0): void {
   } catch (e) { logInfo("HOME", "applyReplaceActiveMargin failed", String(e)); }
 }
 
-const RECENTS_LABEL_FRAGMENTS = ["jogos recentes", "recent games", "recently played", "played recently", "jogados recentemente"];
 
 // Under Big Art the structural previous-sibling is ground truth (see
 // bigArtStructuralRecents) — a cache pointing elsewhere is stale too.
@@ -110,11 +110,11 @@ function reseedCachedRecentsEl(): void {
   } catch (e) { logInfo("HOME", "applyHideRecents: findRecentsEl failed", String(e)); }
 }
 
-function elMatchesRecentsLabel(el: HTMLElement): boolean {
+function elMatchesRecentsLabel(el: HTMLElement, labels: string[]): boolean {
   try {
     const aria = (el.getAttribute && el.getAttribute('aria-label'))?.toLowerCase() ?? '';
     const txt = (aria || (el.innerText || '')).toLowerCase().substring(0, 80);
-    return RECENTS_LABEL_FRAGMENTS.some((l) => txt.includes(l));
+    return labels.some((l) => txt.includes(l));
   } catch { return false; }
 }
 
@@ -122,9 +122,9 @@ function elMatchesRecentsLabel(el: HTMLElement): boolean {
 // is always a sibling of our mount. Falls back to the document if not found yet.
 function restoreRecentsByLabelSearch(): void {
   try {
-    const doc = getHostContext().doc, scope: ParentNode = (doc.getElementById(ROOT_ID) as HTMLElement | null)?.parentElement ?? doc;
+    const doc = getHostContext().doc, scope: ParentNode = (doc.getElementById(ROOT_ID) as HTMLElement | null)?.parentElement ?? doc, labels = steamText("recentGames");
     for (const el of Array.from(scope.querySelectorAll<HTMLElement>('*'))) {
-      if (!elMatchesRecentsLabel(el)) continue;
+      if (!elMatchesRecentsLabel(el, labels)) continue;
       try { for (const p of ["visibility", "height", "min-height", "max-height", "overflow"]) el.style.removeProperty(p); } catch {}
     }
   } catch (e) { logInfo("HOME", "applyHideRecents: fallback restore failed", String(e)); }
@@ -405,7 +405,7 @@ function bigArtStructuralRecents(prev: HTMLElement | null, mountEl: HTMLElement)
 }
 
 function findRecentsEl(doc: Document, mountEl: HTMLElement): HTMLElement | null {
-  const labels = RECENTS_LABEL_FRAGMENTS;
+  const labels = steamText("recentGames");
   const mountParent = mountEl.parentElement;
   if (!mountParent) return null;
   const prevEl = mountEl.previousElementSibling as HTMLElement | null;
@@ -478,7 +478,7 @@ function shelfSectionSelector(doc: Document): string {
   return `div.${FALLBACK_SHELF_SECTION}, [class*="${FALLBACK_SHELF_SECTION}"]`;
 }
 
-const RECENTS_QS = '[aria-label="Jogos recentes"], [aria-label="Recent Games"], [class*="ReactVirtualized__Grid"][aria-label]';
+const recentsQs = (): string => [...steamTextSelectors("recentGames", "aria-label", "exact"), '[class*="ReactVirtualized__Grid"][aria-label]'].join(", ");
 const LIBRARY_HOME_QS = '[class*="libraryhome"], [class*="LibraryHome"], [class*="BasicHomeView"], [class*="gamepadlibrary"]';
 
 function safeMatch(doc: Document, selector: string): boolean {
@@ -495,7 +495,7 @@ function hrefIsLibraryHome(href: string): boolean {
 
 function scoreDocSignals(doc: Document): number {
   let s = 0;
-  if (safeMatch(doc, RECENTS_QS)) s += 8;
+  if (safeMatch(doc, recentsQs())) s += 8;
   if (safeMatch(doc, LIBRARY_HOME_QS)) s += 6;
   if (safeMatch(doc, shelfSectionSelector(doc))) s += 2;
   if (doc.body?.childElementCount) s += 1;
@@ -541,7 +541,7 @@ function getContextSnapshot() {
     href,
     readyState: doc.readyState,
     hasObfuscatedAnchor,
-    hasHomeGrid: !!doc.querySelector('[aria-label="Jogos recentes"], [aria-label="Recent Games"], [class*="ReactVirtualized__Grid"][aria-label]'),
+    hasHomeGrid: !!doc.querySelector(recentsQs()),
     hasLibraryContainers: !!doc.querySelector('[class*="libraryhome"], [class*="LibraryHome"], [class*="BasicHomeView"], [class*="gamepadlibrary"]'),
     bodyChildren: doc.body?.childElementCount ?? 0,
   };
@@ -566,7 +566,7 @@ function isHomeVisible(): boolean {
   const href = `${win.location?.pathname ?? ""}${win.location?.hash ?? ""}`.toLowerCase();
   if (hrefIsHomeLike(href)) return true;
   if (safeMatch(doc, LIBRARY_HOME_QS)) return true;
-  if (safeMatch(doc, RECENTS_QS)) return true;
+  if (safeMatch(doc, recentsQs())) return true;
   return safeMatch(doc, shelfSectionSelector(doc));
 }
 
@@ -581,8 +581,6 @@ function closestSection(el: Element | null): HTMLElement | null {
 
 type Anchor = { parent: HTMLElement; before: ChildNode | null };
 
-const RECENTS_LABEL_FRAGMENTS_EXT = [...RECENTS_LABEL_FRAGMENTS, "jogado recentemente"];
-const CHIP_LABELS = ["what's new", "friends", "recommended", "novidades", "amigos", "recomendados"];
 const ANCHOR_CONTAINERS_QS = '[class*="gamepadlibrary"], [class*="libraryhome"], [class*="LibraryHome"], [class*="BasicHomeView"], [class*="AppGridFilterContainer"], [class*="AllPagesContainer"], main, [role="main"]';
 const ANCHOR_CANDIDATES_QS = '[role="list"],[aria-label],[class*="ReactVirtualized__Grid"],[class*="ReactVirtualized__Grid__innerScrollContainer"]';
 
@@ -618,8 +616,8 @@ function anchorFromGridOrSection(node: Element): Anchor | null {
 
 function anchorFromRecentsCandidates(doc: Document): Anchor | null {
   for (const node of Array.from(doc.querySelectorAll(ANCHOR_CANDIDATES_QS))) {
-    const txt = `${(node.getAttribute?.("aria-label") || "")} ${(node.textContent || "")}`.toLowerCase();
-    if (!RECENTS_LABEL_FRAGMENTS_EXT.some((label) => txt.includes(label))) continue;
+    const txt = `${(node.getAttribute?.("aria-label") || "")} ${(node.textContent || "")}`;
+    if (!matchesSteamText(txt, "recentGames", "contains")) continue;
     const scrollable = findScrollableAncestor(node as HTMLElement, doc) ?? findScrollableAncestor(node as HTMLElement, doc, true);
     if (scrollable) return scrollable;
     const fallback = anchorFromGridOrSection(node);
@@ -631,7 +629,7 @@ function anchorFromRecentsCandidates(doc: Document): Anchor | null {
 function anchorFromChipLabels(doc: Document): Anchor | null {
   for (const node of Array.from(doc.querySelectorAll('button, [role="tab"]'))) {
     const text = (node.textContent || "").trim().toLowerCase();
-    if (!CHIP_LABELS.includes(text)) continue;
+    if (!matchesSteamText(text, "homeTabs", "exact")) continue;
     const section = closestSection(node);
     if (section?.parentElement) return { parent: section.parentElement, before: section };
   }

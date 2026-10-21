@@ -50,6 +50,8 @@ e este projeto segue o [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ### Corrigido
 
+- **A Home encontra as linhas do próprio Steam em qualquer idioma do Steam.** O plugin reconhecia a linha nativa de Jogos recentes e as abas da Home só pelos nomes em inglês e português, então em qualquer outro idioma do Steam caía num jeito menos preciso de posicionar as prateleiras. Agora ele pergunta ao Steam esses nomes no seu idioma (e em inglês), sem listas de palavras próprias. O aviso exibido quando um gatilho troca para o perfil de fábrica também usa o nome traduzido em vez de "Padrão".
+
 - **Abrir um jogo pela Home não deixa mais a página dele sem foco.** Por um instante depois de um card abrir a página do jogo, a Home continua montada por trás; uma mudança numa prateleira com arte de fundo então puxava o foco de volta para esse card, que sumia com a Home logo depois, e a página do jogo abria sem nada selecionado, com o controle parecendo travado. Os movimentos automáticos de foco agora esperam a Home voltar a ser a página atual, e o card aberto não é mais dado como já restaurado enquanto a página dele abre, então continua sendo o card onde você cai na volta.
 
 - **As etiquetas de desconto e de "Novo" ficam no card que você toca (#133).** Tocar num card, ou apontar para ele com o mouse, dava a ele o visual de foco mas escondia a etiqueta, enquanto a etiqueta desenhada acima do card focado continuava com o foco em outro lugar — então o card que parecia destacado ficava sem etiqueta. Um card só tocado ou com o mouse por cima agora mantém a própria etiqueta; o card focado continua mostrando a etiqueta acima do anel de foco.

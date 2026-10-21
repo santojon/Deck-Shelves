@@ -153,6 +153,17 @@ export function gamepadUIMainWindowStore(): GamepadUIMainWindowStoreLike | null 
   return (scope().GamepadUIMainWindowStore as GamepadUIMainWindowStoreLike | undefined) ?? null;
 }
 
+// Steam's text table: a token in the user's language, or in English from its fallback table.
+export interface SteamLocalizationLike {
+  LocalizeString?(token: string): string | null;
+  LocalizeStringFromFallback?(token: string): string | null;
+  [key: string]: any;
+}
+
+export function steamLocalization(): SteamLocalizationLike | null {
+  return (scope().LocalizationManager as SteamLocalizationLike | undefined) ?? null;
+}
+
 export function steamClient(): SteamClientLike | null {
   return (scope().SteamClient as SteamClientLike | undefined) ?? null;
 }

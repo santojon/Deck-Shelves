@@ -40,6 +40,7 @@ import { FriendsAvatarOverlay } from "./shelf/FriendsAvatarOverlay";
 import { computeNormalShelves, computeShelvesOrder, computeInterleaveSmart, computeDerivedGlobalFlags, computeEnabledSmartShelves, computeCanHideRecents, applyRecentsFocusTrap, teardownObservers, teardownHistoryPatches, dispatchHideRecentsDisabled, anyShelfHasItems } from "./home/homeInjectHelpers";
 import { markMountStart, recordMountDone, resetMountCounters, recordReconcile, recordDomCallback, recordRender, timerCreated, timerDisposed, observerCreated, observerDisposed, subscriptionCreated, subscriptionDisposed } from "../core/perfMetrics";
 import { withDefaults } from "./withDefaults";
+import { steamTextSelectors } from "../steam/steamText";
 
 const homePlatform = createDeckyPlatform();
 
@@ -577,7 +578,7 @@ export function HomeShelves({ fallback = false }: { fallback?: boolean }) {
           if (!dc || seen.has(dc)) continue;
           seen.add(dc);
           native = dc.querySelector(
-            '[aria-label*="recentes" i] .Focusable, [aria-label*="recente" i] .Focusable, [aria-label*="recent" i] .Focusable, [role="list"] .Panel.Focusable'
+            [...steamTextSelectors("recentGames", "aria-label", "contains", " .Focusable"), '[role="list"] .Panel.Focusable'].join(", ")
           ) as HTMLElement | null;
           if (native) break;
         }

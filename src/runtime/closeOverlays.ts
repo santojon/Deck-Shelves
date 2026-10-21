@@ -1,5 +1,6 @@
 import { Navigation } from "./host/decky";
 import { getPreferredSteamDocument } from "./steamHost";
+import { steamTextSelectors } from "../steam/steamText";
 
 // Mutex between Quick Search and Side Nav: when one combo fires, the
 /* other suppresses its own raw-bus trigger for a short window. Without
@@ -37,22 +38,16 @@ function ambientOverlayPresent(doc: Document): boolean {
   return false;
 }
 
-const CLOSE_TOKENS = ["#Button_Close", "#Generic_Close", "#Button_Cancel"];
-
-/* Most Steam modals carry a close button labelled "close" / "cancel", or the
-   same words in Steam's UI language. The English words match as substrings;
-   the localized ones (read from Steam's own localizer) only as the whole
-   label, so a longer label that merely contains the word is left alone. */
+/* Most Steam modals carry a close button labelled with Steam's own "Close" /
+   "Cancel". The English words match inside a longer label; the user's language
+   only as the whole label, so a longer one like "Fechar jogo" (close the game)
+   is never pressed. */
 export function dismissButtonSelector(): string {
-  const parts = ['[aria-label*="close" i]', '[aria-label*="cancel" i]', '[data-testid*="close" i]'];
-  const lm = (globalThis as any).LocalizationManager;
-  for (const token of CLOSE_TOKENS) {
-    try {
-      const word = lm?.LocalizeString?.(token);
-      if (typeof word === "string" && word && !word.startsWith("#")) parts.push(`[aria-label="${word.replace(/["\\]/g, "\\$&")}" i]`);
-    } catch {}
-  }
-  return parts.join(", ");
+  return [
+    ...steamTextSelectors("closeButton", "aria-label", "contains", "", "english"),
+    ...steamTextSelectors("closeButton", "aria-label", "exact", "", "user"),
+    '[data-testid*="close" i]',
+  ].join(", ");
 }
 
 function clickOverlayDismissButtons(doc: Document, selector: string): void {

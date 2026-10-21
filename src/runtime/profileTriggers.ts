@@ -67,9 +67,17 @@ function currentContext(): { profiles: any[] } | null {
   return { profiles };
 }
 
+// The factory profile's stored name is an identifier: show its translated name.
+function shownProfileName(name: string): string {
+  if (name !== FACTORY_PROFILE_NAME) return name;
+  const factory = i18n.t('profile_factory_name');
+  return factory && factory !== 'profile_factory_name' ? factory : 'Default';
+}
+
 function triggerToast(name: string): void {
-  const msg = i18n.t('profile_trigger_toast', { name });
-  notifyUser(i18n.t('plugin_name'), msg && msg !== 'profile_trigger_toast' ? msg : `Switched to profile: ${name}`, 'profile', 'triggers');
+  const shown = shownProfileName(name);
+  const msg = i18n.t('profile_trigger_toast', { name: shown });
+  notifyUser(i18n.t('plugin_name'), msg && msg !== 'profile_trigger_toast' ? msg : `Switched to profile: ${shown}`, 'profile', 'triggers');
 }
 
 // Key-order-independent serialization, so a restored/applied settings object

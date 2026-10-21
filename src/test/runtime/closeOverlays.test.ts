@@ -4,14 +4,13 @@ import { describe, it, expect, afterEach, vi } from "vitest";
 vi.mock("../../runtime/host/decky", () => ({ Navigation: {} }));
 
 import { dismissButtonSelector } from "../../runtime/closeOverlays";
-
-const LOCALIZED: Record<string, string> = { "#Button_Close": "Fechar", "#Generic_Close": "Fechar", "#Button_Cancel": "Cancelar" };
+import { STEAM_PT_BR, clearSteamLocalizer, stubSteamLocalizer } from "../fixtures/steamLocalizer";
 
 describe("dismissButtonSelector", () => {
-  afterEach(() => { vi.unstubAllGlobals(); document.body.innerHTML = ""; });
+  afterEach(() => { clearSteamLocalizer(); document.body.innerHTML = ""; });
 
-  it("matches English labels as substrings and Steam's localized labels only as the whole label", () => {
-    vi.stubGlobal("LocalizationManager", { LocalizeString: (t: string) => LOCALIZED[t] ?? t });
+  it("matches Steam's English words inside a label and the user's language only as the whole label", () => {
+    stubSteamLocalizer(STEAM_PT_BR);
     document.body.innerHTML = `
       <button id="en" aria-label="Close dialog"></button>
       <button id="pt" aria-label="Fechar"></button>
@@ -21,10 +20,10 @@ describe("dismissButtonSelector", () => {
     expect(ids).toEqual(["en", "pt", "pt-cancel"]);
   });
 
-  it("keeps the English selector when Steam's localizer is missing or returns raw tokens", () => {
-    const base = '[aria-label*="close" i], [aria-label*="cancel" i], [data-testid*="close" i]';
+  it("keeps only the test-id hook when Steam's localizer is missing or returns raw tokens", () => {
+    const base = '[data-testid*="close" i]';
     expect(dismissButtonSelector()).toBe(base);
-    vi.stubGlobal("LocalizationManager", { LocalizeString: (t: string) => t });
+    vi.stubGlobal("LocalizationManager", { LocalizeString: (t: string) => t, LocalizeStringFromFallback: (t: string) => t });
     expect(dismissButtonSelector()).toBe(base);
   });
 });
