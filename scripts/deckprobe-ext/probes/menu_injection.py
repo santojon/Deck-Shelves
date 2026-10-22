@@ -12,7 +12,7 @@ Usage:
     python3 scripts/deckprobe-ext/probes/menu_injection.py
 
 What it checks:
-  1. Patch state (informational): LibraryContextMenu class discovered
+  1. Patch state (informational): whether the plugin's boot patch on the game menu is installed
   2. For 3 cards: at least one `ds-card-…` action and the `ds-shelf-root` group,
      and no plugin entry injected twice
   3. Expanding the shelf group shows `ds-mgmt`, `ds-display` and `ds-visual`
@@ -53,15 +53,11 @@ def check_patches(sjc) -> None:
           }
         }
       } catch(e) { out.ctxErr = String(e); }
-      // LibraryContextMenu class discovery
+      // Boot patch state, as the plugin records it
       try {
-        const m = dfl.findModuleByExport(e => e?.toString && e.toString().includes('().LibraryContextMenu'));
-        if (m) {
-          const w = Object.values(m).find(s => s?.toString && s.toString().includes('navigator:'));
-          const r = w ? dfl.fakeRenderComponent(w) : null;
-          out.clsDiscovered = !!r?.type;
-          out.clsName = r?.type?.name;
-        }
+        const dbg = globalThis.deckShelves?.debug || {};
+        out.clsDiscovered = dbg.lcmPatched === true;
+        out.lcmRenderCalls = dbg.lcmRenderCalls ?? null;
       } catch(e) { out.clsErr = String(e); }
       return JSON.stringify(out, null, 2);
     })()
@@ -69,7 +65,7 @@ def check_patches(sjc) -> None:
     data = json.loads(result or "{}")
     print(f"  mgrFound            : {data.get('mgrFound', '?')}")
     print(f"  ctxPatchInstalled   : {data.get('ctxPatchInstalled', '?')}")
-    print(f"  clsDiscovered       : {data.get('clsDiscovered', '?')} (name={data.get('clsName')})")
+    print(f"  clsDiscovered       : {data.get('clsDiscovered', '?')} (render calls={data.get('lcmRenderCalls')})")
 
 
 # Plugin entries carry React keys starting with "ds-"; read them off each menu

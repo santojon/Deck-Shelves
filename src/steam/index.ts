@@ -13,7 +13,7 @@ import { getCollectionApps, listCollections, normalizeText } from "./collections
 import { appIdOfRow, getSteamClients, getSteamWindows, uniqNumbers } from "./steamAccess";
 import { logInfo, logWarn } from "../runtime/logger";
 import { withOnlineSwr } from "./onlineCache";
-import { deduplicateNonSteam, enrichForSort, mergeCompositeResults } from "./resolveShared";
+import { collectFilterGroupItemsFlat, deduplicateNonSteam, enrichForSort, mergeCompositeResults } from "./resolveShared";
 import { _resolveFilter } from "./filterResolver";
 import { _resolveCollection, _resolveExternal } from "./collectionResolver";
 import { PRICE_SORT_KEYS, _resolveStore, _resolveWishlist } from "./onlineResolvers";
@@ -467,11 +467,57 @@ async function _resolveComposite(ctx: ResolverContext): Promise<number[]> {
   return finish(merged.slice(0, overShootLimit));
 }
 
+// A child filter item that asks for Steam-hidden games (same reading as evalHidden).
+function asksForHiddenGames(item: FilterItem): boolean {
+  if (item.type !== "hidden") return false;
+  const mode = item.params?.mode ?? "exclude";
+  return item.inverted ? mode === "exclude" : mode === "only";
+}
+
+/* The native library never lists a Steam-hidden game on a tab or inside a
+   collection, so tab and collection shelves drop them here, in one place.
+   Only the Hidden tab itself and a shelf whose child filter asks for hidden
+   games keep them; filter and smart shelves keep their own `hidden` item. */
+function keepsSteamHidden(source: LooseSource): boolean {
+  if (source.type === "tab" && tabIdFromPath(String(source.tab ?? "").trim()) === "hidden") return true;
+  const cf = source.childFilter as FilterGroup | undefined;
+  return !!cf && collectFilterGroupItemsFlat(cf).some(asksForHiddenGames);
+}
+
+type SourceResolver = (ctx: ResolverContext) => Promise<number[]>;
+
+function withoutSteamHidden(resolve: SourceResolver): SourceResolver {
+  return async (ctx) => {
+    if (keepsSteamHidden(ctx.source)) return resolve(ctx);
+    const hidden = new Set(ctx.all.filter((a) => isHiddenOf(a)).map((a) => appIdOf(a)));
+    if (!hidden.size) return resolve(ctx);
+    let total: number | undefined;
+    let dropped = 0;
+    const ids = await resolve({
+      ...ctx,
+      all: ctx.all.filter((a) => !hidden.has(appIdOf(a))),
+      // Ids read straight from Steam (tab store, collections) still carry the
+      // hidden games: widen the resolver's own cut so dropping them keeps the shelf full.
+      overShootLimit: ctx.overShootLimit + hidden.size,
+      finish: (raw) => {
+        const kept = raw.filter((id) => !hidden.has(id));
+        dropped = raw.length - kept.length;
+        return ctx.finish(kept);
+      },
+      // A resolver reports its See-more total before `finish`: pass it on minus the games dropped there.
+      reportTotal: ctx.reportTotal && ((n) => { total = n; }),
+    });
+    if (total !== undefined) ctx.reportTotal?.(total - dropped);
+    // A path that returns without `finish` (the TabMaster filter fallback) is caught here.
+    return ids.filter((id) => !hidden.has(id));
+  };
+}
+
 // Dispatcher table keyed by `source.type`. Each entry runs in its own
 // function above so the dispatcher itself stays at complexity ~3.
 const SOURCE_RESOLVERS: Record<string, (ctx: ResolverContext) => Promise<number[]>> = {
-  collection: _resolveCollection,
-  tab: _resolveTab,
+  collection: withoutSteamHidden(_resolveCollection),
+  tab: withoutSteamHidden(_resolveTab),
   filter: _resolveFilter,
   external: _resolveExternal,
   wishlist: withOnlineSwr("wishlist", _resolveWishlist),

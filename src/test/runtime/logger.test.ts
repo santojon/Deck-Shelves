@@ -18,11 +18,11 @@ describe("logger — verbose routing into the diagnostics buffer", () => {
   });
   afterEach(() => vi.restoreAllMocks());
 
-  it("does not mirror to the buffer when verbose is off", () => {
+  it("mirrors only warnings and errors when verbose is off", () => {
     logInfo("HOME", "info");
     logWarn("HOME", "warn");
     logError("HOME", "error");
-    expect(currentEntries()).toHaveLength(0);
+    expect(currentEntries().map((e) => e.level).sort()).toEqual(["error", "warn"]);
   });
 
   it("mirrors info / warn / error (incl. the dev-only info) when verbose is on", () => {
@@ -44,9 +44,9 @@ describe("logger — verbose routing into the diagnostics buffer", () => {
 
   it("stops mirroring once verbose is turned back off", () => {
     setVerboseLogging(true);
-    logWarn("HOME", "a");
+    logInfo("HOME", "a");
     setVerboseLogging(false);
-    logWarn("HOME", "b");
+    logInfo("HOME", "b");
     expect(currentEntries()).toHaveLength(1);
   });
 });

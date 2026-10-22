@@ -133,6 +133,7 @@ function smartShelfToShelf(s: SmartShelf): Shelf {
     manualOrder: raw.manualOrder,
     manualBaseSort: raw.manualBaseSort,
     manualBaseSortReverse: raw.manualBaseSortReverse,
+    hiddenAppIds: raw.hiddenAppIds,
   } as any;
 }
 

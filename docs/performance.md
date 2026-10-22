@@ -64,4 +64,4 @@ Track findings in PRs with `[PERF]` tag plus before/after numbers in the descrip
 - Re-render audit pass over `EditShelfModal` and `EditSmartShelfModal` — preview row recomputes on every keystroke; debounce candidate.
 - Bundle split: lazy-load the About page route. Currently bundled in the main chunk.
 - `MutationObserver` budget review — count active observers and consolidate where the same node is watched by two paths.
-- Battery measurement long-haul — a 6-hour idle test to rule out slow leaks in the recents-replace patch chain.
+- Battery measurement long-haul — a 6-hour idle test to rule out slow leaks in the recents replacement.

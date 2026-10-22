@@ -1,7 +1,5 @@
 import { useRef, type ReactNode } from 'react'
 import { Dropdown, Field, Focusable, ToggleField } from '../../../runtime/host/decky'
-import { hostProvidesNativeTab } from '../../../runtime/host/resolve'
-import { restartSteam } from '../../../runtime/ownQamTab'
 import { takeNavTreeFocus } from '../../../runtime/navFocus'
 import type { SettingsController } from '../../../features/settings/controller'
 import type { Settings } from '../../../types'
@@ -264,13 +262,12 @@ function experimentalSection(c: GCtx): ReactNode {
       id='experimental'
       icon={<WandIcon />}
       title={t('section_experimental' as any)}
-      count={[settings.forceCssLoaderThemes === true, settings.ownQamTabEnabled === true, settings.showcaseModeEnabled === true, hasScreensaverSupport && settings.screensaverShelvesEnabled === true].filter(Boolean).length}
+      count={[settings.forceCssLoaderThemes === true, settings.showcaseModeEnabled === true, hasScreensaverSupport && settings.screensaverShelvesEnabled === true].filter(Boolean).length}
       headerExtra={eye(c, 'experimental')}
     >
       {hasCssLoader && !lightMode && row('forceCssLoaderThemes', (
         <ToggleField label={t('force_themes_label')} checked={settings.forceCssLoaderThemes === true} onChange={(v: boolean) => void actions.setForceCssLoaderThemes(v)} />
       ))}
-      {ownQamTabGroup(c)}
       {showcaseModeGroup(c)}
       {hasScreensaverSupport && screensaverShelvesGroup(c)}
     </CollapsibleSection>
@@ -339,27 +336,6 @@ function screensaverLogoPlacementGroup(c: GCtx): ReactNode {
       <DSSliderField label={t('screensaver_description_logo_gap_label' as any)} value={settings.screensaverDescriptionLogoGap ?? 10} min={-40} max={80} step={5} unit='px' onChange={(v: number) => void (actions as any).setScreensaverDescriptionLogoGap(v)} />
     ))}
   </>)
-}
-
-function ownQamTabGroup(c: GCtx): ReactNode {
-  const { t, settings, actions, row } = c
-  // Hidden when a neutral host already provides its own native tab (sole or
-  // coexist) — the option would only add a duplicate Deck Shelves tab.
-  if (hostProvidesNativeTab()) return null
-  return (
-    row('ownQamTabEnabled', (
-      <ToggleField label={t('own_qam_tab_enabled' as any)} checked={settings.ownQamTabEnabled === true} onChange={(v: boolean) => {
-        void (actions as any).setOwnQamTabEnabled(v);
-        confirmAction({
-          title: t('own_qam_tab_restart_title' as any),
-          body: t((v ? 'own_qam_tab_restart_body' : 'own_qam_tab_restart_body_off') as any),
-          okText: t('own_qam_tab_restart_now' as any),
-          cancelText: t('own_qam_tab_restart_later' as any),
-          onConfirm: restartSteam,
-        });
-      }} />
-    ))
-  )
 }
 
 function showcaseModeGroup(c: GCtx): ReactNode {

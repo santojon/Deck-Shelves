@@ -113,20 +113,41 @@ async function applyWishlistSort(
   return applySortToIds(ids, sort, pool, shelfId, sortReverse, localPriceMap);
 }
 
+/* An empty wishlist shelf always says why, at warn level so it reaches the
+   diagnostics log: one line per resolve, except inside a fetch backoff window,
+   which is reported once (every refresh re-resolves until the fetch succeeds). */
+let warnedBackoffUntil = 0;
+
+function warnWishlistEmpty(why: { reason: string; backoffUntil?: number } | null): void {
+  const { reason, backoffUntil } = why ?? { reason: "no wishlist ids" };
+  if (backoffUntil !== undefined) {
+    if (backoffUntil === warnedBackoffUntil) return;
+    warnedBackoffUntil = backoffUntil;
+  }
+  logWarn("STEAM", "resolveShelfAppIds(wishlist) empty", reason);
+}
+
+// The setting that keeps the wishlist from being fetched at all, or null when none does.
+function wishlistSettingsGate(s: Settings | null | undefined): string | null {
+  if (!isOnlineEnabledForSettings(s)) return s?.offlineModeEnabled === true ? "offline mode" : "online off";
+  if (s?.onlineWishlistEnabled === false) return "wishlist off";
+  return null;
+}
+
 export async function _resolveWishlist(ctx: ResolverContext): Promise<number[]> {
   const { source, all, sort, shelfId, sortReverse, finish, overShootLimit } = ctx;
   try {
     const { getCurrentSettings } = await import("../store/settingsStore");
-    const { getWishlistIds, getPriceMap } = await import("../core/onlineStore");
+    const { getWishlistIds, getWishlistEmptyReason, getPriceMap } = await import("../core/onlineStore");
     const s = getCurrentSettings();
-    const onlineEnabled = isOnlineEnabledForSettings(s);
-    if (!onlineEnabled || s?.onlineWishlistEnabled === false) {
-      logInfo("STEAM", "resolveShelfAppIds(wishlist) skipped", { onlineEnabled, wishlistEnabled: s?.onlineWishlistEnabled !== false });
+    const gate = wishlistSettingsGate(s);
+    if (gate) {
+      warnWishlistEmpty({ reason: gate });
       return [];
     }
     const wishlistIds = await getWishlistIds();
     if (!wishlistIds) {
-      logInfo("STEAM", "resolveShelfAppIds(wishlist) no wishlist ids");
+      warnWishlistEmpty(getWishlistEmptyReason());
       return [];
     }
 
@@ -137,7 +158,8 @@ export async function _resolveWishlist(ctx: ResolverContext): Promise<number[]> 
     let ids = flags.hideOwned ? wishlistIds.filter((id) => !ownedSet.has(id)) : [...wishlistIds];
     ids = await applyWishlistChildFilter(ids, (source as any).childFilter, all);
     ids = await applyWishlistSort(ids, sort, sortReverse, all, shelfId, getPriceMap);
-    logInfo("STEAM", "resolveShelfAppIds(wishlist) resolved", { count: ids.length });
+    if (!ids.length) warnWishlistEmpty({ reason: `all ${wishlistIds.length} filtered out (owned / child filter)` });
+    else logInfo("STEAM", "resolveShelfAppIds(wishlist) resolved", { count: ids.length });
     return finish(ids.slice(0, overShootLimit));
   } catch (e) {
     logWarn("STEAM", "resolveShelfAppIds(wishlist) failed", String(e));

@@ -64,7 +64,7 @@
   "toast_filter_renamed": "Zmieniono nazwę filtra",
   "mount_crash_report": "Zgłoś problem",
   "safe_mode_title": "Tryb awaryjny jest włączony",
-  "safe_mode_desc": "Twoje półki zostały wyłączone w tej sesji, ponieważ ekran główny nie załadował się do końca przy trzech kolejnych uruchomieniach. Własny ekran główny Steam pozostaje użyteczny. Opuść tryb awaryjny, aby spróbować ponownie przy następnym restarcie Steam.",
+  "safe_mode_desc": "Twoje półki zostały wyłączone w tej sesji, ponieważ ekran główny nie załadował się do końca przy trzech z ostatnich sześciu uruchomień. Własny ekran główny Steam pozostaje użyteczny. Opuść tryb awaryjny, aby spróbować ponownie przy następnym restarcie Steam.",
   "safe_mode_leave": "Opuść tryb awaryjny",
   "report_issue_title": "Zgłoś problem",
   "report_issue_desc": "Otwiera wstępnie wypełnione zgłoszenie w przeglądarce. Nic nie jest wysyłane, dopóki go nie sprawdzisz i nie wyślesz.",

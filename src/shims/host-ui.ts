@@ -129,7 +129,7 @@ export const DropdownItem = frontendLib.DropdownItem ?? frontendLib.Dropdown ?? 
 export const Field = frontendLib.Field ?? fieldFallback;
 export const Focusable = frontendLib.Focusable ?? passthroughComponent;
 /* Runtime enum that Decky exposes via FooterLegend. Required for
-   gamepad-button comparison in the local ReorderableList. Fallback keeps
+   gamepad-button comparisons in the QAM lists. Fallback keeps
    the numeric values stable (the loader's FooterLegend enum) so any
    destructuring still works when Decky's global hasn't initialised yet. */
 export const GamepadButton = frontendLib.GamepadButton ?? {
@@ -144,7 +144,6 @@ export const MenuItem = frontendLib.MenuItem ?? passthroughComponent;
 export const Navigation = frontendLib.Navigation ?? { Navigate: noop };
 export const PanelSection = frontendLib.PanelSection ?? passthroughComponent;
 export const PanelSectionRow = frontendLib.PanelSectionRow ?? passthroughComponent;
-export const ReorderableList = frontendLib.ReorderableList ?? passthroughComponent;
 export const ScrollPanel = frontendLib.ScrollPanel ?? passthroughComponent;
 export const ScrollPanelGroup = frontendLib.ScrollPanelGroup ?? passthroughComponent;
 export const SidebarNavigation = frontendLib.SidebarNavigation ?? passthroughComponent;
@@ -159,6 +158,18 @@ export const afterPatch = frontendLib.afterPatch ?? ((_target: any, _method: any
 export const findInReactTree = frontendLib.findInReactTree ?? ((_node: any, _cb: any) => null);
 export const findInTree = frontendLib.findInTree ?? ((_node: any, _cb: any, _opts?: any) => null);
 export const findModuleChild = frontendLib.findModuleChild ?? ((_filter: any) => undefined);
+// Same walk (default export first) on hosts without findModule; the loader's
+// findModuleChild warns on every call and is going away, so findModule is preferred.
+const walkWithChildSearch = (filter: (variant: any) => unknown): any => {
+  let hit: any;
+  frontendLib.findModuleChild?.((variant: any) => {
+    if (!filter(variant)) return false;
+    hit = variant;
+    return true;
+  });
+  return hit;
+};
+export const findModule = frontendLib.findModule ?? walkWithChildSearch;
 export const findModuleByExport = frontendLib.findModuleByExport ?? ((_filter: any, _minExports?: number) => undefined);
 export const fakeRenderComponent = frontendLib.fakeRenderComponent ?? ((_fn: any, _customHooks?: any) => null);
 export const staticClasses = frontendLib.staticClasses ?? {};
@@ -193,16 +204,9 @@ export const quickAccessMenuClasses =
   frontendLib.staticClasses?.QuickAccessMenu ??
   classProxy;
 
-export type ReorderableEntry<T> = {
-  label: any;
-  position: number;
-  data?: T;
-};
-
 export type SingleDropdownOption = {
   data: any;
   label: any; // string or a React node — Steam dropdowns accept both
 };
 
-export const ReorderableEntry = undefined as any;
 export const SingleDropdownOption = undefined as any;

@@ -18,7 +18,8 @@ import { applyHideRecents, reapplyHomeHides, enforceHomeFocusSuppression, applyH
 import { getRecentsReplaceFailed, subscribeRecentsReplaceFailed, isRecentsReplaceInjecting, subscribeRecentsReplaceInjecting } from "../runtime/recentsReplace";
 import { Focusable } from "../runtime/host/decky";
 import { installPassiveMenuHook, installPassiveShowContextMenuHook, installLibraryContextMenuPatch, installCreateContextMenuPatch, prewarmMenuExtraction } from "../core/steamGameMenu";
-import { tryRestoreFocus, hasPendingFocus, beginFocusRestoreLoop, beginColdBootFocusGuard, focusElement, getLastFocusedElement, saveFocusTargetFromFocusedCard } from "../core/focusRestore";
+import { tryRestoreFocus, hasPendingFocus, beginFocusRestoreLoop, beginColdBootFocusGuard, focusElementAuto, startFocusFirstPoll, getLastFocusedElement, saveFocusTargetFromFocusedCard } from "../core/focusRestore";
+import { getPowerState } from "../runtime/powerGate";
 import { allShelvesWarm, getShelfWarmEntry, isShelfResolved, subscribeShelfResolved } from "./shelf/shelfWarmState";
 import { recordBootStarted, recordBootCompleted } from "../runtime/safeMode";
 import { focusNativeRecentsFirstCard, findNativeRecentsEl } from "../features/sidenav/ShelfSideNav";
@@ -447,6 +448,8 @@ export function HomeShelves({ fallback = false }: { fallback?: boolean }) {
     // Cancels the in-flight focused-card scroll retry (one per return at most).
     let scrollSyncCancel: (() => void) | null = null;
     const onRouteChange = () => {
+      // A pushState navigation fires no popstate: the gate learns the route from here.
+      getPowerState();
       const nowOnHome = isHomeRoute();
       // Leaving by any path: remember the focused card so the rebuilt Home
       // restores it (keep-selection on return).
@@ -582,7 +585,7 @@ export function HomeShelves({ fallback = false }: { fallback?: boolean }) {
           ) as HTMLElement | null;
           if (native) break;
         }
-        if (native) focusElement(native);
+        if (native) focusElementAuto(native);
       } catch {}
     }
     prevEnabledRef.current = settings.enabled;
@@ -593,8 +596,8 @@ export function HomeShelves({ fallback = false }: { fallback?: boolean }) {
      (we never change the stored setting, only the DOM state).
 
      When `recentsReplaceSource` is on, the native recents area remains */
-  /* visible on purpose — our router patch is driving its games array — so
-     the visual hide is skipped. First visible shelf is forced-expanded only
+  /* visible on purpose — the recents replacement shows the promoted shelf in
+     it — so the visual hide is skipped. First visible shelf is forced-expanded only
      when we're truly hiding (preserves the current behaviour).
      Re-run this effect when the recents-replace kill switch flips (our
      experiment reported a runtime error → fall back to the visual hide). */
@@ -883,6 +886,8 @@ function ShelvesContainer(props: ShelvesContainerProps) {
     };
 
     applyPatches();
+    // The Home is on screen: the gate re-reads its signals (a cold boot can reach here with no route event).
+    getPowerState();
     if (hasPendingFocus()) beginFocusRestoreLoop();
     else beginColdBootFocusGuard(shelves.map((s: any) => s.id));
 
@@ -1042,8 +1047,7 @@ function ShelvesContainer(props: ShelvesContainerProps) {
       }
       if (!shelvesRevealed) return false;
       const firstCard = mountEl.querySelector('.ds-shelf .ds-card') as HTMLElement | null;
-      if (firstCard) {
-        focusElement(firstCard);
+      if (firstCard && focusElementAuto(firstCard)) {
         devStamp("__ds_focus_first", { t: Date.now(), why: 'ds-first' });
       }
       return !!mountEl.querySelector('.ds-shelf .gpfocus, .deck-shelves-root .gpfocus');
@@ -1053,26 +1057,22 @@ function ShelvesContainer(props: ShelvesContainerProps) {
       if (cancelled) return true;
       try {
         if (aRealCardHasFocus()) return true;
-        // A per-card restore (A → game → back) owns the focus outcome.
-        if (hasPendingFocus()) { restorePendingSeen = true; return false; }
+        // A per-card restore (A → game → back) owns the focus outcome. A Home
+        // that came back attached, without a mount, has nothing else to run it.
+        if (hasPendingFocus()) { restorePendingSeen = true; beginFocusRestoreLoop(); return false; }
         if (restorePendingSeen) return true;
         return focusFirstVisibleShelf();
       } catch (e) { logInfo("HOME", "focus first shelf failed", String(e)); return false; }
     };
 
     if (tryFocus()) return () => { cancelled = true; };
-    /* Poll on a bounded interval rather than fixed delays — the home can
-       become the active gamepad context well after mount (slow cold boot,
-       or the QAM staying open after a shelf toggle), and BTakeFocus only
-       paints once the home tree is active. Stops as soon as focus lands
-       or after the cap, so it's battery-safe. */
-    const started = Date.now();
-    const poll = window.setInterval(() => {
-      if (cancelled || tryFocus() || Date.now() - started > 25_000) {
-        window.clearInterval(poll);
-      }
-    }, 600);
-    return () => { cancelled = true; window.clearInterval(poll); };
+    /* The rest of the window polls as a power-gate task (focusRestore.ts):
+       the home can become the active gamepad context well after mount (slow
+       cold boot, the QAM staying open after a shelf toggle), and BTakeFocus
+       only paints once the home tree is active. The gate holds the poll while
+       a game runs or another page covers the Home, and retries on return. */
+    const stopPoll = startFocusFirstPoll(tryFocus, aRealCardHasFocus);
+    return () => { cancelled = true; stopPoll(); };
   }, [hideRecentsSetting, mountEl, shelves?.length, shelvesRevealed]);
 
   const rootRef = useRef<HTMLDivElement>(null);

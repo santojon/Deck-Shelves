@@ -1,6 +1,6 @@
 # Notice — Acknowledgements & Inspirations
 
-Deck Shelves is built on the work of the Steam Deck homebrew community. This file credits the projects that inspired or enabled parts of it — and is explicit about **which parts**. No source is copied from these projects unless stated; where Deck
+Deck Shelves is built on the work of the Steam Deck homebrew community. This file credits the projects that inspired or enabled parts of it — and is explicit about **which parts**. No source is copied from these projects; where Deck
 Shelves interoperates with another plugin it reads that plugin's public runtime
 state rather than vendoring its code.
 
@@ -21,7 +21,7 @@ not a claim of endorsement or affiliation.
 
 - **[TabMaster](https://github.com/Tormak9970/TabMaster)** — inspired Deck
   Shelves' filter model: the nested **filter-group** shape (AND/OR groups of
-  typed filters). Deck Shelves also reads TabMaster's tab context at runtime so
+  typed filters); no code is copied. Deck Shelves also reads TabMaster's tab context at runtime so
   shelves can reuse user-defined tabs when TabMaster is installed.
   *Used in: the filter-group system (`src/types.ts`, `src/steam/filterEval.ts`)
   and TabMaster interop (`src/integrations/tabmaster.ts`: reading its saved
@@ -42,25 +42,16 @@ not a claim of endorsement or affiliation.
 
 - **Game-card menu pattern — [HLTB for Deck](https://github.com/hulkrelax/hltb-for-deck),
   [CheatDeck](https://github.com/SheffeyG/CheatDeck),
-  [Pause Games](https://github.com/popsUlfr/SDH-PauseGames)** — the
-  game-card context-menu items use the same additive **boot-patch** these
-  plugins established: patching `LibraryContextMenu.prototype.render` via
-  Decky's `afterPatch`, so a failed lookup is a harmless no-op that never
-  breaks the native menu. *Used in: `src/core/steamGameMenu.ts`.*
+  [Pause Games](https://github.com/popsUlfr/SDH-PauseGames)** — these plugins
+  established the additive way of adding items to Steam's game context menu:
+  hook the menu's render, so a failed lookup is a harmless no-op that never
+  breaks the native menu. Deck Shelves follows the same idea with its own
+  implementation; no code is copied. *Used in: `src/core/steamGameMenu.ts` and
+  `src/core/menu/`.*
 
 - **Home-injection technique (Decky's `routerHook`)** — injecting custom shelves
-  into the SteamOS home, and the experimental "use first shelf as recents" that
-  reuses the **native recents** React component (its DOM, CSS, and animations),
-  build on the community-standard Decky patching primitives (`addPatch`,
-  `addGlobalComponent`, `afterPatch`, `findInReactTree`).
-  *Used in: `src/runtime/homePatch.tsx`, `src/runtime/recentsReplace.tsx`.*
-
-- **[HomeMaster](https://github.com/jessebofill/HomeMaster)** (discontinued; fork
-  at [maslomeister/HomeMaster](https://github.com/maslomeister/HomeMaster)) — DS
-  studied HomeMaster's approach to learn how to **override the native
-  home/recents** for the experimental "use first shelf as recents" mode
-  (swapping the native recents list's data source rather than hiding it).
-  *Used in: `src/runtime/recentsReplace.tsx`.*
+  into the SteamOS home goes through the loader's own runtime API
+  (`routerHook.addGlobalComponent`). *Used in: `src/runtime/homePatch.tsx`.*
 
 - **[SDH-CssLoader](https://github.com/DeckThemes/SDH-CssLoader) and community
   home themes** — *ArtHero*, *Big Art*, *Centered Home*, *Clean Library Capsule*,

@@ -12,7 +12,7 @@ import { isOnline } from "../core/connectivity";
 import { notify } from "../components/notify";
 import { pickNewSuggestions } from "./suggestionNotifier";
 import { logDiagnostic } from "./diagnostics";
-import { getPerfSnapshot, hasMountStarted } from "../core/perfMetrics";
+import { getPerfSnapshot, hasMountStarted, recordBootWatchdog, beginBootPhase, endBootPhase } from "../core/perfMetrics";
 import type { Settings } from "../types";
 
 /* The boot phases the plugin entry runs after the Home patches are in: each
@@ -33,19 +33,28 @@ type Patch = { uninstall?: () => void } | null | undefined;
 const WATCHDOG_BUDGET_MS = 20000;
 const MAX_REARMS = 9;
 
+// The mount timing is shared with earlier instances of this session; say so when this boot's Home has not mounted.
+function mountVerdict(rearms: number): string {
+  const thisBoot = getPerfSnapshot().bootPhases.some((p) => p.name === "mount" && p.durationMs !== null);
+  if (!thisBoot) return "ok (mount from an earlier instance)";
+  return rearms ? `ok after ${rearms} re-arms` : "ok";
+}
+
 export function installStartupWatchdog(patch: Patch, recentsReplacePatch: Patch): Uninstall {
-  if (!patch) return () => {};
+  if (!patch) { recordBootWatchdog("off: no Home patch"); return () => {}; }
   let timer: ReturnType<typeof setTimeout> | null = null;
   let rearms = 0;
   const checkMount = () => {
     timer = null;
-    if (getPerfSnapshot().mountMs !== null) return;
+    if (getPerfSnapshot().mountMs !== null) { recordBootWatchdog(mountVerdict(rearms)); return; }
     if (!hasMountStarted()) {
-      if (rearms++ >= MAX_REARMS) return; // Home still unopened — stop watching, keep the patch
+      // Home still unopened — stop watching, keep the patch
+      if (rearms++ >= MAX_REARMS) { recordBootWatchdog("gave up: Home never opened"); return; }
       timer = setTimeout(checkMount, WATCHDOG_BUDGET_MS);
       return;
     }
     logDiagnostic("warn", "Startup watchdog: Home didn't complete its first mount within budget — disabling Home patch for this session");
+    recordBootWatchdog("tripped: Home patch disabled");
     try { patch.uninstall?.(); } catch {}
     try { recentsReplacePatch?.uninstall?.(); } catch {}
   };
@@ -88,10 +97,12 @@ export function startLazyPhases(): Uninstall {
   };
   const handle = schedule(() => {
     if (disposed) return;
+    beginBootPhase("lazy");
     uninstallDeviceHistoryTracker = installDeviceHistoryTracker();
     uninstallGameLists = installGameLists();
     startOnDemand(getCurrentSettings());
     unsubFeatureDemand = subscribeSettings(startOnDemand);
+    endBootPhase("lazy");
   });
   return () => {
     disposed = true;

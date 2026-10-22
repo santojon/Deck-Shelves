@@ -42,7 +42,7 @@ def stage() -> None:
     backend_dir.mkdir(parents=True, exist_ok=True)
     for f in (ROOT / "src" / "backend").glob("*.py"):
         shutil.copy(f, backend_dir / f.name)
-    for f in ("package.json", "LICENSE"):
+    for f in ("package.json", "LICENSE", "NOTICE.md"):
         shutil.copy(ROOT / f, STAGE / f)
     # `dist/index.iife.js` is the same build's alternate output for a raw
     # `Runtime.evaluate` host with no module loader — Decky always imports

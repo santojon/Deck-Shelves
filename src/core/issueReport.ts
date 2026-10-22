@@ -7,6 +7,7 @@ import {
   collectRuntimeInfo,
   collectSystemInfo,
   collectHardwareInfo,
+  collectBootInfo,
   listCoLoadedPlugins,
   summarizeConfig,
   formatSize,
@@ -109,6 +110,19 @@ function perfText(): string[] {
   return lines;
 }
 
+// Boot block — the same readout as the diagnostics page, with fixed English labels.
+function bootText(): string[] {
+  const boot = collectBootInfo();
+  return [
+    "Boot:",
+    `  Origin: ${boot.origin}`,
+    `  Phases: ${boot.phases}`,
+    `  Watchdog: ${boot.watchdog}`,
+    `  Long tasks: ${boot.longTasks}`,
+    `  Seeded cache: ${boot.seededCache}`,
+  ];
+}
+
 function hostLine(hs: RuntimeInfo["hostHandshake"]): string {
   if (!hs) return DASH;
   let s = `${hs.hostKind} ${hs.hostVersion} (contract ${hs.hostApiVersion})`;
@@ -128,6 +142,7 @@ function diagnosticsText(runtime: RuntimeInfo, sys: SystemInfo | null, hw: Hardw
     `Host: ${hostLine(runtime.hostHandshake)}`,
     ...(hw ? hardwareText(hw) : []),
     ...perfText(),
+    ...bootText(),
     `Decky: ${yn(runtime.decky)}`,
     `CSS Loader: ${yn(runtime.cssLoader)}`,
     `TabMaster: ${yn(runtime.tabMaster)}`,

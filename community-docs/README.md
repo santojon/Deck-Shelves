@@ -39,7 +39,6 @@ want; keep it for a pinned Discussion post people will search later.
 
 **Distribution & sync**
 - [shelveshub-install.md](shelveshub-install.md) — the standalone host, the new recommended way to install (no Decky Loader needed)
-- [own-qam-tab.md](own-qam-tab.md) — Deck Shelves' own Quick Access tab under Decky Loader
 - [cloud-sync.md](cloud-sync.md) — sync your settings across every device on your Steam account
 
 **Compatibility**

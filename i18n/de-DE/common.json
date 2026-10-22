@@ -87,7 +87,6 @@
   "mode_switch_advanced_body": "Der Light- und der Erweitert-Modus können nicht gleichzeitig aktiv sein. Den Erweitert-Modus zu aktivieren schaltet den Light-Modus aus.",
   "beta_channel_label": "Beta-Kanal",
   "settings_confirm_irreversible": "Das kann nicht rückgängig gemacht werden.",
-  "own_qam_tab_enabled": "Eigener Tab im Schnellzugriff (experimentell)",
   "screensaver_shelves_enabled": "Bildschirmschoner (experimentell)",
   "screensaver_shelves_include_screenshots": "Bildschirmfotos einbeziehen",
   "screensaver_online_screenshots": "Online-Bildschirmfotos einbeziehen",
@@ -115,10 +114,5 @@
   "showcase_card_dwell_label": "Zeit pro Spiel",
   "section_navigation": "Navigation & Suche",
   "section_online": "Online-Funktionen",
-  "section_experimental": "Experimentell",
-  "own_qam_tab_restart_title": "Steam jetzt neu starten?",
-  "own_qam_tab_restart_body": "Der Schnellzugriff-Tab erscheint erst nach einem Steam-Neustart.",
-  "own_qam_tab_restart_now": "Jetzt neu starten",
-  "own_qam_tab_restart_later": "Später",
-  "own_qam_tab_restart_body_off": "Der Schnellzugriff-Tab kann bis zum Steam-Neustart sichtbar bleiben."
+  "section_experimental": "Experimentell"
 }

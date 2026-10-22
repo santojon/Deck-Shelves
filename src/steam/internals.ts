@@ -71,6 +71,7 @@ export interface SteamCollectionLike {
 }
 
 export interface SteamCollectionStore {
+  BIsHidden?(appid: number): boolean;
   userCollections?: SteamCollectionLike[];
   userCollectionStore?: { CommitCollection?(...args: any[]): unknown; [key: string]: any };
   allAppsCollection?: SteamCollectionLike;

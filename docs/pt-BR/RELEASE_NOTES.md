@@ -7,25 +7,47 @@ técnico completo, veja [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+- **"Adicionar à prateleira" em todo menu de jogo**: os menus da biblioteca da Steam mostram as entradas do plugin também no cliente do macOS, as mantêm enquanto o menu é redesenhado e não as perdem mais no primeiro menu depois de a Steam iniciar quando há outros plugins de menu instalados.
+
+- **Nomes de jogos da loja aparecem certos**: nomes com "&" não aparecem mais como "&amp;" nas prateleiras online, e esses jogos são reconhecidos na sua biblioteca quando os jogos que você tem ficam ocultos.
+
+- **"Usar prateleira como Recentes" funciona no cliente beta do Steam Deck**: a linha de Recentes da Steam mostra sua primeira prateleira, mantém o foco quando os jogos mudam e volta aos jogos da própria Steam assim que você desliga a opção.
+
+- **Adicione um jogo a uma inteligente com ordem manual pela biblioteca**: o menu do card na biblioteca agora lista as inteligentes que guardam uma ordem escolhida à mão, para adicionar e remover.
+
+- **Os jogos que você ocultou na Steam ficam fora das suas prateleiras**, como na biblioteca da própria Steam: prateleiras montadas a partir de uma aba da biblioteca ou de uma coleção os deixam de fora (uma prateleira na aba Ocultos, ou filtrada em "Somente ocultos", continua mostrando), e as prateleiras inteligentes sem condição de visibilidade (as que você criou antes da 3.3.4) ganham a mesma condição visível "Excluir ocultos" que as novas têm — uma única vez; remova-a depois e ela continua removida.
+
+- **Oculte um jogo também numa prateleira inteligente**: o botão X do card e o Ocultar do menu do jogo agora funcionam nas prateleiras inteligentes, assim como remover um jogo que você adicionou a uma delas.
+
+- **O card de atualizar reembaralha toda vez**: na Roleta e em qualquer prateleira em ordem aleatória, cada toque no card de atualizar ou na ação Atualizar da prateleira dá uma ordem nova.
+
+- **Prateleiras no lugar certo na home Big Art do cliente beta**: a linha do jogo atual agora é reconhecida em qualquer idioma e as prateleiras ficam logo depois dela.
+
+- **O modo de segurança pega uma home que falha a cada dois inícios**: as prateleiras são desativadas quando a tela inicial não terminou de carregar em três das últimas seis inicializações da Steam; sair do modo de segurança recomeça a contagem.
+
+- **Relatórios de bug melhores**: Informações do sistema e o relatório de bug pré-preenchido agora dizem como a sessão iniciou (origem, tempo das fases, veredito do watchdog, tarefas longas, cache pré-carregado), avisos e erros chegam sempre ao Log de diagnóstico, e uma prateleira de lista de desejos vazia sempre diz ali o motivo.
+
+- **Regras de visibilidade mais leves**: as verificações de desempenho e periféricos usadas pelas regras de visibilidade passam a ser respondidas por um cache curto no backend em vez de reler o sistema a cada avaliação; Informações do sistema continua lendo o hardware na hora.
+
 - **Prateleiras no lugar certo em qualquer idioma do Steam**: a Home agora reconhece as linhas e abas do próprio Steam em qualquer idioma, não só em inglês e português.
 
 - **As páginas de jogo abrem com o foco nelas**: abrir um jogo pela Home não deixa mais a página sem nada selecionado.
 
-- **As etiquetas ficam no card que você toca (#133)**: as etiquetas de desconto e de "Novo" não somem mais de um card que você toca ou aponta com o mouse.
+- **As etiquetas ficam no card que você toca**: as etiquetas de desconto e de "Novo" não somem mais de um card que você toca ou aponta com o mouse.
 
-- **As configurações visuais da prateleira e as globais funcionam juntas (#132)**: a seção global só sobrescreve o que você definiu nela, cada escolha global pode voltar para "Por prateleira", e um botão de redefinir devolve a seção inteira ao padrão.
+- **As configurações visuais da prateleira e as globais funcionam juntas**: a seção global só sobrescreve o que você definiu nela, cada escolha global pode voltar para "Por prateleira", e um botão de redefinir devolve a seção inteira ao padrão.
 
-- **Os nomes dos jogos se alinham ao card (#129)**: centro e direita agora batem exatamente com o card, e as informações do jogo acima do card seguem esse alinhamento sem sair da tela.
+- **Os nomes dos jogos se alinham ao card**: centro e direita agora batem exatamente com o card, e as informações do jogo acima do card seguem esse alinhamento sem sair da tela.
 
-- **Destaque quantos jogos quiser (#134)**: prateleiras com seis ou mais jogos em destaque não mostram mais espaços vazios no lugar dos cards.
+- **Destaque quantos jogos quiser**: prateleiras com seis ou mais jogos em destaque não mostram mais espaços vazios no lugar dos cards.
 
-- **O filtro e a aba Instalados ficam certos para jogos não-Steam (#130)**: os jogos do Unifideck contam pelo estado real de instalação, com ou sem as coleções dele; atalhos manuais, Heroic e emuladores mantêm o próprio, e Proton / runtimes ficam fora da aba Instalados.
+- **O filtro e a aba Instalados ficam certos para jogos não-Steam**: os jogos do Unifideck contam pelo estado real de instalação, com ou sem as coleções dele; atalhos manuais, Heroic e emuladores mantêm o próprio, e Proton / runtimes ficam fora da aba Instalados.
 
-- **Ao voltar da página de um jogo, o foco retorna ao mesmo jogo e à mesma prateleira**, e rolar para os lados não pula mais para outra prateleira.
+- **Ao voltar da página de um jogo, o foco retorna ao mesmo jogo e à mesma prateleira**, também quando essa prateleira está mais abaixo na página e ainda carregando, e rolar para os lados não pula mais para outra prateleira.
 
-- **A prateleira da lista de desejos também se preenche no host independente (#128).** Uma primeira resposta lenta do backend não a deixa mais vazia por dez minutos.
+- **A prateleira da lista de desejos também se preenche no host independente.** Uma primeira resposta lenta do backend não a deixa mais vazia por dez minutos.
 
-- **O menu do Steam e o Acesso Rápido voltam a abrir com um jogo rodando (#135).** A Home não puxa mais o foco do controle de volta para um card de prateleira atrás do jogo.
+- **O menu do Steam e o Acesso Rápido voltam a abrir com um jogo rodando.** A Home não puxa mais o foco do controle de volta para um card de prateleira atrás do jogo, e não roda timer nenhum enquanto um jogo roda — inclusive atalhos não-Steam —, enquanto a tela está desligada ou enquanto o aparelho dorme.
 
 - **As informações do jogo acima dos cards não reconstroem mais o próprio label repetidamente.** Títulos que chegam depois e mudanças de status continuam atualizando, e religar a opção restaura o label.
 
@@ -46,6 +68,12 @@ técnico completo, veja [CHANGELOG.md](CHANGELOG.md).
 - **Configurações mais seguras.** Uma cópia danificada das configurações não pode mais substituir seu último backup bom, as exportações são gravadas com segurança, e desligar o protetor de tela após um reset de fábrica devolve à Steam o seu próprio tempo de inatividade.
 
 - **Um pouco mais leve em segundo plano.** Recursos que você não usa (amigos, launchers) não ficam mais consultando, e os downloads de atualização são verificados com mais rigor.
+
+- **Reordene prateleiras com o controle, linha a linha**: nas listas do Acesso Rápido, A no nome de uma prateleira a agarra, o direcional move, A salva e B devolve, com esses botões mostrados na barra de botões da Steam enquanto a linha está agarrada. Arrastar com toque ou mouse funciona como antes.
+
+- **Jogos sem arte aparecem como na Steam**: quando uma capa não carrega, o card mostra o bloco escuro da própria Steam com o nome do jogo.
+
+- **A aba própria experimental no Acesso Rápido saiu.** As configurações do Deck Shelves continuam na lista de plugins do Decky Loader, e o host independente mantém a própria aba. Quem tinha a opção ligada continua com tudo funcionando.
 
 - **Por baixo do capô, o código de renderização da tela inicial, a inicialização do plugin, o código da biblioteca que monta cada prateleira e o código do menu do jogo foram reorganizados em peças menores, sem mudança de comportamento** — verificado num Steam Deck real. Recarregar o plugin agora também limpa a rota da página de Configurações.
 

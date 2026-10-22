@@ -5,13 +5,13 @@ import { __resetSteamTextForTest } from "../../steam/steamText";
    English and Brazilian Portuguese tables return them. Real Steam always has
    one; the plugin reads its rows and tabs through it (steam/steamText.ts). */
 export const STEAM_EN: Record<string, string> = {
-  "#LibraryHome_RecentGames": "Recent Games", "#Showcase_RecentGames": "Recent Games",
+  "#LibraryHome_RecentGames": "Recent Games", "#Showcase_RecentGames": "Recent Games", "#Showcase_CurrentGame": "Current Game",
   "#HomeTab_WhatsNew": "What's New", "#HomeTab_Friends": "Friends", "#HomeTab_Recommended": "Recommended",
   "#Button_Close": "Close", "#Generic_Close": "Close", "#Button_Cancel": "Cancel",
 };
 
 export const STEAM_PT_BR: Record<string, string> = {
-  "#LibraryHome_RecentGames": "Jogos recentes", "#Showcase_RecentGames": "Jogos recentes",
+  "#LibraryHome_RecentGames": "Jogos recentes", "#Showcase_RecentGames": "Jogos recentes", "#Showcase_CurrentGame": "Jogo atual",
   "#HomeTab_WhatsNew": "Novidades", "#HomeTab_Friends": "Amigos", "#HomeTab_Recommended": "Recomendados",
   "#Button_Close": "Fechar", "#Generic_Close": "Fechar", "#Button_Cancel": "Cancelar",
 };

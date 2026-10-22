@@ -87,7 +87,6 @@
   "mode_switch_advanced_body": "Light mode and Advanced mode can't both be on. Turning on Advanced mode will turn Light mode off.",
   "beta_channel_label": "Beta channel",
   "settings_confirm_irreversible": "This can't be undone.",
-  "own_qam_tab_enabled": "Own Quick Access tab (experimental)",
   "screensaver_shelves_enabled": "Screensaver (experimental)",
   "screensaver_shelves_include_screenshots": "Include screenshots",
   "screensaver_online_screenshots": "Include online screenshots",
@@ -115,10 +114,5 @@
   "showcase_card_dwell_label": "Time per game",
   "section_navigation": "Navigation & Search",
   "section_online": "Online Features",
-  "section_experimental": "Experimental",
-  "own_qam_tab_restart_title": "Restart Steam now?",
-  "own_qam_tab_restart_body": "The Quick Access tab only appears after Steam restarts.",
-  "own_qam_tab_restart_now": "Restart now",
-  "own_qam_tab_restart_later": "Later",
-  "own_qam_tab_restart_body_off": "The Quick Access tab may stay visible until Steam restarts."
+  "section_experimental": "Experimental"
 }

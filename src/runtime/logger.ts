@@ -3,10 +3,10 @@ import { logDiagnostic, type DiagnosticLevel } from "./diagnostics";
 export type DeckLogLevel = "INFO" | "WARN" | "ERROR";
 export type DeckLogScope = "HOME" | "STORAGE" | "SETTINGS" | "STEAM" | "RUNTIME" | "UPDATE" | "ONLINE";
 
-/* Verbose mode (Developer tab → "Show all logs"). When on, every log — including
-   the dev-only INFO ones — also lands in the on-device diagnostics buffer (the
-   only log surface reachable without a console) so the user can inspect them.
-   Toggled from the settings store as the setting loads/changes. */
+/* Warnings and errors always land in the on-device diagnostics buffer (the only
+   log surface reachable without a console), so a diagnostics dump carries them.
+   Verbose mode (Developer tab → "Show all logs") also mirrors the dev-only INFO
+   ones. Toggled from the settings store as the setting loads/changes. */
 let verbose = false;
 export function setVerboseLogging(on: boolean): void {
   verbose = on;
@@ -21,7 +21,7 @@ function ctxString(context: unknown): string | undefined {
 const DIAG_LEVEL: Record<DeckLogLevel, DiagnosticLevel> = { INFO: "info", WARN: "warn", ERROR: "error" };
 
 function mirrorToDiagnostics(scope: DeckLogScope, level: DeckLogLevel, message: string, context?: unknown): void {
-  if (!verbose) return;
+  if (!verbose && level === "INFO") return;
   try { logDiagnostic(DIAG_LEVEL[level], message, ctxString(context), scope); } catch {}
 }
 

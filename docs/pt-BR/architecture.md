@@ -313,7 +313,8 @@ src/
 │
 ├── runtime/
 │ ├── homePatch.tsx Patch de DOM da tela inicial + renderizador de fallback
-│ ├── recentsReplace.tsx Experimental: substitui a fonte de dados dos recentes nativos pela primeira shelf
+│ ├── recentsReplace.tsx Opcional: a linha de Recentes da Steam mostra a primeira prateleira
+│ ├── recentsRowPatch.ts O lado da linha de Recentes dessa funcionalidade (mesma especificação)
 │ ├── steamHost.ts Descoberta da janela/documento da Steam
 │ ├── deckyPlatform.ts Implementação da interface de plataforma
 │ ├── platform.ts Definição da interface de plataforma
@@ -419,10 +420,7 @@ Em runtime, o componente descobre as classes nativas a partir do elemento irmão
 > **Nota:** a superfície de API é `window.deckShelves.api` (versão principal **4**) — os registros (`registerShelfSource` / `registerSmartShelfSource` / `registerFilterType` / `registerSortOption` / `registerImportType` / `registerSavedFilter` e os registros de provedores) e os acessores do lado consumidor (`getShelves`, `getSmartShelves`, `getSavedFilters`, `subscribeShelves` e os demais métodos `subscribe*`) estão todos ativos sobre o store de configurações. Veja [`plugin-api.md`](plugin-api.md).
 
 ### Recents Replace (`recentsReplace.tsx`)
-Funcionalidade experimental (configuração `recentsReplaceSource`, condicionada a `hideRecents`). Em vez de ocultar visualmente a seção nativa "Jogados recentemente", ela faz patch na saída de renderização da seção via `routerHook.addPatch("/library/home",...)` + chamadas `afterPatch` aninhadas para substituir a prop `games` pelos app IDs da primeira prateleira visível. O DOM nativo, CSS, animações, hero background e callbacks de foco são preservados por inteiro. Mecanismos de segurança:
-- Os app IDs são filtrados por `app_type` (1 = Jogo, 2 = Aplicativo) antes da injeção — atalhos, DLC e entradas de música derrubam o getter `userCollections` da Steam.
-- Uma armadilha global de `error`/`unhandledrejection` detecta erros da classe `userCollections` e desativa o experimento automaticamente.
-- Em caso de falha, `isRecentsReplaceInjecting()` retorna `false` e `HomeInject` volta para o comportamento visual padrão de ocultação. O QAM mostra um `RecentsReplaceErrorBanner`.
+Opcional e experimental (`recentsReplaceSource`, oferecida sob `hideRecents`). Com as duas configurações ativas, a linha de Recentes da própria Steam não é ocultada: ela mostra os jogos da primeira prateleira elegível, sob o título dessa prateleira, com os tiles, a arte, o foco e os temas da própria Steam, e essa prateleira sai da área do plugin. Uma falha durante o uso desliga a funcionalidade pela sessão: um toast, o `RecentsReplaceErrorBanner` no QAM ("Tentar de novo" ou "Desativar toggle") e a ocultação simples como alternativa. Num cliente em que a funcionalidade não está disponível, ela fica desligada em silêncio: nenhum erro, a linha da Steam como está e todas as prateleiras na área do plugin.
 
 ### Ocultar abas da home (`hideHomeTabs`)
 Quando ativado, oculta a barra nativa de abas Novidades/Amigos/Recomendados. A detecção usa `[role="tablist"]` como irmão do elemento de mount do plugin — sem nomes de classe hardcoded, compatível com atualizações do SteamOS.
@@ -482,10 +480,6 @@ Chamadas concorrentes a `saveSettings` se fundem: um salvamento em andamento tra
 
 O estado de expansão do QAM é por sessão: um valor de módulo espelhado em `sessionStorage`, e o efeito de mount de `DeckQAMSettings` chama `resetQamExpanded()` (só na instância visível da aba, `isActiveTab`) para apagar até a flag persistida toda vez que a aba do plugin é montada. Enquanto o sidecar está expandido, um polling de 300 ms o colapsa quando `m_MenuStore.m_eOpenSideMenu` muda em relação ao valor capturado na expansão, ou quando um intervalo entre ticks acima de 1,5 s com o documento não visível indica uma volta do segundo plano. `document.hasFocus()` não é usado: o documento do QAM nunca detém o foco do DOM, então ele colapsava o sidecar em cerca de 300 ms. Listeners de ciclo de vida do navegador adicionam cobertura: `visibilitychange` (só hidden), `pagehide` e `freeze` colapsam; `focus` e `resume` colapsam apenas enquanto o documento está oculto. O próprio `SidecarPanel` desiste (`return null`) quando `controller.settings` não está hidratado, para que uma aba recém-remontada nunca renderize o estado de bug "aberto mas com corpo vazio". Uma linha de ação compacta logo abaixo do toggle mestre (`toggleSidecar`, com o ícone de engrenagem do sidecar) abre ou fecha o sidecar pelo mesmo caminho `fireQamExpand` do atalho de D-pad direita e do botão B, então o compositor alarga ou estreita junto com a flag da store.
 
-### Aba própria de QAM apenas sob o Decky (`runtime/ownQamTab.ts`)
-
-Opcional, desativado por padrão (`ownQamTabEnabled`). Porta um mecanismo de injeção de aba já validado no dispositivo no runtime de um host neutro: registra uma chave numérica no enum `QuickAccessTab` da Steam, então faz `afterPatch` no consumidor `QuickAccessMenuBrowserView` para inserir um objeto de aba no array `props.tabs` da saída de renderização — via o próprio `afterPatch` / `findModuleByExport` / `findInReactTree` do Decky, não uma varredura de webpack feita à mão. Um disjuntor em localStorage espelha essa mesma proteção (dois armamentos não confirmados o disparam e ele se recusa a fazer patch de novo por 24 h). Recua sempre que a aba própria de um host neutro foi de fato inserida (o host carimba `window.__SHELVES_QAM_OWNER__`, ou o objeto da aba traz o marcador do host) — nunca pela mera presença da ponte `window.__SHELVES_QAM__`. Essa aba sempre vence. Esse mecanismo ainda precisa da sua própria validação no dispositivo antes de ser seguro deixá-lo ativado por padrão.
-
 ### Modo Vitrine / Ociosidade Dinâmica (`runtime/showcaseMode.ts`)
 
 Opcional, desativado por padrão (`showcaseModeEnabled`). Durante a inatividade na Home, percorre o foco pelas próprias prateleiras do usuário num timer, reutilizando exatamente o mesmo mecanismo de "focar o primeiro card de uma prateleira" que o próprio "pular para prateleira" da Navegação Lateral já usa — nunca entrada sintética. Qualquer interação real (um botão de controle via `subscribeControllerInput`, ou um evento de ponteiro/roda/tecla) interrompe e rearma o timer de ociosidade. Um pan opcional dentro da prateleira (`showcasePanCards`) percorre alguns cards de cada prateleira antes de seguir. Ainda não existe: uma UI seletora de participação de prateleira (a configuração `showcaseShelfIds` existe sem ela). Também exporta `isNativeScreensaverActive()` (`ScreensaverPopup`/`BIsActive()` na `GamepadNavigationTree` ativa), que tanto o Vitrine quanto o protetor de tela abaixo usam para recuar caso o próprio protetor de tela nativo da Steam esteja de alguma forma ativo.
@@ -507,7 +501,8 @@ Opcional, desativado por padrão (`cloudSyncEnabled`). Espelha as configuraçõe
 | Arquivo | Papel |
 |---|---|
 | `runtime/homePatch.tsx` | Monta `#deck-shelves-home-root` ao lado dos recentes nativos; ErrorBoundary `HomeBoundary`; helpers de ocultação de recentes/abas |
-| `runtime/recentsReplace.tsx` | Overlay opcional que troca os recentes nativos por uma prateleira do DS (cadeia `afterPatch` L1→L2→L3); dedup por WeakSet, limiar de crash, kill-switch |
+| `runtime/recentsReplace.tsx` | Opcional: a linha de Recentes da Steam mostra a primeira prateleira elegível; escolha da prateleira, seus jogos, detecção de crash, kill switch |
+| `runtime/recentsRowPatch.ts` | A parte dessa funcionalidade que altera a linha de Recentes da Steam |
 | `components/HomeInject.tsx` | Lado React do mount; `ShelvesContainer`; promoção da primeira prateleira para o slot de recentes |
 | `components/Shelf.tsx` | Resolução de appId por prateleira (memoizado + cancelamento por generation-id) |
 | `components/DeckRow.tsx` | Linha horizontal: título + colapso + centralização de rolagem no foco |
@@ -520,33 +515,9 @@ Opcional, desativado por padrão (`cloudSyncEnabled`). Espelha as configuraçõe
 | `components/home/navPatches/edgeNavigation.ts` | Throttle de L/R + guarda de inclinação DOWN (quando as abas da home estão ocultas) |
 | `components/home/navPatches/verticalBridge.ts` | Ponte DOWN/UP entre o mount e os vizinhos nativos |
 
-### Pipeline de substituição de recentes (`recentsReplaceSource = true`)
+### Substituição de recentes (`recentsReplaceSource = true`)
 
-```
-routerHook.addPatch("/library/home", patchFn)
-        │
-        ▼
-   [L1]  afterPatch(props.children, "type")        permanente — envolve o Type filho da rota
-        │  a cada render, reaplica L2/L3 (Types transientes por render):
-        ▼
-   [L2]  afterPatch(ret.type, "type")              painel home — protegido por WeakSet patchedTypes
-        │  percorre a árvore → encontra o componente de recentes:
-        ▼
-   [L3]  afterPatch(recents.type, "type")          componente de recentes — também protegido por WeakSet
-        │
-        ▼
-   mutateRecentsElement(ret3, shelf, appIds)
-        │  • holder.props.games ← appIds
-        │  • holder.props.showFeaturedItem ← das alternâncias de destaque da shelf
-        ▼
-   render()                                        cross-fade nativo preservado (sem reentrada de callback)
-
-   ─── redes de segurança ─────────────────────────────────────────────────────────
-   patchedTypes: WeakSet<object>                   dedup contra compartilhamento de memo/forwardRef (3.9+)
-   crashCount, CRASH_THRESHOLD = 5 / 10 s          erros com fingerprint → markReplaceFailed()
-   markReplaceFailed(reason) → pub/sub             QAM desativa a alternância + mostra banner
-   resetRecentsReplaceFailed()                     "resetar estado de crash" do QAM — limpa o WeakSet também
-```
+Enquanto a substituição está em vigor, `HomeInject` mantém visível a linha de Recentes da Steam e deixa a prateleira promovida fora da área do plugin. Depois de uma falha, volta à ocultação simples de `hideRecents`, com todas as prateleiras de volta à área do plugin.
 
 ### Reparent da árvore de navegação por foco (`reparentNavTreeNodes`)
 

@@ -1,5 +1,5 @@
 import { EAppDisplayStatus, UPDATE_PENDING_STATUSES } from "./appDisplayStatus";
-import { type SteamAppOverviewRaw, type SteamCollectionLike, type SteamCollectionStore, type SteamPerClientData } from "./internals";
+import { steamCollectionStore, type SteamAppOverviewRaw, type SteamCollectionLike, type SteamCollectionStore, type SteamPerClientData } from "./internals";
 
 /* The plugin's view of a library entry: the `AppOverview` shape, its normalization from Steam's raw overview, and the small field readers every resolver shares. */
 
@@ -56,7 +56,18 @@ export function isHiddenOf(a: SteamAppOverviewRaw): boolean {
   // SteamOS 3.x marks hidden via `visible_in_game_list === false`; older
   // bool fields aren't populated there.
   if (a?.visible_in_game_list === false) return true;
+  return hiddenByOldFlags(a) || hiddenInCollectionStore(a?.appid);
+}
+
+function hiddenByOldFlags(a: SteamAppOverviewRaw): boolean {
   return !!(a?.is_hidden ?? a?.hidden ?? a?.m_bHidden ?? a?.bHidden);
+}
+
+// The overview flag lags a game hidden during the session; the collection store answers at once.
+function hiddenInCollectionStore(appid: unknown): boolean {
+  const id = Number(appid);
+  if (!(id > 0)) return false;
+  try { return steamCollectionStore()?.BIsHidden?.(id) === true; } catch { return false; }
 }
 
 function hasRawInstallSignals(a: any): boolean {

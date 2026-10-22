@@ -14,15 +14,18 @@ import { getRuntimeClassMap } from "../core/webpackCompat";
 import { isBigArtModeActive } from "../core/cssLoaderDetect";
 import { notify } from "../components/notify";
 import { findModuleByExport } from "./host/decky";
-import { recordRemountTry, timerCreated, timerDisposed, observerCreated, observerDisposed } from "../core/perfMetrics";
+import { recordRemountTry, observerCreated, observerDisposed } from "../core/perfMetrics";
 import { createBridgeGateState, noteFallbackTick, bridgeGraceActive, hrefOf } from "./homePatchFallbackGate";
+import { installFallbackPoll, type FallbackPoll } from "./homePatchFallback";
+import { getPowerState } from "./powerGate";
 import { matchesSteamText, steamText, steamTextSelectors } from "../steam/steamText";
+import { activeNavTrees } from "../components/home/navPatches/focusNav";
 
 const ROOT_ID = "deck-shelves-home-root";
 const GLOBAL_COMPONENT_ID = "DeckShelvesHomeDomBridge";
 
 let observer: MutationObserver | null = null;
-let timer = 0;
+let fallbackPoll: FallbackPoll | null = null;
 let noAnchorLogged = false;
 let removeGlobalComponent: (() => void) | null = null;
 const uninstallHooks: Array<() => void> = [];
@@ -413,28 +416,6 @@ function findRecentsEl(doc: Document, mountEl: HTMLElement): HTMLElement | null 
   return prev ?? recentsFromAriaScan(doc, mountEl, mountParent, labels) ?? bigArtStructuralRecents(prevEl, mountEl);
 }
 
-function getFocusNavController(): any {
-  return (globalThis as any).GamepadNavTree?.m_context?.m_controller || (globalThis as any).FocusNavController;
-}
-
-function getGamepadNavigationTrees(): any[] {
-  const focusNav = getFocusNavController();
-  const context = focusNav?.m_ActiveContext || focusNav?.m_LastActiveContext;
-  return context?.m_rgGamepadNavigationTrees ?? [];
-}
-
-function findSPWindow(): Window | null {
-  try {
-    if (document.title === "SP") return window;
-  } catch {}
-  try {
-    const navTrees = getGamepadNavigationTrees();
-    return navTrees?.find((x: any) => x?.m_ID === "GamepadUI_Full_Root" || x?.m_ID === "root_1_")?.Root?.Element?.ownerDocument?.defaultView ?? null;
-  } catch {
-    return null;
-  }
-}
-
 function getWindowCandidates(): Array<{ win: Window; source: string }> {
   const out: Array<{ win: Window; source: string }> = [];
   const seen = new Set<Window>();
@@ -448,7 +429,6 @@ function getWindowCandidates(): Array<{ win: Window; source: string }> {
   const sources: Array<[() => any, string]> = [
     [() => window, "current"],
     [() => (window as any).opener, "opener"],
-    [() => findSPWindow(), "findSP"],
     [() => (window as any).SteamUIStore?.GetFocusedWindowInstance?.()?.BrowserWindow, "focusedWindow"],
     [() => (window as any).SteamUIStore?.WindowStore?.GamepadUIMainWindowInstance?.BrowserWindow, "mainWindow"],
   ];
@@ -957,12 +937,10 @@ export function installHomePatch(_routerHook?: any) {
      well before the real anchor appears. Back off instead of stopping
      outright — a hard stop left a user with no shelves until they manually
      toggled the plugin, since nothing else was left to retry it. */
-  const FALLBACK_BACKOFF_MS = 15000;
   const giveUpFallback = () => {
     logWarn("HOME", "fallback: anchor not found after repeated attempts — backing off", { retries: fallbackRetries });
     fallbackRetries = 0;
-    if (timer) window.clearInterval(timer);
-    timer = window.setInterval(tryFallbackRender, FALLBACK_BACKOFF_MS);
+    fallbackPoll?.backoff();
     // Leave the mutation observer attached: a later DOM change (Steam
     // finishing home hydration) still reaches tryFallbackRender via
     // scheduleFallback instead of the fallback staying fully silent.
@@ -975,8 +953,7 @@ export function installHomePatch(_routerHook?: any) {
   /* React DOM 19 dropped createRoot/render from the base react-dom package
      (moved to react-dom/client). Confirmed on the 2026-09-09 Steam Beta: no
      known global has it anymore — it's in its own webpack module, findable
-     by export name like ownQamTab.ts finds Steam's internals. Cached: the
-     module graph doesn't change mid-session. */
+     by export name. Cached: the module graph doesn't change mid-session. */
   let cachedWebpackCreateRoot: ((container: Element) => { render(node: unknown): void; unmount(): void }) | null | undefined;
   const findCreateRootViaWebpack = (): typeof cachedWebpackCreateRoot => {
     if (cachedWebpackCreateRoot !== undefined) return cachedWebpackCreateRoot;
@@ -1042,7 +1019,7 @@ export function installHomePatch(_routerHook?: any) {
     const targetEl = mount.parentElement;
     if (!targetEl) return null;
     try {
-      for (const tree of getGamepadNavigationTrees()) {
+      for (const tree of activeNavTrees()) {
         const root = tree.Root ?? tree.m_Root ?? tree.m_root;
         if (!root) continue;
         const found = findNodeByElement(root, targetEl);
@@ -1187,18 +1164,26 @@ export function installHomePatch(_routerHook?: any) {
      DOM on its own, instead of only when a route signal (e.g. opening the QAM)
      happens to fire — the sole-host "no shelves until I open the QAM" bug. */
   let observedDoc: Document | null = null;
+  let unlistenPageHide: (() => void) | null = null;
   const attachObserver = (doc: Document): void => {
     if (!doc || !doc.body || observedDoc === doc) return;
     observer?.disconnect();
     observedDoc = doc;
     observer = new MutationObserver(scheduleFallback);
     try { observer.observe(doc.body, { childList: true, subtree: true }); } catch {}
+    // That document going away (renderer reload) restarts the mount poll.
+    unlistenPageHide?.();
+    const win = doc.defaultView;
+    const onPageHide = () => fallbackPoll?.wake();
+    try { win?.addEventListener("pagehide", onPageHide); unlistenPageHide = () => win?.removeEventListener("pagehide", onPageHide); } catch {}
   };
 
   const tryFallbackRender = () => {
     try {
       const { win, doc } = getHostContext();
       attachObserver(doc);
+      // The gate re-reads the route and window here: a sole host has no router hook to tell it.
+      getPowerState();
       if (fallbackShouldYield(doc)) return;
       const mount = ensureFallbackMount();
       if (!mount) return;
@@ -1216,25 +1201,17 @@ export function installHomePatch(_routerHook?: any) {
   observer?.disconnect();
   observedDoc = null; attachObserver(hostDoc); observerCreated();
 
-  /* Poll fast for the first ~15s (renderer reload / cold boot) so the mount
-     lands promptly on its own, then back off to a calm 2s idle cadence. */
-  if (timer) window.clearInterval(timer);
-  let fastTicks = 30;
-  const poll = (): void => {
-    tryFallbackRender();
-    if (fastTicks > 0 && --fastTicks === 0 && timer) {
-      window.clearInterval(timer);
-      timer = window.setInterval(tryFallbackRender, 2000);
-    }
-  };
-  timer = window.setInterval(poll, 500); timerCreated();
+  /* The mount poll is a power-gate task (homePatchFallback.ts): fast for the
+     first ~15 s (renderer reload / cold boot), then 2 s, stopped once this
+     fallback is mounted and whenever the Home is not active. It runs one
+     render attempt at registration and on each return to the active Home. */
+  fallbackPoll?.dispose();
+  fallbackPoll = installFallbackPoll(tryFallbackRender, () => !!fallbackRoot && !!fallbackHostEl?.isConnected);
 
   const onRouteSignal = () => tryFallbackRender();
   hostWin.addEventListener("hashchange", onRouteSignal);
   hostWin.addEventListener("popstate", onRouteSignal);
   globalThis.addEventListener?.("deck-shelves-settings-changed", onRouteSignal as EventListener);
-
-  tryFallbackRender();
 
   logInfo("HOME", "installHomePatch complete", { bridgeRegistered: gate.bridgeRegistered });
 
@@ -1257,7 +1234,8 @@ export function installHomePatch(_routerHook?: any) {
   };
 
   const tearDownObserversAndListeners = (): void => {
-    if (timer) { window.clearInterval(timer); timer = 0; timerDisposed(); }
+    fallbackPoll?.dispose(); fallbackPoll = null;
+    unlistenPageHide?.(); unlistenPageHide = null;
     if (observer) observerDisposed(); observer?.disconnect(); observer = null;
     hostWin.removeEventListener("hashchange", onRouteSignal); hostWin.removeEventListener("popstate", onRouteSignal);
     globalThis.removeEventListener?.("deck-shelves-settings-changed", onRouteSignal as EventListener);

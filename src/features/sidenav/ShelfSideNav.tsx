@@ -5,7 +5,8 @@ import { Focusable } from "../../runtime/host/decky";
 import { getCurrentSettings, subscribeSettings } from "../../settingsStore";
 import { getExternalSideMenuProviders, type SideMenuContext, type SideMenuEntry, type SideMenuProviderDescriptor } from "../../core/pluginApi";
 import type { Settings, Shelf, SmartShelf } from "../../types";
-import { focusElement } from "../../core/focusRestore";
+import { focusElement, focusElementAuto } from "../../core/focusRestore";
+import { subscribeFocusedCard } from "../../runtime/focusedCardTracker";
 import { GamepadButton, dispatchHomeButtonDown, subscribeHomeButton, subscribeHomeKey } from "../../runtime/homeInputBus";
 import { createMatcherState, matchEvent, parseCombo, parseRawCombo, resolveBindings } from "../../runtime/buttonBindings";
 import { resolveKeyboardBindings, parseKeyCombo, matchKeyEvent, createKeyMatcherState, isEditableKeyTarget } from "../../runtime/keyboardBindings";
@@ -47,6 +48,26 @@ function resolveDevSidenavAnchor(
 function firstDomShelfId(): string | undefined {
   const doc = getPreferredSteamDocument() ?? document;
   return doc.querySelector<HTMLElement>(".ds-shelf[data-shelfid]")?.getAttribute("data-shelfid") ?? undefined;
+}
+
+export type LastFocusedCard = { shelfId: string; appid: number | null };
+
+/* The last card focused on any DS shelf, fed by the shared focused-card poll
+   (one timer for every subscriber, held while a game runs) instead of a class
+   observer over the whole Big Picture body. The `gpfocus` read covers a mouse
+   or hover focus the nav tree does not report. */
+export function watchLastFocusedCard(doc: Document, onCard: (card: LastFocusedCard) => void): () => void {
+  const update = (focusedCard: HTMLElement | null) => {
+    const focused = focusedCard?.hasAttribute("data-appid") ? focusedCard : doc.querySelector<HTMLElement>(".gpfocus[data-appid]");
+    if (!focused) return;
+    const appidAttr = focused.getAttribute("data-appid");
+    const appid = appidAttr ? Number(appidAttr) : null;
+    const shelfId = focused.closest<HTMLElement>("[data-shelfid]")?.getAttribute("data-shelfid") ?? null;
+    if (!shelfId) return;
+    onCard({ shelfId, appid: Number.isFinite(appid) ? appid : null });
+  };
+  update(null);
+  return subscribeFocusedCard(update);
 }
 
 function readGamepadButton(evt: any): number | null {
@@ -144,21 +165,7 @@ export function ShelfSideNav() {
     const doc = getPreferredSteamDocument() ?? document;
     // Track the LAST focused card on any DS shelf so the side menu can
     // remember which shelf the user was browsing when they triggered it.
-    const update = () => {
-      const focused = doc.querySelector<HTMLElement>(".gpfocus[data-appid]");
-      if (!focused) return;
-      const appidAttr = focused.getAttribute("data-appid");
-      const appid = appidAttr ? Number(appidAttr) : null;
-      const shelfEl = focused.closest<HTMLElement>("[data-shelfid]");
-      const shelfId = shelfEl?.getAttribute("data-shelfid") ?? null;
-      if (!shelfId) return;
-      lastFirstCardRef.current = { shelfId, appid: Number.isFinite(appid) ? appid : null };
-    };
-    update();
-    if (!doc.body) return;
-    const obs = new MutationObserver(update);
-    obs.observe(doc.body, { attributes: true, subtree: true, attributeFilter: ["class"] });
-    return () => obs.disconnect();
+    return watchLastFocusedCard(doc, (card) => { lastFirstCardRef.current = card; });
   }, [enabled, gameRunning]);
 
   /* Dev-only screenshot hook: opens the side nav without a real gamepad
@@ -436,7 +443,7 @@ function SideNavShell({ anchor, settings, onClose }: { anchor: Anchor; settings:
     const doc = getPreferredSteamDocument() ?? document;
     onClose();
     if (shelfId === NATIVE_RECENTS_ID) {
-      focusNativeRecentsFirstCard(doc);
+      focusNativeRecentsFirstCard(doc, false);
       return;
     }
     const target = doc.querySelector<HTMLElement>(
@@ -794,8 +801,8 @@ function readNativeRecentsEntry(doc: Document | null, fallbackLabel: string): Un
   /* `nativeLabelInner` / `nativeLabelOuter` hashed classes target the
      PER-CARD label (focused-card info like "Blasphemous 2 - 30h") and
      would surface the wrong string. When the override is on, the
-     patch in `recentsReplace.tsx` rewrites this heading to the source
-     shelf title — reading it here keeps both cases correct. */
+     recents replacement writes the source shelf title into this heading
+     — reading it here keeps both cases correct. */
   const text = el.querySelector<HTMLElement>('h1, h2, h3')?.textContent?.trim() ?? "";
   return { id: NATIVE_RECENTS_ID, title: text && text.length > 0 ? text : fallbackLabel };
 }
@@ -814,13 +821,15 @@ function findFirstNativeCard(el: HTMLElement, map: Record<string, string>): HTML
   return null;
 }
 
-export function focusNativeRecentsFirstCard(doc: Document | null): boolean {
+// `auto`: an automatic landing stays off a Home a game or another page owns;
+// the user's own pick from the side nav always moves.
+export function focusNativeRecentsFirstCard(doc: Document | null, auto = true): boolean {
   if (!doc) return false;
   const el = findNativeRecentsEl(doc);
   if (!el) return false;
   const card = findFirstNativeCard(el, getClassMap());
   if (!card) return false;
   try { card.scrollIntoView({ block: "center", inline: "center", behavior: "instant" as ScrollBehavior }); } catch {}
-  try { focusElement(card); } catch {}
+  try { (auto ? focusElementAuto : focusElement)(card); } catch {}
   return card.classList.contains("gpfocus") || card === card.ownerDocument?.activeElement;
 }

@@ -1,13 +1,17 @@
 import { steamLocalization } from "./internals";
 
-/* Steam's own UI text, by name. Each name lists the localization tokens Steam
-   uses for that text, and the strings come from Steam itself (the user's
-   language and English), so no translation is kept here. To match a new piece
-   of Steam's UI, add its tokens under a new name: they are found in
-   LocalizationManager's token tables by searching for the text Steam shows. */
+/* Steam's own UI text, by name. Each name covers one piece of Steam's UI and
+   lists the localization tokens Steam shows it with; the strings come from
+   Steam itself (the user's language and English), so no translation is kept
+   here. To match a new piece of Steam's UI, add its tokens under a new name:
+   LocalizationManager's token tables hold them, found by the text Steam shows. */
 export const STEAM_TEXT = {
-  recentGames: ["#LibraryHome_RecentGames", "#Showcase_RecentGames"],
+  // The native row the mount goes after on Home: the recents row, or the
+  // current-game row that the beta client shows there in Big Art mode.
+  recentGames: ["#LibraryHome_RecentGames", "#Showcase_RecentGames", "#Showcase_CurrentGame"],
+  // The native Home tab chips the plugin can hide.
   homeTabs: ["#HomeTab_WhatsNew", "#HomeTab_Friends", "#HomeTab_Recommended"],
+  // The close or cancel button of Steam's modals and overlays.
   closeButton: ["#Button_Close", "#Generic_Close", "#Button_Cancel"],
 } as const;
 

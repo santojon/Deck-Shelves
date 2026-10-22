@@ -1,5 +1,5 @@
-import type { ReactElement } from "react";
-import { afterPatch, findInReactTree } from "./host/decky";
+import { findInReactTree } from "./host/decky";
+import { installRecentsRowPatch, type RecentsRowContent, type RecentsRowHooks, type RecentsRowPatch, type RecentsRowReport } from "./recentsRowPatch";
 import { getCurrentSettings, subscribeSettings } from "../settingsStore";
 import { evalVisibility } from "../steam/smartShelves";
 import { applyManualOrder } from "../steam";
@@ -27,10 +27,10 @@ const SAME_SHELF_MAX_RETRIES = 2;
 const SAME_SHELF_RETRY_MS = 1200;
 let silentPatchFailures = 0;
 let overlayFocusedAppId = 0;
-let patchedTypes: WeakSet<object> = new WeakSet();
-// Focus/remount pacing: app-overview changes fire constantly while an app is
-// running/updating; without pacing they re-resolve + popstate-remount the shelf
-// mid-navigation, which resets gamepad focus to the first card.
+let rowPatch: RecentsRowPatch | null = null;
+// Focus pacing: app-overview changes fire constantly while an app is
+// running/updating; without pacing they re-resolve and re-render the row
+// mid-navigation, and focus jumps.
 let lastItemFocusAt = 0;
 let overviewDebounce: ReturnType<typeof setTimeout> | null = null;
 let remountTimer: ReturnType<typeof setTimeout> | null = null;
@@ -80,7 +80,6 @@ export function resetRecentsReplaceFailed(): void {
   cachedAppIds = null;
   cachedShelfId = null;
   lastResolveKey = "";
-  patchedTypes = new WeakSet();
   clearPacingTimers();
   resetCrashCounter();
   notifyFailedChange();
@@ -95,6 +94,8 @@ function markReplaceFailed(reason: string) {
   notify("error", { title: i18next.t("recents_replace_error_title"), body: i18next.t("recents_replace_error_desc") });
   notifyFailedChange();
   notifyInjectingChange();
+  // Back to Steam's games; deferred because a report can arrive mid-render.
+  void Promise.resolve().then(requestRemount);
 }
 
 // --- Steam app validation -----------------------------------------------
@@ -302,7 +303,7 @@ function scheduleResolve(shelf: any) {
         /* Strict renderable filter emptied it. Try appStore-known ids of ANY
            type (pending-update Proton/runtime) so we show THIS shelf's items
            instead of PROMOTING a different shelf; still-empty → native recents
-           (empty cachedAppIds → mutate no-ops). Error trap guards a bad type. */
+           (empty cachedAppIds → no content). Error trap guards a bad type. */
         finalIds = appStoreKnownIds(valid);
         if (finalIds.length === 0) { cachedAppIds = []; return; }
       }
@@ -344,22 +345,12 @@ function scheduleResolve(shelf: any) {
     .finally(() => { resolvePromise = null; });
 }
 
-function forceRemountRecents() {
-  try {
-    const win: any = globalThis;
-    if (win?.history?.state !== undefined) {
-      win.history.replaceState(win.history.state, "", win.location.href);
-      win.dispatchEvent(new Event("popstate"));
-    }
-  } catch (e) { logInfo("RUNTIME", "force-remount failed", String(e)); }
-}
-
-/* Remount the native recents shelf to reflect new content, but never while the
-   user is actively navigating it — the popstate remount would reset focus to the
-   first card. If a card was focused within FOCUS_GUARD_MS, defer and re-check
-   once the window elapses (re-arming until navigation pauses). */
+/* Ask the row to render again with the latest content, but never while the
+   user is moving through it, so focus does not jump. If a tile was focused
+   within FOCUS_GUARD_MS, defer and re-check once the window elapses
+   (re-arming until navigation pauses). */
 function requestRemount() {
-  if (Date.now() - lastItemFocusAt > FOCUS_GUARD_MS) { forceRemountRecents(); return; }
+  if (Date.now() - lastItemFocusAt > FOCUS_GUARD_MS) { safeCall(() => rowPatch?.requestRender()); return; }
   if (remountTimer) return;
   remountTimer = setTimeout(() => { remountTimer = null; requestRemount(); }, FOCUS_GUARD_MS);
 }
@@ -372,45 +363,52 @@ function shouldShowFeatured(shelf: any, s: any): boolean {
   return !!(shelf.highlightFirst || shelf.highlightAll || s?.globalHighlightFirst || s?.globalHighlightAll);
 }
 
-/* The fixed props.children[1].children[0]... index path only matched one
-   native layout; a Steam layout change silently broke it (caught by the
-   try/catch, no error — title just never updates). Search for it instead:
-   a lone string-child element here is the header text, not a game card
-   (cards render via holder.props.games, not inline string children). */
-function findRecentsTitleNode(ret3: any): any | null {
+/* The heading's text element: the first element in the scope whose children
+   is a single non-blank string. */
+function findRecentsTitleNode(scope: any): any | null {
   try {
-    return findInReactTree(ret3, (x: any) => x?.props && typeof x.props.children === "string" && x.props.children.trim().length > 0) ?? null;
+    return findInReactTree(scope, (x: any) => x?.props && typeof x.props.children === "string" && x.props.children.trim().length > 0) ?? null;
   } catch { return null; }
 }
 
-function setRecentsTitle(ret3: any, title: string): void {
+function setRecentsTitle(scope: any, title: string): void {
   if (!title) return;
-  try { ret3.props.children[1].props.children[0].props.children[0].props.children = title; } catch {}
-  const node = findRecentsTitleNode(ret3);
+  const node = findRecentsTitleNode(scope);
   if (node) { try { node.props.children = title; } catch {} }
 }
 
-function mutateRecentsElement(ret3: any, shelf: any, appIds: number[]): boolean {
-  try {
-    const holder = findInReactTree(ret3, (x: any) => x?.props?.games && Array.isArray(x.props.games) && typeof x?.props?.onItemFocus === "function");
-    if (!holder) return false;
-    const trimmed = appIds.slice(0, Math.max(1, shelf.limit ?? 20));
-    if (!trimmed.length) return false; // never pass empty — native expects non-empty
-    holder.props.games = trimmed;
-    holder.props.showFeaturedItem = shouldShowFeatured(shelf, getCurrentSettings());
-    const origOnItemFocus = holder.props.onItemFocus;
-    holder.props.onItemFocus = (overview: any, ...args: any[]) => {
-      lastItemFocusAt = Date.now();
-      try { overlayFocusedAppId = overview?.appid ?? overview?.nAppID ?? 0; } catch {}
-      return origOnItemFocus?.(overview, ...args);
-    };
-    setRecentsTitle(ret3, cachedTitle ?? shelf.title ?? "");
-    return true;
-  } catch (e) {
-    logWarn("RUNTIME", "mutate failed", String(e));
-    return false;
-  }
+/* What the row shows now. Null keeps Steam's games: no active shelf, or no
+   games for it yet (a resolve is scheduled then). */
+function rowContent(): RecentsRowContent | null {
+  const shelf = activeFirstShelf();
+  if (!shelf) return null;
+  if (!cachedAppIds?.length) { scheduleResolve(shelf); return null; }
+  return {
+    appIds: cachedAppIds.slice(0, Math.max(1, shelf.limit ?? 20)),
+    title: cachedTitle ?? shelf.title ?? "",
+    largeFirstTile: shouldShowFeatured(shelf, getCurrentSettings()),
+  };
 }
+
+function onRowTileFocus(appId: number): void {
+  lastItemFocusAt = Date.now();
+  overlayFocusedAppId = appId;
+}
+
+// Ten misses in a row, or one error, turn the feature off for the session.
+function onRowReport(report: RecentsRowReport): void {
+  if (report.kind === "applied") { silentPatchFailures = 0; return; }
+  if (report.kind === "error") { markReplaceFailed(report.detail); return; }
+  silentPatchFailures++;
+  if (silentPatchFailures >= 10) markReplaceFailed(report.detail);
+}
+
+const rowHooks: RecentsRowHooks = {
+  getContent: rowContent,
+  writeTitle: setRecentsTitle,
+  onTileFocus: onRowTileFocus,
+  onReport: onRowReport,
+};
 
 // --- Global error trap --------------------------------------------------
 // Any uncaught error whose stack references our plugin namespace AND contains
@@ -422,8 +420,8 @@ function isOurCrashFingerprint(msg: string): boolean {
   // hydrated throws inside Steam's SystemCollectionIdToName (undefined `.get`).
   // Match on the stack (below) so we don't over-catch generic `.get` errors.
   if (msg.includes("SystemCollectionIdToName") || msg.includes("recentAppsCollection")) return true;
-  // React error #301 (Maximum update depth) — a state update cascade caused
-  // by our mutation firing a Steam callback during render.
+  // React error #301 (Maximum update depth) — a state update cascade in a
+  // render of the row.
   if (msg.includes("Minified React error #301")) return true;
   if (msg.includes("Maximum update depth")) return true;
   return false;
@@ -502,96 +500,20 @@ function subscribeResumeFromSuspend(onResume: () => void): (() => void) | null {
 }
 
 export function installRecentsReplace(routerHook: any): PatchHandle {
-  if (!routerHook?.addPatch) return null;
+  // Unavailable on this client: stay off quietly, nothing else installed.
+  const handle = installRecentsRowPatch(routerHook, rowHooks);
+  if (!handle) { logInfo("RUNTIME", "recents row unavailable"); return null; }
+  rowPatch = handle;
 
-  let patch: any = null;
-  let unsubSettings: (() => void) | null = null;
   const uninstallErrorTrap = installGlobalErrorTrap();
 
-  const patchFn = (props: { children: ReactElement }) => {
-    try {
-      // All three layers (L1 → L2 → L3) install UNCONDITIONALLY so the
-      /* patch chain is fully in place regardless of `recentsReplaceSource`
-         state. Only the L3 mutation step gates on the active shelf — that
-         way, toggling the setting after Steam boot takes effect on the very
-         next render of the native recents component (focus shift, app
-         overview change, etc.), without requiring a restart. */
-      if ((props.children as any)?.type?.__og) return props;
-
-      afterPatch(props.children as any, "type", (_a: any, ret?: any) => {
-        if (!ret) return ret;
-        try {
-          if (!ret.type || patchedTypes.has(ret.type)) return ret;
-          patchedTypes.add(ret.type);
-          afterPatch(ret.type, "type", (_b: any, ret2?: any) => {
-            if (!ret2) return ret2;
-            try {
-              const recents = findInReactTree(ret2, (x: any) =>
-                x?.props && "autoFocus" in x.props && "showBackground" in x.props,
-              );
-              if (!recents) {
-                // Only count as failure when injection is actively trying to fire
-                // (active shelf + cached ids). Otherwise it's a normal idle render.
-                if (activeFirstShelf() && cachedAppIds?.length) {
-                  silentPatchFailures++;
-                  if (silentPatchFailures >= 10) markReplaceFailed("tree walk: recents node not found");
-                }
-                return ret2;
-              }
-              if (!recents.type || patchedTypes.has(recents.type)) return ret2;
-              patchedTypes.add(recents.type);
-              afterPatch(recents.type, "type", (_c: any, ret3?: any) => {
-                if (!ret3) return ret3;
-                try {
-                  const freshShelf = activeFirstShelf();
-                  if (!freshShelf) return ret3;
-                  if (!cachedAppIds?.length) { scheduleResolve(freshShelf); return ret3; }
-                  const ok = mutateRecentsElement(ret3, freshShelf, cachedAppIds);
-                  if (!ok) {
-                    silentPatchFailures++;
-                    if (silentPatchFailures >= 10) markReplaceFailed("mutate: holder not found");
-                    return ret3;
-                  }
-                  silentPatchFailures = 0;
-                } catch (e) {
-                  logInfo("RUNTIME", "ret3 patch failed", String(e));
-                  markReplaceFailed("ret3: " + String(e));
-                }
-                return ret3;
-              });
-            } catch (e) {
-              logInfo("RUNTIME", "ret2 findInReactTree failed", String(e));
-              markReplaceFailed("ret2: " + String(e));
-            }
-            return ret2;
-          });
-        } catch (e) {
-          logInfo("RUNTIME", "ret patch failed", String(e));
-          markReplaceFailed("ret: " + String(e));
-        }
-        return ret;
-      });
-    } catch (e) {
-      logInfo("RUNTIME", "outer patch failed", String(e));
-      markReplaceFailed("outer: " + String(e));
-    }
-    return props;
-  };
-
-  try {
-    patch = routerHook.addPatch("/library/home", patchFn);
-  } catch (e) {
-    logWarn("RUNTIME", "addPatch failed", String(e));
-    markReplaceFailed("addPatch: " + String(e));
-    return null;
-  }
-
-  unsubSettings = subscribeSettings(() => {
+  const unsubSettings = subscribeSettings(() => {
     const shelf = activeFirstShelf();
     if (!shelf) {
       const hadData = !!cachedAppIds?.length;
       cachedAppIds = null; cachedShelfId = null; cachedTitle = null; lastResolveKey = "";
-      if (hadData) notifyInjectingChange();
+      // No longer wanted: the row goes back to Steam's games.
+      if (hadData) { notifyInjectingChange(); requestRemount(); }
       return;
     }
     if (shelfKey(shelf) !== lastResolveKey) {
@@ -610,13 +532,11 @@ export function installRecentsReplace(routerHook: any): PatchHandle {
      the next 90s tick or an unrelated settings edit re-primed the cache. */
   const unsubShelfRefresh = subscribeShelfRefresh(reResolveActiveShelf);
 
-  // Bootstrap: patchFn only fires when Steam renders /library/home.
-  // If already on home at install time, we trigger resolve ourselves.
-  /* Timers only call scheduleResolve — forceRemountRecents is called by
-     scheduleResolve internally when data changes, so we never disturb
-     the native tree unnecessarily. Range covers the first ~80s because
-     collectionStore.allAppsCollection can take that long to populate on
-     a cold boot (issue #60); after that the 90s periodic tick takes over. */
+  /* Bootstrap: the row asks for content only when it renders, so resolve here
+     too in case the Home is already up. Timers only call scheduleResolve, which
+     requests a row render only when the games change. The range covers the
+     first ~80s because collectionStore.allAppsCollection can take that long to
+     populate on a cold boot; after that the 90s periodic tick takes over. */
   const bootstrapTimers: ReturnType<typeof setTimeout>[] = [];
   const tryResolve = () => {
     if (replaceFailed || (cachedAppIds && cachedAppIds.length > 0)) return;
@@ -642,7 +562,8 @@ export function installRecentsReplace(routerHook: any): PatchHandle {
 
   return {
     uninstall() {
-      safeCall(() => routerHook.removePatch?.("/library/home", patch));
+      safeCall(() => handle.uninstall());
+      if (rowPatch === handle) rowPatch = null;
       safeCall(unsubSettings);
       safeCall(unsubApp);
       safeCall(unsubColl);

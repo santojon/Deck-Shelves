@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { DialogButton, Focusable } from "../../../runtime/host/decky";
 import { CollapsibleSection } from "../../ui/CollapsibleSection";
 import {
-  collectRuntimeInfo, collectSystemInfo, collectHardwareInfo, listCoLoadedPlugins,
+  collectRuntimeInfo, collectSystemInfo, collectHardwareInfo, listCoLoadedPlugins, collectBootInfo,
   summarizeConfig, formatSize, hwCpuText, hwDiskText, hwExternalDiskText,
   type SystemInfo, type HardwareInfo, type RuntimeInfo,
 } from "../../../runtime/diagnosticsInfo";
@@ -252,6 +252,19 @@ export function DiagnosticsSection({ t }: { t: Tr }) {
     return lines;
   };
 
+  // How this session booted: origin, phase timings, watchdog verdict, long tasks, seeded cache.
+  const bootCopyLines = (): string[] => {
+    const boot = collectBootInfo();
+    return [
+      `${t("boot_title")}:`,
+      `  ${t("boot_origin")}: ${boot.origin}`,
+      `  ${t("boot_phases")}: ${boot.phases}`,
+      `  ${t("boot_watchdog")}: ${boot.watchdog}`,
+      `  ${t("boot_long_tasks")}: ${boot.longTasks}`,
+      `  ${t("boot_seeded_cache")}: ${boot.seededCache}`,
+    ];
+  };
+
   const copyAll = () => {
     const lines = [
       ...hwCopyLines(),
@@ -260,6 +273,7 @@ export function DiagnosticsSection({ t }: { t: Tr }) {
       `${t("diag_plugins")}: ${plugins.length ? plugins.join(", ") : DASH}`,
       ...integrations.map((it) => `${t(it.key)}: ${it.active ? "yes" : "no"}`),
       ...perfCopyLines(),
+      ...bootCopyLines(),
       `${t("diag_config")}:`,
       ...config.map((line) => `  ${line}`),
     ];

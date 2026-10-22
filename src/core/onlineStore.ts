@@ -2,6 +2,7 @@
 import { call } from "../shims/host-api";
 import { STEAM_STORE_BASE } from "../constants";
 import { logInfo, logWarn } from "../runtime/logger";
+import { decodeHtmlEntities } from "../domain/sourceUtils";
 
 const WISHLIST_KEY = "ds-wishlist-cache-v1";
 const PRICE_KEY = "ds-price-cache-v1";
@@ -106,15 +107,32 @@ const WISHLIST_RPC_TIMEOUT_MS = 35000;
 const WISHLIST_TIMEOUT_BACKOFF_MS = 2 * 60 * 1000;
 const WISHLIST_ERROR_BACKOFF_MS = 10 * 60 * 1000;
 
+/* Why the last fetch came back with nothing, for the resolver's one warning
+   line (it only sees null). `backoffUntil` lets it warn once per backoff window. */
+export type WishlistEmptyReason = { reason: string; backoffUntil?: number };
+let wishlistEmptyReason: WishlistEmptyReason | null = null;
+
+export function getWishlistEmptyReason(): WishlistEmptyReason | null {
+  return wishlistEmptyReason;
+}
+
+function noWishlist(reason: string, backoffDeadline?: number): null {
+  wishlistEmptyReason = backoffDeadline === undefined ? { reason } : { reason, backoffUntil: backoffDeadline };
+  return null;
+}
+
 async function fetchWishlistFromBackend(communityUrl: string): Promise<number[] | null> {
   const resp = await rpcWithTimeout<any>("get_wishlist", { community_url: communityUrl }, WISHLIST_RPC_TIMEOUT_MS);
   if (!resp?.ok || !Array.isArray(resp.ids)) {
-    logWarn("ONLINE", "wishlist backend error", resp?.error ?? "unknown");
-    return null;
+    logInfo("ONLINE", "wishlist backend error", resp?.error ?? "unknown");
+    return noWishlist(`backend error ${resp?.error ?? "unknown"}`);
   }
   const ids = (resp.ids as unknown[]).map(Number).filter(Number.isFinite);
-  if (!ids.length) logInfo("ONLINE", "wishlist backend returned no games");
-  return ids.length ? ids : null;
+  if (!ids.length) {
+    logInfo("ONLINE", "wishlist backend returned no games");
+    return noWishlist("backend returned none");
+  }
+  return ids;
 }
 
 function wishlistBackoffMs(e: unknown): number {
@@ -130,27 +148,30 @@ export async function getWishlistIds(): Promise<number[] | null> {
   wishlistInFlight = (async () => {
     try {
       // In backoff: serve stale cache rather than hang the resolver.
-      if (Date.now() < (backoffUntil[WISHLIST_KEY] ?? 0)) {
-        logInfo("ONLINE", "wishlist: retry backed off", { seconds: Math.round(((backoffUntil[WISHLIST_KEY] ?? 0) - Date.now()) / 1000) });
-        return staleWishlistIds();
+      const deadline = backoffUntil[WISHLIST_KEY] ?? 0;
+      if (Date.now() < deadline) {
+        const seconds = Math.round((deadline - Date.now()) / 1000);
+        logInfo("ONLINE", "wishlist: retry backed off", { seconds });
+        return staleWishlistIds() ?? noWishlist(`backoff, retry in ${seconds}s`, deadline);
       }
       // No isOnline() guard — the Python backend handles its own connectivity.
       const communityUrl = readCommunityWishlistUrl();
       if (!communityUrl) {
-        logWarn("ONLINE", "wishlist: could not locate community URL");
-        return staleWishlistIds();
+        logInfo("ONLINE", "wishlist: could not locate community URL");
+        return staleWishlistIds() ?? noWishlist("no community url");
       }
       const ids = await fetchWishlistFromBackend(communityUrl);
       if (!ids) return staleWishlistIds();
       writeCache<WishlistCache>(WISHLIST_KEY, { ids });
+      wishlistEmptyReason = null;
       logInfo("ONLINE", "wishlist fetched via backend", { count: ids.length });
       return ids;
     } catch (e) {
-      logWarn("ONLINE", "wishlist fetch failed", String(e));
+      logInfo("ONLINE", "wishlist fetch failed", String(e));
       // Back off so the next resolve doesn't immediately retry the same call:
       // briefly after a timeout (a host still starting), longer after an error.
       backoffUntil[WISHLIST_KEY] = Date.now() + wishlistBackoffMs(e);
-      return staleWishlistIds();
+      return staleWishlistIds() ?? noWishlist(`backend error ${String(e)}`);
     } finally {
       wishlistInFlight = null;
     }
@@ -202,7 +223,7 @@ function harvestStoreItem(item: StoreSearchItem, h: StoreHarvest): void {
   const id = Number(m[1]);
   if (!Number.isFinite(id) || id <= 0) return;
   h.ids.add(id);
-  if (item.name) h.nameMap.set(id, item.name);
+  if (item.name) h.nameMap.set(id, decodeHtmlEntities(item.name));
   const op = typeof item.original_price === "number" ? item.original_price : 0;
   const fp = typeof item.final_price === "number" ? item.final_price : 0;
   if (op > 0) h.priceHints.push({ id, original: op, final: fp });

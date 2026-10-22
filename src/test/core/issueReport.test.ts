@@ -11,6 +11,7 @@ vi.mock('../../runtime/diagnosticsInfo', () => ({
   collectSystemInfo: async () => h.sys,
   listCoLoadedPlugins: () => ['DeckShelves', 'CSSLoader'],
   summarizeConfig: () => ['enabled=true shelves=5 smart=2'],
+  collectBootInfo: () => ({ origin: 'cold', phases: 'critical 120ms · mount +130ms/40ms · lazy —', watchdog: 'ok', longTasks: '1 (250ms) · over 200ms 1 (250ms)', seededCache: 'ids 12 · meta 12 · ~3 KB' }),
 }))
 vi.mock('../../runtime/diagnostics', () => ({
   getDiagnostics: () => [{ id: '1', time: '2026-07-17T00:00:00Z', level: 'error', scope: 'HOME', message: 'render crashed', context: 'boom' }],
@@ -69,6 +70,9 @@ describe('openBugReport', () => {
     expect(ctx).toContain('### Diagnostics')
     expect(ctx).toContain('Version: 3.0.2')
     expect(ctx).toContain('Plugins: DeckShelves, CSSLoader')
+    expect(ctx).toContain('Boot:')
+    expect(ctx).toContain('  Origin: cold')
+    expect(ctx).toContain('  Watchdog: ok')
     expect(ctx).not.toContain('### Logs')
     expect(copied.length).toBe(1)
     expect(copied[0]).toContain('### Logs')

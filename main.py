@@ -72,6 +72,15 @@ from library_location import get_library_locations as _library_locations
 from peripherals import get_bluetooth_state as _bt_state, get_audio_state as _audio_state
 from launchers import list_launcher_games as _list_launcher_games, list_available_launchers as _list_available_launchers
 from shortcuts import shortcut_tags as _shortcut_tags
+from ttl_cache import TtlCache, wants_force
+
+# Probe answers kept for a few seconds: the visibility rules call these on
+# every shelf evaluation. One cache per method; `{force: true}` re-probes.
+# Hardware info stays uncached: only System information and the bug report
+# read it, and its Refresh must see a disk plugged in just now.
+_PERF_CACHE = TtlCache(5.0, read_perf_snapshot)
+_BLUETOOTH_CACHE = TtlCache(10.0, _bt_state)
+_AUDIO_CACHE = TtlCache(10.0, _audio_state)
 
 DEFAULT_SETTINGS: Dict[str, Any] = {"enabled": False, "hideRecents": False, "recentsReplaceSource": False, "hideHomeTabs": False, "shelfHeroBackground": False, "globalMatchNativeSize": False, "globalHighlightFirst": False, "globalHighlightAll": False, "globalHideStatusLine": False, "globalHideNewBadge": False, "globalHideDiscountBadge": False, "globalHideCompatIcons": False, "globalHideNonSteamBadge": False, "globalHideShelfTitle": False, "globalHideGameNames": False, "globalHideInstallIndicator": False, "globalHideSeeMore": False, "globalHideRefreshCard": False, "shelves": [], "smartShelvesEnabled": False, "smartShelvesAtBottom": False, "smartShelves": [], "smartSurpriseMe": False, "smartSurpriseMeCount": 0}
 
@@ -367,20 +376,23 @@ class Plugin:
         # filter/trigger. Read-only, off-thread, fail-soft, no background poll.
         return await asyncio.to_thread(_library_locations)
 
-    async def get_perf_snapshot(self, *args, **kwargs) -> Dict[str, Any]:
+    async def get_perf_snapshot(self, force: Any = False, *args, **kwargs) -> Dict[str, Any]:
         # On-demand CPU / memory snapshot from /proc (read-only). Off-thread (the
         # CPU read sleeps ~100 ms between /proc/stat samples). No background poll.
-        return await asyncio.to_thread(read_perf_snapshot)
+        # Cached 5 s.
+        return await asyncio.to_thread(_PERF_CACHE.get, wants_force(force, **kwargs))
 
-    async def get_bluetooth_state(self, *args, **kwargs) -> Dict[str, Any]:
+    async def get_bluetooth_state(self, force: Any = False, *args, **kwargs) -> Dict[str, Any]:
         # Paired + connected Bluetooth devices via bluetoothctl (read-only,
         # off-thread, fail-soft off Linux). On-demand — no background poll.
-        return await asyncio.to_thread(_bt_state)
+        # Cached 10 s.
+        return await asyncio.to_thread(_BLUETOOTH_CACHE.get, wants_force(force, **kwargs))
 
-    async def get_audio_state(self, *args, **kwargs) -> Dict[str, Any]:
+    async def get_audio_state(self, force: Any = False, *args, **kwargs) -> Dict[str, Any]:
         # Whether the active output sink is a headphone/headset port via wpctl
         # (read-only, off-thread, fail-soft). On-demand — no background poll.
-        return await asyncio.to_thread(_audio_state)
+        # Cached 10 s.
+        return await asyncio.to_thread(_AUDIO_CACHE.get, wants_force(force, **kwargs))
 
     def _save_pipeline(self, data: Dict[str, Any]) -> bool:
         # Whole save pipeline runs in a single worker thread so neither the

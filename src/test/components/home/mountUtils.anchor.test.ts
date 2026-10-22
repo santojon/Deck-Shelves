@@ -52,6 +52,16 @@ describe("mountUtils — anchor next to recents, never inside it", () => {
     expect(anchor?.before).toBe(recents.nextSibling);
   });
 
+  it("anchors after the current-game row the beta client shows in Big Art mode", () => {
+    const { panel, recents } = buildEarlyHome("Jogo atual");
+    const anchor = resolveAnchor(document);
+    expect(anchor?.parent).toBe(panel);
+    expect(anchor?.before).toBe(recents.nextSibling);
+    const created = findOrCreateMount();
+    expect(created?.parentElement).toBe(panel);
+    expect(created?.previousElementSibling).toBe(recents);
+  });
+
   it("never anchors inside a recents block a previous instance left hidden", () => {
     const { panel, recents } = buildEarlyHome();
     // The outgoing instance hid the native rows (hideHomeTabs) and the inner grid

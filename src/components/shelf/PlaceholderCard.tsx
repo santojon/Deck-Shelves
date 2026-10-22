@@ -83,18 +83,15 @@ function placeholderFocusProps(item: DeckRowItem, previewMode: boolean, featured
 
 /* The badges render beside this block (CardBadgeHost), not inside it: the art
    clips its overflow, so a band in here sat under the focus ring instead of
-   over it. */
+   over it. The look matches Steam's own capsule when its art fails: a dark
+   tile with the name inset 10% from each edge, centred from the top. */
 function PlaceholderArt({ featured, name, radius }: { featured: boolean; name: string; radius: number | string }) {
   return (
     <div
       className="ds-card-art"
       style={{
         overflow: "hidden",
-        background: "linear-gradient(313deg, rgba(51,51,51,0.667), rgba(85,85,85,0.667))",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: featured ? 16 : 6,
+        background: "rgb(14, 20, 27)",
         boxSizing: "border-box",
         // Same variable the art cards use (themes such as Round set it); the
         // detected native radius is only the fallback — it can be cached as
@@ -103,11 +100,12 @@ function PlaceholderArt({ featured, name, radius }: { featured: boolean; name: s
       }}
     >
       <span className="ds-card-text" style={{
-        fontSize: featured ? 14 : 11,
-        opacity: 0.5,
+        position: "absolute",
+        inset: "10%",
+        fontSize: featured ? 20 : 16,
         textAlign: "center",
         wordBreak: "break-word",
-        lineHeight: 1.3,
+        overflow: "hidden",
       }}>
         {name}
       </span>

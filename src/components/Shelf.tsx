@@ -17,6 +17,7 @@ import { logInfo } from "../runtime/logger";
 import { applyManualOrder, getAllAppOverviews, getLocalLibraryAppIds } from "../steam";
 import { normalizeTitleForMatch } from "../steam/dedupe";
 import { fetchGameNames } from "../core/onlineStore";
+import { decodeHtmlEntities } from "../domain/sourceUtils";
 import { getCurrentSettings } from "../store/settingsStore";
 import { publishShelf, unpublishShelf } from "../features/search/shelfRegistry";
 import {
@@ -557,7 +558,7 @@ function ShelfViewImpl(props: ShelfViewProps) {
     // Pre-populate storeNames from cache immediately — no async needed.
     const cached = new Map<number, string>();
     for (const id of appIds) {
-      if (nameCache[id]) cached.set(id, nameCache[id]);
+      if (nameCache[id]) cached.set(id, decodeHtmlEntities(nameCache[id]));
     }
     if (cached.size) setStoreNames(prev => { const n = new Map(prev); cached.forEach((v, k) => n.set(k, v)); return n; });
     // Fetch names for IDs not yet cached.

@@ -1,7 +1,7 @@
 import { call } from "../runtime/host/decky";
 import { isHomeOwner } from "../runtime/host/ownerGuard";
-import { SettingsSchema, type Settings } from "../types";
-import { defaultSettings } from "../domain/defaults";
+import { SettingsSchema, type FilterGroup, type FilterItem, type Settings, type SmartShelf } from "../types";
+import { createHiddenGamesExcludeItem, defaultSettings } from "../domain/defaults";
 import { logError, logInfo, logWarn, setVerboseLogging } from "../runtime/logger";
 import { applyQASettingsOverride, qaOverrideActive, qaSeedActive } from "../qa/harness";
 import { SYNC_LISTS, LOCAL_ONLY_FIELDS } from "../domain/settingsMerge";
@@ -134,7 +134,9 @@ function notify(raw: Settings) {
    MUST be idempotent. */
 /* Current settings-document schema version (§4B). Bump when a migration below is
    added; older versions read a higher number and leave the doc untouched. */
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
+// Documents below this version predate the hidden-games item on smart shelves.
+const HIDDEN_FILTER_SCHEMA_VERSION = 2;
 
 function dedupeById<T extends { id?: string }>(arr: readonly T[]): T[] {
   const seen = new Set<string>();
@@ -244,6 +246,38 @@ export function stampChanges(prev: Settings | null, next: Settings): Settings {
   return out as Settings;
 }
 
+function hasHiddenFilterItem(items: FilterItem[]): boolean {
+  return items.some((it) => it?.type === "hidden"
+    || (it?.type === "merge" && Array.isArray(it.params?.items) && hasHiddenFilterItem(it.params.items as FilterItem[])));
+}
+
+/* Smart shelves made before the hidden-games default still show Steam-hidden
+   games. Append the same `hidden: exclude` item a new smart shelf gets, unless
+   the shelf already has a `hidden` item (any mode, at any depth). An `or` group
+   is first folded into a `merge` item so the exclusion applies on top of it. */
+function withHiddenGamesExcluded(group: FilterGroup | undefined): FilterGroup {
+  const raw = group?.items;
+  const items = Array.isArray(raw) ? raw : [];
+  if (group?.mode === "or" && items.length) {
+    return { mode: "and", items: [{ type: "merge", inverted: false, params: { mode: "or", items } }, createHiddenGamesExcludeItem()] };
+  }
+  return { mode: "and", items: [...items, createHiddenGamesExcludeItem()] };
+}
+
+/* Runs once per document (see the schema-version gate in migrate), so a user who
+   removes the item afterwards keeps it removed. A changed shelf gets a clock one
+   tick above its old one: it beats the un-migrated copy of the same shelf in a
+   cloud-sync merge, is identical on every upgraded device, and still loses to
+   any real edit (Date.now). */
+function migrateSmartShelfHidden(sh: SmartShelf): SmartShelf {
+  const items = sh.filterGroup?.items;
+  // A malformed group is left alone: a throw here would reset the whole config.
+  if (items !== undefined && !Array.isArray(items)) return sh;
+  if (items && hasHiddenFilterItem(items)) return sh;
+  const clock = typeof sh.updatedAt === "number" ? sh.updatedAt : 0;
+  return { ...sh, filterGroup: withHiddenGamesExcluded(sh.filterGroup), updatedAt: clock + 1 };
+}
+
 export function migrate(s: Settings): Settings {
   const stored = s.schemaVersion ?? 0;
   // A NEWER version wrote this document — never migrate or downgrade it (return
@@ -253,6 +287,14 @@ export function migrate(s: Settings): Settings {
   s = dedupeShelves(s);
   s = backfillSyncStamps(s);
   let mutated = false;
+  let smartShelves = s.smartShelves;
+  if (stored < HIDDEN_FILTER_SCHEMA_VERSION) {
+    smartShelves = (s.smartShelves ?? []).map((sh) => {
+      const next = migrateSmartShelfHidden(sh);
+      if (next !== sh) mutated = true;
+      return next;
+    });
+  }
   const shelves = s.shelves.map((sh) => {
     /* "Recently Played" template used to emit { type: "tab", tab: "recent" },
        but listLibraryTabs() never had a "recent" tab id — so the edit modal's
@@ -266,7 +308,7 @@ export function migrate(s: Settings): Settings {
     }
     return sh;
   });
-  const base = mutated ? { ...s, shelves } : s;
+  const base = mutated ? { ...s, shelves, smartShelves } : s;
   // Stamp the current version — only ever bumps up (never downgrades).
   return stored === SCHEMA_VERSION ? base : { ...base, schemaVersion: SCHEMA_VERSION };
 }

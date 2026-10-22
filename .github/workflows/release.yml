@@ -11,6 +11,7 @@ env:
 
 permissions:
   contents: write
+  issues: write
   id-token: write
   attestations: write
 
@@ -169,3 +170,28 @@ jobs:
             dist/index.iife.js
             deck-shelves-backend.tar.gz
             SHA256SUMS
+      # Every #N in this release's changelog section gets a comment pointing at the release.
+      - name: Comment on issues named in the changelog
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.tag.outputs.tag }}
+          VERSION: ${{ steps.tag.outputs.version }}
+        run: |
+          set -euo pipefail
+          REPO="${{ github.repository }}"
+          REL_URL="https://github.com/${REPO}/releases/tag/${TAG}"
+          SECTION=""
+          for NAME in "${VERSION}" "Unreleased"; do
+            if [ -z "$SECTION" ]; then
+              SECTION=$(awk "/^## \\[${NAME}\\]/{found=1; next} /^## \\[/{if(found) exit} found{print}" CHANGELOG.md)
+            fi
+          done
+          ISSUES=$(printf '%s\n' "$SECTION" | grep -oE '#[0-9]+' | tr -d '#' | sort -un || true)
+          if [ -z "$ISSUES" ]; then echo "No issue references in the changelog section — nothing to comment."; exit 0; fi
+          for n in $ISSUES; do
+            echo "Commenting on #$n"
+            gh issue comment "$n" --repo "$REPO" \
+              --body "🚀 Something referenced here shipped in [\`${TAG}\`](${REL_URL}). Please check whether it solves your report. 🙏" \
+              || echo "Skipped #$n (PR, locked, or not commentable)"
+          done
+

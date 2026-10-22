@@ -212,7 +212,7 @@ export function DeckQAMStyles() {
       .deck-shelves-qam-scope .deck-shelves-shelf-list {
         padding: 0;
       }
-      /* Force ellipsis on shelf titles within ReorderableList entries */
+      /* Force ellipsis on shelf titles in the QAM shelf lists */
       .deck-shelves-qam-scope .deck-shelves-shelf-list .${gamepadDialogClasses.Field} {
         overflow: hidden;
       }
@@ -229,6 +229,14 @@ export function DeckQAMStyles() {
         overflow: hidden;
         min-width: 0;
         flex: 1 1 0;
+      }
+      /* Controller grab: the name area; focus and the held row use Steam's own row highlight */
+      .deck-shelves-qam-scope .ds-grab-target {
+        flex: 1 1 auto;
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        overflow: hidden;
       }
 
       .deck-shelves-qam-scope .deck-shelves-label-cont {

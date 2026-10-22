@@ -87,7 +87,6 @@
   "mode_switch_advanced_body": "Los modos Ligero y Avanzado no pueden estar activos a la vez. Activar el modo Avanzado desactivará el modo Ligero.",
   "beta_channel_label": "Canal beta",
   "settings_confirm_irreversible": "Esto no se puede deshacer.",
-  "own_qam_tab_enabled": "Pestaña propia en Acceso Rápido (experimental)",
   "screensaver_shelves_enabled": "Protector de pantalla (experimental)",
   "screensaver_shelves_include_screenshots": "Incluir capturas de pantalla",
   "screensaver_online_screenshots": "Incluir capturas de pantalla en línea",
@@ -115,10 +114,5 @@
   "showcase_card_dwell_label": "Tiempo por juego",
   "section_navigation": "Navegación y búsqueda",
   "section_online": "Funciones en línea",
-  "section_experimental": "Experimental",
-  "own_qam_tab_restart_title": "¿Reiniciar Steam ahora?",
-  "own_qam_tab_restart_body": "La pestaña de Acceso Rápido solo aparece después de reiniciar Steam.",
-  "own_qam_tab_restart_now": "Reiniciar ahora",
-  "own_qam_tab_restart_later": "Más tarde",
-  "own_qam_tab_restart_body_off": "La pestaña de Acceso Rápido puede seguir visible hasta que Steam se reinicie."
+  "section_experimental": "Experimental"
 }

@@ -134,7 +134,7 @@ if (!deviceOk) {
     "about", "context_menu", "context_menu_24", "crash_protection", "decoration",
     "edit_shelf_modal", "features_24", "home", "perf", "qam_global_toggles", "qam_shelves",
     "qam_smart", "search", "settings", "settings_page", "shelf_preview", "sidecar", "sidenav",
-    "update", "usage_stats",
+    "stabilization", "update", "usage_stats",
   ];
   const only = stress ? "" : ` --only ${q(nonStressSuites.join(","))}`;
   h.step("uitests", stress ? "UI tests (all suites + stress)" : "UI tests (all suites)",

@@ -7,9 +7,16 @@ describe('steamText', () => {
 
   it("gives Steam's strings for a name, user's language first, lower-cased and without repeats", () => {
     stubSteamLocalizer(STEAM_PT_BR)
-    expect(steamText('recentGames')).toEqual(['jogos recentes', 'recent games'])
+    expect(steamText('recentGames')).toEqual(['jogos recentes', 'recent games', 'jogo atual', 'current game'])
     expect(steamText('homeTabs', 'user')).toEqual(['novidades', 'amigos', 'recomendados'])
     expect(steamText('closeButton', 'english')).toEqual(['close', 'cancel'])
+  })
+
+  it("covers the current-game row the beta client shows above the mount in Big Art mode", () => {
+    expect(STEAM_TEXT.recentGames).toContain('#Showcase_CurrentGame')
+    stubSteamLocalizer(STEAM_PT_BR)
+    expect(matchesSteamText('Jogo atual', 'recentGames', 'exact')).toBe(true)
+    expect(matchesSteamText('Current Game', 'recentGames', 'exact')).toBe(true)
   })
 
   it('has nothing to match without a localizer, and skips unknown or raw tokens', () => {
@@ -38,7 +45,7 @@ describe('steamText', () => {
     stubSteamLocalizer({ '#Button_Close': 'Close "now"' }, {})
     expect(steamTextSelectors('closeButton', 'aria-label', 'exact')).toEqual(['[aria-label="close \\"now\\"" i]'])
     stubSteamLocalizer(STEAM_PT_BR)
-    expect(steamTextSelectors('recentGames', 'aria-label', 'contains', ' .Focusable', 'user')).toEqual(['[aria-label*="jogos recentes" i] .Focusable'])
+    expect(steamTextSelectors('recentGames', 'aria-label', 'contains', ' .Focusable', 'user')).toEqual(['[aria-label*="jogos recentes" i] .Focusable', '[aria-label*="jogo atual" i] .Focusable'])
   })
 
   it('names only tokens, never translated words', () => {

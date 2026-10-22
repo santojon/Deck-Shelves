@@ -5,6 +5,14 @@ export function resolveFocusNavController(): any {
   return g.FocusNavController ?? g.GamepadNavTree?.m_context?.m_controller;
 }
 
+/* Every navigation tree of the controller's active context (or, between
+   contexts, of the last active one). */
+export function activeNavTrees(): any[] {
+  const ctrl = resolveFocusNavController();
+  const context = ctrl?.m_ActiveContext || ctrl?.m_LastActiveContext;
+  return context?.m_rgGamepadNavigationTrees ?? [];
+}
+
 /* The root node of the main ("GamepadUI_Full_Root") navigation tree of a
    controller context, or null when the context has no such tree. */
 export function findMainNavRoot(context: any): any | null {

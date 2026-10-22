@@ -630,11 +630,8 @@ export const SettingsSchema = z.object({
   // (e.g. Xbox Cloud Gaming) don't hide their store/wishlist promotions.
   onlineHideOwnedNonSteamCloud: z.boolean().nullable().optional().transform((v) => v ?? false),
   forceCssLoaderThemes: z.boolean().nullable().optional().transform((v) => v ?? false),
-  /* Own native Quick Access tab under Decky alone — off by default, since it
-     patches a live Steam QAM consumer and needs its own on-device validation
-     pass before it's safe to default on. Never has any effect when a neutral
-     host's own QAM bridge is present; that tab always wins (see
-     runtime/ownQamTab.ts). */
+  /* Obsolete: the plugin's own Quick Access tab option was removed. Kept so
+     older configs still parse; the value is ignored. */
   ownQamTabEnabled: z.boolean().nullable().optional().transform((v) => v ?? false),
   /* Showcase / Dynamic Idle Mode — cycles attention through the user's own
      shelves during Home inactivity; any real interaction stops it instantly.

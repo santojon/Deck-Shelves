@@ -312,7 +312,8 @@ src/
 │
 ├── runtime/
 │ ├── homePatch.tsx Home screen DOM patching + fallback renderer
-│ ├── recentsReplace.tsx Experimental: replaces native recents data source with first shelf
+│ ├── recentsReplace.tsx Optional: Steam's Recents row shows the first shelf
+│ ├── recentsRowPatch.ts The Recents row side of that feature (same spec)
 │ ├── steamHost.ts Steam window/document discovery
 │ ├── deckyPlatform.ts Platform interface implementation
 │ ├── platform.ts Platform interface definition
@@ -418,10 +419,7 @@ At runtime, the component discovers native classes from the recents section's si
 > **Note:** the API surface is `window.deckShelves.api` (major version **4**) — registries (`registerShelfSource` / `registerSmartShelfSource` / `registerFilterType` / `registerSortOption` / `registerImportType` / `registerSavedFilter` and the provider registries) and the consumer-side accessors (`getShelves`, `getSmartShelves`, `getSavedFilters`, `subscribeShelves` and the other `subscribe*` methods) are all live against the settings store. See [`plugin-api.md`](./plugin-api.md).
 
 ### Recents Replace (`recentsReplace.tsx`)
-Experimental feature (`recentsReplaceSource` setting, gated behind `hideRecents`). Instead of visually hiding the native "Recently Played" section, it patches the section's render output via `routerHook.addPatch("/library/home",...)` + nested `afterPatch` calls to replace the `games` prop with the first visible shelf's app IDs. The native DOM, CSS, animations, hero background, and focus callbacks are preserved entirely. Safety mechanisms:
-- App IDs are filtered by `app_type` (1 = Game, 2 = Application) before injection — shortcuts, DLC, and music entries crash Steam's `userCollections` getter.
-- A global `error`/`unhandledrejection` trap detects `userCollections`-class errors and auto-disables the experiment.
-- On failure, `isRecentsReplaceInjecting()` returns `false` and `HomeInject` falls back to the standard visual-hide behaviour. The QAM shows a `RecentsReplaceErrorBanner`.
+Optional and experimental (`recentsReplaceSource`, offered under `hideRecents`). With both settings on, Steam's own Recents row is not hidden: it shows the games of the first eligible shelf, under that shelf's title, with Steam's own tiles, art, focus and themes, and that shelf leaves the plugin's area. A failure while the feature is in use turns it off for the session: a toast, the `RecentsReplaceErrorBanner` in the QAM ("Retry" or "Disable toggle"), and plain hiding as the fallback. On a client where the feature is unavailable it stays off quietly: no error, Steam's row as it is, every shelf in the plugin's area.
 
 ### Hide Home Tabs (`hideHomeTabs`)
 When enabled, hides the native Novidades/Amigos/Recomendados tab bar. Detection uses `[role="tablist"]` as a sibling of the plugin's mount element — no hardcoded class names, compatible with SteamOS updates.
@@ -481,10 +479,6 @@ Concurrent `saveSettings` calls coalesce: a save in flight latches the next payl
 
 QAM-expanded state is per-session: a module value mirrored in `sessionStorage`, and the `DeckQAMSettings` mount effect calls `resetQamExpanded()` (only on the visible tab instance, `isActiveTab`) to wipe even the persisted flag every time the plugin tab mounts. While the sidecar is expanded, a 300 ms poll collapses it when `m_MenuStore.m_eOpenSideMenu` changes relative to the value captured at expand, or when a tick gap over 1.5 s while the document is not visible shows a resume from background. `document.hasFocus()` is not used: the QAM document never holds DOM focus, so it collapsed the sidecar within about 300 ms. Browser-lifecycle listeners add coverage: `visibilitychange` (hidden only), `pagehide` and `freeze` collapse; `focus` and `resume` collapse only while the document is hidden. `SidecarPanel` itself bails (`return null`) when `controller.settings` is unhydrated so a freshly-remounted tab never renders the "open but empty body" bug-state. A compact action row right under the master toggle (`toggleSidecar`, the sidecar's gear icon) opens or closes the sidecar through the same `fireQamExpand` path as the dpad-right chord and the B button, so the compositor widens or narrows together with the store flag.
 
-### Own QAM tab under Decky alone (`runtime/ownQamTab.ts`)
-
-Opt-in, off by default (`ownQamTabEnabled`). Ports a tab-injection mechanism already validated on-device in a neutral host's own runtime: register a numeric key in Steam's `QuickAccessTab` enum, then `afterPatch` the `QuickAccessMenuBrowserView` consumer to push a tab object onto its render output's `props.tabs` array — via Decky's own `afterPatch` / `findModuleByExport` / `findInReactTree`, not a hand-rolled webpack walk. A localStorage breaker mirrors that same safeguard (two unconfirmed arms trip it and it refuses to re-patch for 24 h). Retracts whenever a neutral host's own tab has actually been inserted (the host stamps `window.__SHELVES_QAM_OWNER__`, or its tab object carries the host's marker) — never on the mere presence of the `window.__SHELVES_QAM__` bridge. That tab always wins. This mechanism still needs its own on-device validation pass before it's safe to default on.
-
 ### Showcase / Dynamic Idle Mode (`runtime/showcaseMode.ts`)
 
 Opt-in, off by default (`showcaseModeEnabled`). During Home inactivity, cycles focus through the user's own shelves on a timer, reusing the exact same focus-a-shelf's-first-card mechanism Side Nav's own "jump to shelf" already ships — never synthetic input. Any real interaction (a controller button via `subscribeControllerInput`, or a pointer/wheel/keydown event) stops it and re-arms the idle timer. Optional in-shelf pan (`showcasePanCards`) walks a few cards per shelf before moving on. Not built yet: a shelf-participation picker UI (the `showcaseShelfIds` setting exists without one). Also exports `isNativeScreensaverActive()` (`ScreensaverPopup`/`BIsActive()` on the active `GamepadNavigationTree`), which both Showcase and the screensaver below use to stand down if Steam's own native screensaver is somehow active.
@@ -506,7 +500,8 @@ Opt-in, off by default (`cloudSyncEnabled`). Mirrors settings across devices on 
 | File | Role |
 |---|---|
 | `runtime/homePatch.tsx` | Mounts `#deck-shelves-home-root` next to native recents; `HomeBoundary` ErrorBoundary; hide helpers for recents/tabs |
-| `runtime/recentsReplace.tsx` | Optional overlay that swaps native recents for a DS shelf (L1→L2→L3 `afterPatch` chain); WeakSet dedup, crash threshold, kill-switch |
+| `runtime/recentsReplace.tsx` | Optional: Steam's Recents row shows the first eligible shelf; shelf choice, its games, crash detection, kill switch |
+| `runtime/recentsRowPatch.ts` | The part of that feature that changes Steam's Recents row |
 | `components/HomeInject.tsx` | React side of the mount; `ShelvesContainer`; first-shelf promotion to recents slot |
 | `components/Shelf.tsx` | Per-shelf appId resolve (memoized + generation-id cancel) |
 | `components/DeckRow.tsx` | Horizontal row: title + collapse + scroll center on focus |
@@ -519,33 +514,9 @@ Opt-in, off by default (`cloudSyncEnabled`). Mirrors settings across devices on 
 | `components/home/navPatches/edgeNavigation.ts` | L/R throttle + DOWN tilt guard (when home tabs hidden) |
 | `components/home/navPatches/verticalBridge.ts` | DOWN/UP bridge between mount and native neighbors |
 
-### Recents replacement pipeline (`recentsReplaceSource = true`)
+### Recents replacement (`recentsReplaceSource = true`)
 
-```
-routerHook.addPatch("/library/home", patchFn)
-        │
-        ▼
-   [L1]  afterPatch(props.children, "type")        permanent — wraps the route's child Type
-        │  on each render, re-applies L2/L3 (transient per-render Types):
-        ▼
-   [L2]  afterPatch(ret.type, "type")              home panel — guarded by patchedTypes WeakSet
-        │  walks tree → finds recents component:
-        ▼
-   [L3]  afterPatch(recents.type, "type")          recents component — also WeakSet-guarded
-        │
-        ▼
-   mutateRecentsElement(ret3, shelf, appIds)
-        │  • holder.props.games ← appIds
-        │  • holder.props.showFeaturedItem ← from shelf highlight toggles
-        ▼
-   render()                                        native cross-fade preserved (no callback re-entry)
-
-   ─── safety nets ─────────────────────────────────────────────────────────
-   patchedTypes: WeakSet<object>                   dedup against memo/forwardRef sharing (3.9+)
-   crashCount, CRASH_THRESHOLD = 5 / 10 s          fingerprinted errors → markReplaceFailed()
-   markReplaceFailed(reason) → pub/sub             QAM disables toggle + shows banner
-   resetRecentsReplaceFailed()                     QAM "reset crash state" — clears WeakSet too
-```
+While the replacement is in effect, `HomeInject` keeps Steam's Recents row visible and leaves the promoted shelf out of the plugin's area. After a failure it falls back to the plain `hideRecents` collapse, with every shelf back in the plugin's area.
 
 ### Focus nav tree reparent (`reparentNavTreeNodes`)
 

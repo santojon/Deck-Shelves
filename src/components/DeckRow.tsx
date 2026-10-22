@@ -25,6 +25,7 @@ import {
 import { getCurrentSettings, saveSettings } from "../store/settingsStore";
 import { trackFeature } from "../steam/usageTracking";
 import { patchShelfInSettings } from "../domain/settings";
+import type { Settings } from "../types";
 import { PerShelfHero } from "./shelf/PerShelfHero";
 import { computeCardWindow, sameWindow, type CardWindow } from "../domain/cardWindow";
 import { rememberShelfHeight } from "./shelf/shelfViewportGate";
@@ -62,6 +63,21 @@ function writeCollapsed(shelfId: string, collapsed: boolean): void {
   } catch (e) {
     logInfo("HOME", "writeCollapsed failed", String(e));
   }
+}
+
+// The row's shelf can be a regular or a smart one; both keep `hiddenAppIds` and `manualOrder`.
+function findShelfRow(s: Settings | null, shelfId: string): { shelf: any; isSmart: boolean } | null {
+  const regular = s?.shelves?.find((row) => row.id === shelfId);
+  if (regular) return { shelf: regular, isSmart: false };
+  const smart = s?.smartShelves?.find((row) => row.id === shelfId);
+  return smart ? { shelf: smart, isSmart: true } : null;
+}
+
+// Same rule the game menu uses: regular shelves go through
+// patchShelfInSettings, smart ones are mapped in place.
+function patchShelfRow(s: Settings, shelfId: string, isSmart: boolean, patch: Record<string, any>): Settings {
+  if (!isSmart) return patchShelfInSettings(s, shelfId, patch);
+  return { ...s, smartShelves: (s.smartShelves ?? []).map((sh) => sh.id === shelfId ? { ...sh, ...patch } : sh) };
 }
 
 // Row paddingBottom budget: scales with what renders below the card art
@@ -188,33 +204,27 @@ function DeckRowImpl(props: DeckRowProps) {
      Hide/Show label toggle; both callbacks below persist directly. */
   const hiddenSet = useMemo(() => {
     if (!shelfId) return undefined;
-    const s = getCurrentSettings();
-    const sh: any = s?.shelves?.find((row: any) => row.id === shelfId);
-    const h: number[] | undefined = sh?.hiddenAppIds;
+    const h: number[] | undefined = findShelfRow(getCurrentSettings(), shelfId)?.shelf.hiddenAppIds;
     return h?.length ? new Set(h) : undefined;
   }, [shelfId, items]);
   const onRemoveCard = useCallback((appid: number) => {
     if (!shelfId || !appid) return;
     const s = getCurrentSettings();
-    if (!s) return;
-    const sh: any = (s.shelves ?? []).find((row: any) => row.id === shelfId);
-    if (!sh) return;
-    const m: number[] = sh.manualOrder ?? [];
+    const found = s ? findShelfRow(s, shelfId) : null;
+    if (!s || !found) return;
+    const m: number[] = found.shelf.manualOrder ?? [];
     if (!m.includes(appid)) return;
-    void saveSettings(patchShelfInSettings(s, shelfId, {
-      manualOrder: m.filter((id) => id !== appid),
-    }));
+    void saveSettings(patchShelfRow(s, shelfId, found.isSmart, { manualOrder: m.filter((id) => id !== appid) }));
   }, [shelfId]);
   const onHideCard = useCallback((appid: number) => {
     if (!shelfId || !appid) return;
     const s = getCurrentSettings();
-    if (!s) return;
-    const sh: any = (s.shelves ?? []).find((row: any) => row.id === shelfId);
-    if (!sh) return;
-    const h: number[] = sh.hiddenAppIds ?? [];
+    const found = s ? findShelfRow(s, shelfId) : null;
+    if (!s || !found) return;
+    const h: number[] = found.shelf.hiddenAppIds ?? [];
     const next = h.includes(appid) ? h.filter((id) => id !== appid) : [...h, appid];
     try { trackFeature("hide"); } catch {}
-    void saveSettings(patchShelfInSettings(s, shelfId, { hiddenAppIds: next }));
+    void saveSettings(patchShelfRow(s, shelfId, found.isSmart, { hiddenAppIds: next }));
   }, [shelfId]);
   markRenderStart(shelfId);
   const rowRef = useRef<HTMLDivElement>(null);

@@ -36,8 +36,13 @@ Manual test checklist for regression testing on a real Steam Deck (SteamOS Stabl
 | 2.5 | Show shelf via ellipsis → shelf reappears on Home | Shelf active again |
 | 2.6 | Delete shelf → confirmation modal; confirm → removed | Shelf gone from QAM and Home |
 | 2.7 | Move shelf up/down via QAM → order changes on Home | Order matches QAM |
+| 2.7a | QAM shelf list with a controller: A on a shelf name grabs it; D-pad up/down moves it one place (stops at the ends); A saves | The row keeps Steam's own highlight, no extra frame or hint; while grabbed, Steam's button bar shows Move up / Move down (D-pad), Save Order (A) and Cancel (B); order saved once, Home follows; focus stays on the moved row |
+| 2.7b | Same, then B instead of A | Row goes back, nothing saved, the panel stays open, focus stays on the row |
+| 2.7c | Hold-drag a row with touch or a mouse | The dragged row is dimmed; order saved on release |
 | 2.8 | Edit shelf title → title updates on Home row header | New title rendered |
 | 2.9 | Edit shelf limit → card count changes | Number of cards changes |
+| 2.10 | In Steam's library, press ≡ on an installed game, a game that is not installed and a non-Steam shortcut | "Add to shelf" appears once in each menu, just before Properties |
+| 2.11 | Right after Steam starts, open the first game menu from the library and keep it open for a few seconds | "Add to shelf" stays in the menu |
 
 ---
 
@@ -77,7 +82,7 @@ Manual test checklist for regression testing on a real Steam Deck (SteamOS Stabl
 |---|----------|----------|
 | 5.1 | `hideRecents=true` → native Recently Played section hidden | Section not visible on Home |
 | 5.2 | `hideRecents=true` + `heroBackground=true` → focused card shows background art | Hero art visible |
-| 5.3 | `hideRecents=true` + `recentsReplaceSource=true` → first shelf injected into native recents DOM | First shelf uses native styles |
+| 5.3 | `hideRecents=true` + `recentsReplaceSource=true` → the native Recents row shows the first shelf's games and title | First shelf uses native styles |
 | 5.4 | `hideRecents=false` → sub-toggles (hero, replace-source) hidden in QAM | Only visible when hideRecents is on |
 
 ---
@@ -229,6 +234,9 @@ is the one that restarts Steam and the host service.
 | `python3 scripts/deckprobe-ext/probes/native_shelf_detection.py` | Lists every candidate for Steam's native recents row with position, parent and native-card count, so the heuristic the side nav and Quick Search use can be checked on a given client build |
 | `python3 scripts/deckprobe-ext/probes/hwcompat.py` | Prints the device's system-info fields and decodes the packed hardware-compat category for a sample of owned apps, cross-checked against the named getters |
 | `pnpm run qa:coop-fallback` (`-- --phase=live`, `-- --setup`) | Cooperative-bundle fallback boots, with the standalone host owning through its own copy: the loader copy must boot itself ~20 s after standing down when the host's copy never boots (host injected), and ~60 s after standing down on the host's stored offer (host stopped); then the hand-over is restored. Checks its preconditions, refuses to start while a game is running, restarts Steam twice (use a test device) and the host service; `--setup` turns the host's `coop_bundle` on first. Exit 0 pass / 1 a phase failed / 2 a precondition failed. Writes `site/reports/perf/coop-fallback-latest.json`, judged by `pnpm run perf:gate:check` |
+| `python3 scripts/deckprobe-ext/probes/in_game_focus.py [--appid N] [--seconds S] [--home-over-game] [--shortcut-exe PATH --shortcut-args …] [--max-wakeups N]` | Launches a small installed game (or a temporary non-Steam shortcut) and, while it runs, counts the focus grabs our cards make, the timer wakeups the plugin causes and the shelf resolves, opens Quick Access and the Steam menu several times to check each keeps the focus, then stops the game and checks a card is focused again on the Home. Works on any build; the power gate's state is read when the build exposes it. Run it with no game running, at least 30 seconds after a reload, and put the normal build back afterwards |
+| `python3 scripts/deckprobe-ext/probes/return_focus.py [--shelves 0,2] [--back cancel]` | Opens a game page from a card the way the A button does and comes back the way the B button does, for a shelf at the top and one below the fold: the Home must land on the same card (`--back` also offers the router-level ways back, which skip Steam's own focus handling) |
+| `DS_QA_HIDE_APPID=<appid> python3 -m deckprobe.uitests.run --only stabilization` | The `stabilization` suite: Steam-hidden games stay off tab and collection shelves (it hides the given small game in Steam for the check and unhides it at the end), plus the Roulette's refresh card on the smart-shelf fixture (`pnpm run qa:smart-fixture`). Hiding a game on a smart shelf is checked by hand: the fixture rebuilds its smart shelves on every change |
 | `python3 scripts/deckprobe-ext/probes/menu_injection.py` | Opens the game menu on cards of three shelves and checks that the per-card actions and the Shelf group (Management / Display / Visual) are injected once each, identified by their keys so any UI language works |
 | `python3 scripts/deckprobe-ext/probes/shelf_render.py` | Lists every shelf on the home with its card count and whether its apps resolve |
 | `bash scripts/dev/ensure-repo-settings.sh` | Maintainers only: checks the GitHub repository's merge settings (squash-only, delete branch on merge) and patches them when they drift; needs the `gh` CLI |

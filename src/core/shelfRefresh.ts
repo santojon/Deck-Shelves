@@ -1,6 +1,7 @@
 
 import type { DepKind } from '../domain/shelfDeps';
 import { getBatteryState } from '../runtime/batteryState';
+import { registerPeriodic } from '../runtime/powerGate';
 
 /* `deps` names the data a signal says changed (see domain/shelfDeps); a shelf
    whose result doesn't depend on it skips the re-resolve. Untagged = everything. */
@@ -9,7 +10,14 @@ type RefreshListener = (opts?: RefreshOptions) => void;
 
 const listeners = new Set<RefreshListener>();
 let pollId: ReturnType<typeof setTimeout> | null = null;
+// `suspended` is the suspend/resume pause (systemEvents); `gated` is the
+// power gate holding the emitter outside the active Home. Either drops the
+// automatic emits; a user's manual refresh passes the gate.
 let suspended = false;
+let gated = false;
+function held(opts?: RefreshOptions): boolean {
+  return suspended || (gated && !opts?.manual);
+}
 
 import { mark, measure } from './perf';
 
@@ -37,7 +45,7 @@ const STAGGER_CHUNK = 2;
    one long task (measured 280–360 ms per shelf at boot). Manual refreshes
    stay synchronous so the user's click is answered at once. */
 function runEmit(opts?: RefreshOptions): void {
-  if (suspended) return;
+  if (held(opts)) return;
   const list = Array.from(listeners);
   if (opts?.manual) {
     mark('shelfRefresh.emit:start');
@@ -47,7 +55,7 @@ function runEmit(opts?: RefreshOptions): void {
   }
   let i = 0;
   const step = () => {
-    if (suspended) return;
+    if (suspended || gated) return;
     const end = Math.min(list.length, i + STAGGER_CHUNK);
     for (; i < end; i++) { try { if (listeners.has(list[i])) list[i](opts); } catch {} }
     if (i < list.length) setTimeout(step, 0);
@@ -64,7 +72,7 @@ function foldDeps(opts?: RefreshOptions): void {
 }
 
 function emit(opts?: RefreshOptions): void {
-  if (suspended) return;
+  if (held(opts)) return;
   if (opts?.manual) { lastEmitAt = Date.now(); runEmit(opts); return; }
   const elapsed = Date.now() - lastEmitAt;
   if (elapsed >= coalesceWindowMs()) { lastEmitAt = Date.now(); runEmit(opts); return; }
@@ -200,10 +208,20 @@ export function installShelfRefreshEmitter(): () => void {
   const schedulePoll = () => {
     pollId = setTimeout(() => { pollId = null; emit(); schedulePoll(); }, pollIntervalMs());
   };
-  schedulePoll();
-  cleanups.push(() => {
+  const clearPoll = () => {
     if (pollId !== null) { clearTimeout(pollId); pollId = null; }
+  };
+  /* Poll and event-driven emits run only while the Home is active: a game,
+     another page, the screen off or a suspend holds them, and the return
+     gets one refresh. */
+  gated = true;
+  const unregister = registerPeriodic('shelfRefresh', {
+    runIn: ['active'],
+    start: () => { gated = false; if (pollId === null) schedulePoll(); },
+    stop: () => { gated = true; clearPoll(); },
+    onResume: () => emit(),
   });
+  cleanups.push(() => { unregister(); clearPoll(); gated = false; });
 
   for (const install of [installOverviewChangesThrottle, installGameActionStartDebounce, installCollectionStoreSubscription]) {
     const cleanup = install();

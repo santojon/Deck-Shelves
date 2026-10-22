@@ -13,9 +13,9 @@ type Tombstones = Record<string, number>;
 // scalar bag, chosen whole by preferencesUpdatedAt.
 export const SYNC_LISTS = ["shelves", "smartShelves", "savedFilters", "savedSmartFilters", "profiles"] as const;
 
-// Dev/debug tooling + the per-device QAM tab: never part of a profile switch
-// or a cross-device sync, only ever local to this install. Shared with the
-// profile controller (controller/profiles.ts, runtime/profileTriggers.ts).
+// Dev/debug tooling + an obsolete per-device flag: never part of a profile
+// switch or a cross-device sync, only ever local to this install. Shared with
+// the profile controller (controller/profiles.ts, runtime/profileTriggers.ts).
 export const DEVICE_LOCAL_FIELDS = [
   "devModeEnabled", "verboseLoggingEnabled", "ownQamTabEnabled",
   // This device's backup of Steam's own idle timeout: a factory reset or a
@@ -126,11 +126,18 @@ export function mergeHubConfig(local: HubConfig | null | undefined, remote: HubC
   return { values, updatedAt };
 }
 
+// The schema version only climbs: an older document from the other device must not pull a migrated one back.
+function keepHigherSchemaVersion(out: any, la: any, rb: any): void {
+  const schema = Math.max(la.schemaVersion ?? 0, rb.schemaVersion ?? 0);
+  if (schema > 0) out.schemaVersion = schema;
+}
+
 export function mergeSettings(local: Settings, remote: Settings, opts?: { scalars?: "auto" | "keepLocal" }): Settings {
   const la = local as any, rb = remote as any;
   const lp = prefClock(la), rp = prefClock(rb);
   const { base, clock } = scalarBag(la, rb, lp, rp, opts?.scalars === "keepLocal");
   const out: any = { ...base };
+  keepHigherSchemaVersion(out, la, rb);
 
   const tombstones = mergeTombstones(la.syncTombstones ?? {}, rb.syncTombstones ?? {});
   out.syncTombstones = tombstones;

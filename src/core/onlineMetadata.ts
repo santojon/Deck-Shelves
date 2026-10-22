@@ -6,6 +6,7 @@
 import { getCurrentSettings } from "../store/settingsStore";
 import { STEAM_STORE_BASE } from "../constants";
 import { logInfo } from "../runtime/logger";
+import { decodeHtmlEntities } from "../domain/sourceUtils";
 
 const META_KEY = "ds-metadata-cache-v1";
 const NAME_KEY = "ds-name-appid-v1";
@@ -231,5 +232,6 @@ export async function enrichPlatformAvailability(apps: any[]): Promise<number> {
 export async function getStoreShortDescription(appid: number, name: string, isNonSteam: boolean): Promise<string | undefined> {
   if (!onlineStoreFallbackOn()) return undefined;
   const meta = await getGameMetadata(appid, name, isNonSteam);
-  return meta?.shortDescription;
+  // The store sends it HTML-encoded ("&amp;", "&quot;"); Steam's own descriptions are plain.
+  return meta?.shortDescription ? decodeHtmlEntities(meta.shortDescription) : undefined;
 }

@@ -98,11 +98,20 @@ function filterRemoveCandidates(settings: any, currentShelfId: string, appid: nu
   });
 }
 
+// The library menu reaches regular shelves and the smart shelves that keep a manual order of their own.
+function findLibraryShelf(s: any, shelfId: string): { shelf: any; isSmart: boolean } | null {
+  const regular = (s.shelves ?? []).find((row: any) => row.id === shelfId);
+  if (regular) return { shelf: regular, isSmart: false };
+  const smart = (s.smartShelves ?? []).find((row: any) => row.id === shelfId);
+  return smart ? { shelf: smart, isSmart: true } : null;
+}
+
 function appendToShelf(shelfId: string, appid: number): void {
   const s = getCurrentSettings();
   if (!s) return;
-  const tgt: any = (s.shelves ?? []).find((row: any) => row.id === shelfId);
-  if (!tgt) return;
+  const found = findLibraryShelf(s, shelfId);
+  if (!found) return;
+  const tgt: any = found.shelf;
   const manual: number[] = tgt.manualOrder ?? [];
   const wasManual = tgt.sort === "manual";
   const patch: Record<string, any> = {
@@ -111,18 +120,16 @@ function appendToShelf(shelfId: string, appid: number): void {
     manualOrder: [...manual, appid],
   };
   if (!wasManual) patch.manualBaseSort = typeof tgt.sort === "string" ? tgt.sort : "alphabetical";
-  void saveSettings(patchShelfInSettings(s, shelfId, patch));
+  persistShelfPatch(shelfId, found.isSmart, patch);
 }
 
 function removeFromShelf(shelfId: string, appid: number): void {
   const s = getCurrentSettings();
   if (!s) return;
-  const tgt: any = (s.shelves ?? []).find((row: any) => row.id === shelfId);
-  if (!tgt) return;
-  const manual: number[] = tgt.manualOrder ?? [];
-  void saveSettings(patchShelfInSettings(s, shelfId, {
-    manualOrder: manual.filter((id) => id !== appid),
-  }));
+  const found = findLibraryShelf(s, shelfId);
+  if (!found) return;
+  const manual: number[] = found.shelf.manualOrder ?? [];
+  persistShelfPatch(shelfId, found.isSmart, { manualOrder: manual.filter((id) => id !== appid) });
 }
 
 type Ctx = {
@@ -151,7 +158,8 @@ function runRefreshAction(ctx: Ctx): void {
   try {
     if (isSmart || shelf?.source?.type === "smart") invalidateSmartShelfCache(shelfId);
     else if (isOnline) clearOnlineShelfCache();
-    else invalidateRandomSortCache(shelfId);
+    // The shelf's own random order is cleared for every kind, like the refresh card.
+    invalidateRandomSortCache(shelfId);
     triggerShelfRefresh({ manual: true, shelfId });
   } catch {}
 }
@@ -402,8 +410,13 @@ function libraryGroup(R: any, shelves: any[], keyPrefix: string, groupKey: strin
   return R.createElement(DeckyMenuGroup, { key: groupKey, label: tLabel(labelKey, fallback) }, ...children);
 }
 
+function libraryShelves(s: any): any[] {
+  const smart = (s.smartShelves ?? []).filter((sh: any) => sh.sort === "manual" || (sh.manualOrder ?? []).length > 0);
+  return [...(s.shelves ?? []), ...smart];
+}
+
 function libraryCandidates(s: any, appid: number): { eligible: any[]; removable: any[] } {
-  const shelves = s.shelves ?? [];
+  const shelves = libraryShelves(s);
   return {
     eligible: shelves.filter((sh: any) => shelfCanAppend(sh, appid)),
     removable: shelves.filter((sh: any) => (sh.manualOrder ?? []).includes(appid)),

@@ -87,7 +87,6 @@
   "mode_switch_advanced_body": "Легкий і Розширений режими не можуть бути увімкнені одночасно. Увімкнення Розширеного режиму вимкне Легкий.",
   "beta_channel_label": "Бета-канал",
   "settings_confirm_irreversible": "Це не можна скасувати.",
-  "own_qam_tab_enabled": "Власна вкладка у Швидкому доступі (експериментально)",
   "screensaver_shelves_enabled": "Заставка (експериментально)",
   "screensaver_shelves_include_screenshots": "Додавати знімки екрана",
   "screensaver_online_screenshots": "Додавати онлайн-знімки екрана",
@@ -115,10 +114,5 @@
   "showcase_card_dwell_label": "Час на гру",
   "section_navigation": "Навігація та пошук",
   "section_online": "Онлайн-функції",
-  "section_experimental": "Експериментальне",
-  "own_qam_tab_restart_title": "Перезапустити Steam зараз?",
-  "own_qam_tab_restart_body": "Вкладка Швидкого доступу з’явиться лише після перезапуску Steam.",
-  "own_qam_tab_restart_now": "Перезапустити зараз",
-  "own_qam_tab_restart_later": "Пізніше",
-  "own_qam_tab_restart_body_off": "Вкладка Швидкого доступу може залишатися видимою до перезапуску Steam."
+  "section_experimental": "Експериментальне"
 }

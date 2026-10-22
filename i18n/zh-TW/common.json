@@ -87,7 +87,6 @@
   "mode_switch_advanced_body": "輕量模式與進階模式無法同時開啟。開啟進階模式將關閉輕量模式。",
   "beta_channel_label": "Beta 頻道",
   "settings_confirm_irreversible": "此操作無法復原。",
-  "own_qam_tab_enabled": "快速存取中的獨立分頁（實驗性）",
   "screensaver_shelves_enabled": "螢幕保護程式（實驗性）",
   "screensaver_shelves_include_screenshots": "包含螢幕截圖",
   "screensaver_online_screenshots": "包含線上螢幕截圖",
@@ -115,10 +114,5 @@
   "showcase_card_dwell_label": "每個遊戲的時間",
   "section_navigation": "導覽與搜尋",
   "section_online": "線上功能",
-  "section_experimental": "實驗性功能",
-  "own_qam_tab_restart_title": "現在重新啟動 Steam 嗎？",
-  "own_qam_tab_restart_body": "快速存取分頁只有在 Steam 重新啟動後才會出現。",
-  "own_qam_tab_restart_now": "立即重新啟動",
-  "own_qam_tab_restart_later": "稍後",
-  "own_qam_tab_restart_body_off": "快速存取分頁可能會持續顯示，直到 Steam 重新啟動。"
+  "section_experimental": "實驗性功能"
 }

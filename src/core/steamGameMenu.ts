@@ -1,4 +1,4 @@
-import { showContextMenu, findModuleChild, findModuleByExport, fakeRenderComponent, afterPatch as hostAfterPatch, findInTree as hostFindInTree, getFrontendLib } from "../runtime/host/decky";
+import { showContextMenu, getFrontendLib } from "../runtime/host/decky";
 import { getPreferredSteamDocument, getPreferredSteamWindow, getAllSteamDocuments } from "../runtime/steamHost";
 import { isSteamOS38OrLater } from "./steamOSVersion";
 import { saveFocusTarget } from "./focusRestore";
@@ -10,6 +10,9 @@ import {
 } from "./menu/menuContext";
 import { getInjectedMenuComponent, injectDeckShelvesIntoTree } from "./menu/menuTreeInjection";
 import { showFallbackMenu } from "./menu/fallbackMenu";
+import { isGameMenuItemList, locateLibraryMenuClass } from "./menu/libraryMenuLocator";
+import { installGameMenuEntries, type GameMenuEntriesEvent, type GameMenuListContext } from "./menu/gameMenuEntries";
+import { registerDisposer } from "../runtime/runtimeDisposer";
 
 export { buildShelfContextMenu, buildLibraryAddToShelfItems };
 
@@ -52,58 +55,23 @@ function getAppStore(): any {
 // on _activeShelfIdForMenu so native cards aren't affected.
 let _libraryContextMenuClass: any = null;
 let _libraryContextMenuPatched = false;
-let _hltbDiscoveryAttempted = false;
-function discoverViaModuleByExport(): any {
-  try {
-    const m = findModuleByExport((e: any) =>
-      e?.toString && typeof e.toString === "function" && e.toString().includes("().LibraryContextMenu"));
-    if (!m) return null;
-    const wrapper = Object.values(m).find((sibling: any) =>
-      sibling?.toString && sibling.toString().includes("navigator:"));
-    const rendered = wrapper ? fakeRenderComponent(wrapper as any) : null;
-    return rendered?.type ?? null;
-  } catch { return null; }
-}
-
-function discoverViaModuleChildLegacy(): any {
-  try {
-    const wrapper = findModuleChild((m: any) => {
-      if (typeof m !== "object" || !m) return undefined;
-      for (const prop in m) {
-        const v = m[prop];
-        if (v && typeof v.toString === "function" && v.toString().includes("().LibraryContextMenu")) {
-          return Object.values(m).find((sibling: any) =>
-            typeof sibling === "function" &&
-            typeof sibling.toString === "function" &&
-            sibling.toString().includes("createElement") &&
-            sibling.toString().includes("navigator:"));
-        }
-      }
-      return undefined;
-    });
-    const rendered = wrapper ? fakeRenderComponent(wrapper) : null;
-    return rendered?.type ?? null;
-  } catch { return null; }
-}
-
+let _menuClassLookupDone = false;
 function discoverLibraryContextMenuClass(): any {
-  if (_libraryContextMenuClass || _hltbDiscoveryAttempted) return _libraryContextMenuClass;
-  _hltbDiscoveryAttempted = true;
-  _libraryContextMenuClass = discoverViaModuleByExport() ?? discoverViaModuleChildLegacy();
+  if (_libraryContextMenuClass || _menuClassLookupDone) return _libraryContextMenuClass;
+  _menuClassLookupDone = true;
+  _libraryContextMenuClass = locateLibraryMenuClass();
   return _libraryContextMenuClass;
 }
 
-function isGameContextMenuItems(items: any[], fl: any): boolean {
-  if (!Array.isArray(items) || !items.length) return false;
-  if (!fl?.findInReactTree) return false;
-  try {
-    return !!fl.findInReactTree(items, (x: any) => {
-      const fn = x?.props?.onSelected;
-      if (typeof fn !== "function") return false;
-      const src = fn.toString();
-      return src.includes("launchSource") || src.includes("AppProperties");
-    });
-  } catch { return false; }
+type MenuCheckContext = { props?: any; appid?: number };
+
+// One check for both the finder and the insert gate, so the two always agree.
+function isGameMenuList(items: any, ctx: MenuCheckContext): boolean {
+  return isGameMenuItemList(items, { ...ctx, menuClass: _libraryContextMenuClass });
+}
+
+function menuContextOf(props: any): MenuCheckContext {
+  return { props, appid: appidFromSelfProps({ props }) };
 }
 
 function dedupDsMenuItems(items: any[]): void {
@@ -121,190 +89,89 @@ function dedupDsMenuItems(items: any[]): void {
   }
 }
 
-function spliceDsItems(items: any[], dsItems: any[], fl: any, R: any): void {
-  if (!Array.isArray(items) || !dsItems.length) return;
-  const sep = fl?.MenuSeparator ? R.createElement(fl.MenuSeparator, { key: "ds-sep-boot" }) : null;
-  let insertAt = -1;
-  try {
-    insertAt = items.findIndex((item: any) =>
-      fl.findInReactTree?.(item, (x: any) =>
-        x?.onSelected && typeof x.onSelected === "function" &&
-        x.onSelected.toString().includes("AppProperties")
-      )
-    );
-  } catch {}
-  const toInsert = sep ? [sep, ...dsItems] : dsItems;
-  if (insertAt >= 0) {
-    items.splice(insertAt, 0, ...toInsert);
-  } else {
-    items.push(...toInsert);
-  }
-}
-
-/* Tracks inner-type prototypes that already have render + shouldComponentUpdate
-   patched. Steam uses a different inner class for installed Steam games vs
-   uninstalled games vs non-Steam shortcuts — patching only the first one
-   encountered leaves the others uninjected. WeakSet lets the patches persist
-   across renders without leaking when types are GC'd. */
-const _patchedInnerTypes = new WeakSet<any>();
-
-/* A REAL game-menu action (Play / Install / Properties), identified by its
-   `onSelected` source — the SAME test `isGameContextMenuItems` (the inject gate)
-   uses. Both must agree, or the finder can return a nested submenu the gate then
-   rejects (the "Add to collection" list has `onSelected` too) — exactly what left
-   the gamepad menu un-injected in sole mode while desktop worked fine. */
-function isRealGameActionItem(it: any): boolean {
-  const f = it?.props?.onSelected;
-  if (typeof f !== "function") return false;
-  const src = f.toString();
-  return src.includes("launchSource") || src.includes("AppProperties");
-}
-
-function menuItemsFromShallowShape(c: any): any[] | null {
-  if (!c) return null;
-  // Nested shape: items live in children[0] (installed Steam game menu)
-  if (Array.isArray(c) && Array.isArray(c[0]) && c[0].some(isRealGameActionItem)) {
-    return c[0];
-  }
-  // Flat shape: children itself contains MenuItems (uninstalled/shortcut)
-  if (Array.isArray(c) && c.some(isRealGameActionItem)) {
-    return c;
-  }
-  return null;
-}
-
-function holdsRealGameAction(n: any): boolean {
-  const ch = n?.props?.children;
-  return Array.isArray(ch) && ch.some(isRealGameActionItem);
-}
-
-function menuItemsFromDeepSearch(ret2: any): any[] | null {
-  /* Gamepad fallback: the Deck's gamepad menu nests the item list DEEPER than
-     the top two levels (items wrapped in Focusable containers), so the shallow
-     checks miss it. Deep-search for the array holding a REAL game action (Play /
-     Properties), not just any `onSelected` list — a nested submenu ("Add to
-     collection") has `onSelected` too and isGameContextMenuItems would reject it. */
-  const fl = getFrontendLib();
-  if (!fl?.findInReactTree) return null;
-  try {
-    const holder = fl.findInReactTree(ret2, holdsRealGameAction);
-    const ch = holder?.props?.children;
-    return Array.isArray(ch) ? ch : null;
-  } catch {
-    return null;
-  }
-}
-
-function findMenuItemsArray(ret2: any): any[] | null {
-  return menuItemsFromShallowShape(ret2?.props?.children) ?? menuItemsFromDeepSearch(ret2);
-}
-
-function appidFromMenuOwner(menuItems: any[]): number {
-  try {
-    const parent = menuItems.find((x: any) => x?._owner?.pendingProps?.overview?.appid);
-    return parent ? Number(parent._owner.pendingProps.overview.appid) || 0 : 0;
-  } catch { return 0; }
-}
-
 function appidFromSelfProps(self: any): number {
   try { return Number(self?.props?.overview?.appid) || 0; } catch { return 0; }
 }
 
-function appidFromTreeFallback(menuItems: any[]): number {
-  try {
-    const foundApp: any = hostFindInTree(menuItems, (x: any) => x?.app?.appid, { walkable: ["props", "children"] } as any);
-    return foundApp?.app?.appid ? Number(foundApp.app.appid) || 0 : 0;
-  } catch { return 0; }
+// The apps one list entry names: its overview, or its list of apps when that holds one app.
+function appidsOfEntry(entry: any): number[] {
+  const props = entry?.props ?? {};
+  const single = Array.isArray(props.rgApps) && props.rgApps.length === 1 ? props.rgApps[0] : null;
+  return [props.overview?.appid, single?.appid].map((id) => Number(id) || 0).filter((id) => id > 0);
 }
 
-function resolveAppidFromMenuChildren(menuItems: any[], self: any): number {
-  /* Final fallback: the appid the menu was opened FOR. The Deck's gamepad menu
-     structure doesn't expose `_owner.pendingProps.overview.appid` on its items
-     the way desktop does, so the three tree-probes above all return 0 there —
-     but `_activeAppIdForMenu` was set by `setActiveShelfIdForMenu` when this
-     menu opened, so it's the reliable appid on gamepad. */
-  return appidFromMenuOwner(menuItems) || appidFromSelfProps(self)
-    || appidFromTreeFallback(menuItems) || getActiveAppIdForMenu() || 0;
-}
-
-function spliceLibraryOrShelfItems(menuItems: any[], curAppid: number, curShelfId: string | null, fl: any, R: any): void {
-  if (!curShelfId) {
-    if (curAppid <= 0) return;
-    const libItems = buildLibraryAddToShelfItems(curAppid, fl, R);
-    if (libItems.length) spliceDsItems(menuItems, libItems, fl, R);
-    return;
+// The one app a game menu list names through its own entries; 0 when it names none or several.
+function appidNamedByList(menuItems: any[]): number {
+  const named = new Set<number>();
+  for (const entry of Array.isArray(menuItems) ? menuItems : []) {
+    for (const appid of appidsOfEntry(entry)) named.add(appid);
   }
-  const items = buildDeckShelvesMenuItems(curShelfId, fl, R, curAppid);
-  if (items.length) spliceDsItems(menuItems, items, fl, R);
+  return named.size === 1 ? [...named][0] : 0;
 }
 
-function injectIntoMenuItems(menuItems: any[], self: any, dedupBefore: boolean): void {
+/* On a menu's first render the props are the game menu's own; on later renders they are the
+   menu body's, which name no app, so the list's own entries say which game it is. The card
+   that opened the menu is the last resort. */
+function resolveAppidFromMenuChildren(menuItems: any[], self: any): number {
+  return appidFromSelfProps(self) || appidNamedByList(menuItems) || getActiveAppIdForMenu() || 0;
+}
+
+// The entries for one game menu: the shelf's actions when the game sits on a shelf, else "Add to shelf".
+function libraryMenuEntriesFor({ list, props }: GameMenuListContext): unknown[] {
   const fl = getFrontendLib();
   const R = getSteamReact();
-  if (!fl || !R) return;
-  if (!isGameContextMenuItems(menuItems, fl)) return;
-  if (dedupBefore) dedupDsMenuItems(menuItems);
-  const curAppid = resolveAppidFromMenuChildren(menuItems, self);
-  const curShelfId = resolveShelfIdByAppid(curAppid);
-  if (!dedupBefore) dedupDsMenuItems(menuItems);
-  spliceLibraryOrShelfItems(menuItems, curAppid, curShelfId, fl, R);
+  if (!fl || !R) return [];
+  const appid = resolveAppidFromMenuChildren(list, { props });
+  const shelfId = resolveShelfIdByAppid(appid);
+  if (shelfId) {
+    bumpDebugCounter("lcmShelfCalls");
+    return buildDeckShelvesMenuItems(shelfId, fl, R, appid);
+  }
+  bumpDebugCounter("lcmLibraryCalls");
+  return appid > 0 ? buildLibraryAddToShelfItems(appid, fl, R) : [];
 }
 
-function installInnerRenderPatch(prototype: any): void {
-  try {
-    hostAfterPatch(prototype, "render", function (this: any, _b: any, ret2: any) {
-      try {
-        const menuItems = findMenuItemsArray(ret2);
-        if (menuItems) injectIntoMenuItems(menuItems, this, true);
-      } catch (e) {
-        try { (globalThis as any).console?.warn?.("[DS][menu] inner render patch threw", e); } catch {}
-      }
-      return ret2;
-    });
-  } catch {}
+function makeMenuSeparator(): unknown {
+  const fl = getFrontendLib();
+  const R = getSteamReact();
+  return fl?.MenuSeparator && R ? R.createElement(fl.MenuSeparator, { key: "ds-sep-boot" }) : null;
 }
 
-function installShouldComponentUpdatePatch(prototype: any): void {
-  if (typeof prototype.shouldComponentUpdate !== "function") return;
-  try {
-    hostAfterPatch(prototype, "shouldComponentUpdate", function (this: any, args: any[], shouldUpdate: any) {
-      try {
-        if (shouldUpdate !== true) return shouldUpdate;
-        const nextChildren = findMenuItemsArray({ props: args?.[0] });
-        if (nextChildren) injectIntoMenuItems(nextChildren, this, false);
-      } catch (e) {
-        try { (globalThis as any).console?.warn?.("[DS][menu] inner sCU patch threw", e); } catch {}
-      }
-      return shouldUpdate;
-    });
-  } catch {}
+const PASS_COUNTERS: Partial<Record<GameMenuEntriesEvent["type"], string>> = {
+  rejected: "lcmNoChildren", empty: "lcmNoAppid", placed: "lcmSplicedLib", failed: "lcmFailed",
+};
+
+// Debug tap, surfaced through `window.deckShelves.debug` for probes over CDP.
+function recordMenuEvent(event: GameMenuEntriesEvent): void {
+  if (event.type === "installed" || event.type === "uninstalled") { setDebugCounter("lcmPatched", event.type === "installed"); return; }
+  if (!("ms" in event)) return;
+  bumpDebugCounter("lcmRenderCalls");
+  const counter = PASS_COUNTERS[event.type];
+  if (counter) bumpDebugCounter(counter);
+  const bucket = getDebugBucket();
+  if (bucket && event.ms > Number(bucket.lcmPassMsMax || 0)) bucket.lcmPassMsMax = Math.round(event.ms * 100) / 100;
 }
 
-function patchDeepestRender(prototype: any): void {
-  if (!prototype || typeof prototype.render !== "function") return;
-  installInnerRenderPatch(prototype);
-  installShouldComponentUpdatePatch(prototype);
-}
+const DEBUG_COUNTERS = ["lcmRenderCalls", "lcmLibraryCalls", "lcmShelfCalls", "lcmNoAppid", "lcmNoChildren", "lcmSplicedLib", "lcmFailed", "lcmPassMsMax"];
 
 export function installLibraryContextMenuPatch(): void {
   if (_libraryContextMenuPatched) return;
   const cls = discoverLibraryContextMenuClass();
-  if (!cls?.prototype?.render || typeof hostAfterPatch !== "function") return;
-  // Debug tap — bumped every time the outer patch fires + the path it
-  // took. Surfaced through `window.deckShelves.debug` so we can verify
-  // via CDP whether the patch is reaching library cards at all.
+  if (!cls?.prototype?.render) return;
   ensureDebugBucket();
-  setDebugCounter("lcmPatched", true);
-  setDebugCounter("lcmRenderCalls", 0);
-  setDebugCounter("lcmLibraryCalls", 0);
-  setDebugCounter("lcmShelfCalls", 0);
-  setDebugCounter("lcmNoAppid", 0);
-  setDebugCounter("lcmNoChildren", 0);
-  setDebugCounter("lcmSplicedLib", 0);
-  try {
-    hostAfterPatch(cls.prototype, "render", makeLcmRenderHandler());
-    _libraryContextMenuPatched = true;
-  } catch {}
+  setDebugCounter("lcmPatched", false);
+  for (const key of DEBUG_COUNTERS) setDebugCounter(key, 0);
+  const handle = installGameMenuEntries({
+    menuClass: cls,
+    isGameMenuList: (candidate, { props }) => isGameMenuList(candidate, menuContextOf(props)),
+    entriesFor: libraryMenuEntriesFor,
+    removeOwnEntries: dedupDsMenuItems,
+    makeSeparator: makeMenuSeparator,
+    onEvent: recordMenuEvent,
+  });
+  _libraryContextMenuPatched = handle !== null;
+  // A plugin reload or hot-swap takes the patch off Steam's class.
+  if (handle) registerDisposer(() => { handle.uninstall(); _libraryContextMenuPatched = false; });
 }
 
 type DebugBucket = Record<string, number | boolean>;
@@ -336,72 +203,6 @@ function bumpDebugCounter(key: string): void {
   if (!bucket) return;
   const cur = bucket[key];
   bucket[key] = (typeof cur === "number" ? cur : 0) + 1;
-}
-
-function appidFromOwnerProps(component: any): number {
-  try {
-    return Number(component?._owner?.pendingProps?.overview?.appid) || 0;
-  } catch { return 0; }
-}
-
-function appidFromComponentTree(component: any): number {
-  try {
-    const foundApp: any = hostFindInTree(component?.props?.children, (x: any) => x?.app?.appid, { walkable: ["props", "children"] } as any);
-    return Number(foundApp?.app?.appid) || 0;
-  } catch { return 0; }
-}
-
-function appidFromComponent(component: any, self: any): number {
-  return appidFromOwnerProps(component) || appidFromSelfProps(self) || appidFromComponentTree(component);
-}
-
-function installInnerTypePatch(component: any): void {
-  try {
-    hostAfterPatch(component, "type", (_a: any, ret: any) => {
-      try {
-        if (ret?.type?.prototype && typeof ret.type.prototype.render === "function" && !_patchedInnerTypes.has(ret.type)) {
-          _patchedInnerTypes.add(ret.type);
-          patchDeepestRender(ret.type.prototype);
-        }
-      } catch {}
-      return ret;
-    });
-  } catch {}
-}
-
-function spliceLcmIntoComponentChildren(component: any, appid: number, shelfId: string | null, fl: any, R: any): void {
-  try {
-    const targetItems = findMenuItemsArray(component);
-    if (!targetItems || !isGameContextMenuItems(targetItems, fl)) { bumpDebugCounter("lcmNoChildren"); return; }
-    dedupDsMenuItems(targetItems);
-    if (shelfId) {
-      bumpDebugCounter("lcmShelfCalls");
-      const items = buildDeckShelvesMenuItems(shelfId, fl, R, appid);
-      if (items.length) spliceDsItems(targetItems, items, fl, R);
-    } else {
-      bumpDebugCounter("lcmLibraryCalls");
-      const libItems = buildLibraryAddToShelfItems(appid, fl, R);
-      if (libItems.length) { spliceDsItems(targetItems, libItems, fl, R); bumpDebugCounter("lcmSplicedLib"); }
-    }
-  } catch {}
-}
-
-function makeLcmRenderHandler() {
-  let innerInstalled = false;
-  return function (this: any, _args: any[], component: any) {
-    try {
-      bumpDebugCounter("lcmRenderCalls");
-      const appid = appidFromComponent(component, this);
-      if (!appid) { bumpDebugCounter("lcmNoAppid"); return component; }
-      const shelfId = resolveShelfIdByAppid(appid);
-      const fl = getFrontendLib();
-      const R = getSteamReact();
-      if (!fl || !R) return component;
-      if (!innerInstalled) { innerInstalled = true; installInnerTypePatch(component); }
-      spliceLcmIntoComponentChildren(component, appid, shelfId, fl, R);
-    } catch {}
-    return component;
-  };
 }
 
 let _ctxMenuPatchInstalled = false;
@@ -530,9 +331,9 @@ export function prewarmMenuExtraction(): () => void {
      but the synthetic `onMenuButton` call mutates `lastExtractionAttempt`
      before the user ever interacts. */
   if (isLegacyMenuFlow()) return () => {};
-  // Early 150ms tick runs before `recentsReplace` overwrites the native
-  // card content on most devices, so we can capture the native
-  // `{overview, client}` menu factory before the overlay injection.
+  // Early 150ms tick runs before the recents replacement swaps the native
+  // row's games on most devices, so the native `{overview, client}` menu
+  // factory is captured first.
   const delays = [150, 500, 1500, 3500, 7000];
   const timers: any[] = [];
   for (const ms of delays) {

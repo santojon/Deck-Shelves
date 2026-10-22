@@ -7,25 +7,47 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+- **"Add to shelf" in every game menu**: Steam's library menus show the plugin's entries on the macOS client too, keep them while the menu redraws, and no longer lose them on the first menu after Steam starts when other menu plugins are installed.
+
+- **Store game names read correctly**: names with "&" no longer show as "&amp;" on online shelves, and such games are matched to your library when owned games are hidden.
+
+- **"Use shelf as Recents" works on the Steam Deck's beta client**: Steam's Recents row shows your first shelf, keeps the focus when its games change, and goes back to Steam's own games as soon as you turn the option off.
+
+- **Add a game to a hand-ordered smart shelf from the library**: the library card's menu now lists smart shelves that keep a manual order, for adding and removing.
+
+- **Games you hid in Steam stay off your shelves**, as in Steam's own library: shelves built from a library tab or a collection leave them out (a shelf on the Hidden tab, or filtered to "Hidden only", still shows them), and smart shelves without a visibility condition (the ones you created before 3.3.4) gain the same visible "Exclude hidden" condition new ones have — once; remove it afterwards and it stays removed.
+
+- **Hide a game on a smart shelf too**: the card's X button and the game menu's Hide now work on smart shelves, and so does removing a game you added to one.
+
+- **The refresh card reshuffles every time**: on the Roulette and any shelf in random order, each press of the refresh card or of the shelf's Refresh action gives a new order.
+
+- **Shelves in the right place on the beta client's Big Art home**: the current-game row is now recognised in every language and the shelves sit right after it.
+
+- **Safe mode catches a home that fails every other start**: the shelves switch off when the home screen failed to finish loading on three of the last six Steam starts; leaving safe mode starts the count over.
+
+- **Better bug reports**: System information and the pre-filled bug report now say how the session booted (origin, phase timings, watchdog verdict, long tasks, seeded cache), warnings and errors always reach the Diagnostic log, and an empty wishlist shelf always says why there.
+
+- **Lighter visibility rules**: performance and peripheral checks behind visibility rules are answered from a short-lived backend cache instead of re-reading the system on every evaluation; System information still reads the hardware live.
+
 - **Shelves placed right in every Steam language**: the Home now recognises Steam's own rows and tabs in any language, not only English and Portuguese.
 
 - **Game pages open with the focus on them**: opening a game from the Home no longer leaves its page with nothing selected.
 
-- **Tags stay on the card you touch (#133)**: discount and "New" tags no longer vanish from a card you touch or point at with a mouse.
+- **Tags stay on the card you touch**: discount and "New" tags no longer vanish from a card you touch or point at with a mouse.
 
-- **Shelf look settings and global ones work together (#132)**: the global section only overrides what you set there, every global choice can go back to "Per shelf", and a reset button returns the whole section to its defaults.
+- **Shelf look settings and global ones work together**: the global section only overrides what you set there, every global choice can go back to "Per shelf", and a reset button returns the whole section to its defaults.
 
-- **Game names line up with the card (#129)**: centre and right alignment now match the card exactly, and game info shown above the card follows that alignment without leaving the screen.
+- **Game names line up with the card**: centre and right alignment now match the card exactly, and game info shown above the card follows that alignment without leaving the screen.
 
-- **Highlight as many games as you like (#134)**: shelves with six or more highlighted games no longer show empty spaces where cards should be.
+- **Highlight as many games as you like**: shelves with six or more highlighted games no longer show empty spaces where cards should be.
 
-- **The Installed filter and tab are right for non-Steam games (#130)**: Unifideck's games count by their real install state with or without its collections, manual shortcuts, Heroic and emulators keep their own, and Proton / runtimes stay out of the Installed tab.
+- **The Installed filter and tab are right for non-Steam games**: Unifideck's games count by their real install state with or without its collections, manual shortcuts, Heroic and emulators keep their own, and Proton / runtimes stay out of the Installed tab.
 
-- **Back from a game page, the focus returns to the same game and shelf**, and scrolling sideways no longer jumps to another shelf.
+- **Back from a game page, the focus returns to the same game and shelf**, also when that shelf is further down the page and still loading, and scrolling sideways no longer jumps to another shelf.
 
-- **The wishlist shelf fills on the standalone host too (#128).** A slow first answer from the backend no longer leaves it empty for ten minutes.
+- **The wishlist shelf fills on the standalone host too.** A slow first answer from the backend no longer leaves it empty for ten minutes.
 
-- **The Steam menu and Quick Access open again while a game is running (#135).** The Home no longer pulls the controller focus back to a shelf card behind the game.
+- **The Steam menu and Quick Access open again while a game is running.** The Home no longer pulls the controller focus back to a shelf card behind the game, and it runs no timers at all while a game runs — non-Steam shortcuts included — while the screen is off or while the device sleeps.
 
 - **Game info above the cards no longer repeatedly rebuilds its own label.** Late-arriving titles and status changes still update, and toggling the option back on restores the label.
 
@@ -46,6 +68,12 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 - **Safer settings.** A damaged settings copy can no longer replace your last good backup, exports are written safely, and turning the screensaver off after a factory reset gives Steam back its own idle timeout.
 
 - **A bit lighter in the background.** Features you don't use (friends, launchers) no longer keep polling, and update downloads are checked more strictly.
+
+- **Reorder shelves with a controller row by row**: in the Quick Access lists, A on a shelf's name grabs it, the D-pad moves it, A saves and B puts it back, with those buttons shown in Steam's button bar while the row is held. Touch and mouse dragging work as before.
+
+- **Games without artwork look like they do in Steam**: when a cover can't load, the card shows Steam's own dark tile with the game's name.
+
+- **The experimental own Quick Access tab is gone.** Deck Shelves' settings stay in Decky Loader's plugin list, and the standalone host keeps its own tab. A setup that had the option on keeps working.
 
 - **Under the hood, the home-screen rendering code, the plugin's startup, the library code that builds every shelf and the game-menu code were reorganized into smaller pieces, with no change in behavior** — verified on a real Steam Deck. Reloading the plugin now also cleans up its Settings page route.
 

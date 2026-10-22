@@ -15,12 +15,12 @@ import './runtime/embeddedClassMap';
 import { installHomePatch } from "./runtime/homePatch";
 import { installRecentsReplace } from "./runtime/recentsReplace";
 import { installShelfRefreshEmitter } from "./core/shelfRefresh";
+import { installPowerGate } from "./runtime/powerGate";
 import { installSystemEvents } from "./runtime/systemEvents";
 import { installBatteryState } from "./runtime/batteryState";
 import { installDeviceState, getDeviceState } from "./runtime/deviceState";
 import { installSessionState } from "./runtime/sessionState";
 import { installProfileTriggers } from "./runtime/profileTriggers";
-import { installOwnQamTab } from "./runtime/ownQamTab";
 import { installShowcaseMode } from "./runtime/showcaseMode";
 import { installScreensaverInject } from "./runtime/screensaverInject";
 import { installCloudSync } from "./runtime/cloudSync";
@@ -32,7 +32,6 @@ import { prewarmUserPaths } from "./core/userPaths";
 import { invalidateRandomSortCache } from "./steam";
 import { pruneCache as pruneImageCache, hydrateHotCacheFromStorage } from "./core/imageCache";
 import { pruneShelfCaches } from "./components/shelf/shelfViewHelpers";
-import { getCurrentSettings } from "./store/settingsStore";
 import { setPendingSettingsTab } from "./runtime/settingsNav";
 import { logError, logInfo } from "./runtime/logger";
 import { disposeAll, registerDisposer } from "./runtime/runtimeDisposer";
@@ -41,7 +40,7 @@ import { evaluateBootOutcome } from "./runtime/safeMode";
 import { markBootStart, recordBootCritical } from "./core/perfMetrics";
 import { installStartupWatchdog, startLazyPhases, installUpdateProbes, scheduleBootToasts, logSystemEnvironment } from "./runtime/bootPhases";
 import { Navigation, Focusable, DialogButton, quickAccessMenuClasses } from "./runtime/host/decky";
-import { resolveHost, hostProvidesNativeTab, shouldUseForcedHost, awaitInjectedHost } from "./runtime/host/resolve";
+import { resolveHost, shouldUseForcedHost, awaitInjectedHost } from "./runtime/host/resolve";
 import { claimHomeOwnership, getOwnerKind, type HostKind } from "./runtime/host/ownerGuard";
 import { setHostHandshake, getHostHandshake } from "./runtime/hostHandshake";
 import { tryDeferToHost, readDeferSignal, hostBundleBooted } from "./runtime/host/coopDefer";
@@ -50,7 +49,6 @@ import pkg from "../package.json";
 import { AboutPage } from "./components/AboutPage";
 import { SettingsPage } from "./components/SettingsPage";
 import { ShelfEditRoute, ShelfDeleteRoute, ShelfComposeRoute, GameTagsRoute } from "./components/ShelfModalRoute";
-import { ShelfManageRoute } from "./components/ShelfManageRoute";
 import { isForcedOwner, getInjectedHost, type HostApi, type QamPanel } from "./runtime/host/contract";
 initI18n();
 
@@ -64,7 +62,6 @@ const ABOUT_ROUTE = "/deck-shelves/about";
 const SETTINGS_ROUTE = "/deck-shelves/settings";
 const EDIT_ROUTE = "/deck-shelves/edit/:shelfId";
 const DELETE_ROUTE = "/deck-shelves/delete/:shelfId";
-const MANAGE_ROUTE = "/deck-shelves/manage/:shelfId";
 const COMPOSE_ROUTE = "/deck-shelves/compose/:sourceId/:targetId";
 const TAGS_ROUTE = "/deck-shelves/tags/:appid";
 
@@ -220,7 +217,6 @@ const PLUGIN_ROUTES: RouteSpec[] = [
   { path: SETTINGS_ROUTE, label: "settings", render: () => <SettingsPage /> },
   { path: EDIT_ROUTE, label: "shelf modal", exact: true, render: () => <ShelfEditRoute shelfId="" /> },
   { path: DELETE_ROUTE, label: "shelf modal", exact: true, render: () => <ShelfDeleteRoute shelfId="" /> },
-  { path: MANAGE_ROUTE, label: "shelf modal", exact: true, render: () => <ShelfManageRoute shelfId="" /> },
   { path: COMPOSE_ROUTE, label: "shelf modal", exact: true, render: () => <ShelfComposeRoute sourceId="" targetId="" /> },
   { path: TAGS_ROUTE, label: "tags modal", exact: true, render: () => <GameTagsRoute appid={0} /> },
 ];
@@ -264,19 +260,6 @@ function registerHostQamPanel(renderPanel: QamPanel["content"]): () => void {
     }
   } catch {}
   return () => {};
-}
-
-/* Own native QAM tab under Decky alone (opt-in, default OFF). Owner-only,
-   Decky-loader-only, and never when a neutral host already provides its own
-   native tab — the option itself is hidden in that case (settings UI). */
-function installOwnTabIfWanted(isOwner: boolean, loaderLaunched: boolean, renderPanel: Parameters<typeof installOwnQamTab>[0]["renderPanel"]): (() => void) | null {
-  if (!isOwner || !loaderLaunched || hostProvidesNativeTab()) return null;
-  return installOwnQamTab({
-    title: i18next.t("menu_deck_shelves"),
-    icon: <DeckShelvesIcon />,
-    renderPanel,
-    isEnabled: () => getCurrentSettings()?.ownQamTabEnabled === true,
-  });
 }
 
 // Patches a live Steam internal of unguaranteed shape at plugin init — never let it take boot down.
@@ -337,6 +320,8 @@ const __ds_entry = definePlugin((serverAPI?: any) => {
   const routerHook = pluginRouterHookOf(loaderRouterHook);
   const isOwner = claimRenderer(shouldUseForcedHost(), loaderLaunched);
   disposePreviousInstance(getOwnerKind());
+  // Before anything periodic registers with it (Home patch, refresh, focus polls).
+  const uninstallPowerGate = installPowerGate();
   const { patch, recentsReplacePatch } = installHomePatches(routerHook, isOwner);
   const uninstallWatchdog = installStartupWatchdog(patch, recentsReplacePatch);
   const uninstallRefresh = installShelfRefreshEmitter();
@@ -395,7 +380,6 @@ const __ds_entry = definePlugin((serverAPI?: any) => {
   );
 
   const uninstallHostQamPanel = registerHostQamPanel(renderNativeTabPanel);
-  const uninstallOwnQamTab = installOwnTabIfWanted(isOwner, loaderLaunched, renderNativeTabPanel);
   // Showcase / Dynamic Idle Mode (opt-in, default OFF). Only the renderer's
   // owner drives Home focus.
   const uninstallShowcaseMode = isOwner ? installShowcaseMode() : null;
@@ -414,12 +398,13 @@ const __ds_entry = definePlugin((serverAPI?: any) => {
     () => unregisterPluginRoutes(routerHook),
     uninstallRefresh, uninstallSystemEvents, uninstallBatteryState, uninstallDeviceState,
     uninstallSessionState, uninstallProfileTriggers, uninstallPluginApi, uninstallLazyPhases,
-    () => uninstallOwnQamTab?.(),
     () => uninstallShowcaseMode?.(),
     () => uninstallScreensaverInject?.(),
     () => uninstallCloudSync?.(),
     uninstallUpdateProbes, uninstallWatchdog, uninstallBootToasts, uninstallHostQamPanel,
     disposeAll,
+    // Last: its owners have unregistered their tasks by now.
+    uninstallPowerGate,
   ];
   // Runs once: the host's teardown, a loader's onDismount and the next instance may each call it.
   let disposed = false;

@@ -36,8 +36,13 @@ Checklist de teste manual para testes de regressão num Steam Deck real (SteamOS
 | 2.5 | Mostrar prateleira via reticências → prateleira reaparece na Home | Prateleira ativa novamente |
 | 2.6 | Excluir prateleira → modal de confirmação; confirmar → removida | Prateleira sumida do QAM e da Home |
 | 2.7 | Mover prateleira para cima/baixo via QAM → a ordem muda na Home | Ordem corresponde ao QAM |
+| 2.7a | Lista de prateleiras do QAM com controle: A no nome de uma prateleira a agarra; direcional cima/baixo move uma posição (para nas pontas); A salva | A linha mantém o destaque da própria Steam, sem moldura nem dica extra; enquanto agarrada, a barra de botões da Steam mostra Mover para cima / Mover para baixo (direcional), Salvar ordem (A) e Cancelar (B); ordem salva uma vez, a Home acompanha; o foco fica na linha movida |
+| 2.7b | O mesmo, depois B em vez de A | A linha volta, nada é salvo, o painel continua aberto, o foco fica na linha |
+| 2.7c | Segurar e arrastar uma linha com toque ou mouse | A linha arrastada fica esmaecida; ordem salva ao soltar |
 | 2.8 | Editar título da prateleira → título atualiza no cabeçalho da linha na Home | Novo título renderizado |
 | 2.9 | Editar limite da prateleira → contagem de cards muda | Número de cards muda |
+| 2.10 | Na biblioteca da Steam, apertar ≡ em um jogo instalado, em um jogo não instalado e em um atalho de fora da Steam | "Adicionar à prateleira" aparece uma vez em cada menu, logo antes de Propriedades |
+| 2.11 | Logo depois de a Steam iniciar, abrir o primeiro menu de jogo na biblioteca e deixá-lo aberto por alguns segundos | "Adicionar à prateleira" continua no menu |
 
 ---
 
@@ -77,7 +82,7 @@ Checklist de teste manual para testes de regressão num Steam Deck real (SteamOS
 |---|----------|----------|
 | 5.1 | `hideRecents=true` → seção nativa Jogados Recentemente oculta | Seção não visível na Home |
 | 5.2 | `hideRecents=true` + `heroBackground=true` → card em foco mostra arte de fundo | Hero art visível |
-| 5.3 | `hideRecents=true` + `recentsReplaceSource=true` → primeira prateleira injetada no DOM nativo de recentes | A primeira prateleira usa estilos nativos |
+| 5.3 | `hideRecents=true` + `recentsReplaceSource=true` → a linha nativa de Recentes mostra os jogos e o título da primeira prateleira | A primeira prateleira usa estilos nativos |
 | 5.4 | `hideRecents=false` → sub-alternâncias (hero, substituir-fonte) ocultas no QAM | Só visível quando hideRecents está ativo |
 
 ---
@@ -235,6 +240,9 @@ do bundle cooperativo é a única que reinicia o Steam e o serviço do host.
 | `python3 scripts/deckprobe-ext/probes/native_shelf_detection.py` | Lista todo candidato à fileira nativa de recentes do Steam com posição, pai e contagem de cards nativos, para conferir num dado build a heurística que o side nav e a Busca rápida usam |
 | `python3 scripts/deckprobe-ext/probes/hwcompat.py` | Imprime os campos de informação de sistema do aparelho e decodifica a categoria de compatibilidade de hardware empacotada para uma amostra de jogos, conferida contra os getters nomeados |
 | `pnpm run qa:coop-fallback` (`-- --phase=live`, `-- --setup`) | Boots de fallback do bundle cooperativo, com o host independente dono pela própria cópia: a cópia do loader precisa subir sozinha ~20 s depois de se retirar quando a cópia do host nunca sobe (host injetado), e ~60 s depois de se retirar pela oferta guardada do host (host parado); depois a passagem é restaurada. Confere as pré-condições, se recusa a começar com um jogo rodando, reinicia o Steam duas vezes (use um aparelho de teste) e o serviço do host; `--setup` liga antes o `coop_bundle` do host. Saída 0 passou / 1 uma fase falhou / 2 uma pré-condição falhou. Grava `site/reports/perf/coop-fallback-latest.json`, julgado por `pnpm run perf:gate:check` |
+| `python3 scripts/deckprobe-ext/probes/in_game_focus.py [--appid N] [--seconds S] [--home-over-game] [--shortcut-exe CAMINHO --shortcut-args …] [--max-wakeups N]` | Abre um jogo pequeno instalado (ou um atalho não-Steam temporário) e, enquanto ele roda, conta os roubos de foco dos nossos cards, os despertares de timer que o plugin causa e as resoluções de prateleira, abre o Acesso Rápido e o menu do Steam várias vezes para conferir que cada um mantém o foco, e depois encerra o jogo e confere que um card volta a ter foco na Home. Funciona em qualquer build; o estado do gate de energia é lido quando o build o expõe. Rode sem nenhum jogo aberto, pelo menos 30 segundos depois de um reload, e volte ao build normal no fim |
+| `python3 scripts/deckprobe-ext/probes/return_focus.py [--shelves 0,2] [--back cancel]` | Abre a página de um jogo a partir de um card como o botão A faz e volta como o botão B faz, para uma prateleira no topo e uma abaixo da dobra: a Home precisa cair no mesmo card (`--back` também oferece as voltas pelo roteador, que pulam o tratamento de foco do próprio Steam) |
+| `DS_QA_HIDE_APPID=<appid> python3 -m deckprobe.uitests.run --only stabilization` | A suíte `stabilization`: jogos ocultos no Steam ficam fora das prateleiras de aba e de coleção (ela oculta o jogo pequeno indicado no Steam durante a checagem e o reexibe no fim), mais o card de atualizar da Roleta no fixture de prateleiras inteligentes (`pnpm run qa:smart-fixture`). Ocultar um jogo numa prateleira inteligente é conferido à mão: o fixture refaz as prateleiras inteligentes a cada mudança |
 | `python3 scripts/deckprobe-ext/probes/menu_injection.py` | Abre o menu do jogo em cards de três prateleiras e confere que as ações por card e o grupo Prateleira (Gerenciamento / Exibição / Visual) são injetados uma vez cada, identificados pelas chaves para funcionar em qualquer idioma da interface |
 | `python3 scripts/deckprobe-ext/probes/shelf_render.py` | Lista cada prateleira da home com a quantidade de cards e se os apps dela resolvem |
 | `bash scripts/dev/ensure-repo-settings.sh` | Só para mantenedores: confere as configurações de merge do repositório no GitHub (só squash, apagar branch ao mesclar) e as corrige quando divergem; precisa do CLI `gh` |

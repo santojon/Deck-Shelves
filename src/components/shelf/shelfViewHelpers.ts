@@ -381,7 +381,8 @@ export function buildRefreshRowItem(params: { shelf: Shelf; isOnlineShelf: boole
     onActivate: () => {
       if (isOnlineShelf) clearOnlineShelfCache();
       else if (isSmart) invalidateSmartShelfCache(shelf.id);
-      else invalidateRandomSortCache(shelf.id);
+      // The random order is kept per shelf for a day, so a manual refresh clears it too.
+      invalidateRandomSortCache(shelf.id);
       // Scopes the visual indicator to this shelf; every subscribed shelf
       // still re-resolves since online cache clears affect them all.
       triggerShelfRefresh({ manual: true, shelfId: shelf.id });
