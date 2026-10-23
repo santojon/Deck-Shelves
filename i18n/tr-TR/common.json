@@ -87,6 +87,7 @@
   "mode_switch_advanced_body": "Light ve Gelişmiş modu aynı anda açık olamaz. Gelişmiş modu açmak Light modunu kapatır.",
   "beta_channel_label": "Beta kanalı",
   "settings_confirm_irreversible": "Bu geri alınamaz.",
+  "own_qam_tab_enabled": "Hızlı Erişim'de kendi sekmesi (deneysel)",
   "screensaver_shelves_enabled": "Ekran koruyucu (deneysel)",
   "screensaver_shelves_include_screenshots": "Ekran görüntülerini dahil et",
   "screensaver_online_screenshots": "Çevrimiçi ekran görüntülerini dahil et",
@@ -114,5 +115,10 @@
   "showcase_card_dwell_label": "Oyun başına süre",
   "section_navigation": "Gezinme ve Arama",
   "section_online": "Çevrimiçi Özellikler",
-  "section_experimental": "Deneysel"
+  "section_experimental": "Deneysel",
+  "own_qam_tab_restart_title": "Steam şimdi yeniden başlatılsın mı?",
+  "own_qam_tab_restart_body": "Hızlı Erişim sekmesi yalnızca Steam yeniden başlatıldıktan sonra görünür.",
+  "own_qam_tab_restart_now": "Şimdi yeniden başlat",
+  "own_qam_tab_restart_later": "Daha sonra",
+  "own_qam_tab_restart_body_off": "Hızlı Erişim sekmesi, Steam yeniden başlatılana kadar görünür kalabilir."
 }

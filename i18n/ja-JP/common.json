@@ -87,6 +87,7 @@
   "mode_switch_advanced_body": "ライトモードと詳細モードは同時に有効にできません。詳細モードを有効にするとライトモードがオフになります。",
   "beta_channel_label": "ベータ版",
   "settings_confirm_irreversible": "この操作は取り消せません。",
+  "own_qam_tab_enabled": "クイックアクセスに専用タブ（実験的機能）",
   "screensaver_shelves_enabled": "スクリーンセーバー（実験的機能）",
   "screensaver_shelves_include_screenshots": "スクリーンショットを含める",
   "screensaver_online_screenshots": "オンラインスクリーンショットを含める",
@@ -114,5 +115,10 @@
   "showcase_card_dwell_label": "ゲームごとの時間",
   "section_navigation": "ナビゲーションと検索",
   "section_online": "オンライン機能",
-  "section_experimental": "実験的機能"
+  "section_experimental": "実験的機能",
+  "own_qam_tab_restart_title": "今すぐSteamを再起動しますか？",
+  "own_qam_tab_restart_body": "クイックアクセスのタブはSteamを再起動した後にのみ表示されます。",
+  "own_qam_tab_restart_now": "今すぐ再起動",
+  "own_qam_tab_restart_later": "後で",
+  "own_qam_tab_restart_body_off": "クイックアクセスのタブは、Steamを再起動するまで表示されたままになることがあります。"
 }

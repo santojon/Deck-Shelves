@@ -22,6 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **The experimental own Quick Access tab under Decky Loader was rebuilt.** The opt-in option that adds Deck Shelves as its own tab in the Quick Access strip, right after Performance, keeps its restart prompt. After the restart the tab is there from the first time the Quick Access menu opens, it steps aside whenever the standalone host shows its own Deck Shelves tab, and it takes everything it added out of Steam when the plugin stops. If drawing the tab fails on two Steam starts in a row, it pauses for 12 hours instead of staying off until someone clears it by hand ([`ownQamTab.ts`](src/runtime/ownQamTab.ts)).
+
 - **A card whose art can't load looks like Steam's own.** Instead of a grey gradient with small faded text, it shows the dark tile Steam uses for its Recents and library when art fails, with the game's name inset from the edges in the same size and colour ([`PlaceholderCard.tsx`](src/components/shelf/PlaceholderCard.tsx)).
 
 - **Reordering the Quick Access shelf and profile lists works row by row.** Press A on a shelf's name to grab it, move it with the D-pad (it stops at the ends), then A to save or B to put it back. While a row is held, Steam's button bar shows what the D-pad, A and B do, and the row keeps the focus and Steam's own highlight. There is no separate reorder mode to switch on and off any more, and touch and mouse hold-drag work as before, with the dragged row dimmed instead of outlined in yellow ([`GrabReorderList.tsx`](src/components/ui/GrabReorderList.tsx)).
@@ -69,8 +71,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 - **The shelf manage page.** The route `/deck-shelves/manage/:shelfId` and its page were reachable only by typing the address; the shelf editor and the game menu carry everything it did ([`index.tsx`](src/index.tsx)).
-
-- **The experimental own Quick Access tab under Decky Loader.** The opt-in option that added a Deck Shelves tab to the Quick Access tab strip is gone, along with its restart prompt. The settings stay in Decky Loader's plugin list, and the standalone host keeps its own tab. A configuration saved with the option on still loads; the value is ignored ([`index.tsx`](src/index.tsx)).
 
 ### Fixed
 
@@ -178,8 +178,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Less background work.** The friends poll and the launcher catalogue stop when no setting uses them any more; the friends-avatar layer mounts only when friends data is in use; idle-time work always runs within 5 s; two retry loops are capped; the long-task observer and the neutral host's panel registration are cleaned up on unload; an integration that registers twice through the public API mounts and unmounts once.
 
 - **Unloading or reloading the plugin now also removes its full-page Settings route** — the one route the previous teardown left registered ([`index.tsx`](src/index.tsx)).
-
-- **The own Quick Access tab's crash guard no longer stays latched forever.** The guard that stands the tab down after repeated stale boots had no expiry, so the churn of switching hosts (installing or removing a neutral host beside the loader) could leave the tab gone for good, with nothing in the UI to bring it back. A latched trip now ages out after a day and grants one more try, carrying a strike so a real crash-loop re-trips within one boot ([`ownQamTab.ts`](src/runtime/ownQamTab.ts)). Unit test added.
 
 ## [3.3.4] - 2026-10-11
 

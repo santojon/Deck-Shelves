@@ -87,6 +87,7 @@
   "mode_switch_advanced_body": "라이트 모드와 고급 모드는 동시에 켤 수 없습니다. 고급 모드를 켜면 라이트 모드가 꺼집니다.",
   "beta_channel_label": "베타 채널",
   "settings_confirm_irreversible": "되돌릴 수 없습니다.",
+  "own_qam_tab_enabled": "빠른 액세스에 전용 탭 (실험적)",
   "screensaver_shelves_enabled": "화면 보호기 (실험적 기능)",
   "screensaver_shelves_include_screenshots": "스크린샷 포함",
   "screensaver_online_screenshots": "온라인 스크린샷 포함",
@@ -114,5 +115,10 @@
   "showcase_card_dwell_label": "게임당 시간",
   "section_navigation": "탐색 및 검색",
   "section_online": "온라인 기능",
-  "section_experimental": "실험적 기능"
+  "section_experimental": "실험적 기능",
+  "own_qam_tab_restart_title": "지금 Steam을 재시작할까요?",
+  "own_qam_tab_restart_body": "빠른 액세스 탭은 Steam을 재시작해야 표시됩니다.",
+  "own_qam_tab_restart_now": "지금 재시작",
+  "own_qam_tab_restart_later": "나중에",
+  "own_qam_tab_restart_body_off": "빠른 액세스 탭은 Steam을 재시작할 때까지 계속 보일 수 있습니다."
 }

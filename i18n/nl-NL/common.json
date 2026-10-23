@@ -87,6 +87,7 @@
   "mode_switch_advanced_body": "Light- en Geavanceerde modus kunnen niet tegelijk aan staan. Geavanceerde modus inschakelen schakelt de Light-modus uit.",
   "beta_channel_label": "Bètakanaal",
   "settings_confirm_irreversible": "Dit kan niet ongedaan worden gemaakt.",
+  "own_qam_tab_enabled": "Eigen tabblad in Snelle toegang (experimenteel)",
   "screensaver_shelves_enabled": "Schermbeveiliging (experimenteel)",
   "screensaver_shelves_include_screenshots": "Screenshots opnemen",
   "screensaver_online_screenshots": "Online screenshots opnemen",
@@ -114,5 +115,10 @@
   "showcase_card_dwell_label": "Tijd per game",
   "section_navigation": "Navigatie en zoeken",
   "section_online": "Online-functies",
-  "section_experimental": "Experimenteel"
+  "section_experimental": "Experimenteel",
+  "own_qam_tab_restart_title": "Steam nu herstarten?",
+  "own_qam_tab_restart_body": "Het tabblad Snelle toegang verschijnt pas na het herstarten van Steam.",
+  "own_qam_tab_restart_now": "Nu herstarten",
+  "own_qam_tab_restart_later": "Later",
+  "own_qam_tab_restart_body_off": "Het tabblad Snelle toegang kan zichtbaar blijven tot Steam opnieuw wordt gestart."
 }

@@ -39,6 +39,18 @@ export function awaitInjectedHost(timeoutMs = 8000): Promise<HostApi | null> {
   });
 }
 
+/* True when a neutral host is present: its Quick Access bridge, or its runtime
+   before the bridge appears. That host shows its own Deck Shelves tab, so the
+   plugin's own-tab option is hidden and the tab is not installed. */
+export function hostProvidesNativeTab(): boolean {
+  const g = globalThis as any;
+  try {
+    return !!(g.window?.__SHELVES_QAM__ ?? g.__SHELVES_QAM__ ?? g.window?.__SHELVES_HOST__ ?? g.__SHELVES_HOST__);
+  } catch {
+    return false;
+  }
+}
+
 /* Build the HostApi from the injected neutral-host runtime. A conforming runtime
    (signalled by `notifications.toast`) supplies host mechanics directly, but
    `platform` is renderer-side Deck Shelves domain logic that must stay plugin-side

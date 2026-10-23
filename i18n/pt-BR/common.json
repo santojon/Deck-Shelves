@@ -87,6 +87,7 @@
   "mode_switch_advanced_body": "Os modos Light e Avançado não podem estar ativos ao mesmo tempo. Ativar o modo Avançado desativará o modo Light.",
   "beta_channel_label": "Canal beta",
   "settings_confirm_irreversible": "Isso não pode ser desfeito.",
+  "own_qam_tab_enabled": "Aba própria no Acesso Rápido (experimental)",
   "screensaver_shelves_enabled": "Proteção de tela (experimental)",
   "screensaver_shelves_include_screenshots": "Incluir capturas de tela",
   "screensaver_online_screenshots": "Incluir capturas de tela online",
@@ -114,5 +115,10 @@
   "showcase_card_dwell_label": "Tempo por jogo",
   "section_navigation": "Navegação e Busca",
   "section_online": "Recursos Online",
-  "section_experimental": "Experimental"
+  "section_experimental": "Experimental",
+  "own_qam_tab_restart_title": "Reiniciar a Steam agora?",
+  "own_qam_tab_restart_body": "A aba de Acesso Rápido só aparece depois que a Steam reiniciar.",
+  "own_qam_tab_restart_now": "Reiniciar agora",
+  "own_qam_tab_restart_later": "Depois",
+  "own_qam_tab_restart_body_off": "A aba de Acesso Rápido pode continuar visível até a Steam reiniciar."
 }

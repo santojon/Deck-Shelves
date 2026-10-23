@@ -87,6 +87,7 @@
   "mode_switch_advanced_body": "Tryb Light i Zaawansowany nie mogą być włączone jednocześnie. Włączenie trybu Zaawansowanego wyłączy tryb Light.",
   "beta_channel_label": "Kanał beta",
   "settings_confirm_irreversible": "Tego nie można cofnąć.",
+  "own_qam_tab_enabled": "Własna karta w Szybkim dostępie (eksperymentalne)",
   "screensaver_shelves_enabled": "Wygaszacz ekranu (eksperymentalny)",
   "screensaver_shelves_include_screenshots": "Uwzględnij zrzuty ekranu",
   "screensaver_online_screenshots": "Uwzględnij zrzuty ekranu online",
@@ -114,5 +115,10 @@
   "showcase_card_dwell_label": "Czas na grę",
   "section_navigation": "Nawigacja i wyszukiwanie",
   "section_online": "Funkcje online",
-  "section_experimental": "Eksperymentalne"
+  "section_experimental": "Eksperymentalne",
+  "own_qam_tab_restart_title": "Zrestartować Steam teraz?",
+  "own_qam_tab_restart_body": "Karta Szybkiego dostępu pojawi się dopiero po ponownym uruchomieniu Steam.",
+  "own_qam_tab_restart_now": "Uruchom ponownie teraz",
+  "own_qam_tab_restart_later": "Później",
+  "own_qam_tab_restart_body_off": "Karta Szybkiego dostępu może pozostać widoczna do czasu ponownego uruchomienia Steam."
 }

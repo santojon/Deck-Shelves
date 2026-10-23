@@ -630,8 +630,9 @@ export const SettingsSchema = z.object({
   // (e.g. Xbox Cloud Gaming) don't hide their store/wishlist promotions.
   onlineHideOwnedNonSteamCloud: z.boolean().nullable().optional().transform((v) => v ?? false),
   forceCssLoaderThemes: z.boolean().nullable().optional().transform((v) => v ?? false),
-  /* Obsolete: the plugin's own Quick Access tab option was removed. Kept so
-     older configs still parse; the value is ignored. */
+  /* The plugin's own Quick Access tab under the plugin loader alone (opt-in,
+     experimental, per device). Has no effect when a neutral host shows its own
+     Deck Shelves tab (runtime/ownQamTab.ts). */
   ownQamTabEnabled: z.boolean().nullable().optional().transform((v) => v ?? false),
   /* Showcase / Dynamic Idle Mode — cycles attention through the user's own
      shelves during Home inactivity; any real interaction stops it instantly.

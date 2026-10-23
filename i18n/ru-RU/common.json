@@ -87,6 +87,7 @@
   "mode_switch_advanced_body": "Лёгкий и Расширенный режимы не могут быть включены одновременно. Включение Расширенного режима отключит Лёгкий.",
   "beta_channel_label": "Бета-канал",
   "settings_confirm_irreversible": "Это нельзя отменить.",
+  "own_qam_tab_enabled": "Собственная вкладка в Быстром доступе (экспериментально)",
   "screensaver_shelves_enabled": "Заставка (экспериментально)",
   "screensaver_shelves_include_screenshots": "Включать скриншоты",
   "screensaver_online_screenshots": "Включать онлайн-скриншоты",
@@ -114,5 +115,10 @@
   "showcase_card_dwell_label": "Время на игру",
   "section_navigation": "Навигация и поиск",
   "section_online": "Онлайн-функции",
-  "section_experimental": "Экспериментальное"
+  "section_experimental": "Экспериментальное",
+  "own_qam_tab_restart_title": "Перезапустить Steam сейчас?",
+  "own_qam_tab_restart_body": "Вкладка Быстрого доступа появится только после перезапуска Steam.",
+  "own_qam_tab_restart_now": "Перезапустить сейчас",
+  "own_qam_tab_restart_later": "Позже",
+  "own_qam_tab_restart_body_off": "Вкладка Быстрого доступа может оставаться видимой до перезапуска Steam."
 }

@@ -87,6 +87,7 @@
   "mode_switch_advanced_body": "轻量模式和高级模式不能同时开启。开启高级模式将关闭轻量模式。",
   "beta_channel_label": "Beta 通道",
   "settings_confirm_irreversible": "此操作无法撤销。",
+  "own_qam_tab_enabled": "快速访问中的独立标签页（实验性）",
   "screensaver_shelves_enabled": "屏幕保护程序（实验性）",
   "screensaver_shelves_include_screenshots": "包含截图",
   "screensaver_online_screenshots": "包含在线截图",
@@ -114,5 +115,10 @@
   "showcase_card_dwell_label": "每个游戏的时间",
   "section_navigation": "导航与搜索",
   "section_online": "在线功能",
-  "section_experimental": "实验性功能"
+  "section_experimental": "实验性功能",
+  "own_qam_tab_restart_title": "现在重启 Steam 吗？",
+  "own_qam_tab_restart_body": "快速访问标签页只有在 Steam 重启后才会出现。",
+  "own_qam_tab_restart_now": "立即重启",
+  "own_qam_tab_restart_later": "稍后",
+  "own_qam_tab_restart_body_off": "快速访问标签页可能会一直显示，直到 Steam 重启。"
 }

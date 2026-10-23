@@ -87,6 +87,7 @@
   "mode_switch_advanced_body": "Les modes Léger et Avancé ne peuvent pas être actifs en même temps. Activer le mode Avancé désactivera le mode Léger.",
   "beta_channel_label": "Canal bêta",
   "settings_confirm_irreversible": "Cette action est irréversible.",
+  "own_qam_tab_enabled": "Onglet propre dans l'Accès rapide (expérimental)",
   "screensaver_shelves_enabled": "Économiseur d'écran (expérimental)",
   "screensaver_shelves_include_screenshots": "Inclure les captures d'écran",
   "screensaver_online_screenshots": "Inclure les captures d'écran en ligne",
@@ -114,5 +115,10 @@
   "showcase_card_dwell_label": "Temps par jeu",
   "section_navigation": "Navigation et recherche",
   "section_online": "Fonctionnalités en ligne",
-  "section_experimental": "Expérimental"
+  "section_experimental": "Expérimental",
+  "own_qam_tab_restart_title": "Redémarrer Steam maintenant ?",
+  "own_qam_tab_restart_body": "L'onglet Accès rapide n'apparaît qu'après le redémarrage de Steam.",
+  "own_qam_tab_restart_now": "Redémarrer maintenant",
+  "own_qam_tab_restart_later": "Plus tard",
+  "own_qam_tab_restart_body_off": "L'onglet Accès rapide peut rester visible jusqu'au redémarrage de Steam."
 }

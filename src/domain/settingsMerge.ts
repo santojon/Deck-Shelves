@@ -13,9 +13,9 @@ type Tombstones = Record<string, number>;
 // scalar bag, chosen whole by preferencesUpdatedAt.
 export const SYNC_LISTS = ["shelves", "smartShelves", "savedFilters", "savedSmartFilters", "profiles"] as const;
 
-// Dev/debug tooling + an obsolete per-device flag: never part of a profile
-// switch or a cross-device sync, only ever local to this install. Shared with
-// the profile controller (controller/profiles.ts, runtime/profileTriggers.ts).
+// Dev/debug tooling + the per-device Quick Access tab option: never part of a
+// profile switch or a cross-device sync, only ever local to this install. Shared
+// with the profile controller (controller/profiles.ts, runtime/profileTriggers.ts).
 export const DEVICE_LOCAL_FIELDS = [
   "devModeEnabled", "verboseLoggingEnabled", "ownQamTabEnabled",
   // This device's backup of Steam's own idle timeout: a factory reset or a

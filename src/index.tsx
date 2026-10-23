@@ -21,6 +21,7 @@ import { installBatteryState } from "./runtime/batteryState";
 import { installDeviceState, getDeviceState } from "./runtime/deviceState";
 import { installSessionState } from "./runtime/sessionState";
 import { installProfileTriggers } from "./runtime/profileTriggers";
+import { installOwnQamTab } from "./runtime/ownQamTab";
 import { installShowcaseMode } from "./runtime/showcaseMode";
 import { installScreensaverInject } from "./runtime/screensaverInject";
 import { installCloudSync } from "./runtime/cloudSync";
@@ -32,6 +33,7 @@ import { prewarmUserPaths } from "./core/userPaths";
 import { invalidateRandomSortCache } from "./steam";
 import { pruneCache as pruneImageCache, hydrateHotCacheFromStorage } from "./core/imageCache";
 import { pruneShelfCaches } from "./components/shelf/shelfViewHelpers";
+import { getCurrentSettings, subscribeSettings } from "./store/settingsStore";
 import { setPendingSettingsTab } from "./runtime/settingsNav";
 import { logError, logInfo } from "./runtime/logger";
 import { disposeAll, registerDisposer } from "./runtime/runtimeDisposer";
@@ -40,7 +42,7 @@ import { evaluateBootOutcome } from "./runtime/safeMode";
 import { markBootStart, recordBootCritical } from "./core/perfMetrics";
 import { installStartupWatchdog, startLazyPhases, installUpdateProbes, scheduleBootToasts, logSystemEnvironment } from "./runtime/bootPhases";
 import { Navigation, Focusable, DialogButton, quickAccessMenuClasses } from "./runtime/host/decky";
-import { resolveHost, shouldUseForcedHost, awaitInjectedHost } from "./runtime/host/resolve";
+import { resolveHost, hostProvidesNativeTab, shouldUseForcedHost, awaitInjectedHost } from "./runtime/host/resolve";
 import { claimHomeOwnership, getOwnerKind, type HostKind } from "./runtime/host/ownerGuard";
 import { setHostHandshake, getHostHandshake } from "./runtime/hostHandshake";
 import { tryDeferToHost, readDeferSignal, hostBundleBooted } from "./runtime/host/coopDefer";
@@ -68,9 +70,9 @@ const TAGS_ROUTE = "/deck-shelves/tags/:appid";
 // Decky plugin-tab / QAM icon. Simplified single-colour (tintable) glyph — the
 // same mark shipped as assets/tab-icon.svg (the designated plugin icon); keep
 // the two in sync. Filled books read far better than thin outlines at ~18px.
-function DeckShelvesIcon() {
+function DeckShelvesIcon({ fixedSize = true }: { fixedSize?: boolean }) {
   return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style={{ width: 18, height: 18 }}>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style={fixedSize ? { width: 18, height: 18 } : undefined}>
       <rect x="3.8" y="7.5" width="3.9" height="11.5" rx="0.8" />
       <rect x="8.7" y="5" width="3.9" height="14" rx="0.8" />
       <rect x="14" y="8" width="3.9" height="11" rx="0.8" transform="rotate(-13 15.95 19)" />
@@ -262,6 +264,31 @@ function registerHostQamPanel(renderPanel: QamPanel["content"]): () => void {
   return () => {};
 }
 
+/* The plugin's own Quick Access tab (opt-in, off by default): only for the copy that owns the
+   renderer, launched by the plugin loader, with no neutral host present (that host shows its own
+   tab, and the option is hidden). */
+function installOwnTabIfWanted(isOwner: boolean, loaderLaunched: boolean, renderPanel: () => ReactNode): (() => void) | null {
+  if (!isOwner || !loaderLaunched || hostProvidesNativeTab()) return null;
+  return installOwnQamTab({
+    title: i18next.t("menu_deck_shelves"),
+    icon: <DeckShelvesIcon fixedSize={false} />, // Steam's strip sizes its tab icons itself
+    renderPanel,
+    isEnabled: () => getCurrentSettings()?.ownQamTabEnabled === true,
+    subscribe: subscribeLoadedSettings,
+  });
+}
+
+/* While the backend has not answered, the store stands in bare defaults (no schema version).
+   Those are not the saved settings, so the tab waits for the first loaded document. */
+function subscribeLoadedSettings(listener: () => void): () => void {
+  let loaded = false;
+  return subscribeSettings((s) => {
+    if (!loaded && s.schemaVersion == null) return;
+    loaded = true;
+    listener();
+  });
+}
+
 // Patches a live Steam internal of unguaranteed shape at plugin init — never let it take boot down.
 function tryInstall(install: () => () => void): (() => void) | null {
   try { return install(); } catch { return null; }
@@ -380,6 +407,7 @@ const __ds_entry = definePlugin((serverAPI?: any) => {
   );
 
   const uninstallHostQamPanel = registerHostQamPanel(renderNativeTabPanel);
+  const uninstallOwnQamTab = installOwnTabIfWanted(isOwner, loaderLaunched, renderNativeTabPanel);
   // Showcase / Dynamic Idle Mode (opt-in, default OFF). Only the renderer's
   // owner drives Home focus.
   const uninstallShowcaseMode = isOwner ? installShowcaseMode() : null;
@@ -402,6 +430,7 @@ const __ds_entry = definePlugin((serverAPI?: any) => {
     () => uninstallScreensaverInject?.(),
     () => uninstallCloudSync?.(),
     uninstallUpdateProbes, uninstallWatchdog, uninstallBootToasts, uninstallHostQamPanel,
+    () => uninstallOwnQamTab?.(),
     disposeAll,
     // Last: its owners have unregistered their tasks by now.
     uninstallPowerGate,

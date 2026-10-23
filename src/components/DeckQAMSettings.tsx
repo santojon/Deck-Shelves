@@ -7,6 +7,9 @@ import {
   ToggleField,
 } from '../runtime/host/decky'
 import { getMountFailed, getMountError, subscribeMountFailed } from '../runtime/homePatch'
+import { hostProvidesNativeTab } from '../runtime/host/resolve'
+import { isHomeOwner } from '../runtime/host/ownerGuard'
+import { restartSteam } from '../runtime/ownQamTab'
 import type { SettingsController } from '../features/settings/controller'
 import { usePlatform } from '../runtime/platformContext'
 import { DeckQAMStyles } from './styles/DeckQAMStyles'
@@ -750,10 +753,24 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
       {(() => {
         if (isSecHid('experimental')) return null;
         return (
-      <CollapsibleSection id='experimental' icon={<WandIcon />} title={t('section_experimental' as any)} count={[settings.forceCssLoaderThemes === true, (settings as any).showcaseModeEnabled === true, hasScreensaverSupport && (settings as any).screensaverShelvesEnabled === true].filter(Boolean).length}>
+      <CollapsibleSection id='experimental' icon={<WandIcon />} title={t('section_experimental' as any)} count={[settings.forceCssLoaderThemes === true, (settings as any).ownQamTabEnabled === true, (settings as any).showcaseModeEnabled === true, hasScreensaverSupport && (settings as any).screensaverShelvesEnabled === true].filter(Boolean).length}>
         {(() => (
         hasCssLoader && !lightMode && !isHid('forceCssLoaderThemes') && (
           <ToggleField label={t('force_themes_label')} checked={settings.forceCssLoaderThemes === true} onChange={(value: boolean) => void actions.setForceCssLoaderThemes(value)} />
+        )
+        ))()}
+        {(() => (
+        !isHid('ownQamTabEnabled') && !hostProvidesNativeTab() && isHomeOwner() && (
+          <ToggleField label={t('own_qam_tab_enabled' as any)} checked={(settings as any).ownQamTabEnabled === true} onChange={(value: boolean) => {
+            void (actions as any).setOwnQamTabEnabled(value);
+            confirmAction({
+              title: t('own_qam_tab_restart_title' as any),
+              body: t((value ? 'own_qam_tab_restart_body' : 'own_qam_tab_restart_body_off') as any),
+              okText: t('own_qam_tab_restart_now' as any),
+              cancelText: t('own_qam_tab_restart_later' as any),
+              onConfirm: restartSteam,
+            });
+          }} />
         )
         ))()}
         {(() => (

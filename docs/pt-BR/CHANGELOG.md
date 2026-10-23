@@ -22,6 +22,8 @@ e este projeto segue o [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ### Modificado
 
+- **A aba própria experimental no Acesso Rápido sob o Decky Loader foi refeita.** A opção que adiciona o Deck Shelves como aba própria na faixa do Acesso Rápido, logo depois de Desempenho, mantém o aviso para reiniciar. Depois de reiniciar, a aba aparece desde a primeira vez que o Acesso Rápido abre, sai do caminho sempre que o host independente mostra a própria aba do Deck Shelves, e tira da Steam tudo o que adicionou quando o plugin para. Se desenhar a aba falhar em duas inicializações seguidas da Steam, ela pausa por 12 horas em vez de ficar desligada até alguém limpar à mão ([`ownQamTab.ts`](../../src/runtime/ownQamTab.ts)).
+
 - **Um card cuja arte não carrega fica igual ao da própria Steam.** Em vez de um degradê cinza com texto pequeno e apagado, ele mostra o bloco escuro que a Steam usa nos Recentes e na biblioteca quando a arte falha, com o nome do jogo afastado das bordas, no mesmo tamanho e cor ([`PlaceholderCard.tsx`](../../src/components/shelf/PlaceholderCard.tsx)).
 
 - **Reordenar as listas de prateleiras e perfis do Acesso Rápido funciona linha a linha.** Aperte A no nome de uma prateleira para agarrá-la, mova com o direcional (ela para nas pontas) e depois A para salvar ou B para devolvê-la. Enquanto a linha está agarrada, a barra de botões da Steam mostra o que o direcional, o A e o B fazem, e a linha mantém o foco e o destaque da própria Steam. Não existe mais um modo de reordenação separado para ligar e desligar, e segurar e arrastar com toque ou mouse funciona como antes, com a linha arrastada esmaecida em vez de contornada em amarelo ([`GrabReorderList.tsx`](../../src/components/ui/GrabReorderList.tsx)).
@@ -69,8 +71,6 @@ e este projeto segue o [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 ### Removido
 
 - **A página de gerenciamento de prateleira.** A rota `/deck-shelves/manage/:shelfId` e a página só eram alcançáveis digitando o endereço; o editor de prateleira e o menu do jogo fazem tudo o que ela fazia ([`index.tsx`](../../src/index.tsx)).
-
-- **A aba própria experimental no Acesso Rápido sob o Decky Loader.** A opção que adicionava uma aba do Deck Shelves à faixa de abas do Acesso Rápido saiu, junto com o aviso para reiniciar. As configurações continuam na lista de plugins do Decky Loader, e o host independente mantém a própria aba. Uma configuração salva com a opção ligada continua carregando; o valor é ignorado ([`index.tsx`](../../src/index.tsx)).
 
 ### Corrigido
 
@@ -178,8 +178,6 @@ e este projeto segue o [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - **Menos trabalho em segundo plano.** A consulta de amigos e o catálogo de launchers param quando nenhuma configuração os usa mais; a camada de avatares de amigos só é montada quando dados de amigos estão em uso; o trabalho de ociosidade sempre roda em até 5 s; dois laços de nova tentativa ganharam limite; o observador de tarefas longas e o registro do painel do host neutro são limpos ao descarregar; uma integração que se registra duas vezes pela API pública é montada e desmontada uma vez.
 
 - **Descarregar ou recarregar o plugin agora também remove a rota da página de Configurações em tela cheia** — a única rota que a desmontagem anterior deixava registrada ([`index.tsx`](../../src/index.tsx)).
-
-- **A proteção contra travamento da aba própria do Acesso Rápido não fica mais travada para sempre.** A proteção que recolhe a aba depois de partidas sem confirmação repetidas não expirava, então a troca de hosts (instalar ou remover um host neutro ao lado do loader) podia deixar a aba sumida de vez, sem nada na interface para trazê-la de volta. Um travamento agora expira depois de um dia e concede mais uma tentativa, carregando um strike para que um crash-loop de verdade trave de novo numa partida só ([`ownQamTab.ts`](../../src/runtime/ownQamTab.ts)). Teste unitário adicionado.
 
 ## [3.3.4] - 2026-10-11
 

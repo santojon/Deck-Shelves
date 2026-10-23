@@ -73,7 +73,7 @@ técnico completo, veja [CHANGELOG.md](CHANGELOG.md).
 
 - **Jogos sem arte aparecem como na Steam**: quando uma capa não carrega, o card mostra o bloco escuro da própria Steam com o nome do jogo.
 
-- **A aba própria experimental no Acesso Rápido saiu.** As configurações do Deck Shelves continuam na lista de plugins do Decky Loader, e o host independente mantém a própria aba. Quem tinha a opção ligada continua com tudo funcionando.
+- **A aba própria do Deck Shelves no Acesso Rápido foi refeita (experimental)**: sob o Decky Loader você pode ligá-la para ter o Deck Shelves como aba própria logo depois de Desempenho; reinicie a Steam depois de ligar. Com o host independente, a aba dele é usada no lugar.
 
 - **Por baixo do capô, o código de renderização da tela inicial, a inicialização do plugin, o código da biblioteca que monta cada prateleira e o código do menu do jogo foram reorganizados em peças menores, sem mudança de comportamento** — verificado num Steam Deck real. Recarregar o plugin agora também limpa a rota da página de Configurações.
 

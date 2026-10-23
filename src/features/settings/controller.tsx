@@ -324,6 +324,11 @@ export function useSettingsController() {
       if (!s || (s as any).sideNavEnabled === sideNavEnabled) return;
       await persist({ ...s, sideNavEnabled } as any);
     },
+    async setOwnQamTabEnabled(ownQamTabEnabled: boolean) {
+      const s = liveSettings();
+      if (!s || (s as any).ownQamTabEnabled === ownQamTabEnabled) return;
+      await persist({ ...s, ownQamTabEnabled } as any);
+    },
     async setShowcaseModeEnabled(showcaseModeEnabled: boolean) {
       const s = liveSettings();
       if (!s || (s as any).showcaseModeEnabled === showcaseModeEnabled) return;

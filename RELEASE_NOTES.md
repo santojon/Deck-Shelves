@@ -73,7 +73,7 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 - **Games without artwork look like they do in Steam**: when a cover can't load, the card shows Steam's own dark tile with the game's name.
 
-- **The experimental own Quick Access tab is gone.** Deck Shelves' settings stay in Decky Loader's plugin list, and the standalone host keeps its own tab. A setup that had the option on keeps working.
+- **Deck Shelves' own Quick Access tab was rebuilt (experimental)**: under Decky Loader you can turn it on to get Deck Shelves as its own tab right after Performance; restart Steam after enabling. With the standalone host, its own tab is used instead.
 
 - **Under the hood, the home-screen rendering code, the plugin's startup, the library code that builds every shelf and the game-menu code were reorganized into smaller pieces, with no change in behavior** — verified on a real Steam Deck. Reloading the plugin now also cleans up its Settings page route.
 
