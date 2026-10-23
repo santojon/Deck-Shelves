@@ -7,6 +7,12 @@ técnico completo, veja [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+- **A aba no Acesso Rápido continua ligada depois do reinício que ela pede**: ligar a aba própria e escolher "Reiniciar agora" não a traz mais de volta desligada, e uma configuração mudada logo antes de a Steam reiniciar não é mais desfeita no início seguinte.
+
+- **Jogos esperando atualização atualizam em vez de abrir**: num jogo com atualização pendente, o botão View e o menu do jogo agora começam com Atualizar, como no menu da própria Steam, e o filtro "Atualização pendente" também encontra jogos com atualização necessária.
+
+- **O Modo Vitrine para com qualquer entrada**: o teclado, o mouse e a tela sensível ao toque do Deck agora o param como o controle, e ele não começa mais enquanto você os usa.
+
 - **Desligar e religar o plugin no Decky Loader funciona**: o Deck Shelves volta na hora, em vez de ficar parado até a Steam reiniciar.
 
 - **O botão de menu se comporta normalmente com "Usar prateleira como Recentes"**: ele abre o menu do Deck Shelves só na linha substituída e nos cards do Deck Shelves; em todo o resto a Steam cuida dele.

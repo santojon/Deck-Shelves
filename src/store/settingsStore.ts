@@ -67,6 +67,18 @@ function writeSharedState(s: Settings) {
   } catch {}
 }
 
+/* Used by the cache read below, which runs at load (through migrate), so they come first: the
+   bundle sets a module's constants in source order, and one set later is still undefined there. */
+/* Current settings-document schema version. Bump when a migration below is
+   added; older versions read a higher number and leave the doc untouched. */
+export const SCHEMA_VERSION = 2;
+// Documents below this version predate the hidden-games item on smart shelves.
+const HIDDEN_FILTER_SCHEMA_VERSION = 2;
+// Backfilled entities get a fixed low clock — any genuine future edit (Date.now)
+// always beats it, and two devices' never-edited copies tie by content, not by
+// which device happened to load first.
+const BACKFILL_EPOCH = 1;
+
 const _init = readCache() ?? readSharedState();
 let current: Settings | null = _init ? applyQASettingsOverride(_init) : null;
 /* Seeded here without going through notify(), so its side effects need
@@ -91,6 +103,33 @@ function markSaveResult(ok: boolean): void {
   lastSaveSucceeded = ok;
   try { globalThis.localStorage?.setItem(SAVE_OK_KEY, ok ? "1" : "0"); } catch {}
   try { (globalThis as any).__ds_last_save_ok = ok; } catch {}
+}
+
+/* Until this session has read the settings file, `current` is the local cache, which can be older
+   than the file: the cache reaches disk lazily, so a Steam restart right after a change can drop it.
+   Saves made before the read keep only the fields they changed and are laid over the file's
+   document when it arrives, so a stale cache never overwrites a newer file. After a failed save
+   the cache is the newer copy, so it is written as before. */
+let fileRead = !lastSaveSucceeded;
+let earlyEdits: { fields: Record<string, unknown>; resolvers: Array<(ok: boolean) => void> } | null = null;
+let earlyTimer: ReturnType<typeof setTimeout> | null = null;
+let fileReadInFlight = false;
+// Counts the file documents adopted, so a read sent before one can tell its answer is late.
+let fileEpoch = 0;
+// The longest an early save waits for the file before it is written as it is.
+const EARLY_SAVE_WAIT_MS = 10000;
+const fileReadListeners = new Set<() => void>();
+
+// Whether `current` already reflects the settings file, or the local copy stands (after a failed
+// save it is the newer one; or the file did not answer in time).
+export function isSettingsFileRead(): boolean {
+  return fileRead;
+}
+
+// Called once the file's document is in memory, even when it matched what was shown (no change notice).
+export function onSettingsFileRead(listener: () => void): () => void {
+  fileReadListeners.add(listener);
+  return () => { fileReadListeners.delete(listener); };
 }
 
 function isSameSettings(a: Settings | null, b: Settings): boolean {
@@ -148,11 +187,6 @@ function notify(raw: Settings, persist = true) {
    the cached snapshot and freshly-fetched backend payloads, so users carry
    the fix forward regardless of where the stale data sits. Each migration
    MUST be idempotent. */
-/* Current settings-document schema version (§4B). Bump when a migration below is
-   added; older versions read a higher number and leave the doc untouched. */
-export const SCHEMA_VERSION = 2;
-// Documents below this version predate the hidden-games item on smart shelves.
-const HIDDEN_FILTER_SCHEMA_VERSION = 2;
 
 function dedupeById<T extends { id?: string }>(arr: readonly T[]): T[] {
   const seen = new Set<string>();
@@ -178,10 +212,6 @@ function dedupeShelves(s: Settings): Settings {
 }
 
 const TOMBSTONE_TTL_MS = 60 * 24 * 60 * 60 * 1000;
-// Backfilled entities get a fixed low clock — any genuine future edit (Date.now)
-// always beats it, and two devices' never-edited copies tie by content, not by
-// which device happened to load first.
-const BACKFILL_EPOCH = 1;
 
 function stripStamp(e: any): string {
   const { updatedAt: _drop, ...rest } = e ?? {};
@@ -363,8 +393,9 @@ function scheduleColdRetry(): void {
   coldRetryTimer = setTimeout(() => {
     coldRetryTimer = null;
     coldRetryAttempt += 1;
+    const sent = readTicket();
     call<[], unknown>("get_settings")
-      .then((raw) => { coldRetryAttempt = 0; notify(normalize(raw)); })
+      .then((raw) => { coldRetryAttempt = 0; fileDocument(normalize(raw), sent); })
       .catch(() => scheduleColdRetry());
   }, delay);
 }
@@ -373,6 +404,85 @@ function scheduleColdRetry(): void {
 // inside notify() must reach direct callers too, not just subscribers.
 function effectiveState(fallback: Settings): Settings {
   return current ?? fallback;
+}
+
+// Top-level fields whose value differs between two documents (a missing key counts as a change).
+function changedFields(before: Settings | null, next: Settings): Record<string, unknown> {
+  const a = (before ?? {}) as Record<string, unknown>;
+  const b = next as Record<string, unknown>;
+  const out: Record<string, unknown> = {};
+  for (const k of new Set([...Object.keys(a), ...Object.keys(b)])) {
+    if (JSON.stringify(a[k]) !== JSON.stringify(b[k])) out[k] = b[k];
+  }
+  return out;
+}
+
+function queueSave(next: Settings, resolvers: Array<(ok: boolean) => void>): void {
+  if (pendingSave) {
+    pendingSave.next = next;
+    pendingSave.resolvers.push(...resolvers);
+  } else {
+    pendingSave = { next, resolvers };
+  }
+  void flushPendingSave();
+}
+
+// The file's document arrived (or the wait ran out: `doc` null): lay the early edits over it and save once.
+function adoptFileDocument(doc: Settings | null): void {
+  fileRead = true;
+  if (doc) fileEpoch += 1;
+  if (earlyTimer) { clearTimeout(earlyTimer); earlyTimer = null; }
+  const job = earlyEdits;
+  earlyEdits = null;
+  if (doc) notify(job ? ({ ...doc, ...job.fields } as Settings) : doc);
+  for (const listener of [...fileReadListeners]) { try { listener(); } catch {} }
+  if (!job) return;
+  if (current) queueSave(current, job.resolvers);
+  else for (const r of job.resolvers) r(false);
+}
+
+type ReadTicket = { epoch: number; shown: string };
+
+// Taken when a read of the file is sent: what the session had then.
+function readTicket(): ReadTicket {
+  return { epoch: fileEpoch, shown: JSON.stringify(current) };
+}
+
+/* A document read from the file outside refreshSettings' cached path. Once the file is read, an
+   answer sent before another read was adopted, or before the shown settings changed, can predate a
+   save made since: what is shown is kept. */
+function fileDocument(doc: Settings, sent: ReadTicket): void {
+  if (!fileRead) { adoptFileDocument(doc); return; }
+  if (sent.epoch !== fileEpoch || JSON.stringify(current) !== sent.shown) {
+    logWarn("STORAGE", "file read suppressed (state changed mid-read)");
+    return;
+  }
+  notify(doc);
+}
+
+function readFileOnce(): void {
+  if (fileRead || fileReadInFlight) return;
+  fileReadInFlight = true;
+  withTimeout(call<[], unknown>("get_settings"), 5000)
+    .then((raw) => { if (!fileRead) adoptFileDocument(normalize(raw)); })
+    .catch(() => scheduleColdRetry())
+    .finally(() => { fileReadInFlight = false; });
+}
+
+function holdUntilFileRead(before: Settings | null, next: Settings): Promise<boolean> {
+  const job = earlyEdits ?? (earlyEdits = { fields: {}, resolvers: [] });
+  Object.assign(job.fields, changedFields(before, next));
+  if (!earlyTimer) earlyTimer = setTimeout(() => { if (!fileRead) adoptFileDocument(null); }, EARLY_SAVE_WAIT_MS);
+  readFileOnce();
+  return new Promise<boolean>((resolve) => { job.resolvers.push(resolve); });
+}
+
+/* For a reader that must not depend on something else reading the file (the own tab decides once
+   per start, and in Safe Mode or away from the Home nothing else may read it): reads it now unless
+   this session already has. It starts no wait: how long to trust the local copy instead is the
+   reader's call, and saves keep waiting for the file. */
+export function requestSettingsFileRead(): void {
+  readFileOnce();
 }
 
 export async function refreshSettings(): Promise<Settings> {
@@ -391,9 +501,14 @@ export async function refreshSettings(): Promise<Settings> {
        will diverge from this snapshot and we MUST keep the user's edits —
        the backend response is racing them and is necessarily stale. */
     const refreshAnchor = JSON.stringify(current);
+    const sentEpoch = fileEpoch;
     withTimeout(call<[], unknown>("get_settings"), 5000)
       .then((raw) => {
         const fromServer = normalize(raw);
+        // The session's first read of the file: early saves are laid over it (see `fileRead`).
+        if (!fileRead) { adoptFileDocument(fromServer); return; }
+        // Another read was adopted after this one was sent: it carries everything since.
+        if (sentEpoch !== fileEpoch) return;
         // 1) Save still unconfirmed → cache holds the user's pending edits.
         if (!lastSaveSucceeded && JSON.stringify(fromServer) !== JSON.stringify(current)) {
           logWarn("STORAGE", "background refresh suppressed (last save unconfirmed)");
@@ -414,8 +529,9 @@ export async function refreshSettings(): Promise<Settings> {
   }
   try {
     logInfo("STORAGE", "refreshSettings requesting backend");
+    const sent = readTicket();
     const next = normalize(await withTimeout(call<[], unknown>("get_settings"), 8000));
-    notify(next);
+    fileDocument(next, sent);
     return effectiveState(next);
   } catch (error) {
     logWarn("STORAGE", "refreshSettings failed", String(error));
@@ -465,17 +581,11 @@ export function saveSettings(next: Settings, opts?: { fromSync?: boolean }): Pro
     return Promise.resolve(true);
   }
   // Always update local + cache + listeners immediately so the UI stays
-  // responsive even while a slow backend write is pending.
+  // responsive even while a slow backend write is pending. An early save is
+  // recorded first, so a save a listener makes in answer is laid over it.
+  const held = fileRead ? null : holdUntilFileRead(current, stamped);
   notify(stamped);
-  return new Promise<boolean>((resolve) => {
-    if (pendingSave) {
-      pendingSave.next = stamped;
-      pendingSave.resolvers.push(resolve);
-    } else {
-      pendingSave = { next: stamped, resolvers: [resolve] };
-    }
-    void flushPendingSave();
-  });
+  return held ?? new Promise<boolean>((resolve) => { queueSave(stamped, [resolve]); });
 }
 
 async function runSave(next: Settings): Promise<boolean> {

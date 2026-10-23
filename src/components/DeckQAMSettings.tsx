@@ -762,13 +762,14 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
         {(() => (
         !isHid('ownQamTabEnabled') && !hostProvidesNativeTab() && isHomeOwner() && (
           <ToggleField label={t('own_qam_tab_enabled' as any)} checked={(settings as any).ownQamTabEnabled === true} onChange={(value: boolean) => {
-            void (actions as any).setOwnQamTabEnabled(value);
+            const saved = (actions as any).setOwnQamTabEnabled(value);
             confirmAction({
               title: t('own_qam_tab_restart_title' as any),
               body: t((value ? 'own_qam_tab_restart_body' : 'own_qam_tab_restart_body_off') as any),
               okText: t('own_qam_tab_restart_now' as any),
               cancelText: t('own_qam_tab_restart_later' as any),
-              onConfirm: restartSteam,
+              // Restart only once the change is in the settings file, or the restart drops it.
+              onConfirm: () => { void Promise.resolve(saved).finally(restartSteam); },
             });
           }} />
         )

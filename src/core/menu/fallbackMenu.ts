@@ -2,6 +2,7 @@ import i18n from "../../i18n";
 import { getFrontendLib } from "../../runtime/host/decky";
 import { getPreferredSteamDocument } from "../../runtime/steamHost";
 import { steamAppStore, steamClient, steamReact } from "../../steam/internals";
+import { localQuickLaunchAction } from "../../steam/appDisplayStatus";
 import { buildDeckShelvesMenuItems, findCardAnchor } from "./menuContext";
 
 /* The last-resort game menu: when neither the native capture nor the legacy
@@ -82,10 +83,27 @@ function appendShelfItems(items: any[], shelfId: string, appid: number, fl: any,
   for (const it of dsItems) items.push(it);
 }
 
-function buildFallbackItems(appid: number, shelfId: string | undefined, fl: any, R: any, installed: boolean): any[] {
+/* Steam's own menu starts with the app's main action: Update while an update is pending, Pause
+   while it downloads. The View button's quick launch clicks the first item, so this menu starts
+   the same way instead of always with Play (which updates and then runs the game). */
+function primaryUpdateItem(sc: any, appid: number, overview: any): { key: string; label: string; action: () => void } | null {
+  const { action, clientId } = localQuickLaunchAction(overview);
+  if (action === "update" && typeof sc?.Downloads?.ResumeAppUpdate === "function") {
+    return { key: "update", label: fallbackMenuLabel("menu_update", "Update"), action: () => { try { sc.Downloads.ResumeAppUpdate(appid, clientId); } catch {} } };
+  }
+  if (action === "pause" && typeof sc?.Downloads?.EnableAllDownloads === "function") {
+    return { key: "pause", label: fallbackMenuLabel("menu_pause", "Pause"), action: () => { try { sc.Downloads.EnableAllDownloads(false, clientId); } catch {} } };
+  }
+  return null;
+}
+
+function buildFallbackItems(appid: number, shelfId: string | undefined, fl: any, R: any, overview: any): any[] {
   const items: any[] = [];
   const sc: any = steamClient();
   const nav = fl.Navigation ?? sc?.Navigation;
+  const installed = overview?.installed === true;
+  const primary = primaryUpdateItem(sc, appid, overview);
+  if (primary) pushIfAvailable(items, R, fl.MenuItem, primary.key, primary.label, primary.action);
   for (const spec of FALLBACK_SPECS) {
     if (spec.installedOnly && !installed) continue;
     if (!spec.available(sc, nav)) continue;
@@ -138,7 +156,7 @@ export function showFallbackMenu(appid: number, shelfId: string | undefined): vo
     const anchor = findCardAnchor(appid);
     const cardEl = (anchor?.el ?? getPreferredSteamDocument().activeElement) as HTMLElement;
     const overview = steamAppStore()?.GetAppOverviewByAppID?.(appid);
-    const items = buildFallbackItems(appid, shelfId, fl, R, overview?.installed === true);
+    const items = buildFallbackItems(appid, shelfId, fl, R, overview);
     fl.showContextMenu(R.createElement(fl.Menu, { label: resolveFallbackTitle(overview, cardEl) }, ...items), cardEl);
   } catch {}
 }

@@ -266,7 +266,7 @@ for (const panel of [PANEL, SIDE_PANEL]) {
       expect(badge('experimental')).toBe('1')
     })
 
-    it('U44 — on, then off: each change saves the new value and asks for the restart with the body for it', () => {
+    it('U44 — on, then off: each change saves the new value and asks for the restart with the body for it', async () => {
       const controller = makeController()
       renderOpen(panel, controller)
 
@@ -276,7 +276,7 @@ for (const panel of [PANEL, SIDE_PANEL]) {
       const on = prompt(0)
       expect([on.title, on.body, on.ok.textContent, on.cancel.textContent]).toEqual([PROMPT_TITLE, BODY_ON, RESTART_NOW, LATER])
 
-      act(() => { on.ok.click() })
+      await act(async () => { on.ok.click() })
       expect(edge.restartSteam).toHaveBeenCalledTimes(1)
       expect(on.entry.closes).toBe(1)
 
@@ -295,7 +295,7 @@ for (const panel of [PANEL, SIDE_PANEL]) {
       expect(controller.spies.setOwnQamTabEnabled.mock.calls).toEqual([[true], [false]])
     })
 
-    it('U44 — "Later" only closes the prompt, and "Restart now" restarts once, for either new value', () => {
+    it('U44 — "Later" only closes the prompt, and "Restart now" restarts once, for either new value', async () => {
       const controller = makeController()
       renderOpen(panel, controller)
 
@@ -310,10 +310,24 @@ for (const panel of [PANEL, SIDE_PANEL]) {
       act(() => { toggle()!.click() })
       const off = prompt(1)
       expect(off.body).toBe(BODY_OFF)
-      act(() => { off.ok.click() })
+      await act(async () => { off.ok.click() })
       expect(edge.restartSteam).toHaveBeenCalledTimes(1)
       expect(off.entry.closes).toBe(1)
       expect(controller.spies.setOwnQamTabEnabled.mock.calls).toEqual([[true], [false]])
+    })
+
+    it('U44 — "Restart now" waits until the new value is saved: a restart before that would drop it', async () => {
+      const controller = makeController()
+      let finishSave: () => void = () => {}
+      controller.spies.setOwnQamTabEnabled = vi.fn(() => new Promise<void>((resolve) => { finishSave = resolve }))
+      renderOpen(panel, controller)
+
+      act(() => { toggle()!.click() })
+      const on = prompt(0)
+      await act(async () => { on.ok.click() })
+      expect(edge.restartSteam).not.toHaveBeenCalled()
+      await act(async () => { finishSave() })
+      expect(edge.restartSteam).toHaveBeenCalledTimes(1)
     })
 
     it('U44 — through the settings controller, the store receives each new value whatever the answer', async () => {
@@ -336,7 +350,7 @@ for (const panel of [PANEL, SIDE_PANEL]) {
       expect(toggle()?.getAttribute('aria-pressed')).toBe('false')
       const off = prompt(1)
       expect(off.body).toBe(BODY_OFF)
-      act(() => { off.ok.click() })
+      await act(async () => { off.ok.click() })
       expect(edge.restartSteam).toHaveBeenCalledTimes(1)
       expect(edge.saves).toHaveLength(2)
     })

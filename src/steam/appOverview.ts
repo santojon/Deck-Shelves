@@ -336,7 +336,7 @@ function buildTypeFields(node: SteamAppOverviewRaw) {
 // distinct from the overview's top-level `installed` flag, which Steam can
 // set true purely from a Remote Play source on ANOTHER client.
 export function pcdEntryInstalled(entry: SteamPerClientData): boolean {
-  return !!(entry?.installed ?? (Number(entry?.display_status) === EAppDisplayStatus.Installed));
+  return !!(entry?.installed ?? (Number(entry?.display_status) === EAppDisplayStatus.ReadyToLaunch));
 }
 
 /* Per-client signals for the system-compatibility + Remote Play filters: the
@@ -354,7 +354,7 @@ function buildClientFields(node: SteamAppOverviewRaw) {
     ? local.is_available_on_current_platform : undefined;
   const installedLocal = local ? pcdEntryInstalled(local) : false;
   const remoteList = remote.length ? remote : pcd.filter((c) => String(c?.clientid) !== "0");
-  const installedRemote = remoteList.some((c) => Number(c?.display_status) === EAppDisplayStatus.Installed);
+  const installedRemote = remoteList.some((c) => Number(c?.display_status) === EAppDisplayStatus.ReadyToLaunch);
   return { available_on_current_platform: available, installed_local: installedLocal, installed_remote: installedRemote };
 }
 

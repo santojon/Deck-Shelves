@@ -1,10 +1,40 @@
 import { describe, it, expect } from 'vitest';
 import {
   resolveQuickLaunchAction,
+  localQuickLaunchAction,
   EAppDisplayStatus,
   UPDATE_ACTIVE_STATUSES,
   UPDATE_QUEUED_STATUSES,
+  UPDATE_PENDING_STATUSES,
+  APP_STATUS_GROUPS,
 } from '../../steam/appDisplayStatus';
+
+describe('EAppDisplayStatus', () => {
+  it("matches the values of Steam's own EDisplayStatus", () => {
+    // Read from the client's enum (the protobuf EDisplayStatus) on a SteamOS Deck, 2026-10-23.
+    expect(EAppDisplayStatus).toMatchObject({
+      Invalid: 0, Launching: 1, Uninstalling: 2, Installing: 3, Running: 4, Validating: 5, Updating: 6,
+      Downloading: 7, Synchronizing: 8, ReadyToInstall: 9, ReadyToPreload: 10, ReadyToLaunch: 11,
+      UpdatePaused: 18, UpdateQueued: 19, UpdateRequired: 20, DownloadPaused: 22, DownloadQueued: 23,
+      DownloadRequired: 24, Terminating: 36, DownloadFailed: 38, UpdateFailed: 39,
+    });
+    // One name per status: two names for one value read as two statuses.
+    const values = Object.values(EAppDisplayStatus);
+    expect(new Set(values).size).toBe(values.length);
+  });
+
+  it('an update that is required, queued, paused, running or failed is pending; a fresh download is not', () => {
+    for (const ds of [6, 18, 19, 20, 39]) expect(UPDATE_PENDING_STATUSES).toContain(ds);
+    for (const ds of [7, 22, 23, 24, 38, 11, 12, 13]) expect(UPDATE_PENDING_STATUSES).not.toContain(ds);
+  });
+
+  it('status groups never match region-restricted or presale apps', () => {
+    for (const statuses of Object.values(APP_STATUS_GROUPS)) {
+      expect(statuses).not.toContain(12);
+      expect(statuses).not.toContain(13);
+    }
+  });
+});
 
 describe('resolveQuickLaunchAction', () => {
   it('not-installed wins regardless of display_status', () => {
@@ -17,23 +47,19 @@ describe('resolveQuickLaunchAction', () => {
     expect(resolveQuickLaunchAction({ installed: true, displayStatus: EAppDisplayStatus.Running })).toBe('running');
   });
 
-  it('UpdateQueued maps to "update", NOT "pause" — regression for card with update pending showing the wrong View hint', () => {
-    expect(resolveQuickLaunchAction({ installed: true, displayStatus: EAppDisplayStatus.UpdateQueued })).toBe('update');
-  });
-
-  it('UpdatePaused and Reconfiguring also map to "update"', () => {
-    expect(resolveQuickLaunchAction({ installed: true, displayStatus: EAppDisplayStatus.UpdatePaused })).toBe('update');
-    expect(resolveQuickLaunchAction({ installed: true, displayStatus: EAppDisplayStatus.Reconfiguring })).toBe('update');
-  });
-
-  it('actively progressing statuses (status_percentage > 0) map to "pause"', () => {
-    for (const ds of UPDATE_ACTIVE_STATUSES) {
-      expect(resolveQuickLaunchAction({ installed: true, displayStatus: ds, statusPercentage: 50 })).toBe('pause');
+  it("a queued or required update maps to \"update\", as Steam's own menu starts with Update", () => {
+    // Steam's game page shows Update for both, and a queued update (19) with no progress is the
+    // usual state of a game or a Proton tool waiting for its update.
+    for (const ds of [EAppDisplayStatus.UpdateQueued, EAppDisplayStatus.UpdateRequired]) {
+      expect(resolveQuickLaunchAction({ installed: true, displayStatus: ds })).toBe('update');
+      expect(resolveQuickLaunchAction({ installed: true, displayStatus: ds, statusPercentage: 0 })).toBe('update');
     }
   });
 
-  it('Installing (first-time install in flight) maps to "pause"', () => {
-    expect(resolveQuickLaunchAction({ installed: true, displayStatus: EAppDisplayStatus.Installing })).toBe('pause');
+  it('a paused or failed update or download maps to "update" (Steam: Resume)', () => {
+    for (const ds of [EAppDisplayStatus.UpdatePaused, EAppDisplayStatus.UpdateFailed, EAppDisplayStatus.DownloadPaused, EAppDisplayStatus.DownloadFailed]) {
+      expect(resolveQuickLaunchAction({ installed: true, displayStatus: ds })).toBe('update');
+    }
   });
 
   it('all queued statuses map to "update" (never "pause")', () => {
@@ -42,16 +68,31 @@ describe('resolveQuickLaunchAction', () => {
     }
   });
 
-  it('Uninstalling / Suspended statuses map to "uninstalling"', () => {
-    for (const ds of [6, 14, 16]) {
-      expect(resolveQuickLaunchAction({ installed: true, displayStatus: ds })).toBe('uninstalling');
+  it('Updating and Downloading map to "pause", as Steam\'s own menu starts with Pause', () => {
+    for (const ds of [EAppDisplayStatus.Updating, EAppDisplayStatus.Downloading]) {
+      expect(resolveQuickLaunchAction({ installed: true, displayStatus: ds })).toBe('pause');
+      expect(resolveQuickLaunchAction({ installed: true, displayStatus: ds, statusPercentage: 50 })).toBe('pause');
     }
   });
 
-  it('Installed (11) and unknown statuses fall through to "play"', () => {
-    expect(resolveQuickLaunchAction({ installed: true, displayStatus: EAppDisplayStatus.Installed })).toBe('play');
-    expect(resolveQuickLaunchAction({ installed: true, displayStatus: 0 })).toBe('play');
-    expect(resolveQuickLaunchAction({ installed: true, displayStatus: 999 })).toBe('play');
+  it('Validating maps to "pause" only while bytes move', () => {
+    expect(resolveQuickLaunchAction({ installed: true, displayStatus: EAppDisplayStatus.Validating, statusPercentage: 40 })).toBe('pause');
+    expect(resolveQuickLaunchAction({ installed: true, displayStatus: EAppDisplayStatus.Validating, statusPercentage: 0 })).toBe('update');
+  });
+
+  it('Installing (first-time install in flight) maps to "pause", and to "update" before it starts', () => {
+    expect(resolveQuickLaunchAction({ installed: true, displayStatus: EAppDisplayStatus.Installing })).toBe('pause');
+    expect(resolveQuickLaunchAction({ installed: true, displayStatus: EAppDisplayStatus.Installing, statusPercentage: 0 })).toBe('update');
+  });
+
+  it('Uninstalling maps to "uninstalling"', () => {
+    expect(resolveQuickLaunchAction({ installed: true, displayStatus: EAppDisplayStatus.Uninstalling })).toBe('uninstalling');
+  });
+
+  it('ReadyToLaunch (11), Synchronizing, a game being stopped (Terminating) and unknown statuses fall through to "play"', () => {
+    for (const ds of [EAppDisplayStatus.ReadyToLaunch, EAppDisplayStatus.Synchronizing, EAppDisplayStatus.Terminating, 0, 999]) {
+      expect(resolveQuickLaunchAction({ installed: true, displayStatus: ds })).toBe('play');
+    }
   });
 
   it('UPDATE_ACTIVE_STATUSES and UPDATE_QUEUED_STATUSES never overlap', () => {
@@ -60,42 +101,27 @@ describe('resolveQuickLaunchAction', () => {
       expect(active.has(ds), `ds=${ds} is in both active + queued sets — Steam's first menu item is ambiguous`).toBe(false);
     }
   });
+});
 
-  it('Downloading (ds=19) with status_percentage=0 maps to "update" (tool/runtime queued but not transferring)', () => {
-    // Regression: Proton Hotfix appears with display_status=19 and
-    // status_percentage=0 when an update is queued but the download
-    // hasn't started. Steam's first menu item there is "Update".
-    expect(
-      resolveQuickLaunchAction({ installed: true, displayStatus: EAppDisplayStatus.Downloading, statusPercentage: 0 }),
-    ).toBe('update');
+describe('localQuickLaunchAction', () => {
+  it("reads this device's entry and passes its client id", () => {
+    const overview = {
+      installed: true,
+      per_client_data: [
+        { clientid: '0', installed: true, display_status: EAppDisplayStatus.UpdateQueued, status_percentage: 0 },
+        { clientid: '77', installed: true, display_status: EAppDisplayStatus.ReadyToLaunch },
+      ],
+    };
+    expect(localQuickLaunchAction(overview)).toEqual({ action: 'update', clientId: '0' });
   });
 
-  it('Downloading (ds=19) with status_percentage>0 maps to "pause" (actively transferring)', () => {
-    expect(
-      resolveQuickLaunchAction({ installed: true, displayStatus: EAppDisplayStatus.Downloading, statusPercentage: 35 }),
-    ).toBe('pause');
+  it("a copy installed only on another client is not installed here", () => {
+    const overview = { installed: true, per_client_data: [{ clientid: '77', installed: true, display_status: EAppDisplayStatus.ReadyToLaunch }] };
+    expect(localQuickLaunchAction(overview).action).toBe('not_installed');
   });
 
-  it('Downloading (ds=19) without status_percentage maps to "update" (unknown progress = not actively transferring; Proton/runtime case)', () => {
-    // Regression: Proton Experimental sits at display_status=19 with NO
-    // status_percentage when its update is queued but not transferring. The
-    // View hint must read "Update", not "Pause".
-    expect(
-      resolveQuickLaunchAction({ installed: true, displayStatus: EAppDisplayStatus.Downloading }),
-    ).toBe('update');
-  });
-
-  it('Validating / Staging / Committing also flip to "update" when status_percentage=0', () => {
-    for (const ds of UPDATE_ACTIVE_STATUSES) {
-      expect(
-        resolveQuickLaunchAction({ installed: true, displayStatus: ds, statusPercentage: 0 }),
-      ).toBe('update');
-    }
-  });
-
-  it('Installing (ds=3) with status_percentage=0 also maps to "update" (queued install)', () => {
-    expect(
-      resolveQuickLaunchAction({ installed: true, displayStatus: EAppDisplayStatus.Installing, statusPercentage: 0 }),
-    ).toBe('update');
+  it('an overview without per-client data falls back to its own fields', () => {
+    expect(localQuickLaunchAction({ installed: true, display_status: EAppDisplayStatus.ReadyToLaunch }).action).toBe('play');
+    expect(localQuickLaunchAction({ installed: false }).action).toBe('not_installed');
   });
 });

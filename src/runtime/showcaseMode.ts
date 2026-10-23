@@ -23,6 +23,7 @@ const MIN_CARD_DWELL_S = 1;
 const MAX_CARD_DWELL_S = 60;
 const MIN_CARDS_PER_SHELF = 1;
 const MAX_CARDS_PER_SHELF = 20;
+const ACTIVITY_EVENTS = ["keydown", "pointerdown", "wheel"] as const;
 
 function clamp(v: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, v));
@@ -114,6 +115,29 @@ export function installShowcaseMode(): () => void {
   const clearDwell = () => { if (dwellTimer !== null) { clearTimeout(dwellTimer); dwellTimer = null; } };
   const clearIdle = () => { if (idleTimer !== null) { clearTimeout(idleTimer); idleTimer = null; } };
 
+  /* Input only reaches the document the Home is drawn in, not the plugin's own context, and that
+     document is found after start (a desktop client can also close and reopen it), so the showcase
+     listens where it acts. False when it just moved there: the wait so far did not watch it. */
+  let listenedDoc: Document | null = null;
+  let listenedTarget: EventTarget | null = null;
+  function listenWhereItActs(): boolean {
+    const doc = getPreferredSteamDocument();
+    if (doc === listenedDoc) return true;
+    stopListening();
+    listenedDoc = doc;
+    // On its window, capture phase: Big Picture handles keys there and stops them reaching the page.
+    listenedTarget = doc.defaultView ?? doc;
+    for (const type of ACTIVITY_EVENTS) listenedTarget.addEventListener(type, onActivity, { capture: true, passive: true });
+    return false;
+  }
+
+  function stopListening(): void {
+    if (!listenedTarget) return;
+    for (const type of ACTIVITY_EVENTS) listenedTarget.removeEventListener(type, onActivity, true);
+    listenedTarget = null;
+    listenedDoc = null;
+  }
+
   function stopShowcase(): void {
     if (!running) return;
     running = false;
@@ -158,6 +182,7 @@ export function installShowcaseMode(): () => void {
     if (disposed || !running) return;
     const s = getCurrentSettings();
     if (!s?.showcaseModeEnabled) { stopShowcase(); return; }
+    listenWhereItActs();
     // Yield the instant Steam's own screensaver takes the screen, or the
     // window loses focus (switched to another app) — either can engage/clear
     // mid-cycle on its own, so re-arm instead of waiting for interaction.
@@ -189,6 +214,7 @@ export function installShowcaseMode(): () => void {
     if (!s?.showcaseModeEnabled) return;
     if (shouldYieldToInattention()) { armIdle(); return; } // not visible / screensaver up; retry later
     if (eligibleShelfIds(s).length === 0) { armIdle(); return; } // nothing to show yet; retry later
+    if (!listenWhereItActs()) { armIdle(); return; } // the wait did not watch this document
     running = true;
     idx = 0;
     visitCardIdx = 0;
@@ -220,10 +246,7 @@ export function installShowcaseMode(): () => void {
     if (!running && idleTimer === null) armIdle();
   });
   const unsubController = subscribeControllerInput(onActivity);
-  const doc = getPreferredSteamDocument();
-  doc.addEventListener("pointerdown", onActivity, { passive: true });
-  doc.addEventListener("wheel", onActivity, { passive: true });
-  doc.addEventListener("keydown", onActivity);
+  listenWhereItActs();
 
   armIdle();
 
@@ -233,8 +256,6 @@ export function installShowcaseMode(): () => void {
     clearIdle();
     unsubSettings();
     unsubController();
-    doc.removeEventListener("pointerdown", onActivity);
-    doc.removeEventListener("wheel", onActivity);
-    doc.removeEventListener("keydown", onActivity);
+    stopListening();
   };
 }

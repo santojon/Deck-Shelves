@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 // Every install the start makes into Steam is inert here and counted.
 const edge = vi.hoisted(() => {
@@ -81,6 +81,10 @@ const expectEveryInstall = (times: number) => {
 const expectEveryUninstall = (times: number) => {
   for (const name of ALL_INSTALLS) expect([name, edge.uninstalls[name] ?? 0]).toEqual([name, times])
 }
+
+// The first load transforms the whole plugin, which takes seconds on a busy machine: done once,
+// outside each test's time limit (the tests then load it again, fresh).
+beforeAll(async () => { await import('../../index') }, 60_000)
 
 beforeEach(() => {
   vi.stubGlobal('requestIdleCallback', vi.fn())

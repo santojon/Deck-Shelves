@@ -33,7 +33,8 @@ import { prewarmUserPaths } from "./core/userPaths";
 import { invalidateRandomSortCache } from "./steam";
 import { pruneCache as pruneImageCache, hydrateHotCacheFromStorage } from "./core/imageCache";
 import { pruneShelfCaches } from "./components/shelf/shelfViewHelpers";
-import { getCurrentSettings, subscribeSettings } from "./store/settingsStore";
+import { getCurrentSettings, isSettingsFileRead, onSettingsFileRead, requestSettingsFileRead, subscribeSettings } from "./store/settingsStore";
+import type { Settings } from "./types";
 import { setPendingSettingsTab } from "./runtime/settingsNav";
 import { logError, logInfo } from "./runtime/logger";
 import { disposeAll, registerDisposer } from "./runtime/runtimeDisposer";
@@ -278,15 +279,30 @@ function installOwnTabIfWanted(isOwner: boolean, loaderLaunched: boolean, render
   });
 }
 
-/* While the backend has not answered, the store stands in bare defaults (no schema version).
-   Those are not the saved settings, so the tab waits for the first loaded document. */
+// How long the tab waits for the settings file before the local copy decides.
+const OWN_TAB_FILE_WAIT_MS = 10_000;
+
+/* The tab decides once per start (the change needs a restart), so it waits for the settings file:
+   before that the store holds bare defaults (no schema version) or the local cache, which can be
+   older than the file when Steam restarted right after the change. It asks for the file itself,
+   and only its own wait lets the local copy decide: the store's saves keep waiting for the file. */
 function subscribeLoadedSettings(listener: () => void): () => void {
   let loaded = false;
-  return subscribeSettings((s) => {
-    if (!loaded && s.schemaVersion == null) return;
+  let waitedOut = false;
+  let wait: ReturnType<typeof setTimeout> | null = null;
+  const report = (s: Settings | null) => {
+    if (!loaded && (s?.schemaVersion == null || !(waitedOut || isSettingsFileRead()))) return;
     loaded = true;
+    if (wait) { clearTimeout(wait); wait = null; }
     listener();
-  });
+  };
+  const offRead = onSettingsFileRead(() => report(getCurrentSettings()));
+  const offChange = subscribeSettings((s) => report(s));
+  if (!loaded && !isSettingsFileRead()) {
+    wait = setTimeout(() => { wait = null; waitedOut = true; report(getCurrentSettings()); }, OWN_TAB_FILE_WAIT_MS);
+    requestSettingsFileRead();
+  }
+  return () => { if (wait) clearTimeout(wait); offRead(); offChange(); };
 }
 
 // Patches a live Steam internal of unguaranteed shape at plugin init — never let it take boot down.

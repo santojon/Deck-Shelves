@@ -258,12 +258,12 @@ function resolveNotInstalledCardState(overview: any, localEntry: any, pcdRaw: an
      it: same platform, not installed here, still Install. */
   const platformIncompatible = localEntry?.is_invalid_os_type === true
     || localEntry?.is_available_on_current_platform === false;
-  const cleanlyInstallable = localEntry?.display_status === EAppDisplayStatus.NotInstalled && !platformIncompatible;
+  const cleanlyInstallable = localEntry?.display_status === EAppDisplayStatus.ReadyToInstall && !platformIncompatible;
   if (cleanlyInstallable) return { label: i18n.t('menu_install'), action: 'run' };
   const remotePcd: any[] = Array.isArray(overview.remote_per_client_data)
     ? overview.remote_per_client_data
     : pcdRaw.filter((c: any) => String(c?.clientid) !== "0");
-  const installedRemote = remotePcd.some((c: any) => !!c?.installed || Number(c?.display_status) === EAppDisplayStatus.Installed);
+  const installedRemote = remotePcd.some((c: any) => !!c?.installed || Number(c?.display_status) === EAppDisplayStatus.ReadyToLaunch);
   if (installedRemote) return { label: i18n.t('menu_stream'), action: 'run' };
   /* No local per-client entry at all — Steam hasn't given us anything to
      judge compatibility from, so keep the old default rather than guess

@@ -2,7 +2,7 @@
 import type { ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import i18next from 'i18next'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defaultSettings } from '../../domain/defaults'
 
 type Install = { options: Record<string, any>; uninstall: ReturnType<typeof vi.fn>; ownerAtInstall: unknown }
@@ -17,6 +17,13 @@ const edge = vi.hoisted(() => {
       edge.storeListeners.add(listener)
       return () => { edge.storeListeners.delete(listener) }
     },
+    fileRead: false,
+    fileReadListeners: new Set<() => void>(),
+    onSettingsFileRead: (listener: () => void) => {
+      edge.fileReadListeners.add(listener)
+      return () => { edge.fileReadListeners.delete(listener) }
+    },
+    requestSettingsFileRead: vi.fn(),
     installOwnQamTab: vi.fn((options: Record<string, any>) => {
       const uninstall = vi.fn()
       const scope = globalThis as any
@@ -33,6 +40,9 @@ vi.mock('../../store/settingsStore', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   getCurrentSettings: () => edge.settings,
   subscribeSettings: edge.subscribeSettings,
+  isSettingsFileRead: () => edge.fileRead,
+  onSettingsFileRead: edge.onSettingsFileRead,
+  requestSettingsFileRead: edge.requestSettingsFileRead,
 }))
 // Everything else the start installs into Steam: inert here.
 vi.mock('../../runtime/deckyPlatform', async (importOriginal) => ({ ...(await importOriginal<object>()), createDeckyPlatform: () => ({}) }))
@@ -105,12 +115,20 @@ function disposeEveryInstance() {
   for (const entry of Object.values<any>(instances)) { try { entry?.dispose?.() } catch {} }
 }
 
+// The first load transforms the whole plugin, which takes seconds on a busy machine: done once,
+// outside each test's time limit (the tests then load it again, fresh).
+beforeAll(async () => { await import('../../index') }, 60_000)
+
 beforeEach(() => {
   vi.stubGlobal('requestIdleCallback', vi.fn())
   vi.spyOn(console, 'log').mockImplementation(() => {})
   edge.installs.length = 0
   edge.installOwnQamTab.mockClear()
   edge.settings = null
+  edge.fileRead = false
+  edge.fileReadListeners.clear()
+  edge.requestSettingsFileRead.mockReset()
+  edge.storeListeners.clear()
 })
 
 afterEach(() => {
@@ -134,13 +152,17 @@ describe('own Quick Access tab, installed by the plugin entry', () => {
     expect(ownerAtInstall).toBe('decky')
   })
 
-  it('U45 — the subscription waits for the loaded settings, then reports every change', async () => {
+  it('U45 — the subscription waits for the settings file, then reports every change', async () => {
     await startUnderLoader()
     const listener = vi.fn()
     const unsubscribe = edge.installs[0].options.subscribe(listener)
     const report = (settings: unknown) => edge.storeListeners.forEach((l) => l(settings))
     report(defaultSettings())
     expect(listener).not.toHaveBeenCalled()
+    // The local copy shown at start can be older than the file: the tab decides once, so it waits.
+    report({ ...defaultSettings(), schemaVersion: 2, ownQamTabEnabled: false })
+    expect(listener).not.toHaveBeenCalled()
+    edge.fileRead = true
     report({ ...defaultSettings(), schemaVersion: 2, ownQamTabEnabled: true })
     expect(listener).toHaveBeenCalledTimes(1)
     report({ ...defaultSettings(), ownQamTabEnabled: false })
@@ -148,6 +170,66 @@ describe('own Quick Access tab, installed by the plugin entry', () => {
     unsubscribe()
     report({ ...defaultSettings(), schemaVersion: 2 })
     expect(listener).toHaveBeenCalledTimes(2)
+  })
+
+  it('U45 — the file being read is enough, even when it matches what was shown (no change notice)', async () => {
+    await startUnderLoader()
+    const listener = vi.fn()
+    edge.installs[0].options.subscribe(listener)
+    edge.settings = { ...defaultSettings(), schemaVersion: 2, ownQamTabEnabled: true }
+    edge.storeListeners.forEach((l) => l(edge.settings))
+    expect(listener).not.toHaveBeenCalled()
+    edge.fileRead = true
+    edge.fileReadListeners.forEach((l) => l())
+    expect(listener).toHaveBeenCalledTimes(1)
+  })
+
+  it('U45 — the subscription asks for the settings file itself, once it listens, so the tab decides with nothing else reading it (Safe Mode, away from the Home)', async () => {
+    await startUnderLoader()
+    const listening: number[] = []
+    edge.requestSettingsFileRead.mockImplementation(() => { listening.push(edge.fileReadListeners.size) })
+    edge.installs[0].options.subscribe(vi.fn())
+    expect(edge.requestSettingsFileRead).toHaveBeenCalledTimes(1)
+    expect(listening).toEqual([1])
+  })
+
+  it('U45 — when the store already trusts its copy (a failed save left the newer one local), the first loaded document counts', async () => {
+    edge.fileRead = true
+    await startUnderLoader()
+    const listener = vi.fn()
+    edge.installs[0].options.subscribe(listener)
+    edge.storeListeners.forEach((l) => l({ ...defaultSettings(), schemaVersion: 2 }))
+    expect(listener).toHaveBeenCalledTimes(1)
+    expect(edge.requestSettingsFileRead).not.toHaveBeenCalled()
+  })
+
+  it('U45 — with no answer from the file in 10 s, the local copy decides (never the stand-in defaults), and unsubscribing stops the wait', async () => {
+    vi.useFakeTimers()
+    try {
+      await startUnderLoader()
+      const listener = vi.fn()
+      edge.installs[0].options.subscribe(listener)
+      edge.settings = defaultSettings() as Record<string, unknown>
+      await vi.advanceTimersByTimeAsync(10_000)
+      expect(listener).not.toHaveBeenCalled()
+      edge.storeListeners.forEach((l) => l({ ...defaultSettings(), schemaVersion: 2, ownQamTabEnabled: true }))
+      expect(listener).toHaveBeenCalledTimes(1)
+
+      const other = vi.fn()
+      edge.settings = { ...defaultSettings(), schemaVersion: 2 }
+      edge.installs[0].options.subscribe(other)()
+      await vi.advanceTimersByTimeAsync(10_000)
+      expect(other).not.toHaveBeenCalled()
+
+      const third = vi.fn()
+      edge.installs[0].options.subscribe(third)
+      await vi.advanceTimersByTimeAsync(9_999)
+      expect(third).not.toHaveBeenCalled()
+      await vi.advanceTimersByTimeAsync(1)
+      expect(third).toHaveBeenCalledTimes(1)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('U45 — the reader follows the setting in the settings store', async () => {

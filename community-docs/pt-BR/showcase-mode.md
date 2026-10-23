@@ -45,8 +45,8 @@ prateleira (veja Limitações conhecidas).
   controlar quantos cards ele mostra por prateleira antes de avançar, e
   quanto tempo ele permanece em cada card.
 
-Qualquer entrada real (botão, analógico, toque) para imediatamente e devolve
-o controle para você.
+Qualquer entrada real (botão, analógico, toque, uma tecla, um clique ou a rolagem
+do mouse) para imediatamente e devolve o controle para você.
 
 ## Limitações conhecidas
 

@@ -7,6 +7,12 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+- **The Quick Access tab stays on after the restart it asks for**: turning the own tab on and choosing "Restart now" no longer brings it back switched off, and a setting changed right before Steam restarts is no longer undone at the next start.
+
+- **Games waiting for an update update instead of launching**: on a game with a pending update, the View button and the game menu now start with Update, as in Steam's own menu, and the "Update pending" filter also finds games whose update is required.
+
+- **Showcase mode stops on any input**: the keyboard, the mouse and the Deck's touch screen now stop it as the controller does, and it no longer starts while you are using them.
+
 - **Turning the plugin off and on in Decky Loader works**: Deck Shelves comes back right away instead of staying stopped until Steam restarts.
 
 - **The menu button behaves normally with "Use shelf as Recents"**: it opens Deck Shelves' menu only on the replaced row and on Deck Shelves cards; everywhere else Steam handles it.

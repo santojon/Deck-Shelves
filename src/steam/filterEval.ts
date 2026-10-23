@@ -84,7 +84,7 @@ function evalAppStatus(item: FilterItem, app: AppOverview): boolean {
      installed / not-installed from the install heuristic so the installed_idle
      and not_installed groups work for them too. */
   if ((ds === undefined || ds === 0) && isNonSteamOf(app)) {
-    ds = isInstalledOf(app) ? EAppDisplayStatus.Installed : EAppDisplayStatus.NotInstalled;
+    ds = isInstalledOf(app) ? EAppDisplayStatus.ReadyToLaunch : EAppDisplayStatus.ReadyToInstall;
   }
   return groups.some((g) => {
     const statuses = APP_STATUS_GROUPS[g as keyof typeof APP_STATUS_GROUPS];
