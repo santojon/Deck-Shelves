@@ -1,0 +1,175 @@
+{
+  "ts": "2026-10-23_13-48-45",
+  "stress": false,
+  "subdir": "release",
+  "version": "3.4.0",
+  "overall": "PASS",
+  "passed": 8,
+  "failed": 0,
+  "skipped": 0,
+  "total": 8,
+  "per_suite": {},
+  "unit": {
+    "passed": 1782,
+    "failed": 0,
+    "skipped": 0,
+    "total": 1782
+  },
+  "pytest": {
+    "passed": 255,
+    "failed": 0,
+    "skipped": 0,
+    "total": 255
+  },
+  "ruff": {
+    "issues": 0
+  },
+  "lint": {
+    "problems": 0
+  },
+  "suppressions": 0,
+  "complexity": {
+    "level": 0,
+    "count": 0,
+    "max": 0,
+    "avg": 0,
+    "top": []
+  },
+  "decoupling": {
+    "leaks": 0,
+    "adapter": 134,
+    "ratio": 0,
+    "top": []
+  },
+  "portability": {
+    "coupled": 92,
+    "guarded": 92,
+    "unguarded": 0,
+    "top": []
+  },
+  "stats": {
+    "date": "2026-10-19",
+    "traffic": {
+      "main": {
+        "views": 584,
+        "viewsUniques": 188,
+        "clones": 502,
+        "clonesUniques": 145
+      },
+      "api": {
+        "views": 1,
+        "viewsUniques": 1,
+        "clones": 90,
+        "clonesUniques": 18
+      },
+      "host": {
+        "views": 12,
+        "viewsUniques": 1,
+        "clones": 689,
+        "clonesUniques": 102
+      },
+      "shelveshub": {
+        "views": 208,
+        "viewsUniques": 45,
+        "clones": 955,
+        "clonesUniques": 182
+      }
+    },
+    "npm": {
+      "api": 1622,
+      "host": 1692
+    },
+    "deckyStoreInstalls": 22094,
+    "deckyStoreUpdates": 2108,
+    "githubDownloads": 14341,
+    "shelvesHubDownloads": 672,
+    "versionDownloads": {
+      "stable": {
+        "v3.3.4": 267,
+        "v3.3.3": 328,
+        "v3.3.2": 242,
+        "v3.3.1": 178,
+        "v3.3.0": 395,
+        "v3.2.1": 614,
+        "v3.2.0": 270,
+        "v3.1.0": 397,
+        "v3.0.2": 287,
+        "v3.0.1": 237,
+        "v3.0.0": 340,
+        "v2.4.3": 298,
+        "v2.4.2": 225,
+        "v2.4.1": 228,
+        "v2.4.0": 228,
+        "v2.3.2": 245,
+        "v2.3.1": 205,
+        "v2.3.0": 237,
+        "v2.2.2": 242,
+        "v2.2.1": 210,
+        "v2.2.0": 206,
+        "v2.1.1": 225,
+        "v2.1.0": 213,
+        "v2.0.1": 230,
+        "v2.0.0": 329,
+        "v1.6.3": 222,
+        "v1.6.2": 221,
+        "v1.6.1": 230,
+        "v1.6.0": 251,
+        "v1.5.3": 227,
+        "v1.5.2": 228,
+        "v1.5.1": 246,
+        "v1.5.0": 240,
+        "v1.4.0": 229,
+        "v1.3.1": 216,
+        "v1.3.0": 231,
+        "v1.2.5": 208,
+        "v1.2.4": 251,
+        "v1.2.3": 309,
+        "v1.2.2": 261,
+        "v1.2.1": 212,
+        "v1.2.0": 255,
+        "v1.1.3": 227,
+        "v1.1.2": 206,
+        "v1.1.1": 208,
+        "v1.1.0": 205,
+        "v1.0.0": 210,
+        "v0.2.0": 208,
+        "v0.1.0": 208
+      },
+      "beta": {
+        "v3.4.0-beta.1": 38,
+        "v3.3.4-beta.2": 43,
+        "v3.3.4-beta.1": 54,
+        "v3.3.3-beta.1": 68,
+        "v3.3.0-beta.4": 131,
+        "v3.3.0-beta.3": 141,
+        "v3.3.0-beta.2": 169,
+        "v3.3.0-beta.1": 151,
+        "v3.2.2-beta.2": 167,
+        "v3.2.2-beta.1": 186,
+        "v3.0.2-beta.2": 207,
+        "v3.0.2-beta.1": 207
+      }
+    }
+  },
+  "step_names": [
+    "TypeScript typecheck",
+    "Lint (eslint + ruff)",
+    "Build (production)",
+    "Unit tests (vitest)",
+    "Backend tests (pytest)",
+    "Package (.zip)",
+    "Verify package",
+    "Compat validation"
+  ],
+  "step_durations_ms": [
+    12733,
+    21188,
+    3245,
+    45771,
+    736,
+    3689,
+    67,
+    7078
+  ],
+  "total_duration_ms": 94507
+}

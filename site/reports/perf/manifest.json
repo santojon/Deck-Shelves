@@ -20,7 +20,7 @@
       {
         "kind": "backnav",
         "ts": "2026-10-14T14:31:54",
-        "version": "3.3.4",
+        "version": "3.4.0",
         "cycles": 20,
         "fullMsAvg": 444,
         "fullMsMax": 808,
@@ -38,7 +38,7 @@
       {
         "kind": "backnav-release",
         "ts": "2026-10-09T20:51:58",
-        "version": "3.3.4",
+        "version": "3.4.0",
         "cycles": 20,
         "fullMsAvg": 682,
         "fullMsMax": 1192,
@@ -56,7 +56,7 @@
       {
         "kind": "battery-soak",
         "ts": "2026-10-10T10:18:37",
-        "version": "3.3.4",
+        "version": "3.4.0",
         "minutesPerHalf": 30,
         "deltaW": 0.514,
         "deltaWPluginOnly": -0.049,
@@ -70,7 +70,7 @@
       {
         "kind": "coop-fallback",
         "ts": "2026-10-13T13:19:36+00:00",
-        "version": "3.3.4",
+        "version": "3.4.0",
         "file": "history/coop-fallback/2026-10-13T13-19-36-00-00.json"
       }
     ],
@@ -86,6 +86,18 @@
         "withPluginW": 0.6,
         "pluginFreeW": 0.53,
         "file": "history/idle-cpu/2026-10-10T08-58-16.json"
+      },
+      {
+        "kind": "idle-cpu",
+        "ts": "2026-10-23T05:17:04",
+        "version": "3.4.0",
+        "deltaPp": -0.78,
+        "withPluginPct": 4.73,
+        "pluginFreePct": 5.51,
+        "acOnline": "0",
+        "withPluginW": 0.51,
+        "pluginFreeW": 0.51,
+        "file": "history/idle-cpu/2026-10-23T05-17-04.json"
       }
     ],
     "perf-matrix": [
@@ -122,7 +134,7 @@
       {
         "kind": "perf-matrix",
         "ts": "2026-10-11T17:22:26",
-        "version": "3.3.4",
+        "version": "3.4.0",
         "large_2000_returnMs": 880,
         "large_2000_settleMs": 143,
         "large_2000_heapMb": 161,
@@ -149,7 +161,7 @@
       {
         "kind": "soak-reload",
         "ts": "2026-10-23T04:22:19",
-        "version": "3.3.4",
+        "version": "3.4.0",
         "mode": "reload",
         "coexist": false,
         "ok": 5,
@@ -162,7 +174,7 @@
       {
         "kind": "soak-reload-coexist",
         "ts": "2026-10-09T20:46:30",
-        "version": "3.3.4",
+        "version": "3.4.0",
         "mode": "reload",
         "coexist": true,
         "ok": 5,
@@ -186,7 +198,7 @@
       {
         "kind": "soak-restart",
         "ts": "2026-10-21T17:59:40",
-        "version": "3.3.4",
+        "version": "3.4.0",
         "mode": "restart",
         "coexist": false,
         "ok": 10,
@@ -210,7 +222,7 @@
       {
         "kind": "soak-restart-coexist",
         "ts": "2026-10-12T11:51:59",
-        "version": "3.3.4",
+        "version": "3.4.0",
         "mode": "restart",
         "coexist": true,
         "ok": 2,
@@ -234,7 +246,7 @@
       {
         "kind": "soak-sleepwake",
         "ts": "2026-10-12T11:53:01",
-        "version": "3.3.4",
+        "version": "3.4.0",
         "mode": "sleepwake",
         "coexist": false,
         "ok": 2,
@@ -244,5 +256,5 @@
       }
     ]
   },
-  "runs": 17
+  "runs": 18
 }

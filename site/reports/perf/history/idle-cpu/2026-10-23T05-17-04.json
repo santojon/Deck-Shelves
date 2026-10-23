@@ -1,0 +1,22 @@
+{
+  "recordedAt": "2026-10-23T05:17:04",
+  "windowS": 150,
+  "settleS": 90,
+  "acOnline": "0",
+  "batteryPct": "82",
+  "standaloneHostAlsoActive": false,
+  "withPlugin": {
+    "main": 1.52,
+    "zygote": 3.21,
+    "total": 4.73,
+    "batteryW": 0.51
+  },
+  "withoutPlugin": {
+    "main": 0.88,
+    "zygote": 4.63,
+    "total": 5.51,
+    "batteryW": 0.51
+  },
+  "deltaPp": -0.78,
+  "version": "3.4.0"
+}
