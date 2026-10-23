@@ -6,7 +6,7 @@ const HomeShelves = wrapHomeShelves(HomeShelvesRaw);
 import { SearchOverlay } from "../features/search/SearchOverlay";
 import { ShelfSideNav } from "../features/sidenav/ShelfSideNav";
 import { DeckScreensaverOverlay } from "../components/screensaver/DeckScreensaverOverlay";
-try { (globalThis as any).__ds_homepatch_loaded = Date.now(); (globalThis as any).__ds_overlays_imported = typeof SearchOverlay === 'function' && typeof ShelfSideNav === 'function'; } catch {}
+try { (globalThis as any).__ds_homepatch_loaded = Date.now(); } catch {}
 import { logDiagnostic } from "./diagnostics";
 import { logError, logInfo, logWarn } from "./logger";
 import { setPreferredSteamWindow, getAllSteamDocuments } from "./steamHost";
@@ -14,14 +14,18 @@ import { getRuntimeClassMap } from "../core/webpackCompat";
 import { isBigArtModeActive } from "../core/cssLoaderDetect";
 import { notify } from "../components/notify";
 import { findModuleByExport } from "./host/decky";
-import { recordRemountTry, timerCreated, timerDisposed, observerCreated, observerDisposed } from "../core/perfMetrics";
+import { recordRemountTry, observerCreated, observerDisposed } from "../core/perfMetrics";
 import { createBridgeGateState, noteFallbackTick, bridgeGraceActive, hrefOf } from "./homePatchFallbackGate";
+import { installFallbackPoll, type FallbackPoll } from "./homePatchFallback";
+import { getPowerState } from "./powerGate";
+import { matchesSteamText, steamText, steamTextSelectors } from "../steam/steamText";
+import { activeNavTrees } from "../components/home/navPatches/focusNav";
 
 const ROOT_ID = "deck-shelves-home-root";
 const GLOBAL_COMPONENT_ID = "DeckShelvesHomeDomBridge";
 
 let observer: MutationObserver | null = null;
-let timer = 0;
+let fallbackPoll: FallbackPoll | null = null;
 let noAnchorLogged = false;
 let removeGlobalComponent: (() => void) | null = null;
 const uninstallHooks: Array<() => void> = [];
@@ -61,34 +65,30 @@ let pendingHideHomeTabs: boolean = false;
  *  bottom (fine when recents is collapsed); with replace active the recents row
  *  stays visible, so that overlap would push the next DS shelf's title into it
  *  (esp. under CSS Loader themes like SLH that extend recents visually). */
-export function applyReplaceActiveMargin(active: boolean): void {
+const MARGIN_RETRY_MAX = 5;
+let marginRetryTimer: ReturnType<typeof setTimeout> | null = null;
+/* Replace not active: restore the hide-recents margin (this runs right after
+   applyHideRecents in the same effect — a bare remove clobbered its 56px: the
+   first shelf then sat 88px too high and SLH's block ended mid-screen). */
+const replaceMarginValue = (active: boolean): string => (active ? "0px" : pendingHideRecents ? "56px" : "");
+function mountsInEveryDoc(): HTMLElement[] {
+  /* Every known doc rather than getHostContext()'s single guessed window —
+     HomeInject creates the mount via its own, separately-scored resolver, so the
+     two can disagree about which doc is "current". */
+  const docs = new Set<Document>([getHostContext().doc, ...getAllSteamDocuments()]);
+  return [...docs].map((doc) => doc?.getElementById?.(ROOT_ID) as HTMLElement | null).filter((m): m is HTMLElement => !!m);
+}
+export function applyReplaceActiveMargin(active: boolean, attempt = 0): void {
+  if (marginRetryTimer) { clearTimeout(marginRetryTimer); marginRetryTimer = null; }
   try {
-    /* Apply to the mount in EVERY known doc rather than trusting
-       getHostContext()'s single guessed window — HomeInject creates the
-       mount via its own, separately-scored preferred-document resolver, so
-       the two can disagree about which doc is "current" and silently no-op
-       on the wrong (mount-less) one. */
-    const docs = new Set<Document>([getHostContext().doc, ...getAllSteamDocuments()]);
-    let found = 0;
-    for (const doc of docs) {
-      const mount = doc?.getElementById?.(ROOT_ID) as HTMLElement | null;
-      if (!mount) continue;
-      found++;
-      if (active) mount.style.setProperty("margin-top", "0px", "important");
-      /* Replace not active: restore the hide-recents margin (this runs right
-         after applyHideRecents in the same effect — a bare remove clobbered its
-         56px, confirmed by a boot trace: the first shelf then sat 88px too high
-         and SLH's block ended mid-screen). Plain remove only when not hidden. */
-      else mount.style.setProperty("margin-top", pendingHideRecents ? "56px" : "", "important");
-    }
-    // The mount can be mid-(re)creation when settings finish loading —
-    // retry once shortly after instead of leaving the wrong margin in
-    // place until some unrelated dep change re-fires this effect.
-    if (found === 0) setTimeout(() => applyReplaceActiveMargin(active), 400);
+    const mounts = mountsInEveryDoc();
+    for (const mount of mounts) mount.style.setProperty("margin-top", replaceMarginValue(active), "important");
+    // The mount can be mid-(re)creation when settings finish loading — retry a
+    // few times (bounded, one pending timer at most).
+    if (!mounts.length && attempt < MARGIN_RETRY_MAX) marginRetryTimer = setTimeout(() => applyReplaceActiveMargin(active, attempt + 1), 400);
   } catch (e) { logInfo("HOME", "applyReplaceActiveMargin failed", String(e)); }
 }
 
-const RECENTS_LABEL_FRAGMENTS = ["jogos recentes", "recent games", "recently played", "played recently", "jogados recentemente"];
 
 // Under Big Art the structural previous-sibling is ground truth (see
 // bigArtStructuralRecents) — a cache pointing elsewhere is stale too.
@@ -113,11 +113,11 @@ function reseedCachedRecentsEl(): void {
   } catch (e) { logInfo("HOME", "applyHideRecents: findRecentsEl failed", String(e)); }
 }
 
-function elMatchesRecentsLabel(el: HTMLElement): boolean {
+function elMatchesRecentsLabel(el: HTMLElement, labels: string[]): boolean {
   try {
     const aria = (el.getAttribute && el.getAttribute('aria-label'))?.toLowerCase() ?? '';
     const txt = (aria || (el.innerText || '')).toLowerCase().substring(0, 80);
-    return RECENTS_LABEL_FRAGMENTS.some((l) => txt.includes(l));
+    return labels.some((l) => txt.includes(l));
   } catch { return false; }
 }
 
@@ -125,9 +125,9 @@ function elMatchesRecentsLabel(el: HTMLElement): boolean {
 // is always a sibling of our mount. Falls back to the document if not found yet.
 function restoreRecentsByLabelSearch(): void {
   try {
-    const doc = getHostContext().doc, scope: ParentNode = (doc.getElementById(ROOT_ID) as HTMLElement | null)?.parentElement ?? doc;
+    const doc = getHostContext().doc, scope: ParentNode = (doc.getElementById(ROOT_ID) as HTMLElement | null)?.parentElement ?? doc, labels = steamText("recentGames");
     for (const el of Array.from(scope.querySelectorAll<HTMLElement>('*'))) {
-      if (!elMatchesRecentsLabel(el)) continue;
+      if (!elMatchesRecentsLabel(el, labels)) continue;
       try { for (const p of ["visibility", "height", "min-height", "max-height", "overflow"]) el.style.removeProperty(p); } catch {}
     }
   } catch (e) { logInfo("HOME", "applyHideRecents: fallback restore failed", String(e)); }
@@ -205,6 +205,8 @@ function releaseWronglyCollapsedRecentsEl(el: HTMLElement): void {
 }
 
 function applyRecentsCollapse(hidden: boolean): void {
+  // A collapse left by an earlier instance carries our marker; release it too.
+  if (!hidden) for (const d of getAllSteamDocuments()) d.querySelectorAll<HTMLElement>('[data-ds-hidden-collapse="1"]').forEach((el) => setRecentsCollapsedStyle(el, false));
   if (!cachedRecentsEl) return;
   try {
     if (hidden) armRecentsHardCollapse();
@@ -291,10 +293,11 @@ function collectHomeTabSiblings(mountEl: HTMLElement): HTMLElement[] {
   return out;
 }
 
+// Every home tab this plugin hid, whichever instance did it: a hot-swap
+// predecessor's set is not ours, but its markers are.
 function restoreAllHomeTabs(): void {
-  for (const el of Array.from(hiddenHomeTabs)) {
-    if (el.isConnected) setSiblingHidden(el, false);
-  }
+  const marked = getAllSteamDocuments().flatMap((d) => Array.from(d.querySelectorAll<HTMLElement>('[data-ds-ht-hidden="1"]')));
+  for (const el of new Set([...hiddenHomeTabs, ...marked])) if (el.isConnected) setSiblingHidden(el, false);
   hiddenHomeTabs.clear();
 }
 
@@ -405,34 +408,12 @@ function bigArtStructuralRecents(prev: HTMLElement | null, mountEl: HTMLElement)
 }
 
 function findRecentsEl(doc: Document, mountEl: HTMLElement): HTMLElement | null {
-  const labels = RECENTS_LABEL_FRAGMENTS;
+  const labels = steamText("recentGames");
   const mountParent = mountEl.parentElement;
   if (!mountParent) return null;
   const prevEl = mountEl.previousElementSibling as HTMLElement | null;
   const prev = previousSiblingIsRecents(prevEl, mountEl, labels);
   return prev ?? recentsFromAriaScan(doc, mountEl, mountParent, labels) ?? bigArtStructuralRecents(prevEl, mountEl);
-}
-
-function getFocusNavController(): any {
-  return (globalThis as any).GamepadNavTree?.m_context?.m_controller || (globalThis as any).FocusNavController;
-}
-
-function getGamepadNavigationTrees(): any[] {
-  const focusNav = getFocusNavController();
-  const context = focusNav?.m_ActiveContext || focusNav?.m_LastActiveContext;
-  return context?.m_rgGamepadNavigationTrees ?? [];
-}
-
-function findSPWindow(): Window | null {
-  try {
-    if (document.title === "SP") return window;
-  } catch {}
-  try {
-    const navTrees = getGamepadNavigationTrees();
-    return navTrees?.find((x: any) => x?.m_ID === "GamepadUI_Full_Root" || x?.m_ID === "root_1_")?.Root?.Element?.ownerDocument?.defaultView ?? null;
-  } catch {
-    return null;
-  }
 }
 
 function getWindowCandidates(): Array<{ win: Window; source: string }> {
@@ -448,7 +429,6 @@ function getWindowCandidates(): Array<{ win: Window; source: string }> {
   const sources: Array<[() => any, string]> = [
     [() => window, "current"],
     [() => (window as any).opener, "opener"],
-    [() => findSPWindow(), "findSP"],
     [() => (window as any).SteamUIStore?.GetFocusedWindowInstance?.()?.BrowserWindow, "focusedWindow"],
     [() => (window as any).SteamUIStore?.WindowStore?.GamepadUIMainWindowInstance?.BrowserWindow, "mainWindow"],
   ];
@@ -463,9 +443,8 @@ function getWindowCandidates(): Array<{ win: Window; source: string }> {
 }
 
 /* Hardcoded fallback for the native shelf-section token. Used only when the
-   runtime classmap hasn't been populated yet (very early boot, before
-   `discoverClassMap` runs). Anywhere else, prefer the live token via
-   `shelfSectionSelector(doc)`. */
+   class map holds no entry for it (the bundled seed lacks the key). Anywhere
+   else, prefer the mapped token via `shelfSectionSelector(doc)`. */
 const FALLBACK_SHELF_SECTION = "_282X0J4BtrSF1IXctmOe-X";
 
 function shelfSectionSelector(doc: Document): string {
@@ -479,7 +458,7 @@ function shelfSectionSelector(doc: Document): string {
   return `div.${FALLBACK_SHELF_SECTION}, [class*="${FALLBACK_SHELF_SECTION}"]`;
 }
 
-const RECENTS_QS = '[aria-label="Jogos recentes"], [aria-label="Recent Games"], [class*="ReactVirtualized__Grid"][aria-label]';
+const recentsQs = (): string => [...steamTextSelectors("recentGames", "aria-label", "exact"), '[class*="ReactVirtualized__Grid"][aria-label]'].join(", ");
 const LIBRARY_HOME_QS = '[class*="libraryhome"], [class*="LibraryHome"], [class*="BasicHomeView"], [class*="gamepadlibrary"]';
 
 function safeMatch(doc: Document, selector: string): boolean {
@@ -496,7 +475,7 @@ function hrefIsLibraryHome(href: string): boolean {
 
 function scoreDocSignals(doc: Document): number {
   let s = 0;
-  if (safeMatch(doc, RECENTS_QS)) s += 8;
+  if (safeMatch(doc, recentsQs())) s += 8;
   if (safeMatch(doc, LIBRARY_HOME_QS)) s += 6;
   if (safeMatch(doc, shelfSectionSelector(doc))) s += 2;
   if (doc.body?.childElementCount) s += 1;
@@ -542,7 +521,7 @@ function getContextSnapshot() {
     href,
     readyState: doc.readyState,
     hasObfuscatedAnchor,
-    hasHomeGrid: !!doc.querySelector('[aria-label="Jogos recentes"], [aria-label="Recent Games"], [class*="ReactVirtualized__Grid"][aria-label]'),
+    hasHomeGrid: !!doc.querySelector(recentsQs()),
     hasLibraryContainers: !!doc.querySelector('[class*="libraryhome"], [class*="LibraryHome"], [class*="BasicHomeView"], [class*="gamepadlibrary"]'),
     bodyChildren: doc.body?.childElementCount ?? 0,
   };
@@ -567,7 +546,7 @@ function isHomeVisible(): boolean {
   const href = `${win.location?.pathname ?? ""}${win.location?.hash ?? ""}`.toLowerCase();
   if (hrefIsHomeLike(href)) return true;
   if (safeMatch(doc, LIBRARY_HOME_QS)) return true;
-  if (safeMatch(doc, RECENTS_QS)) return true;
+  if (safeMatch(doc, recentsQs())) return true;
   return safeMatch(doc, shelfSectionSelector(doc));
 }
 
@@ -582,8 +561,6 @@ function closestSection(el: Element | null): HTMLElement | null {
 
 type Anchor = { parent: HTMLElement; before: ChildNode | null };
 
-const RECENTS_LABEL_FRAGMENTS_EXT = [...RECENTS_LABEL_FRAGMENTS, "jogado recentemente"];
-const CHIP_LABELS = ["what's new", "friends", "recommended", "novidades", "amigos", "recomendados"];
 const ANCHOR_CONTAINERS_QS = '[class*="gamepadlibrary"], [class*="libraryhome"], [class*="LibraryHome"], [class*="BasicHomeView"], [class*="AppGridFilterContainer"], [class*="AllPagesContainer"], main, [role="main"]';
 const ANCHOR_CANDIDATES_QS = '[role="list"],[aria-label],[class*="ReactVirtualized__Grid"],[class*="ReactVirtualized__Grid__innerScrollContainer"]';
 
@@ -619,8 +596,8 @@ function anchorFromGridOrSection(node: Element): Anchor | null {
 
 function anchorFromRecentsCandidates(doc: Document): Anchor | null {
   for (const node of Array.from(doc.querySelectorAll(ANCHOR_CANDIDATES_QS))) {
-    const txt = `${(node.getAttribute?.("aria-label") || "")} ${(node.textContent || "")}`.toLowerCase();
-    if (!RECENTS_LABEL_FRAGMENTS_EXT.some((label) => txt.includes(label))) continue;
+    const txt = `${(node.getAttribute?.("aria-label") || "")} ${(node.textContent || "")}`;
+    if (!matchesSteamText(txt, "recentGames", "contains")) continue;
     const scrollable = findScrollableAncestor(node as HTMLElement, doc) ?? findScrollableAncestor(node as HTMLElement, doc, true);
     if (scrollable) return scrollable;
     const fallback = anchorFromGridOrSection(node);
@@ -632,7 +609,7 @@ function anchorFromRecentsCandidates(doc: Document): Anchor | null {
 function anchorFromChipLabels(doc: Document): Anchor | null {
   for (const node of Array.from(doc.querySelectorAll('button, [role="tab"]'))) {
     const text = (node.textContent || "").trim().toLowerCase();
-    if (!CHIP_LABELS.includes(text)) continue;
+    if (!matchesSteamText(text, "homeTabs", "exact")) continue;
     const section = closestSection(node);
     if (section?.parentElement) return { parent: section.parentElement, before: section };
   }
@@ -770,7 +747,6 @@ function HomeDomBridge() {
      Stand down so the two never both mount HomeShelves into ROOT_ID (the double
      shelves the user saw). On a loader (same window) the flag stays unset. */
   if ((globalThis as any).__ds_sole_home_owned) return null;
-  try { (globalThis as any).__ds_bridge_renders = (((globalThis as any).__ds_bridge_renders ?? 0) + 1); } catch {}
   getHostContext();
   return React.createElement(
     HomeBoundary,
@@ -931,6 +907,8 @@ export function installHomePatch(_routerHook?: any) {
     routerHookKeys: Object.keys(routerHook ?? {}).slice(0, 20),
   });
 
+  // Hides a predecessor left behind (a hot-swap from an older build) would misplace our mount.
+  restoreAllHomeTabs(); applyRecentsCollapse(false);
   // Fallback-vs-bridge grace bookkeeping (pure rules in homePatchFallbackGate.ts).
   const gate = createBridgeGateState(Date.now());
 
@@ -959,12 +937,10 @@ export function installHomePatch(_routerHook?: any) {
      well before the real anchor appears. Back off instead of stopping
      outright — a hard stop left a user with no shelves until they manually
      toggled the plugin, since nothing else was left to retry it. */
-  const FALLBACK_BACKOFF_MS = 15000;
   const giveUpFallback = () => {
     logWarn("HOME", "fallback: anchor not found after repeated attempts — backing off", { retries: fallbackRetries });
     fallbackRetries = 0;
-    if (timer) window.clearInterval(timer);
-    timer = window.setInterval(tryFallbackRender, FALLBACK_BACKOFF_MS);
+    fallbackPoll?.backoff();
     // Leave the mutation observer attached: a later DOM change (Steam
     // finishing home hydration) still reaches tryFallbackRender via
     // scheduleFallback instead of the fallback staying fully silent.
@@ -977,8 +953,7 @@ export function installHomePatch(_routerHook?: any) {
   /* React DOM 19 dropped createRoot/render from the base react-dom package
      (moved to react-dom/client). Confirmed on the 2026-09-09 Steam Beta: no
      known global has it anymore — it's in its own webpack module, findable
-     by export name like ownQamTab.ts finds Steam's internals. Cached: the
-     module graph doesn't change mid-session. */
+     by export name. Cached: the module graph doesn't change mid-session. */
   let cachedWebpackCreateRoot: ((container: Element) => { render(node: unknown): void; unmount(): void }) | null | undefined;
   const findCreateRootViaWebpack = (): typeof cachedWebpackCreateRoot => {
     if (cachedWebpackCreateRoot !== undefined) return cachedWebpackCreateRoot;
@@ -1044,7 +1019,7 @@ export function installHomePatch(_routerHook?: any) {
     const targetEl = mount.parentElement;
     if (!targetEl) return null;
     try {
-      for (const tree of getGamepadNavigationTrees()) {
+      for (const tree of activeNavTrees()) {
         const root = tree.Root ?? tree.m_Root ?? tree.m_root;
         if (!root) continue;
         const found = findNodeByElement(root, targetEl);
@@ -1189,18 +1164,26 @@ export function installHomePatch(_routerHook?: any) {
      DOM on its own, instead of only when a route signal (e.g. opening the QAM)
      happens to fire — the sole-host "no shelves until I open the QAM" bug. */
   let observedDoc: Document | null = null;
+  let unlistenPageHide: (() => void) | null = null;
   const attachObserver = (doc: Document): void => {
     if (!doc || !doc.body || observedDoc === doc) return;
     observer?.disconnect();
     observedDoc = doc;
     observer = new MutationObserver(scheduleFallback);
     try { observer.observe(doc.body, { childList: true, subtree: true }); } catch {}
+    // That document going away (renderer reload) restarts the mount poll.
+    unlistenPageHide?.();
+    const win = doc.defaultView;
+    const onPageHide = () => fallbackPoll?.wake();
+    try { win?.addEventListener("pagehide", onPageHide); unlistenPageHide = () => win?.removeEventListener("pagehide", onPageHide); } catch {}
   };
 
   const tryFallbackRender = () => {
     try {
       const { win, doc } = getHostContext();
       attachObserver(doc);
+      // The gate re-reads the route and window here: a sole host has no router hook to tell it.
+      getPowerState();
       if (fallbackShouldYield(doc)) return;
       const mount = ensureFallbackMount();
       if (!mount) return;
@@ -1218,25 +1201,17 @@ export function installHomePatch(_routerHook?: any) {
   observer?.disconnect();
   observedDoc = null; attachObserver(hostDoc); observerCreated();
 
-  /* Poll fast for the first ~15s (renderer reload / cold boot) so the mount
-     lands promptly on its own, then back off to a calm 2s idle cadence. */
-  if (timer) window.clearInterval(timer);
-  let fastTicks = 30;
-  const poll = (): void => {
-    tryFallbackRender();
-    if (fastTicks > 0 && --fastTicks === 0 && timer) {
-      window.clearInterval(timer);
-      timer = window.setInterval(tryFallbackRender, 2000);
-    }
-  };
-  timer = window.setInterval(poll, 500); timerCreated();
+  /* The mount poll is a power-gate task (homePatchFallback.ts): fast for the
+     first ~15 s (renderer reload / cold boot), then 2 s, stopped once this
+     fallback is mounted and whenever the Home is not active. It runs one
+     render attempt at registration and on each return to the active Home. */
+  fallbackPoll?.dispose();
+  fallbackPoll = installFallbackPoll(tryFallbackRender, () => !!fallbackRoot && !!fallbackHostEl?.isConnected);
 
   const onRouteSignal = () => tryFallbackRender();
   hostWin.addEventListener("hashchange", onRouteSignal);
   hostWin.addEventListener("popstate", onRouteSignal);
   globalThis.addEventListener?.("deck-shelves-settings-changed", onRouteSignal as EventListener);
-
-  tryFallbackRender();
 
   logInfo("HOME", "installHomePatch complete", { bridgeRegistered: gate.bridgeRegistered });
 
@@ -1259,25 +1234,26 @@ export function installHomePatch(_routerHook?: any) {
   };
 
   const tearDownObserversAndListeners = (): void => {
-    if (timer) { window.clearInterval(timer); timer = 0; timerDisposed(); }
-    if (observer) observerDisposed();
-    observer?.disconnect(); observer = null;
-    hostWin.removeEventListener("hashchange", onRouteSignal);
-    hostWin.removeEventListener("popstate", onRouteSignal);
+    fallbackPoll?.dispose(); fallbackPoll = null;
+    unlistenPageHide?.(); unlistenPageHide = null;
+    if (observer) observerDisposed(); observer?.disconnect(); observer = null;
+    hostWin.removeEventListener("hashchange", onRouteSignal); hostWin.removeEventListener("popstate", onRouteSignal);
     globalThis.removeEventListener?.("deck-shelves-settings-changed", onRouteSignal as EventListener);
   };
 
   const tearDownFallbackRoot = (): void => {
     teardownPreviousFallbackRoot();
-    try { hostDoc.getElementById(ROOT_ID)?.remove(); } catch {}
+    // The sole-host claim goes with the root, so a next instance's bridge can render.
+    try { hostDoc.getElementById(ROOT_ID)?.remove(); delete (globalThis as any).__ds_sole_home_owned; } catch {}
   };
 
   return {
     uninstall() {
       logInfo("HOME", "uninstalling home patch");
-      runUninstallHooks();
-      tearDownObserversAndListeners();
-      tearDownFallbackRoot();
+      // Give Steam its Home back as it was: a successor (a hot-swap) anchors next
+      // to the native rows, and must not find them hidden by this instance.
+      applyHideHomeTabs(false); applyHideRecents(false); runUninstallHooks();
+      tearDownObserversAndListeners(); tearDownFallbackRoot();
     },
   };
 }

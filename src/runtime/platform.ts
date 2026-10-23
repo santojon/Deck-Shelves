@@ -13,6 +13,9 @@ export type PlatformAppMeta = {
   installed?: boolean;
   isSteam?: boolean;
   deckCompatCategory?: number;
+  // Steam Machine / Steam Frame compatibility (same 0–3 scale as the Deck one).
+  machineCompatCategory?: number;
+  frameCompatCategory?: number;
   controllerSupport?: number;
   playtimeMinutes?: number;
   addedTimestamp?: number;

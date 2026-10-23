@@ -6,6 +6,8 @@ import { showEditShelfModal, showDeleteConfirm, showComposeConfirm } from "./qam
 import { openManagedModal } from "./qam/common/openManagedModal";
 import { EditSmartShelfModal } from "./qam/modals/EditSmartShelfModal";
 import { DeleteConfirmSmartModal } from "./qam/modals/DeleteConfirmSmartModal";
+import { EditTagsModal } from "./qam/modals/EditTagsModal";
+import { steamAppStore } from "../steam/internals";
 
 function getShelfIdFromLocation(): string {
   try {
@@ -111,4 +113,37 @@ function ShelfComposeRouteImpl({ sourceId: sourceIdProp, targetId: targetIdProp 
 
 export function ShelfComposeRoute({ sourceId, targetId }: { sourceId: string; targetId: string }) {
   return withPlatform(<ShelfComposeRouteImpl sourceId={sourceId} targetId={targetId} />);
+}
+
+function getTagsAppIdFromLocation(): number {
+  try {
+    const p = (globalThis as any).window?.location?.pathname ?? "";
+    const m = p.match(/\/deck-shelves\/tags\/(\d+)/);
+    return m?.[1] ? Number(m[1]) : 0;
+  } catch { return 0; }
+}
+
+function GameTagsRouteImpl({ appid: appidProp }: { appid: number }) {
+  const controller = useSettingsController();
+  const triggeredRef = useRef(false);
+  const appid = appidProp || getTagsAppIdFromLocation();
+
+  useEffect(() => {
+    if (triggeredRef.current) return;
+    triggeredRef.current = true;
+    if (appid > 0) {
+      let gameName = "";
+      try { gameName = String(steamAppStore()?.GetAppOverviewByAppID?.(appid)?.display_name ?? ""); } catch {}
+      try { openManagedModal((close) => <EditTagsModal closeModal={close} controller={controller} appid={appid} gameName={gameName} />); } catch {}
+    }
+    try {
+      setTimeout(() => { try { (Navigation as any).NavigateBack?.(); } catch {} }, 50);
+    } catch {}
+  }, [appid, controller]);
+
+  return null;
+}
+
+export function GameTagsRoute({ appid }: { appid: number }) {
+  return withPlatform(<GameTagsRouteImpl appid={appid} />);
 }

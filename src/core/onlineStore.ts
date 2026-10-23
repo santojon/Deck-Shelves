@@ -2,6 +2,7 @@
 import { call } from "../shims/host-api";
 import { STEAM_STORE_BASE } from "../constants";
 import { logInfo, logWarn } from "../runtime/logger";
+import { decodeHtmlEntities } from "../domain/sourceUtils";
 
 const WISHLIST_KEY = "ds-wishlist-cache-v1";
 const PRICE_KEY = "ds-price-cache-v1";
@@ -82,6 +83,62 @@ function rpcWithTimeout<T>(method: string, args: unknown, ms = 6000): Promise<T>
   });
 }
 
+const staleWishlistIds = (): number[] | null => readWishlistCacheAny()?.ids ?? null;
+
+/* The community profile URL from Steam's URL store:
+   urlStore.m_steamUrls.userwishlist.url = "https://steamcommunity.com/id/{vanity}/wishlist/"
+   (or /profiles/{id64}/). Empty when it cannot be located. */
+function readCommunityWishlistUrl(): string {
+  try {
+    const wl = (globalThis as any).urlStore?.m_steamUrls?.userwishlist
+            ?? (globalThis as any).urlStore?.m_steamUrls?.UserWishlist;
+    if (wl?.url) return String(wl.url);
+    if (typeof wl === "string") return wl;
+  } catch {}
+  return "";
+}
+
+/* Route through the Python backend to bypass CORS. The backend may take 15 s ×
+   2 attempts, and a standalone host can be starting its backend (one call at a
+   time) on the first request — 6 s gave up on every cold call there and then
+   backed off for 10 min, so the wishlist shelf stayed empty. Null on a
+   backend error or an empty list (the caller serves the stale cache). */
+const WISHLIST_RPC_TIMEOUT_MS = 35000;
+const WISHLIST_TIMEOUT_BACKOFF_MS = 2 * 60 * 1000;
+const WISHLIST_ERROR_BACKOFF_MS = 10 * 60 * 1000;
+
+/* Why the last fetch came back with nothing, for the resolver's one warning
+   line (it only sees null). `backoffUntil` lets it warn once per backoff window. */
+export type WishlistEmptyReason = { reason: string; backoffUntil?: number };
+let wishlistEmptyReason: WishlistEmptyReason | null = null;
+
+export function getWishlistEmptyReason(): WishlistEmptyReason | null {
+  return wishlistEmptyReason;
+}
+
+function noWishlist(reason: string, backoffDeadline?: number): null {
+  wishlistEmptyReason = backoffDeadline === undefined ? { reason } : { reason, backoffUntil: backoffDeadline };
+  return null;
+}
+
+async function fetchWishlistFromBackend(communityUrl: string): Promise<number[] | null> {
+  const resp = await rpcWithTimeout<any>("get_wishlist", { community_url: communityUrl }, WISHLIST_RPC_TIMEOUT_MS);
+  if (!resp?.ok || !Array.isArray(resp.ids)) {
+    logInfo("ONLINE", "wishlist backend error", resp?.error ?? "unknown");
+    return noWishlist(`backend error ${resp?.error ?? "unknown"}`);
+  }
+  const ids = (resp.ids as unknown[]).map(Number).filter(Number.isFinite);
+  if (!ids.length) {
+    logInfo("ONLINE", "wishlist backend returned no games");
+    return noWishlist("backend returned none");
+  }
+  return ids;
+}
+
+function wishlistBackoffMs(e: unknown): number {
+  return /timeout/i.test(String(e)) ? WISHLIST_TIMEOUT_BACKOFF_MS : WISHLIST_ERROR_BACKOFF_MS;
+}
+
 export async function getWishlistIds(): Promise<number[] | null> {
   const cached = readCache<WishlistCache>(WISHLIST_KEY, WISHLIST_TTL);
   if (cached) return cached.ids;
@@ -90,45 +147,31 @@ export async function getWishlistIds(): Promise<number[] | null> {
 
   wishlistInFlight = (async () => {
     try {
-      if (Date.now() < (backoffUntil[WISHLIST_KEY] ?? 0)) {
-        // In backoff: serve stale cache rather than hang the resolver.
-        return readWishlistCacheAny()?.ids ?? null;
+      // In backoff: serve stale cache rather than hang the resolver.
+      const deadline = backoffUntil[WISHLIST_KEY] ?? 0;
+      if (Date.now() < deadline) {
+        const seconds = Math.round((deadline - Date.now()) / 1000);
+        logInfo("ONLINE", "wishlist: retry backed off", { seconds });
+        return staleWishlistIds() ?? noWishlist(`backoff, retry in ${seconds}s`, deadline);
       }
       // No isOnline() guard — the Python backend handles its own connectivity.
-
-      // Get the community profile URL from Steam's URL store.
-      // The shape is urlStore.m_steamUrls.userwishlist.url =
-      // "https://steamcommunity.com/id/{vanity}/wishlist/" (or /profiles/{id64}/).
-      let communityUrl = "";
-      try {
-        const wl = (globalThis as any).urlStore?.m_steamUrls?.userwishlist
-                ?? (globalThis as any).urlStore?.m_steamUrls?.UserWishlist;
-        if (wl?.url) communityUrl = String(wl.url);
-        else if (typeof wl === "string") communityUrl = wl;
-      } catch {}
+      const communityUrl = readCommunityWishlistUrl();
       if (!communityUrl) {
-        logWarn("ONLINE", "wishlist: could not locate community URL");
-        return readWishlistCacheAny()?.ids ?? null;
+        logInfo("ONLINE", "wishlist: could not locate community URL");
+        return staleWishlistIds() ?? noWishlist("no community url");
       }
-
-      // Route through Python backend to bypass CORS. Hard 6 s timeout so
-      // a hung Decky RPC can't park composite/wishlist resolves forever.
-      const resp = await rpcWithTimeout<any>("get_wishlist", { community_url: communityUrl }, 6000);
-      if (!resp?.ok || !Array.isArray(resp.ids)) {
-        logWarn("ONLINE", "wishlist backend error", resp?.error ?? "unknown");
-        return readWishlistCacheAny()?.ids ?? null;
-      }
-      const ids = (resp.ids as unknown[]).map(Number).filter(Number.isFinite);
-      if (!ids.length) return readWishlistCacheAny()?.ids ?? null;
+      const ids = await fetchWishlistFromBackend(communityUrl);
+      if (!ids) return staleWishlistIds();
       writeCache<WishlistCache>(WISHLIST_KEY, { ids });
+      wishlistEmptyReason = null;
       logInfo("ONLINE", "wishlist fetched via backend", { count: ids.length });
       return ids;
     } catch (e) {
-      logWarn("ONLINE", "wishlist fetch failed", String(e));
-      // Soft-backoff for 10 min so the next resolve doesn't immediately
-      // retry the same hung RPC.
-      backoffUntil[WISHLIST_KEY] = Date.now() + 10 * 60 * 1000;
-      return readWishlistCacheAny()?.ids ?? null;
+      logInfo("ONLINE", "wishlist fetch failed", String(e));
+      // Back off so the next resolve doesn't immediately retry the same call:
+      // briefly after a timeout (a host still starting), longer after an error.
+      backoffUntil[WISHLIST_KEY] = Date.now() + wishlistBackoffMs(e);
+      return staleWishlistIds() ?? noWishlist(`backend error ${String(e)}`);
     } finally {
       wishlistInFlight = null;
     }
@@ -166,6 +209,48 @@ function replayPriceHints(hints: Array<{ id: number; original: number; final: nu
   for (const h of hints) replayOneHint(h);
 }
 
+type StoreSearchItem = { name?: string; logo?: string; final_price?: number; original_price?: number; discounted?: boolean };
+type StoreHarvest = { ids: Set<number>; nameMap: Map<number, string>; priceHints: Array<{ id: number; original: number; final: number }> };
+
+/* Each search row carries `final_price` / `original_price` (cents) besides
+   `name` + `logo`. Capturing them pre-populates the price cache so a "100%
+   off" / "Free now" filter has real data without a secondary api/appdetails
+   fetch (which often reports success:false for free-weekend titles → cached
+   unpriced → filter excludes them). Permanently-free games carry no hint. */
+function harvestStoreItem(item: StoreSearchItem, h: StoreHarvest): void {
+  const m = item?.logo?.match(/\/apps\/(\d+)\//);
+  if (!m) return;
+  const id = Number(m[1]);
+  if (!Number.isFinite(id) || id <= 0) return;
+  h.ids.add(id);
+  if (item.name) h.nameMap.set(id, decodeHtmlEntities(item.name));
+  const op = typeof item.original_price === "number" ? item.original_price : 0;
+  const fp = typeof item.final_price === "number" ? item.final_price : 0;
+  if (op > 0) h.priceHints.push({ id, original: op, final: fp });
+}
+
+// The parsed JSON of a fulfilled, OK, JSON search response; null otherwise.
+async function readSearchJson(result: PromiseSettledResult<Response>): Promise<any | null> {
+  if (result.status !== "fulfilled") return null;
+  const resp = result.value;
+  if (!resp.ok) return null;
+  const ct = resp.headers.get("content-type") ?? "";
+  if (!ct.includes("json")) return null;
+  return resp.json();
+}
+
+// Persist extracted names so Shelf.tsx can display them immediately.
+function persistGameNames(nameMap: Map<number, string>): void {
+  if (!nameMap.size) return;
+  try {
+    const existing: Record<number, string> = JSON.parse(
+      (globalThis as any).localStorage?.getItem?.("ds-game-name-cache-v1") || "{}"
+    );
+    nameMap.forEach((v, k) => { existing[k] = v; });
+    (globalThis as any).localStorage?.setItem?.("ds-game-name-cache-v1", JSON.stringify(existing));
+  } catch {}
+}
+
 export async function getStoreGameIds(): Promise<number[] | null> {
   const cached = readCache<StoreCacheV2>(STORE_KEY, STORE_TTL);
   if (cached) {
@@ -191,11 +276,7 @@ export async function getStoreGameIds(): Promise<number[] | null> {
       // Coverage: parallel fetch across seven endpoints because no
       // single one catches every currently-free title.
       const cc = getStoreCountryCode();
-      const [
-        specialsP1Resp, specialsP2Resp, specialsP3Resp,
-        freeResp, freeWeekendIntersectionResp, freeWeekendCategoryResp,
-        popularResp,
-      ] = await Promise.allSettled([
+      const responses = await Promise.allSettled([
         withTimeout(`${STEAM_STORE_BASE}/search/results/?specials=1&json=1&count=100&start=0&cc=${cc}`),
         withTimeout(`${STEAM_STORE_BASE}/search/results/?specials=1&json=1&count=100&start=100&cc=${cc}`),
         withTimeout(`${STEAM_STORE_BASE}/search/results/?specials=1&json=1&count=100&start=200&cc=${cc}`),
@@ -205,63 +286,21 @@ export async function getStoreGameIds(): Promise<number[] | null> {
         withTimeout(`${STEAM_STORE_BASE}/search/results/?json=1&count=100&cc=${cc}`),
       ]);
 
-      const ids = new Set<number>();
-      const nameMap = new Map<number, string>();
-      const priceHints: Array<{ id: number; original: number; final: number }> = [];
-      for (const result of [
-        specialsP1Resp, specialsP2Resp, specialsP3Resp,
-        freeResp, freeWeekendIntersectionResp, freeWeekendCategoryResp,
-        popularResp,
-      ]) {
-        if (result.status !== "fulfilled") continue;
-        const resp = result.value;
-        if (!resp.ok) continue;
-        const ct = resp.headers.get("content-type") ?? "";
-        if (!ct.includes("json")) continue;
-        const json = await resp.json();
-        // Each item carries `final_price` / `original_price` (cents) /
-        /* `discounted` (bool) in addition to `name` + `logo`. Capturing
-           these lets us pre-populate the price cache so a "100% off" /
-           "Free now" discount filter has real data without waiting on a
-           secondary api/appdetails fetch (which often returns success:false
-           for free-weekend titles → cached unpriced → filter excludes them). */
-        const items: Array<{ name?: string; logo?: string; final_price?: number; original_price?: number; discounted?: boolean }> = json?.items ?? [];
-        for (const item of items) {
-          const m = item?.logo?.match(/\/apps\/(\d+)\//);
-          if (m) {
-            const id = Number(m[1]);
-            if (Number.isFinite(id) && id > 0) {
-              ids.add(id);
-              if (item.name) nameMap.set(id, item.name);
-              // Capture price hint from the search row (catches free-
-              // weekend titles that api/appdetails would miss). Skip
-              // permanently-free games — getPriceMap handles those.
-              const op = typeof item.original_price === "number" ? item.original_price : 0;
-              const fp = typeof item.final_price === "number" ? item.final_price : 0;
-              if (op > 0) {
-                priceHints.push({ id, original: op, final: fp });
-              }
-            }
-          }
-        }
+      const h: StoreHarvest = { ids: new Set<number>(), nameMap: new Map<number, string>(), priceHints: [] };
+      for (const result of responses) {
+        const json = await readSearchJson(result);
+        if (!json) continue;
+        const items: StoreSearchItem[] = json?.items ?? [];
+        for (const item of items) harvestStoreItem(item, h);
       }
 
-      const result = [...ids];
+      const result = [...h.ids];
       if (!result.length) return null;
-      writeCache<StoreCacheV2>(STORE_KEY, { ids: result, priceHints });
+      writeCache<StoreCacheV2>(STORE_KEY, { ids: result, priceHints: h.priceHints });
       // Also apply hints immediately on the cold path so the next
       // getPriceMap call inside this resolve cycle sees fresh data.
-      replayPriceHints(priceHints);
-      // Persist extracted names so Shelf.tsx can display them immediately.
-      if (nameMap.size) {
-        try {
-          const existing: Record<number, string> = JSON.parse(
-            (globalThis as any).localStorage?.getItem?.("ds-game-name-cache-v1") || "{}"
-          );
-          nameMap.forEach((v, k) => { existing[k] = v; });
-          (globalThis as any).localStorage?.setItem?.("ds-game-name-cache-v1", JSON.stringify(existing));
-        } catch {}
-      }
+      replayPriceHints(h.priceHints);
+      persistGameNames(h.nameMap);
       logInfo("ONLINE", "store fetched", { count: result.length });
       return result;
     } catch (e) {
@@ -329,79 +368,85 @@ function writePriceCacheEntry(appid: number, data: PriceData): void {
   } catch {}
 }
 
-export async function getPriceMap(appids: number[]): Promise<Map<number, PriceData>> {
-  const result = new Map<number, PriceData>();
-  if (!appids.length) return result;
-
+// Fills `result` from the price cache; returns the ids still to fetch.
+function collectCachedPrices(appids: number[], result: Map<number, PriceData>): number[] {
   const toFetch: number[] = [];
   for (const id of appids) {
     const c = readPriceCache(id);
     if (c) { result.set(id, c); } else { toFetch.push(id); }
   }
+  return toFetch;
+}
+
+/* One appdetails batch; null means "stop fetching" (rate-limited — with the
+   backoff armed —, a non-OK status, or a non-JSON body). */
+async function fetchPriceBatch(batch: number[]): Promise<any | null> {
+  const url = `${STEAM_STORE_BASE}/api/appdetails?appids=${batch.join(",")}&filters=price_overview`;
+  const ac = new AbortController();
+  const tid = setTimeout(() => ac.abort(), 5000);
+  let resp: Response;
+  try { resp = await fetch(url, { credentials: "include", signal: ac.signal }); }
+  finally { clearTimeout(tid); }
+  if (resp.status === 429) {
+    backoffUntil[PRICE_KEY] = Date.now() + 60 * 60 * 1000;
+    return null;
+  }
+  if (!resp.ok) return null;
+  const ct = resp.headers.get("content-type") ?? "";
+  if (!ct.includes("json")) return null;
+  return resp.json();
+}
+
+/* `success: false` and "no price_overview" (permanently free / region-
+   blocked) both become negative cache entries so the fetch is not re-issued
+   every resolve — the "first 200 always re-fetched" pattern with F2P games. */
+function priceDataFromEntry(entry: any): PriceData {
+  if (!entry?.success) return { price: 0, originalPrice: 0, discount: 0, currency: "USD", isFree: false, unpriced: true };
+  const po = entry.data?.price_overview;
+  if (!po) return { price: 0, originalPrice: 0, discount: 0, currency: "USD", isFree: true, unpriced: true };
+  return {
+    price: po.final ?? 0,
+    originalPrice: po.initial ?? po.final ?? 0,
+    discount: po.discount_percent ?? 0,
+    currency: po.currency ?? "USD",
+    isFree: false,
+  };
+}
+
+async function fetchAndCachePrices(toFetch: number[], result: Map<number, PriceData>): Promise<void> {
+  if (Date.now() < (backoffUntil[PRICE_KEY] ?? 0)) return;
+
+  /* Fetch budget is bounded by `deadline` below — the per-call cap was
+     raised from 200 to 800 so store-source resolves with a discount
+     filter (e.g. "100% off" / "Free now") actually cover the full
+     specials list. Past 200, otherwise-promoted-free games slipped
+     through uncached and the discount filter rejected them. */
+  const limited = toFetch.slice(0, 800);
+
+  const BATCH = 50;
+  const deadline = Date.now() + 8000; // 8 s total budget for all batches
+  for (let i = 0; i < limited.length; i += BATCH) {
+    if (Date.now() > deadline) break;
+    const batch = limited.slice(i, i + BATCH);
+    const json = await fetchPriceBatch(batch);
+    if (!json) break;
+    for (const appid of batch) {
+      const data = priceDataFromEntry(json?.[appid]);
+      result.set(appid, data);
+      writePriceCacheEntry(appid, data);
+    }
+  }
+}
+
+export async function getPriceMap(appids: number[]): Promise<Map<number, PriceData>> {
+  const result = new Map<number, PriceData>();
+  if (!appids.length) return result;
+
+  const toFetch = collectCachedPrices(appids, result);
   if (!toFetch.length) return result;
 
   try {
-    if (Date.now() < (backoffUntil[PRICE_KEY] ?? 0)) return result;
-
-    /* Fetch budget is bounded by `deadline` below — the per-call cap was
-       raised from 200 to 800 so store-source resolves with a discount
-       filter (e.g. "100% off" / "Free now") actually cover the full
-       specials list. Past 200, otherwise-promoted-free games slipped
-       through uncached and the discount filter rejected them. */
-    const limited = toFetch.slice(0, 800);
-
-    const BATCH = 50;
-    const deadline = Date.now() + 8000; // 8 s total budget for all batches
-    for (let i = 0; i < limited.length; i += BATCH) {
-      if (Date.now() > deadline) break;
-      const batch = limited.slice(i, i + BATCH);
-      const url = `${STEAM_STORE_BASE}/api/appdetails?appids=${batch.join(",")}&filters=price_overview`;
-      const ac = new AbortController();
-      const tid = setTimeout(() => ac.abort(), 5000);
-      let resp: Response;
-      try { resp = await fetch(url, { credentials: "include", signal: ac.signal }); }
-      finally { clearTimeout(tid); }
-      if (resp.status === 429) {
-        backoffUntil[PRICE_KEY] = Date.now() + 60 * 60 * 1000;
-        break;
-      }
-      if (!resp.ok) break;
-      const ct = resp.headers.get("content-type") ?? "";
-      if (!ct.includes("json")) break;
-      const json = await resp.json();
-
-      for (const appid of batch) {
-        const entry = json?.[appid];
-        if (!entry?.success) {
-          // Steam returned `success: false` — record a negative entry so
-          // we don't re-issue this fetch every resolve. Same effect as
-          // "no price_overview" downstream.
-          const data: PriceData = { price: 0, originalPrice: 0, discount: 0, currency: "USD", isFree: false, unpriced: true };
-          result.set(appid, data);
-          writePriceCacheEntry(appid, data);
-          continue;
-        }
-        const po = entry.data?.price_overview;
-        if (!po) {
-          // Permanently free / region-blocked — also cached as negative
-          // entry. Avoids the "first 200 always re-fetched" pattern when
-          // the store source returns many F2P games.
-          const data: PriceData = { price: 0, originalPrice: 0, discount: 0, currency: "USD", isFree: true, unpriced: true };
-          result.set(appid, data);
-          writePriceCacheEntry(appid, data);
-          continue;
-        }
-        const data: PriceData = {
-          price: po.final ?? 0,
-          originalPrice: po.initial ?? po.final ?? 0,
-          discount: po.discount_percent ?? 0,
-          currency: po.currency ?? "USD",
-          isFree: false,
-        };
-        result.set(appid, data);
-        writePriceCacheEntry(appid, data);
-      }
-    }
+    await fetchAndCachePrices(toFetch, result);
   } catch (e) {
     logWarn("ONLINE", "price fetch failed", String(e));
   }

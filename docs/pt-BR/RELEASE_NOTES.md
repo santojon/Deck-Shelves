@@ -7,6 +7,92 @@ técnico completo, veja [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+- **A aba no Acesso Rápido continua ligada depois do reinício que ela pede**: ligar a aba própria e escolher "Reiniciar agora" não a traz mais de volta desligada, e uma configuração mudada logo antes de a Steam reiniciar não é mais desfeita no início seguinte.
+
+- **Jogos esperando atualização atualizam em vez de abrir**: num jogo com atualização pendente, o botão View e o menu do jogo agora começam com Atualizar, como no menu da própria Steam, e o filtro "Atualização pendente" também encontra jogos com atualização necessária.
+
+- **O Modo Vitrine para com qualquer entrada**: o teclado, o mouse e a tela sensível ao toque do Deck agora o param como o controle, e ele não começa mais enquanto você os usa.
+
+- **Desligar e religar o plugin no Decky Loader funciona**: o Deck Shelves volta na hora, em vez de ficar parado até a Steam reiniciar.
+
+- **O botão de menu se comporta normalmente com "Usar prateleira como Recentes"**: ele abre o menu do Deck Shelves só na linha substituída e nos cards do Deck Shelves; em todo o resto a Steam cuida dele.
+
+- **Configurações de versões antigas carregam sem erro**: prateleiras salvas com flags antigas de ligado/desligado não causam mais um erro de validação a cada partida.
+
+- **Reordenar por toque ou mouse mantém cada movimento**, e os logs da Steam não se enchem mais com um aviso de navegação.
+
+- **"Adicionar à prateleira" em todo menu de jogo**: os menus da biblioteca da Steam mantêm as entradas do plugin enquanto o menu é redesenhado e não as perdem mais no primeiro menu depois de a Steam iniciar quando há outros plugins de menu instalados.
+
+- **Nomes de jogos da loja aparecem certos**: nomes com "&" não aparecem mais como "&amp;" nas prateleiras online, e esses jogos são reconhecidos na sua biblioteca quando os jogos que você tem ficam ocultos.
+
+- **"Usar prateleira como Recentes" funciona no cliente beta do Steam Deck**: a linha de Recentes da Steam mostra sua primeira prateleira, mantém o foco quando os jogos mudam e volta aos jogos da própria Steam assim que você desliga a opção.
+
+- **Adicione um jogo a uma inteligente com ordem manual pela biblioteca**: o menu do card na biblioteca agora lista as inteligentes que guardam uma ordem escolhida à mão, para adicionar e remover.
+
+- **Os jogos que você ocultou na Steam ficam fora das suas prateleiras**, como na biblioteca da própria Steam: prateleiras montadas a partir de uma aba da biblioteca ou de uma coleção os deixam de fora (uma prateleira na aba Ocultos, ou filtrada em "Somente ocultos", continua mostrando), e as prateleiras inteligentes sem condição de visibilidade (as que você criou antes da 3.3.4) ganham a mesma condição visível "Excluir ocultos" que as novas têm — uma única vez; remova-a depois e ela continua removida.
+
+- **Oculte um jogo também numa prateleira inteligente**: o botão X do card e o Ocultar do menu do jogo agora funcionam nas prateleiras inteligentes, assim como remover um jogo que você adicionou a uma delas.
+
+- **O card de atualizar reembaralha toda vez**: na Roleta e em qualquer prateleira em ordem aleatória, cada toque no card de atualizar ou na ação Atualizar da prateleira dá uma ordem nova.
+
+- **Prateleiras no lugar certo na home Big Art do cliente beta**: a linha do jogo atual agora é reconhecida em qualquer idioma e as prateleiras ficam logo depois dela.
+
+- **O modo de segurança pega uma home que falha a cada dois inícios**: as prateleiras são desativadas quando a tela inicial não terminou de carregar em três das últimas seis inicializações da Steam; sair do modo de segurança recomeça a contagem.
+
+- **Relatórios de bug melhores**: Informações do sistema e o relatório de bug pré-preenchido agora dizem como a sessão iniciou (origem, tempo das fases, veredito do watchdog, tarefas longas, cache pré-carregado), avisos e erros chegam sempre ao Log de diagnóstico, e uma prateleira de lista de desejos vazia sempre diz ali o motivo.
+
+- **Regras de visibilidade mais leves**: as verificações de desempenho e periféricos usadas pelas regras de visibilidade passam a ser respondidas por um cache curto no backend em vez de reler o sistema a cada avaliação; Informações do sistema continua lendo o hardware na hora.
+
+- **Prateleiras no lugar certo em qualquer idioma do Steam**: a Home agora reconhece as linhas e abas do próprio Steam em qualquer idioma, não só em inglês e português.
+
+- **As páginas de jogo abrem com o foco nelas**: abrir um jogo pela Home não deixa mais a página sem nada selecionado.
+
+- **As etiquetas ficam no card que você toca**: as etiquetas de desconto e de "Novo" não somem mais de um card que você toca ou aponta com o mouse.
+
+- **As configurações visuais da prateleira e as globais funcionam juntas**: a seção global só sobrescreve o que você definiu nela, cada escolha global pode voltar para "Por prateleira", e um botão de redefinir devolve a seção inteira ao padrão.
+
+- **Prateleiras inteligentes usam as próprias configurações**: o logo, a descrição, o layout, as opções de ocultar e as regras de auto-pin e auto-colapso definidos numa prateleira inteligente agora funcionam na Home, como numa prateleira comum.
+
+- **Os nomes dos jogos se alinham ao card**: centro e direita agora batem exatamente com o card, e as informações do jogo acima do card seguem esse alinhamento sem sair da tela.
+
+- **Destaque quantos jogos quiser**: prateleiras com seis ou mais jogos em destaque não mostram mais espaços vazios no lugar dos cards.
+
+- **O filtro e a aba Instalados ficam certos para jogos não-Steam**: os jogos do Unifideck contam pelo estado real de instalação, com ou sem as coleções dele; atalhos manuais, Heroic e emuladores mantêm o próprio, e Proton / runtimes ficam fora da aba Instalados.
+
+- **Ao voltar da página de um jogo, o foco retorna ao mesmo jogo e à mesma prateleira**, também quando essa prateleira está mais abaixo na página e ainda carregando, e rolar para os lados não pula mais para outra prateleira.
+
+- **A prateleira da lista de desejos também se preenche depois de um início lento.** Uma primeira resposta lenta do backend não a deixa mais vazia por dez minutos.
+
+- **O menu do Steam e o Acesso Rápido voltam a abrir com um jogo rodando.** A Home não puxa mais o foco do controle de volta para um card de prateleira atrás do jogo, e não roda timer nenhum enquanto um jogo roda — inclusive atalhos não-Steam —, enquanto a tela está desligada ou enquanto o aparelho dorme.
+
+- **As informações do jogo acima dos cards não reconstroem mais o próprio label repetidamente.** Títulos que chegam depois e mudanças de status continuam atualizando, e religar a opção restaura o label.
+
+- **Navegação com o controle mais fluida nas prateleiras personalizadas da Home.** Foi removido um ajuste da borda de foco que podia recalcular estilos repetidamente em toda a tela da Home. A borda de foco nativa do Steam é mantida; a substituição dos Recentes e a opção Round Compatibility continuam funcionando como antes.
+
+- **Uma linha "Exibir ou ocultar configurações" abaixo do toggle mestre abre ou fecha o sidecar de configurações rápidas**, o mesmo painel que o D-pad direita duas vezes abre, para quem prefere um toque. O sidecar se chama "Exibir ou ocultar", num cabeçalho em abas, e Ctrl+Shift+S o abre por padrão.
+
+- **A Busca Rápida chega ao jogo sempre**, inclusive jogos mais adiante numa fileira ou numa prateleira abaixo da dobra, e reabri-la mantém o texto anterior selecionado em vez de anexar a ele.
+
+- **Jogos fixados, histórico de jogo, filas e tags personalizadas agora funcionam.** Quando uma prateleira, prateleira inteligente, filtro salvo ou perfil usa uma dessas fontes, o menu do jogo de um card de prateleira ganha um submenu **Listas** que fixa o jogo, coloca-o na fila desta sessão ou até você jogá-lo e edita as tags dele; o histórico de jogo se preenche sozinho, e Categorias do analisador lê as categorias que o seu gerenciador de ROM ou integração de launcher deu a cada atalho. Os gatilhos de perfil agora preservam as configurações que você muda enquanto estão ativos, e o editor de atalhos aceita até três botões e pode ser cancelado.
+
+- **Digitar na Busca Rápida com o teclado na tela voltou a funcionar**, e os gatilhos de perfil ficaram mais confiáveis: desligá-los restaura suas configurações anteriores, eles sobrevivem a um reinício e esperam leituras reais antes de agir. As notificações de atualização agora podem ser silenciadas como as outras áreas.
+
+- **Correções em perfis, sincronização e atalhos.** Perfis vinculados continuam aplicando suas prateleiras após reiniciar; a sincronização entre dispositivos mantém suas edições mais recentes em perfis e filtros salvos e, com um perfil diferente ativo em cada dispositivo, o visual de um não sobrescreve mais o do outro; os atalhos de teclado continuam funcionando em sessões longas; a Busca Rápida não aparece mais durante um jogo; um atalho nos botões traseiros não faz mais outro atalho disparar duas vezes; desativar os atalhos de botão do sidecar agora persiste.
+
+- **Configurações mais seguras.** Uma cópia danificada das configurações não pode mais substituir seu último backup bom, as exportações são gravadas com segurança, e desligar o protetor de tela após um reset de fábrica devolve à Steam o seu próprio tempo de inatividade.
+
+- **Um pouco mais leve em segundo plano.** Recursos que você não usa (amigos, launchers) não ficam mais consultando, e os downloads de atualização são verificados com mais rigor.
+
+- **Reordene prateleiras com o controle, linha a linha**: nas listas do Acesso Rápido, A no nome de uma prateleira a agarra, o direcional move, A salva e B devolve, com esses botões mostrados na barra de botões da Steam enquanto a linha está agarrada. Arrastar com toque ou mouse funciona como antes.
+
+- **Jogos sem arte aparecem como na Steam**: quando uma capa não carrega, o card mostra o bloco escuro da própria Steam com o nome do jogo.
+
+- **A aba própria do Deck Shelves no Acesso Rápido foi refeita (experimental)**: sob o Decky Loader você pode ligá-la para ter o Deck Shelves como aba própria logo depois de Desempenho; reinicie a Steam depois de ligar. Se outro host já mostra uma aba do Deck Shelves, essa é usada no lugar.
+
+- **Por baixo do capô, o código de renderização da tela inicial, a inicialização do plugin, o código da biblioteca que monta cada prateleira e o código do menu do jogo foram reorganizados em peças menores, sem mudança de comportamento** — verificado num Steam Deck real. Recarregar o plugin agora também limpa a rota da página de Configurações.
+
+- **Os builds de release ficaram um pouco mais enxutos: diagnósticos destinados só a um depurador agora ficam nos builds de desenvolvimento.** Nada visível muda.
+
 ## [3.3.4] - 2026-10-11
 
 - **Num host standalone que conhece o próprio hardware, o plugin agora confia na identidade de dispositivo do host.** Quando o host informa em que dispositivo está rodando (e qual versão do plugin carregou), as shelves que dependem do dispositivo usam isso, voltando à detecção do próprio plugin caso contrário — e o painel de Diagnóstico e o texto do relatório de bug agora mostram o dispositivo do host e essa versão também.
@@ -33,6 +119,25 @@ técnico completo, veja [CHANGELOG.md](CHANGELOG.md).
 - **Reconstruções da home mais ágeis no geral:** alguns custos por card (consulta de preço, checagens de layout, amostragem de animação) agora acontecem uma vez por reconstrução em vez de uma vez por jogo. O plugin também para de vigiar a tela inteira por mudanças assim que suas shelves estão no lugar (vigia só a área da home), o que reduziu ainda mais o tempo de volta pra home, pra cerca de 0,65 s em média.
 - **Uma rede de segurança pra inicializações ruins.** Se a tela inicial não terminar de carregar em três inicializações seguidas da Steam, o plugin se afasta na próxima — a home da própria Steam continua utilizável — e avisa no painel de acesso rápido, com um botão "Sair do modo de segurança" pra tentar de novo no reinício seguinte.
 - **Ainda menos trabalho ocioso:** as checagens em segundo plano de atividade de amigos e de catálogos de launchers agora só rodam se algo que você configurou realmente as usa, e o plano de fundo hero pausa seu rastreamento de foco enquanto você está num jogo.
+- **Novo: suporte a Frame e Machine** — os selos dos cards e dois filtros novos usam a classificação de compatibilidade do dispositivo em que você está, o filtro de VR distingue somente VR / suporta / sem, e o ARM64 é compilado e testado no CI.
+- **Novo: Assistente de configuração com pacotes de configuração** — nove pontos de partida (predefinições rápidas, pacotes por situação, por dispositivo) aplicados num passo com prévia, recomendações a partir das estatísticas da sua biblioteca e desfazer com um toque; o tour de primeira execução agora termina com "configurar agora / padrão / do zero".
+- **Hosts independentes agora podem usar a sincronização na nuvem do plugin para as próprias configurações**, mescladas chave a chave para que nenhum dispositivo reverta outro. Nada a configurar; fica vazio até um host usar.
+- **Base para a atualização automática cooperativa do plugin.** Quando um host independente capaz de rodar a própria cópia do plugin é o dono escolhido e traz uma versão pelo menos tão nova, a cópia do loader se retira em vez de rodar duas vezes, e volta a assumir sozinha se a cópia do host nunca aparecer. Desligado até um host ativar a capacidade.
+- **Um host rodando numa sessão de headset de VR agora conta como dispositivo capaz de VR** para as shelves que dependem do dispositivo, e as contagens de observadores do painel de Desempenho agora cobrem também os vigias de shelves e cards.
+- **O tour de primeira execução perdeu o título redundante "Feature tour", parou de cortar o topo das telas e agora cobre tudo.** Voltar foi para a linha de botões do próprio diálogo, e quatro telas foram adicionadas para o layout da home e temas, atalhos, estatísticas e sugestões, e os extras opcionais.
+- **Dois templates de prateleira de VR, e pacotes de configuração que combinam com o aparelho.** "Jogos de VR" e "Só VR" entram nos templates; o pacote Frame parte deles, e o pacote Machine agora liga o visual de sala completo. "Deck Verificados", "Deck Jogáveis" e "Escolhas do Deck" viraram "Verificados / Jogáveis / Escolhas para este aparelho": seguem a nota do aparelho Steam em que você está, então fazem sentido também num Steam Machine ou num Steam Frame. No Deck, nada muda.
+- **O Assistente de configuração ganhou cara de verdade.** Os pacotes são blocos com ícones sob três grupos, escolher um mostra exatamente o que ele adiciona com contadores e uma marca no que você já tem, e aplicar termina numa tela de conclusão com Desfazer ali mesmo. Ele também parou de ocupar uma linha da lista do Acesso Rápido: abra pelo ícone de varinha na barra de título, ou pelo banner de primeira execução numa instalação nova.
+- **Ícones compactos na barra de título, e um Pular que cai nas escolhas finais.** Os ícones de varinha, documentação e configurações agora são quadrados pequenos, então o título não quebra mais ao lado da seta de voltar do Decky Loader; Pular no tour de primeira execução vai direto para a tela "como você quer começar" em vez de fechar o tour.
+- **Sem segundo tour numa instalação com dois hosts, e um banner de boas-vindas com um botão só.** Com o Decky Loader e o host independente entregando o plugin ao mesmo tempo, uma segunda cópia do tour de primeira execução aparecia logo depois de terminar a primeira; agora só a cópia dona abre o tour. O banner de boas-vindas oferece só o Assistente de configuração (as prateleiras padrão continuam disponíveis nas escolhas finais do tour), e o texto foi reescrito para combinar.
+- **Por baixo do capô: uma faxina geral.** Código morto e uma dependência sem uso removidos, a ferramenta de cenários de vídeo unificada, e 25 funções simplificadas em helpers pequenos sem mudança de comportamento; as supressões de lint caíram de 46 para 19.
+- **Por baixo do capô, segunda rodada.** Supressões de lint caíram para 10, os diálogos e cards duplicados regular/smart foram unificados em peças compartilhadas, a dica de atalho do card de placeholder agora fica atualizada, um flag de filtro legado não derruba mais a validação das configurações no boot, e os checks de compatibilidade voltaram a passar.
+- **O pacote Sala de estar liga o visual de sala completo** (arte de herói em todas as prateleiras, prateleiras de tela inteira, primeiro jogo em destaque, logos), como o pacote Machine, com as próprias prateleiras.
+- **As Sugestões se atualizam enquanto você olha para elas**, e o que você ainda não viu aparece marcado como "Novo".
+- **Por baixo dos panos, a compatibilidade com temas e as integrações com plugins foram reorganizadas** para que cada tema suportado e cada plugin de terceiros seja uma peça independente. Nada muda na tela; isso torna o suporte ao próximo tema mais rápido e seguro.
+- **As shelves só re-resolvem para os dados que mudaram** — os sinais de atualização são marcados (biblioteca, coleções, amigos, online, relógio, sessão), distribuídos aos poucos e desacelerados na bateria.
+- **Voltar para a Home ficou cerca de duas vezes mais rápido** — as linhas montam só os cards que você vê (mais uma margem) e as shelves lá embaixo esperam como placeholders até você se aproximar; sua seleção continua sendo restaurada.
+- **Entrada e atualizações escalam com o que está na tela, não com sua biblioteca** — um despachante de entrada para todos os cards, e uma atualização re-renderiza só os cards cujo próprio estado mudou.
+- **O boot a frio mostra suas shelves mais cedo** — os cards são pintados com os dados da última sessão antes de a biblioteca da Steam terminar de carregar e depois se atualizam no lugar; shelves ainda resolvendo mostram um esqueleto na posição final em vez de um spinner.
 - **O tema Clean Library Capsule agora estiliza os cards de texto das suas shelves** — fundo, negrito, contorno, cor e a opção de ocultar, controlados pelas configurações do próprio tema.
 - **O tema Gray Uninstalled agora escurece jogos não instalados nas suas shelves** — mesma opacidade e tom de cinza das capas nativas, controlados pelas configurações do próprio tema.
 - **Corrigido: os recentes nativos reapareciam ao sair da página de configurações do plugin** — uma checagem antiga podia desocultá-los na volta.
@@ -92,7 +197,6 @@ técnico completo, veja [CHANGELOG.md](CHANGELOG.md).
 
 - **Um perfil ativado automaticamente (por um trigger como conectar na doca ou carregar) podia reverter as configurações de uma Prateleira Inteligente mesmo quando você havia escolhido não vincular prateleiras a esse perfil.** Corrigido — perfis trocados automaticamente agora deixam suas prateleiras exatamente como estão, igual a quando você troca manualmente.
 - **Sombras dos cards e melhorias de compatibilidade com temas.** A sombra projetada sob cada card agora acompanha exatamente a arte em vez de se estender além dela. Corrigidos alguns problemas visuais relacionados que apareciam com certos temas do CSS Loader (Switch Like Home / Switch-like Banners): os cards agora combinam corretamente com o visual nativo redimensionado do tema, e "Usar prateleira como Recents" não renderiza mais invisível fora da tela nem deixa o título da linha preso no texto padrão sob o tema SLH.
-- **Nova forma recomendada de instalação: ShelvesHub.** Um host independente, sem necessidade do Decky Loader — instaladores de um clique para Steam Deck, Linux, macOS e Windows, com atualizações automáticas para si mesmo e para o Deck Shelves. As opções de Decky Store, zip manual e instalação por URL continuam todas disponíveis e inalteradas; o ShelvesHub é simplesmente o caminho mais fácil para quem está começando do zero.
 - **Melhorias no protetor de tela.** Agora ele mostra uma mistura justa de todas as prateleiras em vez de principalmente a primeira, retoma de onde parou em vez de reiniciar toda vez, e pode opcionalmente mostrar a descrição do jogo ao lado do logo (acima ou abaixo, com um espaçamento ajustável). Uma nova configuração também permite controlar quantos jogos ele puxa de cada prateleira por vez. Corrigido um bug em que, com 2 ou mais prateleiras ativadas, nenhuma delas conseguia mostrar seu número total configurado de jogos. Ele também pode agora incluir opcionalmente as capturas de tela oficiais online de cada jogo, não só as que você mesmo capturou (requer que os recursos Online estejam ativados).
 - **Ícones de compatibilidade que se adaptam ao seu dispositivo.** Em um Steam Deck / SteamOS, os cards continuam mostrando a classificação de compatibilidade do Steam Deck; no macOS, Windows e Linux desktop eles agora mostram ícones de suporte a controle (total ou parcial) — a mesma coisa que o Steam nativo mostra ali — em vez de uma classificação do Deck que não se aplica. É a mesma alternância "ícones de compatibilidade" que você já tem, por prateleira ou globalmente.
 - **A sincronização de configurações entre dispositivos ficou muito mais confiável.** Se você usa a sincronização opcional entre dispositivos, dois dispositivos agora mesclam suas mudanças prateleira por prateleira em vez de um sobrescrever o outro, e um bug que podia fazer prateleiras sincronizadas desaparecerem (ou o plugin inteiro ser lido como desligado) foi corrigido. Se a mesma prateleira foi criada separadamente em cada dispositivo, elas aparecerão como duas — apague a extra uma vez e ela some para sempre.
@@ -346,7 +450,7 @@ técnico completo, veja [CHANGELOG.md](CHANGELOG.md).
 - **O painel lateral podia ser empurrado para fora da área visível** com logo + descrição ativados. Prateleiras promovidas (página inteira) não adicionam mais preenchimento extra para a zona do logo — o logo compõe dentro da área de hero existente em vez de empurrar a linha de cards para fora da tela.
 - **Abertura acidental do painel lateral** ao mover para o botão mais à direita de uma linha. Pressionar direita duas vezes no mesmo elemento em foco agora é necessário para expandir o painel; o primeiro toque só leva o foco até lá.
 
-> Mudanças na API do plugin (`registerSearchProvider`, `registerSideMenuProvider`, novos tipos de descritor, getters públicos de registro) são acompanhadas em [api/RELEASE_NOTES.md](../../api/RELEASE_NOTES.md). Adições do CDP deckprobe são acompanhadas em [deckprobe/RELEASE_NOTES.md](../../deckprobe/RELEASE_NOTES.md).
+> Mudanças na API do plugin (`registerSearchProvider`, `registerSideMenuProvider`, novos tipos de descritor, getters públicos de registro) são acompanhadas em [api/RELEASE_NOTES.md](../../api/RELEASE_NOTES.md). Adições do CDP deckprobe são acompanhadas em [deckprobe/RELEASE_NOTES.md](../../deckprobe/CHANGELOG.md).
 
 ## [2.4.3] - 2026-06-12
 

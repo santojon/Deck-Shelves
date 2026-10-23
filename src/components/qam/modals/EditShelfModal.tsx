@@ -1,6 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
 import {
-  ConfirmModal,
   DialogButton,
   DropdownItem,
   Field,
@@ -15,7 +14,7 @@ import { normalizeFilter } from '../../../domain/settings'
 import { SHELF_LIMIT_MAX } from '../../../domain/shelfLimits'
 import { consumePendingShelfModalTab } from '../../../core/shelfActions'
 import { FilterPanel } from '../../FilterPanel'
-import { FieldContainer, ModalShell , DSSliderField} from '../../ui'
+import { FieldContainer, DSSliderField} from '../../ui'
 import { logInfo } from '../../../runtime/logger'
 import { notify } from '../../notify'
 import { invalidateRandomSortCache } from '../../../steam'
@@ -37,7 +36,7 @@ import { PreviewPanel } from './editShelf/PreviewPanel'
 import { useModalCollections } from './editShelf/useModalCollections'
 import { TabLabel } from './editShelf/TabLabel'
 import { SortField } from './editShelf/SortField'
-import { ModalHeader } from './editShelf/ModalHeader'
+import { EditShelfFrame } from './editShelf/EditShelfFrame'
 import {
   sanitizeSyntheticCard,
   buildSortPatchFields,
@@ -66,12 +65,13 @@ import {
   type ChildSourceType,
 } from './editShelf/compositeSourceUtils'
 import { buildInitialShelfState } from './editShelf/buildInitialState'
+import { visualFlagsOf, applyVisualPatch, previewHideFlags, removableTail } from './editShelf/sharedEditProps'
 
 // Native library tabs. If the controller's async `listLibraryTabs` resolved
 /* to an empty list (a host-window store throwing on enumeration has been
    seen in the wild, and the controller's `.catch` falls back to `[]`), we
    still surface these so the source dropdown is never blank. The localized
-   labels later in `detectNativeKey` match against `id` slugs, so these IDs
+   labels in the `tabOptions` builder below match against `id` slugs, so these IDs
    are guaranteed to render with the right translated names. */
 const NATIVE_FALLBACK_TABS: import('../../../runtime/platform').PlatformTab[] = [
   { id: 'all',        name: 'All Games' },
@@ -205,7 +205,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
   /* Guard the dropdown against any failure mode in the controller's async
      `listLibraryTabs`: empty array, undefined, or never-resolved. Native
      defaults below are the same 5 IDs `listLibraryTabs` would have
-     returned, so localized labels via `detectNativeKey` still apply. */
+     returned, so localized labels from the `tabOptions` builder still apply. */
   const platformTabs = resolvePlatformTabs(controllerTabs)
   const platform = usePlatform()
   const externalSources = useMemo(() => getExternalSources(), [])
@@ -692,24 +692,16 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
   })()
 
   return (
-    <ModalShell>
-      <ConfirmModal
-        bAllowFullSize
-        onCancel={closeModal}
-        onEscKeypress={closeModal}
-        strTitle={`${t('editing')}: ${shelf.title}`}
-        onOK={handleSave}
-        strOKButtonText={t('save')}
-      >
-        <Focusable onMenuButton={handleSave} onMenuActionDescription={t('save')} style={{ paddingBottom: 8 }}>
-          <ModalHeader
-            t={t}
-            title={state.title}
-            onTitleChange={(next) => setState((prev) => ({ ...prev, title: next }))}
-            previewCount={previewCount}
-          />
-          <div style={{ display: 'flex', flexDirection: 'column', height: 'min(calc(100vh - 130px), 540px)', minHeight: 400 }}>
-          <div style={{ flex: '1 1 0', minHeight: 0, position: 'relative', overflow: 'auto' }}>
+    <EditShelfFrame
+      t={t}
+      heading={`${t('editing')}: ${shelf.title}`}
+      title={state.title}
+      onTitleChange={(next) => setState((prev) => ({ ...prev, title: next }))}
+      previewCount={previewCount}
+      onSave={handleSave}
+      onClose={closeModal}
+      tabsOverflow='auto'
+      tabs={(
           <Tabs
             activeTab={activeTab}
             onShowTab={(id: string) => setActiveTab(id as EditTab)}
@@ -953,8 +945,8 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
                 content: (
                   <VisualTabContent
                     t={t}
-                    flags={{ matchNativeSize: state.matchNativeSize, highlightFirst: state.highlightFirst, highlightAll: state.highlightAll, highlightRandom: state.highlightRandom, enableLogo: state.enableLogo, enableIcon: state.enableIcon, enableDescription: state.enableDescription, descriptionBelowLogo: state.descriptionBelowLogo, logoPosition: state.logoPosition, descriptionPosition: state.descriptionPosition, logoSize: state.logoSize, logoTopOffset: state.logoTopOffset, iconVerticalAlign: state.iconVerticalAlign, shelfTitlePosition: state.shelfTitlePosition, gameNamePosition: state.gameNamePosition, playtimePosition: state.playtimePosition, descriptionHeight: state.descriptionHeight, descriptionLogoGap: state.descriptionLogoGap, descriptionScale: state.descriptionScale, fullPageShelf: state.fullPageShelf, heroEnabled: state.heroEnabled, gameInfoAbove: state.gameInfoAbove, friendsPlayingOverlay: state.friendsPlayingOverlay, friendsPlayingOverlayRecent: state.friendsPlayingOverlayRecent }}
-                    setFlags={(patch: any) => setState((prev) => { const next = { ...prev, ...patch }; if (patch.gameInfoAbove === true) next.hideShelfTitle = true; return next; })}
+                    flags={visualFlagsOf(state)}
+                    setFlags={(patch: any) => setState((prev) => applyVisualPatch(prev, patch))}
                     highlightedAppIds={state.highlightedAppIds}
                     setHighlightedAppIds={(next) => setState((prev) => ({ ...prev, highlightedAppIds: next }))}
                     highlightPickerOpen={highlightPickerOpen}
@@ -1024,7 +1016,8 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
               },
             ]}
           />
-          </div>
+      )}
+      preview={(
           <PreviewPanel
             t={t}
             title={state.title}
@@ -1056,14 +1049,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
             highlightedAppIds={state.highlightedAppIds}
             alternatingMode={alternatingMode}
             hiddenAppIds={state.hiddenAppIds}
-            hideStatusLine={state.hideStatusLine}
-            hideNewBadge={state.hideNewBadge}
-            hideCompatIcons={state.hideCompatIcons}
-            hideNonSteamBadge={state.hideNonSteamBadge}
-            hideGameNames={state.hideGameNames === true}
-            hideInstallIndicator={state.hideInstallIndicator === true}
-            hideSeeMore={state.hideSeeMore === true}
-            hideRefreshCard={state.hideRefreshCard === true}
+            {...previewHideFlags(state)}
             limit={state.limit}
             shelfSource={previewSource}
             shelfSort={state.sort}
@@ -1073,17 +1059,10 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
             selectionMode={previewSelection.mode}
             selectionSet={previewSelection.set}
             onToggleSelection={previewSelection.onToggle}
-            removableSet={(() => {
-              if (!state.manualOrder.length) return undefined
-              const inSource = new Set(resolvedIds)
-              const tail = state.manualOrder.filter((id) => !inSource.has(id))
-              return tail.length ? new Set(tail) : undefined
-            })()}
+            removableSet={removableTail(state.manualOrder, resolvedIds)}
             onRemoveCard={(id) => setState((prev) => ({ ...prev, manualOrder: prev.manualOrder.filter((x) => x !== id) }))}
           />
-          </div>
-        </Focusable>
-      </ConfirmModal>
-    </ModalShell>
+      )}
+    />
   )
 }

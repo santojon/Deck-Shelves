@@ -68,6 +68,37 @@ def _mirror_paths() -> Tuple[str, str]:
     )
 
 
+def _loader_home() -> str:
+    """The plugin loader's own directory (`DECKY_HOME`, else `~/homebrew`)."""
+    return os.environ.get("DECKY_HOME") or os.path.expanduser("~/homebrew")
+
+
+def _loader_installed() -> bool:
+    """A cheap, honest signal that a plugin loader is installed on this
+    machine: Linux only (no loader exists on macOS or Windows, even where an
+    earlier backend version left its settings directory behind), with the
+    loader's plugins directory present AND either its service binary or its
+    version marker."""
+    if not sys.platform.startswith("linux"):
+        return False
+    home = _loader_home()
+    if not os.path.isdir(os.path.join(home, "plugins")):
+        return False
+    services = os.path.join(home, "services")
+    return os.path.exists(os.path.join(services, "PluginLoader")) or os.path.exists(os.path.join(services, ".loader.version"))
+
+
+def _loader_absent(loader_file: str) -> bool:
+    """True from a session other than the loader's own when no loader is
+    installed here (see `_loader_installed`): nothing would ever read a copy
+    placed at `loader_file`, so the loader-side path stays out of the mirrored
+    pair and its directory is never created from this side. The loader's own
+    session is exempt because that directory is its primary."""
+    if os.path.normpath(loader_file) == os.path.normpath(_primary_file()):
+        return False
+    return not _loader_installed()
+
+
 def _read_wrapped(path: str) -> Optional[Dict[str, Any]]:
     """Read the `{state, rev, updatedAt}` wrapper from `path`. None when
     missing/unreadable/shapeless. A file written before mirroring existed
@@ -105,7 +136,10 @@ def _atomic_write_wrapped(path: str, wrapped: Dict[str, Any]) -> None:
             json.dump(wrapped, f, ensure_ascii=False, indent=2)
             f.flush()
             os.fsync(f.fileno())
-        if os.path.exists(path):
+        if _is_corrupt_json(path):
+            # Never rotate a broken file over the last known-good `.bak`.
+            _quarantine_corrupt_primary(path)
+        elif os.path.exists(path):
             try:
                 os.replace(path, path + ".bak")
             except Exception:
@@ -129,6 +163,8 @@ def sync_mirror(state: Dict[str, Any], rev: int, updated_at: float) -> None:
         other = loader if os.path.normpath(primary) == os.path.normpath(canonical) else canonical
         if os.path.normpath(other) == os.path.normpath(primary):
             return  # dev fallback where both resolve to the same path
+        if _loader_absent(loader):
+            return
         existing = _read_wrapped(other)
         if existing and existing["rev"] >= rev:
             return
@@ -137,30 +173,53 @@ def sync_mirror(state: Dict[str, Any], rev: int, updated_at: float) -> None:
         pass
 
 
+# Set when a reconcile replaced an unreadable copy with the other side's good
+# one; the RPC layer reads it once to tell the user settings were recovered.
+_reconcile_recovered = False
+
+
+def take_reconcile_recovery() -> bool:
+    global _reconcile_recovered
+    was, _reconcile_recovered = _reconcile_recovered, False
+    return was
+
+
+def _adopt_into(path: str, winner: Dict[str, Any]) -> None:
+    global _reconcile_recovered
+    if _is_corrupt_json(path):
+        _reconcile_recovered = True
+    _atomic_write_wrapped(path, winner)
+
+
 def reconcile_settings() -> Optional[Dict[str, Any]]:
     """Resolve the canonical/loader pair before a read: the higher-`rev`
     side wins and is copied over the other (adopt-by-copy — never a move,
     the loser's own file is simply refreshed to match, so no host's data
     is ever deleted by this). Handles every combination: both present
     (LWW), only one present (adopt into the missing side — first-ever run
-    of the second host on a machine that already has the other), or
-    neither (fresh install, caller falls back to defaults). Best-effort:
-    any failure here just means the caller reads from `_primary_file()`
-    as it always did, so this can never break settings load."""
+    of the second host on a machine that already has the other; on a machine
+    without a loader the loader-side path stays out of the pair, see
+    `_loader_absent`), or neither (fresh install, caller falls back to
+    defaults). Best-effort: any failure here just means the caller reads from
+    `_primary_file()` as it always did, so this can never break settings load."""
     try:
         canonical, loader = _mirror_paths()
+        absent = _loader_absent(loader)
         c = _read_wrapped(canonical)
-        l = _read_wrapped(loader)
+        l = None if absent else _read_wrapped(loader)
         if c and l:
+            if c["rev"] == l["rev"] and c["state"] == l["state"]:
+                return c  # already in step — no write, no `.bak` churn
             winner_path, winner = (canonical, c) if c["rev"] >= l["rev"] else (loader, l)
             loser_path = loader if winner_path == canonical else canonical
-            _atomic_write_wrapped(loser_path, winner)
+            _adopt_into(loser_path, winner)
             return winner
         if c and not l:
-            _atomic_write_wrapped(loader, c)
+            if not absent:
+                _adopt_into(loader, c)
             return c
         if l and not c:
-            _atomic_write_wrapped(canonical, l)
+            _adopt_into(canonical, l)
             return l
         return None
     except Exception:
@@ -253,7 +312,9 @@ def _backups_dir() -> str:
 
 
 def _is_backup_file(name: str) -> bool:
-    return name.startswith("settings-") and name.endswith(".json")
+    # Quarantined unreadable files (`-corrupt`) are evidence, not restorable
+    # backups: never listed, counted, pruned or tried during recovery.
+    return name.startswith("settings-") and name.endswith(".json") and "-corrupt" not in name
 
 
 def _is_auto_backup(name: str) -> bool:

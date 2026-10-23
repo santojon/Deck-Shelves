@@ -1,10 +1,12 @@
+import { devStamp } from "../../runtime/devStamps";
 import { forwardRef, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Focusable } from "../../runtime/host/decky";
 import { getCurrentSettings, subscribeSettings } from "../../settingsStore";
 import { getExternalSideMenuProviders, type SideMenuContext, type SideMenuEntry, type SideMenuProviderDescriptor } from "../../core/pluginApi";
 import type { Settings, Shelf, SmartShelf } from "../../types";
-import { focusElement } from "../../core/focusRestore";
+import { focusElement, focusElementAuto } from "../../core/focusRestore";
+import { subscribeFocusedCard } from "../../runtime/focusedCardTracker";
 import { GamepadButton, dispatchHomeButtonDown, subscribeHomeButton, subscribeHomeKey } from "../../runtime/homeInputBus";
 import { createMatcherState, matchEvent, parseCombo, parseRawCombo, resolveBindings } from "../../runtime/buttonBindings";
 import { resolveKeyboardBindings, parseKeyCombo, matchKeyEvent, createKeyMatcherState, isEditableKeyTarget } from "../../runtime/keyboardBindings";
@@ -16,6 +18,7 @@ import { evalVisibility } from "../../steam/smartShelves";
 import { interleaveSmartShelves, pickFirstVisibleShelfId } from "../../domain/shelfOrder";
 import { closeAmbientOverlays, lockOverlay, isOverlayLocked } from "../../runtime/closeOverlays";
 import { subscribeSessionState, getSessionState } from "../../runtime/sessionState";
+import { flowChildrenProps } from "../../core/steamOSVersion";
 
 type Anchor = {
   shelfId: string;
@@ -46,6 +49,26 @@ function resolveDevSidenavAnchor(
 function firstDomShelfId(): string | undefined {
   const doc = getPreferredSteamDocument() ?? document;
   return doc.querySelector<HTMLElement>(".ds-shelf[data-shelfid]")?.getAttribute("data-shelfid") ?? undefined;
+}
+
+export type LastFocusedCard = { shelfId: string; appid: number | null };
+
+/* The last card focused on any DS shelf, fed by the shared focused-card poll
+   (one timer for every subscriber, held while a game runs) instead of a class
+   observer over the whole Big Picture body. The `gpfocus` read covers a mouse
+   or hover focus the nav tree does not report. */
+export function watchLastFocusedCard(doc: Document, onCard: (card: LastFocusedCard) => void): () => void {
+  const update = (focusedCard: HTMLElement | null) => {
+    const focused = focusedCard?.hasAttribute("data-appid") ? focusedCard : doc.querySelector<HTMLElement>(".gpfocus[data-appid]");
+    if (!focused) return;
+    const appidAttr = focused.getAttribute("data-appid");
+    const appid = appidAttr ? Number(appidAttr) : null;
+    const shelfId = focused.closest<HTMLElement>("[data-shelfid]")?.getAttribute("data-shelfid") ?? null;
+    if (!shelfId) return;
+    onCard({ shelfId, appid: Number.isFinite(appid) ? appid : null });
+  };
+  update(null);
+  return subscribeFocusedCard(update);
 }
 
 function readGamepadButton(evt: any): number | null {
@@ -143,21 +166,7 @@ export function ShelfSideNav() {
     const doc = getPreferredSteamDocument() ?? document;
     // Track the LAST focused card on any DS shelf so the side menu can
     // remember which shelf the user was browsing when they triggered it.
-    const update = () => {
-      const focused = doc.querySelector<HTMLElement>(".gpfocus[data-appid]");
-      if (!focused) return;
-      const appidAttr = focused.getAttribute("data-appid");
-      const appid = appidAttr ? Number(appidAttr) : null;
-      const shelfEl = focused.closest<HTMLElement>("[data-shelfid]");
-      const shelfId = shelfEl?.getAttribute("data-shelfid") ?? null;
-      if (!shelfId) return;
-      lastFirstCardRef.current = { shelfId, appid: Number.isFinite(appid) ? appid : null };
-    };
-    update();
-    if (!doc.body) return;
-    const obs = new MutationObserver(update);
-    obs.observe(doc.body, { attributes: true, subtree: true, attributeFilter: ["class"] });
-    return () => obs.disconnect();
+    return watchLastFocusedCard(doc, (card) => { lastFirstCardRef.current = card; });
   }, [enabled, gameRunning]);
 
   /* Dev-only screenshot hook: opens the side nav without a real gamepad
@@ -167,14 +176,22 @@ export function ShelfSideNav() {
   useEffect(() => {
     if (!__DEV__) return;
     const g = globalThis as any;
-    g.__ds_dev_open_sidenav = (shelfId?: string, appid?: number) => {
+    const open = (shelfId?: string, appid?: number) => {
       const next = resolveDevSidenavAnchor(shelfId, appid, lastFirstCardRef.current);
       if (!next) return false;
       setAnchor(next);
       return true;
     };
-    g.__ds_dev_close_sidenav = () => setAnchor(null);
-    return () => { try { delete g.__ds_dev_open_sidenav; delete g.__ds_dev_close_sidenav; } catch {} };
+    const closeHook = () => setAnchor(null);
+    g.__ds_dev_open_sidenav = open;
+    g.__ds_dev_close_sidenav = closeHook;
+    // A remounted Home registers before the old root's cleanup runs; only remove our own.
+    return () => {
+      try {
+        if (g.__ds_dev_open_sidenav === open) delete g.__ds_dev_open_sidenav;
+        if (g.__ds_dev_close_sidenav === closeHook) delete g.__ds_dev_close_sidenav;
+      } catch {}
+    };
   }, []);
 
   useEffect(() => {
@@ -190,7 +207,7 @@ export function ShelfSideNav() {
       lockOverlay();
       void (async () => {
         await closeAmbientOverlays();
-        try { (globalThis as any).__ds_sidenav_open = { shelfId, appid, t: now }; } catch {}
+        devStamp("__ds_sidenav_open", { shelfId, appid, t: now });
         setAnchor({ shelfId, focusedAppid: Number.isFinite(appid) ? (appid as number) : null });
         trackFeature("sidenav");
       })();
@@ -199,10 +216,10 @@ export function ShelfSideNav() {
     const rawMatcherState = createMatcherState();
     const unsubBtn = subscribeHomeButton((e) => {
       if (!enabledRef.current) return;
-      try { (globalThis as any).__ds_sidenav_last_btn = { b: e.button, t: Date.now() }; } catch {}
+      devStamp("__ds_sidenav_last_btn", { b: e.button, t: Date.now() });
       const combo = parseCombo(resolveBindings(getCurrentSettings()?.buttonBindings as any, (getCurrentSettings() as any)?.buttonBindingsDisabled).navSideNav);
       if (matchEvent({ button: e.button }, combo, matcherState)) {
-        try { (globalThis as any).__ds_sidenav_fired = Date.now(); } catch {}
+        devStamp("__ds_sidenav_fired", Date.now());
         tryOpen();
       }
     });
@@ -223,7 +240,7 @@ export function ShelfSideNav() {
       if (!enabledRef.current || isEditableKeyTarget(e.tag)) return;
       const navSideNavKey = resolveKeyboardBindings(getCurrentSettings()?.keyboardBindings as any, (getCurrentSettings() as any)?.keyboardBindingsDisabled).navSideNav;
       if (!navSideNavKey) return;
-      if (matchKeyEvent(e.code ?? null, parseKeyCombo(navSideNavKey), keyMatcherState)) tryOpen();
+      if (matchKeyEvent(e.code ?? null, parseKeyCombo(navSideNavKey), keyMatcherState, Date.now(), { ctrl: e.ctrl, shift: e.shift, alt: e.alt })) tryOpen();
     });
     return () => { unsubBtn(); unsubRaw(); unsubKey(); };
   }, [anchor, enabled, gameRunning]);
@@ -392,7 +409,7 @@ function SideNavShell({ anchor, settings, onClose }: { anchor: Anchor; settings:
         if (cancelled) return;
         const el = rowRefs.current.get(targetId)
           ?? (firstShelfIdRef.current ? rowRefs.current.get(firstShelfIdRef.current) : null);
-        try { (globalThis as any).__ds_sidenav_focus = { delay, targetId, found: !!el }; } catch {}
+        devStamp("__ds_sidenav_focus", { delay, targetId, found: !!el });
         if (el) focusRowPreservingScroll(el, () => cancelled);
       }, delay);
     };
@@ -427,7 +444,7 @@ function SideNavShell({ anchor, settings, onClose }: { anchor: Anchor; settings:
     const doc = getPreferredSteamDocument() ?? document;
     onClose();
     if (shelfId === NATIVE_RECENTS_ID) {
-      focusNativeRecentsFirstCard(doc);
+      focusNativeRecentsFirstCard(doc, false);
       return;
     }
     const target = doc.querySelector<HTMLElement>(
@@ -480,7 +497,7 @@ function SideNavShell({ anchor, settings, onClose }: { anchor: Anchor; settings:
     >
       <Focusable
         ref={panelRef}
-        flow-children="vertical"
+        {...flowChildrenProps("vertical")}
         noFocusRing
         onCancelButton={onClose}
         onButtonDown={(evt: any) => {
@@ -684,7 +701,7 @@ function cssEscape(value: string): string {
 // Synthetic id used for the native Steam "Recents" row when it's visible
 // on the home. Picked here (not in settings) so it can't collide with a
 // real user-defined shelf id and so callers can recognise it.
-export const NATIVE_RECENTS_ID = "__ds_native_recents__";
+const NATIVE_RECENTS_ID = "__ds_native_recents__";
 
 function getClassMap(): Record<string, string> {
   try {
@@ -745,7 +762,7 @@ export function findNativeRecentsEl(doc: Document): HTMLElement | null {
     const top = el.getBoundingClientRect().top;
     if (top < bestTop) { best = el; bestTop = top; }
   }
-  try { (globalThis as any).__ds_native_probe = best ? { found: true, top: Math.round(best.getBoundingClientRect().top), candidates: candidates.length } : { found: false, candidates: candidates.length }; } catch {}
+  devStamp("__ds_native_probe", best ? { found: true, top: Math.round(best.getBoundingClientRect().top), candidates: candidates.length } : { found: false, candidates: candidates.length });
   return best;
 }
 
@@ -785,8 +802,8 @@ function readNativeRecentsEntry(doc: Document | null, fallbackLabel: string): Un
   /* `nativeLabelInner` / `nativeLabelOuter` hashed classes target the
      PER-CARD label (focused-card info like "Blasphemous 2 - 30h") and
      would surface the wrong string. When the override is on, the
-     patch in `recentsReplace.tsx` rewrites this heading to the source
-     shelf title — reading it here keeps both cases correct. */
+     recents replacement writes the source shelf title into this heading
+     — reading it here keeps both cases correct. */
   const text = el.querySelector<HTMLElement>('h1, h2, h3')?.textContent?.trim() ?? "";
   return { id: NATIVE_RECENTS_ID, title: text && text.length > 0 ? text : fallbackLabel };
 }
@@ -805,13 +822,15 @@ function findFirstNativeCard(el: HTMLElement, map: Record<string, string>): HTML
   return null;
 }
 
-export function focusNativeRecentsFirstCard(doc: Document | null): boolean {
+// `auto`: an automatic landing stays off a Home a game or another page owns;
+// the user's own pick from the side nav always moves.
+export function focusNativeRecentsFirstCard(doc: Document | null, auto = true): boolean {
   if (!doc) return false;
   const el = findNativeRecentsEl(doc);
   if (!el) return false;
   const card = findFirstNativeCard(el, getClassMap());
   if (!card) return false;
   try { card.scrollIntoView({ block: "center", inline: "center", behavior: "instant" as ScrollBehavior }); } catch {}
-  try { focusElement(card); } catch {}
+  try { (auto ? focusElementAuto : focusElement)(card); } catch {}
   return card.classList.contains("gpfocus") || card === card.ownerDocument?.activeElement;
 }

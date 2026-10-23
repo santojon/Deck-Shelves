@@ -18,6 +18,8 @@
   "menu_game_fallback": "Gra",
   "menu_properties": "Właściwości",
   "menu_remove_from_shelf": "Usuń z półki",
+  "menu_lists": "Listy",
+  "menu_edit_tags": "Edytuj tagi…",
   "menu_resume": "Wznów",
   "menu_shelf": "Półka",
   "menu_uninstall": "Odinstaluj",
@@ -62,10 +64,13 @@
   "toast_filter_renamed": "Zmieniono nazwę filtra",
   "mount_crash_report": "Zgłoś problem",
   "safe_mode_title": "Tryb awaryjny jest włączony",
-  "safe_mode_desc": "Twoje półki zostały wyłączone w tej sesji, ponieważ ekran główny nie załadował się do końca przy trzech kolejnych uruchomieniach. Własny ekran główny Steam pozostaje użyteczny. Opuść tryb awaryjny, aby spróbować ponownie przy następnym restarcie Steam.",
+  "safe_mode_desc": "Twoje półki zostały wyłączone w tej sesji, ponieważ ekran główny nie załadował się do końca przy trzech z ostatnich sześciu uruchomień. Własny ekran główny Steam pozostaje użyteczny. Opuść tryb awaryjny, aby spróbować ponownie przy następnym restarcie Steam.",
   "safe_mode_leave": "Opuść tryb awaryjny",
   "report_issue_title": "Zgłoś problem",
   "report_issue_desc": "Otwiera wstępnie wypełnione zgłoszenie w przeglądarce. Nic nie jest wysyłane, dopóki go nie sprawdzisz i nie wyślesz.",
   "report_issue_hardware": "Dołącz informacje o sprzęcie",
-  "report_issue_hardware_desc": "Model, CPU, pamięć, GPU i pamięć masowa — pomaga diagnozować problemy specyficzne dla urządzenia."
+  "report_issue_hardware_desc": "Model, CPU, pamięć, GPU i pamięć masowa — pomaga diagnozować problemy specyficzne dla urządzenia.",
+  "sidecar_back": "Wstecz",
+  "coop_stand_in": "Deck Shelves działa na tym urządzeniu z własnej karty Szybkiego dostępu.",
+  "qam_sidecar_toggle": "Pokaż lub ukryj ustawienia"
 }

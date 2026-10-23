@@ -26,6 +26,13 @@ export function subscribeSessionState(cb: () => void): () => void {
   return () => { _listeners.delete(cb); };
 }
 
+// Called with the app id on every app start, for features that log launches.
+const _startListeners = new Set<(appid: number) => void>();
+export function subscribeAppStart(cb: (appid: number) => void): () => void {
+  _startListeners.add(cb);
+  return () => { _startListeners.delete(cb); };
+}
+
 function isNonSteam(appid: number): boolean {
   try {
     const ov = (globalThis as any).appStore?.GetAppOverviewByAppID?.(appid);
@@ -63,6 +70,7 @@ function noteLifetime(n: any): void {
     _lastApp = id;
     _lastNonSteam = isNonSteam(id);
     _runningByEvent.add(id);
+    for (const cb of _startListeners) { try { cb(id); } catch {} }
   } else if (n?.bRunning === false) {
     _runningByEvent.delete(id);
   }

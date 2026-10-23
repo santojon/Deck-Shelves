@@ -65,7 +65,7 @@ export function resolveOverlayOffset(logoTopOffset: number, isFullPage: boolean)
 // A card counts as visible for the "first visible card" fallback when it
 // has real layout (not display:none / zero height) and isn't hidden by an
 // ancestor (offsetParent null) or CSS visibility.
-export function isCardVisible(c: HTMLElement): boolean {
+function isCardVisible(c: HTMLElement): boolean {
   if (c.offsetHeight <= 0 || c.offsetParent === null) return false;
   const cs = getComputedStyle(c);
   return cs.visibility !== 'hidden' && cs.display !== 'none';

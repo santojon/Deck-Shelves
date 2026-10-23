@@ -212,7 +212,7 @@ export function DeckQAMStyles() {
       .deck-shelves-qam-scope .deck-shelves-shelf-list {
         padding: 0;
       }
-      /* Force ellipsis on shelf titles within ReorderableList entries */
+      /* Force ellipsis on shelf titles in the QAM shelf lists */
       .deck-shelves-qam-scope .deck-shelves-shelf-list .${gamepadDialogClasses.Field} {
         overflow: hidden;
       }
@@ -229,6 +229,14 @@ export function DeckQAMStyles() {
         overflow: hidden;
         min-width: 0;
         flex: 1 1 0;
+      }
+      /* Controller grab: the name area; focus and the held row use Steam's own row highlight */
+      .deck-shelves-qam-scope .ds-grab-target {
+        flex: 1 1 auto;
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        overflow: hidden;
       }
 
       .deck-shelves-qam-scope .deck-shelves-label-cont {
@@ -540,18 +548,24 @@ export function DeckQAMStyles() {
         background: rgba(255, 255, 255, 0.14);
         outline: none;
       }
+      .deck-shelves-qam-scope .deck-shelves-qam-sidecar-row.gpfocus,
+      .deck-shelves-qam-scope .deck-shelves-qam-sidecar-row:focus {
+        background: rgba(255, 255, 255, 0.1);
+        outline: none;
+      }
 
-      /* Sidecar panel — mirrors the native Friends & Chat second-column
-         pattern. Rendered via React Portal directly into the QAM body so
-         Steam's gamepad nav sees it as a top-level focusable sibling
-         (rather than buried inside the constrained Decky plugin tab
-         wrapper). position: fixed lays it over the otherwise-empty right
-         portion of the QAM panel (left edge ~351 = 51 tab strip +
-         300 DS plugin tab width). */
+      /* Sidecar panel — mirrors the native Friends & Chat second column.
+         Rendered inline, as a sibling of the main column inside the tab;
+         position: fixed lays it over the right portion of the widened QAM
+         (left edge ~351 = 51 tab strip + 300 plugin tab width). */
       .deck-shelves-qam-sidecar {
-        position: absolute;
-        left: 300px;
-        top: 0;
+        /* Fixed to the QAM viewport (the measurement anchors it to the tab's
+           content panel, whose box stays put when its content scrolls), so the
+           sidecar never slides along when the gamepad focus scrolls the main
+           column under it. */
+        position: fixed;
+        left: 348px;
+        top: 14px;
         width: 503px;
         height: 440px;
         /* No explicit background -- Steam does not expose theme CSS vars
@@ -564,15 +578,18 @@ export function DeckQAMStyles() {
         z-index: 5;
         box-sizing: border-box;
       }
+      /* Header pinned to the very top of the sidecar (it starts at the tab's
+         content top, like the host's), with a back control on the left. */
       .ds-sidecar-title {
         position: absolute;
-        /* Nudge the title up so it sits roughly at the same vertical
-           band as Decky's "Deck Shelves" header in the QAM frame above. */
-        top: -8px;
+        top: 0;
         left: 0;
         right: 0;
-        height: 32px;
-        padding: 4px 16px;
+        height: 40px;
+        padding: 4px 16px 4px 10px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
         font-weight: 700;
         font-size: 18px;
         color: #ffffff;
@@ -582,9 +599,56 @@ export function DeckQAMStyles() {
         box-sizing: border-box;
         z-index: 2;
       }
+      /* Tab strip in the sidecar header (the standalone host's sidecar pattern:
+         the active tab bright with a tinted pill, the others dimmed). */
+      .ds-sidecar-tabs {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        flex: 1 1 auto;
+        min-width: 0;
+      }
+      .ds-sidecar-tab {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        height: 32px;
+        padding: 0 12px;
+        border-radius: 4px;
+        font-size: 13px;
+        font-weight: 500;
+        letter-spacing: 0;
+        color: rgba(255, 255, 255, 0.6);
+        background: transparent;
+      }
+      .ds-sidecar-tab[data-active="1"] {
+        font-weight: 700;
+        color: #ffffff;
+        background: rgba(255, 255, 255, 0.14);
+      }
+      .ds-sidecar-back {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 36px;
+        height: 32px;
+        flex: 0 0 auto;
+        border-radius: 4px;
+        background: rgba(255, 255, 255, 0.08);
+        color: #ffffff;
+        cursor: pointer;
+        user-select: none;
+      }
+      .ds-sidecar-back.gpfocus,
+      .ds-sidecar-back:focus,
+      .ds-sidecar-back:focus-within {
+        background: rgba(255, 255, 255, 0.20);
+        outline: 2px solid rgba(255, 255, 255, 0.45);
+        outline-offset: -2px;
+      }
       .ds-sidecar-body {
         position: absolute;
-        top: 24px;
+        top: 40px;
         left: 0;
         right: 0;
         bottom: 16px;

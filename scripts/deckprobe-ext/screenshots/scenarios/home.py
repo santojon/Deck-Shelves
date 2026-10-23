@@ -9,7 +9,7 @@ from deckprobe.screenshots.lib.cdp import Session
 from deckprobe.screenshots.lib.nav import ensure_bp_clean, _bp_eval
 from deckprobe.screenshots.lib.capture import capture_bigpicture
 from deckprobe.screenshots.lib.registry import register
-from ._locale import force_locale
+from ._locale import force_locale, gamepad_glyphs
 
 
 @register("home")
@@ -37,6 +37,7 @@ def home(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Path]:
 """)
     time.sleep(1.0)
     out = out_dir / "home.png"
+    gamepad_glyphs(host, port)
     p = capture_bigpicture(host, port, out)
     return {"home.png": p} if p else {}
 
@@ -71,24 +72,20 @@ def home_shelves(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str,
 })()
 """)
     time.sleep(1.5)
-    # Focus first card then step right for deterministic focus state
+    # Focus the second card of the second shelf directly (DOM focus; the nav
+    # tree follows). No key events: a synthetic keydown flips Steam's footer
+    # hints to keyboard mode and, without its keyup, keeps them there.
     _bp_eval(host, port, """
 (function(){
-  const card = document.querySelector('.ds-shelf[data-shelfid] .ds-card');
+  const shelf = document.querySelectorAll('.ds-shelf[data-shelfid]')[1];
+  const cards = shelf ? shelf.querySelectorAll('.ds-card') : [];
+  const card = cards[1] || cards[0];
   if (card) try { card.focus(); } catch {}
-  return 'ok';
-})()
-""")
-    time.sleep(0.6)
-    _bp_eval(host, port, """
-(function(){
-  const evt = new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true });
-  (document.activeElement || document).dispatchEvent(evt);
-  document.dispatchEvent(evt);
-  return 'ok';
+  return cards.length;
 })()
 """)
     time.sleep(3.0)
     out = out_dir / "home-shelves.png"
+    gamepad_glyphs(host, port)
     p = capture_bigpicture(host, port, out)
     return {"home-shelves.png": p} if p else {}

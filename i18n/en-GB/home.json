@@ -22,13 +22,14 @@
   "download_update": "Download update",
   "update_install": "Install update",
   "update_installing": "Installing update {{version}}…",
-  "update_installed": "Updated to {{version}} — reloading…",
+  "update_installed": "Updated to {{version}}.",
   "update_install_failed": "Install failed — falling back to download.",
+  "update_install_busy": "The host is still checking for updates — try again in a moment.",
   "update_downloading": "Downloading update {{version}}…",
   "update_downloaded": "Saved to {{path}} — install it manually.",
   "update_download_failed": "Download failed — opening the release page instead.",
   "shelf_type_normal": "Normal",
   "shelf_type_smart": "Smart",
   "update_installing_title": "Installing update",
-  "update_will_reload": "Steam will reload when it's done."
+  "update_will_reload": "The new version takes effect on its own in a few seconds."
 }

@@ -1,37 +1,15 @@
-import { useState } from 'react'
-import { ConfirmModal, Field, TextField, Focusable } from '../../../runtime/host/decky'
 import type { SettingsController } from '../../../features/settings/controller'
 import type { SavedSmartFilter } from '../../../types'
-import { ModalShell } from '../../ui'
-import { textFromDeckyChange } from './modalUtils'
+import { RenameModal } from './RenameModal'
 
 export function RenameSavedSmartFilterModal({ closeModal, controller, savedSmartFilter }: { closeModal?: () => void; controller: SettingsController; savedSmartFilter: SavedSmartFilter }) {
-  const { t, actions } = controller
-  const [name, setName] = useState(savedSmartFilter.name)
-
-  const trimmed = name.trim()
-  const handleOK = () => {
-    if (!trimmed || trimmed === savedSmartFilter.name) { closeModal?.(); return }
-    closeModal?.()
-    void (async () => { await actions.renameSavedSmartFilter(savedSmartFilter.id, trimmed) })()
-  }
-
   return (
-    <ModalShell>
-      <ConfirmModal
-        strTitle={t('saved_smart_filter_rename' as any)}
-        strOKButtonText={t('save')}
-        strCancelButtonText={t('cancel')}
-        onCancel={closeModal}
-        onEscKeypress={closeModal}
-        onOK={handleOK}
-      >
-        <Focusable onMenuButton={handleOK} onMenuActionDescription={t('save')}>
-          <Field label={t('title')}>
-            <TextField value={name} onChange={(value: unknown) => setName(textFromDeckyChange(value))} />
-          </Field>
-        </Focusable>
-      </ConfirmModal>
-    </ModalShell>
+    <RenameModal
+      closeModal={closeModal}
+      controller={controller}
+      title={controller.t('saved_smart_filter_rename' as any)}
+      currentName={savedSmartFilter.name}
+      onRename={(name) => controller.actions.renameSavedSmartFilter(savedSmartFilter.id, name)}
+    />
   )
 }

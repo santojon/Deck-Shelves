@@ -3,6 +3,7 @@ import { STEAM_CDN_AKAMAI } from '../../../../constants';
 import { resolveShelfAppIds, getAllAppOverviews, getLocalLibraryAppIds } from '../../../../steam';
 import { getCurrentSettings } from '../../../../store/settingsStore';
 import { fetchGameNames } from '../../../../core/onlineStore';
+import { decodeHtmlEntities } from '../../../../domain/sourceUtils';
 import type { PlatformApi, PlatformAppMeta } from '../../../../runtime/platform';
 import type { EditableShelfState } from './types';
 
@@ -51,8 +52,13 @@ function computePreviewSort(state: EditableShelfState): { sort: string | string[
   return { sort: hasUserSort ? eff : (reverse ? 'alphabetical' : undefined), reverse };
 }
 
+// Older entries can hold a store-search name still HTML-encoded.
 function readNameCache(): Record<number, string> {
-  try { return JSON.parse(localStorage.getItem(NAME_CACHE_KEY) || '{}'); } catch { return {}; }
+  let cache: Record<string, string>;
+  try { cache = JSON.parse(localStorage.getItem(NAME_CACHE_KEY) || '{}'); } catch { return {}; }
+  if (!cache || typeof cache !== 'object') return {};
+  for (const id of Object.keys(cache)) cache[id] = decodeHtmlEntities(String(cache[id]));
+  return cache;
 }
 
 function writeNameCache(merged: Record<number, string>): void {

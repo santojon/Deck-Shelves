@@ -11,6 +11,155 @@ import { resolveLocalImage, subscribeLocalImage } from "../../core/localImage";
 import { getCurrentSettings, saveSettings } from "../../store/settingsStore";
 import { patchShelfInSettings } from "../../domain/settings";
 
+/* Coerce bare hosts ("example.com") into https URLs and reject anything
+   that still doesn't look like one — invalid URLs sent to
+   `Navigation.NavigateToExternalWeb` could leave the Big Picture router in
+   a state that broke the home re-mount. */
+function openExternalUrl(raw: string): void {
+  if (!raw) return;
+  const url = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+  try { new URL(url); } catch { return; }
+  /* Prefer SteamClient.System.OpenInSystemBrowser (used by the rest of the
+     plugin for external links — see Shelf.tsx) so the URL opens in the
+     system browser without touching Steam's internal router.
+     NavigateToExternalWeb is a last-resort fallback for builds where the
+     SteamClient bridge is absent. */
+  const sc: any = (globalThis as any).SteamClient;
+  if (typeof sc?.System?.OpenInSystemBrowser === "function") {
+    sc.System.OpenInSystemBrowser(url);
+    return;
+  }
+  try { Navigation?.NavigateToExternalWeb?.(url); } catch {}
+}
+
+type Synth = NonNullable<DeckRowItem["synthetic"]>;
+
+// X (remove) and Y (toggle size) only when the entry can be patched by index.
+function synthActions(canPatch: boolean, onRemove: () => void, onToggleSize: () => void) {
+  if (!canPatch) return {};
+  return {
+    onSecondaryButton: onRemove,
+    onSecondaryActionDescription: i18n.t('card_remove'),
+    onOptionsButton: onToggleSize,
+    onOptionsActionDescription: i18n.t('card_synth_toggle_size'),
+  };
+}
+
+// Sizing, opacity and the content/focus facts of a synthetic slot.
+function syntheticFrame(synth: Synth, cardW: number, cardH: number, featuredW: number | undefined) {
+  const hasContent = synth.text !== undefined || synth.image !== undefined;
+  const effW = synth.size === "featured" && featuredW ? featuredW : cardW;
+  const focusable = hasContent && !!synth.link;
+  const cssW = `${effW}px`;
+  const cssH = `${cardH}px`;
+  const containerStyle: React.CSSProperties = {
+    position: "relative",
+    width: cssW,
+    minWidth: cssW,
+    height: cssH,
+    flexShrink: 0,
+    padding: 0,
+    margin: 0,
+    background: "transparent",
+    cursor: focusable ? "pointer" : "default",
+    overflow: "visible",
+    opacity: typeof synth.alpha === "number" ? synth.alpha : 1,
+  };
+  return { hasContent, focusable, cssW, cssH, containerStyle };
+}
+
+// The persisted entry this card can patch (X remove / Y size) — only on the home shelf.
+function synthTarget(item: DeckRowItem, synth: Synth) {
+  const shelfId = String(item.shelfId ?? "");
+  const synthIndex = typeof synth.index === "number" ? synth.index : -1;
+  return { shelfId, synthIndex, canPatchSynth: synthIndex >= 0 && !!shelfId };
+}
+
+const gapAttr = (hasContent: boolean) => (hasContent ? {} : { "data-ds-synthetic-gap": "1" });
+
+/* Shadow mode rules:
+     - non-focusable gap   → never has shadow (no user signal anyway)
+     - focusable, default  → "never" (matches the prior `noshadow`)
+     - "always"            → keep shadow in idle + focus
+     - "onFocus"           → shadow only when focused (suppress at idle) */
+function shadowClassFor(synth: Synth, focusable: boolean): string {
+  if (!focusable) return " ds-card--synthetic-noshadow";
+  const mode = synth.shadowMode ?? "never";
+  if (mode === "always") return ""; // baseline card frame shadow
+  if (mode === "onFocus") return " ds-card--synthetic-shadow-focus-only";
+  return " ds-card--synthetic-noshadow";
+}
+
+/* Hero URL exposed via attribute so `PerShelfHero` can pick it up on focus
+   and treat this decoration as a hero source — same render path game cards
+   already feed via `data-appid`. Empty / undefined → no hero behavior. */
+function heroDataProps(synth: Synth): Record<string, string> {
+  const hero = synth.heroImage && synth.heroImage.length > 0 ? resolveLocalImage(synth.heroImage) : null;
+  return hero ? { "data-ds-hero-url": hero } : {};
+}
+
+/* Local image paths go through the backend → base64 data URL cache: the first
+   render returns null (RPC in flight) and the cache subscription in the card
+   re-renders once the data lands. Remote URLs pass through unchanged.
+   `contain` when placeholder=false so transparent PNGs / icons are framed
+   whole; `cover` when placeholder=true so the image fills the grey panel. */
+function SyntheticImage({ synth }: { synth: Synth }) {
+  const resolved = resolveLocalImage(synth.image as string);
+  if (!resolved) return null;
+  const fit = synth.placeholder ? "cover" : "contain";
+  return (
+    <img
+      src={resolved}
+      alt=""
+      draggable={false}
+      style={{ width: "100%", height: "100%", objectFit: fit, display: "block", pointerEvents: "none" }}
+    />
+  );
+}
+
+/* The card face: the placeholder background (same flat grey panel as the
+   loading shimmer slot, without animation — a visual marker while building
+   the shelf), then the image or the text. */
+function SyntheticInner({ synth, cssW, cssH, radius }: { synth: Synth; cssW: string; cssH: string; radius: number | string }) {
+  const innerBg: React.CSSProperties = synth.placeholder
+    ? { background: "linear-gradient(313deg, rgba(51,51,51,0.55), rgba(85,85,85,0.55))" }
+    : { background: "transparent" };
+  return (
+    <div
+      className="ds-card-art ds-synthetic-card"
+      style={{
+        position: "absolute",
+        inset: 0,
+        width: cssW,
+        height: cssH,
+        overflow: "hidden",
+        borderRadius: radius,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        boxSizing: "border-box",
+        color: "rgba(255,255,255,0.92)",
+        ...innerBg,
+      }}
+    >
+      {synth.image ? <SyntheticImage synth={synth} /> : synth.text ? (
+        <span
+          className="ds-synthetic-text"
+          style={{
+            font: "600 14px/1.3 'Motiva Sans', Helvetica, Arial, sans-serif",
+            textAlign: "center",
+            padding: "0 12px",
+            whiteSpace: "normal",
+            overflowWrap: "anywhere",
+          }}
+        >
+          {synth.text}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
 // Synthetic card — decoration / placeholder / gap slot.
 //
 // Content/focus rules (also enforced by ShelfSchema.syntheticCards):
@@ -51,112 +200,9 @@ export function SyntheticCard({
 
   if (!synth) return null;
 
-  const hasContent = synth.text !== undefined || synth.image !== undefined;
-  const focusable = hasContent && !!synth.link;
-  const radius = getCachedCardRadius();
-  const effW = synth.size === "featured" && featuredW ? featuredW : cardW;
-  const cssW = `${effW}px`;
-  const cssH = `${cardH}px`;
-  const opacity = typeof synth.alpha === "number" ? synth.alpha : 1;
-
-  const containerStyle: React.CSSProperties = {
-    position: "relative",
-    width: cssW,
-    minWidth: cssW,
-    height: cssH,
-    flexShrink: 0,
-    padding: 0,
-    margin: 0,
-    background: "transparent",
-    cursor: focusable ? "pointer" : "default",
-    overflow: "visible",
-    opacity,
-  };
-
-  // Placeholder background uses the same flat grey panel as the loading
-  // shimmer slot, but without animation — purely a visual marker so the
-  // user can see the synthetic card while building the shelf.
-  const innerBg: React.CSSProperties = synth.placeholder
-    ? { background: "linear-gradient(313deg, rgba(51,51,51,0.55), rgba(85,85,85,0.55))" }
-    : { background: "transparent" };
-
-  const inner = (
-    <div
-      className="ds-card-art ds-synthetic-card"
-      style={{
-        position: "absolute",
-        inset: 0,
-        width: cssW,
-        height: cssH,
-        overflow: "hidden",
-        borderRadius: radius,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        boxSizing: "border-box",
-        color: "rgba(255,255,255,0.92)",
-        ...innerBg,
-      }}
-    >
-      {synth.image ? (() => {
-        /* Local paths go through the backend → base64 data URL cache.
-           The first render returns `null` (RPC in flight); the cache
-           subscription above triggers a re-render once the data lands.
-           Remote URLs (http/https/data:) pass through unchanged. */
-        const resolved = resolveLocalImage(synth.image);
-        if (!resolved) return null;
-        /* `contain` when placeholder=false so transparent PNGs / icons
-           are framed whole (no crop, transparent surround stays visible);
-           `cover` when placeholder=true so the image fills the grey card
-           panel edge-to-edge (the bg blends with cropped overflow). */
-        const fit = synth.placeholder ? "cover" : "contain";
-        return (
-          <img
-            src={resolved}
-            alt=""
-            draggable={false}
-            style={{ width: "100%", height: "100%", objectFit: fit, display: "block", pointerEvents: "none" }}
-          />
-        );
-      })() : synth.text ? (
-        <span
-          className="ds-synthetic-text"
-          style={{
-            font: "600 14px/1.3 'Motiva Sans', Helvetica, Arial, sans-serif",
-            textAlign: "center",
-            padding: "0 12px",
-            whiteSpace: "normal",
-            overflowWrap: "anywhere",
-          }}
-        >
-          {synth.text}
-        </span>
-      ) : null}
-    </div>
-  );
-
-  // Shadow mode rules:
-  //   - non-focusable gap   → never has shadow (no user signal anyway)
-  /*   - focusable, default  → "never" (matches the prior `noshadow`)
-       - "always"            → keep shadow in idle + focus
-       - "onFocus"           → shadow only when focused (suppress at idle)
-     Picks the class name in one place so both the focusable + non-focusable
-     branches stay consistent. */
-  const resolveShadowClass = (): string => {
-    if (!focusable) return " ds-card--synthetic-noshadow";
-    const mode = synth.shadowMode ?? "never";
-    if (mode === "always") return ""; // baseline card frame shadow
-    if (mode === "onFocus") return " ds-card--synthetic-shadow-focus-only";
-    return " ds-card--synthetic-noshadow";
-  };
-
-  /* Hero URL exposed via attribute so `PerShelfHero` can pick it up on
-     focus and treat this decoration as a hero source — same render path
-     game cards already feed via `data-appid`. Empty / undefined → no
-     hero behavior, matches the prior decoration look. */
-  const heroAttr = synth.heroImage && synth.heroImage.length > 0
-    ? resolveLocalImage(synth.heroImage)
-    : null;
+  const { hasContent, focusable, cssW, cssH, containerStyle } = syntheticFrame(synth, cardW, cardH, featuredW);
+  const inner = <SyntheticInner synth={synth} cssW={cssW} cssH={cssH} radius={getCachedCardRadius()} />;
+  const resolveShadowClass = () => shadowClassFor(synth, focusable);
 
   // No link OR no content → non-focusable gap. ShelfRow already gives
   // each slot a fixed width, so an empty wrapper still occupies space
@@ -167,7 +213,7 @@ export function SyntheticCard({
         ref={cardRef as any}
         className={`ds-card ds-card--synthetic${resolveShadowClass()}${nativeCardClass ? ` ${nativeCardClass}` : ""}`}
         style={containerStyle}
-        data-ds-synthetic-gap={hasContent ? undefined : "1"}
+        {...gapAttr(hasContent)}
       >
         {inner}
       </div>
@@ -179,25 +225,7 @@ export function SyntheticCard({
     if (!link) return;
     try {
       if (link.type === "url") {
-        const raw = String(link.value ?? "").trim();
-        if (!raw) return;
-        /* Coerce bare hosts ("example.com") into https URLs and reject
-           anything that still doesn't look like one — invalid URLs sent
-           to `Navigation.NavigateToExternalWeb` could leave the Big
-           Picture router in a state that broke the home re-mount. */
-        const url = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
-        try { new URL(url); } catch { return; }
-        /* Prefer SteamClient.System.OpenInSystemBrowser (used by the
-           rest of the plugin for external links — see Shelf.tsx) so the
-           URL opens in the system browser without touching Steam's
-           internal router. NavigateToExternalWeb is a last-resort
-           fallback for builds where the SteamClient bridge is absent. */
-        const sc: any = (globalThis as any).SteamClient;
-        if (typeof sc?.System?.OpenInSystemBrowser === "function") {
-          sc.System.OpenInSystemBrowser(url);
-          return;
-        }
-        try { Navigation?.NavigateToExternalWeb?.(url); } catch {}
+        openExternalUrl(String(link.value ?? "").trim());
       } else {
         const appid = Number(link.value);
         if (Number.isFinite(appid)) platform.navigateToApp(appid);
@@ -220,8 +248,7 @@ export function SyntheticCard({
      entry by its persisted index — only present on the home shelf
      (Shelf.tsx forwards `synthetic.index`). Preview / drag mode omits
      the index and these bindings stay inert. */
-  const shelfId = String(item.shelfId ?? "");
-  const synthIndex = typeof synth.index === "number" ? synth.index : -1;
+  const { shelfId, synthIndex, canPatchSynth } = synthTarget(item, synth);
   const handleRemove = () => {
     if (!shelfId || synthIndex < 0) return;
     try {
@@ -248,7 +275,6 @@ export function SyntheticCard({
       void saveSettings(patchShelfInSettings(s, shelfId, { syntheticCards: next } as any));
     } catch {}
   };
-  const canPatchSynth = synthIndex >= 0 && !!shelfId;
 
   return (
     <Focusable
@@ -259,12 +285,9 @@ export function SyntheticCard({
       onOKButton={handleActivate}
       onMenuButton={handleMenu}
       onMenuActionDescription={i18n.t('card_options')}
-      onSecondaryButton={canPatchSynth ? handleRemove : undefined}
-      onSecondaryActionDescription={canPatchSynth ? i18n.t('card_remove') : undefined}
-      onOptionsButton={canPatchSynth ? handleToggleSize : undefined}
-      onOptionsActionDescription={canPatchSynth ? i18n.t('card_synth_toggle_size') : undefined}
+      {...synthActions(canPatchSynth, handleRemove, handleToggleSize)}
       style={containerStyle}
-      {...(heroAttr ? { 'data-ds-hero-url': heroAttr } as any : {})}
+      {...heroDataProps(synth)}
     >
       {inner}
     </Focusable>

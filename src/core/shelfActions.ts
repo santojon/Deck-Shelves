@@ -1,10 +1,5 @@
 import { getCurrentSettings, saveSettings } from "../store/settingsStore";
-import {
-  addShelfToSettings,
-  deleteShelfFromSettings,
-  moveShelf as moveShelfInSettings,
-  patchShelfInSettings,
-} from "../domain/settings";
+import { addShelfToSettings, moveShelf as moveShelfInSettings, patchShelfInSettings } from "../domain/settings";
 import { randomShelfId } from "../domain/defaults";
 import { getFrontendLib } from "../runtime/host/decky";
 import type { Shelf, SmartShelf } from "../types";
@@ -29,14 +24,6 @@ export function clearOnlineShelfCache(): void {
      clicked, so they fire the trigger with a `shelfId` scope so only that
      shelf shows the visual indicator. Triggering from inside this helper
      would force every online shelf to flash on a single-shelf click. */
-}
-
-export async function patchShelfById(id: string, patch: Partial<Shelf>): Promise<void> {
-  const s = getCurrentSettings();
-  if (!s) return;
-  const shelf = s.shelves.find((sh) => sh.id === id);
-  if (!shelf) return;
-  await saveSettings(patchShelfInSettings(s, id, patch));
 }
 
 export async function toggleShelfHiddenById(id: string): Promise<void> {
@@ -90,16 +77,6 @@ export async function duplicateShelfById(id: string, copySuffix: string): Promis
   duplicate.id = randomShelfId();
   duplicate.title = `${sourceShelf.title} ${copySuffix}`.trim();
   await saveSettings(addShelfToSettings(s, duplicate, id));
-}
-
-export async function deleteShelfById(id: string): Promise<void> {
-  const s = getCurrentSettings();
-  if (!s) return;
-  if (isSmartShelfId(id)) {
-    await saveSettings({ ...s, smartShelves: (s.smartShelves ?? []).filter((sh) => sh.id !== id) });
-    return;
-  }
-  await saveSettings(deleteShelfFromSettings(s, id));
 }
 
 export function setShelfCollapsed(shelfId: string, collapsed: boolean): void {
@@ -168,6 +145,16 @@ export function dispatchShelfModal(kind: ShelfModalKind, shelfId: string, opts?:
     return;
   }
   pendingModal = { kind, shelfId };
+}
+
+// Same standalone-route trick, for the per-game tag editor (game menu → Lists).
+export function dispatchTagsModal(appid: number): void {
+  try {
+    const nav = resolveNavigationApi();
+    if (typeof nav?.Navigate !== "function") return;
+    try { nav?.CloseSideMenus?.(); } catch {}
+    nav.Navigate(`/deck-shelves/tags/${encodeURIComponent(String(appid))}`);
+  } catch {}
 }
 
 // Same standalone-route trick as `dispatchShelfModal`, for the one action

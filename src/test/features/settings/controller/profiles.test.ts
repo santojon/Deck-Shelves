@@ -125,6 +125,16 @@ describe('applyProfile', () => {
 })
 
 describe('applyFactoryProfile', () => {
+  it("keeps this device's backup of Steam's idle timeout, so the screensaver can restore it", async () => {
+    const { deps, persisted } = makeDeps({
+      enabled: true, shelves: [], screensaverShelvesEnabled: true,
+      screensaverIdleBackupAcSec: 300, screensaverIdleBackupBatterySec: 120,
+    })
+    await createProfileActions(deps).applyFactoryProfile()
+    expect(persisted[0].screensaverIdleBackupAcSec).toBe(300)
+    expect(persisted[0].screensaverIdleBackupBatterySec).toBe(120)
+  })
+
   it('resets to defaults, keeps the master toggle on, clears the active profile, keeps saved profiles', async () => {
     const savedProfiles = [{ id: 'p1', name: 'Docked', createdAt: 't', snapshot: {} }]
     const { deps, persisted } = makeDeps({

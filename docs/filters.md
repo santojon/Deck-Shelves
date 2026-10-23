@@ -52,6 +52,9 @@ flowchart LR
 | `isNew` | Added to library within 30 days | — |
 | `deckCompatibility` | Steam Deck compatibility level | `levels`: `["verified", "playable", "unsupported", "unknown"]` |
 | `steamosCompatibility` | SteamOS compatibility rating — distinct from Deck Compatibility (a different Valve rating, same 4-level scale) | `levels`: `["verified", "playable", "unsupported", "unknown"]` |
+| `machineCompatibility` | Steam Machine compatibility rating (the living-room box; same 4-level scale) — see [Frame and Machine](frame-and-machine.md) | `levels`: `["verified", "playable", "unsupported", "unknown"]` |
+| `frameCompatibility` | Steam Frame compatibility rating (the VR headset; same 4-level scale) — see [Frame and Machine](frame-and-machine.md) | `levels`: `["verified", "playable", "unsupported", "unknown"]` |
+| `deviceCompatibility` | Compatibility rating **of the device you are on** — the Deck rating on a Steam Deck, the Machine rating on a Steam Machine, the Frame rating on a Steam Frame (Deck rating elsewhere). What the "Verified on this device" / "Playable on this device" templates use | `levels`: `["verified", "playable", "unsupported", "unknown"]` |
 | `demo` | Steam demo listings | — |
 | `playedWithinDays` | Played within N days | `days`: number |
 | `playtimeRange` | Total playtime in a range | `minHours`: number, `maxHours`: number (either optional) |
@@ -89,7 +92,7 @@ flowchart LR
 | `genres` | Any of the listed genres | `genres`: string[] |
 | `categories` | Any of the listed store categories | `categories`: string[] |
 | `franchise` | Franchise name contains | `franchise`: string |
-| `vrSupport` | Marked as VR-supported | — |
+| `vrSupport` | VR support level: VR-only titles, titles that support VR, or titles with no VR at all | `levels`: `("only" \| "supported" \| "none")[]` (default `["only", "supported"]`, which matches the old yes/no behavior) |
 | `multiplayerType` | Multiplayer capability | `kind`: `"any"` \| `"single"` \| `"multi"` \| `"coop"` \| `"online"` |
 | `familySharing` | Flagged for Steam Family Sharing | — |
 | `dlcOwned` | Owns at least N DLC | `minCount`: number |
@@ -138,7 +141,8 @@ share, say, or two specific SD cards but not a third.
 | `hiddenLauncherShortcuts` | Hidden non-Steam shortcut | — |
 | `executableType` | Target executable extension | `ext`: string (e.g. `exe`, `sh`) |
 | `launchOptionTags` | Launch options contain any tag | `tags`: string[] |
-| `customTags` / `parserCategories` | Matches user/parser tags | `tags`: string[] |
+| `customTags` | Game carries any of your own tags (set them from the game menu: **Lists** → **Edit tags…**) | `tags`: string[] |
+| `parserCategories` | Non-Steam shortcut carries any of the categories the tool that added it wrote (ROM managers and launcher integrations store them in Steam's shortcuts file) | `tags`: string[] |
 
 ### Composite filters
 
@@ -289,6 +293,12 @@ as `{ "type": "builtin", "sourceId": "<id>" }` and takes no further parameters.
 | Manual | `pinned_games`, `history_source`, `session_queue_source`, `temporary_queue_source` |
 | Contextual | `recently_updated`, `with_events`, `with_workshop_updates`, `controller_specific_source` |
 | Launchers | `emudeck_collections`, `retrodeck_collections`, `heroic_library`, `lutris_library`, `moonlight_sessions`, `chiaki_sessions` |
+
+**Manual sources** fill from the game menu. Once a shelf, smart shelf, saved filter or
+profile uses one of them, every game menu gains a **Lists** submenu that toggles the game
+in **Pinned games**, the **Session queue** (kept until Steam restarts) or the **Temporary
+queue** (a game leaves it when you launch it). **Play history** fills by itself, newest
+launch first (the last 100). These lists, and the custom tags, are stored on this device.
 
 ## Multi-source shelves
 

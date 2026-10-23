@@ -2,7 +2,7 @@
 """Prints `{keys, enabled}` for `_sanitize_settings({})` as JSON: the sorted
 key list plus the bare `enabled` default.
 
-Used by `src/test/settingsParity.test.ts` (ROADMAP Sprint 2.2) to compare
+Used by `src/test/settingsParity.test.ts` to compare
 against the Zod `SettingsSchema`'s own key list — the two must match except
 for a small, explicitly-justified exception list the test itself keeps.
 """

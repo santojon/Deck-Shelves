@@ -53,8 +53,10 @@ describe("validateKeyCombo", () => {
   it("accepts null when allowNull", () => {
     expect(validateKeyCombo(null, { allowNull: true })).toEqual({ ok: true });
   });
-  it("only checks for duplicates on a 2-token combo, mirroring validateCombo", () => {
-    expect(validateKeyCombo("KeyF+KeyG+KeyF")).toEqual({ ok: true });
+  it("treats two identical keys as a double-tap but refuses a repeat inside a longer chord, mirroring validateCombo", () => {
+    expect(validateKeyCombo("KeyF+KeyF")).toEqual({ ok: true });
+    expect(validateKeyCombo("KeyF+KeyG+KeyF")).toEqual({ ok: false, reason: "duplicate" });
+    expect(validateKeyCombo("ControlLeft+ShiftLeft+KeyF")).toEqual({ ok: true });
   });
 });
 
@@ -83,6 +85,23 @@ describe("matchKeyEvent", () => {
     expect(matchKeyEvent("ControlLeft", combo, state, 1000)).toBe(false);
     expect(matchKeyEvent("KeyF", combo, state, 1050)).toBe(true);
   });
+  it("matches a chord with held modifiers however long ago they went down, when the event carries the flags", () => {
+    const state = createKeyMatcherState();
+    const combo = parseKeyCombo("ControlLeft+ShiftLeft+KeyS");
+    expect(matchKeyEvent("ControlLeft", combo, state, 1000, { ctrl: true })).toBe(false);
+    expect(matchKeyEvent("ShiftLeft", combo, state, 1300, { ctrl: true, shift: true })).toBe(false);
+    expect(matchKeyEvent("KeyS", combo, state, 2400, { ctrl: true, shift: true })).toBe(true); // 1.4 s after Ctrl
+    expect(matchKeyEvent("KeyS", combo, state, 5000, { ctrl: true, shift: true })).toBe(true); // right-side modifiers count the same
+    expect(matchKeyEvent("KeyS", combo, state, 6000, { ctrl: true })).toBe(false); // Shift released
+    expect(matchKeyEvent("KeyS", combo, state, 7000)).toBe(false); // no flags: back to the timing rule
+  });
+  it("keeps the timing rule for chord members that are not modifiers", () => {
+    const state = createKeyMatcherState();
+    const combo = parseKeyCombo("KeyA+KeyB");
+    expect(matchKeyEvent("KeyA", combo, state, 1000, { ctrl: true })).toBe(false);
+    expect(matchKeyEvent("KeyB", combo, state, 1500, { ctrl: true })).toBe(false);
+    expect(matchKeyEvent("KeyA", combo, state, 1600)).toBe(true);
+  });
   it("returns false for a null code or combo", () => {
     const state = createKeyMatcherState();
     expect(matchKeyEvent(null, parseKeyCombo("KeyF"), state)).toBe(false);
@@ -91,9 +110,14 @@ describe("matchKeyEvent", () => {
 });
 
 describe("resolveKeyboardBindings", () => {
-  it("defaults every field to null when nothing is set", () => {
+  it("takes the defaults when nothing is set: every slot unset except the sidecar open chord", () => {
     expect(resolveKeyboardBindings(null)).toEqual(DEFAULT_KEYBOARD_BINDINGS);
     expect(resolveKeyboardBindings(undefined)).toEqual(DEFAULT_KEYBOARD_BINDINGS);
+    expect(DEFAULT_KEYBOARD_BINDINGS.navSidecarOpen).toBe("ControlLeft+ShiftLeft+KeyS");
+    expect(parseKeyCombo(DEFAULT_KEYBOARD_BINDINGS.navSidecarOpen)).toEqual({ kind: "chord", codes: ["ControlLeft", "ShiftLeft", "KeyS"] });
+    expect(resolveKeyboardBindings({}).navSidecarOpen).toBe("ControlLeft+ShiftLeft+KeyS"); // absent field → default
+    expect(resolveKeyboardBindings({ navSidecarOpen: null }).navSidecarOpen).toBeNull(); // cleared by the user → stays unset
+    expect(resolveKeyboardBindings({}, ["navSidecarOpen"]).navSidecarOpen).toBeNull(); // disabled → unset
   });
   it("carries through a set value", () => {
     expect(resolveKeyboardBindings({ cardQuickLaunch: "KeyF" }).cardQuickLaunch).toBe("KeyF");

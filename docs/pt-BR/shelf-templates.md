@@ -10,13 +10,31 @@ Templates de prateleira são configurações predefinidas disponíveis no seleto
 
 ## Prateleiras padrão
 
-Quando o usuário clica em **Criar prateleiras padrão** no banner de primeira execução, três prateleiras são criadas automaticamente:
+Quando o usuário escolhe **Começar com o padrão** no final do tour de primeira execução, três prateleiras são criadas automaticamente:
 
 | Template | Fonte |
 |---|---|
 | Favoritos | Aba da biblioteca `favorites` |
 | Jogados Recentemente | Filtro — ordenado por `recent` |
 | Adicionados Recentemente | Filtro — ordenado por `added` |
+
+## Pacotes de configuração e o assistente de configuração
+
+O **Assistente de configuração** (o ícone de varinha na barra de título do menu de Acesso Rápido, o banner de primeira execução e o final do tour de primeira execução) aplica um ponto de partida inteiro de uma vez: escolha um pacote nos blocos, revise exatamente o que ele adiciona, aplique. Cada pacote é um conjunto dos templates abaixo mais, quando ajuda, algumas prateleiras inteligentes e configurações:
+
+| Pacote | Grupo | Adiciona |
+|---|---|---|
+| Essencial | Configuração rápida | Favoritos, Jogados Recentemente, Adicionados Recentemente |
+| Steam + não-Steam | Configuração rápida | Jogados Recentemente, Instalados, Não-Steam, Favoritos |
+| Resgate do backlog | Pacotes de configuração | Nunca Jogados + prateleiras inteligentes *Resgate do backlog* e *Melhores não jogados* |
+| Deck portátil | Pacotes de configuração | Instalados, Verificados para o Deck + prateleiras inteligentes *Pouca bateria*, *Modo viagem*, *Partida rápida* |
+| Redescobrir | Pacotes de configuração | Mais Jogados + prateleiras inteligentes *Redescobrir*, *Joias esquecidas*, *Joias escondidas* |
+| Sala de estar | Pacotes de configuração | Favoritos, Jogados Recentemente + prateleiras inteligentes *Sessão longa (noite)*, *Escolhas do Deck*; liga o mesmo visual de sala do pacote Machine: a arte de fundo da primeira prateleira, a arte de herói em todas as prateleiras, prateleiras de tela inteira, o primeiro jogo em destaque e os logos |
+| Frame | Por dispositivo | Jogos de VR, Só VR, Jogados Recentemente, Favoritos + prateleiras inteligentes *Partida rápida*, *Pouca bateria* |
+| Machine | Por dispositivo | Favoritos, Jogados Recentemente, Mais Jogados + prateleiras inteligentes *Sessão longa (noite)*, *Escolhas para este aparelho*; liga a arte de fundo da primeira prateleira, a arte de herói em todas as prateleiras, prateleiras de tela inteira, o primeiro jogo em destaque e os logos |
+| Stream | Por dispositivo | Steam Cloud, Jogados Recentemente + prateleira inteligente *Partida rápida* |
+
+Os pacotes não são destrutivos: um template que você já tem é marcado como "já tem" e pulado, nada é removido, e toda prateleira continua editável depois. O assistente mostra exatamente o que um pacote vai adicionar antes de aplicar, marca os pacotes que combinam com sua biblioteca (a partir das mesmas estatísticas da aba Sugestões) e mantém um passo único **Desfazer a última configuração**, que remove só o que a última aplicação adicionou e restaura as configurações que ela mudou.
 
 ---
 
@@ -94,11 +112,23 @@ Mostra jogos com suporte a Steam Cloud — saves sincronizados entre dispositivo
 
 ---
 
-### Deck Verificado — `deck_verified`
+### Jogos de VR — `vr_games`
 
-**Fonte:** filtro — `filterGroup` contendo `deckCompatibility=['verified']`, ordenado `alphabetical`
+**Fonte:** filtro — `filterGroup` contendo `vrSupport` com `levels: ["only", "supported"]`, ordenado `recent`
 
-Mostra jogos avaliados como Deck Verified pela Valve — confirmados como excelentes no Steam Deck. Assim como Steam Cloud, envolve a condição em um `filterGroup`.
+Todo título que roda em VR, exija um headset ou apenas o suporte. O pacote de configuração Frame parte dele.
+
+### Só VR — `vr_only`
+
+**Fonte:** filtro — `filterGroup` contendo `vrSupport` com `levels: ["only"]`, ordenado `alphabetical`
+
+Títulos que exigem um headset.
+
+### Verificados neste aparelho — `deck_verified`
+
+**Fonte:** filtro — `filterGroup` contendo `deviceCompatibility=['verified']`, ordenado `alphabetical`
+
+Mostra jogos que a Valve avalia como *Verificados* para o aparelho em que você está — a nota do Deck num Steam Deck, a do Machine num Steam Machine, a do Frame num Steam Frame. Assim como Steam Cloud, envolve a condição em um `filterGroup`.
 
 ---
 
@@ -114,11 +144,11 @@ Mostra jogos instalados com as maiores notas de avaliação de usuários na Stea
 
 Seu backlog: jogos que você possui mas nunca abriu.
 
-### Deck Jogável — `deck_playable`
+### Jogáveis neste aparelho — `deck_playable`
 
-**Fonte:** filtro — `deckCompatibility: ["playable"]`, ordenado alfabeticamente
+**Fonte:** filtro — `deviceCompatibility: ["playable"]`, ordenado alfabeticamente
 
-Complementa o Deck Verificado, cobrindo o nível de compatibilidade *Jogável*.
+Complementa *Verificados neste aparelho*, cobrindo o nível *Jogável* da mesma nota por aparelho.
 
 ---
 

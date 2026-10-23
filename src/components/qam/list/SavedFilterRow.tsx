@@ -1,37 +1,19 @@
-import { Field, DialogButton, Menu, MenuItem, showContextMenu, Focusable } from '../../../runtime/host/decky'
-import { icons } from '../icons'
 import type { SettingsController } from '../../../features/settings/controller'
 import type { SavedFilter } from '../../../types'
 import { openManagedModal } from '../common/openManagedModal'
 import { RenameSavedFilterModal } from '../modals/RenameSavedFilterModal'
+import { SavedPresetRow } from './SavedPresetRow'
 
 export function SavedFilterRow({ controller, savedFilter }: { controller: SettingsController; savedFilter: SavedFilter }) {
   const { t, actions } = controller
-  const onActions = () => showContextMenu(
-    <Menu label={t('actions')}>
-      <MenuItem onSelected={() => openManagedModal((close) => <RenameSavedFilterModal closeModal={close} controller={controller} savedFilter={savedFilter} />)}>
-        {t('saved_filter_rename')}
-      </MenuItem>
-      <MenuItem onSelected={() => actions.deleteSavedFilter(savedFilter.id)}>
-        {t('saved_filter_delete')}
-      </MenuItem>
-    </Menu>,
-  )
   return (
-    <Field className='no-sep'>
-      <Focusable style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '0 16px', boxSizing: 'border-box' }}>
-        <div className='deck-shelves-label-cont'>
-          <span className='deck-shelves-label-text'>{savedFilter.name}</span>
-        </div>
-        <DialogButton
-          style={{ height: '40px', minWidth: '40px', width: '40px', display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '10px' }}
-          onClick={onActions}
-          onOKButton={onActions}
-          onOKActionDescription={t('actions')}
-        >
-          {icons.ellipsis}
-        </DialogButton>
-      </Focusable>
-    </Field>
+    <SavedPresetRow
+      t={t}
+      name={savedFilter.name}
+      renameLabel={t('saved_filter_rename')}
+      deleteLabel={t('saved_filter_delete')}
+      onRename={() => openManagedModal((close) => <RenameSavedFilterModal closeModal={close} controller={controller} savedFilter={savedFilter} />)}
+      onDelete={() => actions.deleteSavedFilter(savedFilter.id)}
+    />
   )
 }

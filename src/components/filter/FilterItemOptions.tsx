@@ -8,7 +8,7 @@ import PublisherFilterOptions from "./PublisherFilterOptions";
 import MergeFilterOptions from "./MergeFilterOptions";
 import CompositeFilterOptions from "./CompositeFilterOptions";
 import LibraryLocationOptions from "./LibraryLocationOptions";
-import { COMPAT_LEVELS } from "./utils";
+import { COMPAT_LEVELS, VR_LEVELS } from "./utils";
 import { APP_STATUS_GROUP_KEYS } from "../../steam/appDisplayStatus";
 import { DSSliderField } from '../ui'
 
@@ -208,7 +208,12 @@ const RENDERERS: Record<string, (c: OptCtx) => ReactNode> = {
     p.mode ?? "exclude", (v) => patchParams({ mode: v })),
   collection: collectionOptions,
   deckCompatibility: ({ t, p, patchParams }) => toggleSet(COMPAT_LEVELS, Array.isArray(p.levels) ? p.levels : [], (k) => t(`compat_${k}`), (next) => patchParams({ levels: next })),
+  deviceCompatibility: ({ t, p, patchParams }) => toggleSet(COMPAT_LEVELS, Array.isArray(p.levels) ? p.levels : [], (k) => t(`compat_${k}`), (next) => patchParams({ levels: next })),
   steamosCompatibility: ({ t, p, patchParams }) => toggleSet(COMPAT_LEVELS, Array.isArray(p.levels) ? p.levels : [], (k) => t(`compat_${k}`), (next) => patchParams({ levels: next })),
+  machineCompatibility: ({ t, p, patchParams }) => toggleSet(COMPAT_LEVELS, Array.isArray(p.levels) ? p.levels : [], (k) => t(`compat_${k}`), (next) => patchParams({ levels: next })),
+  frameCompatibility: ({ t, p, patchParams }) => toggleSet(COMPAT_LEVELS, Array.isArray(p.levels) ? p.levels : [], (k) => t(`compat_${k}`), (next) => patchParams({ levels: next })),
+  // VR in three values: a headset wants "only" + "supported", a flat setup wants "none".
+  vrSupport: ({ t, p, patchParams }) => toggleSet(VR_LEVELS, Array.isArray(p.levels) ? p.levels : [], (k) => t(`vr_${k}` as any), (next) => patchParams({ levels: next })),
   shortcutType: ({ t, p, patchParams }) => toggleSet(SHORTCUT_KINDS, Array.isArray(p.kinds) ? p.kinds : ["game"], (k) => t(`shortcut_kind_${k}` as any), (next) => patchParams({ kinds: next })),
   appStatus: ({ t, p, patchParams }) => toggleSet(APP_STATUS_GROUP_KEYS, Array.isArray(p.groups) ? p.groups : ["downloading", "queued"], (g) => t(`app_status_${g}` as any), (next) => patchParams({ groups: next })),
   playedWithinDays: ({ t, p, patchParams }) => daysSlider(t("filter_days"), Number(p.days ?? 30), 1, 365, (v) => patchParams({ days: v })),

@@ -1,5 +1,6 @@
 import { Navigation } from "./host/decky";
 import { getPreferredSteamDocument } from "./steamHost";
+import { steamTextSelectors } from "../steam/steamText";
 
 // Mutex between Quick Search and Side Nav: when one combo fires, the
 /* other suppresses its own raw-bus trigger for a short window. Without
@@ -37,13 +38,20 @@ function ambientOverlayPresent(doc: Document): boolean {
   return false;
 }
 
-function clickOverlayDismissButtons(doc: Document): void {
-  // Most Steam modals carry a top-right close button with an aria-label
-  // that includes "close" or a translation thereof. We also pick up
-  // generic [data-testid*="close" i] used by some surfaces.
-  const closers = doc.querySelectorAll<HTMLElement>(
-    '[aria-label*="close" i], [aria-label*="cancel" i], [data-testid*="close" i]',
-  );
+/* Most Steam modals carry a close button labelled with Steam's own "Close" /
+   "Cancel". The English words match inside a longer label; the user's language
+   only as the whole label, so a longer one like "Fechar jogo" (close the game)
+   is never pressed. */
+export function dismissButtonSelector(): string {
+  return [
+    ...steamTextSelectors("closeButton", "aria-label", "contains", "", "english"),
+    ...steamTextSelectors("closeButton", "aria-label", "exact", "", "user"),
+    '[data-testid*="close" i]',
+  ].join(", ");
+}
+
+function clickOverlayDismissButtons(doc: Document, selector: string): void {
+  const closers = doc.querySelectorAll<HTMLElement>(selector);
   closers.forEach((el) => {
     try {
       const rect = el.getBoundingClientRect();
@@ -65,15 +73,16 @@ function clickOverlayDismissButtons(doc: Document): void {
    menus without that side effect. */
 export function closeAmbientOverlays(timeoutMs: number = 1200): Promise<void> {
   const doc = getPreferredSteamDocument() ?? document;
+  const selector = dismissButtonSelector();
   try { (Navigation as any).CloseSideMenus?.(); } catch {}
-  clickOverlayDismissButtons(doc);
+  clickOverlayDismissButtons(doc, selector);
   return waitForOverlaysGone(timeoutMs, () => {
     try { (Navigation as any).CloseSideMenus?.(); } catch {}
-    clickOverlayDismissButtons(doc);
+    clickOverlayDismissButtons(doc, selector);
   });
 }
 
-export function waitForOverlaysGone(timeoutMs: number = 600, onTick?: () => void): Promise<void> {
+function waitForOverlaysGone(timeoutMs: number = 600, onTick?: () => void): Promise<void> {
   return new Promise((resolve) => {
     const doc = getPreferredSteamDocument() ?? document;
     const started = Date.now();

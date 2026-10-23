@@ -7,10 +7,16 @@ import {
   isRecentsReplaceInjecting,
 } from "../../../runtime/recentsReplace";
 import { OPTIONS_BUTTON } from "./constants";
+import { registerDisposer } from "../../../runtime/runtimeDisposer";
+import { resolveFocusNavController } from "./focusNav";
+import { getActiveFocusedElement } from "../../../core/focusRestore";
 
 const patchedMenuControllers = new WeakSet<object>();
+const HOME_MOUNT_ID = "deck-shelves-home-root";
+const PLUGIN_AREA = ".ds-card, .deck-shelves-root, #" + HOME_MOUNT_ID;
 
-function findFocusedDsCard(): HTMLElement | null {
+// `focus` is the element holding gamepad focus, when known.
+function findFocusedDsCard(focus: HTMLElement | null): HTMLElement | null {
   for (const d of getAllSteamDocuments()) {
     const el = (
       d.querySelector(".ds-card.gpfocus") ??
@@ -18,6 +24,8 @@ function findFocusedDsCard(): HTMLElement | null {
     ) as HTMLElement | null;
     if (el) return el;
   }
+  // Focus on a native element: the last focused card is no longer the one in focus.
+  if (focus && !focus.closest?.(PLUGIN_AREA)) return null;
   try {
     const el = (globalThis as any).__ds_last_focused_card as HTMLElement | null;
     if (el?.isConnected) return el;
@@ -31,30 +39,87 @@ function readCardIds(el: HTMLElement): { appid: number; shelfId?: string } {
   return { appid, shelfId: shelfId || undefined };
 }
 
+function cardFromEventTarget(evt: Event): HTMLElement | null {
+  const target = evt.target as HTMLElement | null;
+  return (target?.closest?.(".ds-card") as HTMLElement | null) ?? null;
+}
+
+/* The plugin's mount sits right after Steam's Recents row, so the row is
+   the mount's previous sibling. */
+function isOnReplacedRow(focus: HTMLElement | null): boolean {
+  if (!focus) return false;
+  const row = focus.ownerDocument?.getElementById(HOME_MOUNT_ID)?.previousElementSibling;
+  return !!row && row.contains(focus);
+}
+
+/* With the shelf shown as Recents and focus on a tile of that row: the game
+   of the last tile focus, else the row's first game. 0 leaves it to Steam. */
+function replacedRowMenuAppId(focus: HTMLElement | null): number {
+  if (!isRecentsReplaceInjecting() || !isOnReplacedRow(focus)) return 0;
+  return getOverlayFocusedAppId() || getOverlayFirstCachedAppId();
+}
+
+// The event target when it is a real element, else the gamepad focus.
+function eventFocus(evt: Event): HTMLElement | null {
+  const target = evt.target as HTMLElement | null;
+  const doc = target?.ownerDocument;
+  if (!target?.closest || target === doc?.body || target === doc?.documentElement) return getActiveFocusedElement();
+  return target;
+}
+
 function interceptMenuBtn(button: number): boolean {
   if (button !== OPTIONS_BUTTON) return false;
   try {
-    const focused = findFocusedDsCard();
+    const focus = getActiveFocusedElement();
+    const focused = findFocusedDsCard(focus);
     if (focused) {
       const { appid, shelfId } = readCardIds(focused);
       if (appid > 0) { showGameMenu(appid, shelfId); return true; }
     }
-    // Recents overlay: intercept unconditionally — native handler crashes on
-    // replaced cards. Use tracked focused appid, falling back to first cached.
-    if (isRecentsReplaceInjecting()) {
-      const appid = getOverlayFocusedAppId() || getOverlayFirstCachedAppId();
-      if (appid > 0) { showGameMenu(appid); return true; }
-      return true;
-    }
+    const appid = replacedRowMenuAppId(focus);
+    if (appid > 0) { showGameMenu(appid); return true; }
   } catch { return false; }
   return false;
 }
 
-export function patchMenuButton(): void {
+/* Wrap `DispatchVirtualButtonClick` on `target` (an instance or a prototype)
+   so the Options button reaches the shelf menu first. `bindTo` pins the
+   original to an instance (the instance-method case); otherwise the call-site
+   `this` is forwarded (prototype / nested-controller cases). */
+function patchDispatch(target: any, bindTo?: object): boolean {
+  if (!target || patchedMenuControllers.has(target) || typeof target.DispatchVirtualButtonClick !== "function") return false;
+  const fn = target.DispatchVirtualButtonClick;
+  const orig = bindTo ? fn.bind(bindTo) : fn;
+  target.DispatchVirtualButtonClick = function (this: any, button: number, ...args: any[]) {
+    if (interceptMenuBtn(button)) return;
+    return orig.apply(this, [button, ...args]);
+  };
+  patchedMenuControllers.add(target);
+  return true;
+}
+
+// Register on every Steam document we can see: ds-cards may live in the
+// popup (GamepadUI) while the plugin bundle itself runs in SharedJSContext.
+// Event listeners must live on the document that actually hosts the card.
+function installDocumentMenuListeners(handleMenu: (evt: Event) => void): void {
   const DS_DOC_MENU = "__ds_doc_menu__";
-  // Register on every Steam document we can see: ds-cards may live in the
-  // popup (GamepadUI) while the plugin bundle itself runs in SharedJSContext.
-  // Event listeners must live on the document that actually hosts the card.
+  for (const d of getAllSteamDocuments()) {
+    if ((d as any)[DS_DOC_MENU]) continue;
+    (d as any)[DS_DOC_MENU] = true;
+    d.addEventListener("vgp_onmenubutton", handleMenu, true);
+    d.addEventListener("contextmenu", handleMenu, true);
+    // Removed with this instance (a hot-swap's next instance attaches its own).
+    registerDisposer(() => {
+      try {
+        d.removeEventListener("vgp_onmenubutton", handleMenu, true);
+        d.removeEventListener("contextmenu", handleMenu, true);
+        delete (d as any)[DS_DOC_MENU];
+      } catch {}
+    });
+  }
+}
+
+export function patchMenuButton(): void {
   const handleMenu = (evt: Event) => {
     try {
       // vgp_onmenubutton / contextmenu fire on the focused element — read the
@@ -63,70 +128,36 @@ export function patchMenuButton(): void {
          DispatchVirtualButtonClick intercepted for the wrong card) because the
          document-level capture listener fires once the event IS dispatched on
          the correct element. */
-      const fromTarget = (evt.target as HTMLElement)?.closest?.('.ds-card') as HTMLElement | null;
-      const focused = fromTarget ?? findFocusedDsCard();
+      const focus = eventFocus(evt);
+      const focused = cardFromEventTarget(evt) ?? findFocusedDsCard(focus);
       if (focused) {
-        const appid = Number(focused.getAttribute("data-appid") ?? 0);
-        const shelfId = focused.getAttribute("data-shelfid") ?? undefined;
+        const { appid, shelfId } = readCardIds(focused);
         if (appid > 0) {
           evt.stopImmediatePropagation();
           evt.preventDefault();
-          showGameMenu(appid, shelfId || undefined);
+          showGameMenu(appid, shelfId);
           return;
         }
       }
-      // Overlay: intercept unconditionally — native handler crashes on replaced cards.
-      if (isRecentsReplaceInjecting()) {
+      const appid = replacedRowMenuAppId(focus);
+      if (appid > 0) {
         evt.stopImmediatePropagation();
         evt.preventDefault();
-        const appid = getOverlayFocusedAppId() || getOverlayFirstCachedAppId();
-        if (appid > 0) showGameMenu(appid);
+        showGameMenu(appid);
       }
     } catch (e) { logInfo("HOME", "handleMenu failed", String(e)); }
   };
-  for (const d of getAllSteamDocuments()) {
-    if ((d as any)[DS_DOC_MENU]) continue;
-    (d as any)[DS_DOC_MENU] = true;
-    d.addEventListener("vgp_onmenubutton", handleMenu, true);
-    d.addEventListener("contextmenu", handleMenu, true);
-  }
+  installDocumentMenuListeners(handleMenu);
 
-  const ctrl = (globalThis as any).FocusNavController
-    ?? (globalThis as any).GamepadNavTree?.m_context?.m_controller;
+  const ctrl = resolveFocusNavController();
   if (!ctrl) return;
-
-  if (typeof ctrl.DispatchVirtualButtonClick === "function" && !patchedMenuControllers.has(ctrl)) {
-    const orig = ctrl.DispatchVirtualButtonClick.bind(ctrl);
-    ctrl.DispatchVirtualButtonClick = (button: number, ...args: any[]) => {
-      if (interceptMenuBtn(button)) return;
-      return orig(button, ...args);
-    };
+  // Instance method first, then the prototype, then the nested controller of
+  // the active context — the first one that takes the wrapper wins.
+  if (patchDispatch(ctrl, ctrl)) return;
+  if (!patchedMenuControllers.has(ctrl) && patchDispatch(Object.getPrototypeOf(ctrl))) {
     patchedMenuControllers.add(ctrl);
     return;
   }
-
-  if (!patchedMenuControllers.has(ctrl)) {
-    const proto = Object.getPrototypeOf(ctrl);
-    if (proto && !patchedMenuControllers.has(proto) && typeof proto.DispatchVirtualButtonClick === "function") {
-      const orig = proto.DispatchVirtualButtonClick;
-      proto.DispatchVirtualButtonClick = function(button: number, ...args: any[]) {
-        if (interceptMenuBtn(button)) return;
-        return orig.apply(this, [button, ...args]);
-      };
-      patchedMenuControllers.add(proto);
-      patchedMenuControllers.add(ctrl);
-      return;
-    }
-  }
-
   const ctx = ctrl.m_ActiveContext || ctrl.m_LastActiveContext;
-  const controller = ctx?.m_controller;
-  if (controller && !patchedMenuControllers.has(controller) && typeof controller.DispatchVirtualButtonClick === "function") {
-    const origDispatch = controller.DispatchVirtualButtonClick;
-    controller.DispatchVirtualButtonClick = function(button: number, ...args: any[]) {
-      if (interceptMenuBtn(button)) return;
-      return origDispatch.apply(this, [button, ...args]);
-    };
-    patchedMenuControllers.add(controller);
-  }
+  patchDispatch(ctx?.m_controller);
 }

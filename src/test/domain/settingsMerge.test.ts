@@ -115,3 +115,18 @@ describe("mergeSettings — scalars:keepLocal (profile override active)", () => 
     expect((out.shelves.find((s) => s.id === "a") as any).updatedAt).toBe(9);
   });
 });
+
+describe("mergeSettings — schema version", () => {
+  it("keeps the higher schemaVersion even when the other device's scalar bag wins", () => {
+    const migrated = mk({ schemaVersion: 2, preferencesUpdatedAt: 1 });
+    const older = mk({ schemaVersion: 1, preferencesUpdatedAt: 9 });
+    expect((mergeSettings(migrated, older) as any).schemaVersion).toBe(2);
+    expect((mergeSettings(older, migrated) as any).schemaVersion).toBe(2);
+    expect((mergeSettings(older, migrated, { scalars: "keepLocal" }) as any).schemaVersion).toBe(2);
+  });
+
+  it("adds no schemaVersion when neither side carries one", () => {
+    const out = mergeSettings(mk({ preferencesUpdatedAt: 1 }), mk({ preferencesUpdatedAt: 2 }));
+    expect("schemaVersion" in (out as any)).toBe(false);
+  });
+});

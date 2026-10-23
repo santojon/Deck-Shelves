@@ -8,6 +8,7 @@ export const FilterItemTypeSchema = z.enum([
   "updatePending",
   "isNew",
   "deckCompatibility",
+  "deviceCompatibility",
   "playedWithinDays",
   "playtimeRange",
   "recentlyActive",
@@ -27,6 +28,8 @@ export const FilterItemTypeSchema = z.enum([
   "controllerSupport",
   "systemCompatibility",
   "steamosCompatibility",
+  "machineCompatibility",
+  "frameCompatibility",
   "remotePlayLocation",
   "libraryLocation",
   "merge",
@@ -76,9 +79,15 @@ export const FilterItemTypeSchema = z.enum([
 ]);
 export type FilterItemType = z.infer<typeof FilterItemTypeSchema>;
 
+// Early imports stored boolean flags as 0/1; read them as booleans so the
+// whole document doesn't fail validation over a legacy filter item.
+const legacyFlag = (v: unknown) => (v === 1 ? true : v === 0 ? false : v);
+// A stored boolean that also reads the legacy 0/1 encoding.
+const legacyBool = () => z.preprocess(legacyFlag, z.boolean());
+
 export const FilterItemSchema = z.object({
   type: FilterItemTypeSchema,
-  inverted: z.boolean().optional(),
+  inverted: z.preprocess(legacyFlag, z.boolean().optional()),
   params: z.record(z.string(), z.any()).optional(),
 });
 export type FilterItem = z.infer<typeof FilterItemSchema>;
@@ -129,7 +138,7 @@ export const SavedSmartFilterSchema = z.object({
   smartParams: z.record(z.string(), z.number()).optional(),
   filterGroup: FilterGroupSchema.optional(),
   sort: z.union([z.string(), z.array(z.string())]).optional(),
-  sortReverse: z.union([z.boolean(), z.array(z.boolean())]).optional(),
+  sortReverse: z.union([legacyBool(), z.array(legacyBool())]).optional(),
   limit: z.number().int().min(1).max(100).optional(),
   // Same shape as SmartShelf.visibleHours so a saved entry round-trips
   // cleanly through apply / save without lossy conversion. Array of
@@ -149,10 +158,10 @@ export type SavedSmartFilter = z.infer<typeof SavedSmartFilterSchema>;
 
 export const FilterSchema = z.object({
   // Legacy fields
-  favorites: z.boolean().optional(),
-  hidden: z.union([z.boolean(), z.literal("only")]).optional(),
-  nonSteam: z.boolean().optional(),
-  installed: z.boolean().optional(),
+  favorites: legacyBool().optional(),
+  hidden: z.union([legacyBool(), z.literal("only")]).optional(),
+  nonSteam: legacyBool().optional(),
+  installed: legacyBool().optional(),
   playedWithinDays: z.number().int().positive().optional(),
   nameIncludes: z.string().optional(),
   nameRegex: z.string().optional(),
@@ -175,10 +184,10 @@ export const FilterSchema = z.object({
      Boolean OR array-of-booleans: per-key reverse aligned with the sort
      array. When sort is a string and sortReverse is an array (or vice versa),
      the union is treated as if the missing axis were repeated for every key. */
-  sortReverse: z.union([z.boolean(), z.array(z.boolean())]).optional(),
+  sortReverse: z.union([legacyBool(), z.array(legacyBool())]).optional(),
   minPlaytimeMinutes: z.number().int().min(0).optional(),
   maxPlaytimeMinutes: z.number().int().min(0).optional(),
-  updatePending: z.boolean().optional(),
+  updatePending: legacyBool().optional(),
   // New CustomTabs-style filter group (takes priority over legacy fields when present)
   filterGroup: FilterGroupSchema.optional(),
 }).passthrough();
@@ -242,91 +251,105 @@ export const SmartShelfModeSchema = z.enum([
 ]);
 export type SmartShelfMode = z.infer<typeof SmartShelfModeSchema>;
 
+/* Sort keys shared by regular and smart shelves: a single key, a free-form
+   key (external sort providers) or a multi-key chain with the same members. */
+const SORT_KEYS = ["alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score", "added", "random", "manual", "price_low", "discount_high", "original_price_high"] as const;
+const ShelfSortSchema = z.union([
+  z.enum(SORT_KEYS),
+  z.string(),
+  z.array(z.union([z.enum(SORT_KEYS), z.string()])),
+]);
+// Base order under a manual override: the same keys minus "manual" itself and the store sorts.
+const MANUAL_BASE_SORT_KEYS = ["alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score", "added", "random"] as const;
+const ManualBaseSortSchema = z.union([
+  z.enum(MANUAL_BASE_SORT_KEYS),
+  z.string(),
+  z.array(z.union([z.enum(MANUAL_BASE_SORT_KEYS), z.string()])),
+]);
+
+type LegacyBool = ReturnType<typeof legacyBool>;
+type VisualFlag<D extends boolean> = D extends true ? z.ZodDefault<LegacyBool> : z.ZodOptional<LegacyBool>;
+
+/* The visual customization surface both shelf kinds share, built once: the
+   regular shelf defaults its boolean flags to false, the smart shelf leaves them
+   optional (`defaulted`). Same fields, same order, so persisted key order is unchanged. */
+function shelfVisualFields<D extends boolean>(defaulted: D) {
+  const flag = (): VisualFlag<D> => (defaulted ? legacyBool().default(false) : legacyBool().optional()) as VisualFlag<D>;
+  return {
+    matchNativeSize: flag(),
+    highlightFirst: flag(),
+    highlightAll: flag(),
+    highlightedAppIds: z.array(z.number().int()).optional(),
+    highlightRandom: legacyBool().optional(),
+    enableLogo: legacyBool().optional(),
+    enableIcon: legacyBool().optional(),
+    enableDescription: legacyBool().optional(),
+    descriptionScale: z.number().int().min(100).max(200).nullable().optional(),
+    descriptionBelowLogo: legacyBool().optional(),
+    logoBelowShelf: legacyBool().optional(),
+    logoPosition: z.enum(['left', 'center', 'right']).nullable().optional(),
+    descriptionPosition: z.enum(['left', 'center', 'right']).nullable().optional(),
+    logoSize: z.number().int().min(50).max(200).nullable().optional(),
+    logoTopOffset: z.number().int().min(-50).max(100).nullable().optional(),
+    fullPageShelf: legacyBool().optional(),
+    iconVerticalAlign: z.enum(['top', 'center', 'bottom']).nullable().optional(),
+    shelfTitlePosition: z.enum(['left', 'center', 'right']).nullable().optional(),
+    gameNamePosition: z.enum(['left', 'center', 'right']).nullable().optional(),
+    playtimePosition: z.enum(['left', 'center', 'right']).nullable().optional(),
+    descriptionHeight: z.number().int().min(1).max(3).nullable().optional(),
+    descriptionLogoGap: z.number().int().min(-40).max(80).nullable().optional(),
+    hideStatusLine: flag(),
+    hideNewBadge: flag(),
+    hideDiscountBadge: flag(),
+    hideCompatIcons: flag(),
+    hideNonSteamBadge: flag(),
+    hideShelfTitle: flag(),
+    hideGameNames: flag(),
+    hideInstallIndicator: flag(),
+    hideSeeMore: flag(),
+    hideRefreshCard: flag(),
+  };
+}
+
 export const SmartShelfSchema = z.object({
   id: z.string().min(1).max(64),
   updatedAt: z.number().int().nonnegative().optional(),
   title: z.string().min(1).max(64),
   mode: SmartShelfModeSchema,
-  enabled: z.boolean().default(true),
-  hidden: z.boolean().default(false),
+  enabled: legacyBool().default(true),
+  hidden: legacyBool().default(false),
   limit: z.number().int().min(1).max(100).optional(),
   /* Optional user overrides — apply on top of the mode's built-in behavior.
      `sort` overrides the mode's default ordering (supports the same values as
      regular shelves, including "manual" + `manualOrder` / `manualBaseSort`).
      `filterGroup` narrows the mode's candidate pool with additional filters. */
-  sort: z.union([
-    z.enum(["alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score", "added", "random", "manual", "price_low", "discount_high", "original_price_high"]),
-    z.string(),
-    z.array(z.union([
-      z.enum(["alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score", "added", "random", "manual", "price_low", "discount_high", "original_price_high"]),
-      z.string(),
-    ])),
-  ]).optional(),
+  sort: ShelfSortSchema.optional(),
   // When true, reverse the sort result (asc/desc toggle). Ignored for
   // `manual` and `random`. Default false. Array form is per-key reverse
   // aligned with the `sort` array; see FilterSchema.sortReverse.
-  sortReverse: z.union([z.boolean(), z.array(z.boolean())]).optional(),
+  sortReverse: z.union([legacyBool(), z.array(legacyBool())]).optional(),
   manualOrder: z.array(z.number().int()).optional(),
   /* Base sort applied to the rows NOT covered by `manualOrder` when
      sort === "manual". Accepts a single key OR a multi-key chain so the
      user can have e.g. recent + alphabetical tiebreaker as the base
      order under a manual override. */
-  manualBaseSort: z.union([
-    z.enum(["alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score", "added", "random"]),
-    z.string(),
-    z.array(z.union([
-      z.enum(["alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score", "added", "random"]),
-      z.string(),
-    ])),
-  ]).optional(),
+  manualBaseSort: ManualBaseSortSchema.optional(),
   // Reverse flag for the manual base sort. Mirrors `sortReverse`: boolean
   // applies uniformly, `boolean[]` aligned with the multi-key chain.
-  manualBaseSortReverse: z.union([z.boolean(), z.array(z.boolean())]).optional(),
+  manualBaseSortReverse: z.union([legacyBool(), z.array(legacyBool())]).optional(),
   filterGroup: FilterGroupSchema.optional(),
-  // Visual overrides — mirrored from `ShelfSchema` so smart shelves can
-  // share the regular-shelf visual customization surface.
-  matchNativeSize: z.boolean().optional(),
-  highlightFirst: z.boolean().optional(),
-  highlightAll: z.boolean().optional(),
-  highlightedAppIds: z.array(z.number().int()).optional(),
-  highlightRandom: z.boolean().optional(),
-  enableLogo: z.boolean().optional(),
-  enableIcon: z.boolean().optional(),
-  enableDescription: z.boolean().optional(),
-  descriptionScale: z.number().int().min(100).max(200).nullable().optional(),
-  descriptionBelowLogo: z.boolean().optional(),
-  logoBelowShelf: z.boolean().optional(),
-  logoPosition: z.enum(['left', 'center', 'right']).nullable().optional(),
-  descriptionPosition: z.enum(['left', 'center', 'right']).nullable().optional(),
-  logoSize: z.number().int().min(50).max(200).nullable().optional(),
-  logoTopOffset: z.number().int().min(-50).max(100).nullable().optional(),
-  fullPageShelf: z.boolean().optional(),
-  iconVerticalAlign: z.enum(['top', 'center', 'bottom']).nullable().optional(),
-  shelfTitlePosition: z.enum(['left', 'center', 'right']).nullable().optional(),
-  gameNamePosition: z.enum(['left', 'center', 'right']).nullable().optional(),
-  playtimePosition: z.enum(['left', 'center', 'right']).nullable().optional(),
-  descriptionHeight: z.number().int().min(1).max(3).nullable().optional(),
-  descriptionLogoGap: z.number().int().min(-40).max(80).nullable().optional(),
-  hideStatusLine: z.boolean().optional(),
-  hideNewBadge: z.boolean().optional(),
-  hideDiscountBadge: z.boolean().optional(),
-  hideCompatIcons: z.boolean().optional(),
-  hideNonSteamBadge: z.boolean().optional(),
-  hideShelfTitle: z.boolean().optional(),
-  hideGameNames: z.boolean().optional(),
-  hideInstallIndicator: z.boolean().optional(),
-  hideSeeMore: z.boolean().optional(),
-  hideRefreshCard: z.boolean().optional(),
+  // Visual overrides — the regular-shelf customization surface, shared (see shelfVisualFields).
+  ...shelfVisualFields(false),
   // Per-shelf hero opt-in (same semantics as the regular Shelf flag).
-  heroEnabled: z.boolean().optional(),
+  heroEnabled: legacyBool().optional(),
   // Per-shelf: render the focused game's info (name, playtime, …) above the
   // cards in a full-page layout. Decoupled from any theme — pure opt-in.
-  gameInfoAbove: z.boolean().optional(),
+  gameInfoAbove: legacyBool().optional(),
   // Per-shelf: overlay friend avatar(s) + "N friends playing" on cards where a
   // Steam friend is in the game. `Recent` widens to the 14-day lookback.
-  friendsPlayingOverlay: z.boolean().optional(),
-  friendsPlayingOverlayRecent: z.boolean().optional(),
-  dedupeByExactName: z.boolean().optional(),
+  friendsPlayingOverlay: legacyBool().optional(),
+  friendsPlayingOverlayRecent: legacyBool().optional(),
+  dedupeByExactName: legacyBool().optional(),
   hiddenAppIds: z.array(z.number().int()).optional(),
   // Optional refresh cadence in minutes. When unset the resolver uses its
   // default 60-minute TTL; otherwise the cached result is reused for
@@ -366,7 +389,7 @@ export const SmartShelfSchema = z.object({
   visibility: VisibilitySchema.optional(),
   autoPin: VisibilitySchema.optional(),
   autoCollapse: VisibilitySchema.optional(),
-  autoCollapseWhenEmpty: z.boolean().optional(),
+  autoCollapseWhenEmpty: legacyBool().optional(),
 }).passthrough();
 export type SmartShelf = z.infer<typeof SmartShelfSchema>;
 
@@ -396,8 +419,8 @@ export const ShelfSourceSchema: z.ZodType<ShelfSource> = z.lazy(() => z.union([
   z.object({ type: z.literal("external"), sourceId: z.string().min(1) }),
   z.object({ type: z.literal("builtin"), sourceId: z.string().min(1) }),
   z.object({ type: z.literal("smart"), mode: SmartShelfModeSchema }),
-  z.object({ type: z.literal("wishlist"), childFilter: FilterGroupSchema.optional(), excludeOwned: z.boolean().optional(), excludeOwnedNonSteam: z.boolean().optional(), hideOwnedNonSteamCloud: z.boolean().optional() }),
-  z.object({ type: z.literal("store"), childFilter: FilterGroupSchema.optional(), excludeOwned: z.boolean().optional(), excludeOwnedNonSteam: z.boolean().optional(), hideOwnedNonSteamCloud: z.boolean().optional() }),
+  z.object({ type: z.literal("wishlist"), childFilter: FilterGroupSchema.optional(), excludeOwned: legacyBool().optional(), excludeOwnedNonSteam: legacyBool().optional(), hideOwnedNonSteamCloud: legacyBool().optional() }),
+  z.object({ type: z.literal("store"), childFilter: FilterGroupSchema.optional(), excludeOwned: legacyBool().optional(), excludeOwnedNonSteam: legacyBool().optional(), hideOwnedNonSteamCloud: legacyBool().optional() }),
   z.object({ type: z.literal("composite"), combine: z.enum(["union", "intersection"]), sources: z.array(ShelfSourceSchema), childFilter: FilterGroupSchema.optional() }),
 ]) as unknown as z.ZodType<ShelfSource>);
 export type ShelfFilter = z.infer<typeof FilterSchema>;
@@ -427,21 +450,14 @@ export const ShelfSchema = z.object({
   id: z.string().min(1).max(64),
   updatedAt: z.number().int().nonnegative().optional(),
   title: z.string().min(1).max(64),
-  enabled: z.boolean().default(true),
-  hidden: z.boolean().default(false),
+  enabled: legacyBool().default(true),
+  hidden: legacyBool().default(false),
   limit: z.number().int().min(1).max(100).default(20),
-  sort: z.union([
-    z.enum(["alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score", "added", "random", "manual", "price_low", "discount_high", "original_price_high"]),
-    z.string(),
-    z.array(z.union([
-      z.enum(["alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score", "added", "random", "manual", "price_low", "discount_high", "original_price_high"]),
-      z.string(),
-    ])),
-  ]).optional(),
+  sort: ShelfSortSchema.optional(),
   // When true, reverse the sort result (asc/desc toggle). Ignored for
   // `manual` and `random`. Default false. Array form is per-key reverse
   // aligned with the `sort` array; see FilterSchema.sortReverse.
-  sortReverse: z.union([z.boolean(), z.array(z.boolean())]).optional(),
+  sortReverse: z.union([legacyBool(), z.array(legacyBool())]).optional(),
   manualOrder: z.array(z.number().int()).optional(),
   // Base sort used to order items NOT covered by `manualOrder` when `sort === "manual"`.
   /* Defaults to "alphabetical" when absent; must not be "manual" itself.
@@ -449,62 +465,24 @@ export const ShelfSchema = z.object({
      sort === "manual". Accepts a single key OR a multi-key chain so the
      user can have e.g. recent + alphabetical tiebreaker as the base
      order under a manual override. */
-  manualBaseSort: z.union([
-    z.enum(["alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score", "added", "random"]),
-    z.string(),
-    z.array(z.union([
-      z.enum(["alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score", "added", "random"]),
-      z.string(),
-    ])),
-  ]).optional(),
+  manualBaseSort: ManualBaseSortSchema.optional(),
   // Reverse flag for the manual base sort. Mirrors `sortReverse`: boolean
   // applies uniformly, `boolean[]` aligned with the multi-key chain.
-  manualBaseSortReverse: z.union([z.boolean(), z.array(z.boolean())]).optional(),
-  matchNativeSize: z.boolean().default(false),
-  highlightFirst: z.boolean().default(false),
-  highlightAll: z.boolean().default(false),
-  highlightedAppIds: z.array(z.number().int()).optional(),
-  highlightRandom: z.boolean().optional(),
-  enableLogo: z.boolean().optional(),
-  enableIcon: z.boolean().optional(),
-  enableDescription: z.boolean().optional(),
-  descriptionScale: z.number().int().min(100).max(200).nullable().optional(),
-  descriptionBelowLogo: z.boolean().optional(),
-  logoBelowShelf: z.boolean().optional(),
-  logoPosition: z.enum(['left', 'center', 'right']).nullable().optional(),
-  descriptionPosition: z.enum(['left', 'center', 'right']).nullable().optional(),
-  logoSize: z.number().int().min(50).max(200).nullable().optional(),
-  logoTopOffset: z.number().int().min(-50).max(100).nullable().optional(),
-  fullPageShelf: z.boolean().optional(),
-  iconVerticalAlign: z.enum(['top', 'center', 'bottom']).nullable().optional(),
-  shelfTitlePosition: z.enum(['left', 'center', 'right']).nullable().optional(),
-  gameNamePosition: z.enum(['left', 'center', 'right']).nullable().optional(),
-  playtimePosition: z.enum(['left', 'center', 'right']).nullable().optional(),
-  descriptionHeight: z.number().int().min(1).max(3).nullable().optional(),
-  descriptionLogoGap: z.number().int().min(-40).max(80).nullable().optional(),
-  hideStatusLine: z.boolean().default(false),
-  hideNewBadge: z.boolean().default(false),
-  hideDiscountBadge: z.boolean().default(false),
-  hideCompatIcons: z.boolean().default(false),
-  hideNonSteamBadge: z.boolean().default(false),
-  hideShelfTitle: z.boolean().default(false),
-  hideGameNames: z.boolean().default(false),
-  hideInstallIndicator: z.boolean().default(false),
-  hideSeeMore: z.boolean().default(false),
-  hideRefreshCard: z.boolean().default(false),
+  manualBaseSortReverse: z.union([legacyBool(), z.array(legacyBool())]).optional(),
+  ...shelfVisualFields(true),
   /* Per-shelf "Enable hero art" toggle. When true, focusing any card in this
      shelf paints the hero image (same overlay used by the global
      `shelfHeroBackground`) tied to the focused appid. Independent of
      `hideRecents` — a regular shelf below the native recents row can opt in. */
-  heroEnabled: z.boolean().optional(),
+  heroEnabled: legacyBool().optional(),
   // Per-shelf: render the focused game's info (name, playtime, …) above the
   // cards in a full-page layout. Decoupled from any theme — pure opt-in.
-  gameInfoAbove: z.boolean().optional(),
+  gameInfoAbove: legacyBool().optional(),
   // Per-shelf: overlay friend avatar(s) + "N friends playing" on cards where a
   // Steam friend is in the game. `Recent` widens to the 14-day lookback.
-  friendsPlayingOverlay: z.boolean().optional(),
-  friendsPlayingOverlayRecent: z.boolean().optional(),
-  dedupeByExactName: z.boolean().optional(),
+  friendsPlayingOverlay: legacyBool().optional(),
+  friendsPlayingOverlayRecent: legacyBool().optional(),
+  dedupeByExactName: legacyBool().optional(),
   hiddenAppIds: z.array(z.number().int()).optional(),
   source: ShelfSourceSchema,
   // Decoration/gap cards pinned at fixed slots; rules in superRefine.
@@ -519,7 +497,7 @@ export const ShelfSchema = z.object({
       }).optional(),
       size: z.enum(["normal", "featured"]).default("normal"),
       alpha: z.number().min(0).max(1).optional(),
-      placeholder: z.boolean().optional(),
+      placeholder: legacyBool().optional(),
       /* Decoration hero — when set, the synthetic card behaves as a
          hero source: while focused, this image fills the per-shelf
          hero background (same path PerShelfHero uses for game cards).
@@ -552,7 +530,7 @@ export const ShelfSchema = z.object({
   // when the shelf resolves to 0 games), the shelf renders collapsed to its
   // header. Gated by the global `autoCollapseEnabled` toggle.
   autoCollapse: VisibilitySchema.optional(),
-  autoCollapseWhenEmpty: z.boolean().optional(),
+  autoCollapseWhenEmpty: legacyBool().optional(),
 }).passthrough();
 
 export type Shelf = z.infer<typeof ShelfSchema>;
@@ -589,7 +567,6 @@ export const SettingsSchema = z.object({
   globalLogoSize: z.number().int().min(50).max(200).nullable().optional(),
   globalLogoTopOffset: z.number().int().min(-50).max(100).nullable().optional(),
   globalFullPageShelf: z.boolean().optional(),
-  settingsPageEnabled: z.boolean().optional(),
   globalIconVerticalAlign: z.enum(['top', 'center', 'bottom']).nullable().optional(),
   globalShelfTitlePosition: z.enum(['left', 'center', 'right']).nullable().optional(),
   globalGameNamePosition: z.enum(['left', 'center', 'right']).nullable().optional(),
@@ -656,11 +633,9 @@ export const SettingsSchema = z.object({
   // (e.g. Xbox Cloud Gaming) don't hide their store/wishlist promotions.
   onlineHideOwnedNonSteamCloud: z.boolean().nullable().optional().transform((v) => v ?? false),
   forceCssLoaderThemes: z.boolean().nullable().optional().transform((v) => v ?? false),
-  /* Own native Quick Access tab under Decky alone — off by default, since it
-     patches a live Steam QAM consumer and needs its own on-device validation
-     pass before it's safe to default on. Never has any effect when a neutral
-     host's own QAM bridge is present; that tab always wins (see
-     runtime/ownQamTab.ts). */
+  /* The plugin's own Quick Access tab under the plugin loader alone (opt-in,
+     experimental, per device). Has no effect when a neutral host shows its own
+     Deck Shelves tab (runtime/ownQamTab.ts). */
   ownQamTabEnabled: z.boolean().nullable().optional().transform((v) => v ?? false),
   /* Showcase / Dynamic Idle Mode — cycles attention through the user's own
      shelves during Home inactivity; any real interaction stops it instantly.
@@ -707,6 +682,7 @@ export const SettingsSchema = z.object({
      sources / wishlist / price). User toggles remain untouched so
      turning offline off restores their previous online behaviour. */
   offlineModeEnabled: z.boolean().nullable().optional().transform((v) => v ?? false),
+  // Reserved: nothing writes it yet; kept because the public API's settings snapshot exposes it.
   featureToggles: z.record(z.string(), z.boolean()).nullable().optional().transform((v) => v ?? {}),
   activeProfileName: z.string().nullable().optional(),
   /* Master opt-in for Visibility Rules v2 profile triggers. Off by default
@@ -727,6 +703,23 @@ export const SettingsSchema = z.object({
   // Set once the first-run feature showcase has been seen/dismissed; the
   // AboutPage "replay" button clears it back so the tour can be shown again.
   showcaseSeen: z.boolean().optional(),
+  // Setup wizard (setup packs / recipes): seen flag + the last apply, kept so
+  // the wizard can offer a one-step revert of exactly what it added/changed.
+  setupWizardSeen: z.boolean().optional(),
+  lastSetupApply: z.object({
+    packId: z.string(),
+    at: z.number(),
+    addedShelfIds: z.array(z.string()),
+    addedSmartIds: z.array(z.string()),
+    prevSettings: z.record(z.string(), z.unknown()),
+  }).nullish(),
+  // Opaque entity a neutral host stores to carry its OWN config across the
+  // user's devices on the plugin's sync (per-key last-writer-wins by
+  // `updatedAt`). The plugin never reads or edits the values.
+  hubConfig: z.object({
+    values: z.record(z.string(), z.unknown()),
+    updatedAt: z.record(z.string(), z.number()),
+  }).nullish(),
   profiles: z.array(z.object({
     id: z.string(),
     updatedAt: z.number().int().nonnegative().optional(),
@@ -736,12 +729,15 @@ export const SettingsSchema = z.object({
     // Hidden profiles stay in the list (crossed-out eye) but are omitted
     // from the quick-select dropdown.
     hidden: z.boolean().optional(),
+    // Applying a linked profile also applies its shelves (otherwise the
+    // current shelves are kept).
+    linkShelves: z.boolean().optional(),
     // VisibilityRule predicate that auto-
     /* applies the profile when its predicate becomes true (battery
        low, plugged in, external display, performance threshold, etc.).
-       Schema accepts the field; the resolver lands with the
-       visibility-rules v2 pass. Stored as `unknown` because the rule
-       shape belongs to that work — sanitizer round-trips it verbatim. */
+       Evaluated by runtime/profileTriggers.ts. Stored as `unknown` because
+       the rule shape belongs to the rule editor — the sanitizer round-trips
+       it verbatim. */
     trigger: z.unknown().optional(),
   })).nullable().optional().transform((v) => v ?? []),
   // Integrations detail panel per-row toggle. Keys are

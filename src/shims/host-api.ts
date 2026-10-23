@@ -158,11 +158,14 @@ function tryToast(target: any, input: any): { done: boolean; result?: any } {
 }
 
 // Neutral host: route toasts through its notification API. A
-// contract-conforming runtime exposes toast(opts); older ones expose send().
-function tryShelvesHubToast(input: { title?: string; body?: string; duration?: number }): { done: boolean; result?: any } {
+// contract-conforming runtime exposes toast(opts); older ones expose send(). The
+// branded logo and the per-type icon travel with the toast, as they do under a loader.
+function tryShelvesHubToast(input: { title?: string; body?: string; duration?: number; logo?: unknown; icon?: unknown }): { done: boolean; result?: any } {
   const notifs = getShelvesHost()?.notifications;
-  if (notifs?.toast) return { done: true, result: notifs.toast({ title: input.title ?? "", body: input.body, durationMs: input.duration }) };
-  if (notifs?.send) return { done: true, result: notifs.send(input.title ?? "", input.body ?? "", input.duration) };
+  if (notifs?.toast) {
+    return { done: true, result: notifs.toast({ title: input.title ?? "", body: input.body, durationMs: input.duration, logo: input.logo, icon: input.icon }) };
+  }
+  if (notifs?.send) return { done: true, result: notifs.send(input.title ?? "", input.body ?? "", input.duration, { logo: input.logo, icon: input.icon }) };
   return { done: false };
 }
 

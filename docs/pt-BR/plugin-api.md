@@ -22,7 +22,7 @@ plugins de terceiros podem colidir.
 ## Globais de runtime
 
 O Deck Shelves expõe a API em `window.deckShelves` (`{ version, api,
-register }`) e espelha o registro em `window.__DECK_SHELVES_API__`. Plugins
+register }`). Plugins
 se registram através de `window.deckShelves.register({ name, onMount(api) })`;
 o pacote `@deck-shelves/api` cuida do timing de ordem de carregamento (plugin
 antes / depois / simultaneamente com o host).
@@ -109,10 +109,13 @@ não incrementa a `version` da API.
 
 ## IDs nativos de Filtro / Ordenação / Fonte (v3)
 
-Esses ids são registrados através dos mesmos registros públicos. Um plugin de
-terceiros visando o mesmo id sobrescreve a implementação nativa
-(a última escrita vence); escolha um prefixo `my-plugin.` para evitar
-colisões.
+Esses ids são registrados através dos mesmos registros públicos e são
+**reservados**: um registro de terceiros que usa um id nativo, ou qualquer id
+que comece com `deck-shelves.`, é ignorado (um aviso é registrado no log e o
+unsubscribe devolvido não faz nada), então um plugin nunca substitui uma
+entrada nativa. Use um prefixo `my-plugin.` nos seus ids. Cancelar o registro
+só remove a entrada enquanto ela ainda é sua, então um unsubscribe antigo nunca
+remove um registro mais novo com o mesmo id.
 
 ### Filter v3
 

@@ -1,6 +1,7 @@
 import { Navigation } from "./host/decky";
-import { getFocusedDsCardAppid } from "../core/focusRestore";
+import { getFocusedDsCardAppid, clearFocusTarget } from "../core/focusRestore";
 import { countNavTreeDsCards } from "../components/home/mountUtils";
+import { focusShelfCard } from "../features/search/builtInProvider";
 
 /* Dev-only globals for on-device drivers (the back-nav gate, perf probes):
    real Steam navigation + nav-tree facts through the plugin's own host
@@ -22,8 +23,19 @@ export function installDevNavHooks(): () => void {
   g.__ds_dev_nav_tree = (): { total: number; dsCards: number } | null => {
     try { return countNavTreeDsCards(); } catch { return null; }
   };
+  /* Gamepad focus onto a card the way Quick Search lands on one (reveal, then
+     Steam's own take-focus), so a driver never depends on DOM focus alone. Any
+     pending selection restore is dropped first: the card focused before the
+     last navigation would otherwise take the focus back when its row mounts. */
+  g.__ds_dev_focus_card = (appid: number, shelfId?: string | null): boolean => {
+    try {
+      clearFocusTarget();
+      focusShelfCard(Number(appid), shelfId ?? null);
+      return true;
+    } catch { return false; }
+  };
   return () => {
-    for (const k of ["__ds_dev_navigate", "__ds_dev_navigate_back", "__ds_dev_nav_focus", "__ds_dev_nav_tree"]) {
+    for (const k of ["__ds_dev_navigate", "__ds_dev_navigate_back", "__ds_dev_nav_focus", "__ds_dev_nav_tree", "__ds_dev_focus_card"]) {
       try { delete g[k]; } catch {}
     }
   };

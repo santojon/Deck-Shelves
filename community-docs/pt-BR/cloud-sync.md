@@ -64,6 +64,13 @@ Dois tipos de configuração nunca viajam entre dispositivos, de propósito:
 - Alguns valores técnicos específicos do dispositivo que não fariam sentido
   (ou estariam ativamente errados) se copiados para outra máquina.
 
+Os perfis em si — as configurações e os gatilhos de cada um — sincronizam,
+mas **qual perfil está ativo é decidido em cada dispositivo**, à mão ou pelos
+gatilhos daquele dispositivo. Enquanto dois dispositivos rodam perfis
+diferentes, cada um mantém seu próprio visual: as configurações do dia a dia
+só acompanham entre dispositivos rodando o mesmo perfil (ou nenhum), então o
+*Showcase* de uma máquina docked nunca vaza para o *Handheld* de um portátil.
+
 ## Solução de problemas
 
 - **A linha de status diz "ainda não sincronizado" e continua assim.**

@@ -16,6 +16,22 @@
         "heapStartMb": 159,
         "heapEndMb": 152,
         "file": "history/backnav/2026-10-10T09-12-46.json"
+      },
+      {
+        "kind": "backnav",
+        "ts": "2026-10-14T14:31:54",
+        "version": "3.3.4",
+        "cycles": 20,
+        "fullMsAvg": 444,
+        "fullMsMax": 808,
+        "selectionKept": 20,
+        "selectionJudged": 20,
+        "maxRoots": 1,
+        "fallbackMounts": 0,
+        "leaks": 0,
+        "heapStartMb": 144,
+        "heapEndMb": 148,
+        "file": "history/backnav/2026-10-14T14-31-54.json"
       }
     ],
     "backnav-release": [
@@ -48,6 +64,14 @@
         "pluginFreeW": 3.721,
         "hubOnlyW": 3.672,
         "file": "history/battery-soak/2026-10-10T10-18-37.json"
+      }
+    ],
+    "coop-fallback": [
+      {
+        "kind": "coop-fallback",
+        "ts": "2026-10-13T13:19:36+00:00",
+        "version": "3.3.4",
+        "file": "history/coop-fallback/2026-10-13T13-19-36-00-00.json"
       }
     ],
     "idle-cpu": [
@@ -94,6 +118,20 @@
         "huge_5000_heapMb": 320,
         "huge_5000_error": false,
         "file": "history/perf-matrix/2026-10-09T17-59-02.json"
+      },
+      {
+        "kind": "perf-matrix",
+        "ts": "2026-10-11T17:22:26",
+        "version": "3.3.4",
+        "large_2000_returnMs": 880,
+        "large_2000_settleMs": 143,
+        "large_2000_heapMb": 161,
+        "large_2000_error": false,
+        "huge_5000_returnMs": 320,
+        "huge_5000_settleMs": 400,
+        "huge_5000_heapMb": 163,
+        "huge_5000_error": false,
+        "file": "history/perf-matrix/2026-10-11T17-22-26.json"
       }
     ],
     "soak-reload": [
@@ -107,6 +145,17 @@
         "cycles": 20,
         "okPct": 100.0,
         "file": "history/soak-reload/2026-10-09T17-00-40.json"
+      },
+      {
+        "kind": "soak-reload",
+        "ts": "2026-10-23T04:22:19",
+        "version": "3.3.4",
+        "mode": "reload",
+        "coexist": false,
+        "ok": 5,
+        "cycles": 5,
+        "okPct": 100.0,
+        "file": "history/soak-reload/2026-10-23T04-22-19.json"
       }
     ],
     "soak-reload-coexist": [
@@ -133,6 +182,17 @@
         "cycles": 100,
         "okPct": 99.0,
         "file": "history/soak-restart/2026-10-09T20-02-37.json"
+      },
+      {
+        "kind": "soak-restart",
+        "ts": "2026-10-21T17:59:40",
+        "version": "3.3.4",
+        "mode": "restart",
+        "coexist": false,
+        "ok": 10,
+        "cycles": 10,
+        "okPct": 100.0,
+        "file": "history/soak-restart/2026-10-21T17-59-40.json"
       }
     ],
     "soak-restart-coexist": [
@@ -146,6 +206,17 @@
         "cycles": 10,
         "okPct": 100.0,
         "file": "history/soak-restart-coexist/2026-10-09T20-45-59.json"
+      },
+      {
+        "kind": "soak-restart-coexist",
+        "ts": "2026-10-12T11:51:59",
+        "version": "3.3.4",
+        "mode": "restart",
+        "coexist": true,
+        "ok": 2,
+        "cycles": 2,
+        "okPct": 100.0,
+        "file": "history/soak-restart-coexist/2026-10-12T11-51-59.json"
       }
     ],
     "soak-sleepwake": [
@@ -159,8 +230,19 @@
         "cycles": 50,
         "okPct": 100.0,
         "file": "history/soak-sleepwake/2026-10-09T20-34-01.json"
+      },
+      {
+        "kind": "soak-sleepwake",
+        "ts": "2026-10-12T11:53:01",
+        "version": "3.3.4",
+        "mode": "sleepwake",
+        "coexist": false,
+        "ok": 2,
+        "cycles": 2,
+        "okPct": 100.0,
+        "file": "history/soak-sleepwake/2026-10-12T11-53-01.json"
       }
     ]
   },
-  "runs": 10
+  "runs": 17
 }

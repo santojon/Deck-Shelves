@@ -1,3 +1,4 @@
+import { devStamp } from "./devStamps";
 /* Deck Shelves' own idle screensaver: replaces Steam's native one (idle
    timer disabled/restored via steamSettingsWriter, never left altered)
    with a slideshow of everything the home screen shows (native Recents +
@@ -10,6 +11,7 @@ import { resolveShelfAppIds } from "../steam";
 import { getCurrentSettings, saveSettings, subscribeSettings } from "../store/settingsStore";
 import { DEFAULT_SHELF_LIMIT, SHELF_LIMIT_MAX } from "../domain/shelfLimits";
 import { getStoreScreenshots } from "../core/onlineStore";
+import { qaOverrideActive } from "../qa/harness";
 import type { Settings, Shelf } from "../types";
 
 /* Scales with enabled-shelf count so each can reach its own `limit` — used
@@ -68,7 +70,7 @@ export function getDwellSeconds(settings: Settings | null): number {
 
 // How many apps to draw per shelf per round-robin round (see
 // resolveShelfAppPool) before moving to the next shelf.
-export function getShelfBatchSize(settings: Settings | null): number {
+function getShelfBatchSize(settings: Settings | null): number {
   const v = (settings as any)?.screensaverShelfBatchSize;
   return typeof v === "number" && v > 0 ? v : 5;
 }
@@ -271,14 +273,12 @@ export async function buildScreensaverPool(settings: Settings | null): Promise<S
     ? await resolveOnlineScreenshotPool(apps.map((a) => (a as { appid: number }).appid))
     : [];
   const pool = [...apps, ...screenshots, ...onlineScreenshots];
-  try {
-    (globalThis as any).__ds_screensaver_last_pool = {
-      t: Date.now(), includeScreenshots, includeOnlineScreenshots,
-      shelfCount: shelfIds.length, recentCount: recentIds.length,
-      appCount: apps.length, screenshotCount: screenshots.length,
-      onlineScreenshotCount: onlineScreenshots.length,
-    };
-  } catch { /* diagnostics must never throw */ }
+  devStamp("__ds_screensaver_last_pool", {
+    t: Date.now(), includeScreenshots, includeOnlineScreenshots,
+    shelfCount: shelfIds.length, recentCount: recentIds.length,
+    appCount: apps.length, screenshotCount: screenshots.length,
+    onlineScreenshotCount: onlineScreenshots.length,
+  });
   return pool;
 }
 
@@ -310,6 +310,8 @@ async function disableNativeIdleScreensaver(): Promise<void> {
   const alreadyBackedUp = (before as any)?.screensaverIdleBackupAcSec != null
     && (before as any)?.screensaverIdleBackupBatterySec != null;
   if (!alreadyBackedUp) {
+    // A QA build cannot persist the backup, so it never turns Steam's own timer off without one.
+    if (qaOverrideActive) return;
     const ac = readIdleTimeoutSec("system_idle_screensaver_ac_sec");
     const battery = readIdleTimeoutSec("system_idle_screensaver_battery_sec");
     if (ac === null || battery === null) return;

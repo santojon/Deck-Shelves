@@ -60,26 +60,19 @@ window.__DS_I18N_PT_BR__ = {
   "fresh.sub": "Uma nova versão do Deck Shelves acabou de ser lançada — atualize agora.",
 
   "cta.seeInstall": "Ver opções de instalação",
-  "cta.getShelvesHub": "Obter o ShelvesHub",
   "cta.getDecky": "Obter o Decky Loader",
 
   "hero.title": "Sua Home da <span class=\"hero-hl\">Steam.</span><br>Do seu jeito.",
   "hero.lead": "O Deck Shelves permite montar prateleiras personalizadas a partir das suas coleções, abas da biblioteca ou filtros. Adicione cartões de decoração, prateleiras inteligentes e linhas de lista de desejos/loja — tudo em um editor integrado no Acesso Rápido. Sem modo desktop, sem arquivos de configuração.",
 
-  "stats.hubDownloads": "downloads do ShelvesHub",
   "stats.downloads": "downloads no GitHub",
   "stats.installs": "instalações na Decky Store",
   "stats.views": "visualizações (14d)",
   "stats.npm": "downloads no npm",
 
   "install.title": "Instalação",
-  "install.lead": "O jeito mais fácil é o <a class=\"accent\" href=\"https://github.com/santojon/ShelvesHub\">ShelvesHub</a> — um host independente, sem necessidade de loader de plugins. Já usa o <a class=\"accent\" href=\"https://decky.xyz\">Decky Loader</a>? Instale pela Decky Store, baixe a versão mais recente e adicione manualmente, ou instale por URL.",
+  "install.lead": "O Deck Shelves roda no <a class=\"accent\" href=\"https://decky.xyz\">Decky Loader</a>. Instale pela Decky Store, baixe a versão mais recente e adicione manualmente, ou instale por URL.",
   "install.recommended": "Recomendado",
-  "install.shelveshub.title": "Via ShelvesHub",
-  "install.shelveshub.desc": "Um host independente — sem necessidade do Decky Loader. Instaladores de um clique para cada plataforma, com atualizações automáticas para ele mesmo e para o Deck Shelves.",
-  "install.shelveshub.step1": "Baixe o instalador da sua plataforma na <b>página de releases do ShelvesHub</b>.",
-  "install.shelveshub.step2": "Execute-o — no Steam Deck é um arquivo <b>.desktop</b>, sem precisar de sudo.",
-  "install.shelveshub.step3": "Reinicie a Steam se solicitado. O Deck Shelves ganha sua própria aba no Acesso Rápido automaticamente.",
   "install.decky.title": "Pela Decky Store",
   "install.decky.desc": "O jeito mais fácil — uma vez instalado, o Deck Shelves se atualiza com um clique sempre que uma nova versão estiver disponível na loja.",
   "install.decky.step1": "Instale o <b>Decky Loader</b> no seu Steam Deck.",
@@ -141,9 +134,9 @@ window.__DS_I18N_PT_BR__ = {
   "faq.q2": "O Deck Shelves substitui o TabMaster ou o UnifiDeck?",
   "faq.a2": "Não — eles resolvem problemas diferentes. O TabMaster organiza sua biblioteca em abas e o UnifiDeck unifica várias lojas em uma biblioteca; o Deck Shelves adiciona uma Home personalizável baseada em prateleiras sobre qualquer um dos dois.",
   "faq.q3": "Preciso ter o Decky Loader instalado?",
-  "faq.a3": "Não — o <a class=\"accent\" href=\"https://github.com/santojon/ShelvesHub\">ShelvesHub</a> é um host independente que injeta o Deck Shelves diretamente, sem necessidade de loader de plugins. Já tem o Decky Loader? Você ainda pode instalar o Deck Shelves pela Decky Store (ou manualmente — veja Instalação abaixo), e os dois hosts coexistem se você tiver ambos.",
+  "faq.a3": "Sim — o Deck Shelves é um plugin do Decky Loader. Instale pela Decky Store (ou manualmente — veja Instalação abaixo).",
   "faq.q4": "Em quais plataformas o Deck Shelves funciona?",
-  "faq.a4": "SteamOS no Steam Deck (via ShelvesHub ou Decky Loader), além de Linux, macOS e Windows onde a interface estilo gamepad da Steam estiver disponível. Não é uma ferramenta exclusiva do Steam Deck.",
+  "faq.a4": "SteamOS no Steam Deck, além de Linux e Windows onde o Decky Loader e a interface estilo gamepad da Steam estiverem disponíveis. Não é uma ferramenta exclusiva do Steam Deck.",
   "faq.q5": "O Deck Shelves é afiliado ou endossado pela Valve, Decky Loader, ou algum desses plugins/temas?",
   "faq.a5": "Não. O Deck Shelves é um plugin independente, feito pela comunidade. Não é afiliado, endossado ou patrocinado pela Valve, pelo projeto Decky Loader, TabMaster, UnifiDeck, SteamGridDB, Non-Steam Badges, ou qualquer tema do CSS Loader que ele detecta ou com o qual interopera.",
   "faq.q6": "O Deck Shelves é gratuito?",
@@ -215,5 +208,7 @@ window.__DS_I18N_PT_BR__ = {
   "footer.reportsDashboard": "Dashboard de relatórios",
   "footer.reportsCi": "Relatórios de CI",
   "footer.reportsRelease": "Relatórios de versão",
-  "footer.disclaimer": "Steam Deck e Steam são marcas registradas e/ou marcas comerciais da Valve Corporation. Decky e Decky Loader são marcas de seus respectivos proprietários. O Deck Shelves é um plugin independente e não é afiliado, endossado ou patrocinado pela Valve Corporation ou pelo projeto Decky Loader. O mesmo vale para todo outro plugin e tema mencionado neste site — incluindo TabMaster, UnifiDeck, SteamGridDB, Non-Steam Badges e qualquer tema do CSS Loader que o Deck Shelves detecta ou com o qual interopera: as menções servem apenas para fins de interoperabilidade, não são uma alegação de afiliação ou endosso por parte de seus respectivos autores."
+  "footer.disclaimer": "Steam Deck e Steam são marcas registradas e/ou marcas comerciais da Valve Corporation. Decky e Decky Loader são marcas de seus respectivos proprietários. O Deck Shelves é um plugin independente e não é afiliado, endossado ou patrocinado pela Valve Corporation ou pelo projeto Decky Loader. O mesmo vale para todo outro plugin e tema mencionado neste site — incluindo TabMaster, UnifiDeck, SteamGridDB, Non-Steam Badges e qualquer tema do CSS Loader que o Deck Shelves detecta ou com o qual interopera: as menções servem apenas para fins de interoperabilidade, não são uma alegação de afiliação ou endosso por parte de seus respectivos autores.",
+  "footer.analytics": "As visitas são contadas sem cookies nem dados pessoais (GoatCounter).",
+  "footer.analyticsStats": "estatísticas públicas"
 };

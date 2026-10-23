@@ -95,7 +95,7 @@ source for franchise data at all (the public Store API doesn't expose it).
 Every cache-invalidating action funnels through `triggerShelfRefresh()`
 in [src/core/shelfRefresh.ts](../src/core/shelfRefresh.ts) — the single
 in-memory emitter every mounted `ShelfView` is subscribed to via
-`subscribeShelfRefresh(resolve)`. The four entry points share that path:
+`subscribeShelfRefresh(resolve)`. The three entry points share that path:
 
 ```mermaid
 flowchart LR
@@ -103,7 +103,6 @@ flowchart LR
         card["In-row<br/>Refresh cache card"]
         cardmenu["Per-card menu"]
         qammenu["Per-shelf QAM menu"]
-        manage["Shelf Manage page"]
     end
 
     clear["Clear the matching cache<br/>online / smart / random"]
@@ -114,7 +113,6 @@ flowchart LR
     card --> clear
     cardmenu --> clear
     qammenu --> clear
-    manage --> clear
     clear --> emit
     emit --> subs
     subs --> repaint
@@ -122,7 +120,7 @@ flowchart LR
     classDef ui fill:#dbeafe,stroke:#2563eb,color:#12315e
     classDef step fill:#dcfce7,stroke:#16a34a,color:#14532d
     classDef hot fill:#fee2e2,stroke:#dc2626,stroke-width:2px,color:#7f1d1d
-    class card,cardmenu,qammenu,manage ui
+    class card,cardmenu,qammenu ui
     class clear,subs step
     class emit hot
     class repaint step
@@ -133,7 +131,6 @@ flowchart LR
 | In-row "Refresh cache" card | `clearOnlineShelfCache()` | `triggerShelfRefresh()` |
 | Per-card menu → `Deck Shelves > Refresh cache` (online shelves) | `clearOnlineShelfCache()` | `triggerShelfRefresh()` |
 | Per-shelf QAM menu → `Refresh cache` | `clearOnlineShelfCache()` (online) / `invalidateSmartShelfCache()` (smart) / `invalidateRandomSortCache()` (random) | `triggerShelfRefresh()` |
-| Shelf Manage page → `Refresh cache` | same as above | `triggerShelfRefresh()` |
 
 For non-online shelves the per-card / per-shelf menu only invalidates
 that shelf's cache (smart / random); the global emit still fires so the

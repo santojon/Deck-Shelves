@@ -11,8 +11,8 @@ export interface SettingsCategory {
 /* Categories the Export / Import / Reset modals expose as user-selectable
    toggles (order = UI order). Every top-level `Settings` field must live in
    exactly one category — "Export All" is just every category selected, so
-   a field missing from all of them silently never exports/imports/resets
-   (CRITICAL-NOW.md item 6). `settingsCategories.test.ts` asserts full coverage. */
+   a field missing from all of them silently never exports/imports/resets.
+   `settingsCategories.test.ts` asserts full coverage. */
 export const SETTINGS_CATEGORIES: ReadonlyArray<SettingsCategory> = [
   { id: "shelves",          labelKey: "settings_category_shelves",          keys: ["shelves", "allShelvesOrder"] },
   { id: "smart",            labelKey: "settings_category_smart",            keys: ["smartShelves", "smartShelvesEnabled", "smartShelvesAtBottom", "smartSurpriseMe", "smartSurpriseMeCount"] },
@@ -40,9 +40,9 @@ export const SETTINGS_CATEGORIES: ReadonlyArray<SettingsCategory> = [
     "forceCssLoaderThemes", "lightModeEnabled", "offlineModeEnabled", "updateNotifyEnabled", "sideNavEnabled",
     "betaChannelEnabled", "updateNotifyDismissedVersion",
     "contextSearchEnabled", "contextSearchKeyboardEnabled", "contextSearchOnEnter",
-    "gameContextMenuEnabled", "settingsPageEnabled", "ownQamTabEnabled", "advancedModeEnabled",
+    "gameContextMenuEnabled", "ownQamTabEnabled", "advancedModeEnabled",
     "templateSuggestionsEnabled", "removalSuggestionsEnabled", "autoCollapseEnabled",
-    "notificationsDisabled", "notificationsDisabledAreas", "showcaseSeen",
+    "notificationsDisabled", "notificationsDisabledAreas", "showcaseSeen", "setupWizardSeen", "lastSetupApply", "hubConfig",
     "cloudSyncEnabled", "cloudSyncLastSyncedAt",
     "schemaVersion", "syncTombstones", "preferencesUpdatedAt",
   ] },
@@ -65,8 +65,6 @@ export const SETTINGS_CATEGORIES: ReadonlyArray<SettingsCategory> = [
     "debugOverlayOutlines", "debugOverlayFocus", "debugOverlayTransparent",
   ] },
 ];
-
-export type CategoryId = (typeof SETTINGS_CATEGORIES)[number]["id"];
 
 const CATEGORY_BY_ID: Readonly<Record<string, SettingsCategory>> = Object.freeze(
   Object.fromEntries(SETTINGS_CATEGORIES.map((c) => [c.id, c])),
@@ -140,12 +138,12 @@ export function detectCategoriesInPayload(payload: unknown): Set<string> {
   return present;
 }
 
-/* "Export All" wrapper (CRITICAL-NOW.md item 6). `unwrapPayload` /
+/* "Export All" wrapper. `unwrapPayload` /
    `detectCategoriesInPayload` only ever look at `state`, so a pre-wrapper
    export (bare `{ state: {...} }`, no format/version fields) still imports
    unchanged through the same path. */
-export const EXPORT_FORMAT = "deck-shelves-settings";
-export const EXPORT_FORMAT_VERSION = 1;
+const EXPORT_FORMAT = "deck-shelves-settings";
+const EXPORT_FORMAT_VERSION = 1;
 
 export function buildExportPayload(
   state: Record<string, unknown>,

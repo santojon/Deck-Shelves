@@ -18,6 +18,8 @@
   "menu_game_fallback": "Juego",
   "menu_properties": "Propiedades",
   "menu_remove_from_shelf": "Quitar de la estantería",
+  "menu_lists": "Listas",
+  "menu_edit_tags": "Editar etiquetas…",
   "menu_resume": "Reanudar",
   "menu_shelf": "Estante",
   "menu_uninstall": "Desinstalar",
@@ -62,10 +64,13 @@
   "toast_filter_renamed": "Filtro renombrado",
   "mount_crash_report": "Reportar un problema",
   "safe_mode_title": "Modo seguro activado",
-  "safe_mode_desc": "Tus estanterías se desactivaron en esta sesión porque la pantalla de inicio no terminó de cargar en tres arranques seguidos. La pantalla de inicio de Steam sigue siendo utilizable. Sal del modo seguro para volver a intentarlo en el próximo reinicio de Steam.",
+  "safe_mode_desc": "Tus estanterías se desactivaron en esta sesión porque la pantalla de inicio no terminó de cargar en tres de los últimos seis arranques. La pantalla de inicio de Steam sigue siendo utilizable. Sal del modo seguro para volver a intentarlo en el próximo reinicio de Steam.",
   "safe_mode_leave": "Salir del modo seguro",
   "report_issue_title": "Reportar un problema",
   "report_issue_desc": "Abre un reporte prellenado en tu navegador. No se envía nada hasta que lo revises y lo mandes.",
   "report_issue_hardware": "Incluir información de hardware",
-  "report_issue_hardware_desc": "Modelo, CPU, memoria, GPU y almacenamiento: ayuda a diagnosticar problemas específicos del dispositivo."
+  "report_issue_hardware_desc": "Modelo, CPU, memoria, GPU y almacenamiento: ayuda a diagnosticar problemas específicos del dispositivo.",
+  "sidecar_back": "Atrás",
+  "coop_stand_in": "Deck Shelves se ejecuta desde su propia pestaña de Acceso Rápido en este dispositivo.",
+  "qam_sidecar_toggle": "Mostrar u ocultar ajustes"
 }

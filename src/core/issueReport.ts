@@ -7,6 +7,7 @@ import {
   collectRuntimeInfo,
   collectSystemInfo,
   collectHardwareInfo,
+  collectBootInfo,
   listCoLoadedPlugins,
   summarizeConfig,
   formatSize,
@@ -18,6 +19,7 @@ import {
   type HardwareInfo,
 } from "../runtime/diagnosticsInfo";
 import { getDiagnostics } from "../runtime/diagnostics";
+import { getDeviceProfile } from "../runtime/deviceState";
 import { getPerfSnapshot } from "./perfMetrics";
 import { getLearnedTimeoutsSummary } from "./adaptiveTimeout";
 import { getSmartShelfCacheStats } from "../steam/smartShelves";
@@ -69,7 +71,22 @@ function hardwareText(hw: HardwareInfo): string[] {
   if (hw.gpu) lines.push(`  GPU: ${hw.gpu}`);
   if (hw.diskTotalBytes) lines.push(`  Storage: ${hwDiskText(hw)}`);
   for (const d of hw.externalDisks) lines.push(`  ${hwExternalDiskText(d)}`);
+  lines.push(...deviceProfileText());
   return lines;
+}
+
+/* Hardware report kit: the device family / architecture / capabilities the
+   plugin resolved, so a tester on a Frame or Machine can show exactly what
+   was detected (and what fell to "unknown") in one paste. */
+function deviceProfileText(): string[] {
+  try {
+    const p = getDeviceProfile();
+    const cap = (v: boolean | null) => (v === null ? "unknown" : v ? "yes" : "no");
+    return [
+      `  Device family: ${p.family} (${p.architecture})${p.model ? ` — ${p.model}` : ""}`,
+      `  Capabilities: battery ${cap(p.capabilities.battery)}, external display ${cap(p.capabilities.externalDisplay)}, VR ${cap(p.capabilities.vr)}, controller ${cap(p.capabilities.controller)}`,
+    ];
+  } catch { return []; }
 }
 
 // Performance block — always included (plugin-internal counters, not
@@ -93,6 +110,19 @@ function perfText(): string[] {
   return lines;
 }
 
+// Boot block — the same readout as the diagnostics page, with fixed English labels.
+function bootText(): string[] {
+  const boot = collectBootInfo();
+  return [
+    "Boot:",
+    `  Origin: ${boot.origin}`,
+    `  Phases: ${boot.phases}`,
+    `  Watchdog: ${boot.watchdog}`,
+    `  Long tasks: ${boot.longTasks}`,
+    `  Seeded cache: ${boot.seededCache}`,
+  ];
+}
+
 function hostLine(hs: RuntimeInfo["hostHandshake"]): string {
   if (!hs) return DASH;
   let s = `${hs.hostKind} ${hs.hostVersion} (contract ${hs.hostApiVersion})`;
@@ -112,6 +142,7 @@ function diagnosticsText(runtime: RuntimeInfo, sys: SystemInfo | null, hw: Hardw
     `Host: ${hostLine(runtime.hostHandshake)}`,
     ...(hw ? hardwareText(hw) : []),
     ...perfText(),
+    ...bootText(),
     `Decky: ${yn(runtime.decky)}`,
     `CSS Loader: ${yn(runtime.cssLoader)}`,
     `TabMaster: ${yn(runtime.tabMaster)}`,

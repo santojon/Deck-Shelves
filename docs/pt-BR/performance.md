@@ -48,7 +48,7 @@ pnpm qa:all-shelves-show-recents
 # Wait for re-deploy; restart Steam.
 
 # 2. Open the CDP console for a fixed window:
-python3 devkit/cdp.py console --duration 30
+python3 deckprobe/cdp.py console sjc --duration 30
 
 # 3. Profile a specific path. Inside the BP devtools console:
 performance.mark('home-mount-start')
@@ -64,4 +64,4 @@ Registre achados em PRs com a tag `[PERF]` mais números de antes/depois na desc
 - Passe de auditoria de re-render sobre `EditShelfModal` e `EditSmartShelfModal` — a linha de prévia recalcula a cada tecla pressionada; candidata a debounce.
 - Divisão de bundle: carregar sob demanda a rota da página About. Hoje está empacotada no chunk principal.
 - Revisão de orçamento de `MutationObserver` — contar observers ativos e consolidar onde o mesmo nó é observado por dois caminhos.
-- Medição de bateria de longa duração — um teste ocioso de 6 horas para descartar vazamentos lentos na cadeia de patches de substituição de recentes.
+- Medição de bateria de longa duração — um teste ocioso de 6 horas para descartar vazamentos lentos na substituição de recentes.

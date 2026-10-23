@@ -6,13 +6,11 @@
 
 import type { Settings } from "../types";
 import { registerTranslations } from "../i18n";
+import { logWarn } from "../runtime/logger";
 import { getCurrentSettings, saveSettings, subscribeSettings } from "../store/settingsStore";
 import { triggerShelfRefresh } from "./shelfRefresh";
-import {
-  isTabMasterInstalled,
-  isNonSteamBadgesInstalled,
-  isUnifiDeckInstalled,
-} from "../integrations/registry";
+import { isTabMasterInstalled } from "../integrations/registry";
+import { INTEGRATIONS } from "../integrations/descriptors";
 import { TRIGGER_CATALOG } from "../domain/triggerCatalog";
 import { SHELF_TEMPLATES, ONLINE_SHELF_TEMPLATES } from "../domain/templates";
 import { DEFAULT_BINDINGS } from "../runtime/buttonBindings";
@@ -126,14 +124,17 @@ export type {
 // Translates Steam's raw AppOverview into the canonical PublicAppMeta shape.
 // External descriptors registered via @deck-shelves/api receive THIS — the
 // runtime no longer hands them the raw AppOverview cast through `unknown`.
+const numOrUndef = (v: unknown): number | undefined => (typeof v === "number" ? v : undefined);
+
 export function toPublicAppMeta(raw: any): PublicAppMeta {
   if (!raw || typeof raw !== "object") return { appid: 0, name: "" };
   const appid = Number(raw.appid ?? raw.m_unAppID ?? 0);
   const name = String(raw.display_name ?? raw.name ?? "");
   const isNonSteam = raw.app_type === 1073741824 || raw.is_non_steam === true;
-  const playtime = typeof raw.playtime_forever === "number" ? raw.playtime_forever : undefined;
-  const lastPlayed = typeof raw.last_played === "number" ? raw.last_played : undefined;
-  const compat = typeof raw.deck_compatibility_category === "number" ? raw.deck_compatibility_category : undefined;
+  const playtime = numOrUndef(raw.playtime_forever);
+  const lastPlayed = numOrUndef(raw?.last_played);
+  const compat = numOrUndef(raw.deck_compatibility_category);
+  const controllerSupport = numOrUndef(raw.nControllerSupport);
   const installed = raw.installed === true || raw.is_installed === true;
   return {
     appid,
@@ -149,9 +150,9 @@ export function toPublicAppMeta(raw: any): PublicAppMeta {
     deck_compatibility_category: compat,
     supportsCloud: raw.bCloudAvailable === true,
     bCloudAvailable: raw.bCloudAvailable === true,
-    controllerSupport: typeof raw.nControllerSupport === "number" ? raw.nControllerSupport : undefined,
-    nControllerSupport: typeof raw.nControllerSupport === "number" ? raw.nControllerSupport : undefined,
-    app_type: typeof raw.app_type === "number" ? raw.app_type : undefined,
+    controllerSupport,
+    nControllerSupport: controllerSupport,
+    app_type: numOrUndef(raw.app_type),
     is_installed: installed,
     is_hidden: raw.is_hidden === true,
   };
@@ -186,6 +187,24 @@ const statisticsProviders = new Map<string, StatisticsProviderDescriptor>();
 const recommendationProviders = new Map<string, RecommendationProviderDescriptor>();
 const exportHandlers = new Map<string, ExportHandlerDescriptor>();
 const importHandlers = new Map<string, ImportHandlerDescriptor>();
+
+// Ids a third-party registration may not take: every built-in's, and the plugin's own prefix.
+const RESERVED_ID_PREFIX = "deck-shelves.";
+const NOOP_UNSUB: Unsubscribe = () => {};
+
+function isReservedId(id: unknown, builtIns?: Set<string>): boolean {
+  const s = String(id ?? "");
+  if (!s.startsWith(RESERVED_ID_PREFIX) && !builtIns?.has(s)) return false;
+  logWarn("RUNTIME", `plugin API: id "${s}" is reserved by Deck Shelves; registration ignored`);
+  return true;
+}
+
+// Unregistering removes the entry only while it is still this registration's.
+function addExternal<D extends { id: string }>(map: Map<string, D>, d: D, builtIns?: Set<string>): Unsubscribe {
+  if (isReservedId(d?.id, builtIns)) return NOOP_UNSUB;
+  map.set(d.id, d);
+  return () => { if (map.get(d.id) === d) map.delete(d.id); };
+}
 
 /* A registered `resolve()` may throw synchronously instead of rejecting — a
    bare `Promise.resolve(fn()).catch(...)` doesn't catch that, since the
@@ -258,10 +277,6 @@ export function resolveExternalSmartSource(
   if (!src) return Promise.resolve([]);
   const merged = { ...(src.defaultParams ?? {}), ...params };
   return safeResolveIds(() => src.resolve(limit, merged));
-}
-
-export function getExternalSmartSourceMeta(id: string): SmartShelfSourceDescriptor | undefined {
-  return smartSources.get(id);
 }
 
 export function getExternalSmartSources(): SmartShelfSourceDescriptor[] {
@@ -357,9 +372,12 @@ export function getExternalImportTypesForTarget(target: ImportTarget): ExternalI
   return Array.from(importTypes.values()).filter((d) => (d.target ?? "shelves") === target);
 }
 
+const internalImportTypeIds = new Set<string>();
+
 export function registerInternalImportType(d: ExternalImportTypeDescriptor): () => void {
+  internalImportTypeIds.add(d.id);
   importTypes.set(d.id, d);
-  return () => { importTypes.delete(d.id); };
+  return () => { internalImportTypeIds.delete(d.id); importTypes.delete(d.id); };
 }
 
 const internalSmartSourceIds = new Set<string>();
@@ -414,10 +432,6 @@ export function registerInternalStatisticsProvider(d: StatisticsProviderDescript
   internalStatisticsProviderIds.add(d.id);
   statisticsProviders.set(d.id, d);
   return () => { internalStatisticsProviderIds.delete(d.id); statisticsProviders.delete(d.id); };
-}
-
-export function isInternalStatisticsProvider(id: string): boolean {
-  return internalStatisticsProviderIds.has(id);
 }
 
 function hasExternalOnlyEntries(): boolean {
@@ -476,17 +490,23 @@ async function removeRegisteredSavedFilter(id: string): Promise<void> {
   await saveSettings({ ...s, savedFilters: next as any });
 }
 
+const firstSort = (sort: any) => (Array.isArray(sort) ? sort[0] : sort);
+
+// Source kinds whose public shape is `{ type, <key>: string }`.
+const SIMPLE_SOURCE_KEYS: Record<string, string> = { collection: "collectionId", tab: "tab", external: "sourceId", smart: "mode" };
+
+function toPublicShelfSource(src: any): PublicShelfSource | null {
+  const type = src?.type;
+  if (type === "filter") return { type: "filter", filter: { sort: firstSort(src.filter?.sort), group: src.filter?.group as any } };
+  const key = SIMPLE_SOURCE_KEYS[type];
+  return key ? ({ type, [key]: String(src[key] ?? "") } as PublicShelfSource) : null;
+}
+
 function projectShelves(s: Settings | null): ReadonlyArray<PublicShelf> {
   if (!s) return [];
   const out: PublicShelf[] = [];
   for (const sh of s.shelves) {
-    const src: any = sh.source;
-    let pub: PublicShelfSource | null = null;
-    if (src?.type === "collection") pub = { type: "collection", collectionId: String(src.collectionId ?? "") };
-    else if (src?.type === "tab") pub = { type: "tab", tab: String(src.tab ?? "") };
-    else if (src?.type === "filter") pub = { type: "filter", filter: { sort: Array.isArray(src.filter?.sort) ? src.filter?.sort[0] : src.filter?.sort, group: src.filter?.group as any } };
-    else if (src?.type === "external") pub = { type: "external", sourceId: String(src.sourceId ?? "") };
-    else if (src?.type === "smart") pub = { type: "smart", mode: String(src.mode ?? "") };
+    const pub = toPublicShelfSource(sh.source);
     if (!pub) continue;
     out.push({
       id: sh.id,
@@ -525,11 +545,9 @@ function projectSavedFilters(s: Settings | null): ReadonlyArray<PublicSavedFilte
   }));
 }
 
-const KNOWN_INTEGRATIONS: ReadonlyArray<{ id: string; displayName: string; detect: () => boolean }> = [
-  { id: "tabmaster", displayName: "TabMaster", detect: isTabMasterInstalled },
-  { id: "unifideck", displayName: "UnifiDeck", detect: isUnifiDeckInstalled },
-  { id: "nonsteambadges", displayName: "Non-Steam Badges", detect: isNonSteamBadgesInstalled },
-];
+// One source for the public capability list: the integration descriptors.
+const KNOWN_INTEGRATIONS: ReadonlyArray<{ id: string; displayName: string; detect: () => boolean }> =
+  INTEGRATIONS.map((i) => ({ id: i.id, displayName: i.label, detect: i.isInstalled }));
 
 function projectProfiles(s: Settings | null): ReadonlyArray<PublicProfile> {
   if (!s) return [];
@@ -632,43 +650,29 @@ export function makeApi(): DeckShelvesPublicAPI {
   return {
     version: 4,
 
-    registerShelfSource(d) {
-      shelfSources.set(d.id, d);
-      return () => { shelfSources.delete(d.id); };
-    },
+    registerShelfSource(d) { return addExternal(shelfSources, d, internalShelfSourceIds); },
     getRegisteredSources() { return Array.from(shelfSources.values()); },
 
     registerContextAwareShelfSource(d) {
       // Also into `shelfSources` (a structural superset) so the source
       // picker and `getExternalSources()` see it without special-casing.
+      if (isReservedId(d?.id, internalShelfSourceIds)) return NOOP_UNSUB;
       contextAwareShelfSources.set(d.id, d);
-      shelfSources.set(d.id, d);
-      return () => { contextAwareShelfSources.delete(d.id); shelfSources.delete(d.id); };
+      const unShelf = addExternal(shelfSources, d);
+      return () => { if (contextAwareShelfSources.get(d.id) === d) contextAwareShelfSources.delete(d.id); unShelf(); };
     },
     getRegisteredContextAwareShelfSources() { return Array.from(contextAwareShelfSources.values()); },
 
-    registerSmartShelfSource(d) {
-      smartSources.set(d.id, d);
-      return () => { smartSources.delete(d.id); };
-    },
+    registerSmartShelfSource(d) { return addExternal(smartSources, d, internalSmartSourceIds); },
     getRegisteredSmartSources() { return Array.from(smartSources.values()); },
 
-    registerFilterType(d) {
-      filterTypes.set(d.id, d);
-      return () => { filterTypes.delete(d.id); };
-    },
+    registerFilterType(d) { return addExternal(filterTypes, d, internalFilterTypeIds); },
     getRegisteredFilterTypes() { return Array.from(filterTypes.values()); },
 
-    registerSortOption(d) {
-      sortOptions.set(d.id, d);
-      return () => { sortOptions.delete(d.id); };
-    },
+    registerSortOption(d) { return addExternal(sortOptions, d, internalSortOptionIds); },
     getRegisteredSortOptions() { return Array.from(sortOptions.values()); },
 
-    registerImportType(d) {
-      importTypes.set(d.id, d);
-      return () => { importTypes.delete(d.id); };
-    },
+    registerImportType(d) { return addExternal(importTypes, d, internalImportTypeIds); },
     getRegisteredImportTypes() { return Array.from(importTypes.values()); },
     getRegisteredImportTypesForTarget(target) {
       return Array.from(importTypes.values()).filter((d) => (d.target ?? "shelves") === target);
@@ -679,60 +683,30 @@ export function makeApi(): DeckShelvesPublicAPI {
       return () => { void removeRegisteredSavedFilter(d.id); };
     },
 
-    registerExportHandler(d) {
-      exportHandlers.set(d.id, d);
-      return () => { exportHandlers.delete(d.id); };
-    },
-    registerImportHandler(d) {
-      importHandlers.set(d.id, d);
-      return () => { importHandlers.delete(d.id); };
-    },
+    registerExportHandler(d) { return addExternal(exportHandlers, d); },
+    registerImportHandler(d) { return addExternal(importHandlers, d); },
     getRegisteredExportHandlers() { return getExternalExportHandlers(); },
     getRegisteredImportHandlers() { return getExternalImportHandlers(); },
 
     hasTabMaster() { return isTabMasterInstalled(); },
 
-    registerSearchProvider(d) {
-      searchProviders.set(d.id, d);
-      return () => { searchProviders.delete(d.id); };
-    },
+    registerSearchProvider(d) { return addExternal(searchProviders, d, internalSearchProviderIds); },
     getRegisteredSearchProviders() { return getExternalSearchProviders(); },
 
-    registerSideMenuProvider(d) {
-      sideMenuProviders.set(d.id, d);
-      return () => { sideMenuProviders.delete(d.id); };
-    },
+    registerSideMenuProvider(d) { return addExternal(sideMenuProviders, d); },
     getRegisteredSideMenuProviders() { return getExternalSideMenuProviders(); },
 
-    registerContextProvider(d) {
-      contextProviders.set(d.id, d);
-      return () => { contextProviders.delete(d.id); };
-    },
+    registerContextProvider(d) { return addExternal(contextProviders, d); },
     getRegisteredContextProviders() { return getExternalContextProviders(); },
-    registerWidgetProvider(d) {
-      widgetProviders.set(d.id, d);
-      return () => { widgetProviders.delete(d.id); };
-    },
+    registerWidgetProvider(d) { return addExternal(widgetProviders, d); },
     getRegisteredWidgetProviders() { return getExternalWidgetProviders(); },
-    registerShelfRenderer(d) {
-      shelfRenderers.set(d.id, d);
-      return () => { shelfRenderers.delete(d.id); };
-    },
+    registerShelfRenderer(d) { return addExternal(shelfRenderers, d); },
     getRegisteredShelfRenderers() { return getExternalShelfRenderers(); },
-    registerMetadataProvider(d) {
-      metadataProviders.set(d.id, d);
-      return () => { metadataProviders.delete(d.id); };
-    },
+    registerMetadataProvider(d) { return addExternal(metadataProviders, d); },
     getRegisteredMetadataProviders() { return getExternalMetadataProviders(); },
-    registerStatisticsProvider(d) {
-      statisticsProviders.set(d.id, d);
-      return () => { statisticsProviders.delete(d.id); };
-    },
+    registerStatisticsProvider(d) { return addExternal(statisticsProviders, d, internalStatisticsProviderIds); },
     getRegisteredStatisticsProviders() { return getExternalStatisticsProviders(); },
-    registerRecommendationProvider(d) {
-      recommendationProviders.set(d.id, d);
-      return () => { recommendationProviders.delete(d.id); };
-    },
+    registerRecommendationProvider(d) { return addExternal(recommendationProviders, d); },
     getRegisteredRecommendationProviders() { return getExternalRecommendationProviders(); },
 
     registerTranslations(locale, dict) { registerTranslations(locale, dict); },
@@ -914,20 +888,29 @@ export function installPluginApi(): () => void {
   const integrationUnsubs: Unsubscribe[] = [];
   const teardownFns: Array<() => void | Promise<void>> = [];
 
+  // One registration per integration object: a queued plugin can arrive twice
+  // (the pending-queue drain and its own ready-event handler).
+  const registered = new Map<DeckShelvesIntegration, Unsubscribe>();
   const register = (integration: DeckShelvesIntegration): Unsubscribe => {
+    const existing = registered.get(integration);
+    if (existing) return existing;
     let unmountFired = false;
     void Promise.resolve()
       .then(() => integration.onMount(api))
       .catch(() => {});
-    if (integration.onUnmount) teardownFns.push(integration.onUnmount);
-    return () => {
+    const unsub: Unsubscribe = () => {
       if (unmountFired) return;
       unmountFired = true;
+      registered.delete(integration);
       try {
         const r = integration.onUnmount?.();
         if (r) void Promise.resolve(r).catch(() => {});
       } catch {}
     };
+    registered.set(integration, unsub);
+    // Teardown goes through the same guarded unsubscribe, so onUnmount runs once.
+    if (integration.onUnmount) teardownFns.push(unsub);
+    return unsub;
   };
 
   const deckShelves = {
@@ -947,6 +930,7 @@ export function installPluginApi(): () => void {
     for (const u of integrationUnsubs) { try { u(); } catch {} }
     try { delete (window as unknown as Record<string, unknown>).deckShelves; } catch {}
     try { uninstallInternals(); } catch {}
+    try { focusTracker.uninstallFocusedCardTracker(); } catch {}
     shelfSources.clear();
     contextAwareShelfSources.clear();
     smartSources.clear();

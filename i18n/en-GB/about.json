@@ -12,7 +12,7 @@
   "about_feature_edit_smart": "Edit smart shelves: override sort, add extra filters, tweak visuals",
   "about_feature_external_imports": "Import library tabs from TabMaster or other provider plugins to convert them into shelves",
   "about_feature_filters": "Filter by name, playtime, install status, compatibility, visibility, and more",
-  "about_feature_first_run": "First-run banner with default shelf templates",
+  "about_feature_first_run": "First-run banner with the setup wizard",
   "about_feature_global_toggles": "Global toggles for match native size and highlight first with per-shelf override",
   "about_feature_hero_global": "Global hero toggle in the QAM Visual section that enables hero art on every shelf at once",
   "about_feature_hero_per_shelf": "Hero background art per shelf — regular or smart — with a toggle in the Edit Shelf modal's Visual tab",

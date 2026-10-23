@@ -1,5 +1,6 @@
 import React from "react";
 import { Focusable } from "../../runtime/host/decky";
+import { flowChildrenProps } from "../../core/steamOSVersion";
 
 export interface SettingsSectionProps {
   title?: string;
@@ -7,8 +8,8 @@ export interface SettingsSectionProps {
   icon?: React.ReactNode;
   trailing?: React.ReactNode;
   children: React.ReactNode;
-  // When set, the whole section becomes a Focusable container with
-  // flow-children="vertical" so gamepad nav can step into rows.
+  // When set, the whole section becomes a Focusable container so gamepad nav
+  // can step into rows.
   vertical?: boolean;
 }
 
@@ -27,7 +28,7 @@ export function SettingsSection({ title, description, icon, trailing, children, 
   ) : null;
   if (vertical) {
     return (
-      <Focusable flow-children="vertical" className="ds-settings-section">
+      <Focusable {...flowChildrenProps("vertical")} className="ds-settings-section">
         {header}
         <div className="ds-settings-section__body">{children}</div>
       </Focusable>

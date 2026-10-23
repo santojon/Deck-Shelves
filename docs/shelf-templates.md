@@ -10,13 +10,31 @@ Shelf templates are preset configurations available in the template picker when 
 
 ## Default shelves
 
-When the user clicks **Create default shelves** on the first-run banner, three shelves are created automatically:
+When the user picks **Start with the default** at the end of the first-run tour, three shelves are created automatically:
 
 | Template | Source |
 |---|---|
 | Favorites | Library tab `favorites` |
 | Recently Played | Filter — sort by `recent` |
 | Recently Added | Filter — sort by `added` |
+
+## Setup packs and the setup wizard
+
+The **Setup wizard** (the wand icon in the Quick Access menu's title bar, the first-run banner, and the end of the first-run tour) applies a whole starting point at once: pick a pack from the tiles, review exactly what it adds, apply. Every pack is a bundle of the templates below plus, where it helps, a few smart shelves and settings:
+
+| Pack | Group | Adds |
+|---|---|---|
+| Essential | Quick setup | Favorites, Recently Played, Recently Added |
+| Steam + non-Steam | Quick setup | Recently Played, Installed, Non-Steam, Favorites |
+| Backlog rescue | Setup packs | Never Played + smart shelves *Backlog rescue* and *Best unplayed* |
+| Portable Deck | Setup packs | Installed, Deck Verified + smart shelves *Short battery*, *Travel mode*, *Quick play* |
+| Rediscover | Setup packs | Most Played + smart shelves *Rediscover*, *Forgotten gems*, *Hidden gems* |
+| Living room | Setup packs | Favorites, Recently Played + smart shelves *Long session (night)*, *Deck picks*; turns on the same living-room look as the Machine pack: the first-shelf background art, hero art on every shelf, full-page shelves, the featured first game and logos |
+| Frame | By device | VR games, VR only, Recently Played, Favorites + smart shelves *Quick play*, *Short battery* |
+| Machine | By device | Favorites, Recently Played, Most Played + smart shelves *Long session (night)*, *Picks for this device*; turns on the first-shelf background art, hero art on every shelf, full-page shelves, the featured first game and logos |
+| Stream | By device | Steam Cloud, Recently Played + smart shelf *Quick play* |
+
+Packs are non-destructive: a template you already have is marked "already have" and skipped, nothing is removed, and every shelf stays editable afterwards. The wizard shows exactly what a pack will add before you apply it, marks packs that fit your library (from the same statistics as the Suggestions tab), and keeps one **Undo the last setup** step that removes only what the last apply added and restores the settings it changed.
 
 ---
 
@@ -94,11 +112,23 @@ Shows games with Steam Cloud support — saves sync across devices. Wraps `cloud
 
 ---
 
-### Deck Verified — `deck_verified`
+### VR games — `vr_games`
 
-**Source:** filter — `filterGroup` containing `deckCompatibility=['verified']`, sort `alphabetical`
+**Source:** filter — `filterGroup` containing `vrSupport` with `levels: ["only", "supported"]`, sort `recent`
 
-Shows games rated Deck Verified by Valve — confirmed to work great on Steam Deck. Like Steam Cloud, wraps the condition in a `filterGroup`.
+Every title that runs in VR, whether it requires a headset or merely supports one. The Frame setup pack starts from it.
+
+### VR only — `vr_only`
+
+**Source:** filter — `filterGroup` containing `vrSupport` with `levels: ["only"]`, sort `alphabetical`
+
+Titles that require a headset.
+
+### Verified on this device — `deck_verified`
+
+**Source:** filter — `filterGroup` containing `deviceCompatibility=['verified']`, sort `alphabetical`
+
+Shows games Valve rates *Verified* for the device you are on — the Deck rating on a Steam Deck, the Machine rating on a Steam Machine, the Frame rating on a Steam Frame. Like Steam Cloud, wraps the condition in a `filterGroup`.
 
 ---
 
@@ -114,11 +144,11 @@ Shows installed games with the highest user review scores on Steam.
 
 Your backlog: games you own but have never launched.
 
-### Deck Playable — `deck_playable`
+### Playable on this device — `deck_playable`
 
-**Source:** filter — `deckCompatibility: ["playable"]`, sort alphabetically
+**Source:** filter — `deviceCompatibility: ["playable"]`, sort alphabetically
 
-Pairs with Deck Verified, covering the *Playable* compatibility tier.
+Pairs with *Verified on this device*, covering the *Playable* tier of the same per-device rating.
 
 ---
 

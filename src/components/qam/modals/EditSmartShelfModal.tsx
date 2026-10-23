@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  ConfirmModal,
   DialogButton,
   Dropdown,
   DropdownItem,
@@ -17,7 +16,7 @@ import { SHELF_LIMIT_MAX } from '../../../domain/shelfLimits'
 import type { SettingsController } from '../../../features/settings/controller'
 import type { SmartShelf, SmartShelfMode } from '../../../types'
 import { FilterPanel } from '../../FilterPanel'
-import { FieldContainer, ModalShell , DSSliderField} from '../../ui'
+import { FieldContainer, DSSliderField} from '../../ui'
 import { resolveShelfAppIds, invalidateRandomSortCache } from '../../../steam'
 import { isNonSteamBadgesAvailable } from '../../../integrations'
 import { usePlatform } from '../../../runtime/platformContext'
@@ -29,8 +28,8 @@ import { VisibilityRulesEditor } from './editShelf/VisibilityRulesEditor'
 import type { PlatformAppMeta } from '../../../runtime/platform'
 import { PreviewPanel } from './editShelf/PreviewPanel'
 // SmartShelfModal also supports a modal-driven `create` mode that persists
-// only on Save (used by SmartShelfTemplateModal's custom button).
-import { ModalHeader } from './editShelf/ModalHeader'
+// only on Save (opened by the create picker in CreateShelfModal).
+import { EditShelfFrame } from './editShelf/EditShelfFrame'
 import { FunnelIcon, EyeIcon, SparkleIcon, OnlineIcon } from '../../icons'
 import { TabLabel } from './editShelf/TabLabel'
 import { SortField } from './editShelf/SortField'
@@ -40,11 +39,12 @@ import { textFromDeckyChange } from './modalUtils'
 import { SMART_PARAM_DEFAULTS, SMART_PARAM_META, paramKeysForMode, DEFAULT_SORT_FOR_MODE } from '../../../steam/smartParams'
 import { buildInitialSmartState, DEFAULT_REFRESH_MINUTES, type EditState } from './editShelf/buildSmartInitialState'
 import { persistSmartShelf } from './editShelf/buildSmartSavePatch'
+import { visualFlagsOf, applyVisualPatch, previewHideFlags, removableTail } from './editShelf/sharedEditProps'
 
 
 /* Ordered list of every internal smart-shelf mode, used by the Source-tab
    mode dropdown + the composite-mixing picker. Order mirrors the catalogue
-   in `SmartShelfTemplateModal` (highest-result-probability first); `custom`
+   in `smartTemplates.ts` (highest-result-probability first); `custom`
    is excluded — it's a special-purpose mode for filter-only shelves and
    switching INTO it would silently strip the user's smart-mode tuning. */
 const SMART_MODE_OPTIONS: SmartShelfMode[] = [
@@ -310,24 +310,16 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
   })()
 
   return (
-    <ModalShell>
-      <ConfirmModal
-        bAllowFullSize
-        onCancel={closeModal}
-        onEscKeypress={closeModal}
-        strTitle={`${t('editing')}: ${shelf.title}`}
-        onOK={handleSave}
-        strOKButtonText={t('save')}
-      >
-        <Focusable onMenuButton={handleSave} onMenuActionDescription={t('save')} style={{ paddingBottom: 8 }}>
-          <ModalHeader
-            t={t}
-            title={state.title}
-            onTitleChange={(next) => setState((prev) => ({ ...prev, title: next }))}
-            previewCount={previewCount}
-          />
-          <div style={{ display: 'flex', flexDirection: 'column', height: 'min(calc(100vh - 130px), 540px)', minHeight: 400 }}>
-          <div style={{ flex: '1 1 0', minHeight: 0, position: 'relative', overflow: 'hidden' }}>
+    <EditShelfFrame
+      t={t}
+      heading={`${t('editing')}: ${shelf.title}`}
+      title={state.title}
+      onTitleChange={(next) => setState((prev) => ({ ...prev, title: next }))}
+      previewCount={previewCount}
+      onSave={handleSave}
+      onClose={closeModal}
+      tabsOverflow='hidden'
+      tabs={(
             <Tabs
               activeTab={activeTab}
               onShowTab={(id: string) => setActiveTab(id as Tab)}
@@ -764,8 +756,8 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
                   content: (
                     <VisualTabContent
                       t={t}
-                      flags={{ matchNativeSize: state.matchNativeSize, highlightFirst: state.highlightFirst, highlightAll: state.highlightAll, highlightRandom: state.highlightRandom, enableLogo: state.enableLogo, enableIcon: state.enableIcon, enableDescription: state.enableDescription, descriptionBelowLogo: state.descriptionBelowLogo, logoPosition: state.logoPosition, descriptionPosition: state.descriptionPosition, logoSize: state.logoSize, logoTopOffset: state.logoTopOffset, iconVerticalAlign: state.iconVerticalAlign, shelfTitlePosition: state.shelfTitlePosition, gameNamePosition: state.gameNamePosition, playtimePosition: state.playtimePosition, descriptionHeight: state.descriptionHeight, descriptionLogoGap: state.descriptionLogoGap, descriptionScale: state.descriptionScale, fullPageShelf: state.fullPageShelf, heroEnabled: state.heroEnabled, gameInfoAbove: state.gameInfoAbove, friendsPlayingOverlay: state.friendsPlayingOverlay, friendsPlayingOverlayRecent: state.friendsPlayingOverlayRecent }}
-                      setFlags={(patch: any) => setState((prev) => { const next = { ...prev, ...patch }; if (patch.gameInfoAbove === true) next.hideShelfTitle = true; return next; })}
+                      flags={visualFlagsOf(state)}
+                      setFlags={(patch: any) => setState((prev) => applyVisualPatch(prev, patch))}
                       highlightedAppIds={state.highlightedAppIds}
                       setHighlightedAppIds={(next) => setState((prev) => ({ ...prev, highlightedAppIds: next }))}
                       highlightPickerOpen={highlightPickerOpen}
@@ -796,7 +788,8 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
                 },
               ]}
             />
-          </div>
+      )}
+      preview={(
           <PreviewPanel
             t={t}
             title={state.title}
@@ -812,14 +805,7 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
             highlightedAppIds={state.highlightedAppIds}
             alternatingMode={alternatingMode}
             hiddenAppIds={state.hiddenAppIds}
-            hideStatusLine={state.hideStatusLine}
-            hideNewBadge={state.hideNewBadge}
-            hideCompatIcons={state.hideCompatIcons}
-            hideNonSteamBadge={state.hideNonSteamBadge}
-            hideGameNames={state.hideGameNames === true}
-            hideInstallIndicator={state.hideInstallIndicator === true}
-            hideSeeMore={state.hideSeeMore === true}
-            hideRefreshCard={state.hideRefreshCard === true}
+            {...previewHideFlags(state)}
             limit={state.limit}
             shelfSource={previewSource}
             shelfSort={state.sort}
@@ -827,17 +813,10 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
             selectionMode={previewSel.mode}
             selectionSet={previewSel.set}
             onToggleSelection={previewSel.onToggle}
-            removableSet={(() => {
-              if (!state.manualOrder.length) return undefined
-              const inSource = new Set(resolvedIds)
-              const tail = state.manualOrder.filter((id) => !inSource.has(id))
-              return tail.length ? new Set(tail) : undefined
-            })()}
+            removableSet={removableTail(state.manualOrder, resolvedIds)}
             onRemoveCard={(id) => setState((prev) => ({ ...prev, manualOrder: prev.manualOrder.filter((x) => x !== id) }))}
           />
-          </div>
-        </Focusable>
-      </ConfirmModal>
-    </ModalShell>
+      )}
+    />
   )
 }

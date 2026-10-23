@@ -14,7 +14,7 @@ export function SafeModeSlot({ controller }: { controller: SettingsController })
    after repeated incomplete boots). Leaving clears the record; the patches come
    back on the next Steam restart — the banner says so instead of pretending
    it can re-inject live. Same visual frame as the crash banner. */
-export function SafeModeBanner({ controller }: { controller: SettingsController }) {
+function SafeModeBanner({ controller }: { controller: SettingsController }) {
   const { t } = controller
   return (
     <div style={{ margin: '8px 16px', padding: '12px 14px', background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.35)', borderRadius: 6 }}>

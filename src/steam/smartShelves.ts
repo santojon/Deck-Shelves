@@ -1,13 +1,14 @@
 import type { AppOverview } from "./index";
-import type { SmartShelfMode } from "../types";
+import { SmartShelfModeSchema, type SmartShelfMode } from "../types";
 import { getParam, type SmartParams } from "./smartParams";
 import { weightedRank, multiFactorRank, timeDecayScore, applyCooldown, rotateWindow } from "./heuristics";
 import { getBatteryState } from "../runtime/batteryState";
-import { evalDeviceRule, isDeviceRuleKind } from "../runtime/deviceState";
+import { evalDeviceRule, isDeviceRuleKind, getDeviceProfile, deviceRuleHasData } from "../runtime/deviceState";
+import { compatCategoryForFamily } from "../domain/deviceProfile";
 import { evalTimeContextRule, isTimeContextKind } from "../domain/timeContext";
 import { evalSessionRule, isSessionRuleKind } from "../runtime/sessionState";
-import { evalPerfRule, isPerfRuleKind } from "../runtime/perfState";
-import { evalPeripheralRule, isPeripheralRuleKind } from "../runtime/peripheralsState";
+import { evalPerfRule, isPerfRuleKind, perfRuleHasData } from "../runtime/perfState";
+import { evalPeripheralRule, isPeripheralRuleKind, peripheralRuleHasData } from "../runtime/peripheralsState";
 import { getFriendsPlayingAppIds, getFriendsRecentlyPlayedAppIds } from "../runtime/friendsState";
 import { appHasAnyCategory, getAppAchievementPct, preloadAppDetailsSummaries } from "./appDetailsCache";
 import { getCurrentSettings } from "../store/settingsStore";
@@ -70,8 +71,15 @@ function lastPlayedSec(app: AppOverview): number {
   return Number(app.last_played ?? 0);
 }
 
+// The compatibility rating of the device in use (Deck, Machine or Frame);
+// on a Deck, and for any family without its own rating, the Deck one.
 function deckCompat(app: AppOverview): number {
-  return Number(app.deck_compatibility_category ?? 0);
+  const own = compatCategoryForFamily(getDeviceProfile().family, {
+    deckCompatCategory: app.deck_compatibility_category,
+    machineCompatCategory: (app as any).machine_compatibility_category,
+    frameCompatCategory: (app as any).frame_compatibility_category,
+  });
+  return Number(own ?? app.deck_compatibility_category ?? 0);
 }
 
 function resolveQuickPlay(apps: AppOverview[], limit: number, params?: SmartParams): number[] {
@@ -659,17 +667,19 @@ function resolvePartyGames(apps: AppOverview[], limit: number, params?: SmartPar
   return resolveByCategoryKeywords(apps, limit, params, "party_games", PARTY_KEYWORDS);
 }
 
-function resolveFriendsPlaying(apps: AppOverview[], limit: number, params?: SmartParams): number[] {
-  /* Online gate: reuse the same master toggle as wishlist / store. When the
-     user has online features off, friends data is treated as off too —
-     consistent with the rest of the online-gated UX. Local friend cache
-     may still have stale entries; gating here prevents the resolver from
-     surfacing them. */
+/* Online gate: reuse the same master toggle as wishlist / store. When the
+   user has online features off, friends data is treated as off too —
+   consistent with the rest of the online-gated UX. Local friend cache may
+   still have stale entries; gating here keeps them out of the resolver. */
+function friendsDataAllowed(): boolean {
   try {
     const s = getCurrentSettings();
-    if ((s as any)?.offlineModeEnabled === true) return [];
-    if (s?.onlineFeaturesEnabled !== true) return [];
-  } catch { return []; }
+    return (s as any)?.offlineModeEnabled !== true && s?.onlineFeaturesEnabled === true;
+  } catch { return false; }
+}
+
+function resolveFriendsPlaying(apps: AppOverview[], limit: number, params?: SmartParams): number[] {
+  if (!friendsDataAllowed()) return [];
   const minDeck = getParam("friends_playing", params, "minDeckLevel");
   const includeRecent = getParam("friends_playing", params, "includeRecentlyPlayed") === 1;
   const liveSet = getFriendsPlayingAppIds();
@@ -718,6 +728,53 @@ function resolveFriendsPlaying(apps: AppOverview[], limit: number, params?: Smar
   return [...ownedMatches, ...nonOwnedIds].slice(0, limit);
 }
 
+type ModeResolver = (apps: AppOverview[], limit: number, params?: SmartParams, shelfId?: string) => number[];
+
+const resolveNone: ModeResolver = () => [];
+
+/* One resolver per smart mode. "custom" is dispatched via `resolveShelfAppIds`
+   in `src/steam/index.ts` (it needs filterGroup + sort which aren't exposed
+   here); reaching it here means a buggy caller — fail soft with []. */
+const MODE_RESOLVERS: Partial<Record<SmartShelfMode, ModeResolver>> = {
+  quick_play: (apps, limit, params) => resolveQuickPlay(apps, limit, params),
+  not_started: (apps, limit, params) => resolveNotStarted(apps, limit, params),
+  deck_picks: (apps, limit, params) => resolveDeckPicks(apps, limit, params),
+  rediscover: (apps, limit, params) => resolveRediscover(apps, limit, params),
+  best_unplayed: (apps, limit, params) => resolveBestUnplayed(apps, limit, params),
+  interrupted: (apps, limit, params) => resolveInterrupted(apps, limit, params),
+  time_of_day: (apps, limit, params) => resolveTimeOfDay(apps, limit, params),
+  daily_pick: (apps, limit) => resolveDailyPick(apps, limit),
+  on_deck: (apps, limit, params) => resolveOnDeck(apps, limit, params),
+  recently_played: (apps, limit, params) => resolveRecentlyPlayed(apps, limit, params),
+  long_session: (apps, limit, params) => resolveLongSession(apps, limit, params),
+  non_steam: (apps, limit) => resolveNonSteam(apps, limit),
+  random_pick: (apps, limit) => resolveRandomPick(apps, limit),
+  forgotten: (apps, limit, params) => resolveForgotten(apps, limit, params),
+  spare_time: (apps, limit, params) => resolveSpareTime(apps, limit, params),
+  soundtracks: (apps, limit) => resolveSoundtracks(apps, limit),
+  videos: (apps, limit) => resolveVideos(apps, limit),
+  demos: (apps, limit) => resolveDemos(apps, limit),
+  cloud_games: (apps, limit) => resolveCloudGames(apps, limit),
+  backlog_rescue: (apps, limit, params, shelfId) => resolveBacklogRescue(apps, limit, params, shelfId),
+  forgotten_gems: (apps, limit, params) => resolveForgottenGems(apps, limit, params),
+  weekly_rotation: (apps, limit, params, shelfId) => resolveWeeklyRotation(apps, limit, params, shelfId),
+  short_battery: (apps, limit, params) => resolveShortBattery(apps, limit, params),
+  long_session_night: (apps, limit, params) => resolveLongSessionNight(apps, limit, params),
+  travel_mode: (apps, limit, params) => resolveTravelMode(apps, limit, params),
+  hidden_gems: (apps, limit, params) => resolveHiddenGems(apps, limit, params),
+  never_touched_classics: (apps, limit, params) => resolveNeverTouchedClassics(apps, limit, params),
+  recent_hidden_installs: (apps, limit, params) => resolveRecentHiddenInstalls(apps, limit, params),
+  monthly_spotlight: (apps, limit, params, shelfId) => resolveMonthlySpotlight(apps, limit, params, shelfId),
+  seasonal_rotation: (apps, limit, params, shelfId) => resolveSeasonalRotation(apps, limit, params, shelfId),
+  low_battery_mode: (apps, limit, params) => resolveLowBatteryMode(apps, limit, params),
+  almost_finished: (apps, limit, params) => resolveAlmostFinished(apps, limit, params),
+  couch_gaming: (apps, limit, params) => resolveCouchGaming(apps, limit, params),
+  coop_ready: (apps, limit, params) => resolveCoopReady(apps, limit, params),
+  party_games: (apps, limit, params) => resolvePartyGames(apps, limit, params),
+  friends_playing: (apps, limit, params) => resolveFriendsPlaying(apps, limit, params),
+  custom: resolveNone,
+};
+
 export function resolveSmartShelf(
   mode: SmartShelfMode,
   apps: AppOverview[],
@@ -743,49 +800,7 @@ export function resolveSmartShelf(
     : `${mode}:${limit}:${paramsKey}:${ttl}`;
   return cached(cacheKey, ttl, () => {
     try {
-      switch (mode) {
-        case "quick_play":      return resolveQuickPlay(apps, limit, params);
-        case "not_started":     return resolveNotStarted(apps, limit, params);
-        case "deck_picks":      return resolveDeckPicks(apps, limit, params);
-        case "rediscover":      return resolveRediscover(apps, limit, params);
-        case "best_unplayed":   return resolveBestUnplayed(apps, limit, params);
-        case "interrupted":     return resolveInterrupted(apps, limit, params);
-        case "time_of_day":     return resolveTimeOfDay(apps, limit, params);
-        case "daily_pick":      return resolveDailyPick(apps, limit);
-        case "on_deck":         return resolveOnDeck(apps, limit, params);
-        case "recently_played": return resolveRecentlyPlayed(apps, limit, params);
-        case "long_session":    return resolveLongSession(apps, limit, params);
-        case "non_steam":       return resolveNonSteam(apps, limit);
-        case "random_pick":     return resolveRandomPick(apps, limit);
-        case "forgotten":       return resolveForgotten(apps, limit, params);
-        case "spare_time":      return resolveSpareTime(apps, limit, params);
-        case "soundtracks":     return resolveSoundtracks(apps, limit);
-        case "videos":          return resolveVideos(apps, limit);
-        case "demos":           return resolveDemos(apps, limit);
-        case "cloud_games":     return resolveCloudGames(apps, limit);
-        case "backlog_rescue":         return resolveBacklogRescue(apps, limit, params, shelfId);
-        case "forgotten_gems":         return resolveForgottenGems(apps, limit, params);
-        case "weekly_rotation":        return resolveWeeklyRotation(apps, limit, params, shelfId);
-        case "short_battery":          return resolveShortBattery(apps, limit, params);
-        case "long_session_night":     return resolveLongSessionNight(apps, limit, params);
-        case "travel_mode":            return resolveTravelMode(apps, limit, params);
-        case "hidden_gems":            return resolveHiddenGems(apps, limit, params);
-        case "never_touched_classics": return resolveNeverTouchedClassics(apps, limit, params);
-        case "recent_hidden_installs": return resolveRecentHiddenInstalls(apps, limit, params);
-        case "monthly_spotlight":      return resolveMonthlySpotlight(apps, limit, params, shelfId);
-        case "seasonal_rotation":      return resolveSeasonalRotation(apps, limit, params, shelfId);
-        case "low_battery_mode":       return resolveLowBatteryMode(apps, limit, params);
-        case "almost_finished":        return resolveAlmostFinished(apps, limit, params);
-        case "couch_gaming":           return resolveCouchGaming(apps, limit, params);
-        case "coop_ready":             return resolveCoopReady(apps, limit, params);
-        case "party_games":            return resolvePartyGames(apps, limit, params);
-        case "friends_playing":        return resolveFriendsPlaying(apps, limit, params);
-        // "custom" is dispatched via `resolveShelfAppIds` in `src/steam/index.ts`
-        // (it needs filterGroup + sort which aren't exposed here). Reaching
-        // this case directly means a buggy caller — return [] to fail soft.
-        case "custom":          return [];
-        default: return [];
-      }
+      return (MODE_RESOLVERS[mode] ?? resolveNone)(apps, limit, params, shelfId);
     } catch {
       return [];
     }
@@ -934,7 +949,7 @@ export function evalVisibility(entry: VisibilityLike, now: Date = new Date()): b
 function hasClockRule(entry: VisibilityLike): boolean {
   const rules = Array.isArray(entry?.visibility?.rules) ? entry!.visibility.rules : [];
   if (rules.length > 0) {
-    return rules.some((r: any) => r?.kind === "timeWindow" || r?.kind === "dayOfWeek" || isTimeContextKind(String(r?.kind || "")));
+    return rules.some((r: { kind?: unknown } | null | undefined) => r?.kind === "timeWindow" || r?.kind === "dayOfWeek" || isTimeContextKind(String(r?.kind || "")));
   }
   return normalizeWindow(entry?.visibleHours).length > 0 || ((entry?.visibleDaysOfWeek?.length ?? 0) > 0);
 }
@@ -953,32 +968,34 @@ export function nextVisibilityFlip(entry: VisibilityLike, now: Date = new Date()
   return null;
 }
 
-/* Convert the legacy window fields into an editable rule list (for the
-   Visibility tab when a shelf has no `visibility` yet). Not used for eval —
-   legacy shelves eval through `isInVisibilityWindow` unchanged. */
-export function legacyToVisibility(
-  visibleHours: any,
-  visibleDaysOfWeek: number[] | undefined,
-): { mode: "any" | "all"; rules: Array<{ kind: string } & Record<string, unknown>> } {
-  const rules: Array<{ kind: string } & Record<string, unknown>> = [];
-  const ranges = normalizeWindow(visibleHours);
-  const globalDays = Array.isArray(visibleDaysOfWeek) && visibleDaysOfWeek.length ? visibleDaysOfWeek : undefined;
-  for (const r of ranges) {
-    const days = Array.isArray(r.days) ? r.days : globalDays;
-    rules.push({ kind: "timeWindow", start: r.start, end: r.end, ...(days ? { days } : {}) });
-  }
-  if (ranges.length === 0 && globalDays) rules.push({ kind: "dayOfWeek", days: globalDays });
-  return { mode: "any", rules };
-}
-
 // --- Profile triggers (auto-apply a settings profile when its predicate is true) ---
 /* A profile's `trigger` is a Visibility tree (same shape as shelf visibility).
    Unlike shelf visibility, an EMPTY trigger never fires — there is nothing to
    auto-apply, so an unconfigured profile is inert. */
+function isKnownRuleKind(kind: string): boolean {
+  return kind === "timeWindow" || kind === "dayOfWeek" || isTimeContextKind(kind) || isSessionRuleKind(kind)
+    || isPerfRuleKind(kind) || isPeripheralRuleKind(kind) || isDeviceRuleKind(kind);
+}
+
+// A rule a trigger cannot judge: an unknown kind, or perf / peripheral / display data that has not arrived.
+function ruleLacksData(rule: any): boolean {
+  const kind = String(rule?.kind ?? "");
+  if (!isKnownRuleKind(kind)) return true;
+  if (isPerfRuleKind(kind)) return !perfRuleHasData(rule);
+  if (isPeripheralRuleKind(kind)) return !peripheralRuleHasData(rule);
+  if (isDeviceRuleKind(kind)) return !deviceRuleHasData(rule);
+  return false;
+}
+
+/* Unlike shelf visibility, a trigger acts only on evidence: a rule without data,
+   or of a kind this build does not know, counts as not matching (an "all"
+   trigger waits; an "any" trigger ignores it). */
 export function evalProfileTrigger(trigger: unknown, now: Date = new Date()): boolean {
   const t = trigger as any;
   if (!t || !Array.isArray(t.rules) || t.rules.length === 0) return false;
-  return evalVisibilityRules(t, now);
+  const known = t.rules.filter((r: any) => !ruleLacksData(r));
+  if (known.length === 0 || (t.mode === "all" && known.length !== t.rules.length)) return false;
+  return evalVisibilityRules({ ...t, rules: known }, now);
 }
 
 /* Name of the first profile whose trigger is currently active, or null.
@@ -1009,45 +1026,7 @@ export function nextProfileTriggerFlip(
   return earliest;
 }
 
-export const INTERNAL_SMART_MODES: ReadonlySet<string> = new Set([
-  "quick_play",
-  "not_started",
-  "deck_picks",
-  "rediscover",
-  "best_unplayed",
-  "interrupted",
-  "time_of_day",
-  "daily_pick",
-  "on_deck",
-  "recently_played",
-  "long_session",
-  "non_steam",
-  "random_pick",
-  "forgotten",
-  "spare_time",
-  "soundtracks",
-  "videos",
-  "demos",
-  "cloud_games",
-  "backlog_rescue",
-  "forgotten_gems",
-  "weekly_rotation",
-  "short_battery",
-  "long_session_night",
-  "travel_mode",
-  "hidden_gems",
-  "never_touched_classics",
-  "recent_hidden_installs",
-  "monthly_spotlight",
-  "seasonal_rotation",
-  "low_battery_mode",
-  "almost_finished",
-  "couch_gaming",
-  "coop_ready",
-  "party_games",
-  "friends_playing",
-  "custom",
-]);
+export const INTERNAL_SMART_MODES = new Set<string>(SmartShelfModeSchema.options);
 
 export function invalidateSmartShelfCache(shelfId?: string): void {
   if (!shelfId) { resolverCache.clear(); persistCache(); return; }

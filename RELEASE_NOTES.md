@@ -7,6 +7,92 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+- **The Quick Access tab stays on after the restart it asks for**: turning the own tab on and choosing "Restart now" no longer brings it back switched off, and a setting changed right before Steam restarts is no longer undone at the next start.
+
+- **Games waiting for an update update instead of launching**: on a game with a pending update, the View button and the game menu now start with Update, as in Steam's own menu, and the "Update pending" filter also finds games whose update is required.
+
+- **Showcase mode stops on any input**: the keyboard, the mouse and the Deck's touch screen now stop it as the controller does, and it no longer starts while you are using them.
+
+- **Turning the plugin off and on in Decky Loader works**: Deck Shelves comes back right away instead of staying stopped until Steam restarts.
+
+- **The menu button behaves normally with "Use shelf as Recents"**: it opens Deck Shelves' menu only on the replaced row and on Deck Shelves cards; everywhere else Steam handles it.
+
+- **Settings from older versions load cleanly**: shelves saved with old on/off flags no longer cause a validation error at every start.
+
+- **Reordering by touch or mouse keeps every move**, and Steam's logs no longer fill with a navigation warning.
+
+- **"Add to shelf" in every game menu**: Steam's library menus keep the plugin's entries while the menu redraws, and no longer lose them on the first menu after Steam starts when other menu plugins are installed.
+
+- **Store game names read correctly**: names with "&" no longer show as "&amp;" on online shelves, and such games are matched to your library when owned games are hidden.
+
+- **"Use shelf as Recents" works on the Steam Deck's beta client**: Steam's Recents row shows your first shelf, keeps the focus when its games change, and goes back to Steam's own games as soon as you turn the option off.
+
+- **Add a game to a hand-ordered smart shelf from the library**: the library card's menu now lists smart shelves that keep a manual order, for adding and removing.
+
+- **Games you hid in Steam stay off your shelves**, as in Steam's own library: shelves built from a library tab or a collection leave them out (a shelf on the Hidden tab, or filtered to "Hidden only", still shows them), and smart shelves without a visibility condition (the ones you created before 3.3.4) gain the same visible "Exclude hidden" condition new ones have — once; remove it afterwards and it stays removed.
+
+- **Hide a game on a smart shelf too**: the card's X button and the game menu's Hide now work on smart shelves, and so does removing a game you added to one.
+
+- **The refresh card reshuffles every time**: on the Roulette and any shelf in random order, each press of the refresh card or of the shelf's Refresh action gives a new order.
+
+- **Shelves in the right place on the beta client's Big Art home**: the current-game row is now recognised in every language and the shelves sit right after it.
+
+- **Safe mode catches a home that fails every other start**: the shelves switch off when the home screen failed to finish loading on three of the last six Steam starts; leaving safe mode starts the count over.
+
+- **Better bug reports**: System information and the pre-filled bug report now say how the session booted (origin, phase timings, watchdog verdict, long tasks, seeded cache), warnings and errors always reach the Diagnostic log, and an empty wishlist shelf always says why there.
+
+- **Lighter visibility rules**: performance and peripheral checks behind visibility rules are answered from a short-lived backend cache instead of re-reading the system on every evaluation; System information still reads the hardware live.
+
+- **Shelves placed right in every Steam language**: the Home now recognises Steam's own rows and tabs in any language, not only English and Portuguese.
+
+- **Game pages open with the focus on them**: opening a game from the Home no longer leaves its page with nothing selected.
+
+- **Tags stay on the card you touch**: discount and "New" tags no longer vanish from a card you touch or point at with a mouse.
+
+- **Shelf look settings and global ones work together**: the global section only overrides what you set there, every global choice can go back to "Per shelf", and a reset button returns the whole section to its defaults.
+
+- **Smart shelves use their own settings**: the logo, description, layout and hide options and the auto-pin and auto-collapse rules you set on a smart shelf now work on the Home, the same as on a regular shelf.
+
+- **Game names line up with the card**: centre and right alignment now match the card exactly, and game info shown above the card follows that alignment without leaving the screen.
+
+- **Highlight as many games as you like**: shelves with six or more highlighted games no longer show empty spaces where cards should be.
+
+- **The Installed filter and tab are right for non-Steam games**: Unifideck's games count by their real install state with or without its collections, manual shortcuts, Heroic and emulators keep their own, and Proton / runtimes stay out of the Installed tab.
+
+- **Back from a game page, the focus returns to the same game and shelf**, also when that shelf is further down the page and still loading, and scrolling sideways no longer jumps to another shelf.
+
+- **The wishlist shelf fills after a slow start too.** A slow first answer from the backend no longer leaves it empty for ten minutes.
+
+- **The Steam menu and Quick Access open again while a game is running.** The Home no longer pulls the controller focus back to a shelf card behind the game, and it runs no timers at all while a game runs — non-Steam shortcuts included — while the screen is off or while the device sleeps.
+
+- **Game info above the cards no longer repeatedly rebuilds its own label.** Late-arriving titles and status changes still update, and toggling the option back on restores the label.
+
+- **Smoother controller navigation on custom Home shelves.** Remove a focus-border adjustment that could repeatedly recalculate styling across the whole Home screen. Steam's native focus border is retained; the Recents replacement and Round Compatibility setting still work as before.
+
+- **A "Show or hide settings" row under the master toggle opens or closes the quick-settings sidecar**, the same panel the double dpad-right opens, for anyone who prefers a tap. The sidecar is titled "Show or hide" in a tab header, and Ctrl+Shift+S opens it by default.
+
+- **Quick Search lands on the game every time**, including games further along a row or on a shelf below the fold, and reopening it keeps the previous text selected instead of appending to it.
+
+- **Pinned games, play history, queues and custom tags now work.** Once a shelf, smart shelf, saved filter or profile uses one of these sources, the game menu of a shelf card gains a **Lists** submenu that pins a game, queues it for this session or until you play it, and edits its tags; play history fills by itself, and Parser categories reads the categories your ROM manager or launcher integration gave each shortcut. Profile triggers now keep the settings you change while they are active, and the shortcut editor takes up to three buttons and can be cancelled.
+
+- **Typing in Quick Search with the on-screen keyboard works again**, and profile triggers are more dependable: switching them off restores your previous settings, they survive a restart, and they wait for real readings before acting. Update notifications can now be muted like the other areas.
+
+- **Fixes for profiles, sync and shortcuts.** Linked profiles keep applying their shelves after a restart; cross-device sync keeps your latest profile and saved-filter edits and, with a different profile active on each device, one device's look no longer overwrites the other's; keyboard shortcuts keep working in long sessions; Quick Search no longer pops up during a game; a back-grip shortcut no longer makes another shortcut fire twice; turning off the sidecar's button shortcuts now sticks.
+
+- **Safer settings.** A damaged settings copy can no longer replace your last good backup, exports are written safely, and turning the screensaver off after a factory reset gives Steam back its own idle timeout.
+
+- **A bit lighter in the background.** Features you don't use (friends, launchers) no longer keep polling, and update downloads are checked more strictly.
+
+- **Reorder shelves with a controller row by row**: in the Quick Access lists, A on a shelf's name grabs it, the D-pad moves it, A saves and B puts it back, with those buttons shown in Steam's button bar while the row is held. Touch and mouse dragging work as before.
+
+- **Games without artwork look like they do in Steam**: when a cover can't load, the card shows Steam's own dark tile with the game's name.
+
+- **Deck Shelves' own Quick Access tab was rebuilt (experimental)**: under Decky Loader you can turn it on to get Deck Shelves as its own tab right after Performance; restart Steam after enabling. If another host already shows a Deck Shelves tab, that one is used instead.
+
+- **Under the hood, the home-screen rendering code, the plugin's startup, the library code that builds every shelf and the game-menu code were reorganized into smaller pieces, with no change in behavior** — verified on a real Steam Deck. Reloading the plugin now also cleans up its Settings page route.
+
+- **Release builds are a little leaner: diagnostics meant only for a debugger now stay in development builds.** Nothing visible changes.
+
 ## [3.3.4] - 2026-10-11
 
 - **On a standalone host that knows its own hardware, the plugin now trusts the host's device identity.** When the host reports what device it's running on (and which plugin version it loaded), device-aware shelves use that, falling back to the plugin's own detection otherwise — and the Diagnostics panel and bug-report text now show the host's device and that version too.
@@ -33,6 +119,25 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 - **Snappier home rebuilds in general:** a few per-card costs (price lookups, layout checks, animation sampling) now happen once per rebuild instead of once per game. The plugin also stops watching the whole screen for changes once your shelves are in place (it watches just the home area), which cut the return-to-home time further to about 0.65 s on average.
 - **A safety net for bad starts.** If the home screen fails to finish loading on three Steam starts in a row, the plugin steps aside on the next start — Steam's own home stays usable — and tells you in the Quick Access panel, with a "Leave safe mode" button to try again on the following restart.
 - **Even less idle work:** background checks for friends activity and launcher catalogs now run only if something you've set up actually uses them, and the hero background pauses its focus tracking while you're in a game.
+- **New: Frame and Machine awareness** — card badges and two new filters use the compatibility rating of the device you are on, the VR filter distinguishes VR only / supported / none, and ARM64 is built and tested in CI.
+- **New: Setup wizard with setup packs** — nine starting points (quick presets, situation packs, by device) applied in one step with a preview, recommendations from your library statistics and a one-tap undo; the first-run tour now ends with "configure now / default / from scratch".
+- **Standalone hosts can now ride the plugin's cloud sync for their own settings**, merged key by key so no device ever rolls another one back. Nothing to configure; it stays empty until a host uses it.
+- **Groundwork for cooperative plugin auto-update.** When a standalone host that can run its own copy of the plugin is the chosen owner and carries a version at least as new, the loader's copy steps aside instead of running twice, and takes over again on its own if the host's copy never shows up. Off until a host turns the capability on.
+- **A host running inside a VR headset session now counts as a VR-capable device** for device-aware shelves, and the Performance panel's observer counts now cover the shelf and card watchers too.
+- **The first-run tour lost its redundant "Feature tour" heading, stopped cutting off the top of its screens, and now covers everything.** Back moved to the dialog's own button row, and four screens were added for the home layout and themes, shortcuts, statistics and suggestions, and the optional extras.
+- **Two VR shelf templates, and setup packs that fit their device.** "VR games" and "VR only" join the templates; the Frame pack starts from them, and the Machine pack now switches on the full living-room look. "Deck Verified", "Deck Playable" and "Deck Picks" are now "Verified / Playable / Picks for this device": they follow the rating of the Steam device you are on, so they make sense on a Steam Machine or a Steam Frame too. On a Deck, nothing changes.
+- **The Setup wizard got a real face.** Packs are tiles with icons under three groups, picking one shows exactly what it adds with counters and a check on what you already have, and applying ends on a done screen with Undo right there. It also stopped taking a row of the Quick Access list: open it from the wand icon in the title bar, or from the first-run banner on a fresh install.
+- **Compact title-bar icons, and a Skip that lands on the closing choices.** The wand, docs and settings icons are small squares now, so the title no longer wraps next to Decky Loader's back arrow; Skip in the first-run tour goes straight to the "how do you want to start" screen instead of closing the tour.
+- **No more second tour on a two-host install, and a one-button welcome banner.** With Decky Loader and the standalone host both delivering the plugin, a second copy of the first-run tour used to appear right after finishing the first; only the owning copy opens it now. The welcome banner offers just the Setup wizard (the default shelves stay available from the tour's closing choices), and its text was reworded to match.
+- **Under the hood: a housekeeping sweep.** Dead code and an unused dependency removed, the video scenario tooling unified, and 25 functions simplified into small helpers with no behaviour change; lint suppressions dropped from 46 to 19.
+- **Under the hood, round two.** Lint suppressions down to 10, the duplicated regular/smart dialogs and cards merged into shared pieces, the placeholder card's quick-launch hint now stays current, a legacy filter flag no longer trips settings validation at boot, and the compatibility checks pass again.
+- **The Living room setup pack turns on the whole living-room look** (hero art everywhere, full-page shelves, featured first game, logos), like the Machine pack, with its own shelves.
+- **Suggestions update themselves while you look at them**, and anything you have not seen before is marked "New".
+- **Under the hood, theme compatibility and plugin integrations were reorganized** so each supported theme and each third-party plugin is one self-contained piece. Nothing changes on screen; it makes supporting the next theme faster and safer.
+- **Shelves re-resolve only for the data that changed** — refresh signals are tagged (library, collections, friends, online, clock, session), fan out gradually, and slow down on battery.
+- **Returning to the Home is about twice as fast** — rows mount only the cards you can see (plus a margin) and far-down shelves wait as placeholders until you get near; your selection is still restored.
+- **Input and refreshes scale with what is on screen, not with your library** — one input dispatcher for all cards, and a refresh re-renders only cards whose own state changed.
+- **Cold boot shows your shelves sooner** — cards paint from the last session's data before Steam's library finishes loading, then refresh in place; shelves still resolving show a skeleton in their final spot instead of a spinner.
 - **Clean Library Capsule theme now styles the text cards on your shelves** — background, bold, outline, color and the hide option, driven by the theme's own settings.
 - **Gray Uninstalled theme now dims not-installed games on your shelves** — same opacity and grayscale as native capsules, driven by the theme's own settings.
 - **Fixed native recents reappearing after leaving the plugin's settings page** — a stale check could un-hide them on the way back.
@@ -92,7 +197,6 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 - **A profile switched on automatically (by a trigger like docking or charging) could revert a Smart Shelf's settings even when you'd chosen not to link shelves to that profile.** Fixed — auto-switched profiles now leave your shelves exactly as they are, same as switching manually.
 - **Card shadows and theme compatibility improvements.** The drop shadow under each card now matches the artwork exactly instead of extending past it. Fixed a couple of related visual issues that showed up with certain CSS Loader themes (Switch Like Home / Switch-like Banners): cards now correctly match the theme's resized native look, and "Use shelf as Recents" no longer renders invisibly off-screen or leaves the row's title stuck on the default text under the SLH theme.
-- **New recommended way to install: ShelvesHub.** A standalone host, no Decky Loader needed — one-click installers for Steam Deck, Linux, macOS and Windows, with automatic updates for itself and Deck Shelves. The Decky Store, manual-zip and install-from-URL options are all still there and unchanged; ShelvesHub is simply the easiest path for anyone starting fresh.
 - **Screensaver improvements.** It now shows a fair mix from every shelf instead of mostly the first one, resumes where it left off instead of restarting each time, and can optionally show the game's description next to the logo (above or below, with an adjustable gap). A new setting also lets you control how many games it pulls from each shelf at a time. Fixed a bug where, with 2 or more shelves enabled, none of them could ever show their own full configured number of games. It can also now optionally include each game's official online screenshots, not just ones you've captured yourself (requires Online features to be on).
 - **Compatibility icons that fit your device.** On a Steam Deck / SteamOS, cards still show the Steam Deck compatibility rating; on macOS, Windows and desktop Linux they now show controller-support icons (full or partial) — the same thing native Steam shows there — instead of a Deck rating that doesn't apply. It's the same "compatibility icons" toggle you already have, per shelf or globally.
 - **Settings sync across devices is much more reliable.** If you use the optional cross-device sync, two devices now merge their changes shelf by shelf instead of one overwriting the other, and a bug that could make synced shelves disappear (or the whole plugin read as turned off) is fixed. If the same shelf was created separately on each device, they'll show as two — delete the extra once and it stays gone.
@@ -346,7 +450,7 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 - **Side panel could be pushed below the visible area** with logo + description on. Promoted (full-page) shelves no longer add extra padding for the logo zone — the logo composes inside the existing hero area instead of pushing the card row off the screen.
 - **Accidental side panel open** when moving onto the rightmost button in a row. Pressing right twice on the same focused element is now required to expand the panel; the first press just lands the focus there.
 
-> Plugin API changes (`registerSearchProvider`, `registerSideMenuProvider`, new descriptor types, public registry getters) are tracked in [api/RELEASE_NOTES.md](api/RELEASE_NOTES.md). CDP deckprobe additions are tracked in [deckprobe/RELEASE_NOTES.md](deckprobe/RELEASE_NOTES.md).
+> Plugin API changes (`registerSearchProvider`, `registerSideMenuProvider`, new descriptor types, public registry getters) are tracked in [api/RELEASE_NOTES.md](api/RELEASE_NOTES.md). CDP deckprobe additions are tracked in [deckprobe/RELEASE_NOTES.md](deckprobe/CHANGELOG.md).
 
 ## [2.4.3] - 2026-06-12
 

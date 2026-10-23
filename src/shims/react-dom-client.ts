@@ -20,19 +20,17 @@ const CANDIDATES = [
   shelvesHost?.ReactDOM,
 ].filter(Boolean);
 
+const RENDERER_FNS = ["createRoot", "hydrateRoot", "render"] as const;
+
+const fnOn = (obj: any, key: string): boolean => typeof obj?.[key] === "function";
+
+function hasRendererFns(obj: any): boolean {
+  return !!obj && RENDERER_FNS.some((k) => typeof obj[k] === "function");
+}
+
+// A renderer may sit on the candidate itself, on its `default` or on `client`.
 function hasAnyRendererApi(target: any): boolean {
-  if (!target) return false;
-  return (
-    typeof target.createRoot === "function" ||
-    typeof target.hydrateRoot === "function" ||
-    typeof target.render === "function" ||
-    typeof target?.default?.createRoot === "function" ||
-    typeof target?.default?.hydrateRoot === "function" ||
-    typeof target?.default?.render === "function" ||
-    typeof target?.client?.createRoot === "function" ||
-    typeof target?.client?.hydrateRoot === "function" ||
-    typeof target?.client?.render === "function"
-  );
+  return hasRendererFns(target) || hasRendererFns(target?.default) || hasRendererFns(target?.client);
 }
 
 const ReactDOMGlobal = CANDIDATES.find(hasAnyRendererApi) ?? CANDIDATES[0];
@@ -90,21 +88,22 @@ export function canRenderReactTree(): boolean {
 
 export function getReactDOMDebugShape() {
   const host = getRendererHost();
+  const onHostOrGlobal = (key: string) => fnOn(host, key) || fnOn(ReactDOMGlobal, key);
   const knownCandidates = CANDIDATES.map((candidate: any, index) => ({
     index,
-    hasCreateRoot: typeof candidate?.createRoot === "function",
-    hasHydrateRoot: typeof candidate?.hydrateRoot === "function",
-    hasRender: typeof candidate?.render === "function",
-    hasDefaultCreateRoot: typeof candidate?.default?.createRoot === "function",
-    hasClientCreateRoot: typeof candidate?.client?.createRoot === "function",
+    hasCreateRoot: fnOn(candidate, "createRoot"),
+    hasHydrateRoot: fnOn(candidate, "hydrateRoot"),
+    hasRender: fnOn(candidate, "render"),
+    hasDefaultCreateRoot: fnOn(candidate?.default, "createRoot"),
+    hasClientCreateRoot: fnOn(candidate?.client, "createRoot"),
   }));
   return {
     topLevelKeys: Object.keys(ReactDOMGlobal ?? {}).slice(0, 20),
     hostKeys: Object.keys(host ?? {}).slice(0, 20),
-    hasCreateRoot: typeof host?.createRoot === "function",
-    hasHydrateRoot: typeof host?.hydrateRoot === "function" || typeof ReactDOMGlobal?.hydrateRoot === "function",
-    hasRender: typeof host?.render === "function" || typeof ReactDOMGlobal?.render === "function",
-    hasUnmount: typeof host?.unmountComponentAtNode === "function" || typeof ReactDOMGlobal?.unmountComponentAtNode === "function",
+    hasCreateRoot: fnOn(host, "createRoot"),
+    hasHydrateRoot: onHostOrGlobal("hydrateRoot"),
+    hasRender: onHostOrGlobal("render"),
+    hasUnmount: onHostOrGlobal("unmountComponentAtNode"),
     knownCandidates,
   };
 }

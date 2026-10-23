@@ -5,7 +5,7 @@
 import type { SingleDropdownOption } from '../../../../runtime/host/decky';
 import type { EditableShelfState } from './types';
 
-export type SourceUsage = {
+type SourceUsage = {
   filterCount: number;
   storeCount: number;
   wishlistCount: number;
@@ -30,7 +30,7 @@ function collectAdditionalKeys(state: EditableShelfState, type: string, key: str
   return out;
 }
 
-export function computeSourceUsage(state: EditableShelfState, excludeRow?: number | 'primary'): SourceUsage {
+function computeSourceUsage(state: EditableShelfState, excludeRow?: number | 'primary'): SourceUsage {
   const usedTabs = new Set<string>(collectAdditionalKeys(state, 'tab', 'tab', excludeRow));
   if (state.sourceType === 'tab' && excludeRow !== 'primary') usedTabs.add(state.tab);
   const usedCollections = new Set<string>(collectAdditionalKeys(state, 'collection', 'collectionId', excludeRow));

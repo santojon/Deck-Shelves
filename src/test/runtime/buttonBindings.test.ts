@@ -183,3 +183,16 @@ describe("resolveBindings", () => {
     expect(r.cardQuickLaunch).toBe("L2");
   });
 });
+
+describe("combo identity", () => {
+  it("treats a repeated token in a longer chord as a duplicate, a pair as a double-tap", () => {
+    expect(validateCombo("L1+L1")).toEqual({ ok: true });
+    expect(validateCombo("L1+R1+L1")).toEqual({ ok: false, reason: "duplicate" });
+  });
+
+  it("reports collisions regardless of chord order or alias", () => {
+    expect(findCollisions({ navSearch: "L1+R1", navSideNav: "R1+L1" } as any)).toEqual([["navSearch", "navSideNav"]]);
+    expect(findCollisions({ cardQuickLaunch: "VIEW", cardHideRemove: "SELECT" } as any)).toEqual([["cardHideRemove", "cardQuickLaunch"]]);
+    expect(findCollisions({ navSideNav: "L1+L1", navSearch: "L1" } as any)).toEqual([]);
+  });
+});

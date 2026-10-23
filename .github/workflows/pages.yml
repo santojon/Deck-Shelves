@@ -8,24 +8,11 @@ name: "Ops · Publish site (Pages)"
 # ONE-TIME SETUP (REQUIRED): repo Settings → Pages → Build and deployment →
 # Source: "GitHub Actions". This must be done by hand — the Actions token
 # can't create the Pages site itself (that's an admin operation; `enablement`
-# fails with "Resource not accessible by integration"). Once enabled, this
-# workflow publishes on every push that touches the site/docs/reports content.
-# No secrets, no cost.
+# fails with "Resource not accessible by integration"). Publishing is manual
+# only: run this workflow by hand (Actions → Run workflow); nothing publishes
+# on push. No secrets, no cost.
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'site/**'
-      - 'README.md'
-      - 'RELEASE_NOTES.md'
-      - 'docs/**'
-      - 'package.json'
-      - 'scripts/site/build_site.py'
-      - 'scripts/ci/report.py'
-      - 'scripts/ci/report_dashboard.py'
-      - 'scripts/ci/report_perf.py'
-      - '.github/workflows/pages.yml'
   workflow_dispatch:
 
 permissions:

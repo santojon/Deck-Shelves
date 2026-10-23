@@ -38,7 +38,7 @@ var expression = [
   '    out.actionBtns = Array.from(actionBtns).slice(0, 5).map(function (b, i) {',
   '      return { i: i, rect: rect(b) };',
   '    });',
-  '    var rows = listRoot.querySelectorAll("[data-ds-reorder-focused]");',
+  '    var rows = listRoot.querySelectorAll("[data-ds-grab-row]");',
   '    out.rows = Array.from(rows).slice(0, 5).map(function (r, i) {',
   '      var label = r.querySelector(".deck-shelves-label-cont");',
   '      var actions = r.querySelector("[data-ds-shelf-actions]");',

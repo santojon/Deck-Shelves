@@ -98,7 +98,17 @@ export function evalPeripheralRule(rule: any): boolean {
   return true;
 }
 
-export const PERIPHERAL_RULE_KINDS = ['bluetoothConnected', 'headphonesConnected'] as const;
+/* Whether a peripheral rule has a real answer yet (profile triggers act only on
+   evidence; shelf visibility keeps failing open). Reading kicks the same refresh. */
+export function peripheralRuleHasData(rule: any): boolean {
+  ensureFresh();
+  const kind = String(rule?.kind ?? '');
+  if (kind === 'bluetoothConnected') return !!_bt?.supported && !!String(rule?.mac ?? '');
+  if (kind === 'headphonesConnected') return !!_audio?.supported;
+  return true;
+}
+
+const PERIPHERAL_RULE_KINDS = ['bluetoothConnected', 'headphonesConnected'] as const;
 export function isPeripheralRuleKind(kind: string): boolean {
   return (PERIPHERAL_RULE_KINDS as readonly string[]).includes(kind);
 }

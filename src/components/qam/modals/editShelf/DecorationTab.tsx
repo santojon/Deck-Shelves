@@ -174,6 +174,167 @@ function CardSummary({
   )
 }
 
+type DecoMode = 'text' | 'image' | 'none'
+type CardPatch = (idx: number, patch: Partial<SyntheticCardInput>) => void
+
+function decoMode(c: SyntheticCardInput): DecoMode {
+  if (typeof c.image === 'string') return 'image'
+  return typeof c.text === 'string' ? 'text' : 'none'
+}
+
+function decoHasContent(c: SyntheticCardInput): boolean {
+  return (typeof c.image === 'string' && (c.image ?? '').length > 0) || (typeof c.text === 'string' && (c.text ?? '').length > 0)
+}
+
+/* "Browse…" row + thumbnail, shared by the card image and the hero image. */
+function ImagePickRow({ t, value, hint, previewLabel, picking, onBrowse }: {
+  t: (k: any) => string
+  value: string | undefined
+  hint: string
+  previewLabel: string
+  picking: boolean
+  onBrowse: () => void
+}) {
+  return (
+    <>
+      <Focusable style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '6px 0' }}>
+        <div style={{ flex: 1, fontSize: 12, opacity: 0.85, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {value ? value : hint}
+        </div>
+        <DialogButton onClick={onBrowse} style={{ minWidth: 90 }} disabled={picking}>
+          {picking ? t('working') : t('decoration_image_browse')}
+        </DialogButton>
+      </Focusable>
+      <ImagePreview src={value} label={previewLabel} size={80} />
+    </>
+  )
+}
+
+// Size, placeholder, link and shadow — the options between the content and the hero.
+function DecoCardOptions({ t, c, idx, updateCard, hasContent, isFocusable, linkUrl, setLinkUrl }: {
+  t: (k: any) => string
+  c: SyntheticCardInput
+  idx: number
+  updateCard: CardPatch
+  hasContent: boolean
+  isFocusable: boolean
+  linkUrl: string
+  setLinkUrl: (v: string) => void
+}) {
+  return (
+    <>
+      <DropdownItem
+        label={t('decoration_size')}
+        rgOptions={sizeOptions(t)}
+        selectedOption={c.size ?? 'normal'}
+        onChange={(opt: any) => updateCard(idx, { size: ((opt?.data ?? opt) === 'featured' ? 'featured' : 'normal') })}
+      />
+      <ToggleField label={t('decoration_placeholder')} checked={c.placeholder === true} onChange={(v: boolean) => updateCard(idx, { placeholder: v })} />
+      {hasContent && (
+        <TextField label={t('decoration_link_url')} value={linkUrl} onChange={(e: any) => setLinkUrl(String(e.target?.value ?? ''))} />
+      )}
+      {isFocusable && (
+        <DropdownItem
+          label={t('decoration_shadow_mode')}
+          rgOptions={shadowOptions(t)}
+          selectedOption={c.shadowMode ?? 'never'}
+          onChange={(opt: any) => {
+            const v = (opt?.data ?? opt) as 'never' | 'onFocus' | 'always'
+            updateCard(idx, { shadowMode: v === 'never' ? undefined : v })
+          }}
+        />
+      )}
+    </>
+  )
+}
+
+/* Expanded card (selected): the fields are nested focusables walked with ↑/↓;
+   B (cancel) or Done collapses it back to the summary. */
+function ExpandedDecorationCard({ t, c, idx, updateCard, removeCard, onBrowseImage, pickingImageIdx, pickingHeroIdx, onDone }: {
+  t: (k: any) => string
+  c: SyntheticCardInput
+  idx: number
+  updateCard: CardPatch
+  removeCard: (idx: number) => void
+  onBrowseImage: (idx: number, kind: 'image' | 'hero') => void
+  pickingImageIdx: number | null
+  pickingHeroIdx: number | null
+  onDone: () => void
+}) {
+  const hasContent = decoHasContent(c)
+  const mode = decoMode(c)
+  const setMode = (next: DecoMode) => {
+    if (next === 'image') updateCard(idx, { text: undefined, image: c.image ?? '' })
+    else if (next === 'text') updateCard(idx, { image: undefined, text: c.text ?? '' })
+    else updateCard(idx, { image: undefined, text: undefined, link: undefined })
+  }
+  const linkUrl = c.link?.type === 'url' ? c.link.value : ''
+  const setLinkUrl = (v: string) => {
+    if (!v) updateCard(idx, { link: undefined })
+    else updateCard(idx, { link: { type: 'url', value: v.slice(0, 512) } })
+  }
+  const isFocusable = hasContent && !!linkUrl
+  const heroEnabled = typeof c.heroImage === 'string'
+  return (
+    <Focusable
+      focusClassName="gpfocus"
+      onCancelButton={onDone}
+      style={{
+        flexShrink: 0,
+        width: 360,
+        scrollSnapAlign: 'start',
+        border: '1px solid rgba(116, 168, 255, 0.5)',
+        boxShadow: '0 0 0 1px rgba(116, 168, 255, 0.25)',
+        borderRadius: 8,
+        padding: 12,
+        background: 'rgba(116, 168, 255, 0.05)',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 4,
+      }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 4 }}>
+        <span style={{ fontSize: 12, opacity: 0.8, fontWeight: 600 }}>
+          {t('decoration_card_label')} #{idx + 1}
+        </span>
+      </div>
+      <DropdownItem
+        label={t('decoration_mode')}
+        rgOptions={[
+          { data: 'none', label: t('decoration_mode_none') },
+          { data: 'text', label: t('decoration_mode_text') },
+          { data: 'image', label: t('decoration_mode_image') },
+        ]}
+        selectedOption={mode}
+        onChange={(opt: any) => setMode((opt?.data ?? opt) as any)}
+      />
+      {mode === 'text' && (
+        <TextField label={t('decoration_text')} value={c.text ?? ''} onChange={(e: any) => updateCard(idx, { text: String(e.target?.value ?? '').slice(0, 64) })} />
+      )}
+      {mode === 'image' && (
+        <ImagePickRow t={t} value={c.image} hint={t('decoration_image_pick_hint')} previewLabel={t('decoration_image_preview_empty')} picking={pickingImageIdx === idx} onBrowse={() => onBrowseImage(idx, 'image')} />
+      )}
+      <DecoCardOptions t={t} c={c} idx={idx} updateCard={updateCard} hasContent={hasContent} isFocusable={isFocusable} linkUrl={linkUrl} setLinkUrl={setLinkUrl} />
+      {hasContent && (
+        <>
+          <ToggleField
+            label={t('decoration_hero_enable')}
+            checked={heroEnabled}
+            onChange={(v: boolean) => updateCard(idx, { heroImage: v ? (c.heroImage ?? '') : undefined })}
+          />
+          {heroEnabled && (
+            <ImagePickRow t={t} value={c.heroImage} hint={t('decoration_hero_pick_hint')} previewLabel={t('decoration_hero_preview_empty')} picking={pickingHeroIdx === idx} onBrowse={() => onBrowseImage(idx, 'hero')} />
+          )}
+        </>
+      )}
+      <Focusable style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, gap: 8 }}>
+        <DialogButton onClick={onDone} style={{ flex: 1 }}>{t('decoration_card_done')}</DialogButton>
+        <DialogButton onClick={() => removeCard(idx)} style={{ flex: 1 }}>{t('remove')}</DialogButton>
+      </Focusable>
+    </Focusable>
+  )
+}
+
 export function DecorationTab({ t, cards, setCards, defaultPosition, onFirstCardAdded }: DecorationTabProps) {
   const [pickingImageIdx, setPickingImageIdx] = useState<number | null>(null)
   const [pickingHeroIdx, setPickingHeroIdx] = useState<number | null>(null)
@@ -251,128 +412,11 @@ export function DecorationTab({ t, cards, setCards, defaultPosition, onFirstCard
           alignItems: 'stretch',
         }}
       >
-        {cards.map((c, idx) => {
-          if (selectedIdx !== idx) {
-            return <CardSummary key={idx} t={t} card={c} idx={idx} onSelect={setSelectedIdx} />
-          }
-
-          // ─── Expanded card (selected): fields are nested focusables ────
-          const hasImage = typeof c.image === 'string'
-          const hasText = typeof c.text === 'string'
-          const hasContent = (hasImage && (c.image ?? '').length > 0) || (hasText && (c.text ?? '').length > 0)
-          const mode: 'text' | 'image' | 'none' = hasImage ? 'image' : hasText ? 'text' : 'none'
-          const setMode = (next: 'text' | 'image' | 'none') => {
-            if (next === 'image') updateCard(idx, { text: undefined, image: c.image ?? '' })
-            else if (next === 'text') updateCard(idx, { image: undefined, text: c.text ?? '' })
-            else updateCard(idx, { image: undefined, text: undefined, link: undefined })
-          }
-          const linkUrl = c.link?.type === 'url' ? c.link.value : ''
-          const setLinkUrl = (v: string) => {
-            if (!v) updateCard(idx, { link: undefined })
-            else updateCard(idx, { link: { type: 'url', value: v.slice(0, 512) } })
-          }
-          const isFocusable = hasContent && !!linkUrl
-          const heroEnabled = typeof c.heroImage === 'string'
-          return (
-            <Focusable
-              key={idx}
-              focusClassName="gpfocus"
-              onCancelButton={() => setSelectedIdx(null)}
-              style={{
-                flexShrink: 0,
-                width: 360,
-                scrollSnapAlign: 'start',
-                border: '1px solid rgba(116, 168, 255, 0.5)',
-                boxShadow: '0 0 0 1px rgba(116, 168, 255, 0.25)',
-                borderRadius: 8,
-                padding: 12,
-                background: 'rgba(116, 168, 255, 0.05)',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 4,
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 4 }}>
-                <span style={{ fontSize: 12, opacity: 0.8, fontWeight: 600 }}>
-                  {t('decoration_card_label')} #{idx + 1}
-                </span>
-              </div>
-              <DropdownItem
-                label={t('decoration_mode')}
-                rgOptions={[
-                  { data: 'none', label: t('decoration_mode_none') },
-                  { data: 'text', label: t('decoration_mode_text') },
-                  { data: 'image', label: t('decoration_mode_image') },
-                ]}
-                selectedOption={mode}
-                onChange={(opt: any) => setMode((opt?.data ?? opt) as any)}
-              />
-              {mode === 'text' && (
-                <TextField label={t('decoration_text')} value={c.text ?? ''} onChange={(e: any) => updateCard(idx, { text: String(e.target?.value ?? '').slice(0, 64) })} />
-              )}
-              {mode === 'image' && (
-                <>
-                  <Focusable style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '6px 0' }}>
-                    <div style={{ flex: 1, fontSize: 12, opacity: 0.85, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {c.image ? c.image : t('decoration_image_pick_hint')}
-                    </div>
-                    <DialogButton onClick={() => onBrowseImage(idx, 'image')} style={{ minWidth: 90 }} disabled={pickingImageIdx === idx}>
-                      {pickingImageIdx === idx ? t('working') : t('decoration_image_browse')}
-                    </DialogButton>
-                  </Focusable>
-                  <ImagePreview src={c.image} label={t('decoration_image_preview_empty')} size={80} />
-                </>
-              )}
-              <DropdownItem
-                label={t('decoration_size')}
-                rgOptions={sizeOptions(t)}
-                selectedOption={c.size ?? 'normal'}
-                onChange={(opt: any) => updateCard(idx, { size: ((opt?.data ?? opt) === 'featured' ? 'featured' : 'normal') })}
-              />
-              <ToggleField label={t('decoration_placeholder')} checked={c.placeholder === true} onChange={(v: boolean) => updateCard(idx, { placeholder: v })} />
-              {hasContent && (
-                <TextField label={t('decoration_link_url')} value={linkUrl} onChange={(e: any) => setLinkUrl(String(e.target?.value ?? ''))} />
-              )}
-              {isFocusable && (
-                <DropdownItem
-                  label={t('decoration_shadow_mode')}
-                  rgOptions={shadowOptions(t)}
-                  selectedOption={c.shadowMode ?? 'never'}
-                  onChange={(opt: any) => {
-                    const v = (opt?.data ?? opt) as 'never' | 'onFocus' | 'always'
-                    updateCard(idx, { shadowMode: v === 'never' ? undefined : v })
-                  }}
-                />
-              )}
-              {hasContent && (
-                <>
-                  <ToggleField
-                    label={t('decoration_hero_enable')}
-                    checked={heroEnabled}
-                    onChange={(v: boolean) => updateCard(idx, { heroImage: v ? (c.heroImage ?? '') : undefined })}
-                  />
-                  {heroEnabled && (
-                    <>
-                      <Focusable style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '6px 0' }}>
-                        <div style={{ flex: 1, fontSize: 12, opacity: 0.85, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {c.heroImage ? c.heroImage : t('decoration_hero_pick_hint')}
-                        </div>
-                        <DialogButton onClick={() => onBrowseImage(idx, 'hero')} style={{ minWidth: 90 }} disabled={pickingHeroIdx === idx}>
-                          {pickingHeroIdx === idx ? t('working') : t('decoration_image_browse')}
-                        </DialogButton>
-                      </Focusable>
-                      <ImagePreview src={c.heroImage} label={t('decoration_hero_preview_empty')} size={80} />
-                    </>
-                  )}
-                </>
-              )}
-              <Focusable style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, gap: 8 }}>
-                <DialogButton onClick={() => setSelectedIdx(null)} style={{ flex: 1 }}>{t('decoration_card_done')}</DialogButton>
-                <DialogButton onClick={() => removeCard(idx)} style={{ flex: 1 }}>{t('remove')}</DialogButton>
-              </Focusable>
-            </Focusable>
-          )
-        })}
+        {cards.map((c, idx) => (
+          selectedIdx !== idx
+            ? <CardSummary key={idx} t={t} card={c} idx={idx} onSelect={setSelectedIdx} />
+            : <ExpandedDecorationCard key={idx} t={t} c={c} idx={idx} updateCard={updateCard} removeCard={removeCard} onBrowseImage={onBrowseImage} pickingImageIdx={pickingImageIdx} pickingHeroIdx={pickingHeroIdx} onDone={() => setSelectedIdx(null)} />
+        ))}
         {/* Compact `[+]` — small square that's reliably reachable as the
             last item in the row. Activating creates + auto-selects a new
             card, which the carousel auto-scrolls into via the surrounding

@@ -59,6 +59,13 @@ Two kinds of settings never travel between devices, on purpose:
 - A couple of device-specific technical values that would be meaningless
   (or actively wrong) if copied onto a different machine.
 
+Profiles themselves — each one's settings and triggers — do sync, but
+**which profile is active is decided on each device**, by hand or by that
+device's own triggers. While two devices run different profiles, each keeps
+its own look: the everyday settings only follow between devices running the
+same profile (or none), so a docked machine's *Showcase* never leaks into a
+handheld's *Handheld*.
+
 ## Troubleshooting
 
 - **The status line says "not synced yet" and stays that way.** Make sure

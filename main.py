@@ -61,8 +61,8 @@ from plugin_host import logger
 # by name so `from main import _sanitize_settings, _normalize_path`
 # continues to work for existing pytest suites + any external callers.
 from paths import _steam_install_candidates, _normalize_path, _validate_json_export_path
-from storage import _settings_dir, _primary_file, _safe_read_json, _backups_dir, _write_versioned_backup, _list_backups, _is_safe_backup_name, _export_backup, _import_backup, _delete_backup, _clear_backups, AUTO_THROTTLE_SECONDS, _read_wrapped, sync_mirror, reconcile_settings, _canonical_settings_dir, _loader_settings_dir, _is_corrupt_json, _recover_wrapped, _quarantine_corrupt_primary
-from sanitizer import _sanitize_settings
+from storage import _settings_dir, _primary_file, _safe_read_json, _backups_dir, _write_versioned_backup, _list_backups, _is_safe_backup_name, _export_backup, _import_backup, _delete_backup, _clear_backups, AUTO_THROTTLE_SECONDS, _read_wrapped, sync_mirror, reconcile_settings, _canonical_settings_dir, _loader_settings_dir, _is_corrupt_json, _recover_wrapped, _quarantine_corrupt_primary, take_reconcile_recovery
+from sanitizer import _sanitize_settings, merge_hub_config
 from css_themes import read_css_loader_themes
 from display_state import read_display_state
 from perf_probe import read_perf_snapshot
@@ -71,6 +71,16 @@ from hardware_info import get_hardware_info as _hardware_info, get_device_identi
 from library_location import get_library_locations as _library_locations
 from peripherals import get_bluetooth_state as _bt_state, get_audio_state as _audio_state
 from launchers import list_launcher_games as _list_launcher_games, list_available_launchers as _list_available_launchers
+from shortcuts import shortcut_tags as _shortcut_tags
+from ttl_cache import TtlCache, wants_force
+
+# Probe answers kept for a few seconds: the visibility rules call these on
+# every shelf evaluation. One cache per method; `{force: true}` re-probes.
+# Hardware info stays uncached: only System information and the bug report
+# read it, and its Refresh must see a disk plugged in just now.
+_PERF_CACHE = TtlCache(5.0, read_perf_snapshot)
+_BLUETOOTH_CACHE = TtlCache(10.0, _bt_state)
+_AUDIO_CACHE = TtlCache(10.0, _audio_state)
 
 DEFAULT_SETTINGS: Dict[str, Any] = {"enabled": False, "hideRecents": False, "recentsReplaceSource": False, "hideHomeTabs": False, "shelfHeroBackground": False, "globalMatchNativeSize": False, "globalHighlightFirst": False, "globalHighlightAll": False, "globalHideStatusLine": False, "globalHideNewBadge": False, "globalHideDiscountBadge": False, "globalHideCompatIcons": False, "globalHideNonSteamBadge": False, "globalHideShelfTitle": False, "globalHideGameNames": False, "globalHideInstallIndicator": False, "globalHideSeeMore": False, "globalHideRefreshCard": False, "shelves": [], "smartShelvesEnabled": False, "smartShelvesAtBottom": False, "smartShelves": [], "smartSurpriseMe": False, "smartSurpriseMeCount": 0}
 
@@ -126,6 +136,20 @@ def _is_github_asset_url(url: str) -> bool:
         return False
 
 
+_RELEASE_DOWNLOAD_PREFIX = "/santojon/Deck-Shelves/releases/download/"
+
+
+def _is_release_download_url(url: str) -> bool:
+    """The URL the frontend may ask for: this project's own release assets on
+    github.com (redirects to GitHub's asset hosts are checked separately)."""
+    try:
+        from urllib.parse import urlsplit
+        p = urlsplit(url)
+        return p.scheme == "https" and (p.hostname or "").lower() == "github.com" and p.path.startswith(_RELEASE_DOWNLOAD_PREFIX)
+    except Exception:
+        return False
+
+
 def _safe_zip_name(name: str) -> str:
     """Reduce a caller-supplied filename to a bare basename ending in .zip so it
     can never escape the download dir (path traversal) or write an executable."""
@@ -136,19 +160,48 @@ def _safe_zip_name(name: str) -> str:
     return base
 
 
+_DOWNLOAD_MAX_BYTES = 200 * 1024 * 1024  # a release zip is a few MB
+
+
+def _stream_to(resp, f) -> None:
+    total = 0
+    while True:
+        chunk = resp.read(65536)
+        if not chunk:
+            return
+        total += len(chunk)
+        if total > _DOWNLOAD_MAX_BYTES:
+            raise ValueError("download exceeds the size cap")
+        f.write(chunk)
+
+
 def _download_to(url: str, dest: str) -> str:
     """Blocking download (run off the asyncio loop). Streams to a .part file then
-    atomically renames, so a partial download never looks complete."""
+    atomically renames, so a partial download never looks complete; the final
+    URL after redirects must still be a release host, and the size is capped."""
     req = urllib.request.Request(url, headers={"Accept": "application/octet-stream", "User-Agent": "Deck-Shelves"})
     tmp = dest + ".part"
-    with urllib.request.urlopen(req, timeout=60, context=_SSL_CTX) as resp, open(tmp, "wb") as f:
-        while True:
-            chunk = resp.read(65536)
-            if not chunk:
-                break
-            f.write(chunk)
-    os.replace(tmp, dest)
+    try:
+        with urllib.request.urlopen(req, timeout=60, context=_SSL_CTX) as resp, open(tmp, "wb") as f:
+            if not _is_github_asset_url(resp.geturl()):
+                raise ValueError("download redirected off the release hosts")
+            _stream_to(resp, f)
+        os.replace(tmp, dest)
+    except Exception:
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
+        raise
     return dest
+
+
+def _fetch_json_page(req: "urllib.request.Request"):
+    """One HTTPS GET through the verified TLS context: (status, parsed JSON)."""
+    with urllib.request.urlopen(req, timeout=15, context=_SSL_CTX) as resp:
+        if resp.status != 200:
+            return resp.status, {}
+        return 200, json.loads(resp.read().decode("utf-8"))
 
 
 class Plugin:
@@ -166,6 +219,8 @@ class Plugin:
     def _read_state(self) -> Dict[str, Any]:
         self._ensure_dirs()
         reconciled = reconcile_settings()
+        if take_reconcile_recovery():
+            Plugin._corruption_recovered = True
         if reconciled is not None:
             return _sanitize_settings(reconciled["state"])
         path = _primary_file()
@@ -193,7 +248,7 @@ class Plugin:
         data = _safe_read_json(path)
         state = data.get("state") if isinstance(data.get("state"), dict) else data
         # `_sanitize_settings` already fail-safes malformed input to sane
-        # defaults (issue #114) — a persisted state with no shelves and the
+        # defaults — a persisted state with no shelves and the
         # master toggle off is not a sign of corruption, it's the normal
         # state of a fresh install before the user enables the plugin. An
         # earlier version discarded that state wholesale in favor of
@@ -321,20 +376,23 @@ class Plugin:
         # filter/trigger. Read-only, off-thread, fail-soft, no background poll.
         return await asyncio.to_thread(_library_locations)
 
-    async def get_perf_snapshot(self, *args, **kwargs) -> Dict[str, Any]:
+    async def get_perf_snapshot(self, force: Any = False, *args, **kwargs) -> Dict[str, Any]:
         # On-demand CPU / memory snapshot from /proc (read-only). Off-thread (the
         # CPU read sleeps ~100 ms between /proc/stat samples). No background poll.
-        return await asyncio.to_thread(read_perf_snapshot)
+        # Cached 5 s.
+        return await asyncio.to_thread(_PERF_CACHE.get, wants_force(force, **kwargs))
 
-    async def get_bluetooth_state(self, *args, **kwargs) -> Dict[str, Any]:
+    async def get_bluetooth_state(self, force: Any = False, *args, **kwargs) -> Dict[str, Any]:
         # Paired + connected Bluetooth devices via bluetoothctl (read-only,
         # off-thread, fail-soft off Linux). On-demand — no background poll.
-        return await asyncio.to_thread(_bt_state)
+        # Cached 10 s.
+        return await asyncio.to_thread(_BLUETOOTH_CACHE.get, wants_force(force, **kwargs))
 
-    async def get_audio_state(self, *args, **kwargs) -> Dict[str, Any]:
+    async def get_audio_state(self, force: Any = False, *args, **kwargs) -> Dict[str, Any]:
         # Whether the active output sink is a headphone/headset port via wpctl
         # (read-only, off-thread, fail-soft). On-demand — no background poll.
-        return await asyncio.to_thread(_audio_state)
+        # Cached 10 s.
+        return await asyncio.to_thread(_AUDIO_CACHE.get, wants_force(force, **kwargs))
 
     def _save_pipeline(self, data: Dict[str, Any]) -> bool:
         # Whole save pipeline runs in a single worker thread so neither the
@@ -344,6 +402,10 @@ class Plugin:
         clean = _sanitize_settings(data)
         try:
             current = self._read_state()
+            # The host's own config entity merges per key with what is on disk
+            # (the frontend may carry a stale copy of a key the host updated).
+            if isinstance(current, dict) and (current.get("hubConfig") or clean.get("hubConfig")):
+                clean["hubConfig"] = merge_hub_config(current.get("hubConfig"), clean.get("hubConfig"))
             if json.dumps(current, sort_keys=True) == json.dumps(clean, sort_keys=True):
                 return True
         except Exception:
@@ -459,7 +521,11 @@ class Plugin:
             return {"ok": _import_backup(src), "backups": _list_backups()}
         return await asyncio.to_thread(_do)
 
-    async def get_tabmaster_tabs(self) -> Dict[str, Any]:  # noqa: C901
+    async def get_tabmaster_tabs(self, *args, **kwargs):
+        # File work runs on a worker thread so other calls keep flowing.
+        return await asyncio.to_thread(self._get_tabmaster_tabs_sync, *args, **kwargs)
+
+    def _get_tabmaster_tabs_sync(self) -> Dict[str, Any]:  # noqa: C901
         """
         Reads TabMaster's settings.json and returns its tab list.
         TabMaster does not expose tabs via React context or IPC — the only
@@ -531,7 +597,7 @@ class Plugin:
         # Download a release .zip to the user's Downloads folder for MANUAL
         # install (no auto-update). The frontend may deliver { url, filename } as
         # a single positional dict (Decky arg quirk) — recover both fields. Only
-        # GitHub asset hosts are accepted, and the name is reduced to a safe
+        # this project's GitHub release assets are accepted, and the name is reduced to a safe
         # basename so nothing escapes the download dir. The blocking fetch runs
         # off the asyncio loop so the plugin process stays responsive.
         _ = (args, kwargs)
@@ -540,7 +606,7 @@ class Plugin:
             url = str(url.get("url") or "")
         if not filename and isinstance(kwargs.get("filename"), str):
             filename = kwargs.get("filename")
-        if not isinstance(url, str) or not _is_github_asset_url(url):
+        if not isinstance(url, str) or not _is_release_download_url(url):
             return {"ok": False, "error": "untrusted url"}
         safe_name = _safe_zip_name(filename)
         if not safe_name:
@@ -567,26 +633,55 @@ class Plugin:
         if not isinstance(launcher_id, str) or not launcher_id:
             return []
         try:
-            return _list_launcher_games(launcher_id)
+            return await asyncio.to_thread(_list_launcher_games, launcher_id)
         except Exception:
             return []
+
+    async def get_shortcut_tags(self, *args, **kwargs) -> Dict[str, Any]:
+        """Tags on the logged-in account's non-Steam shortcuts, `{appid: [tag]}`."""
+        return await asyncio.to_thread(self._get_shortcut_tags_sync)
+
+    def _get_shortcut_tags_sync(self) -> Dict[str, Any]:
+        sid64 = self._get_steam_id64()
+        if not sid64:
+            return {"ok": False, "error": "no Steam account found"}
+        account = str(int(sid64) - 76561197960265728)
+        for root in _steam_install_candidates():
+            path = os.path.join(root, "userdata", account, "config", "shortcuts.vdf")
+            if not os.path.isfile(path):
+                continue
+            try:
+                return {"ok": True, "tags": _shortcut_tags(path)}
+            except Exception as e:
+                logger.info(f"get_shortcut_tags: unreadable shortcuts file ({type(e).__name__})")
+                return {"ok": False, "error": "unreadable shortcuts file"}
+        return {"ok": True, "tags": {}}
 
     async def list_available_launchers(self, *args, **kwargs) -> List[str]:
         _ = (args, kwargs)
         try:
-            return _list_available_launchers()
+            return await asyncio.to_thread(_list_available_launchers)
         except Exception:
             return []
 
-    async def export_settings(self, dest_path: Any = None, *args, **kwargs) -> bool:
+    async def export_settings(self, *args, **kwargs):
+        # File work runs on a worker thread so other calls keep flowing.
+        return await asyncio.to_thread(self._export_settings_sync, *args, **kwargs)
+
+    def _export_settings_sync(self, dest_path: Any = None, *args, **kwargs) -> bool:
         path = _validate_json_export_path(dest_path if dest_path is not None else (args[0] if args else kwargs), _json_export_roots())
         if not path:
             return False
         try:
             os.makedirs(os.path.dirname(path), exist_ok=True)
             export_data = {"state": self._read_state()}
-            with open(path, "w", encoding="utf-8") as f:
+            # tmp + fsync + rename: an interrupted export never leaves a half file.
+            tmp = path + ".tmp"
+            with open(tmp, "w", encoding="utf-8") as f:
                 json.dump(export_data, f, ensure_ascii=False, indent=2)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(tmp, path)
             return True
         except Exception as e:
             try:
@@ -595,7 +690,11 @@ class Plugin:
                 pass
             return False
 
-    async def import_settings(self, src_path: Any = None, *args, **kwargs) -> Dict[str, Any]:
+    async def import_settings(self, *args, **kwargs):
+        # File work runs on a worker thread so other calls keep flowing.
+        return await asyncio.to_thread(self._import_settings_sync, *args, **kwargs)
+
+    def _import_settings_sync(self, src_path: Any = None, *args, **kwargs) -> Dict[str, Any]:
         path = _validate_json_export_path(src_path if src_path is not None else (args[0] if args else kwargs), _json_export_roots())
         if not path or not os.path.exists(path):
             return self._read_state()
@@ -611,7 +710,11 @@ class Plugin:
                 pass
             return self._read_state()
 
-    async def write_json_file(self, path: str = "", content: str = "", *args, **kwargs) -> bool:
+    async def write_json_file(self, *args, **kwargs):
+        # File work runs on a worker thread so other calls keep flowing.
+        return await asyncio.to_thread(self._write_json_file_sync, *args, **kwargs)
+
+    def _write_json_file_sync(self, path: str = "", content: str = "", *args, **kwargs) -> bool:
         # The frontend sends a single { path, content } object. Depending on how
         # Decky delivers it, `content` can arrive bundled inside the first
         # positional dict (leaving the `content` param empty) — recover it so we
@@ -649,7 +752,11 @@ class Plugin:
                 pass
             return False
 
-    async def read_json_file(self, path: str = "", *args, **kwargs) -> Dict[str, Any]:
+    async def read_json_file(self, *args, **kwargs):
+        # File work runs on a worker thread so other calls keep flowing.
+        return await asyncio.to_thread(self._read_json_file_sync, *args, **kwargs)
+
+    def _read_json_file_sync(self, path: str = "", *args, **kwargs) -> Dict[str, Any]:
         path = _validate_json_export_path(path if path else (args[0] if args else kwargs.get("path")), _json_export_roots())
         if not path or not os.path.exists(path):
             return {"ok": False}
@@ -663,7 +770,11 @@ class Plugin:
                 pass
             return {"ok": False}
 
-    async def read_image_b64(self, path: str = "", *args, **kwargs) -> Dict[str, Any]:
+    async def read_image_b64(self, *args, **kwargs):
+        # File work runs on a worker thread so other calls keep flowing.
+        return await asyncio.to_thread(self._read_image_b64_sync, *args, **kwargs)
+
+    def _read_image_b64_sync(self, path: str = "", *args, **kwargs) -> Dict[str, Any]:
         # Reads a local image as a base64 data URL so the frontend can
         # render it directly via `<img src="data:...">`. CEF blocks
         # bare `file://` urls under the home shelf, and the decoration
@@ -1032,7 +1143,7 @@ class Plugin:
                 headers = {"Accept": "application/json", "User-Agent": "Mozilla/5.0"}
                 if attempt == 1:
                     # Second attempt: try with JWT from cookie (for private wishlists)
-                    raw_cookie = self._get_steam_cookie("steamLoginSecure")
+                    raw_cookie = await asyncio.to_thread(self._get_steam_cookie, "steamLoginSecure")
                     if not raw_cookie:
                         break
                     # The steamLoginSecure value is `<steamid>||<jwt>`, but it is
@@ -1057,16 +1168,15 @@ class Plugin:
                     url = f"{base_url}&access_token={urllib.parse.quote(jwt)}"
 
                 req = urllib.request.Request(url, headers=headers)
-                with urllib.request.urlopen(req, timeout=15, context=_SSL_CTX) as resp:
-                    if resp.status != 200:
-                        continue
-                    body = resp.read().decode("utf-8")
-                    data = json.loads(body)
-                    items = data.get("response", {}).get("items", [])
-                    if not items and attempt == 0:
-                        continue  # might be private, try with auth
-                    ids: List[int] = [int(it["appid"]) for it in items if it.get("appid")]
-                    return {"ok": True, "ids": ids, "count": len(ids), "authed": attempt > 0}
+                # Off the event loop: a slow network must not stall other RPCs.
+                status, data = await asyncio.to_thread(_fetch_json_page, req)
+                if status != 200:
+                    continue
+                items = data.get("response", {}).get("items", [])
+                if not items and attempt == 0:
+                    continue  # might be private, try with auth
+                ids: List[int] = [int(it["appid"]) for it in items if it.get("appid")]
+                return {"ok": True, "ids": ids, "count": len(ids), "authed": attempt > 0}
 
             return {"ok": False, "error": "wishlist empty or private (no auth)"}
         except urllib.error.HTTPError as e:

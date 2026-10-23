@@ -1,6 +1,7 @@
 import React from "react";
 import type { Settings, Shelf, SmartShelf, SavedFilter } from "../types";
 import type { BackupEntry } from "../store/settingsStore";
+import { defaultSettings } from "../domain/defaults";
 
 const firstRun = __DEV__ && typeof __QA_FIRST_RUN__ !== "undefined" && __QA_FIRST_RUN__;
 const qamError = __DEV__ && typeof __QA_QAM_ERROR__ !== "undefined" && __QA_QAM_ERROR__;
@@ -12,6 +13,8 @@ const allShelvesShowTabs = __DEV__ && typeof __QA_ALL_SHELVES_SHOW_HOME_TABS__ !
 const forceTabMaster = __DEV__ && typeof __QA_FORCE_TABMASTER__ !== "undefined" ? __QA_FORCE_TABMASTER__ : "";
 const forceUnifiDeck = __DEV__ && typeof __QA_FORCE_UNIFIDECK__ !== "undefined" ? __QA_FORCE_UNIFIDECK__ : "";
 const forceNonSteamBadges = __DEV__ && typeof __QA_FORCE_NONSTEAMBADGES__ !== "undefined" ? __QA_FORCE_NONSTEAMBADGES__ : "";
+// The device kind faked from boot; deviceState applies it, here it only counts as a QA flag.
+const forceDevice = __DEV__ && typeof __QA_FORCE_DEVICE__ !== "undefined" ? __QA_FORCE_DEVICE__ : "";
 const smartShelvesFixture = __DEV__ && typeof __QA_SMART_SHELVES_FIXTURE__ !== "undefined" && __QA_SMART_SHELVES_FIXTURE__;
 const savedFiltersFixture = __DEV__ && typeof __QA_SAVED_FILTERS_FIXTURE__ !== "undefined" && __QA_SAVED_FILTERS_FIXTURE__;
 const forceHidden = __DEV__ && typeof __QA_FORCE_HIDDEN_SHELF__ !== "undefined" && __QA_FORCE_HIDDEN_SHELF__;
@@ -28,6 +31,21 @@ const templatesFixture = __DEV__ && typeof __QA_TEMPLATES_FIXTURE__ !== "undefin
 const decorationFixture = __DEV__ && typeof __QA_DECORATION_FIXTURE__ !== "undefined" && __QA_DECORATION_FIXTURE__;
 const stressFixture = __DEV__ && typeof __QA_STRESS_FIXTURE__ !== "undefined" && __QA_STRESS_FIXTURE__;
 const videoFixture = __DEV__ && typeof __QA_VIDEO_FIXTURE__ !== "undefined" && __QA_VIDEO_FIXTURE__;
+const screenshotsFixture = __DEV__ && typeof __QA_SCREENSHOTS_FIXTURE__ !== "undefined" && __QA_SCREENSHOTS_FIXTURE__;
+// A fresh install as the first-run flow sees it: no shelves, the tour not yet
+// seen, the setup wizard never applied — exercises tour → wizard end to end.
+const freshInstall = __DEV__ && typeof __QA_FRESH_INSTALL__ !== "undefined" && __QA_FRESH_INSTALL__;
+let freshSeeded = false;
+// The video fixture is a seed as well: the content-script recordings edit a
+// shelf and must see the edit stick on the Home, not be re-forced away.
+let videoSeeded = false;
+
+/* True once a seed fixture (fresh install, video) has been applied this
+   session: the store then ignores untagged payloads (backend refreshes), which
+   would otherwise re-seed and undo what the session did in memory. */
+export function qaSeedActive(): boolean {
+  return (freshInstall && freshSeeded) || (videoFixture && videoSeeded);
+}
 // perf:bench baseline matrix (vanilla/empty/typical/stress/large/huge) — scenario
 // picked at RUNTIME from localStorage (not a build constant) so one build covers all six without
 // a redeploy per scenario; see qaPerfMatrixFixture below.
@@ -53,20 +71,20 @@ const QA_FAKE_RELEASE_URL = "https://github.com/santojon/Deck-Shelves/releases/t
    narrow check had never covered either. */
 export const qaOverrideActive = __DEV__ && (
   firstRun || qamError || shelfError || allShelvesHide || allShelvesShow || allShelvesHideTabs || allShelvesShowTabs
-  || !!forceTabMaster || !!forceUnifiDeck || !!forceNonSteamBadges || smartShelvesFixture || savedFiltersFixture
+  || !!forceTabMaster || !!forceUnifiDeck || !!forceNonSteamBadges || !!forceDevice || smartShelvesFixture || savedFiltersFixture
   || forceHidden || surpriseMe || forceCrash || forceReplaceFailed || updateAvailable || updateDismissed
   || updateOffline || collectionEmpty || collectionInverted || sourcesFixture || templatesFixture
-  || decorationFixture || stressFixture || videoFixture || perfMatrix
+  || decorationFixture || stressFixture || videoFixture || screenshotsFixture || perfMatrix || freshInstall
 );
 
 if (qaOverrideActive) {
   console.warn("[Deck Shelves QA] active flags:", {
     firstRun, qamError, shelfError,
     allShelvesHide, allShelvesShow, allShelvesHideTabs, allShelvesShowTabs,
-    forceTabMaster, forceUnifiDeck, forceNonSteamBadges,
+    forceTabMaster, forceUnifiDeck, forceNonSteamBadges, forceDevice,
     smartShelvesFixture, savedFiltersFixture, forceHidden, surpriseMe, forceCrash, forceReplaceFailed,
     updateAvailable, updateDismissed, updateOffline, collectionEmpty, collectionInverted,
-    sourcesFixture, templatesFixture, decorationFixture, stressFixture, videoFixture, perfMatrix,
+    sourcesFixture, templatesFixture, decorationFixture, stressFixture, videoFixture, screenshotsFixture, perfMatrix, freshInstall,
   });
 }
 
@@ -659,6 +677,11 @@ function qaVideoFixture(): { shelves: Shelf[]; smartShelves: SmartShelf[]; profi
         },
       },
     },
+    // Script 7 — online shelves: the wishlist and the store's current deals.
+    // Network-backed; the online opt-ins are forced on where the fixture is applied.
+    { ...b, id: "vid_wishlist", title: "Wishlist", source: { type: "wishlist" } },
+    { ...b, id: "vid_on_sale", title: "On sale now",
+      source: { type: "store", childFilter: { mode: "and", items: [{ type: "discount", inverted: false, params: { minDiscount: 1, maxDiscount: 99 } }] } } },
   ];
 
   const smartShelves: SmartShelf[] = [
@@ -683,6 +706,28 @@ function qaVideoFixture(): { shelves: Shelf[]; smartShelves: SmartShelf[]; profi
   return { shelves, smartShelves, profiles };
 }
 
+// ─── Fixture: release screenshots — the video base plus what the captures need
+// A hidden shelf (the hidden-row capture), saved filters (the Saved Filters
+// section and the Filters tab's bar) and a second profile; Advanced mode is
+// set where the fixture is applied. Presentable names; never persisted.
+function qaScreenshotsFixture(): { shelves: Shelf[]; smartShelves: SmartShelf[]; profiles: any[]; savedFilters: SavedFilter[] } {
+  const v = qaVideoFixture();
+  const b = { enabled: true, hidden: false, limit: 20, matchNativeSize: false, highlightFirst: false, highlightAll: false, hideStatusLine: false, hideNewBadge: false, hideDiscountBadge: false, hideCompatIcons: false, hideNonSteamBadge: false, hideShelfTitle: false, hideGameNames: false, hideInstallIndicator: false, hideSeeMore: false, hideRefreshCard: false };
+  const shelves: Shelf[] = [
+    ...v.shelves,
+    { ...b, id: "ss_hidden", title: "Hidden Shelf", hidden: true, source: { type: "tab", tab: "installed" } },
+  ];
+  const savedFilters = [
+    { id: "ss_coop", name: "Co-op", group: { mode: "and", items: [{ type: "controllerSupport", params: { min: 1 } }, { type: "installed" }] } },
+    { id: "ss_quick", name: "Quick", group: { mode: "and", items: [{ type: "playtimeRange", params: { maxMinutes: 120 } }] } },
+  ] as SavedFilter[];
+  const profiles = [
+    ...v.profiles,
+    { id: "ss_prof_handheld", name: "Handheld", createdAt: new Date().toISOString(), snapshot: { hideRecents: false }, linkShelves: false },
+  ];
+  return { shelves, smartShelves: v.smartShelves, profiles, savedFilters };
+}
+
 export function applyQASettingsOverride(s: Settings): Settings {
   const wantsHomeOverride = allShelvesHide || allShelvesShow || allShelvesHideTabs || allShelvesShowTabs || forceHidden;
   const wantsSmartOverride = smartShelvesFixture || surpriseMe;
@@ -694,7 +739,7 @@ export function applyQASettingsOverride(s: Settings): Settings {
     !wantsHomeOverride && !wantsSmartOverride && !wantsFiltersOverride
     && !wantsCollectionEmpty && !wantsCollectionInverted && !wantsUpdateDismissed
     && !sourcesFixture && !templatesFixture && !decorationFixture && !stressFixture && !videoFixture
-    && !perfMatrix
+    && !screenshotsFixture && !perfMatrix && !freshInstall
   ) return s;
 
   /* Every override below is placeholder data that must never be mistaken
@@ -706,6 +751,20 @@ export function applyQASettingsOverride(s: Settings): Settings {
      boot, however it got there. */
   const tag = <T extends object>(o: T): T => ({ ...o, __dsQaOverride: true }) as T;
 
+  /* Fresh install: nothing configured yet and nothing seen yet, so the tour
+     opens, its closing choice can open the wizard, and the wizard's apply /
+     undo run in memory only (the QA guard keeps every save off the backend).
+     A SEED, not a standing override: the first payload of the session is
+     replaced by the fresh state; later tagged payloads (saves built on it)
+     pass through, and the store drops untagged ones (backend refreshes) while
+     the seed is active — re-forcing on every notify wiped the shelves a pack
+     had just added and re-opened the tour after "seen" was saved. */
+  if (freshInstall) {
+    if (freshSeeded && (s as any).__dsQaOverride === true) return s;
+    freshSeeded = true;
+    // Master toggle off like a real first run (that is what shows the welcome banner).
+    return tag({ ...s, enabled: false, shelves: [], smartShelves: [], showcaseSeen: false, setupWizardSeen: false, lastSetupApply: null } as Settings);
+  }
   // Sources / templates / decoration / stress fixtures are exclusive with
   // each other and with the existing collection-fixture overrides — only
   // one set wins.
@@ -729,16 +788,40 @@ export function applyQASettingsOverride(s: Settings): Settings {
     const f = qaDecorationFixture();
     return tag({ ...s, enabled: true, shelves: f.shelves });
   }
+  if (screenshotsFixture) {
+    const f = qaScreenshotsFixture();
+    return tag({
+      // Built on the defaults, not this device's own preferences, so the captures
+      // look the same everywhere. The first shelf takes the native recents row's
+      // place, with its hero art.
+      ...defaultSettings(), enabled: true, smartShelvesEnabled: true, hideRecents: true, shelfHeroBackground: true, showcaseSeen: true,
+      shelves: f.shelves, smartShelves: f.smartShelves, savedFilters: f.savedFilters,
+      profiles: f.profiles, activeProfileName: null, profileTriggersEnabled: true,
+      onlineFeaturesEnabled: true, onlinePrivacyAccepted: true,
+      // Quick Search and the Side Nav are opt-in; the overlay captures need them.
+      contextSearchEnabled: true, sideNavEnabled: true,
+      // The Integrations and Advanced tools tabs only exist in Advanced mode.
+      advancedModeEnabled: true, lightModeEnabled: false,
+    } as Settings);
+  }
   if (videoFixture) {
+    if (videoSeeded && (s as any).__dsQaOverride === true) return s;
+    videoSeeded = true;
     const f = qaVideoFixture();
     return tag({
-      ...s, enabled: true, smartShelvesEnabled: true, hideRecents: false,
+      // Built on the defaults, like the screenshots fixture, so a recording looks
+      // the same on any device; the first shelf takes the recents row with its hero.
+      ...defaultSettings(), enabled: true, smartShelvesEnabled: true, hideRecents: true, shelfHeroBackground: true,
       // Forced true regardless of the real account's own value: a recording
       // session must never race the first-run tour (it gates on this exact
       // field — see useFirstRunShowcase.tsx).
       showcaseSeen: true,
       shelves: f.shelves, smartShelves: f.smartShelves,
       profiles: f.profiles, activeProfileName: null, profileTriggersEnabled: true,
+      // Script 5 opens Quick Search and the Side Nav; script 7 needs the online
+      // shelves live; script 8 walks the Advanced tools tab.
+      contextSearchEnabled: true, sideNavEnabled: true,
+      onlineFeaturesEnabled: true, onlinePrivacyAccepted: true, advancedModeEnabled: true, lightModeEnabled: false,
     } as Settings);
   }
 
@@ -802,10 +885,6 @@ export function wrapHomeShelves<P extends object>(Component: React.ComponentType
   return function HomeShelvesQA(_props: P) {
     throw new Error(forceCrash ? "QA: forced home crash" : "QA: forced shelf render error");
   };
-}
-
-export function isReplaceFailedForced(): boolean {
-  return !!forceReplaceFailed;
 }
 
 /* Snapshot-recovery harness: with the `qa:snapshot-recovery` runtime flag set,

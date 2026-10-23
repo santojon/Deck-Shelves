@@ -3,6 +3,7 @@ import { writeJsonFile, readJsonFile } from "../../../settingsStore";
 import { trackFeature } from "../../../steam/usageTracking";
 import { notify } from "../../../components/notify";
 import { DEVICE_LOCAL_FIELDS } from "../../../domain/settingsMerge";
+import { DEFAULT_BINDINGS } from "../../../runtime/buttonBindings";
 import i18next from "i18next";
 
 export const FACTORY_PROFILE_ID = "__factory__";
@@ -46,8 +47,9 @@ function randomProfileId(): string {
 /* `showcaseSeen` is an installation-level flag, not a per-profile one — a
    profile saved before the tour was completed would otherwise re-trigger it
    on every later switch. DEVICE_LOCAL_FIELDS excluded for the same reason
-   (`keepDeviceLocalFields` restores them on apply). */
-function takeSnapshot(s: Settings): Record<string, unknown> {
+   (`keepDeviceLocalFields` restores them on apply). Exported for the cloud
+   sync, which folds what it adopts into the active profile the same way. */
+export function takeSnapshot(s: Settings): Record<string, unknown> {
   const { profiles: _p, activeProfileName: _n, showcaseSeen: _s, ...rest } = s as any;
   for (const f of DEVICE_LOCAL_FIELDS) delete (rest as any)[f];
   return rest as Record<string, unknown>;
@@ -342,13 +344,6 @@ export function createProfileActions(deps: ProfilesDeps) {
       if (!s || (s as any).offlineModeEnabled === offlineModeEnabled) return;
       await persist({ ...s, offlineModeEnabled } as Settings);
     },
-    async setFeatureToggle(key: string, value: boolean) {
-      const s = liveSettings();
-      if (!s) return;
-      const current = (s as any).featureToggles ?? {};
-      if (current[key] === value) return;
-      await persist({ ...s, featureToggles: { ...current, [key]: value } } as Settings);
-    },
     async exportProfiles(destPath: string, onlyId?: string): Promise<boolean> {
       const s = liveSettings();
       if (!s) return false;
@@ -414,7 +409,7 @@ export function createProfileActions(deps: ProfilesDeps) {
       if (same) return;
       await persist({ ...s, integrationsEnabled: next } as Settings);
     },
-    async setButtonBinding(key: "cardHideRemove" | "cardHighlightToggle" | "cardQuickLaunch" | "navSearch" | "navSideNav", value: string | null) {
+    async setButtonBinding(key: keyof typeof DEFAULT_BINDINGS, value: string | null) {
       const s = liveSettings();
       if (!s) return;
       const current = (s as any).buttonBindings ?? {};
@@ -435,13 +430,7 @@ export function createProfileActions(deps: ProfilesDeps) {
       // Restore defaults for every key + clear disabled list.
       await persist({
         ...s,
-        buttonBindings: {
-          cardHideRemove: "X",
-          cardHighlightToggle: "Y",
-          cardQuickLaunch: "VIEW",
-          navSearch: "L1+R1",
-          navSideNav: "L1+L1",
-        } as any,
+        buttonBindings: { ...DEFAULT_BINDINGS } as any,
         buttonBindingsDisabled: [],
       } as Settings);
     },

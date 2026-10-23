@@ -1,3 +1,4 @@
+import { devTrace } from "../runtime/devStamps";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import {
   ConfirmModal,
@@ -7,6 +8,7 @@ import {
 } from '../runtime/host/decky'
 import { getMountFailed, getMountError, subscribeMountFailed } from '../runtime/homePatch'
 import { hostProvidesNativeTab } from '../runtime/host/resolve'
+import { isHomeOwner } from '../runtime/host/ownerGuard'
 import { restartSteam } from '../runtime/ownQamTab'
 import type { SettingsController } from '../features/settings/controller'
 import { usePlatform } from '../runtime/platformContext'
@@ -26,7 +28,7 @@ import { ImportMenuButton, type ImportEntry } from './qam/common/ImportMenuButto
 import { openManagedModal } from './qam/common/openManagedModal'
 import { getExternalImportTypesForTarget, registerInternalImportType } from '../core/pluginApi'
 import { formatComboForDisplay, resolveBindings, parseRawCombo, matchEvent, createMatcherState, DEFAULT_BINDINGS } from '../runtime/buttonBindings'
-import { resolveKeyboardBindings, parseKeyCombo, matchKeyEvent, createKeyMatcherState, isEditableKeyTarget } from '../runtime/keyboardBindings'
+import { resolveKeyboardBindings, parseKeyCombo, matchKeyEvent, createKeyMatcherState, isEditableKeyTarget, heldModifiers, type KeyModifierFlags } from '../runtime/keyboardBindings'
 import { subscribeControllerInput } from '../runtime/controllerInput'
 import { sidecarCancelHandler, mainCancelButtonDown } from './qam/sidecarCancel'
 import { getCurrentSettings } from '../store/settingsStore'
@@ -34,8 +36,8 @@ import { ExportModal } from './qam/modals/ExportModal'
 import { ImportFromCustomFiltersModal } from './qam/modals/ImportFromCustomFiltersModal'
 import { ImportModal } from './qam/modals/ImportModal'
 import { CreateShelfModal } from './qam/modals/CreateShelfModal'
-import { FirstRunBanner } from './qam/modals/FirstRunBanner'
-import { useFirstRunShowcase } from './qam/useFirstRunShowcase'
+import { FirstRunBanner } from '../features/setup/FirstRunBanner'
+import { useFirstRunShowcase } from '../features/setup/useFirstRunShowcase'
 import { NotificationAreaToggles } from './qam/NotificationAreaToggles'
 import { MountCrashBanner } from './qam/modals/MountCrashBanner'
 import { SafeModeSlot } from './qam/modals/SafeModeBanner'
@@ -47,35 +49,33 @@ import { SmartShelvesPanelSection } from './qam/list/SmartShelvesPanelSection'
 import { UnifiedShelvesPanelSection } from './qam/list/UnifiedShelvesPanelSection'
 import { SavedFilterRow } from './qam/list/SavedFilterRow'
 import { SavedSmartFilterRow } from './qam/list/SavedSmartFilterRow'
-import { SmartShelvesFirstRunBanner } from './qam/modals/SmartShelvesFirstRunBanner'
+import { SmartShelvesFirstRunBanner } from '../features/setup/SmartShelvesFirstRunBanner'
 import { CollapsibleSection, DSSliderField, PositionField, VersionFooter, type HorizontalPosition } from './ui'
-import { SlidersIcon, StackIcon, SparkleIcon, BookmarkIcon, PlusCircleIcon, OnlineIcon, SearchIcon, WandIcon, CloudIcon } from './icons'
+import { SlidersIcon, StackIcon, SparkleIcon, BookmarkIcon, PlusCircleIcon, OnlineIcon, SearchIcon, WandIcon, CloudIcon, GearIcon, ChevronRightIcon } from './icons'
 import { UpdateBanner } from './qam/UpdateBanner'
 import { useQamExpanded, resetQamExpanded } from './qam/qamExpandedStore'
 import { confirmAction } from './qam/modals/ConfirmActionModal'
-import { ProfilesSection } from './qam/sections/ProfilesSection'
+import { ProfilesSection } from '../features/profiles/ProfilesSection'
 import { VisualGlobalSection } from './qam/sections/VisualGlobalSection'
 import { getQamWindow, useQamCompositorSync, useIsActiveQamTab, shouldRenderSidecar } from './qam/sidecarActiveTab'
 import { SidecarPanel, useDpadExpandBridge, fireQamExpand, traceSidecarCollapse } from './qam/sidecar/SidecarPanel'
 
-try {
-  (globalThis as unknown as Record<string, unknown>).__ds_module_loaded__ = 'DeckQAMSettings@' + Date.now();
-  if (typeof window !== 'undefined') {
-    (window as unknown as Record<string, unknown>).__ds_module_loaded_w__ = 'win@' + Date.now();
-  }
-  try { document.documentElement.setAttribute('data-ds-module-loaded', 'yes@' + Date.now()); } catch {}
-} catch {}
+// Dev-only module-load stamps (the hot-swap diagnosis reads them over the debugger).
+if (__DEV__) {
+  try {
+    (globalThis as unknown as Record<string, unknown>).__ds_module_loaded__ = 'DeckQAMSettings@' + Date.now();
+    if (typeof window !== 'undefined') {
+      (window as unknown as Record<string, unknown>).__ds_module_loaded_w__ = 'win@' + Date.now();
+    }
+    try { document.documentElement.setAttribute('data-ds-module-loaded', 'yes@' + Date.now()); } catch {}
+  } catch {}
+}
 
 // Temporary diagnostic: remapped sidecar-open ("R2") reportedly doesn't
 // work — records raw controller events, read back via CDP as
 // globalThis.__ds_input_trace, instead of guessing again.
 function traceRawInput(button: number, pressed: boolean): void {
-  try {
-    const g = globalThis as any;
-    if (!Array.isArray(g.__ds_input_trace)) g.__ds_input_trace = [];
-    g.__ds_input_trace.push({ t: Date.now(), button, pressed });
-    if (g.__ds_input_trace.length > 40) g.__ds_input_trace.shift();
-  } catch { /* tracing must never throw */ }
+  devTrace("__ds_input_trace", { t: Date.now(), button, pressed }, 40);
 }
 
 // Parent → sub-toggle map used both for hiding sub-toggles from the QAM
@@ -94,7 +94,7 @@ const TOGGLE_PARENTS: Record<string, string> = {
   smartSurpriseMe: 'smartShelvesEnabled',
 };
 
-export function isToggleHiddenWithAncestors(key: string, hidden: ReadonlyArray<string>): boolean {
+function isToggleHiddenWithAncestors(key: string, hidden: ReadonlyArray<string>): boolean {
   if (hidden.includes(key)) return true;
   const parent = TOGGLE_PARENTS[key];
   return parent ? isToggleHiddenWithAncestors(parent, hidden) : false;
@@ -119,7 +119,7 @@ export function OnlinePrivacyModal({ closeModal, t, onAccept }: { closeModal?: (
   );
 }
 
-export function SavedFiltersList({ controller }: { controller: SettingsController }) {
+function SavedFiltersList({ controller }: { controller: SettingsController }) {
   const { t, settings } = controller
   const saved = settings?.savedFilters ?? []
   if (saved.length === 0) {
@@ -132,7 +132,7 @@ export function SavedFiltersList({ controller }: { controller: SettingsControlle
   )
 }
 
-export function SavedSmartFiltersList({ controller }: { controller: SettingsController }) {
+function SavedSmartFiltersList({ controller }: { controller: SettingsController }) {
   const { t, settings } = controller
   const saved = settings?.savedSmartFilters ?? []
   if (saved.length === 0) {
@@ -200,6 +200,13 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
     const win = dsScopeRef.current?.ownerDocument?.defaultView ?? getQamWindow();
     fireQamExpand(win, false, setQamExpanded);
   }, [setQamExpanded]);
+  /* The button under the master toggle takes the same open/close path as the
+     dpad-right chord and the B button, so the compositor widens or narrows
+     together with the store flag (the flag alone leaves the panel off-screen). */
+  const toggleSidecar = useCallback(() => {
+    const win = dsScopeRef.current?.ownerDocument?.defaultView ?? getQamWindow();
+    fireQamExpand(win, !qamExpanded, setQamExpanded);
+  }, [qamExpanded, setQamExpanded]);
   /* Hard reset on mount: wipe both the live ref and the sessionStorage
      flag so a freshly-mounted DS QAM tab never inherits a stale expanded
      state. Doing this OUTSIDE the React setter avoids racing the
@@ -217,7 +224,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
     return () => setQamExpanded(false);
   }, [setQamExpanded, isActiveTab]);
   // First-run feature showcase (opens once; replayable from the AboutPage).
-  useFirstRunShowcase(settings, actions);
+  useFirstRunShowcase(settings, actions, controller);
   /* Dev-only screenshot hook: opens/closes the sidecar the same way a
      dpad-right chord does (`fireQamExpand` widens the QAM compositor window
      via the opener postMessage AND flips the store) — the store flag alone
@@ -226,9 +233,16 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
   useEffect(() => {
     if (!__DEV__ || !isActiveTab) return;
     const g = globalThis as any;
-    g.__ds_dev_open_sidecar = () => { fireQamExpand(getQamWindow(), true, setQamExpanded); return true; };
-    g.__ds_dev_close_sidecar = () => { fireQamExpand(getQamWindow(), false, setQamExpanded); };
-    return () => { try { delete g.__ds_dev_open_sidecar; delete g.__ds_dev_close_sidecar; } catch {} };
+    const open = () => { fireQamExpand(getQamWindow(), true, setQamExpanded); return true; };
+    const closeHook = () => { fireQamExpand(getQamWindow(), false, setQamExpanded); };
+    g.__ds_dev_open_sidecar = open;
+    g.__ds_dev_close_sidecar = closeHook;
+    return () => {
+      try {
+        if (g.__ds_dev_open_sidecar === open) delete g.__ds_dev_open_sidecar;
+        if (g.__ds_dev_close_sidecar === closeHook) delete g.__ds_dev_close_sidecar;
+      } catch {}
+    };
   }, [setQamExpanded, isActiveTab]);
   /* Remappable open / close sidecar shortcuts. The defaults (dpad-right ×2 to
      open, dpad-left to close) are served by the nav-aware positional handler
@@ -262,9 +276,10 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
   const closeKeyMatcherRef = useRef(createKeyMatcherState());
   useEffect(() => {
     if (!isActiveTab) return;
-    const matchSidecarKey = (code: string | null, kb: ReturnType<typeof resolveKeyboardBindings>) => {
-      const open = !!kb.navSidecarOpen && matchKeyEvent(code, parseKeyCombo(kb.navSidecarOpen), openKeyMatcherRef.current);
-      const close = !open && !!kb.navSidecarClose && matchKeyEvent(code, parseKeyCombo(kb.navSidecarClose), closeKeyMatcherRef.current);
+    const matchSidecarKey = (code: string | null, kb: ReturnType<typeof resolveKeyboardBindings>, held: KeyModifierFlags) => {
+      const now = Date.now();
+      const open = !!kb.navSidecarOpen && matchKeyEvent(code, parseKeyCombo(kb.navSidecarOpen), openKeyMatcherRef.current, now, held);
+      const close = !open && !!kb.navSidecarClose && matchKeyEvent(code, parseKeyCombo(kb.navSidecarClose), closeKeyMatcherRef.current, now, held);
       return { open, close };
     };
     // Same window resolution as closeSidecar/the reset effect above —
@@ -275,7 +290,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
       if (e.repeat || isEditableKeyTarget((e.target as HTMLElement | null)?.tagName)) return;
       const s = getCurrentSettings();
       const kb = resolveKeyboardBindings(s?.keyboardBindings as any, (s as any)?.keyboardBindingsDisabled);
-      const { open, close } = matchSidecarKey(e.code, kb);
+      const { open, close } = matchSidecarKey(e.code, kb, heldModifiers(e));
       if (!open && !close) return;
       fireQamExpand(resolveQamWin(), open, setQamExpanded);
     };
@@ -298,18 +313,13 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
     const doc = scope?.ownerDocument ?? document;
     const win = doc.defaultView ?? window;
     const trace = (label: string) => {
-      try {
-        const g = globalThis as any;
-        if (!Array.isArray(g.__ds_sidecar_signals)) g.__ds_sidecar_signals = [];
-        g.__ds_sidecar_signals.push({ t: Date.now(), label, hidden: doc.hidden, hasFocus: doc.hasFocus?.() });
-        if (g.__ds_sidecar_signals.length > 40) g.__ds_sidecar_signals.shift();
-      } catch {}
+      devTrace("__ds_sidecar_signals", { t: Date.now(), label, hidden: doc.hidden, hasFocus: doc.hasFocus?.() }, 40);
     };
-    /* Genuine hide signals (doc hidden / pagehide / freeze) collapse outright AND
-       arm `sawHide`. The return-side signals (focus / resume) fire on focus GAIN,
-       which Steam raises spuriously while the QAM is still visible — gate those on
-       a real hide first so they don't collapse the sidecar under the user. The
-       m_eOpenSideMenu poll below is the authoritative leave-detector otherwise. */
+    /* Genuine hide signals (doc hidden / pagehide / freeze) collapse outright.
+       The return-side signals (focus / resume) fire on focus GAIN, which Steam
+       raises spuriously while the QAM is still visible — they act only while the
+       doc is still flagged hidden, so they never collapse the sidecar under the
+       user. The m_eOpenSideMenu poll below is the authoritative leave-detector. */
     /* The leave (Steam overlaying the QAM) fires NO event and m_eOpenSideMenu stays
        QuickAccess (see __ds_sidecar_signals); the reliable RETURN signal is focus /
        resume regained while the doc is still flagged hidden. Do NOT collapse on
@@ -528,6 +538,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
       <Focusable className='deck-shelves-qam-flex' flow-children='row' noFocusRing>
       <Focusable className='deck-shelves-qam-main' noFocusRing onCancelButton={sidecarCancelHandler(qamExpanded, closeSidecar)} onButtonDown={(evt: any) => mainCancelButtonDown(evt, qamExpanded, closeSidecar)}>
       <UpdateBanner controller={controller} />
+      {(() => isFirstRun ? <FirstRunBanner controller={controller} /> : null)()}
 
       <ToggleField
         label={t('enabled')}
@@ -535,11 +546,24 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
         disabled={mountCrashed}
         onChange={(value: boolean) => actions.setEnabled(value)}
       />
+      {/* Compact action row (the standalone host's "View status" row style):
+          icon + label, transparent, focus tint from DeckQAMStyles. */}
+      <Focusable
+        className='deck-shelves-qam-sidecar-row'
+        noFocusRing
+        onClick={toggleSidecar}
+        onOKButton={toggleSidecar}
+        onOKActionDescription={t('qam_sidecar_toggle' as any)}
+        style={{ display: 'flex', alignItems: 'center', gap: '10px', minHeight: '40px', width: '100%', boxSizing: 'border-box', padding: '6px 16px', fontSize: '13px', color: '#fff', cursor: 'pointer' }}
+      >
+        <GearIcon size={16} />
+        <span style={{ flex: '1 1 auto', textAlign: 'left' }}>{t('qam_sidecar_toggle' as any)}</span>
+        <ChevronRightIcon size={16} style={{ flex: '0 0 auto', opacity: 0.7 }} />
+      </Focusable>
       {(() => mountCrashed && (
         <MountCrashBanner controller={controller} error={crashError} onDismiss={() => { setMountCrashed(false); setCrashError(null) }} />
       ))()}
       <SafeModeSlot controller={controller} />
-      {(() => isFirstRun ? <FirstRunBanner controller={controller} /> : null)()}
 
       {/* Profiles section sits ABOVE Behavior; the component hides itself
           when the user has zero shelves (regular + smart combined). */}
@@ -736,15 +760,16 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
         )
         ))()}
         {(() => (
-        !isHid('ownQamTabEnabled') && !hostProvidesNativeTab() && (
+        !isHid('ownQamTabEnabled') && !hostProvidesNativeTab() && isHomeOwner() && (
           <ToggleField label={t('own_qam_tab_enabled' as any)} checked={(settings as any).ownQamTabEnabled === true} onChange={(value: boolean) => {
-            void (actions as any).setOwnQamTabEnabled(value);
+            const saved = (actions as any).setOwnQamTabEnabled(value);
             confirmAction({
               title: t('own_qam_tab_restart_title' as any),
               body: t((value ? 'own_qam_tab_restart_body' : 'own_qam_tab_restart_body_off') as any),
               okText: t('own_qam_tab_restart_now' as any),
               cancelText: t('own_qam_tab_restart_later' as any),
-              onConfirm: restartSteam,
+              // Restart only once the change is in the settings file, or the restart drops it.
+              onConfirm: () => { void Promise.resolve(saved).finally(restartSteam); },
             });
           }} />
         )

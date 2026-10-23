@@ -1,14 +1,5 @@
-const manifest = {
-  name: "Deck Shelves",
-  author: "Jonathan Santos",
-  api_version: 1,
-  flags: ["debug"],
-  publish: {
-    tags: ["ui", "library", "home", "collections"],
-    description: "Inject configurable shelves (Collections / Tabs / Filters) into the Steam Deck Home (library/home).",
-    image: "https://opengraph.githubassets.com/1/santojon/Deck-Shelves"
-  }
-};
+// The loader manifest, read from plugin.json so there is one source of truth.
+import manifest from "../../plugin.json";
 
 export default manifest;
 export { manifest };

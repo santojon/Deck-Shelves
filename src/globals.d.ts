@@ -7,6 +7,7 @@ declare const __BUILD_ID__: string;
    declaration keeps `tsc --noEmit` happy without pulling in `@types/node`. */
 declare const require: any;
 declare const __QA_FIRST_RUN__: boolean;
+declare const __QA_FORCE_DEVICE__: string;
 declare const __QA_QAM_ERROR__: boolean;
 declare const __QA_SHELF_ERROR__: boolean;
 declare const __QA_ALL_SHELVES_HIDE_RECENTS__: boolean;
@@ -32,6 +33,8 @@ declare const __QA_TEMPLATES_FIXTURE__: boolean;
 declare const __QA_DECORATION_FIXTURE__: boolean;
 declare const __QA_STRESS_FIXTURE__: boolean;
 declare const __QA_VIDEO_FIXTURE__: boolean;
+declare const __QA_SCREENSHOTS_FIXTURE__: boolean;
+declare const __QA_FRESH_INSTALL__: boolean;
 declare const __QA_PERF_MATRIX__: boolean;
 
 interface Window {

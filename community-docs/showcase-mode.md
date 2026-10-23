@@ -43,8 +43,8 @@ By default, every visible shelf participates — there's no shelf picker yet
   first few entries. You can control how many cards it shows per shelf
   before advancing, and how long it lingers on each card.
 
-Any real input (button, stick, touch) stops it instantly and hands control
-back to you.
+Any real input (button, stick, touch, a key, a mouse click or scroll) stops it
+instantly and hands control back to you.
 
 ## Known limitations
 

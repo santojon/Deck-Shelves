@@ -12,7 +12,7 @@
   "about_feature_edit_smart": "Modifica scaffali intelligenti: sovrascrivi ordinamento, filtri aggiuntivi, aspetti visivi",
   "about_feature_external_imports": "Importa le schede della libreria da TabMaster o altri plugin provider e convertili in scaffali",
   "about_feature_filters": "Filtra per nome, tempo di gioco, stato di installazione, compatibilità, visibilità e altro",
-  "about_feature_first_run": "Banner di primo avvio con template di scaffali predefiniti",
+  "about_feature_first_run": "Banner di primo avvio con la configurazione guidata",
   "about_feature_global_toggles": "Toggle globali per dimensione nativa ed evidenziazione con override per scaffale",
   "about_feature_hero_global": "Interruttore hero globale nella sezione Visivo del QAM che abilita l'immagine hero su tutti gli scaffali contemporaneamente",
   "about_feature_hero_per_shelf": "Immagine hero di sfondo per scaffale — normale o smart — con interruttore nella scheda Visivo del modale Modifica Scaffale",

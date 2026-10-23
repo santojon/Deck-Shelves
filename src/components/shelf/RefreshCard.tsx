@@ -1,10 +1,7 @@
-import React, { useEffect, useRef, useState } from "react";
-import { Focusable } from "../../runtime/host/decky";
-import { getPreferredSteamDocument } from "../../runtime/steamHost";
+import { useRef } from "react";
 import { trackFeature } from "../../steam/usageTracking";
 import { type DeckRowItem, CARD_W, CARD_ART_H } from "./types";
-import { getCachedCardRadius } from "./shelfStyles";
-import { resolveNativeCardClass, retryWithIntervals } from "./cardUtils";
+import { TrailingCardShell } from "./TrailingCardShell";
 
 const refreshIconSvg = (
   <svg
@@ -27,20 +24,7 @@ const refreshIconSvg = (
 );
 
 export function RefreshCard({ item, cardW = CARD_W, cardH = CARD_ART_H, interactive = true }: { item: DeckRowItem; cardW?: number; cardH?: number; interactive?: boolean }) {
-  const cardRef = useRef<HTMLDivElement>(null);
   const iconRef = useRef<HTMLSpanElement>(null);
-  const [nativeCardClass, setNativeCardClass] = useState('');
-
-  useEffect(() => {
-    return retryWithIntervals(() => {
-      const cls = resolveNativeCardClass(getPreferredSteamDocument());
-      if (cls === null) return false;
-      setNativeCardClass(cls);
-      return true;
-    }, [250, 500, 800, 1200]);
-  }, []);
-
-  const cachedCardRadius = getCachedCardRadius();
   /* Trigger the spin via DOM class toggle rather than React state — the
      refresh callback usually causes setAppIds() upstream which can shift
      focus and unmount the row briefly. State-driven animation gets cancelled
@@ -57,76 +41,19 @@ export function RefreshCard({ item, cardW = CARD_W, cardH = CARD_ART_H, interact
     item.onActivate?.();
   };
 
-  // Size off the per-shelf --ds-eff-* vars so a native-dims change reflows
-  // through CSS with no re-render; the prop is the fallback.
-  const cssW = `var(--ds-eff-card-w, ${cardW}px)`;
-  const cssH = `var(--ds-eff-card-h, ${cardH}px)`;
-  const containerStyle: React.CSSProperties = {
-    position: "relative",
-    width: cssW,
-    minWidth: cssW,
-    height: cssH,
-    flexShrink: 0,
-    padding: 0,
-    margin: 0,
-    background: "transparent",
-    cursor: interactive ? "pointer" : "default",
-    overflow: "visible",
-  };
-  // Wrap art in an unclassed first-child div so theme rules that
-  // target the transform-target slot (TiltedHome etc) land here.
-  // Mirrors GameCard's native-card-structure pattern.
-  const innerArt = (
-    <div style={{ position: 'absolute', inset: 0 }}>
-      <div
-        className="ds-card-art ds-refresh-card"
-        style={{
-          position: "absolute",
-          inset: 0,
-          width: cssW,
-          height: cssH,
-          overflow: "hidden",
-          background: "linear-gradient(313deg, rgba(51,51,51,0.667), rgba(85,85,85,0.667))",
-          borderRadius: cachedCardRadius,
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 16,
-          padding: 20,
-          boxSizing: "border-box",
-          color: "rgba(255,255,255,0.92)",
-        }}
-      >
-        <span ref={iconRef} className="ds-refresh-icon" style={{ display: "inline-flex" }}>
-          {refreshIconSvg}
-        </span>
-        <span className="ds-more-card-text">{item.name}</span>
-      </div>
-    </div>
-  );
-
-  // Non-interactive — same intent as MoreCard: skip Focusable so the modal
-  // preview shows the card without it stealing gamepad focus or wasting an
-  // A press on a no-op handler.
-  if (!interactive) {
-    return (
-      <div ref={cardRef as any} className={`ds-card${nativeCardClass ? ` ${nativeCardClass}` : ''}`} style={containerStyle}>
-        {innerArt}
-      </div>
-    );
-  }
-
   return (
-    <Focusable
-      ref={cardRef}
-      className={`ds-card${nativeCardClass ? ` ${nativeCardClass}` : ''}`}
-      focusClassName="gpfocus"
+    <TrailingCardShell
+      cardW={cardW}
+      cardH={cardH}
+      interactive={interactive}
       onActivate={handleActivate}
-      onOKButton={handleActivate}
-      style={containerStyle}
+      artClassName="ds-refresh-card"
+      artStyle={{ flexDirection: "column", gap: 16, color: "rgba(255,255,255,0.92)" }}
     >
-      {innerArt}
-    </Focusable>
+      <span ref={iconRef} className="ds-refresh-icon" style={{ display: "inline-flex" }}>
+        {refreshIconSvg}
+      </span>
+      <span className="ds-more-card-text">{item.name}</span>
+    </TrailingCardShell>
   );
 }

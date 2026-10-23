@@ -22,13 +22,14 @@
   "download_update": "Update downloaden",
   "update_install": "Update installeren",
   "update_installing": "Update {{version}} wordt geïnstalleerd…",
-  "update_installed": "Bijgewerkt naar {{version}} — opnieuw laden…",
+  "update_installed": "Bijgewerkt naar {{version}}.",
   "update_install_failed": "Installatie mislukt — terugvallen op downloaden.",
+  "update_install_busy": "De host controleert nog op updates — probeer het zo opnieuw.",
   "update_downloading": "Update {{version}} wordt gedownload…",
   "update_downloaded": "Opgeslagen in {{path}} — installeer het handmatig.",
   "update_download_failed": "Downloaden mislukt — de release-pagina wordt geopend.",
   "shelf_type_normal": "Normaal",
   "shelf_type_smart": "Slim",
   "update_installing_title": "Update installeren",
-  "update_will_reload": "Steam wordt na afloop herladen."
+  "update_will_reload": "De nieuwe versie wordt binnen enkele seconden vanzelf actief."
 }

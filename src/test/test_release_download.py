@@ -34,3 +34,61 @@ def test_safe_zip_name_strips_traversal_and_requires_zip():
     assert main._safe_zip_name("no-extension") == ""
     assert main._safe_zip_name("run.sh") == ""
     assert main._safe_zip_name("") == ""
+
+
+class _FakeResp:
+    def __init__(self, url, chunks):
+        self._url, self._chunks = url, list(chunks)
+
+    def geturl(self):
+        return self._url
+
+    def read(self, _n):
+        return self._chunks.pop(0) if self._chunks else b""
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+
+def test_download_writes_file_and_leaves_no_part(tmp_path, monkeypatch):
+    dest = str(tmp_path / "deck-shelves-v1.zip")
+    monkeypatch.setattr(main.urllib.request, "urlopen",
+                        lambda req, timeout, context: _FakeResp("https://objects.githubusercontent.com/a.zip", [b"PK", b"zip"]))
+    assert main._download_to("https://github.com/x/y/releases/download/v1/a.zip", dest) == dest
+    assert open(dest, "rb").read() == b"PKzip"
+    assert not (tmp_path / "deck-shelves-v1.zip.part").exists()
+
+
+def test_download_rejects_redirect_off_release_hosts_and_cleans_up(tmp_path, monkeypatch):
+    dest = str(tmp_path / "a.zip")
+    monkeypatch.setattr(main.urllib.request, "urlopen",
+                        lambda req, timeout, context: _FakeResp("https://evil.example.com/a.zip", [b"x"]))
+    try:
+        main._download_to("https://github.com/x/y/releases/download/v1/a.zip", dest)
+        assert False, "expected a rejection"
+    except ValueError:
+        pass
+    assert not (tmp_path / "a.zip").exists() and not (tmp_path / "a.zip.part").exists()
+
+
+def test_download_enforces_the_size_cap(tmp_path, monkeypatch):
+    dest = str(tmp_path / "a.zip")
+    monkeypatch.setattr(main, "_DOWNLOAD_MAX_BYTES", 4)
+    monkeypatch.setattr(main.urllib.request, "urlopen",
+                        lambda req, timeout, context: _FakeResp("https://github.com/a.zip", [b"123", b"456"]))
+    try:
+        main._download_to("https://github.com/x/y/releases/download/v1/a.zip", dest)
+        assert False, "expected the cap to trip"
+    except ValueError:
+        pass
+    assert not (tmp_path / "a.zip.part").exists()
+
+
+def test_release_download_url_is_this_project_only():
+    assert main._is_release_download_url("https://github.com/santojon/Deck-Shelves/releases/download/v3.4.0/deck-shelves-v3.4.0.zip")
+    assert not main._is_release_download_url("https://github.com/someone/else/releases/download/v1/x.zip")
+    assert not main._is_release_download_url("https://objects.githubusercontent.com/foo/bar.zip")  # redirect target only
+    assert not main._is_release_download_url("http://github.com/santojon/Deck-Shelves/releases/download/v1/x.zip")

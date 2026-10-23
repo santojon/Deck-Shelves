@@ -22,13 +22,14 @@
   "download_update": "Descargar actualización",
   "update_install": "Instalar actualización",
   "update_installing": "Instalando actualización {{version}}…",
-  "update_installed": "Actualizado a la versión {{version}} — recargando…",
+  "update_installed": "Actualizado a la versión {{version}}.",
   "update_install_failed": "Error al instalar — recurriendo a la descarga.",
+  "update_install_busy": "El host todavía está buscando actualizaciones — inténtalo de nuevo en un momento.",
   "update_downloading": "Descargando la actualización {{version}}…",
   "update_downloaded": "Guardado en {{path}}: instálalo manualmente.",
   "update_download_failed": "Error al descargar: se abrirá la página de la versión.",
   "shelf_type_normal": "Normal",
   "shelf_type_smart": "Inteligente",
   "update_installing_title": "Instalando actualización",
-  "update_will_reload": "Steam se reiniciará al terminar."
+  "update_will_reload": "La nueva versión entra en vigor por sí sola en unos segundos."
 }

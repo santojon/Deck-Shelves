@@ -14,6 +14,7 @@ import {
   type DeviceKind, type InputMode,
   getSimulatedDevice, setSimulatedDevice, getSimulatedInputMode, setSimulatedInputMode,
 } from "../../../runtime/deviceState";
+import { flowChildrenProps } from "../../../core/steamOSVersion";
 
 export interface DeveloperDetailProps {
   controller: ReturnType<typeof useSettingsController>;
@@ -112,7 +113,7 @@ export function DeveloperDetail({ controller, t }: DeveloperDetailProps) {
   const overlayOn = (controller.settings as any)?.debugOverlayEnabled === true;
 
   return (
-    <Focusable flow-children="vertical" style={{ display: "flex", flexDirection: "column" }}>
+    <Focusable {...flowChildrenProps("vertical")} style={{ display: "flex", flexDirection: "column" }}>
       <div style={{ marginBottom: 12 }}>
         <ToggleField
           label={t("dev_overlay_title")}
@@ -133,7 +134,7 @@ export function DeveloperDetail({ controller, t }: DeveloperDetailProps) {
         count={diags.length}
         icon={<DocsIcon size={14} />}
         headerExtra={
-          <Focusable flow-children="horizontal" style={{ display: "flex", gap: 6 }}>
+          <Focusable {...flowChildrenProps("horizontal")} style={{ display: "flex", gap: 6 }}>
             <DialogButton onClick={copyLogs} onOKButton={copyLogs} disabled={diags.length === 0} style={BTN_ICON_STYLE} aria-label={t("settings_advanced_logs_copy")}>
               <CopyIcon size={12} />
             </DialogButton>
@@ -156,7 +157,7 @@ export function DeveloperDetail({ controller, t }: DeveloperDetailProps) {
           <div style={{ opacity: 0.55, padding: 12, fontStyle: "italic" }}>{t("settings_advanced_logs_empty")}</div>
         ) : (
           <div style={{ maxHeight: 320, overflowY: "auto", background: "var(--ds-surface-row, rgba(0,0,0,0.18))", borderRadius: 6, padding: 8 }}>
-            <Focusable flow-children="vertical" style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <Focusable {...flowChildrenProps("vertical")} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
               {diags.map((entry) => (
                 <Focusable
                   key={entry.id}

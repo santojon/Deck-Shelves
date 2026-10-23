@@ -1,0 +1,28 @@
+{
+  "recordedAt": "2026-10-11T17:22:26",
+  "results": [
+    {
+      "scenario": "large_2000",
+      "expectedShelves": 20,
+      "shelves": 20,
+      "cards": 50,
+      "settleMs": 143,
+      "heapMbAfterGc": 161,
+      "return_t_full_ms": 880,
+      "return_longTasks": 3,
+      "return_longMs": 2417
+    },
+    {
+      "scenario": "huge_5000",
+      "expectedShelves": 50,
+      "shelves": 50,
+      "cards": 39,
+      "settleMs": 400,
+      "heapMbAfterGc": 163,
+      "return_t_full_ms": 320,
+      "return_longTasks": 5,
+      "return_longMs": 686
+    }
+  ],
+  "version": "3.3.4"
+}

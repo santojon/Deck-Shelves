@@ -4,9 +4,9 @@ import { useEffect, useState } from 'react';
 // QAM open/close cycles, even when the plugin tab itself stays mounted
 /* in SharedJSContext. Persisting at the module level produced stale-open
    reports — every fresh QAM open inherited the previous session's state.
-   Backed by sessionStorage so the EXTERNAL setter (dpad bridge, CDP
-   probes) can write before the React hook subscribes, and the popup's
-   own browser context clears the store when Steam tears it down. */
+   Backed by SharedJSContext's sessionStorage (this module runs there) so the
+   EXTERNAL setter can write before the hook subscribes; that storage outlives
+   the QAM popup, so the tab's mount resets it (`resetQamExpanded`). */
 const STORAGE_KEY = '__ds_qam_expanded__';
 const emitter = new EventTarget();
 const EVENT = 'ds-qam-expanded-changed';
@@ -37,21 +37,26 @@ function notifyCompositor(expanded: boolean): void {
   } catch {}
 }
 
-export function getQamExpanded(): boolean {
+function getQamExpanded(): boolean {
   return current;
 }
 
-export function setQamExpanded(next: boolean | ((prev: boolean) => boolean)): void {
+function setQamExpanded(next: boolean | ((prev: boolean) => boolean)): void {
   if (__DEV__) {
     const g = globalThis as unknown as { __ds_set_count__?: number; __ds_last_set__?: unknown };
     g.__ds_set_count__ = (g.__ds_set_count__ ?? 0) + 1;
     g.__ds_last_set__ = { type: typeof next, t: Date.now() };
   }
   const value = typeof next === 'function' ? next(current) : next;
-  if (value === current) return;
-  current = value;
-  writeSession(value);
-  notifyCompositor(value);
+  /* Same value: nothing to store or post, but still resync every mounted panel —
+     `resetQamExpanded` changes `current` silently, so a panel can be showing an
+     open sidecar while the store already says closed, and every toggle would
+     then be a no-op. */
+  if (value !== current) {
+    current = value;
+    writeSession(value);
+    notifyCompositor(value);
+  }
   emitter.dispatchEvent(new Event(EVENT));
 }
 
@@ -63,7 +68,7 @@ export function resetQamExpanded(): void {
   writeSession(false);
 }
 
-export function toggleQamExpanded(): void {
+function toggleQamExpanded(): void {
   setQamExpanded((v) => !v);
 }
 

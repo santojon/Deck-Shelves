@@ -38,8 +38,9 @@ confortável:
   confirmar — funciona igual com um controle e com arraste por toque/mouse.
 
 A ordem das próprias prateleiras (qual prateleira aparece onde na tela inicial)
-também é reordenável por arraste da mesma forma, a partir da lista de
-prateleiras nas configurações.
+é definida na lista de prateleiras nas configurações: arraste uma linha com
+toque ou mouse, ou, com um controle, aperte A no nome de uma prateleira para
+agarrá-la, mova com o direcional e aperte A para salvar ou B para devolvê-la.
 
 ## Solução de problemas
 

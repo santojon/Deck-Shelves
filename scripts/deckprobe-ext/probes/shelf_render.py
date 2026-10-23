@@ -6,7 +6,7 @@ Lists all DS shelves on the home screen with their card counts,
 AppOverview availability, and online-source status.
 
 Usage:
-    python3 deckprobe/probes/shelf_render.py
+    python3 scripts/deckprobe-ext/probes/shelf_render.py
 """
 from __future__ import annotations
 
@@ -14,8 +14,8 @@ import json
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[5]))
-from devkit.probes._base import connect, ev, sep  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "lib"))
+from probe_base import connect, ev, sep  # noqa: E402
 
 
 def run() -> int:

@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { installPluginApi, makeApi, getExternalSearchProviders, getExternalWidgetProviders } from '../../core/pluginApi'
 
 // Regression test for a hot-swap leak: `installPluginApi()`'s returned
@@ -29,5 +29,25 @@ describe('installPluginApi teardown clears every registry', () => {
     uninstall()
     expect(getExternalWidgetProviders().some((p) => p.id === 'test.widget')).toBe(false)
     unregister()
+  })
+})
+
+describe('integration registration', () => {
+  it('mounts and unmounts a queued integration once even when it registers twice', async () => {
+    const PENDING = Symbol.for('deck-shelves/pending')
+    let mounts = 0
+    let unmounts = 0
+    const integration = { name: 'twice', onMount: () => { mounts++ }, onUnmount: () => { unmounts++ } }
+    ;(globalThis as any)[PENDING] = [{ integration }]
+    vi.stubGlobal('window', globalThis)
+    const uninstall = installPluginApi()
+    // The helper package's ready-event handler registers the same object again.
+    ;(window as any).deckShelves.register(integration)
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(mounts).toBe(1)
+    uninstall()
+    expect(unmounts).toBe(1)
+    vi.unstubAllGlobals()
   })
 })

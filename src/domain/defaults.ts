@@ -1,5 +1,5 @@
 
-import type { Settings, Shelf, ShelfFilter, ShelfSource, SmartShelf, SmartShelfMode } from "../types";
+import type { FilterItem, Settings, Shelf, ShelfFilter, ShelfSource, SmartShelf, SmartShelfMode } from "../types";
 
 export function randomShelfId() {
   return `s_${Math.random().toString(16).slice(2, 10)}`;
@@ -19,6 +19,12 @@ export function createDefaultShelf(firstCollectionId = "", title = "New shelf"):
   return { id: randomShelfId(), title, enabled: true, hidden: false, limit: 20, matchNativeSize: false, highlightFirst: false, highlightAll: false, hideStatusLine: false, hideNewBadge: false, hideDiscountBadge: false, hideCompatIcons: false, hideNonSteamBadge: false, hideShelfTitle: false, hideGameNames: false, hideInstallIndicator: false, hideSeeMore: false, hideRefreshCard: false, source: createDefaultSource("tab", firstCollectionId) };
 }
 
+// The filter item that keeps Steam-hidden games off a smart shelf; the
+// settings migration appends the same item to smart shelves made before it.
+export function createHiddenGamesExcludeItem(): FilterItem {
+  return { type: "hidden", inverted: false, params: { mode: "exclude" } };
+}
+
 export function createDefaultSmartShelf(mode: SmartShelfMode, title: string): SmartShelf {
   /* Excludes Steam-hidden games by default — a hidden game surfacing on an
      auto-generated "Recently Played"/"On Deck"/etc. shelf is surprising.
@@ -26,7 +32,7 @@ export function createDefaultSmartShelf(mode: SmartShelfMode, title: string): Sm
      the shelf's own filter editor to let hidden games back onto this shelf. */
   const base: SmartShelf = {
     id: randomShelfId(), title, mode, enabled: true, hidden: false,
-    filterGroup: { mode: "and", items: [{ type: "hidden", inverted: false, params: { mode: "exclude" } }] },
+    filterGroup: { mode: "and", items: [createHiddenGamesExcludeItem()] },
   };
   // Mirror the mode's hardcoded visibility window into `visibleHours` so the
   // user sees and can edit the same constraint that the resolver applies
@@ -79,7 +85,6 @@ export function defaultSettings(): Settings {
     shelves: [],
     smartShelvesEnabled: false,
     smartShelvesAtBottom: false,
-    smartShelvesIncludeHidden: false,
     smartShelves: [],
     smartSurpriseMe: false,
     smartSurpriseMeCount: 0,

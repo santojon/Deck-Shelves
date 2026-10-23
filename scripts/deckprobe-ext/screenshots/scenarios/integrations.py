@@ -23,6 +23,7 @@ from deckprobe.screenshots.lib.cdp import Session
 from deckprobe.screenshots.lib.nav import _bp_eval, expand_qam_sections, close_qam
 from deckprobe.screenshots.lib.capture import capture_bigpicture, capture_qam
 from deckprobe.screenshots.lib.registry import register
+from ._locale import gamepad_glyphs
 from .modals import _open_qam, _click_action, dismiss_bp_modals
 from .qam import _scroll_qam_to_section
 from .settings import _open_settings, _switch_tab, _wait_bp_idle
@@ -117,6 +118,7 @@ def _capture_integration(sjc: Session, host: str, port: int, out_dir: Path,
         return {}  # not installed / not detected on this device — genuinely optional
     _scroll_to_label(host, port, _LABELS[key])
     time.sleep(0.5)
+    gamepad_glyphs(host, port)
     p = capture_bigpicture(host, port, out_dir / filename)
     return {filename: p} if p else {}
 
@@ -138,6 +140,7 @@ def integration_tabmaster(sjc: Session, host: str, port: int, out_dir: Path) -> 
     # with no heading at all.
     _reset_scroll(host, port)
     out = out_dir / "integration-tabmaster.png"
+    gamepad_glyphs(host, port)
     p = capture_bigpicture(host, port, out)
     dismiss_bp_modals(host, port)
     return {"integration-tabmaster.png": p} if p else {}
@@ -161,6 +164,7 @@ def integration_css_loader(sjc: Session, host: str, port: int, out_dir: Path) ->
     _scroll_qam_to_section(host, port, "experimental")
     time.sleep(0.8)
     out = out_dir / "integration-css-loader.png"
+    gamepad_glyphs(host, port)
     p = capture_qam(host, port, out)
     close_qam(sjc)
     return {"integration-css-loader.png": p} if p else {}

@@ -12,7 +12,7 @@
   "about_feature_edit_smart": "Smart Shelves bearbeiten: Sortierung überschreiben, zusätzliche Filter, visuelle Optionen",
   "about_feature_external_imports": "Importiere Bibliotheks-Tabs aus TabMaster oder anderen Plugins und konvertiere sie in Regale",
   "about_feature_filters": "Nach Name, Spielzeit, Installationsstatus, Kompatibilität, Sichtbarkeit und mehr filtern",
-  "about_feature_first_run": "Erststart-Banner mit Standard-Regalvorlagen",
+  "about_feature_first_run": "Erststart-Banner mit Einrichtungsassistent",
   "about_feature_global_toggles": "Globale Toggles für native Größe und Hervorhebung mit Überschreibung pro Regal",
   "about_feature_hero_global": "Globaler Hero-Schalter im Visuell-Bereich des QAM, der das Hero-Bild für alle Regale gleichzeitig aktiviert",
   "about_feature_hero_per_shelf": "Hero-Hintergrundbild pro Regal — regulär oder smart — mit Schalter im Visuell-Tab des Regal-bearbeiten-Modals",

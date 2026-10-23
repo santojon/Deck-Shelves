@@ -7,6 +7,7 @@
      3. Diagrams  — no HTML entities in diagram labels, fences balanced.
      4. Icon      — the inlined DeckShelvesLogo matches assets/icon.svg.
      5. Badges    — the hard-coded test counts in README.md match reality.
+     6. Shipped   — tracked docs and code carry no process or tool words.
    Badge checks collect the suites (fast: `vitest list` + `pytest --collect-only`);
    pass `--no-badges` to skip them. Exits non-zero on any failure. */
 import { readFileSync, existsSync, readdirSync } from "node:fs";
@@ -160,7 +161,44 @@ if (!process.argv.includes("--no-badges")) {
   }
 }
 
-// ------------------------------------------------------------------- 6. report
+// ------------------------------------------------------------ 6. shipped text
+// Patterns are assembled from pieces so this file never matches itself. The
+// sibling host's name is refused in doc prose (link targets, file names and code
+// spans are ignored) and in code comments (string literals are ignored).
+{
+  const w = (...parts) => parts.join("");
+  const siblingName = new RegExp(w("shelves", "hub"), "i");
+  const prose = (line) => line.replace(/\]\([^)]*\)/g, "]()").replace(/`[^`]*`/g, "").replace(/https?:\/\/\S+/g, "").replace(/\S+\.md\b/g, "");
+  const comment = (line, hash) => {
+    const s = line.replace(/(["'`])(?:\\.|(?!\1).)*\1/g, '""');
+    const m = hash ? s.match(/#(.*)$/) : s.match(/(?:\/\/|\/\*|^\s*\*)(.*)$/);
+    return m ? m[1] : "";
+  };
+  const processWords = new RegExp(`\\b(${w("spr", "int")}|${w("road", "map")})\\b|${w("cla", "ude")}|${w("anthr", "opic")}|${w("co-auth", "ored")}`, "i");
+  const aiWords = new RegExp(`\\b(${w("A", "I")}|${w("I", "A")})\\b`);
+  const internalPaths = new RegExp(`\\${w(".road", "maps")}\\b|\\${w(".cla", "ude")}/`);
+  const tracked = (paths) => {
+    try { return execSync(`git ls-files -- ${paths}`, { cwd: root, encoding: "utf8" }).split("\n").filter(Boolean); } catch { return null; }
+  };
+  const docs = tracked("README.md CHANGELOG.md RELEASE_NOTES.md docs community-docs");
+  const code = tracked("src scripts main.py");
+  if (!docs || !code) ok.push("Shipped text: skipped (not a git checkout)");
+  else {
+    const hits = [];
+    const scan = (file, patterns, nameIn) => {
+      if (!existsSync(path.join(root, file))) return;
+      read(file).split("\n").forEach((line, i) => {
+        if (patterns.some((re) => re.test(line)) || (nameIn && siblingName.test(nameIn(line)))) hits.push(`${file}:${i + 1}`);
+      });
+    };
+    for (const f of docs.filter((f) => f.endsWith(".md"))) scan(f, [processWords, aiWords, internalPaths], prose);
+    for (const f of code.filter((f) => /\.(ts|tsx|js|mjs|cjs|py|sh)$/.test(f))) scan(f, [processWords, aiWords, internalPaths], (line) => comment(line, /\.(py|sh)$/.test(f)));
+    if (hits.length) failures.push(`Shipped text: process or tool words in ${hits.length} line(s): ${hits.slice(0, 20).join(", ")}`);
+    else ok.push(`Shipped text: ${docs.length + code.length} tracked files clean`);
+  }
+}
+
+// ------------------------------------------------------------------- 7. report
 for (const line of ok) console.log(`  ✅ ${line}`);
 for (const line of failures) console.error(`  ❌ ${line}`);
 if (failures.length) {

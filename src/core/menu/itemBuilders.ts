@@ -1,6 +1,6 @@
 /* Menu-item builders extracted from steamGameMenu.ts to keep the
    orchestration file under the 1k-line cap. Pure construction — no
-   module-global reads. `activeAppId` / `activeCardIndex` flow in from
+   module-global reads. `focusedAppId` / `cardIndex` flow in from
    the caller so the builder stays a function of its inputs. */
 import { MenuGroup as DeckyMenuGroup, MenuItem as DeckyMenuItem } from "../../runtime/host/decky";
 import i18n from "../../i18n";
@@ -12,6 +12,7 @@ import {
   setShelfCollapsed,
   dispatchShelfModal,
   dispatchComposeModal,
+  dispatchTagsModal,
   clearOnlineShelfCache,
 } from "../shelfActions";
 import { patchShelfInSettings } from "../../domain/settings";
@@ -20,6 +21,8 @@ import { invalidateRandomSortCache } from "../../steam";
 import { invalidateSmartShelfCache } from "../../steam/smartShelves";
 import { triggerShelfRefresh } from "../shelfRefresh";
 import { isOnlineSource } from "../../domain/sourceUtils";
+import { settingsMentionAny } from "../../runtime/featureDemand";
+import { customTagsFor, pinnedIds, sessionQueueIds, temporaryQueueIds, togglePinned, toggleSessionQueue, toggleTemporaryQueue } from "../../runtime/gameLists";
 
 function tLabel(key: string, fallback: string): string {
   try { const v = i18n.t(key as any); return (typeof v === "string" && v && v !== key) ? v : fallback; } catch { return fallback; }
@@ -95,11 +98,20 @@ function filterRemoveCandidates(settings: any, currentShelfId: string, appid: nu
   });
 }
 
+// The library menu reaches regular shelves and the smart shelves that keep a manual order of their own.
+function findLibraryShelf(s: any, shelfId: string): { shelf: any; isSmart: boolean } | null {
+  const regular = (s.shelves ?? []).find((row: any) => row.id === shelfId);
+  if (regular) return { shelf: regular, isSmart: false };
+  const smart = (s.smartShelves ?? []).find((row: any) => row.id === shelfId);
+  return smart ? { shelf: smart, isSmart: true } : null;
+}
+
 function appendToShelf(shelfId: string, appid: number): void {
   const s = getCurrentSettings();
   if (!s) return;
-  const tgt: any = (s.shelves ?? []).find((row: any) => row.id === shelfId);
-  if (!tgt) return;
+  const found = findLibraryShelf(s, shelfId);
+  if (!found) return;
+  const tgt: any = found.shelf;
   const manual: number[] = tgt.manualOrder ?? [];
   const wasManual = tgt.sort === "manual";
   const patch: Record<string, any> = {
@@ -108,18 +120,16 @@ function appendToShelf(shelfId: string, appid: number): void {
     manualOrder: [...manual, appid],
   };
   if (!wasManual) patch.manualBaseSort = typeof tgt.sort === "string" ? tgt.sort : "alphabetical";
-  void saveSettings(patchShelfInSettings(s, shelfId, patch));
+  persistShelfPatch(shelfId, found.isSmart, patch);
 }
 
 function removeFromShelf(shelfId: string, appid: number): void {
   const s = getCurrentSettings();
   if (!s) return;
-  const tgt: any = (s.shelves ?? []).find((row: any) => row.id === shelfId);
-  if (!tgt) return;
-  const manual: number[] = tgt.manualOrder ?? [];
-  void saveSettings(patchShelfInSettings(s, shelfId, {
-    manualOrder: manual.filter((id) => id !== appid),
-  }));
+  const found = findLibraryShelf(s, shelfId);
+  if (!found) return;
+  const manual: number[] = found.shelf.manualOrder ?? [];
+  persistShelfPatch(shelfId, found.isSmart, { manualOrder: manual.filter((id) => id !== appid) });
 }
 
 type Ctx = {
@@ -148,7 +158,8 @@ function runRefreshAction(ctx: Ctx): void {
   try {
     if (isSmart || shelf?.source?.type === "smart") invalidateSmartShelfCache(shelfId);
     else if (isOnline) clearOnlineShelfCache();
-    else invalidateRandomSortCache(shelfId);
+    // The shelf's own random order is cleared for every kind, like the refresh card.
+    invalidateRandomSortCache(shelfId);
     triggerShelfRefresh({ manual: true, shelfId });
   } catch {}
 }
@@ -267,9 +278,37 @@ function buildAddRemoveGroups(ctx: Ctx, mk: Mk): any[] {
   return out;
 }
 
+/* The game's place in the per-device lists, each shown only while some shelf,
+   smart shelf, saved filter or profile uses that list, so the menu stays short. */
+const GAME_LISTS: ReadonlyArray<{ id: string; key: string; labelKey: string; fallback: string; has: (appid: number) => boolean; toggle: (appid: number) => void }> = [
+  { id: "pinned_games", key: "ds-list-pinned", labelKey: "source_v3_pinned", fallback: "Pinned games", has: (a) => pinnedIds().includes(a), toggle: togglePinned },
+  { id: "session_queue_source", key: "ds-list-session", labelKey: "source_v3_session_queue", fallback: "Session queue", has: (a) => sessionQueueIds().includes(a), toggle: toggleSessionQueue },
+  { id: "temporary_queue_source", key: "ds-list-temp", labelKey: "source_v3_temporary_queue", fallback: "Temporary queue", has: (a) => temporaryQueueIds().includes(a), toggle: toggleTemporaryQueue },
+];
+
+export function gameListEntries(settings: any, appid: number): Array<{ key: string; label: string; onSelected: () => void }> {
+  if (!settings || appid <= 0) return [];
+  const out = GAME_LISTS.filter((l) => settingsMentionAny(settings, [l.id])).map((l) => ({
+    key: l.key,
+    label: l.has(appid) ? `✓ ${tLabel(l.labelKey, l.fallback)}` : tLabel(l.labelKey, l.fallback),
+    onSelected: () => l.toggle(appid),
+  }));
+  if (settingsMentionAny(settings, ["customTags"])) {
+    const count = customTagsFor(appid).length;
+    out.push({ key: "ds-list-tags", label: `${tLabel("menu_edit_tags", "Edit tags…")}${count ? ` (${count})` : ""}`, onSelected: () => dispatchTagsModal(appid) });
+  }
+  return out;
+}
+
+function buildListsGroup(ctx: Ctx, mk: Mk): any[] {
+  const entries = gameListEntries(ctx.settings, ctx.focusedAppId);
+  if (!entries.length) return [];
+  return [mk.group("ds-lists", tLabel("menu_lists", "Lists"), ...entries.map((e) => mk.item(e.key, e.label, e.onSelected)))];
+}
+
 function buildCardActions(ctx: Ctx, mk: Mk): any[] {
   if (ctx.focusedAppId <= 0) return [];
-  return [highlightActionFor(ctx, mk), hideActionFor(ctx, mk), ...buildAddRemoveGroups(ctx, mk)];
+  return [highlightActionFor(ctx, mk), hideActionFor(ctx, mk), ...buildAddRemoveGroups(ctx, mk), ...buildListsGroup(ctx, mk)];
 }
 
 function buildMk(dfl: any, R: any, focusedAppId: number, shelfId: string): Mk {
@@ -371,8 +410,13 @@ function libraryGroup(R: any, shelves: any[], keyPrefix: string, groupKey: strin
   return R.createElement(DeckyMenuGroup, { key: groupKey, label: tLabel(labelKey, fallback) }, ...children);
 }
 
+function libraryShelves(s: any): any[] {
+  const smart = (s.smartShelves ?? []).filter((sh: any) => sh.sort === "manual" || (sh.manualOrder ?? []).length > 0);
+  return [...(s.shelves ?? []), ...smart];
+}
+
 function libraryCandidates(s: any, appid: number): { eligible: any[]; removable: any[] } {
-  const shelves = s.shelves ?? [];
+  const shelves = libraryShelves(s);
   return {
     eligible: shelves.filter((sh: any) => shelfCanAppend(sh, appid)),
     removable: shelves.filter((sh: any) => (sh.manualOrder ?? []).includes(appid)),
@@ -389,5 +433,10 @@ export function buildLibraryAddToShelfItems(appid: number, _dfl: any, R: any): a
   if (add) groups.push(add);
   const rm = libraryGroup(R, removable, "ds-lib-rm-", "ds-lib-remove-shelf", "menu_remove_from_shelf", "Remove from shelf", appid, removeFromShelf);
   if (rm) groups.push(rm);
+  const lists = gameListEntries(s, appid);
+  if (lists.length) {
+    const children = lists.map((e) => R.createElement(DeckyMenuItem, { key: `ds-lib-${e.key}`, onSelected: e.onSelected }, e.label));
+    groups.push(R.createElement(DeckyMenuGroup, { key: "ds-lib-lists", label: tLabel("menu_lists", "Lists") }, ...children));
+  }
   return groups;
 }

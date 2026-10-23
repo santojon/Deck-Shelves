@@ -2,19 +2,20 @@
 """
 Deck Shelves — menu injection diagnostic.
 
-Verifies that the "Deck Shelves" submenu appears in the native game
-context menu for cards across different shelves and game states
-(installed Steam, uninstalled Steam, non-Steam shortcut).
+Opens the native game context menu on cards of different shelves and game
+states and checks that the plugin's entries are injected: the per-card actions
+(highlight, hide/remove, add to / remove from shelf, …) and the "Shelf" group
+with its Management / Display / Visual sub-groups. Entries are identified by
+their React keys (`ds-…`), so the check does not depend on the UI language.
 
 Usage:
-    python3 deckprobe/probes/menu_injection.py
+    python3 scripts/deckprobe-ext/probes/menu_injection.py
 
 What it checks:
-  1. CreateContextMenuInstance patch installed (installCreateContextMenuPatch)
-  2. LibraryContextMenu class discovered (discoverLibraryContextMenuClass)
-  3. "Deck Shelves" item appears in DOM for 3 different cards
-  4. Submenu expands with 7 expected actions
-  5. React tree has DS items (hasDsItem) for all tested menus
+  1. Patch state (informational): whether the plugin's boot patch on the game menu is installed
+  2. For 3 cards: at least one `ds-card-…` action and the `ds-shelf-root` group,
+     and no plugin entry injected twice
+  3. Expanding the shelf group shows `ds-mgmt`, `ds-display` and `ds-visual`
 """
 from __future__ import annotations
 
@@ -23,8 +24,8 @@ import sys
 import time
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[5]))
-from devkit.probes._base import connect, ev, sep  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "lib"))
+from probe_base import connect, ev, sep  # noqa: E402
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -52,15 +53,11 @@ def check_patches(sjc) -> None:
           }
         }
       } catch(e) { out.ctxErr = String(e); }
-      // LibraryContextMenu class discovery
+      // Boot patch state, as the plugin records it
       try {
-        const m = dfl.findModuleByExport(e => e?.toString && e.toString().includes('().LibraryContextMenu'));
-        if (m) {
-          const w = Object.values(m).find(s => s?.toString && s.toString().includes('navigator:'));
-          const r = w ? dfl.fakeRenderComponent(w) : null;
-          out.clsDiscovered = !!r?.type;
-          out.clsName = r?.type?.name;
-        }
+        const dbg = globalThis.deckShelves?.debug || {};
+        out.clsDiscovered = dbg.lcmPatched === true;
+        out.lcmRenderCalls = dbg.lcmRenderCalls ?? null;
       } catch(e) { out.clsErr = String(e); }
       return JSON.stringify(out, null, 2);
     })()
@@ -68,24 +65,41 @@ def check_patches(sjc) -> None:
     data = json.loads(result or "{}")
     print(f"  mgrFound            : {data.get('mgrFound', '?')}")
     print(f"  ctxPatchInstalled   : {data.get('ctxPatchInstalled', '?')}")
-    print(f"  clsDiscovered       : {data.get('clsDiscovered', '?')} (name={data.get('clsName')})")
+    print(f"  clsDiscovered       : {data.get('clsDiscovered', '?')} (render calls={data.get('lcmRenderCalls')})")
+
+
+# Plugin entries carry React keys starting with "ds-"; read them off each menu
+# item's fiber chain (the key sits on the MenuItem/MenuGroup element a few levels up).
+DS_KEYS_JS = r"""
+const closeMenus = async (docs) => {
+  for (let i = 0; i < 4; i++) {
+    const open = docs.flatMap((d) => d ? Array.from(d.querySelectorAll('[role="menu"]')) : []);
+    if (!open.length) return 0;
+    open[open.length - 1].dispatchEvent(new CustomEvent('vgp_oncancel', {bubbles: true, cancelable: true, detail: {button: 2}}));
+    await new Promise((r) => setTimeout(r, 500));
+  }
+  return docs.reduce((n, d) => n + (d ? d.querySelectorAll('[role="menu"]').length : 0), 0);
+};
+const dsKeysOf = (menu) => Array.from(menu.querySelectorAll('[role="menuitem"]')).map((el) => {
+  const fk = Object.keys(el).find((k) => k.startsWith('__reactFiber$'));
+  let f = fk ? el[fk] : null;
+  for (let i = 0; f && i < 12; i++, f = f.return) {
+    if (typeof f.key === 'string' && f.key.startsWith('ds-')) return f.key;
+  }
+  return null;
+}).filter(Boolean);
+"""
 
 
 def open_menu_and_check(sjc, shelf_idx: int, card_idx: int) -> dict:
     result = ev(sjc, f"""
     (async () => {{
+      {DS_KEYS_JS}
       const gpuDoc = window.SteamUIStore?.WindowStore?.GamepadUIMainWindowInstance?.BrowserWindow?.document;
       const shelves = Array.from(gpuDoc.querySelectorAll('.ds-shelf'));
       const card = shelves[{shelf_idx}]?.querySelectorAll('.ds-card')?.[{card_idx}];
       if (!card) return JSON.stringify({{err: 'no card', shelvesFound: shelves.length}});
-
-      // Close any existing menu
-      for (const d of [document, gpuDoc]) {{
-        try {{ d.dispatchEvent(new KeyboardEvent('keydown', {{key:'Escape',bubbles:true}})); }} catch {{}}
-      }}
-      await new Promise(r => setTimeout(r, 800));
-
-      // Focus card and open menu
+      await closeMenus([document, gpuDoc]);
       for (const d of [document, gpuDoc]) {{
         try {{ for (const f of d.querySelectorAll('.ds-card.gpfocus')) f.classList.remove('gpfocus'); }} catch {{}}
       }}
@@ -94,52 +108,63 @@ def open_menu_and_check(sjc, shelf_idx: int, card_idx: int) -> dict:
       await new Promise(r => setTimeout(r, 200));
       card.dispatchEvent(new Event('vgp_onmenubutton', {{bubbles:true, cancelable:true}}));
       await new Promise(r => setTimeout(r, 1200));
-
-      const out = {{
-        appid: card.getAttribute('data-appid'),
-        shelfId: card.getAttribute('data-shelfid'),
-      }};
+      const out = {{ appid: card.getAttribute('data-appid'), shelfId: card.getAttribute('data-shelfid') }};
       for (const d of [document, gpuDoc]) {{
-        const menus = d.querySelectorAll('[role="menu"]');
-        for (const m of menus) {{
-          const items = Array.from(m.querySelectorAll('[role="menuitem"]'));
+        for (const m of d.querySelectorAll('[role="menu"]')) {{
+          const items = m.querySelectorAll('[role="menuitem"]');
           if (!items.length) continue;
           out.itemCount = items.length;
-          out.itemTexts = items.map(it => (it.textContent||'').substring(0, 35));
-          out.hasDeckShelves = items.some(it => /Deck Shelves/i.test(it.textContent||''));
+          out.dsKeys = dsKeysOf(m);
           break;
         }}
         if (out.itemCount) break;
       }}
-      return JSON.stringify(out, null, 2);
+      return JSON.stringify(out);
     }})()
     """, timeout=15)
     return json.loads(result or "{}")
 
 
-def expand_submenu(sjc) -> dict:
-    """Click 'Deck Shelves' and check the resulting submenu."""
-    result = ev(sjc, """
-    (async () => {
+def expand_shelf_group(sjc) -> dict:
+    """Click the plugin's "Shelf" group (key ds-shelf-root) and read the submenu's plugin keys."""
+    result = ev(sjc, f"""
+    (async () => {{
+      {DS_KEYS_JS}
       const gpuDoc = window.SteamUIStore?.WindowStore?.GamepadUIMainWindowInstance?.BrowserWindow?.document;
-      for (const d of [document, gpuDoc]) {
+      for (const d of [document, gpuDoc]) {{
         const items = Array.from(d.querySelectorAll('[role="menuitem"]'));
-        const dsItem = items.find(it => /Deck Shelves/i.test(it.textContent||''));
-        if (!dsItem) continue;
-        try { dsItem.click(); } catch {}
-        await new Promise(r => setTimeout(r, 800));
-        const allMenus = Array.from(d.querySelectorAll('[role="menu"]'));
-        const out = { menuCount: allMenus.length, submenus: [] };
-        for (const m of allMenus) {
-          const its = Array.from(m.querySelectorAll('[role="menuitem"]'));
-          out.submenus.push({ count: its.length, items: its.map(it => (it.textContent||'').substring(0,35)) });
-        }
-        return JSON.stringify(out, null, 2);
-      }
-      return JSON.stringify({err: 'no Deck Shelves item found'});
-    })()
-    """, timeout=10)
+        const root = items.find((el) => {{
+          const fk = Object.keys(el).find((k) => k.startsWith('__reactFiber$'));
+          let f = fk ? el[fk] : null;
+          for (let i = 0; f && i < 12; i++, f = f.return) if (f.key === 'ds-shelf-root') return true;
+          return false;
+        }});
+        if (!root) continue;
+        try {{ root.click(); }} catch {{}}
+        await new Promise(r => setTimeout(r, 900));
+        const menus = Array.from(d.querySelectorAll('[role="menu"]'));
+        const sub = menus[menus.length - 1];
+        const out = {{ menuCount: menus.length, subKeys: sub ? dsKeysOf(sub) : [] }};
+        out.leftOpen = await closeMenus([document, gpuDoc]);
+        return JSON.stringify(out);
+      }}
+      return JSON.stringify({{err: 'no shelf group (ds-shelf-root) in the open menu'}});
+    }})()
+    """, timeout=12)
     return json.loads(result or "{}")
+
+
+def judge_menu(data: dict) -> list[str]:
+    keys = data.get("dsKeys") or []
+    problems = []
+    if not any(k.startswith("ds-card-") or k.startswith("ds-lib-") for k in keys):
+        problems.append("no per-card plugin action")
+    if "ds-shelf-root" not in keys:
+        problems.append("no shelf group (ds-shelf-root)")
+    dupes = sorted({k for k in keys if keys.count(k) > 1})
+    if dupes:
+        problems.append(f"injected twice: {dupes}")
+    return problems
 
 
 def run() -> int:
@@ -148,46 +173,45 @@ def run() -> int:
 
     check_patches(sjc)
 
-    sep("Menu presence per shelf/game state")
+    sep("Plugin entries per shelf/game state")
     tests = [
-        (0, 0, "shelf 0 card 0 (typically installed)"),
-        (1, 0, "shelf 1 card 0 (typically uninstalled)"),
+        (0, 0, "shelf 0 card 0"),
+        (1, 0, "shelf 1 card 0"),
         (2, 5, "shelf 2 card 5 (mid-shelf)"),
     ]
     failures = 0
     for shelf_i, card_i, label in tests:
         data = open_menu_and_check(sjc, shelf_i, card_i)
-        ok = data.get("hasDeckShelves", False)
-        status = "✅" if ok else "❌"
-        appid = data.get("appid", "?")
-        count = data.get("itemCount", 0)
-        print(f"  {status} {label}")
-        print(f"     appid={appid}  items={count}  hasDeckShelves={ok}")
-        if data.get("err"):
-            print(f"     error: {data['err']}")
-        if not ok:
-            failures += 1
+        problems = [data["err"]] if data.get("err") else judge_menu(data)
+        print(f"  {'✅' if not problems else '❌'} {label}")
+        print(f"     appid={data.get('appid', '?')}  items={data.get('itemCount', 0)}  plugin keys={data.get('dsKeys', [])}")
+        for pr in problems:
+            print(f"     problem: {pr}")
+        failures += 1 if problems else 0
         time.sleep(0.5)
 
-    sep("Submenu content (expanding Deck Shelves on shelf 0 card 0)")
+    sep("Shelf group (expanding ds-shelf-root on shelf 0 card 0)")
     open_menu_and_check(sjc, 0, 0)
-    sub = expand_submenu(sjc)
+    sub = expand_shelf_group(sjc)
     if sub.get("err"):
         print(f"  ❌ {sub['err']}")
         failures += 1
     else:
-        menus = sub.get("submenus", [])
-        main_menu = menus[0] if menus else {}
-        submenu = menus[1] if len(menus) > 1 else {}
-        print(f"  Menu count   : {sub.get('menuCount')}")
-        print(f"  Main items   : {main_menu.get('count')}")
-        print(f"  Submenu items: {submenu.get('count')}  {submenu.get('items', [])}")
-        if submenu.get("count") == 7:
-            print("  ✅ All 7 submenu actions present")
-        else:
-            print(f"  ❌ Expected 7 submenu items, got {submenu.get('count')}")
+        keys = sub.get("subKeys", [])
+        missing = [k for k in ("ds-mgmt", "ds-display", "ds-visual") if k not in keys]
+        print(f"  Menus open   : {sub.get('menuCount')}")
+        print(f"  Plugin keys  : {keys}")
+        if missing:
+            print(f"  ❌ missing sub-groups: {missing}")
             failures += 1
+        else:
+            print("  ✅ Management / Display / Visual groups present")
 
+    left = ev(sjc, f"""(async () => {{ {DS_KEYS_JS}
+      const gpuDoc = window.SteamUIStore?.WindowStore?.GamepadUIMainWindowInstance?.BrowserWindow?.document;
+      return String(await closeMenus([document, gpuDoc])); }})()""", timeout=10)
+    if str(left) != "0":
+        print(f"  ⚠️  {left} menu(s) still open after cleanup")
     sjc.close()
     sep()
     if failures == 0:

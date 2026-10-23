@@ -1,12 +1,33 @@
 
-export type RefreshOptions = { manual?: boolean; shelfId?: string };
+import type { DepKind } from '../domain/shelfDeps';
+import { getBatteryState } from '../runtime/batteryState';
+import { registerPeriodic } from '../runtime/powerGate';
+
+/* `deps` names the data a signal says changed (see domain/shelfDeps); a shelf
+   whose result doesn't depend on it skips the re-resolve. Untagged = everything. */
+export type RefreshOptions = { manual?: boolean; shelfId?: string; deps?: DepKind[] };
 type RefreshListener = (opts?: RefreshOptions) => void;
 
 const listeners = new Set<RefreshListener>();
-let pollId: ReturnType<typeof setInterval> | null = null;
+let pollId: ReturnType<typeof setTimeout> | null = null;
+// `suspended` is the suspend/resume pause (systemEvents); `gated` is the
+// power gate holding the emitter outside the active Home. Either drops the
+// automatic emits; a user's manual refresh passes the gate.
 let suspended = false;
+let gated = false;
+function held(opts?: RefreshOptions): boolean {
+  return suspended || (gated && !opts?.manual);
+}
 
 import { mark, measure } from './perf';
+
+/* Battery-aware pacing: on battery the burst window and the fallback poll
+   stretch, so idle-on-battery costs fewer resolves (plugged in = unchanged). */
+function onBattery(): boolean {
+  try { const b = getBatteryState(); return !!b && b.hasBattery && b.state === 'discharging'; } catch { return false; }
+}
+function coalesceWindowMs(): number { return onBattery() ? 2000 : EMIT_COALESCE_MS; }
+function pollIntervalMs(): number { return onBattery() ? 60000 : 30000; }
 
 /* Global emit coalescing. Steam fires overview/download-tick events in bursts,
    and re-resolving shelves can itself provoke more of them — without a floor
@@ -17,26 +38,55 @@ const EMIT_COALESCE_MS = 700;
 let lastEmitAt = 0;
 let coalesceTimer: ReturnType<typeof setTimeout> | null = null;
 
+const STAGGER_CHUNK = 2;
+
+/* Non-manual emits fan out two listeners per task: each shelf's resolve then
+   runs in its own task instead of every shelf's filter/sort pass landing in
+   one long task (measured 280–360 ms per shelf at boot). Manual refreshes
+   stay synchronous so the user's click is answered at once. */
 function runEmit(opts?: RefreshOptions): void {
-  if (suspended) return;
-  try {
+  if (held(opts)) return;
+  const list = Array.from(listeners);
+  if (opts?.manual) {
     mark('shelfRefresh.emit:start');
-    for (const listener of listeners) {
-      try { listener(opts); } catch {}
-    }
-  } finally {
+    for (const listener of list) { try { listener(opts); } catch {} }
     measure('shelfRefresh.emit', 'shelfRefresh.emit:start');
+    return;
   }
+  let i = 0;
+  const step = () => {
+    if (suspended || gated) return;
+    const end = Math.min(list.length, i + STAGGER_CHUNK);
+    for (; i < end; i++) { try { if (listeners.has(list[i])) list[i](opts); } catch {} }
+    if (i < list.length) setTimeout(step, 0);
+  };
+  step();
+}
+
+// Deps of the signals folded into one coalesced emit; null = everything.
+let pendingDeps: Set<DepKind> | null = null;
+function foldDeps(opts?: RefreshOptions): void {
+  if (pendingDeps === null) return;
+  if (!opts?.deps) { pendingDeps = null; return; }
+  for (const d of opts.deps) pendingDeps.add(d);
 }
 
 function emit(opts?: RefreshOptions): void {
-  if (suspended) return;
+  if (held(opts)) return;
   if (opts?.manual) { lastEmitAt = Date.now(); runEmit(opts); return; }
   const elapsed = Date.now() - lastEmitAt;
-  if (elapsed >= EMIT_COALESCE_MS) { lastEmitAt = Date.now(); runEmit(opts); return; }
+  if (elapsed >= coalesceWindowMs()) { lastEmitAt = Date.now(); runEmit(opts); return; }
   if (coalesceTimer === null) {
-    coalesceTimer = setTimeout(() => { coalesceTimer = null; lastEmitAt = Date.now(); runEmit(); }, EMIT_COALESCE_MS - elapsed);
+    pendingDeps = opts?.deps ? new Set(opts.deps) : null;
+    coalesceTimer = setTimeout(() => {
+      coalesceTimer = null; lastEmitAt = Date.now();
+      const deps = pendingDeps ? Array.from(pendingDeps) : undefined;
+      pendingDeps = null;
+      runEmit(deps ? { deps } : undefined);
+    }, coalesceWindowMs() - elapsed);
+    return;
   }
+  foldDeps(opts);
 }
 
 export function subscribeShelfRefresh(listener: RefreshListener): () => void {
@@ -67,7 +117,7 @@ export function triggerShelfRefresh(opts?: RefreshOptions): void {
 
 // AppOverviewChanges throttle (5 s leading + 1 trailing). Steam fires this
 // on every download tick — without the throttle, a long download flooded
-// the resolver (#66).
+// the resolver.
 function installOverviewChangesThrottle(): (() => void) | null {
   try {
     const client = (globalThis as any).SteamClient ?? (window as any).SteamClient;
@@ -79,14 +129,14 @@ function installOverviewChangesThrottle(): (() => void) | null {
       const elapsed = now - lastEmitAt;
       if (elapsed >= OVERVIEW_THROTTLE_MS) {
         lastEmitAt = now;
-        emit();
+        emit({ deps: ['overviews'] });
         return;
       }
       if (trailingTimer === null) {
         trailingTimer = setTimeout(() => {
           trailingTimer = null;
           lastEmitAt = Date.now();
-          emit();
+          emit({ deps: ['overviews'] });
         }, OVERVIEW_THROTTLE_MS - elapsed);
       }
     };
@@ -112,8 +162,8 @@ function installGameActionStartDebounce(): (() => void) | null {
         // so the next read sees the live display_status.
         import("../steam").then(({ invalidateAppOverviewCache }) => {
           try { invalidateAppOverviewCache(); } catch {}
-          emit();
-        }).catch(() => emit());
+          emit({ deps: ['session', 'overviews'] });
+        }).catch(() => emit({ deps: ['session', 'overviews'] }));
       }, 1500);
     };
     const reg = client?.Apps?.RegisterForGameActionStart?.(onGameAction);
@@ -144,7 +194,7 @@ function installCollectionStoreSubscription(): (() => void) | null {
   try {
     const store = findSubscribableCollectionStore();
     if (!store) return null;
-    const handler = () => emit();
+    const handler = () => emit({ deps: ['collections'] });
     store.on('change', handler);
     return () => { try { store.off?.('change', handler); } catch {} };
   } catch { return null; }
@@ -153,11 +203,25 @@ function installCollectionStoreSubscription(): (() => void) | null {
 export function installShelfRefreshEmitter(): () => void {
   const cleanups: Array<() => void> = [];
 
-  // Single global fallback poll at 30s
-  pollId = setInterval(emit, 30000);
-  cleanups.push(() => {
-    if (pollId !== null) { clearInterval(pollId); pollId = null; }
+  // Single global fallback poll (30 s plugged in, 60 s on battery) — untagged,
+  // so it still reaches every shelf and bounds any staleness the tags miss.
+  const schedulePoll = () => {
+    pollId = setTimeout(() => { pollId = null; emit(); schedulePoll(); }, pollIntervalMs());
+  };
+  const clearPoll = () => {
+    if (pollId !== null) { clearTimeout(pollId); pollId = null; }
+  };
+  /* Poll and event-driven emits run only while the Home is active: a game,
+     another page, the screen off or a suspend holds them, and the return
+     gets one refresh. */
+  gated = true;
+  const unregister = registerPeriodic('shelfRefresh', {
+    runIn: ['active'],
+    start: () => { gated = false; if (pollId === null) schedulePoll(); },
+    stop: () => { gated = true; clearPoll(); },
+    onResume: () => emit(),
   });
+  cleanups.push(() => { unregister(); clearPoll(); gated = false; });
 
   for (const install of [installOverviewChangesThrottle, installGameActionStartDebounce, installCollectionStoreSubscription]) {
     const cleanup = install();

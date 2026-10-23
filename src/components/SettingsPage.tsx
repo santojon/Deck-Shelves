@@ -5,18 +5,19 @@ import { PageHeader } from "./ui/PageHeader";
 import { VersionFooter } from "./ui/VersionFooter";
 import { DeckQAMStyles } from "./styles/DeckQAMStyles";
 import { ShelvesDetail } from "./settings/details/ShelvesDetail";
-import { ProfilesDetail } from "./settings/details/ProfilesDetail";
+import { ProfilesDetail } from "../features/profiles/ProfilesDetail";
 import { IntegrationsDetail } from "./settings/details/IntegrationsDetail";
 import { ButtonBindingsDetail } from "./settings/details/ButtonBindingsDetail";
 import { BackupDetail } from "./settings/details/BackupDetail";
 import { AdvancedDetail } from "./settings/details/AdvancedDetail";
 import { DeveloperDetail } from "./settings/details/DeveloperDetail";
-import { StatisticsDetail } from "./settings/details/StatisticsDetail";
-import { SuggestionsDetail } from "./settings/details/SuggestionsDetail";
+import { StatisticsDetail } from "../features/statistics/StatisticsDetail";
+import { SuggestionsDetail } from "../features/statistics/SuggestionsDetail";
 import { BookmarkIcon, PersonIcon, PuzzleIcon, GamepadIcon, SaveIcon, ToolsIcon, SlidersIcon, SparkleIcon, GearIcon } from "./icons";
 import { useLightMode, useAdvancedMode } from "./ui/lightMode";
 import { hasExternalIntegrations } from "../core/pluginApi";
 import { consumePendingSettingsTab } from "../runtime/settingsNav";
+import { flowChildrenProps } from "../core/steamOSVersion";
 
 function tabLabel(icon: React.ReactNode, text: string): string {
   return (
@@ -87,7 +88,7 @@ export function SettingsPage() {
   return (
     <Focusable
       className="deck-shelves-settings-page"
-      flow-children="vertical"
+      {...flowChildrenProps("vertical")}
       onCancelButton={goBack}
       style={{ position: "relative", height: "100%", display: "flex", flexDirection: "column", color: "var(--ds-text, #fff)" }}
     >

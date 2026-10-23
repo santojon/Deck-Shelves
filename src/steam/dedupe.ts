@@ -10,7 +10,7 @@ export function normalizeTitleForMatch(name: string | undefined | null): string 
     .trim();
 }
 
-export function dedupeByName(
+function dedupeByName(
   apps: { appid: number; name: string; isSteam: boolean }[],
 ): number[] {
   /* Use the same normalisation the online-shelves name-dedup uses

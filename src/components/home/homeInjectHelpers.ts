@@ -44,12 +44,13 @@ export function computeInterleaveSmart(params: { unifiedOn: boolean; settings: S
   return !(replaceInjecting && !replaceKillSwitch);
 }
 
-function resolvePositionSetting(value: unknown): 'left' | 'center' | 'right' {
-  return value === 'center' || value === 'right' ? value : 'left';
+// An unset global stays undefined so each shelf keeps its own value.
+function resolvePositionSetting(value: unknown): 'left' | 'center' | 'right' | undefined {
+  return value === 'left' || value === 'center' || value === 'right' ? value : undefined;
 }
 
-function resolveClampedSize(value: unknown, min: number, max: number, fallback: number): number {
-  return typeof value === 'number' ? Math.max(min, Math.min(max, value)) : fallback;
+function resolveClampedSize(value: unknown, min: number, max: number): number | undefined {
+  return typeof value === 'number' ? Math.max(min, Math.min(max, value)) : undefined;
 }
 
 /* The handful of ShelvesContainer props that are actually DERIVED (ternary/
@@ -62,8 +63,8 @@ export function computeDerivedGlobalFlags(params: { settings: Settings; replaceI
   return {
     globalLogoPosition: resolvePositionSetting(s.globalLogoPosition),
     globalDescriptionPosition: resolvePositionSetting(s.globalDescriptionPosition),
-    globalLogoSize: resolveClampedSize(s.globalLogoSize, 50, 200, 100),
-    globalLogoTopOffset: resolveClampedSize(s.globalLogoTopOffset, 0, 100, 20),
+    globalLogoSize: resolveClampedSize(s.globalLogoSize, 50, 200),
+    globalLogoTopOffset: resolveClampedSize(s.globalLogoTopOffset, -50, 100),
     shelfHeroBackground: settings.hideRecents === true && settings.shelfHeroBackground === true && replaceInactive,
     perShelfHeroAllowed: replaceInactive,
     hideRecentsSetting: settings.hideRecents === true && (settings.recentsReplaceSource !== true || replaceKillSwitch),
@@ -98,6 +99,41 @@ function smartShelfHideFlags(raw: any) {
     hideCompatIcons: raw.hideCompatIcons ?? false,
     hideNonSteamBadge: raw.hideNonSteamBadge ?? false,
     hideShelfTitle: raw.hideShelfTitle ?? false,
+    ...smartShelfCardHideFlags(raw),
+  };
+}
+
+// Game names, the install indicator and the trailing See more / refresh cards.
+function smartShelfCardHideFlags(raw: any) {
+  return {
+    hideGameNames: raw.hideGameNames ?? false,
+    hideInstallIndicator: raw.hideInstallIndicator ?? false,
+    hideSeeMore: raw.hideSeeMore ?? false,
+    hideRefreshCard: raw.hideRefreshCard ?? false,
+  };
+}
+
+// The logo, description and layout options the smart-shelf editor saves (the visual tab both editors share).
+function smartShelfOverlayFields(raw: any) {
+  return {
+    highlightRandom: raw.highlightRandom,
+    enableLogo: raw.enableLogo,
+    enableIcon: raw.enableIcon,
+    enableDescription: raw.enableDescription,
+    descriptionScale: raw.descriptionScale,
+    descriptionBelowLogo: raw.descriptionBelowLogo,
+    logoBelowShelf: raw.logoBelowShelf,
+    logoPosition: raw.logoPosition,
+    descriptionPosition: raw.descriptionPosition,
+    logoSize: raw.logoSize,
+    logoTopOffset: raw.logoTopOffset,
+    fullPageShelf: raw.fullPageShelf,
+    iconVerticalAlign: raw.iconVerticalAlign,
+    shelfTitlePosition: raw.shelfTitlePosition,
+    gameNamePosition: raw.gameNamePosition,
+    playtimePosition: raw.playtimePosition,
+    descriptionHeight: raw.descriptionHeight,
+    descriptionLogoGap: raw.descriptionLogoGap,
   };
 }
 
@@ -125,13 +161,21 @@ function smartShelfToShelf(s: SmartShelf): Shelf {
     hidden: false,
     limit: s.limit ?? 20,
     ...smartShelfDisplayFlags(raw),
+    ...smartShelfOverlayFields(raw),
     ...(raw.heroEnabled ? { heroEnabled: true } : {}),
+    gameInfoAbove: raw.gameInfoAbove,
+    dedupeByExactName: raw.dedupeByExactName,
+    // The Display tab's pin and collapse rules, read by the Home's ordering and collapse.
+    autoPin: raw.autoPin,
+    autoCollapse: raw.autoCollapse,
+    autoCollapseWhenEmpty: raw.autoCollapseWhenEmpty,
     source: buildSmartShelfSource(s),
     sort: raw.sort,
     sortReverse: raw.sortReverse,
     manualOrder: raw.manualOrder,
     manualBaseSort: raw.manualBaseSort,
     manualBaseSortReverse: raw.manualBaseSortReverse,
+    hiddenAppIds: raw.hiddenAppIds,
   } as any;
 }
 

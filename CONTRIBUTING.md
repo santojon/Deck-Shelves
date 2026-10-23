@@ -130,7 +130,11 @@ src/components/          React components
 src/core/                Utilities (focus, scroll, assets, webpack compat, plugin API)
 src/domain/              Pure domain logic (settings operations, defaults, templates)
 src/runtime/             Platform integration (home patching, Steam host, logger)
-src/features/            Feature controllers
+src/features/            Feature-scoped modules (UI + hooks per feature; pure rules stay in src/domain)
+  setup/                 Setup wizard, first-run tour + banners, wizard entry
+  statistics/            Statistics + Suggestions panels, usage charts
+  profiles/              Profiles section / detail / modals
+  search/, sidenav/      Quick Search overlay, Side Nav overlay
   settings/
     controller.tsx       Hook entry (state + effects + compose action slices)
     controller/          Action slices spread into the public `actions`
@@ -140,7 +144,8 @@ src/features/            Feature controllers
       online.ts          Online-features toggles + acceptOnlinePrivacy
       globalVisual.ts    30 global visual setters (consolidated)
       profiles.ts        Usage profiles + unified/lightMode/featureToggle setters
-src/integrations/        Third-party plugin integration (TabMaster, UnifiDeck)
+src/integrations/        Third-party plugin integration (one descriptor per plugin: TabMaster, UnifiDeck, ...)
+src/themes/              Theme compatibility (one adapter per theme under adapters/ + registry)
 src/shims/               React/Decky GamepadUI shims
 src/test/                Vitest test suites
 i18n/                    Locale files
@@ -181,7 +186,7 @@ All checks should pass. The individual check scripts live in the `checks/` subfo
 - Base locale: the `i18n/en-US/` directory
 - Every locale must have the same merged key set as `en-US` (no cross-area key collisions)
 - When adding a new i18n key, add it to the matching area file in **all** locale directories
-- `pnpm run validate:compat` (and `pnpm run validate` for the build-time check) verifies per-locale key consistency automatically
+- `pnpm run validate:compat` (and `pnpm run check` for the build-time check) verifies per-locale key consistency automatically
 
 ## Tests
 
@@ -242,6 +247,14 @@ The dashboard is a self-contained HTML file (inline SVG, no CDN, works offline).
 ```
 
 It exits with code 1 on any failure. Reports are local-only (`reports/ci/` is gitignored); add an artifact upload step to preserve them across CI runs if needed.
+
+## Maintainer scripts
+
+- `bash scripts/dev/ensure-repo-settings.sh` — checks and patches the GitHub repository's merge
+  settings (squash-only, delete branch on merge); needs the `gh` CLI.
+- `pnpm run deck:debug` — opens the device's DevTools target list in the browser.
+- The ad-hoc probes under `scripts/deckprobe-ext/probes/` are listed in
+  [docs/qa-manual.md](docs/qa-manual.md) (section 14).
 
 ## Screenshots (optional)
 

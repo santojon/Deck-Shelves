@@ -1,5 +1,8 @@
 import type { AppOverview } from "./index";
 import { getCachedCatalogMeta } from "../core/onlineStore";
+import { steamAppStore, steamCollectionStore, steamClient, type SteamCollectionLike } from "./internals";
+import { customTagsFor, historyIds, pinnedIds, sessionQueueIds, temporaryQueueIds } from "../runtime/gameLists";
+import { shortcutTagsFor } from "../runtime/shortcutTags";
 
 function appIdOf(a: any): number {
   return Number(a?.appid ?? a?.m_unAppID ?? 0);
@@ -16,7 +19,7 @@ function isInstalledOf(a: any): boolean {
  *  fetched Store catalog metadata. */
 function rawLocalOverview(appid: number): any | null {
   try {
-    const store = (globalThis as any).appStore;
+    const store = steamAppStore();
     return store?.GetAppOverviewByAppID?.(appid) ?? null;
   } catch { return null; }
 }
@@ -27,19 +30,19 @@ function rawLocalOverview(appid: number): any | null {
    prefetchFranchise() before a franchise filter runs (see steam/index.ts). */
 const _franchiseCache = new Map<number, string | null>();
 
-export function getCachedFranchise(appid: number): string | undefined {
+function getCachedFranchise(appid: number): string | undefined {
   return _franchiseCache.has(appid) ? (_franchiseCache.get(appid) ?? undefined) : undefined;
 }
 
 function extractFranchiseName(raw: any): string | null {
   const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
-  const assoc = Array.isArray(parsed) ? parsed.find((s: any) => s?.[0] === "associations") : null;
+  const assoc = Array.isArray(parsed) ? parsed.find((s: unknown) => (s as Record<number, unknown> | null | undefined)?.[0] === "associations") : null;
   const franchises = assoc?.[1]?.data?.rgFranchises;
   return Array.isArray(franchises) && franchises[0]?.strName ? String(franchises[0].strName) : null;
 }
 
 async function fetchOneFranchise(appid: number): Promise<void> {
-  const client = (globalThis as any).SteamClient;
+  const client = steamClient();
   try {
     const raw = await client?.Apps?.GetCachedAppDetails?.(appid);
     _franchiseCache.set(appid, extractFranchiseName(raw));
@@ -130,9 +133,42 @@ function evalFranchise(item: any, app: AppOverview): boolean {
   return typeof raw === "string" && raw.toLowerCase().includes(want);
 }
 
-function evalVrSupport(_item: any, app: AppOverview): boolean {
-  const raw = rawField<boolean | number>(appIdOf(app), "vr_supported", "rt_vr_supported", "vr_support");
-  return raw === true || raw === 1;
+/* VR in three values. Steam's store categories: 401 "VR Only", 402 "VR
+   Supported" (31 is the older "VR Support" tag) — read from the local
+   overview's BHasStoreCategory when it is a real one, else from the cached
+   catalog metadata's category names, else the legacy vr flag. */
+const VR_ONLY_IDS = [401];
+const VR_SUPPORTED_IDS = [402, 31];
+type VrLevel = "only" | "supported" | "none";
+
+function vrLevelFromLocal(appid: number): VrLevel | null {
+  const local = rawLocalOverview(appid);
+  if (!local || typeof local.BHasStoreCategory !== "function") return null;
+  if (VR_ONLY_IDS.some((id) => local.BHasStoreCategory(id))) return "only";
+  if (VR_SUPPORTED_IDS.some((id) => local.BHasStoreCategory(id))) return "supported";
+  return null;
+}
+
+function vrLevelFromCatalog(appid: number): VrLevel | null {
+  const cats = getCachedCatalogMeta(appid)?.categories ?? [];
+  if (cats.some((c) => /\bvr only\b/i.test(c))) return "only";
+  if (cats.some((c) => /\bvr support(ed)?\b/i.test(c))) return "supported";
+  return null;
+}
+
+function vrLevelOf(app: AppOverview): VrLevel {
+  const appid = appIdOf(app);
+  const known = vrLevelFromLocal(appid) ?? vrLevelFromCatalog(appid);
+  if (known) return known;
+  const raw = rawField<boolean | number>(appid, "vr_supported", "rt_vr_supported", "vr_support");
+  return raw === true || raw === 1 ? "supported" : "none";
+}
+
+// No `levels` (filters saved before the three-value form) = any VR title.
+function evalVrSupport(item: any, app: AppOverview): boolean {
+  const level = vrLevelOf(app);
+  const levels: string[] = Array.isArray(item?.params?.levels) ? item.params.levels : [];
+  return levels.length ? levels.includes(level) : level !== "none";
 }
 
 /* Steam's official store-category ids (stable, public taxonomy) — the local
@@ -194,7 +230,7 @@ function evalSoundtrackOwned(_item: any, app: AppOverview): boolean {
 function evalLaunchCount(item: any, app: AppOverview): boolean {
   const min = Number(item.params?.min ?? 0);
   const max = Number(item.params?.max ?? Number.POSITIVE_INFINITY);
-  const totalMinutes = Number((app as any).playtime_forever ?? 0);
+  const totalMinutes = Number(app.playtime_forever ?? 0);
   const launchCount = rawField<number>(appIdOf(app), "rt_launch_count", "launch_count")
     ?? Math.floor(totalMinutes / 45); // 45-min session proxy
   return launchCount >= min && launchCount <= max;
@@ -203,7 +239,7 @@ function evalLaunchCount(item: any, app: AppOverview): boolean {
 function evalAvgSessionMinutes(item: any, app: AppOverview): boolean {
   const minM = Number(item.params?.min ?? 0);
   const maxM = Number(item.params?.max ?? Number.POSITIVE_INFINITY);
-  const totalMinutes = Number((app as any).playtime_forever ?? 0);
+  const totalMinutes = Number(app.playtime_forever ?? 0);
   const launchCount = rawField<number>(appIdOf(app), "rt_launch_count", "launch_count") ?? Math.floor(totalMinutes / 45);
   if (!launchCount) return false;
   const avg = totalMinutes / launchCount;
@@ -216,7 +252,7 @@ function evalNeverCompleted(_item: any, app: AppOverview): boolean {
 }
 
 function evalRecentlyAbandoned(item: any, app: AppOverview): boolean {
-  const last = Number((app as any).last_played ?? 0);
+  const last = Number(app.last_played ?? 0);
   if (!last) return false;
   const minDaysAgo = Number(item.params?.minDaysAgo ?? 7);
   const maxDaysAgo = Number(item.params?.maxDaysAgo ?? 60);
@@ -226,13 +262,13 @@ function evalRecentlyAbandoned(item: any, app: AppOverview): boolean {
 
 function evalInstalledNeverPlayed(_item: any, app: AppOverview): boolean {
   const installed = isInstalledOf(app);
-  const played = Number((app as any).playtime_forever ?? 0);
+  const played = Number(app.playtime_forever ?? 0);
   return installed && played === 0;
 }
 
 function evalPlayedOnce(item: any, app: AppOverview): boolean {
   const max = Number(item.params?.maxMinutes ?? 60);
-  const played = Number((app as any).playtime_forever ?? 0);
+  const played = Number(app.playtime_forever ?? 0);
   return played > 0 && played <= max;
 }
 
@@ -262,7 +298,7 @@ function evalInstalledSizeRange(item: any, app: AppOverview): boolean {
 }
 
 function evalCompatDataQuality(_item: any, app: AppOverview): boolean {
-  const cat = Number((app as any).deck_compatibility_category ?? 0);
+  const cat = Number(app.deck_compatibility_category ?? 0);
   // 0 = unknown, 1 = unsupported, 2 = playable, 3 = verified.
   return cat > 0;
 }
@@ -314,17 +350,21 @@ function evalLaunchOptionTags(item: any, app: AppOverview): boolean {
   return want.some((t) => tokens.includes(t));
 }
 
-function evalCustomTags(item: any, app: AppOverview): boolean {
+function anyTagMatches(item: any, tags: readonly string[]): boolean {
   const want: string[] = Array.isArray(item.params?.tags) ? item.params.tags.map((t: string) => String(t).toLowerCase()) : [];
   if (!want.length) return true;
-  const cache = (globalThis as any).__ds_custom_tags_v1 ?? {};
-  const tags = (cache[appIdOf(app)] ?? []) as string[];
   const have = tags.map((t) => t.toLowerCase());
   return want.some((t) => have.includes(t));
 }
 
+// Tags the user set on the game (game menu → Lists → Edit tags).
+function evalCustomTags(item: any, app: AppOverview): boolean {
+  return anyTagMatches(item, customTagsFor(appIdOf(app)));
+}
+
+// Tags the tool that added a non-Steam shortcut wrote into Steam's shortcuts file.
 function evalParserCategories(item: any, app: AppOverview): boolean {
-  return evalCustomTags(item, app);
+  return anyTagMatches(item, shortcutTagsFor(appIdOf(app)));
 }
 
 function evalHiddenLauncherShortcuts(_item: any, app: AppOverview): boolean {
@@ -395,7 +435,7 @@ function evalReviewScore(item: any, app: AppOverview): boolean {
 // Release date — `rt_original_release_date` is in SECONDS (native + enriched).
 // Param `ts` is a seconds timestamp; `op` after/before is inclusive.
 function releaseSecOf(app: AppOverview): number {
-  return Number((app as any).rt_original_release_date ?? (app as any).rt_steam_release_date ?? 0);
+  return Number(app.rt_original_release_date ?? (app as any).rt_steam_release_date ?? 0);
 }
 function evalReleaseDate(item: any, app: AppOverview): boolean {
   const ts = Number(item.params?.ts ?? 0);
@@ -413,7 +453,7 @@ function evalComingSoon(_item: any, app: AppOverview): boolean {
 
 // Demo — Steam EAppType demo bit (8). Non-Steam shortcuts never qualify.
 function evalDemo(_item: any, app: AppOverview): boolean {
-  return Number((app as any).app_type) === 8;
+  return Number(app.app_type) === 8;
 }
 
 export const FILTER_V3_EVALUATORS: Record<string, FilterEvaluator> = {
@@ -463,12 +503,12 @@ const cmpAsc  = (na: number, nb: number) => na - nb;
 function launchCountOf(app: AppOverview): number {
   const explicit = rawField<number>(appIdOf(app), "rt_launch_count", "launch_count");
   if (typeof explicit === "number") return explicit;
-  const total = Number((app as any).playtime_forever ?? 0);
+  const total = Number(app.playtime_forever ?? 0);
   return Math.floor(total / 45); // 45-min session proxy
 }
 
 function avgSessionMinutesOf(app: AppOverview): number {
-  const total = Number((app as any).playtime_forever ?? 0);
+  const total = Number(app.playtime_forever ?? 0);
   const count = launchCountOf(app);
   if (!count) return 0;
   return total / count;
@@ -530,13 +570,13 @@ export const SORT_V3_COMPARATORS: Record<string, SortComparator> = {
   longest_session:         (a, b) => cmpDesc(avgSessionMinutesOf(a), avgSessionMinutesOf(b)),
   shortest_session:        (a, b) => cmpAsc(avgSessionMinutesOf(a), avgSessionMinutesOf(b)),
   most_ignored: (a, b) => {
-    const aIdle = Date.now()/1000 - Number((a as any).last_played ?? 0);
-    const bIdle = Date.now()/1000 - Number((b as any).last_played ?? 0);
+    const aIdle = Date.now()/1000 - Number(a.last_played ?? 0);
+    const bIdle = Date.now()/1000 - Number(b.last_played ?? 0);
     return cmpDesc(aIdle, bIdle);
   },
   rediscovered_recently: (a, b) => {
-    const aIdle = Date.now()/1000 - Number((a as any).last_played ?? 0);
-    const bIdle = Date.now()/1000 - Number((b as any).last_played ?? 0);
+    const aIdle = Date.now()/1000 - Number(a.last_played ?? 0);
+    const bIdle = Date.now()/1000 - Number(b.last_played ?? 0);
     return cmpAsc(aIdle, bIdle);
   },
   completion_percent:      (a, b) => cmpDesc(completionPctOf(a), completionPctOf(b)),
@@ -548,8 +588,8 @@ export const SORT_V3_COMPARATORS: Record<string, SortComparator> = {
   newest_installed:        (a, b) => cmpDesc(installDateOf(a), installDateOf(b)),
   oldest_installed:        (a, b) => cmpAsc(installDateOf(a), installDateOf(b)),
   oldest_unplayed: (a, b) => {
-    const ax = Number((a as any).playtime_forever ?? 0) === 0 ? installDateOf(a) : Number.MAX_SAFE_INTEGER;
-    const bx = Number((b as any).playtime_forever ?? 0) === 0 ? installDateOf(b) : Number.MAX_SAFE_INTEGER;
+    const ax = Number(a.playtime_forever ?? 0) === 0 ? installDateOf(a) : Number.MAX_SAFE_INTEGER;
+    const bx = Number(b.playtime_forever ?? 0) === 0 ? installDateOf(b) : Number.MAX_SAFE_INTEGER;
     return cmpAsc(ax, bx);
   },
   newest_purchased:        (a, b) => cmpDesc(purchaseDateOf(a), purchaseDateOf(b)),
@@ -578,37 +618,12 @@ function bySteamFlag(all: AppOverview[], pred: (a: AppOverview) => boolean): App
   return all.filter(pred);
 }
 
-function asNumberArray(value: unknown): number[] {
-  if (!Array.isArray(value)) return [];
-  return value.map(Number).filter(Number.isFinite);
-}
-
 function pinnedIdsFromStorage(): Set<number> {
-  try {
-    const raw = (globalThis as any).localStorage?.getItem?.("ds-pinned-games-v1");
-    return new Set(asNumberArray(JSON.parse(raw ?? "[]")));
-  } catch { return new Set(); }
+  return new Set(pinnedIds());
 }
 
 function historyIdsFromStorage(): number[] {
-  try {
-    const raw = (globalThis as any).localStorage?.getItem?.("ds-history-v1");
-    return asNumberArray(JSON.parse(raw ?? "[]"));
-  } catch { return []; }
-}
-
-function sessionQueueIds(): number[] {
-  try {
-    const raw = (globalThis as any).__ds_session_queue;
-    return asNumberArray(raw);
-  } catch { return []; }
-}
-
-function temporaryQueueIds(): number[] {
-  try {
-    const raw = (globalThis as any).__ds_temp_queue;
-    return asNumberArray(raw);
-  } catch { return []; }
+  return historyIds();
 }
 
 // Collect every appid held by a set of (dynamic) Steam collections, tolerant of
@@ -629,8 +644,8 @@ export const SOURCE_V3_RESOLVERS: Record<string, ShelfSourceResolver> = {
   // Steam-side
   dynamic_collections: (all) => {
     try {
-      const cs: any = (globalThis as any).collectionStore;
-      const list: any[] = cs?.userCollections ?? [];
+      const cs = steamCollectionStore();
+      const list: SteamCollectionLike[] = cs?.userCollections ?? [];
       const dynamic = list.filter((c) => c?.bIsDynamic === true || c?.m_bIsDynamic === true);
       const ids = collectCollectionAppIds(dynamic);
       return all.filter((a) => ids.has(appIdOf(a)));
@@ -642,8 +657,8 @@ export const SOURCE_V3_RESOLVERS: Record<string, ShelfSourceResolver> = {
   ignored_games: (all) => bySteamFlag(all, (a) => {
     return rawField<boolean>(appIdOf(a), "rt_ignored", "ignored") === true;
   }),
-  dlc_source: (all) => bySteamFlag(all, (a) => (a as any).app_type === 32),
-  soundtrack_source: (all) => bySteamFlag(all, (a) => (a as any).app_type === 8192),
+  dlc_source: (all) => bySteamFlag(all, (a) => a.app_type === 32),
+  soundtrack_source: (all) => bySteamFlag(all, (a) => a.app_type === 8192),
   // Manual
   pinned_games: (all) => {
     const pinned = pinnedIdsFromStorage();
@@ -684,7 +699,7 @@ export const SOURCE_V3_RESOLVERS: Record<string, ShelfSourceResolver> = {
     return rawField<boolean>(appIdOf(a), "rt_workshop_update", "workshop_updated") === true;
   }),
   controller_specific_source: (all) => bySteamFlag(all, (a) => {
-    const n = Number((a as any).controller_support ?? 0);
+    const n = Number(a.controller_support ?? 0);
     return n >= 2;
   }),
   emudeck_collections:   (all) => filterByLauncherNames(all, "emudeck"),

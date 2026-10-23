@@ -75,17 +75,6 @@ export function getSteamOSVersion(): string | null {
   return null;
 }
 
-export function isSteamOS39OrLater(): boolean | null {
-  const v = getSteamOSVersion();
-  if (!v) return null;
-  const m = v.match(/^(\d+)\.(\d+)/);
-  if (!m) return null;
-  const major = Number(m[1]);
-  const minor = Number(m[2]);
-  if (!Number.isFinite(major) || !Number.isFinite(minor)) return null;
-  return major > 3 || (major === 3 && minor >= 9);
-}
-
 export function isSteamOS38OrLater(): boolean | null {
   const v = getSteamOSVersion();
   if (!v) return null;
@@ -97,6 +86,8 @@ export function isSteamOS38OrLater(): boolean | null {
   return major > 3 || (major === 3 && minor >= 8);
 }
 
+// Always drops the prop: Steam asserts on values it does not map, and the
+// direction stays at the call site only to document the intended layout.
 export function flowChildrenProps(_direction: "horizontal" | "vertical" | "column"):
   Record<string, never> {
   return {};

@@ -69,7 +69,7 @@ def check_system_info(sjc) -> dict:
 
 
 def decode_packed(packed: int) -> dict:
-    """Confirmed bit layout (FRAME-FACTS.md D2): bits 0-1 deck, 2-3 unused,
+    """Confirmed bit layout (measured on a device): bits 0-1 deck, 2-3 unused,
     4-5 os, 6-7 machine, 8-9 frame — same math as src/steam/index.ts."""
     return {
         "deck": (packed >> 0) & 0x3,

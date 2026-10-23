@@ -1,3 +1,4 @@
+import { decodeHtmlEntities } from "../domain/sourceUtils";
 
 export type AppDescriptions = {
   snippet: string;
@@ -39,12 +40,13 @@ const STORAGE_SAVE_DEBOUNCE = 1500;
 let saveScheduled = false;
 
 // Hydrate one persisted entry into the in-memory cache if the key is a valid
-// appid and the value carries a snippet or full HTML.
+// appid and the value carries a snippet or full HTML. Snippets saved from the
+// store fallback before it decoded them can still hold "&amp;"-style entities.
 function hydrateEntry(k: string, v: unknown): void {
   const appid = Number(k);
   const desc = v as Partial<AppDescriptions>;
   if (Number.isFinite(appid) && appid > 0 && (desc?.snippet || desc?.fullHtml)) {
-    cache.set(appid, { snippet: desc.snippet ?? '', fullHtml: desc.fullHtml ?? '' });
+    cache.set(appid, { snippet: decodeHtmlEntities(String(desc.snippet ?? '')), fullHtml: desc.fullHtml ?? '' });
   }
 }
 
@@ -167,8 +169,4 @@ export function preloadAppDescriptions(appid: number): void {
     return;
   }
   pollUntilReady(store, appid);
-}
-
-export function preloadAppDescriptionsBatch(appids: number[]): void {
-  for (const id of appids) preloadAppDescriptions(id);
 }

@@ -82,6 +82,12 @@ if (idle) {
   check(`idle CPU delta ${idle.deltaPp} pp > ${t.idle_cpu_delta_pp_fail}`, t.idle_cpu_delta_pp_fail != null && idle.deltaPp > t.idle_cpu_delta_pp_fail);
   console.log(`perf-gate: idle-CPU record ${idle.recordedAt} — plugin-free ${idle.withoutPlugin?.total ?? idle.withoutLoaderPct} %, with plugin ${idle.withPlugin?.total ?? idle.withPluginPct} % (delta ${idle.deltaPp} pp, AC=${idle.acOnline})`);
 }
+const coop = optional("coop-fallback-latest.json");
+if (coop) {
+  for (const [name, p] of Object.entries(coop.phases ?? {})) check(`coop fallback ${name}: ${p.error ?? "outside the expected window"}`, !p.ok);
+  const timing = Object.entries(coop.phases ?? {}).filter(([, p]) => p.bootAfterS != null).map(([n, p]) => `${n} ${p.bootAfterS} s (expected ${p.expectedS})`).join(", ");
+  console.log(`perf-gate: coop-fallback record ${coop.recordedAt} — ${timing || "no fallback timings"}, restore ${coop.phases?.restore?.ok ? "OK" : "failed"}`);
+}
 for (const w of warnings) console.log(`  ⚠️  ${w}`);
 for (const p of problems) console.log(`  ❌ ${p}`);
 if (!problems.length) console.log(`  ✅ within thresholds${warnings.length ? " (with warnings)" : ""}`);

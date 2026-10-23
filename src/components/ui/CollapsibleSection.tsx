@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Focusable } from '../../runtime/host/decky'
+import { flowChildrenProps } from '../../core/steamOSVersion'
 
 const SECTIONS_KEY = 'ds-qam-sections'
 
@@ -46,9 +47,8 @@ export function CollapsibleSection({
     <div className='ds-collapsible-box'>
       {/* The whole row highlights as one focus unit (CSS `.gpfocuswithin`),
           whether the title toggle or the inline action button is focused. A on
-          the title toggles; vertical flow makes dpad-down move title → button →
-          next section. */}
-      <Focusable className='ds-collapsible-row' flow-children='vertical' noFocusRing focusWithinClassName='gpfocuswithin' style={{ display: 'flex', alignItems: 'center' }}>
+          the title toggles. */}
+      <Focusable className='ds-collapsible-row' {...flowChildrenProps('vertical')} noFocusRing focusWithinClassName='gpfocuswithin' style={{ display: 'flex', alignItems: 'center' }}>
         <Focusable className='ds-collapsible-header' data-ds-section={id} onClick={toggle} onOKButton={toggle} noFocusRing style={{ flex: 1, minWidth: 0 }}>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {icon}

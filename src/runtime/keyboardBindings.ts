@@ -6,7 +6,7 @@
 
 import type { KeyboardBindings } from "../types";
 
-export const ALLOWED_KEY_TOKENS = [
+const ALLOWED_KEY_TOKENS = [
   "KeyA", "KeyB", "KeyC", "KeyD", "KeyE", "KeyF", "KeyG", "KeyH", "KeyI", "KeyJ",
   "KeyK", "KeyL", "KeyM", "KeyN", "KeyO", "KeyP", "KeyQ", "KeyR", "KeyS", "KeyT",
   "KeyU", "KeyV", "KeyW", "KeyX", "KeyY", "KeyZ",
@@ -62,7 +62,8 @@ export function validateKeyCombo(raw: string | null | undefined, opts?: { allowN
   if (!tokens.length) return { ok: false, reason: "empty" };
   const issue = keyTokenIssue(tokens);
   if (issue) return { ok: false, reason: issue };
-  if (tokens.length === 2 && tokens[0] !== tokens[1] && new Set(tokens).size !== tokens.length) {
+  // Two identical keys are a double-tap; a repeat inside a longer chord is not.
+  if (tokens.length > 2 && new Set(tokens).size !== tokens.length) {
     return { ok: false, reason: "duplicate" };
   }
   return { ok: true };
@@ -86,12 +87,25 @@ export function createKeyMatcherState(): KeyMatcherState {
   return { lastPress: new Map() };
 }
 
+/* Modifier state carried by the keydown itself (`ctrlKey` / `shiftKey` /
+   `altKey`): a held modifier went down long before the letter and its repeats
+   are skipped, so a chord such as Ctrl+Shift+S can never meet the 200 ms rule
+   on timestamps alone. */
+export interface KeyModifierFlags { ctrl?: boolean; shift?: boolean; alt?: boolean }
+const MODIFIER_FLAG: Record<string, keyof KeyModifierFlags> = {
+  ControlLeft: "ctrl", ControlRight: "ctrl", ShiftLeft: "shift", ShiftRight: "shift", AltLeft: "alt", AltRight: "alt",
+};
+export function heldModifiers(e: { ctrlKey?: boolean; shiftKey?: boolean; altKey?: boolean }): KeyModifierFlags {
+  return { ctrl: !!e.ctrlKey, shift: !!e.shiftKey, alt: !!e.altKey };
+}
+
 // Call on every keydown. Returns true when the combo fires.
 export function matchKeyEvent(
   code: string | null | undefined,
   combo: KeyCombo | null,
   state: KeyMatcherState,
   now: number = Date.now(),
+  held?: KeyModifierFlags,
 ): boolean {
   if (!combo || !code) return false;
   if (combo.kind === "single") {
@@ -107,6 +121,8 @@ export function matchKeyEvent(
   state.lastPress.set(code, now);
   if (!combo.codes.includes(code)) return false;
   return combo.codes.every((c) => {
+    const flag = MODIFIER_FLAG[c];
+    if (flag && held?.[flag]) return true; // a modifier still held counts, whenever it went down
     const t = state.lastPress.get(c) ?? 0;
     return t > 0 && (now - t) <= 200;
   });
@@ -131,16 +147,18 @@ export function findKeyCollisions(b: KeyboardBindings): string[][] {
   return Array.from(seen.values()).filter((arr) => arr.length > 1);
 }
 
-// Unlike gamepad bindings, every keyboard binding defaults to unset —
-// opting a keyboard into an action is something the user turns on
-// explicitly, not something that should suddenly claim a key press.
+/* Unlike gamepad bindings, keyboard bindings default to unset — opting a
+   keyboard into an action is something the user turns on explicitly, not
+   something that should suddenly claim a key press. The one exception is the
+   quick-settings sidecar: Ctrl+Shift+S opens it out of the box (the same
+   chord family the standalone host's sidecar uses). */
 export const DEFAULT_KEYBOARD_BINDINGS: Required<KeyboardBindings> = {
   cardHideRemove: null,
   cardHighlightToggle: null,
   cardQuickLaunch: null,
   navSearch: null,
   navSideNav: null,
-  navSidecarOpen: null,
+  navSidecarOpen: "ControlLeft+ShiftLeft+KeyS",
   navSidecarClose: null,
 };
 
@@ -152,8 +170,9 @@ export function resolveKeyboardBindings(
   cardActionsEnabled: boolean = true,
 ): Required<KeyboardBindings> {
   const ds = new Set(disabled ?? []);
+  // An absent field takes the default; an explicit null is a cleared slot and stays unset.
   const pick = (key: keyof KeyboardBindings, raw: string | null | undefined) =>
-    (!cardActionsEnabled && CARD_BINDING_KEYS.has(key)) || ds.has(key) ? null : (raw ?? null);
+    (!cardActionsEnabled && CARD_BINDING_KEYS.has(key)) || ds.has(key) ? null : (raw === undefined ? DEFAULT_KEYBOARD_BINDINGS[key] : raw);
   return {
     cardHideRemove: pick("cardHideRemove", b?.cardHideRemove),
     cardHighlightToggle: pick("cardHighlightToggle", b?.cardHighlightToggle),

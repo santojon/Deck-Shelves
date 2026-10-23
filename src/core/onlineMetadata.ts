@@ -6,6 +6,7 @@
 import { getCurrentSettings } from "../store/settingsStore";
 import { STEAM_STORE_BASE } from "../constants";
 import { logInfo } from "../runtime/logger";
+import { decodeHtmlEntities } from "../domain/sourceUtils";
 
 const META_KEY = "ds-metadata-cache-v1";
 const NAME_KEY = "ds-name-appid-v1";
@@ -138,7 +139,7 @@ function needsMeta(a: any): boolean {
 
 /** On only in Advanced mode with both the master online toggle and the metadata
  *  sub-toggle enabled — the whole feature is Advanced-only. */
-export function onlineMetadataOn(): boolean {
+function onlineMetadataOn(): boolean {
   try {
     const s = getCurrentSettings() as any;
     return !!(s && s.advancedModeEnabled && s.onlineFeaturesEnabled && s.onlineMetadataEnabled);
@@ -188,7 +189,7 @@ function metaCacheId(a: any): string {
    Steam's store/app pages read to gate "available on this platform", so writing
    `false` there blacks those pages out. The system-compatibility filter reads
    this private field first (see steam/index.ts). */
-export const DS_PLATFORM_AVAIL = "__ds_available_on_platform";
+const DS_PLATFORM_AVAIL = "__ds_available_on_platform";
 
 /** Fill our private `__ds_available_on_platform` from the store `platforms` for
  *  apps whose local client left `available_on_current_platform` undefined (macOS,
@@ -231,5 +232,6 @@ export async function enrichPlatformAvailability(apps: any[]): Promise<number> {
 export async function getStoreShortDescription(appid: number, name: string, isNonSteam: boolean): Promise<string | undefined> {
   if (!onlineStoreFallbackOn()) return undefined;
   const meta = await getGameMetadata(appid, name, isNonSteam);
-  return meta?.shortDescription;
+  // The store sends it HTML-encoded ("&amp;", "&quot;"); Steam's own descriptions are plain.
+  return meta?.shortDescription ? decodeHtmlEntities(meta.shortDescription) : undefined;
 }

@@ -13,7 +13,7 @@ Smart shelves are a shelf type whose content is generated automatically by libra
 - Controlled by the `smartShelvesEnabled` global toggle in the QAM.
 - Each smart shelf has `enabled` (active in the system) and `hidden` (manually hidden by the user). Both must be false for the shelf to render on home.
 - Results are **memoized per (mode, limit, params, ttl)** to avoid re-running on every home render cycle. Default TTL is 60 minutes; per-shelf override via `refreshIntervalMinutes` (1 minute to 30 days).
-- Smart shelves **are editable** via the **Edit smart shelf** modal — sort override (`sort`), additional filters (`filterGroup`), per-mode tuning knobs (`smartParams`), refresh interval, and the same visual options as regular shelves (`matchNativeSize`, `highlightFirst`/`highlightAll`/`highlightedAppIds`, `hideStatusLine`, `hideNewBadge`, `hideCompatIcons`, `hideNonSteamBadge`, `hideShelfTitle`, `hideGameNames`, `hideInstallIndicator`).
+- Smart shelves **are editable** via the **Edit smart shelf** modal — sort override (`sort`), additional filters (`filterGroup`), per-mode tuning knobs (`smartParams`), refresh interval, and the same visual options as regular shelves (`matchNativeSize`, `highlightFirst`/`highlightAll`/`highlightedAppIds`, `highlightRandom`, `hideStatusLine`, `hideNewBadge`, `hideDiscountBadge`, `hideCompatIcons`, `hideNonSteamBadge`, `hideShelfTitle`, `hideGameNames`, `hideInstallIndicator`, `hideRefreshCard`, `dedupeByExactName`, plus the logo / icon / description overlay with its positions and sizes, the full-page layout and game info above the cards). With a global switch off, each smart shelf's own value applies on the Home, as it does for a regular shelf.
 
 > **Tip:** if a smart shelf appears too rarely or never matches your library, prefer **hiding** it over deleting — a hidden shelf can be re-enabled later from the QAM without losing its position in the list.
 
@@ -114,16 +114,16 @@ By default, smart shelves appear **before** normal shelves. The `smartShelvesAtB
 
 ---
 
-### Deck Picks — `deck_picks`
+### Picks for this device — `deck_picks`
 
-**When it appears:** you have at least one Deck Verified game in the library.
+**When it appears:** you have at least one game rated *Verified* for the device you are on.
 
 **Criteria:**
-- `deck_compatibility_category = Verified` (category 3)
+- the compatibility rating of the device in use = Verified (category 3) — the Deck rating on a Steam Deck, the Machine rating on a Steam Machine, the Frame rating on a Steam Frame
 
-**Sort:** most recently played first (highlights games you actively use on Deck).
+**Sort:** most recently played first (highlights games you actively use on this device).
 
-**When it disappears:** when the library has no Deck Verified games at all.
+**When it disappears:** when the library has no game rated Verified for this device.
 
 **Reliability:** high for most Steam Deck users; Valve certifies many popular titles.
 
@@ -435,11 +435,11 @@ All families return an **empty shelf** gracefully when the runtime data isn't re
 
 When **Surprise Me** is enabled (sub-toggle under Smart Shelves in the QAM), the manual smart shelf list is hidden entirely. Instead, the system picks a set of smart shelf templates automatically each day using a deterministic daily seed — same day, same selection.
 
-**Count:** the slider sets how many templates appear (1–5). When set to 0, the system decides: `1 + (dayIndex % 3)`, cycling 2, 3, or 4 shelves per day.
+**Count:** the slider sets how many templates appear (1–5). When set to 0, the system decides: `1 + (dayIndex % 3)`, cycling 1, 2 or 3 shelves per day.
 
 > **Note:** the count is the **maximum** number of shelves, not a guarantee. Templates that return no games for your library follow the normal null-render path and simply don't appear — the actual number of visible shelves may be lower.
 
-**Selection:** all 13 templates are shuffled with the daily seed. The first `count` entries from the shuffled list are used. Templates that return no games still follow the natural null-render path and disappear from the home screen — the count is the maximum, not a guarantee.
+**Selection:** the 15 surprise modes are shuffled with the daily seed. The first `count` entries from the shuffled list are used. Templates that return no games still follow the natural null-render path and disappear from the home screen — the count is the maximum, not a guarantee.
 
 **Reset time:** the seed is derived from the local calendar date (`YYYYMMDD`). The selection resets at **local midnight** — when the device clock rolls over to a new day.
 

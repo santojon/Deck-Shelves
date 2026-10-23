@@ -181,7 +181,3 @@ export async function pruneCache(): Promise<{ removed: number; kept: number }> {
   } catch {}
   return { removed, kept };
 }
-
-export function imageCacheStats(): { hotEntries: number; inflight: number } {
-  return { hotEntries: hot.size, inflight: inflight.size };
-}

@@ -139,7 +139,7 @@ function refresh(): boolean {
   _playingByApp = playingByApp;
   _recentByApp = recentByApp;
   if (changed) {
-    try { triggerShelfRefresh(); } catch {}
+    try { triggerShelfRefresh({ deps: ['friends'] }); } catch {}
   }
   /* Unconditional, unlike triggerShelfRefresh above: a card can mount (and
      read getFriendsInApp) between refresh() populating the maps and this
@@ -174,7 +174,8 @@ export function installFriendsState(): () => void {
   };
   // First attempt deferred to idle so the boot path stays responsive; the
   // friend list isn't usually ready yet at plugin boot, hence the retries.
-  const schedule = (globalThis as any).requestIdleCallback ?? ((cb: any) => setTimeout(cb, 2000));
+  const ric = (globalThis as any).requestIdleCallback;
+  const schedule = ric ? (cb: () => void) => ric(cb, { timeout: 5000 }) : (cb: () => void) => setTimeout(cb, 2000);
   schedule(() => attemptFirstRefresh(1));
   _pollTimer = window.setInterval(() => {
     try { refresh(); } catch {}
@@ -207,10 +208,6 @@ export function getFriendsRecentlyPlayedAppIds(): Set<number> {
 export function getFriendsInApp(appId: number, includeRecent: boolean): FriendBrief[] {
   if (!appId) return [];
   return (includeRecent ? _recentByApp : _playingByApp).get(appId) ?? [];
-}
-
-export function refreshFriendsState(): void {
-  try { refresh(); } catch {}
 }
 
 // Temporary diagnostic for the "friend overlay missing" investigation.

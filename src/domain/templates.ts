@@ -91,10 +91,38 @@ export const SHELF_TEMPLATES: ShelfTemplate[] = [
     id: "deck_verified",
     titleKey: "template_deck_verified",
     category: "platform",
+    // "Verified on this device": the rating of the device in use (Deck,
+    // Machine or Frame), which is the Deck rating on a Deck.
     source: {
       type: "filter",
       filter: {
-        filterGroup: { mode: "and", items: [{ type: "deckCompatibility", inverted: false, params: { levels: ["verified"] } }] },
+        filterGroup: { mode: "and", items: [{ type: "deviceCompatibility", inverted: false, params: { levels: ["verified"] } }] },
+        sort: "alphabetical",
+      },
+    },
+  },
+  {
+    id: "vr_games",
+    titleKey: "template_vr_games",
+    category: "platform",
+    // Titles that run in VR — VR-only and VR-supported alike (Steam Frame).
+    source: {
+      type: "filter",
+      filter: {
+        filterGroup: { mode: "and", items: [{ type: "vrSupport", inverted: false, params: { levels: ["only", "supported"] } }] },
+        sort: "recent",
+      },
+    },
+  },
+  {
+    id: "vr_only",
+    titleKey: "template_vr_only",
+    category: "platform",
+    // Titles that require a headset.
+    source: {
+      type: "filter",
+      filter: {
+        filterGroup: { mode: "and", items: [{ type: "vrSupport", inverted: false, params: { levels: ["only"] } }] },
         sort: "alphabetical",
       },
     },
@@ -121,7 +149,7 @@ export const SHELF_TEMPLATES: ShelfTemplate[] = [
     source: {
       type: "filter",
       filter: {
-        filterGroup: { mode: "and", items: [{ type: "deckCompatibility", inverted: false, params: { levels: ["playable"] } }] },
+        filterGroup: { mode: "and", items: [{ type: "deviceCompatibility", inverted: false, params: { levels: ["playable"] } }] },
         sort: "alphabetical",
       },
     },

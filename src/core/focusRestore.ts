@@ -1,4 +1,27 @@
-import { getPreferredSteamDocument } from "../runtime/steamHost";
+import { getAllSteamDocuments, getPreferredSteamDocument } from "../runtime/steamHost";
+import { getSessionState } from "../runtime/sessionState";
+import { registerDisposer } from "../runtime/runtimeDisposer";
+import { getPowerState, homeRouteCovered, registerPeriodic } from "../runtime/powerGate";
+import { steamUIStore } from "../steam/internals";
+
+/* The document the Home lives in: the one holding our root, else Steam's main
+   window, else the preferred one. Read live — the preferred window can point
+   at the plugin's own context while the Home is detached behind another page. */
+function homeDocument(): Document {
+  return rootDocument() ?? mainWindowDocument() ?? getPreferredSteamDocument();
+}
+
+function rootDocument(): Document | null {
+  for (const d of getAllSteamDocuments()) { if (d.querySelector?.(".deck-shelves-root")) return d; }
+  return null;
+}
+
+function mainWindowDocument(): Document | null {
+  try {
+    const main = steamUIStore()?.WindowStore?.GamepadUIMainWindowInstance?.BrowserWindow?.document;
+    return main?.body ? main : null;
+  } catch { return null; }
+}
 
 let pendingAppid: number | null = null;
 let pendingShelfId: string | null = null;
@@ -16,10 +39,38 @@ function findDsCard(appid: number, shelfId?: string | null): HTMLElement | null 
   return (doc?.querySelector(sel) as HTMLElement | null) ?? null;
 }
 
+/* Once the player moves around the Home themselves, a pending restore is stale.
+   Left alone it fired later, when its shelf finally mounted, and pulled focus
+   into that shelf in the middle of their navigation. */
+const STALE_AFTER_MS = 1500;
+let watchedDoc: Document | null = null;
+
+function onHomeDirection(evt: Event): void {
+  if (!pendingAppid || Date.now() - pendingTimestamp < STALE_AFTER_MS) return;
+  const doc = watchedDoc;
+  const root = doc?.getElementById("deck-shelves-home-root");
+  const home = root?.parentElement ?? root;
+  const target = evt.target as Node | null;
+  if (home && target && typeof (target as any).nodeType === "number" && home.contains(target)) clearPending();
+}
+
+function watchHomeNavigation(): void {
+  const doc = getPreferredSteamDocument();
+  if (!doc || watchedDoc === doc) return;
+  watchedDoc?.removeEventListener("vgp_ondirection", onHomeDirection, true);
+  watchedDoc = doc;
+  doc.addEventListener("vgp_ondirection", onHomeDirection, true);
+  registerDisposer(() => {
+    try { doc.removeEventListener("vgp_ondirection", onHomeDirection, true); } catch {}
+    if (watchedDoc === doc) watchedDoc = null;
+  });
+}
+
 export function saveFocusTarget(appid: number, shelfId?: string): void {
   pendingAppid = appid;
   pendingShelfId = shelfId ?? null;
   pendingTimestamp = Date.now();
+  try { watchHomeNavigation(); } catch {}
   // Sync Steam's nav tree m_lastFocusNode to the current card BEFORE
   // navigation pushes history. Steam's native popstate restoration reads
   // m_lastFocusNode, so landing becomes deterministic — no post-hoc race.
@@ -33,6 +84,19 @@ export function saveFocusTarget(appid: number, shelfId?: string): void {
     const ctx = getFocusNavController()?.m_ActiveContext;
     if (ctx) ctx.m_lastFocusNode = navNode;
   } catch {}
+}
+
+/* Drop a pending restore target and stop its loop: for a driver that takes
+   the focus itself (a dev hook), so no earlier target pulls it back. */
+export function clearFocusTarget(): void {
+  activeAbort?.abort();
+  clearPending();
+}
+
+// The card a Home rebuild should land on, if a restore is pending.
+export function getPendingFocusTarget(): { appid: number; shelfId: string | null } | null {
+  if (!pendingAppid || Date.now() - pendingTimestamp > FOCUS_RESTORE_TIMEOUT) return null;
+  return { appid: pendingAppid, shelfId: pendingShelfId };
 }
 
 /* Remember the currently focused DS card as the restore target — for leave
@@ -131,7 +195,9 @@ function hookNavNode(fiber: any, el: HTMLElement): any {
   return null;
 }
 
-function navNodeFromFiber(el: HTMLElement): any {
+// The nav node a Steam Focusable keeps on its own fiber (a ref hook) — found
+// even when the node hangs off a parent that does not list it.
+export function navNodeFromFiber(el: HTMLElement): any {
   try {
     const key = Object.keys(el).find((k) => k.startsWith("__reactFiber$"));
     let fiber: any = key ? (el as any)[key] : null;
@@ -219,6 +285,27 @@ function isUnintegratedDsElement(el: HTMLElement): boolean {
   return !!el.closest?.(".ds-card, .deck-shelves-root");
 }
 
+/* Another page (a game page that is opening) covers the Home, which stays
+   mounted behind it for a moment. Read from Steam's own router (see the gate);
+   a client that doesn't expose it counts as not covered. */
+function homeCovered(): boolean {
+  return homeRouteCovered();
+}
+
+/* No automatic focus grabs while a game runs, while another page covers the
+   Home, or while the gate holds the Home (suspend): taking focus then steals
+   input from the Steam menu / Quick Access, or leaves the opening page with
+   none. The pending target is kept. */
+function autoFocusAllowed(): boolean {
+  try { if (getSessionState().gameRunning) return false; } catch {}
+  if (homeCovered()) return false;
+  return getPowerState() === 'active';
+}
+
+function autoTakeNavFocus(navNode: any): boolean {
+  return autoFocusAllowed() && takeNavFocus(navNode);
+}
+
 export function focusElement(el: HTMLElement): boolean {
   const navNode = findNavNodeForElement(el);
   if (navNode && takeNavFocus(navNode)) return true;
@@ -227,12 +314,40 @@ export function focusElement(el: HTMLElement): boolean {
   return false;
 }
 
+// focusElement for the automatic callers (first-shelf landing, plugin-off
+// restore): a no-op outside the active Home. User-driven moves keep focusElement.
+export function focusElementAuto(el: HTMLElement): boolean {
+  return autoFocusAllowed() && focusElement(el);
+}
+
+const FOCUS_FIRST_POLL_MS = 600;
+const FOCUS_FIRST_WINDOW_MS = 25_000;
+
+/* The Home's "land on the first shelf" poll as a gate task: `tryFocus` every
+   600 ms for up to 25 s while the Home is active (the home tree can become the
+   active context well after mount), held while it is not, and one more attempt
+   on each return when no real card holds focus. Returns the cleanup. */
+export function startFocusFirstPoll(tryFocus: () => boolean, aRealCardHasFocus: () => boolean): () => void {
+  const started = Date.now();
+  let timer: ReturnType<typeof setInterval> | null = null;
+  const stop = () => { if (timer !== null) { clearInterval(timer); timer = null; } };
+  const start = () => {
+    if (timer !== null || Date.now() - started > FOCUS_FIRST_WINDOW_MS) return;
+    timer = setInterval(() => { if (tryFocus() || Date.now() - started > FOCUS_FIRST_WINDOW_MS) stop(); }, FOCUS_FIRST_POLL_MS);
+  };
+  const unregister = registerPeriodic("homeFocusFirst", {
+    runIn: ["active"], start, stop,
+    onResume: () => { if (!aRealCardHasFocus()) tryFocus(); },
+  });
+  return () => { unregister(); stop(); };
+}
+
 export function hasPendingFocus(): boolean {
   return !!pendingAppid;
 }
 
 function findPendingCard(): HTMLElement | null {
-  const doc = getPreferredSteamDocument();
+  const doc = homeDocument();
   if (!doc) return null;
   let card: HTMLElement | null = null;
   if (pendingShelfId) {
@@ -270,6 +385,8 @@ export function tryRestoreFocus(): boolean {
     clearPending();
     return false;
   }
+  // The card can still hold focus while its game page opens: that is not a restore.
+  if (homeCovered()) return false;
 
   const card = findPendingCard();
   if (!card) return false;
@@ -280,7 +397,7 @@ export function tryRestoreFocus(): boolean {
   }
 
   const navNode = findNavNodeForElement(card);
-  if (navNode) takeNavFocus(navNode);
+  if (navNode) autoTakeNavFocus(navNode);
   // No navNode: skip the raw DOM-focus fallback (see focusElement above).
   // Keep the pending state so a later call retries once the rebuilt nav
   // tree actually registers the node.
@@ -308,7 +425,7 @@ function walkBackToEarlierShelf(doc: Document, orderedShelfIds: string[], focuse
     const earlier = doc.querySelector(`.ds-card[data-shelfid="${orderedShelfIds[i]}"]`) as HTMLElement | null;
     if (!earlier) continue;
     const navNode = findNavNodeForElement(earlier);
-    if (navNode) takeNavFocus(navNode);
+    if (navNode) autoTakeNavFocus(navNode);
     break;
   }
 }
@@ -334,7 +451,7 @@ function claimFirstCardFocus(doc: Document, orderedShelfIds: string[]): boolean 
     const first = doc.querySelector(`.ds-card[data-shelfid="${id}"]`) as HTMLElement | null;
     if (!first) continue;
     const navNode = findNavNodeForElement(first);
-    return !!navNode && takeNavFocus(navNode);
+    return !!navNode && autoTakeNavFocus(navNode);
   }
   return false;
 }
@@ -369,8 +486,10 @@ export function beginColdBootFocusGuard(orderedShelfIds: string[]): void {
   const armedAt = Date.now();
   let start = armedAt;
   const expired = () => Date.now() - start >= COLD_BOOT_GUARD_MS || Date.now() - armedAt >= COLD_BOOT_GUARD_MAX_MS;
+  // A boot-only helper: it also stands down while a game or another page holds the Home.
+  const standDown = () => abort.signal.aborted || userNavigated || getPowerState() !== 'active';
   const tick = () => {
-    if (abort.signal.aborted || userNavigated) { cleanup(); return; }
+    if (standDown()) { cleanup(); return; }
     if (!doc.querySelector(".ds-card")) start = Date.now();
     const gp = focusedDsCard(doc);
     const focusedIdx = orderedShelfIds.indexOf(gp?.getAttribute("data-shelfid") ?? "");
@@ -387,18 +506,26 @@ export function beginColdBootFocusGuard(orderedShelfIds: string[]): void {
 }
 
 let activeAbort: AbortController | null = null;
+let activeTarget: number | null = null;
+let activeRetake: (() => void) | null = null;
+const RETAKE_WINDOW_MS = 3500;
+// How much longer a restore waits for a card that is not on the page yet.
+const LATE_SHELF_GRACE_MS = 24_000;
 
 export function beginFocusRestoreLoop(): void {
   if (!pendingAppid) return;
+  // The loop for this target is still alive (the Home came back while it waited): a fresh window, not a second loop.
+  if (activeAbort && !activeAbort.signal.aborted && activeTarget === pendingAppid) { activeRetake?.(); return; }
 
   // Cancel any previous restore loop
   activeAbort?.abort();
   const abort = new AbortController();
   activeAbort = abort;
+  activeTarget = pendingAppid;
 
   const targetAppid = pendingAppid;
   const targetShelfId = pendingShelfId;
-  const doc = getPreferredSteamDocument();
+  const doc = homeDocument();
   if (!doc?.body) return;
 
   const FALLBACK_AFTER = Date.now() + 2500;
@@ -406,17 +533,18 @@ export function beginFocusRestoreLoop(): void {
   // any-appid match after FALLBACK_AFTER. Without this, a shelf with the
   // same appid (online wishlist, etc.) that resolves first wins focus.
   const findCard = (): HTMLElement | null => {
+    const d = homeDocument();
     if (targetShelfId) {
-      const scoped = doc.querySelector(`.ds-card[data-appid="${targetAppid}"][data-shelfid="${targetShelfId}"]`) as HTMLElement | null;
+      const scoped = d.querySelector(`.ds-card[data-appid="${targetAppid}"][data-shelfid="${targetShelfId}"]`) as HTMLElement | null;
       if (scoped) return scoped;
       if (Date.now() < FALLBACK_AFTER) return null;
     }
-    return doc.querySelector(`.ds-card[data-appid="${targetAppid}"]`) as HTMLElement | null;
+    return d.querySelector(`.ds-card[data-appid="${targetAppid}"]`) as HTMLElement | null;
   };
 
   const isDone = () => abort.signal.aborted || !pendingAppid || pendingAppid !== targetAppid;
 
-  // Steam's native "focus first card on home mount" (issue #38) fires once,
+  // Steam's native "focus first card on home mount" fires once,
   // ~0.8-1.8s after the home remounts — well AFTER our initial restore lands.
   // Poll for 2s and, the first time focus has drifted off the target card,
   /* re-take it. Bounded to one re-take so the user's own later navigation is
@@ -442,7 +570,7 @@ export function beginFocusRestoreLoop(): void {
       const card = findCard();
       if (card && !card.classList.contains("gpfocus") && reTakes < 5) {
         const navNode = findNavNodeForElement(card);
-        if (navNode && takeNavFocus(navNode)) reTakes++;
+        if (navNode && autoTakeNavFocus(navNode)) reTakes++;
       }
       if (Date.now() - start < 5000) { setTimeout(check, 200); return; }
       stopListening();
@@ -458,6 +586,7 @@ export function beginFocusRestoreLoop(): void {
 
   const attempt = (): boolean => {
     if (isDone()) return true;
+    if (homeCovered()) return false;
     const card = findCard();
     if (!card) return false;
     // Success is declared ONLY when the card actually holds gamepad focus.
@@ -466,7 +595,7 @@ export function beginFocusRestoreLoop(): void {
     if (card.classList.contains("gpfocus")) { succeed(); return true; }
     const navNode = findNavNodeForElement(card);
     if (navNode) {
-      takeNavFocus(navNode);
+      autoTakeNavFocus(navNode);
       // Not confirmed yet — let the next poll verify gpfocus landed.
       return false;
     }
@@ -475,15 +604,52 @@ export function beginFocusRestoreLoop(): void {
     return false;
   };
 
+  // setTimeout-based poll — NOT requestAnimationFrame: rAF does fire in
+  /* SharedJSContext, but it is throttled whenever that context is hidden, and
+     this retry needs a steady cadence. Polling every ~120ms keeps re-issuing
+     BTakeFocus until the rebuilt nav tree settles and the focus sticks. The
+     3.5s window covers a shelf below the fold that renders ~2-3s later. */
+  let deadline = Date.now() + RETAKE_WINDOW_MS;
+  const tick = () => {
+    if (isDone()) return;
+    if (attempt()) return;
+    if (Date.now() >= deadline) return;
+    setTimeout(tick, 120);
+  };
+  setTimeout(tick, 0);
+  // A card that lands late (a lower shelf mounting its row) is taken at once
+  // and, after the window, gets a re-issue window of its own.
+  const retakeWindow = () => {
+    const expired = Date.now() >= deadline;
+    deadline = Date.now() + RETAKE_WINDOW_MS;
+    if (expired) setTimeout(tick, 0);
+    else attempt();
+  };
+  activeRetake = retakeWindow;
+
+  // A card added later (its shelf just mounted its row) sits inside the added
+  // node, not on the mutation's target.
+  const holdsTarget = (n: Node): boolean => {
+    const el = n as HTMLElement;
+    if (el.nodeType !== 1) return false;
+    const sel = `.ds-card[data-appid="${targetAppid}"]`;
+    return !!el.matches?.(sel) || !!el.querySelector?.(sel);
+  };
+  const targetAppeared = (m: MutationRecord): boolean => m.type === "childList" && Array.from(m.addedNodes).some(holdsTarget);
+  const isTargetCard = (el: HTMLElement): boolean => {
+    if (!el.matches?.(`.ds-card[data-appid="${targetAppid}"]`)) return false;
+    return !(targetShelfId && el.dataset?.shelfid && el.dataset.shelfid !== targetShelfId);
+  };
+
   // MutationObserver: succeed only when TARGET card is added/focused.
   // Do NOT re-steal focus on arbitrary gpfocus changes — that hijacks the
   // user's own navigation after the initial restore window.
   const observer = new MutationObserver((mutations) => {
     if (isDone()) { observer.disconnect(); return; }
     for (const m of mutations) {
+      if (targetAppeared(m)) { retakeWindow(); return; }
       const el = m.target as HTMLElement;
-      if (!el.matches?.(`.ds-card[data-appid="${targetAppid}"]`)) continue;
-      if (targetShelfId && el.dataset?.shelfid && el.dataset.shelfid !== targetShelfId) continue;
+      if (!isTargetCard(el)) continue;
       if (el.classList.contains("gpfocus")) { succeed(); observer.disconnect(); return; }
       attempt();
       return;
@@ -492,29 +658,20 @@ export function beginFocusRestoreLoop(): void {
   const observeRoot = (doc.querySelector(".deck-shelves-root") as HTMLElement | null) ?? doc.body;
   observer.observe(observeRoot, { subtree: true, attributes: true, attributeFilter: ["class"], childList: true });
 
-  // setTimeout-based poll — NOT requestAnimationFrame. The plugin runs in the
-  /* headless SharedJSContext, which has no render loop, so rAF callbacks never
-     fire there; an rAF-driven retry would silently never run. Polling every
-     ~120ms keeps re-issuing BTakeFocus until the rebuilt nav tree settles and
-     the focus actually sticks. 3.5s window covers a shelf below the fold that
-     renders ~2-3s after the home remounts. */
-  const DEADLINE = Date.now() + 3500;
-  const tick = () => {
-    if (isDone()) return;
-    if (attempt()) return;
-    if (Date.now() >= DEADLINE) return;
-    setTimeout(tick, 120);
+  /* 6 s lets scheduleConfirmation's 5 s window run before the target is
+     dropped. A target whose card is not on the page yet (a lower shelf still
+     mounting on a rebuilt Home) is kept longer, bounded; the observer above
+     retries when the card lands. */
+  const giveUp = () => {
+    if (abort.signal.aborted) return;
+    observer.disconnect();
+    clearPending();
+    abort.abort();
   };
-  setTimeout(tick, 0);
-
-  // Hard timeout extended to 6s so scheduleConfirmation's 5s window can
-  // run fully before pending state is dropped.
   setTimeout(() => {
-    if (!abort.signal.aborted) {
-      observer.disconnect();
-      clearPending();
-      abort.abort();
-    }
+    if (abort.signal.aborted) return;
+    if (!findCard()) { setTimeout(giveUp, LATE_SHELF_GRACE_MS); return; }
+    giveUp();
   }, 6000);
 
   // Cleanup on abort

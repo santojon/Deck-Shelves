@@ -4,6 +4,8 @@
    This helper exposes a single subscribe-based stream so multiple
    features can listen without each one re-registering with Steam. */
 
+import { getSessionState } from "./sessionState";
+import { devStamp, devTrace } from "./devStamps";
 import { dispatchHomeKey } from "./homeInputBus";
 
 const DPAD_UP = 20;
@@ -54,19 +56,33 @@ let unregister: (() => void) | null = null;
 // Expose a debug bus for CDP probes. Tests can push a fake event and
 // observe what each subscriber does without needing a real controller.
 function publishToDebugBus(ev: ControllerEvent): void {
-  try {
-    const g = globalThis as any;
-    g.__ds_input_last = ev;
-    if (!Array.isArray(g.__ds_input_log)) g.__ds_input_log = [];
-    g.__ds_input_log.push(ev);
-    if (g.__ds_input_log.length > 50) g.__ds_input_log.shift();
-  } catch {}
+  devStamp("__ds_input_last", ev);
+  devTrace("__ds_input_log", ev, 50);
 }
 
 function exposeSubscribersForDebug(): void {
-  try {
-    (globalThis as any).__ds_input_bus = Array.from(listeners);
-  } catch {}
+  devStamp("__ds_input_bus", Array.from(listeners));
+}
+
+const inputApiOf = (owner: any) => owner?.SteamClient?.Input;
+
+const homeView = (g: any) => g.document?.getElementById?.('deck-shelves-home-root')?.ownerDocument?.defaultView;
+
+/* Every place Steam may expose a `SteamClient.Input`, in priority order, as
+   lazy probes — each one evaluated (and guarded) on its own. */
+function inputProbes(g: any): Array<[string, () => any]> {
+  const probes: Array<[string, () => any]> = [
+    ['self', () => inputApiOf(g)],
+    ['opener', () => inputApiOf(g.opener)],
+    ['gamepadMain', () => inputApiOf(g.SteamUIStore?.WindowStore?.GamepadUIMainWindowInstance?.BrowserWindow)],
+  ];
+  let wins: any;
+  try { wins = g.SteamUIStore?.WindowStore?.SteamUIWindows; } catch {}
+  if (Array.isArray(wins)) wins.forEach((entry: any, i: number) => probes.push(['ui[' + i + ']', () => inputApiOf(entry?.BrowserWindow)]));
+  probes.push(['focused', () => inputApiOf(g.SteamUIStore?.GetFocusedWindowInstance?.()?.BrowserWindow)]);
+  probes.push(['home.view', () => inputApiOf(homeView(g))]);
+  probes.push(['home.opener', () => inputApiOf(homeView(g)?.opener)]);
+  return probes;
 }
 
 function getAllInputApis(): any[] {
@@ -78,30 +94,11 @@ function getAllInputApis(): any[] {
     if (!fn || seen.has(fn)) return;
     seen.add(fn);
     candidates.push(v);
-    try {
-      if (!Array.isArray(g.__ds_input_sources)) g.__ds_input_sources = [];
-      g.__ds_input_sources.push(label);
-    } catch {}
+    devTrace("__ds_input_sources", label, 50);
   };
-  tryPush(g.SteamClient?.Input, 'self');
-  tryPush(g.opener?.SteamClient?.Input, 'opener');
-  tryPush(g.SteamUIStore?.WindowStore?.GamepadUIMainWindowInstance?.BrowserWindow?.SteamClient?.Input, 'gamepadMain');
-  try {
-    const wins = g.SteamUIStore?.WindowStore?.SteamUIWindows;
-    if (Array.isArray(wins)) {
-      wins.forEach((entry: any, i: number) => tryPush(entry?.BrowserWindow?.SteamClient?.Input, 'ui[' + i + ']'));
-    }
-  } catch {}
-  try {
-    const focused = g.SteamUIStore?.GetFocusedWindowInstance?.();
-    tryPush(focused?.BrowserWindow?.SteamClient?.Input, 'focused');
-  } catch {}
-  try {
-    const root = (g as any).document?.getElementById?.('deck-shelves-home-root');
-    const view = root?.ownerDocument?.defaultView;
-    tryPush(view?.SteamClient?.Input, 'home.view');
-    tryPush(view?.opener?.SteamClient?.Input, 'home.opener');
-  } catch {}
+  for (const [label, get] of inputProbes(g)) {
+    try { tryPush(get(), label); } catch {}
+  }
   return candidates;
 }
 
@@ -134,30 +131,45 @@ let pollTimer: number | null = null;
    callbacks are silently dropped. The BP script writes events to
    `view.__ds_bp_input_log`; we poll it and forward into the listeners
    here. */
-function installBPInjection(): boolean {
-  const g = globalThis as any;
+// The BP-side windows that may own a `SteamClient.Input` (the first one
+// exposing `RegisterForControllerInputMessages` wins).
+function collectBrowserWindows(g: any): any[] {
   const candidates: any[] = [];
-  try { candidates.push(g.SteamUIStore?.WindowStore?.GamepadUIMainWindowInstance?.BrowserWindow); } catch {}
+  const push = (get: () => any) => { try { candidates.push(get()); } catch {} };
+  push(() => g.SteamUIStore?.WindowStore?.GamepadUIMainWindowInstance?.BrowserWindow);
   try {
     const wins = g.SteamUIStore?.WindowStore?.SteamUIWindows;
     if (Array.isArray(wins)) for (const w of wins) candidates.push(w?.BrowserWindow);
   } catch {}
-  try { candidates.push(g.SteamUIStore?.GetFocusedWindowInstance?.()?.BrowserWindow); } catch {}
+  push(() => g.SteamUIStore?.GetFocusedWindowInstance?.()?.BrowserWindow);
+  return candidates;
+}
+
+function installBPInjection(): boolean {
+  const g = globalThis as any;
+  const candidates = collectBrowserWindows(g);
   const view = candidates.find((c) => c?.SteamClient?.Input?.RegisterForControllerInputMessages) ?? null;
-  try {
-    g.__ds_bp_diag = {
-      cand: candidates.length,
-      hasView: !!view,
-      hasFunction: !!view?.Function,
-      hasDocument: !!view?.document,
-      typeofView: typeof view,
-    };
-  } catch {}
+  devStamp("__ds_bp_diag", {
+    cand: candidates.length,
+    hasView: !!view,
+    hasFunction: !!view?.Function,
+    hasDocument: !!view?.document,
+    typeofView: typeof view,
+  });
   if (!view) return false;
-  /* Also install a global keydown listener IN BP context to capture
-     keyboard typing on the home (matches Big Picture's native
-     "type to filter" UX). BP captures these even when no input has
-     focus, but the events only fire in BP's JS context. */
+  installBPKeydownLogger(view);
+  if (view.__ds_bp_input_installed) {
+    g.__ds_input_bp_view = view;
+    return true;
+  }
+  return installBPInputRegistration(view, g);
+}
+
+/* Also install a global keydown listener IN BP context to capture keyboard
+   typing on the home (matches Big Picture's native "type to filter" UX). BP
+   captures these even when no input has focus, but the events only fire in
+   BP's JS context. */
+function installBPKeydownLogger(view: any): void {
   try {
     const kbBody = [
       "if (this.__ds_bp_keydown_installed) return;",
@@ -166,7 +178,7 @@ function installBPInjection(): boolean {
       "var _klog = this.__ds_bp_keydown_log;",
       "this.document.addEventListener('keydown', function (e) {",
       "  try {",
-      "    _klog.push({ key: e.key, code: e.code, ctrl: e.ctrlKey, meta: e.metaKey, alt: e.altKey, tag: e.target && e.target.tagName, t: Date.now() });",
+      "    _klog.push({ key: e.key, code: e.code, ctrl: e.ctrlKey, shift: e.shiftKey, meta: e.metaKey, alt: e.altKey, tag: e.target && e.target.tagName, t: Date.now() });",
       "    if (_klog.length > 100) _klog.shift();",
       "  } catch (err) {}",
       "}, true);",
@@ -174,12 +186,11 @@ function installBPInjection(): boolean {
     const kbFn = new view.Function(kbBody);
     kbFn.call(view);
   } catch (e) {
-    try { g.__ds_bp_keydown_err = String(e).slice(0, 200); } catch {}
+    devStamp("__ds_bp_keydown_err", String(e).slice(0, 200));
   }
-  if (view.__ds_bp_input_installed) {
-    g.__ds_input_bp_view = view;
-    return true;
-  }
+}
+
+function installBPInputRegistration(view: any, g: any): boolean {
   try {
     const body = [
       "if (this.__ds_bp_input_installed) return;",
@@ -227,35 +238,48 @@ function installBPInjection(): boolean {
     g.__ds_input_bp_view = view;
     return true;
   } catch (e) {
-    try { g.__ds_input_bp_err = String(e).slice(0, 200); } catch {}
+    devStamp("__ds_input_bp_err", String(e).slice(0, 200));
     return false;
   }
 }
 
-let pollCursor = 0;
-let keyPollCursor = 0;
+/* The injected logger records `{ src, args, t }`. Controller-input messages
+   carry (slot, button, pressed) and are forwarded only while no direct
+   registration has delivered (so one press never arrives twice); other messages
+   are forwarded as before, button-less, so idle detection still sees activity. */
+let directInputSeen = false;
+function inputArgsOf(entry: any): any[] | null {
+  const isInput = typeof entry?.src === "string" && entry.src.endsWith(".RegisterForControllerInputMessages");
+  return isInput && Array.isArray(entry.args) && typeof entry.args[1] === "number" ? entry.args : null;
+}
+function bpEntryToEvent(entry: any): ControllerEvent | null {
+  const args = inputArgsOf(entry);
+  if (!args) return { slot: entry?.s, button: entry?.b, pressed: entry?.p };
+  return directInputSeen ? null : { slot: Number(args[0]), button: args[1], pressed: !!args[2] };
+}
+
+// Drain the logs (the injected side caps them with shift(), so a growing read
+// cursor would stall once a cap is reached).
+function drain(log: unknown): any[] {
+  return Array.isArray(log) && log.length ? log.splice(0, log.length) : [];
+}
+
+// Behind a running game nothing here needs these; drop them so no stale presses
+// fire once the game ends.
+function drainLogs(view: any, discard: boolean): void {
+  for (const entry of drain(view?.__ds_bp_input_log)) {
+    const ev = entry && !discard ? bpEntryToEvent(entry) : null;
+    if (ev) dispatch(ev);
+  }
+  for (const entry of drain(view?.__ds_bp_keydown_log)) if (entry && !discard) dispatchHomeKey(entry);
+}
+
 function startPolling(): void {
   if (pollTimer != null) return;
   const g = globalThis as any;
   pollTimer = g.setInterval?.(() => {
     try {
-      const view = g.__ds_input_bp_view;
-      const log = view?.__ds_bp_input_log;
-      if (Array.isArray(log)) {
-        while (pollCursor < log.length) {
-          const entry = log[pollCursor++];
-          if (!entry) continue;
-          dispatch({ slot: entry.s, button: entry.b, pressed: entry.p });
-        }
-      }
-      const kbLog = view?.__ds_bp_keydown_log;
-      if (Array.isArray(kbLog)) {
-        while (keyPollCursor < kbLog.length) {
-          const entry = kbLog[keyPollCursor++];
-          if (!entry) continue;
-          dispatchHomeKey(entry);
-        }
-      }
+      drainLogs(g.__ds_input_bp_view, getSessionState().gameRunning);
     } catch {}
   }, 30);
 }
@@ -270,16 +294,17 @@ function ensureInstalled(): void {
   // for desktop testing and for OS variants where SharedJSContext does
   // see controller events.
   const apis = getAllInputApis();
-  try { (globalThis as any).__ds_input_api = apis.length; } catch {}
+  devStamp("__ds_input_api", apis.length);
   for (let i = 0; i < apis.length; i++) {
     const Input = apis[i];
     try {
       const reg = Input.RegisterForControllerInputMessages((slot: number, button: number, pressed: boolean) => {
+        directInputSeen = true;
         dispatch({ slot, button, pressed });
       });
       unregisterAll.push(() => { try { reg?.unregister?.(); } catch {} });
     } catch (e) {
-      try { (globalThis as any).__ds_input_err = String(e).slice(0, 200); } catch {}
+      devStamp("__ds_input_err", String(e).slice(0, 200));
     }
   }
   if (bpOk || unregisterAll.length > 0) {
@@ -289,10 +314,9 @@ function ensureInstalled(): void {
       unregisterAll = [];
       try { if (pollTimer != null) (globalThis as any).clearInterval?.(pollTimer); } catch {}
       pollTimer = null;
-      pollCursor = 0;
     };
     installed = true;
-    try { (globalThis as any).__ds_input_installed = { sharedJs: unregisterAll.length, bp: bpOk }; } catch {}
+    devStamp("__ds_input_installed", { sharedJs: unregisterAll.length, bp: bpOk });
   }
 }
 

@@ -8,14 +8,12 @@ import { getSteamOSVersion } from "../core/steamOSVersion";
 import {
   isCssLoaderActive,
   getActiveCssLoaderThemes,
-  isArtHeroActive,
-  isTiltedHomeActive,
-  isHeroFullscreenActive,
-  isNoHomeTextActive,
   cssLoaderStyleCount,
 } from "../core/cssLoaderDetect";
+import { activeThemeLabels } from "../themes";
 import * as pluginRegistry from "../integrations/registry";
 import { getHostHandshake } from "./hostHandshake";
+import { getPerfSnapshot, type PerfSnapshot } from "../core/perfMetrics";
 
 export interface RuntimeInfo {
   version: string;
@@ -60,11 +58,7 @@ function activeTheme(): string | null {
   // DS-relevant home themes we structurally detect until the fetch resolves.
   const names = getActiveCssLoaderThemes();
   if (names.length) return names.join(", ");
-  const parts: string[] = [];
-  if (isTiltedHomeActive()) parts.push("TiltedHome");
-  if (isArtHeroActive()) parts.push("ArtHero");
-  if (isHeroFullscreenActive()) parts.push("Hero Fullscreen");
-  if (isNoHomeTextActive()) parts.push("No Home Text");
+  const parts = activeThemeLabels();
   return parts.length ? parts.join(", ") : `CSS Loader (${cssLoaderStyleCount()})`;
 }
 
@@ -246,6 +240,71 @@ export function hwDiskText(hw: HardwareInfo): string {
 export function hwExternalDiskText(d: ExternalDisk): string {
   if (!d.totalBytes) return d.label;
   return `${d.label}: ${formatSize(d.totalBytes)} (${formatSize(d.freeBytes)} free)`;
+}
+
+export interface SeededCacheStats {
+  /** Per-shelf id lists persisted in localStorage (what a cold boot paints from). */
+  ids: number;
+  /** Their card-meta twins. */
+  meta: number;
+  /** Stored JSON length — close enough to bytes for this ASCII-heavy data. */
+  bytes: number;
+}
+
+/* Same prefix as the shelf id cache (shelfViewHelpers' SHELF_CACHE_PREFIX) —
+   spelled out here so this read-only probe stays off the Home module graph. */
+const SHELF_CACHE_KEY_PREFIX = "ds-shelf-cache-";
+const SHELF_META_SUFFIX = "-meta";
+
+/** Size of the per-shelf cache a boot seeds its first paint from. Read-only. */
+export function collectSeededCacheStats(): SeededCacheStats {
+  const out: SeededCacheStats = { ids: 0, meta: 0, bytes: 0 };
+  try {
+    const ls = (globalThis as any).localStorage;
+    if (!ls) return out;
+    for (let i = 0; i < ls.length; i++) {
+      const key = ls.key(i);
+      if (!key || key.indexOf(SHELF_CACHE_KEY_PREFIX) !== 0) continue;
+      if (key.endsWith(SHELF_META_SUFFIX)) out.meta++; else out.ids++;
+      out.bytes += String(ls.getItem(key) ?? "").length;
+    }
+  } catch { /* storage unavailable */ }
+  return out;
+}
+
+export interface BootInfo {
+  origin: string;
+  phases: string;
+  watchdog: string;
+  longTasks: string;
+  seededCache: string;
+}
+
+const BOOT_PHASE_ORDER = ["critical", "mount", "lazy"];
+
+function bootPhaseText(snap: PerfSnapshot, name: string): string {
+  const phase = snap.bootPhases.find((p) => p.name === name);
+  if (!phase) return `${name} —`;
+  const duration = phase.durationMs === null ? "…" : `${phase.durationMs}ms`;
+  return name === "critical" ? `${name} ${duration}` : `${name} +${phase.atMs}ms/${duration}`;
+}
+
+function approxKb(bytes: number): string {
+  return bytes < 1024 ? `${bytes} B` : `~${Math.round(bytes / 1024)} KB`;
+}
+
+/* The Boot block of the diagnostics dump: origin, the boot phases as
+   "+start/duration" after boot start, the startup watchdog's verdict, the
+   long tasks (all / over 200 ms) and the seeded shelf cache. English tokens,
+   like the configuration summary; "—" where the boot never got there. */
+export function collectBootInfo(snap: PerfSnapshot = getPerfSnapshot(), cache: SeededCacheStats = collectSeededCacheStats()): BootInfo {
+  return {
+    origin: snap.bootOrigin ?? "—",
+    phases: BOOT_PHASE_ORDER.map((name) => bootPhaseText(snap, name)).join(" · "),
+    watchdog: snap.bootWatchdog ?? "pending",
+    longTasks: `${snap.longTaskCount} (${Math.round(snap.longTaskTotalMs)}ms) · over 200ms ${snap.longTaskOver200Count} (${Math.round(snap.longTaskOver200Ms)}ms)`,
+    seededCache: `ids ${cache.ids} · meta ${cache.meta} · ${approxKb(cache.bytes)}`,
+  };
 }
 
 export function collectRuntimeInfo(): RuntimeInfo {

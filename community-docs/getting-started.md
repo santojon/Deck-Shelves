@@ -9,11 +9,9 @@ gamepad-first, no desktop mode or config files.
 
 ## Installing
 
-Two ways in: [ShelvesHub](shelveshub-install.md) (recommended, no Decky
-Loader needed) or the [Decky Store](https://decky.xyz) if you're already
-on Decky. Either way, once installed you'll find Deck Shelves' settings
-from the Quick Access Menu (either its own tab, or inside Decky's plugin
-list, depending which host you used).
+Install it from the [Decky Store](https://decky.xyz) on Decky Loader.
+Once installed, you'll find Deck Shelves' settings from the Quick Access
+Menu, inside Decky's plugin list.
 
 ## Creating your first shelf
 

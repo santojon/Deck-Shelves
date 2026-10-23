@@ -1,3 +1,4 @@
+import { devStamp, devCount } from "../../runtime/devStamps";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { TextField } from "../../runtime/host/decky";
 import { getExternalSearchProviders, type SearchHit } from "../../core/pluginApi";
@@ -11,6 +12,8 @@ import { subscribeControllerInput, Button as RawBtn } from "../../runtime/contro
 import { getPreferredSteamDocument, getAllSteamDocuments } from "../../runtime/steamHost";
 import { focusElement } from "../../core/focusRestore";
 import { closeAmbientOverlays, lockOverlay, isOverlayLocked } from "../../runtime/closeOverlays";
+import { getSessionState } from "../../runtime/sessionState";
+import { applyVirtualKey } from "./virtualKeyEdit";
 
 const MIN_CHARS = 3;
 const SEARCH_LIMIT = 30;
@@ -45,12 +48,9 @@ function tryOpenSteamKeyboard(): void {
   }
 }
 
-function dismissSteamKeyboard(): void {
-  /* On a match there's no physical B press to close the OSK natively, and
-     ModalKeyboardDismissed is only a notification — it doesn't close the OSK the
-     `OpenGamepadKeyboard` call popped. So (1) blur the focused text input across
-     every Steam doc — that closes an input-tied OSK — and (2) fire every known
-     dismiss/close method on every candidate Input object. */
+/* Blur the focused text input across every Steam doc — that closes an
+   input-tied on-screen keyboard. */
+function blurActiveTextInputs(): void {
   try {
     for (const doc of getAllSteamDocuments()) {
       try {
@@ -59,26 +59,99 @@ function dismissSteamKeyboard(): void {
       } catch {}
     }
   } catch {}
+}
+
+const inputApiOf = (owner: any) => owner?.SteamClient?.Input;
+
+// Every candidate `SteamClient.Input` this realm can reach (a repeated
+// dismiss call on the same object is harmless, so no dedup).
+function candidateInputApis(): any[] {
+  const g = globalThis as any;
+  const view = g.SteamUIStore?.WindowStore?.GamepadUIMainWindowInstance?.BrowserWindow;
+  return [inputApiOf(view?.opener), inputApiOf(g), inputApiOf(g.opener), inputApiOf(view)].filter(Boolean);
+}
+
+const KEYBOARD_DISMISS_METHODS = ["ModalKeyboardDismissed", "StandaloneKeyboardDismissed", "DismissGamepadKeyboard", "CloseGamepadKeyboard", "HideGamepadKeyboard"];
+
+function dismissSteamKeyboard(): void {
+  /* On a match there's no physical B press to close the OSK natively, and
+     ModalKeyboardDismissed is only a notification — it doesn't close the OSK the
+     `OpenGamepadKeyboard` call popped. So (1) blur the focused text input
+     (closes an input-tied OSK) and (2) fire every known dismiss/close method
+     on every candidate Input object. */
+  blurActiveTextInputs();
   try {
-    const g = globalThis as any;
-    const view = g.SteamUIStore?.WindowStore?.GamepadUIMainWindowInstance?.BrowserWindow;
-    const inputs = [
-      view?.opener?.SteamClient?.Input,
-      g.SteamClient?.Input,
-      g.opener?.SteamClient?.Input,
-      view?.SteamClient?.Input,
-    ].filter(Boolean);
-    const methods = ["ModalKeyboardDismissed", "StandaloneKeyboardDismissed", "DismissGamepadKeyboard", "CloseGamepadKeyboard", "HideGamepadKeyboard"];
-    for (const Input of inputs) {
-      for (const m of methods) {
+    for (const Input of candidateInputApis()) {
+      for (const m of KEYBOARD_DISMISS_METHODS) {
         try { Input[m]?.(); } catch {}
       }
     }
   } catch {}
 }
 
+function steamKeyboardManager(): any {
+  try { return (globalThis as any).SteamUIStore?.WindowStore?.GamepadUIMainWindowInstance?.m_VirtualKeyboardManager ?? null; } catch { return null; }
+}
+
+/* Steam's on-screen keyboard injects its keys natively, and those keystrokes
+   never reach this overlay's input. Steam checks a text-entered override
+   before injecting, so while the pill is open its keys are routed here. */
+function routeVirtualKeyboard(input: HTMLInputElement, onValue: (v: string) => void, onEnter: () => void): () => void {
+  const m = steamKeyboardManager();
+  if (typeof m?.SetVRKeyboardOnTextEnteredOverride !== "function") return () => {};
+  const handler = (key: unknown): void => {
+    if (key === "Enter") { onEnter(); return; }
+    const end = input.value.length;
+    const edit = applyVirtualKey(input.value, input.selectionStart ?? end, input.selectionEnd ?? end, String(key ?? ""));
+    if (!edit) return;
+    onValue(edit.value);
+    window.setTimeout(() => { try { input.setSelectionRange(edit.caret, edit.caret); } catch {} }, 0);
+  };
+  try { m.SetVRKeyboardOnTextEnteredOverride(handler); } catch { return () => {}; }
+  return () => { try { if (m.m_fnVROnTextEnteredOverride === handler) m.SetVRKeyboardOnTextEnteredOverride(null); } catch {} };
+}
+
+function prepareSearchInput(input: HTMLInputElement): void {
+  try {
+    input.setAttribute("inputmode", "text");
+    input.setAttribute("autocomplete", "off");
+    input.setAttribute("autocorrect", "off");
+    input.setAttribute("autocapitalize", "none");
+    input.setAttribute("spellcheck", "false");
+    input.setAttribute("enterkeyhint", "search");
+    if (!input.hasAttribute("tabindex")) input.setAttribute("tabindex", "0");
+  } catch {}
+}
+
+/* A synthetic touch tap on the input: Steam pops the on-screen keyboard for
+   pointer-initiated focus, not for programmatic focus. */
+function tapInputForKeyboard(input: HTMLInputElement): void {
+  try {
+    const r = input.getBoundingClientRect();
+    const x = r.left + r.width / 2;
+    const y = r.top + r.height / 2;
+    const PD = (typeof PointerEvent !== "undefined") ? PointerEvent : null;
+    if (PD) {
+      input.dispatchEvent(new PD("pointerdown", { bubbles: true, clientX: x, clientY: y, pointerType: "touch" }));
+      input.dispatchEvent(new PD("pointerup",   { bubbles: true, clientX: x, clientY: y, pointerType: "touch" }));
+    }
+    input.dispatchEvent(new MouseEvent("click", { bubbles: true, clientX: x, clientY: y }));
+  } catch {}
+}
+
+function publishSearchFocusDiag(input: HTMLInputElement, n: number, kb: boolean): void {
+  devStamp("__ds_search_active", {
+    n,
+    isInput: input === input.ownerDocument?.activeElement,
+    activeTag: (input.ownerDocument?.activeElement as HTMLElement | null)?.tagName,
+    type: input.type,
+    tabIndex: input.tabIndex,
+    kb,
+  });
+}
+
 export function SearchOverlay() {
-  try { (globalThis as any).__ds_search_mounted = (((globalThis as any).__ds_search_mounted ?? 0) + 1); } catch {}
+  devCount("__ds_search_mounted");
   // Light mode strips advanced features for simplicity / battery — the
   // Quick Search pill is one of them. User toggle stays untouched.
   const [enabled, setEnabled] = useState(() => {
@@ -193,7 +266,9 @@ export function SearchOverlay() {
   const rawMatcherStateRef = useRef(createMatcherState());
   const lastOpenAtRef = useRef(0);
   const openSearch = useCallback(() => {
-    if (!isHomeRoute()) return;
+    // Same gate as the side nav: the Home's route can stay current behind a
+    // running game, where L1+R1 must not pop the overlay and keyboard.
+    if (!isHomeRoute() || getSessionState().gameRunning) return;
     if (isOverlayLocked()) return;
     const now = Date.now();
     if (now - lastOpenAtRef.current < 350) return;
@@ -219,17 +294,25 @@ export function SearchOverlay() {
   useEffect(() => {
     if (!__DEV__) return;
     const g = globalThis as any;
-    g.__ds_dev_open_search = (q?: string) => {
+    const open = (q?: string) => {
       setOpen(true);
       if (typeof q === "string") setQuery(q);
       return true;
     };
-    g.__ds_dev_close_search = () => setOpen(false);
-    return () => { try { delete g.__ds_dev_open_search; delete g.__ds_dev_close_search; } catch {} };
+    const closeHook = () => close({ restorePrior: false });
+    g.__ds_dev_open_search = open;
+    g.__ds_dev_close_search = closeHook;
+    // A remounted Home registers before the old root's cleanup runs; only remove our own.
+    return () => {
+      try {
+        if (g.__ds_dev_open_search === open) delete g.__ds_dev_open_search;
+        if (g.__ds_dev_close_search === closeHook) delete g.__ds_dev_close_search;
+      } catch {}
+    };
   }, []);
   useEffect(() => {
     if (!enabled) return;
-    try { (globalThis as any).__ds_search_enabled = enabled; } catch {}
+    devStamp("__ds_search_enabled", enabled);
     return subscribeHomeButton((e) => {
       if (open) {
         if (
@@ -268,7 +351,7 @@ export function SearchOverlay() {
       if (isEditableKeyTarget(e.tag)) return;
       const navSearchKey = resolveKeyboardBindings(getCurrentSettings()?.keyboardBindings as any, (getCurrentSettings() as any)?.keyboardBindingsDisabled).navSearch;
       if (!navSearchKey) return;
-      if (!matchKeyEvent(e.code ?? null, parseKeyCombo(navSearchKey), keyMatcherStateRef.current)) return;
+      if (!matchKeyEvent(e.code ?? null, parseKeyCombo(navSearchKey), keyMatcherStateRef.current, Date.now(), { ctrl: e.ctrl, shift: e.shift, alt: e.alt })) return;
       openSearch();
     });
   }, [enabled, open, openSearch]);
@@ -314,6 +397,17 @@ export function SearchOverlay() {
   );
 }
 
+/* One focus attempt on the pill's input: focus it, pop the keyboard on the
+   first try, and select a query kept from the last session so typing
+   replaces it and Enter re-runs it. */
+function focusSearchInput(input: HTMLInputElement, n: number, keyboardEnabled: boolean, first: boolean): void {
+  prepareSearchInput(input);
+  try { input.focus(); } catch {}
+  if (n === 8 && keyboardEnabled) tapInputForKeyboard(input);
+  if (first && input.value) { try { input.select(); } catch {} }
+  publishSearchFocusDiag(input, n, keyboardEnabled);
+}
+
 function SearchPill({ query, onChange, keyboardEnabled, onEnter }: {
   query: string;
   onChange: (q: string) => void;
@@ -324,6 +418,11 @@ function SearchPill({ query, onChange, keyboardEnabled, onEnter }: {
   const onField = (e: React.ChangeEvent<HTMLInputElement>) => {
     onChange(e?.target?.value ?? "");
   };
+  // Latest callbacks for the on-screen keyboard route (bound once the input exists).
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+  const onEnterRef = useRef(onEnter);
+  onEnterRef.current = onEnter;
   /* Kick HTML focus + add the HTML5 attrs Steam Deck's on-screen
      keyboard looks for. Synthetic pointer sequence ONLY when the
      virtual-keyboard toggle is on — that's the trigger that pops the
@@ -332,46 +431,16 @@ function SearchPill({ query, onChange, keyboardEnabled, onEnter }: {
   useEffect(() => {
     let cancelled = false;
     let captured: HTMLInputElement | null = null;
+    let unroute: (() => void) | null = null;
     const tryFocus = (n: number) => {
       if (cancelled) return;
       const host = hostRef.current;
       const input = host?.querySelector<HTMLInputElement>("input");
       if (input && input.isConnected) {
+        const first = !captured;
         captured = input;
-        try {
-          input.setAttribute("inputmode", "text");
-          input.setAttribute("autocomplete", "off");
-          input.setAttribute("autocorrect", "off");
-          input.setAttribute("autocapitalize", "none");
-          input.setAttribute("spellcheck", "false");
-          input.setAttribute("enterkeyhint", "search");
-          if (!input.hasAttribute("tabindex")) input.setAttribute("tabindex", "0");
-        } catch {}
-        try { input.focus(); } catch {}
-        if (n === 8 && keyboardEnabled) {
-          try {
-            const r = input.getBoundingClientRect();
-            const x = r.left + r.width / 2;
-            const y = r.top + r.height / 2;
-            const PD = (typeof PointerEvent !== "undefined") ? PointerEvent : null;
-            if (PD) {
-              input.dispatchEvent(new PD("pointerdown", { bubbles: true, clientX: x, clientY: y, pointerType: "touch" }));
-              input.dispatchEvent(new PD("pointerup",   { bubbles: true, clientX: x, clientY: y, pointerType: "touch" }));
-            }
-            input.dispatchEvent(new MouseEvent("click", { bubbles: true, clientX: x, clientY: y }));
-          } catch {}
-        }
-        try {
-          const g = globalThis as any;
-          g.__ds_search_active = {
-            n,
-            isInput: input === input.ownerDocument?.activeElement,
-            activeTag: (input.ownerDocument?.activeElement as HTMLElement | null)?.tagName,
-            type: input.type,
-            tabIndex: input.tabIndex,
-            kb: keyboardEnabled,
-          };
-        } catch {}
+        unroute ??= routeVirtualKeyboard(input, (v) => onChangeRef.current(v), () => onEnterRef.current?.());
+        focusSearchInput(input, n, keyboardEnabled, first);
       }
       if (n > 0) window.setTimeout(() => tryFocus(n - 1), 120);
     };
@@ -396,6 +465,7 @@ function SearchPill({ query, onChange, keyboardEnabled, onEnter }: {
     inputEl?.addEventListener("focusout", reclaim);
     return () => {
       cancelled = true;
+      unroute?.();
       inputEl?.removeEventListener("focusout", reclaim);
       try { captured?.blur(); } catch {}
       dismissSteamKeyboard();

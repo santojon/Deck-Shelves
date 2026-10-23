@@ -22,13 +22,14 @@
   "download_update": "업데이트 다운로드",
   "update_install": "업데이트 설치",
   "update_installing": "업데이트 {{version}} 설치 중…",
-  "update_installed": "{{version}}(으)로 업데이트됨 — 다시 불러오는 중…",
+  "update_installed": "{{version}}(으)로 업데이트됨.",
   "update_install_failed": "설치 실패 — 다운로드로 전환합니다.",
+  "update_install_busy": "호스트가 아직 업데이트를 확인하는 중입니다 — 잠시 후 다시 시도하세요.",
   "update_downloading": "업데이트 {{version}} 다운로드 중…",
   "update_downloaded": "{{path}}에 저장됨 — 수동으로 설치하세요.",
   "update_download_failed": "다운로드 실패 — 릴리스 페이지를 엽니다.",
   "shelf_type_normal": "일반",
   "shelf_type_smart": "스마트",
   "update_installing_title": "업데이트 설치 중",
-  "update_will_reload": "완료되면 Steam이 다시 로드됩니다."
+  "update_will_reload": "새 버전은 몇 초 후에 자동으로 적용됩니다."
 }

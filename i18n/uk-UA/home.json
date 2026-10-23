@@ -22,13 +22,14 @@
   "download_update": "Завантажити оновлення",
   "update_install": "Встановити оновлення",
   "update_installing": "Встановлення оновлення {{version}}…",
-  "update_installed": "Оновлено до {{version}} — перезавантаження…",
+  "update_installed": "Оновлено до {{version}}.",
   "update_install_failed": "Помилка встановлення — перехід до завантаження.",
+  "update_install_busy": "Хост ще перевіряє оновлення — спробуйте ще раз за мить.",
   "update_downloading": "Завантаження оновлення {{version}}…",
   "update_downloaded": "Збережено в {{path}} — установіть вручну.",
   "update_download_failed": "Помилка завантаження — відкривається сторінка випуску.",
   "shelf_type_normal": "Звичайна",
   "shelf_type_smart": "Розумна",
   "update_installing_title": "Встановлення оновлення",
-  "update_will_reload": "Steam перезавантажиться після завершення."
+  "update_will_reload": "Нова версія набуде чинності сама за кілька секунд."
 }

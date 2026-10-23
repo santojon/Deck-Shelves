@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import os
 
-from deckprobe.screenshots.lib.cdp import Session
+from deckprobe.screenshots.lib.cdp import Session, open_session
 
 DEFAULT_LOCALE = "en-US"
 
@@ -30,3 +30,21 @@ def force_locale(sjc: Session, locale: str | None = None) -> None:
 # Back-compat alias — every existing call site (`about.py`, `settings.py`,
 # `modals.py`) calls this with no args, which already resolves the same way.
 force_english = force_locale
+
+
+def gamepad_glyphs(host: str, port: int) -> None:
+    """Put Steam's footer hints back in controller mode right before a capture.
+
+    Every key the scenarios send over the debug protocol (an Escape to close a
+    dialog, an arrow to move focus) makes Steam treat a keyboard as the active
+    input, and the footer then shows Esc / Enter / F9 instead of the B / A / X
+    glyphs a Deck user sees. The navigation source lives on the shared context's
+    `FocusNavController`; forcing it back is what a real controller press does."""
+    try:
+        sjc = open_session(host, port, "SharedJSContext")
+        try:
+            sjc.evaluate("try{FocusNavController.UpdateSourceToGamepad(true)}catch(e){}")
+        finally:
+            sjc.close()
+    except Exception:
+        pass

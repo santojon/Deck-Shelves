@@ -1,4 +1,4 @@
-import { useEffect, useRef, useMemo, useState, memo } from "react";
+import { useRef, useMemo, memo } from "react";
 import { Focusable } from "../../runtime/host/decky";
 import { getAppAssetCacheKey } from "../../core/steamAssets";
 import i18n from "../../i18n";
@@ -6,7 +6,7 @@ import { type DeckRowItem, CARD_W, CARD_ART_H } from "./types";
 import { formatPlaytime } from "./shelfStyles";
 import { PlaceholderCard } from "./PlaceholderCard";
 import { useNearViewport } from "./cardUtils";
-import { getFriendsInApp, subscribeFriendsChanged } from "../../runtime/friendsState";
+import { getFriendsInApp } from "../../runtime/friendsState";
 import { getCurrentSettings, saveSettings } from "../../store/settingsStore";
 import { patchShelfInSettings } from "../../domain/settings";
 import { saveFocusTarget, beginFocusRestoreLoop } from "../../core/focusRestore";
@@ -15,8 +15,10 @@ import { currentPlatformKey } from "../../core/onlineMetadata";
 import { isSteamOSCached, primeSystemPlatform } from "../../runtime/diagnosticsInfo";
 import { getLocalLibraryAppIds } from "../../steam";
 import { trackFeature } from "../../steam/usageTracking";
+import { recordCardRender } from "../../core/perfMetrics";
+import { withDefaults } from "../withDefaults";
 import {
-  useCardActivation, useCardInputBindings, useCardQuickLaunchState,
+  useCardActivation, useCardInputBindings, useCardQuickLaunchState, useFriendsInAppKey,
   useNativeCardClassInjection, useCardImageFallback, useCardAssetDecoration,
 } from "./gameCardHooks";
 
@@ -472,7 +474,7 @@ function CardSelectionMarkOverlay({ mark, cssArtH }: { mark: DeckRowItem['select
   );
 }
 
-function CardBadgeHost({ hasBadge, showDiscountBadge, showNewBadge, discount, t }: { hasBadge: boolean; showDiscountBadge: boolean; showNewBadge: boolean; discount: number | undefined; t: (k: string, o?: any) => string }) {
+export function CardBadgeHost({ hasBadge, showDiscountBadge, showNewBadge, discount, t }: { hasBadge: boolean; showDiscountBadge: boolean; showNewBadge: boolean; discount: number | undefined; t: (k: string, o?: any) => string }) {
   if (!hasBadge) return null;
   return (
     <div
@@ -504,6 +506,13 @@ type CardLabelBlockProps = {
   logoOwnsDescription: boolean; descriptionPosition: 'left' | 'center' | 'right';
 };
 
+// Left keeps the long-title spill; centre / right stay inside the card.
+const NAME_STYLE: Record<'left' | 'center' | 'right', React.CSSProperties> = {
+  left: { textAlign: 'left', width: '100%' },
+  center: { textAlign: 'center', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis' },
+  right: { textAlign: 'right', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis' },
+};
+
 /* Non-library items have no meaningful install state — CardStatusLine
    already hides per card. Description renders below the install/playtime
    row, unless `descriptionBelowLogo` moved it into the logo overlay
@@ -514,7 +523,7 @@ function CardLabelBlock(props: CardLabelBlockProps) {
     <div
       className={`ds-card-label${hideStatusLine ? ' ds-card-label--compact' : ''}`}
       style={{
-        position: "absolute", top: cssArtH, left: 0, width: `calc(${cssW} + 20px)`, paddingTop: 10,
+        position: "absolute", top: cssArtH, left: 0, width: cssW, paddingTop: 10,
         pointerEvents: "none", display: "flex", flexDirection: "row", alignItems: labelAlignItems(iconVerticalAlign), gap: 6,
       }}
     >
@@ -523,7 +532,7 @@ function CardLabelBlock(props: CardLabelBlockProps) {
       )}
       <div data-ds-playtime-position={playtimePosition} style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: '1 1 auto', position: 'relative' }}>
         {!hideGameName && (
-          <div className="ds-card-label-name" style={{ textAlign: gameNamePosition, width: '100%' }}>{gameName}</div>
+          <div className="ds-card-label-name" style={NAME_STYLE[gameNamePosition] ?? NAME_STYLE.left}>{gameName}</div>
         )}
         <CardStatusLine {...statusLine} />
         {enableDescription && description && !logoOwnsDescription && (
@@ -561,27 +570,65 @@ type GameCardProps = {
   removableSet?: Set<number>; onRemoveCard?: (appid: number) => void; hiddenSet?: Set<number>; onHideCard?: (appid: number) => void;
 };
 
-function GameCardImpl({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHProp, featured = false, cardIndex, hideStatusLine = false, hideNewBadge = false, hideDiscountBadge = false, hideCompatIcons = false, hideNonSteamBadge = false, hideGameName = false, hideInstallIndicator = false, friendsOverlay = false, friendsOverlayRecent = false, enableLogo = false, enableIcon = false, enableDescription = false, descriptionBelowLogo = false, descriptionPosition = 'left', iconVerticalAlign = 'top', gameNamePosition = 'left', playtimePosition = 'left', previewMode = false, removableSet, onRemoveCard, hiddenSet, onHideCard }: GameCardProps) {
+const CARD_DEFAULTS = {
+  cardW: CARD_W, cardH: CARD_ART_H, featured: false,
+  hideStatusLine: false, hideNewBadge: false, hideDiscountBadge: false, hideCompatIcons: false, hideNonSteamBadge: false,
+  hideGameName: false, hideInstallIndicator: false, friendsOverlay: false, friendsOverlayRecent: false,
+  enableLogo: false, enableIcon: false, enableDescription: false, descriptionBelowLogo: false,
+  descriptionPosition: 'left', iconVerticalAlign: 'top', gameNamePosition: 'left', playtimePosition: 'left', previewMode: false,
+} as const satisfies Partial<GameCardProps>;
+
+// The card's appid: the numeric item id, else the appid field (decorations have neither → 0).
+function cardAppid(item: DeckRowItem): number {
+  return typeof item.id === "number" ? item.id : Number(item.appid ?? 0);
+}
+
+const numOr0 = (v: number | null | undefined): number => v ?? 0;
+
+// The placeholder card takes over when the image chain failed or never produced a URL.
+const artUnavailable = (imgFailed: boolean, firstUrl: string | null | undefined): boolean => imgFailed || !firstUrl;
+
+// TiltedHome compat CSS uses this to compute the exact zoom scale that covers the
+// skewed parallelogram — featured (landscape) and portrait cards need different factors.
+function cardHWRatioOf(cardH: number, featuredW: number): string {
+  return featuredW > 0 ? (cardH / featuredW).toFixed(4) : "1.5";
+}
+
+function installedAttr(isLibraryGame: boolean, isInstalled: boolean | undefined): "true" | "false" | undefined {
+  if (!isLibraryGame) return undefined;
+  return isInstalled === true ? "true" : "false";
+}
+
+const hasPlaytimeOf = (playtime: string | null | undefined, minutes: number | null | undefined): boolean => !!playtime && !!minutes && minutes > 0;
+
+type IconShownArgs = Parameters<typeof cardIconVisible>[0] & { enableIcon: boolean; iconSrc: string | null | undefined };
+
+const iconShown = (a: IconShownArgs): boolean => a.enableIcon && !!a.iconSrc && cardIconVisible(a);
+
+function GameCardImpl(props: GameCardProps) {
+  const {
+    item, cardW, cardH, artH: artHProp, featured, cardIndex, hideStatusLine, hideNewBadge, hideDiscountBadge, hideCompatIcons,
+    hideNonSteamBadge, hideGameName, hideInstallIndicator, friendsOverlay, friendsOverlayRecent, enableLogo, enableIcon,
+    enableDescription, descriptionBelowLogo, descriptionPosition, iconVerticalAlign, gameNamePosition, playtimePosition,
+    previewMode, removableSet, onRemoveCard, hiddenSet, onHideCard,
+  } = withDefaults(props, CARD_DEFAULTS);
   const t = i18n.t.bind(i18n);
+  if (__DEV__) recordCardRender();
   const cardRef = useRef<HTMLDivElement>(null);
   // Gates description fetch + icon/logo/cover cache warming to cards near
   // the visible scroll area — see useNearViewport.
   const isNearViewport = useNearViewport(cardRef, '600px');
   const imgRef = useRef<HTMLImageElement>(null);
-  const appid = typeof item.id === "number" ? item.id : Number(item.appid ?? 0);
+  const appid = cardAppid(item);
   const featuredW = cardW;
   const artH = artHProp ?? cardH;
   const { cssW, cssH, cssArtH } = computeCardCssDims({ featured, cardW, cardH, artH });
 
   /* getFriendsInApp (below) is a plain pull read during render, not a prop —
-     without this, a card whose other props stay stable across a friends
-     poll never re-renders to pick up a friend who just started playing.
-     Only subscribes when the decoration is actually on. */
-  const [, forceFriendsTick] = useState(0);
-  useEffect(() => {
-    if (!friendsOverlay || previewMode) return;
-    return subscribeFriendsChanged(() => forceFriendsTick((n) => n + 1));
-  }, [friendsOverlay, previewMode]);
+     this selected key re-renders the card only when ITS friend set changes
+     (a friends poll no longer re-renders every decorated card). */
+  const liveFriends = friendsOverlay && !previewMode;
+  useFriendsInAppKey(appid, liveFriends);
 
   const { activate, quickLaunch } = useCardActivation({ cardRef, item, previewMode, appid });
   const cardState = useCardQuickLaunchState(appid, previewMode);
@@ -611,7 +658,7 @@ function GameCardImpl({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHProp
     imgRef, appid, featured, item, assetKey, isNearViewport,
   });
 
-  const compat = item.deckCompatCategory ?? 0;
+  const compat = numOr0(item.deckCompatCategory);
   const playtime = formatPlaytime(item.playtimeMinutes);
   const isNonSteam = item.isSteam === false;
   // The compat / input badge is only for owned library games (matches
@@ -621,7 +668,7 @@ function GameCardImpl({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHProp
   // support instead of Deck compatibility; reuse the badge slot + the
   // verified/playable colour classes (full → green, partial → amber).
   const useControllerCompat = showsControllerCompat();
-  const controllerSupport = item.controllerSupport ?? 0;
+  const controllerSupport = numOr0(item.controllerSupport);
   const compatClass = resolveCompatClass({ suppressCompat, useControllerCompat, compat });
   const discount = item.discountPercent;
   const { showNewBadge, showDiscountBadge, hasBadge } = computeBadgeFlags({ hideNewBadge, isNew: item.isNew, hideDiscountBadge, discount });
@@ -632,7 +679,7 @@ function GameCardImpl({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHProp
 
   // Placeholder fallback must be returned AFTER all hooks above so the hook
   // count stays stable across renders (React error #300 otherwise).
-  if (imgFailed || !firstUrl) {
+  if (artUnavailable(imgFailed, firstUrl)) {
     return <PlaceholderCard
       item={item}
       cardW={cardW}
@@ -647,15 +694,12 @@ function GameCardImpl({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHProp
     />;
   }
 
-  const overlayFriends = friendsOverlay && !previewMode ? getFriendsInApp(appid, friendsOverlayRecent) : [];
+  const overlayFriends = liveFriends ? getFriendsInApp(appid, friendsOverlayRecent) : [];
   const { friendsLabel, friendAvatarAttr } = computeFriendsDisplay(overlayFriends, t);
   const logoOwnsDescription = enableLogo && descriptionBelowLogo;
-  const showIcon = enableIcon && iconSrc && cardIconVisible({ hideGameName, hideStatusLine, isLibraryGame, enableDescription, description, logoOwnsDescription });
+  const showIcon = iconShown({ enableIcon, iconSrc, hideGameName, hideStatusLine, isLibraryGame, enableDescription, description, logoOwnsDescription });
   const dataAttrs = computeCardDataAttrs({ appid, shelfId: item.shelfId, name: item.name, showNewBadge, showDiscountBadge, discount, cardIndex });
-  // TiltedHome compat CSS uses this to compute the exact zoom scale that
-  // covers the skewed parallelogram — featured (landscape) and portrait
-  // cards need different scale factors.
-  const cardHWRatio = featuredW > 0 ? (cardH / featuredW).toFixed(4) : "1.5";
+  const cardHWRatio = cardHWRatioOf(cardH, featuredW);
 
   return (
     <Focusable
@@ -677,7 +721,7 @@ function GameCardImpl({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHProp
         ...computeCardActionFlags({ appid, removableSet, onRemoveCard, hiddenSet, onHideCard }),
       })}
       data-appid={dataAttrs.appid}
-      data-ds-installed={isLibraryGame ? (item.isInstalled === true ? "true" : "false") : undefined}
+      data-ds-installed={installedAttr(isLibraryGame, item.isInstalled)}
       data-ds-friend-avatars={friendAvatarAttr}
       data-shelfid={dataAttrs.shelfId}
       data-name={dataAttrs.name}
@@ -722,7 +766,7 @@ function GameCardImpl({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHProp
         cssArtH={cssArtH}
         hideStatusLine={hideStatusLine}
         iconVerticalAlign={iconVerticalAlign}
-        showIcon={!!showIcon}
+        showIcon={showIcon}
         iconSrc={iconSrc}
         setIconIdx={setIconIdx}
         playtimePosition={playtimePosition}
@@ -732,7 +776,7 @@ function GameCardImpl({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHProp
         statusLine={{
           hideStatusLine, overlayFriends, friendsLabel, isLibraryGame,
           updatePending: item.updatePending === true, isInstalled: item.isInstalled === true,
-          playtime, hasPlaytime: !!playtime && !!item.playtimeMinutes && item.playtimeMinutes > 0,
+          playtime, hasPlaytime: hasPlaytimeOf(playtime, item.playtimeMinutes),
           hideInstallIndicator, t,
         }}
         enableDescription={enableDescription}

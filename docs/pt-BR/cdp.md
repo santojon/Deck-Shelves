@@ -12,6 +12,7 @@
   - **macOS** — `open -a Steam --args -cef-enable-remote-debugging`.
   - **Windows** — inicie a Steam com `steam.exe -cef-enable-remote-debugging`.
 - `.env` na raiz do repositório com `DECK_HOST` e `DECK_CDP_PORT` (`pnpm run deck:setup` escreve um `.env` funcional para um target Deck na primeira execução; para um target local/desktop defina `DECK_HOST=127.0.0.1` e a porta que você habilitou acima).
+- `pnpm run deck:debug` abre a lista de alvos do DevTools (`http://<host>:<porta>`) no seu navegador.
 - `pip install websocket-client` na máquina que roda a CLI (necessário só para `eval`, `screenshot`, `console` — `targets` funciona sem isso).
 
 ## Targets e aliases

@@ -152,6 +152,28 @@ export function StackIcon({ size = 14, style }: IconProps) {
   );
 }
 
+export function HeadsetIcon({ size = 14, style }: IconProps) {
+  return (
+    <svg {...baseProps(size, style)}>
+      <rect x="2" y="7" width="20" height="11" rx="3" />
+      <path d="M9 18l3 3 3-3" />
+      <circle cx="8" cy="12.5" r="1.5" />
+      <circle cx="16" cy="12.5" r="1.5" />
+    </svg>
+  );
+}
+
+export function ConsoleIcon({ size = 14, style }: IconProps) {
+  return (
+    <svg {...baseProps(size, style)}>
+      <rect x="3" y="9" width="18" height="8" rx="2" />
+      <path d="M7 13h4" />
+      <circle cx="16" cy="13" r="1" />
+      <path d="M6 9V6a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v3" />
+    </svg>
+  );
+}
+
 export function WandIcon({ size = 14, style }: IconProps) {
   return (
     <svg {...baseProps(size, style)}>
@@ -239,6 +261,14 @@ export function OnlineIcon({ size = 12, style }: IconProps) {
 // Left-pointing chevron — back / dismiss control on dedicated page
 // routes (PageHeader, detail panels). Bigger default size since the
 // header button it sits inside is much larger than a row indicator.
+export function ChevronRightIcon({ size = 22, style }: IconProps) {
+  return (
+    <svg {...baseProps(size, style)} strokeWidth={2.5}>
+      <polyline points="9 18 15 12 9 6" />
+    </svg>
+  )
+}
+
 export function ChevronLeftIcon({ size = 22, style }: IconProps) {
   return (
     <svg {...baseProps(size, style)} strokeWidth={2.5}>

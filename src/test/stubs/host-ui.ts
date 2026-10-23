@@ -40,6 +40,7 @@ export const findInReactTree = (() => null) as any;
 export const findInTree = (() => null) as any;
 export const findModuleByExport = (() => null) as any;
 export const findModuleChild = (() => null) as any;
+export const findModule = (() => undefined) as any;
 export const gamepadDialogClasses: any = classProxy;
 export const quickAccessControlsClasses: any = classProxy;
 export const quickAccessMenuClasses: any = classProxy;

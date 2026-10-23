@@ -42,7 +42,10 @@ run_checks() {
     ((fail++))
   fi
 
-  if grep -rqi "from.*unifideck\|require.*unifideck\|import.*unifideck\|from.*unifydeck\|require.*unifydeck\|import.*unifydeck" "$src" 2>/dev/null; then
+  # Only a package module specifier counts (`from "unifideck"`, `require("@x/unifydeck")`);
+  # the plugin's own relative module (src/integrations/unifideck.ts) and identifiers
+  # such as isUnifiDeckInstalled are not a dependency.
+  if grep -rqiE "(from|require\()[[:space:]]*['\"][^'\".][^'\"]*unif[iy]deck" "$src" 2>/dev/null; then
     echo "  ❌ Hard dependency on UnifiDeck (import/require)"
     ((fail++))
   else

@@ -5,8 +5,8 @@ import { useEffect } from "react";
    core per fps. After HERO_IDLE_MS without any input the mount gets `ds-idle`
    (CSS pauses the zoom); the next input lifts it. One timer, re-armed per
    input, no polling. */
-export const HERO_IDLE_MS = 60_000;
-export const HERO_IDLE_CLASS = "ds-idle";
+const HERO_IDLE_MS = 60_000;
+const HERO_IDLE_CLASS = "ds-idle";
 const INPUT_EVENTS = ["vgp_ondirection", "vgp_onok", "vgp_onmenubutton", "keydown", "pointerdown", "pointermove", "wheel"];
 // Pointer-move storms would otherwise re-arm the timer on every event.
 const REARM_MIN_GAP_MS = 1000;

@@ -12,7 +12,7 @@
   "about_feature_edit_smart": "스마트 선반 편집: 정렬 재정의, 추가 필터, 시각적 설정",
   "about_feature_external_imports": "TabMaster 또는 기타 제공 플러그인에서 라이브러리 탭을 가져와 선반으로 변환",
   "about_feature_filters": "이름, 플레이 시간, 설치 상태, 호환성, 표시 상태 등으로 필터링",
-  "about_feature_first_run": "기본 선반 템플릿이 포함된 첫 실행 배너",
+  "about_feature_first_run": "설정 마법사가 포함된 첫 실행 배너",
   "about_feature_global_toggles": "네이티브 크기 및 하이라이트의 글로벌 토글(선반별 설정 우선)",
   "about_feature_hero_global": "QAM 시각 섹션의 전역 히어로 토글 — 모든 선반에서 한 번에 히어로 아트를 활성화합니다",
   "about_feature_hero_per_shelf": "각 선반별 히어로 배경 아트 — 일반 또는 스마트 — 선반 편집 모달의 시각 탭에서 토글로 설정",

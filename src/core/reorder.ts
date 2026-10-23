@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export type ReorderAxis = "horizontal" | "vertical";
-export type ReorderPointerType = "mouse" | "touch" | "pen";
+type ReorderPointerType = "mouse" | "touch" | "pen";
 
 export function findReorderTargetIndex(
   itemRects: ReadonlyArray<{ left: number; right: number; top: number; bottom: number }>,
@@ -53,6 +53,11 @@ export function useContainerDragReorder<T extends string | number>(opts: Contain
   } = opts;
 
   const [grabbedId, setGrabbedId] = useState<T | null>(null);
+  // Listeners stay bound across renders; read the latest order and callback.
+  const getOrderRef = useRef(getOrder);
+  const onReorderRef = useRef(onReorder);
+  getOrderRef.current = getOrder;
+  onReorderRef.current = onReorder;
 
   useEffect(() => {
     const container = containerRef.current;
@@ -111,9 +116,9 @@ export function useContainerDragReorder<T extends string | number>(opts: Contain
       const rects = items.map((el) => el.getBoundingClientRect());
       const targetIdx = findReorderTargetIndex(rects, { x: e.clientX, y: e.clientY }, axis);
       if (targetIdx === -1) return;
-      const next = moveInOrder(getOrder(), id, targetIdx);
+      const next = moveInOrder(getOrderRef.current(), id, targetIdx);
       if (!next) return;
-      onReorder(next);
+      onReorderRef.current(next);
     };
 
     const onPointerUpOrCancel = () => reset();

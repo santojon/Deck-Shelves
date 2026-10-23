@@ -91,6 +91,21 @@ def _func_spans(src: str):
     return out
 
 
+def _fail_soft_helpers(src: str):
+    """Module-local functions whose body is a try/except: a call to one is as
+    guarded as an inline try (e.g. a `_read(path)` that returns None on OSError)."""
+    try:
+        tree = ast.parse(src)
+    except Exception:
+        return set()
+    return {n.name for n in ast.walk(tree)
+            if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and any(isinstance(b, ast.Try) for b in n.body)}
+
+
+def _calls_fail_soft(line: str, helpers) -> bool:
+    return any(re.search(r"\b" + re.escape(name) + r"\(", line) for name in helpers)
+
+
 def scan(path: Path):
     try:
         src = path.read_text(encoding="utf-8", errors="replace")
@@ -98,6 +113,7 @@ def scan(path: Path):
         return []
     masked = _masked_lines(src)
     funcs = _func_spans(src)
+    helpers = _fail_soft_helpers(src)
     hits = []
     for i, line in enumerate(masked, 1):
         if not COUPLED.search(line):
@@ -113,6 +129,7 @@ def scan(path: Path):
                           for (s, e, n) in enc)
         else:
             guarded = bool(GUARD.search(line))  # module level — line guards itself
+        guarded = guarded or _calls_fail_soft(line, helpers)
         try:
             rel = str(path.relative_to(ROOT))
         except ValueError:
@@ -122,11 +139,19 @@ def scan(path: Path):
     return hits
 
 
+def backend_files(base: Path):
+    """The backend's modules: `main.py` at the root plus `src/backend/` when present
+    (older trees kept every module at the root)."""
+    dirs = [base] + ([base / "src" / "backend"] if (base / "src" / "backend").is_dir() else [])
+    for d in dirs:
+        for p in sorted(d.glob("*.py")):
+            if not p.name.startswith(("test_", "conftest")):
+                yield p
+
+
 def main():
     hits = []
-    for p in sorted(BACKEND.glob("*.py")):
-        if p.name.startswith(("test_", "conftest")):
-            continue
+    for p in backend_files(BACKEND):
         hits.extend(scan(p))
     unguarded = [h for h in hits if not h["guarded"]]
     out = {

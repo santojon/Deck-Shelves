@@ -129,7 +129,9 @@ def _(ctx) -> None:
 @s.test("refresh-cache control matches showRefreshOption's source rule")
 def _(ctx) -> None:
     shelves = _read_settings(ctx).get("shelves") or []
-    online_or_random = next((sh for sh in shelves if _is_online_or_random(sh)), None)
+    # A shelf's own `hideRefreshCard` hides the control regardless of the source
+    # rule (the stress fixture carries one such random shelf), so skip those.
+    online_or_random = next((sh for sh in shelves if _is_online_or_random(sh) and not sh.get("hideRefreshCard")), None)
     plain = next((sh for sh in shelves if not _is_online_or_random(sh)), None)
     if not online_or_random and not plain:
         raise SkipTest("no shelves configured")

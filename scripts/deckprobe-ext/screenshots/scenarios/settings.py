@@ -24,10 +24,13 @@ from pathlib import Path
 from typing import Dict
 
 from deckprobe.screenshots.lib.cdp import Session
-from deckprobe.screenshots.lib.nav import navigate_settings, _bp_eval, _dismiss_bp_modal
+from deckprobe.screenshots.lib.nav import _bp_eval, _dismiss_bp_modal
 from deckprobe.screenshots.lib.capture import capture_bigpicture
 from deckprobe.screenshots.lib.registry import register
-from ._locale import force_english
+from ._locale import force_english, gamepad_glyphs
+from ._routes import navigate_route
+
+_SETTINGS_ROUTE = "/deck-shelves/settings"
 
 _LANDED_CHECK = "document.querySelectorAll('[role=\"tab\"]').length > 0"
 
@@ -35,10 +38,10 @@ _LANDED_CHECK = "document.querySelectorAll('[role=\"tab\"]').length > 0"
 def _open_settings(sjc: Session, host: str, port: int) -> bool:
     force_english(sjc)
     _dismiss_bp_modal(host, port)
-    navigate_settings(sjc, settle_ms=2000)
+    navigate_route(sjc, _SETTINGS_ROUTE, settle_ms=2000)
     if _bp_eval(host, port, _LANDED_CHECK) is True:
         return True
-    navigate_settings(sjc, settle_ms=1500)
+    navigate_route(sjc, _SETTINGS_ROUTE, settle_ms=1500)
     return _bp_eval(host, port, _LANDED_CHECK) is True
 
 
@@ -87,6 +90,7 @@ def _capture_tab(sjc, host, port, out_dir, filename, *substrings, settle=0.8, wa
     if wait_idle:
         _wait_bp_idle(host, port)
     time.sleep(settle)
+    gamepad_glyphs(host, port)
     p = capture_bigpicture(host, port, out_dir / filename)
     _dismiss_bp_modal(host, port)
     return {filename: p} if p else {}
@@ -97,6 +101,7 @@ def settings_overview(sjc: Session, host: str, port: int, out_dir: Path) -> Dict
     if not _open_settings(sjc, host, port):
         return {}
     out = out_dir / "settings-page.png"
+    gamepad_glyphs(host, port)
     p = capture_bigpicture(host, port, out)
     _dismiss_bp_modal(host, port)
     return {"settings-page.png": p} if p else {}
@@ -105,6 +110,11 @@ def settings_overview(sjc: Session, host: str, port: int, out_dir: Path) -> Dict
 @register("settings_profiles")
 def settings_profiles(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Path]:
     return _capture_tab(sjc, host, port, out_dir, "settings-profiles.png", "profiles", settle=0.7)
+
+
+@register("settings_backup")
+def settings_backup(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Path]:
+    return _capture_tab(sjc, host, port, out_dir, "settings-backup.png", "backup", settle=0.8)
 
 
 @register("settings_suggestions")

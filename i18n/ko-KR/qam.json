@@ -18,6 +18,8 @@
   "menu_game_fallback": "게임",
   "menu_properties": "속성",
   "menu_remove_from_shelf": "선반에서 제거",
+  "menu_lists": "목록",
+  "menu_edit_tags": "태그 편집…",
   "menu_resume": "재개",
   "menu_shelf": "선반",
   "menu_uninstall": "설치 제거",
@@ -62,10 +64,13 @@
   "toast_filter_renamed": "필터 이름 변경됨",
   "mount_crash_report": "문제 신고",
   "safe_mode_title": "안전 모드가 켜져 있음",
-  "safe_mode_desc": "홈 화면이 세 번 연속으로 로드를 완료하지 못해 이번 세션에서는 선반이 꺼졌습니다. Steam 자체 홈은 계속 사용할 수 있습니다. 다음 Steam 재시작 때 다시 시도하려면 안전 모드를 해제하세요.",
+  "safe_mode_desc": "홈 화면이 최근 여섯 번의 시작 중 세 번 로드를 완료하지 못해 이번 세션에서는 선반이 꺼졌습니다. Steam 자체 홈은 계속 사용할 수 있습니다. 다음 Steam 재시작 때 다시 시도하려면 안전 모드를 해제하세요.",
   "safe_mode_leave": "안전 모드 해제",
   "report_issue_title": "문제 신고",
   "report_issue_desc": "미리 채워진 보고서를 브라우저에서 엽니다. 검토 후 제출하기 전까지는 아무것도 전송되지 않습니다.",
   "report_issue_hardware": "하드웨어 정보 포함",
-  "report_issue_hardware_desc": "모델, CPU, 메모리, GPU, 저장 공간 — 기기별 문제 진단에 도움이 됩니다."
+  "report_issue_hardware_desc": "모델, CPU, 메모리, GPU, 저장 공간 — 기기별 문제 진단에 도움이 됩니다.",
+  "sidecar_back": "뒤로",
+  "coop_stand_in": "이 기기에서 Deck Shelves는 자체 빠른 액세스 탭에서 실행됩니다.",
+  "qam_sidecar_toggle": "설정 표시 또는 숨기기"
 }

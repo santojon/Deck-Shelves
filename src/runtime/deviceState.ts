@@ -3,6 +3,7 @@ import { getCurrentSettings } from '../store/settingsStore';
 import { call } from './host/decky';
 import { subscribeControllerInput } from './controllerInput';
 import { getHostHandshake } from './hostHandshake';
+import { deriveDeviceProfile, type DeviceProfile } from '../domain/deviceProfile';
 
 function isOfflineModeOn(): boolean {
   return (getCurrentSettings() as any)?.offlineModeEnabled === true;
@@ -380,7 +381,22 @@ export function getSimulatedInputMode(): InputMode | null {
 
 let _inputModeUnsub: (() => void) | null = null;
 
+const DEVICE_KINDS: readonly DeviceKind[] = ['deck', 'machine', 'frame', 'desktop', 'handheld-arm'];
+
+/* QA builds: `DS_QA_FORCE_DEVICE=frame|machine|deck|…` fakes the device kind
+   from boot (the Developer simulator's own path), so Frame/Machine logic can be
+   exercised in the harness and on a Deck without the hardware. */
+function applyQaDeviceOverride(): void {
+  if (!__DEV__) return;
+  try {
+    const forced = typeof __QA_FORCE_DEVICE__ === 'string' ? __QA_FORCE_DEVICE__ : '';
+    if (forced && (DEVICE_KINDS as readonly string[]).includes(forced)) setSimulatedDevice(forced as DeviceKind);
+    (globalThis as any).__ds_device_profile = getDeviceProfile;
+  } catch {}
+}
+
 export function installDeviceState(): () => void {
+  applyQaDeviceOverride();
   // Battery changes re-notify listeners so battery/charging rules re-evaluate
   // (subscribeBattery is fed by batteryState's own Steam subscription — no
   // polling). Display changes come through DisplayManager, debounced.
@@ -408,6 +424,18 @@ export type DeviceState = {
   screen: { w: number; h: number } | null; // real display dims, null = unknown
   controllerConnected: boolean; // an external gamepad beyond the built-in one
 };
+
+/* Explicit family / architecture / capabilities view (domain/deviceProfile):
+   family from identity signals only, never from the CPU architecture. */
+export function getDeviceProfile(): DeviceProfile {
+  const b = getBatteryState();
+  return deriveDeviceProfile(getDeviceIdentity(), {
+    hasBattery: b ? b.hasBattery : null,
+    external: _external,
+    controllerConnected: _externalController,
+    xr: getHostHandshake()?.capabilities?.xr ?? null,
+  });
+}
 
 export function getDeviceState(): DeviceState {
   const b = getBatteryState();
@@ -468,7 +496,16 @@ export function evalDeviceRule(rule: any): boolean {
   return evalDisplayRule(rule); // externalDisplay/resolution/ultrawide + unknown→true
 }
 
-export const DEVICE_RULE_KINDS = [
+/* Trigger evidence for the display kinds: `externalDisplay` has data only once
+   the display probe has answered (null = not probed yet, or a host that cannot
+   tell). Shelf visibility keeps failing open above; a trigger must not switch
+   profiles on a guess. */
+export function deviceRuleHasData(rule: any): boolean {
+  if (String(rule?.kind ?? '') === 'externalDisplay') return getDeviceState().external != null;
+  return true;
+}
+
+const DEVICE_RULE_KINDS = [
   'battery', 'charging', 'offline', 'externalDisplay', 'resolution', 'ultrawide',
   'controllerConnected', 'libraryAvailable', 'device', 'inputMode',
 ] as const;

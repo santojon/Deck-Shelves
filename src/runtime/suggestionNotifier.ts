@@ -7,6 +7,7 @@ import { getExternalStatisticsProviders } from "../core/pluginApi";
 import { deriveSuggestions, type StatSuggestion } from "../domain/statistics";
 import { coveredTemplateIds } from "../domain/templates";
 import { getCurrentSettings } from "../store/settingsStore";
+import { qaOverrideActive } from "../qa/harness";
 
 const NOTIFIED_KEY = "ds-notified-suggestions";
 const NOTIFIED_CAP = 100; // keep the ledger bounded
@@ -16,6 +17,8 @@ function loadNotified(): Set<string> {
 }
 
 function saveNotified(ids: string[]): void {
+  // A QA build computes suggestions from fixture shelves: the real ledger stays as it was.
+  if (qaOverrideActive) return;
   try { localStorage.setItem(NOTIFIED_KEY, JSON.stringify(ids.slice(-NOTIFIED_CAP))); } catch { /* best-effort */ }
 }
 
@@ -31,6 +34,21 @@ async function computeSuggestions(s: any): Promise<StatSuggestion[]> {
     smartEnabled: s?.smartShelvesEnabled === true,
     exclude,
   });
+}
+
+/* The same ledger backs the "New" chip on the Suggestions tab: a suggestion the
+   user has never been notified about or seen in the tab is new; opening the
+   tab marks what it showed. */
+export function isSuggestionNew(id: string): boolean {
+  return !loadNotified().has(id);
+}
+
+export function markSuggestionsSeen(ids: string[]): void {
+  if (!ids.length) return;
+  const notified = loadNotified();
+  let changed = false;
+  for (const id of ids) if (!notified.has(id)) { notified.add(id); changed = true; }
+  if (changed) saveNotified([...notified]);
 }
 
 /* Suggestions the user hasn't been notified about yet (records the current set

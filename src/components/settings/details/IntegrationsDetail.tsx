@@ -23,6 +23,7 @@ import {
 } from "../../../core/pluginApi";
 import { CollapsibleSection } from "../../ui/CollapsibleSection";
 import { PuzzleIcon } from "../../icons";
+import { flowChildrenProps } from "../../../core/steamOSVersion";
 
 export interface IntegrationsDetailProps {
   controller: ReturnType<typeof useSettingsController>;
@@ -231,7 +232,7 @@ export function IntegrationsDetail({ controller, t }: IntegrationsDetailProps) {
 
   const builtInLabel = t("settings_integration_builtin");
   return (
-    <Focusable flow-children="vertical" style={{ display: "flex", flexDirection: "column" }}>
+    <Focusable {...flowChildrenProps("vertical")} style={{ display: "flex", flexDirection: "column" }}>
       {Array.from(grouped.entries()).map(([group, items], i) => (
         <CollapsibleSection key={group} id={`integ-${group}`} title={group} count={items.length} icon={<PuzzleIcon size={14} />} initialOpen={i === 0}>
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>

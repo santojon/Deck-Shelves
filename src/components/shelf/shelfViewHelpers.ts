@@ -1,3 +1,4 @@
+import { devStampKey, devCountKey } from "../../runtime/devStamps";
 import type { RefObject } from "react";
 import type { Shelf } from "../../types";
 import type { PlatformAppMeta } from "../../runtime/platform";
@@ -10,6 +11,8 @@ import { saveFocusTarget } from "../../core/focusRestore";
 import { triggerShelfRefresh } from "../../core/shelfRefresh";
 import { invalidateRandomSortCache } from "../../steam";
 import { invalidateSmartShelfCache } from "../../steam/smartShelves";
+import { compatCategoryForFamily } from "../../domain/deviceProfile";
+import { getDeviceProfile } from "../../runtime/deviceState";
 import { clearOnlineShelfCache } from "../../core/shelfActions";
 
 // Host-parametric UI lib — resolved by the one central resolver in the host
@@ -34,14 +37,14 @@ const STEAM_URL_OPENERS: SteamUrlOpener[] = [
   },
 ];
 
-export function openSteamStoreUrl(url: string, steamUrl?: string): void {
+function openSteamStoreUrl(url: string, steamUrl?: string): void {
   try {
     const sc = (globalThis as any).SteamClient;
     for (const opener of STEAM_URL_OPENERS) { if (opener(sc, url, steamUrl)) return; }
   } catch {}
 }
 
-export function openSteamStorePage(appid: number): void {
+function openSteamStorePage(appid: number): void {
   openSteamStoreUrl(`${STEAM_STORE_BASE}/app/${appid}/`, `steam://store/${appid}`);
 }
 
@@ -59,7 +62,7 @@ function readPriceCache(): Record<string, any> | null {
   return priceCacheParsed;
 }
 
-export function getCachedDiscount(appid: number): number | null {
+function getCachedDiscount(appid: number): number | null {
   try {
     const d = readPriceCache()?.[appid]?.data?.discount;
     return typeof d === 'number' ? d : null;
@@ -84,7 +87,7 @@ export function jsonOrNull(value: unknown): string {
   return JSON.stringify(value ?? null);
 }
 
-export function flag01(value: boolean | undefined): 'r1' | 'r0' {
+function flag01(value: boolean | undefined): 'r1' | 'r0' {
   return value ? 'r1' : 'r0';
 }
 
@@ -204,32 +207,20 @@ export function startManualRefreshIndicator(
 // Diagnostic: lets CDP inspection confirm a shelf isn't stuck re-resolving.
 export function traceResolveStart(shelfId: string, gen: number, currentGen: number, cancelled: boolean): number {
   const at = Date.now();
-  try {
-    const g = globalThis as any;
-    g.__ds_resolve_trace = g.__ds_resolve_trace || {};
-    g.__ds_resolve_trace[shelfId] = { state: "started", at, gen, currentGen, cancelled };
-  } catch {}
+  devStampKey("__ds_resolve_trace", shelfId, { state: "started", at, gen, currentGen, cancelled });
   return at;
 }
 
 export function traceResolveThen(shelfId: string, startedAt: number, gen: number, currentGen: number, cancelled: boolean, idCount: number | undefined): void {
-  try {
-    (globalThis as any).__ds_resolve_trace[shelfId] = { state: "then", at: Date.now(), tookMs: Date.now() - startedAt, gen, currentGen, cancelled, idCount };
-  } catch {}
+  devStampKey("__ds_resolve_trace", shelfId, { state: "then", at: Date.now(), tookMs: Date.now() - startedAt, gen, currentGen, cancelled, idCount });
 }
 
 export function traceResolveCatch(shelfId: string, startedAt: number, gen: number, currentGen: number, cancelled: boolean, err: unknown): void {
-  try {
-    (globalThis as any).__ds_resolve_trace[shelfId] = { state: "catch", at: Date.now(), tookMs: Date.now() - startedAt, gen, currentGen, cancelled, err: String(err).slice(0, 200) };
-  } catch {}
+  devStampKey("__ds_resolve_trace", shelfId, { state: "catch", at: Date.now(), tookMs: Date.now() - startedAt, gen, currentGen, cancelled, err: String(err).slice(0, 200) });
 }
 
 export function bumpResolveGenCounter(shelfId: string): void {
-  try {
-    const g = globalThis as any;
-    if (!g.__ds_resolve_gens) g.__ds_resolve_gens = {};
-    g.__ds_resolve_gens[shelfId] = (g.__ds_resolve_gens[shelfId] ?? 0) + 1;
-  } catch {}
+  devCountKey("__ds_resolve_gens", shelfId);
 }
 
 // Composite per-shelf exclude-owned toggles live on the online child —
@@ -365,7 +356,9 @@ export function buildOwnedRowItem(params: { appid: number; item: PlatformAppMeta
     heroUrl: item.heroUrl,
     onActivate: () => { saveFocusTarget(appid, shelf.id); platform.navigateToApp(appid); },
     onMenuButton,
-    deckCompatCategory: item.deckCompatCategory,
+    // The badge shows the rating of the device in use (Frame / Machine have
+    // their own); everything else keeps the Deck rating.
+    deckCompatCategory: compatCategoryForFamily(getDeviceProfile().family, item),
     controllerSupport: item.controllerSupport,
     playtimeMinutes: item.playtimeMinutes,
     isInstalled: item.installed,
@@ -388,7 +381,8 @@ export function buildRefreshRowItem(params: { shelf: Shelf; isOnlineShelf: boole
     onActivate: () => {
       if (isOnlineShelf) clearOnlineShelfCache();
       else if (isSmart) invalidateSmartShelfCache(shelf.id);
-      else invalidateRandomSortCache(shelf.id);
+      // The random order is kept per shelf for a day, so a manual refresh clears it too.
+      invalidateRandomSortCache(shelf.id);
       // Scopes the visual indicator to this shelf; every subscribed shelf
       // still re-resolves since online cache clears affect them all.
       triggerShelfRefresh({ manual: true, shelfId: shelf.id });

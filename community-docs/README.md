@@ -19,6 +19,7 @@ want; keep it for a pinned Discussion post people will search later.
 **Core features**
 - [shelf-sources-and-filters.md](shelf-sources-and-filters.md) — where a shelf's games come from, filters, sorts, combining sources
 - [smart-shelves.md](smart-shelves.md) — shelves that pick their own games automatically
+- [setup-wizard.md](setup-wizard.md) — the setup wizard and its packs: a whole starting point in one apply, undoable
 - [visual-customization.md](visual-customization.md) — logos, icons, descriptions, hero art, decoration cards, hide/show toggles
 - [online-features.md](online-features.md) — wishlist, on-sale shelves, pricing, store-metadata filters
 - [native-home-integration.md](native-home-integration.md) — replacing native Recents, hiding the tab strip, manual/drag reorder
@@ -37,8 +38,6 @@ want; keep it for a pinned Discussion post people will search later.
 - [showcase-mode.md](showcase-mode.md) — Showcase / Dynamic Idle Mode, a self-cycling shelf display
 
 **Distribution & sync**
-- [shelveshub-install.md](shelveshub-install.md) — ShelvesHub, the new recommended way to install (no Decky Loader needed)
-- [call-for-validators.md](call-for-validators.md) — the 3.3.4 validation call: which platforms still need a named validator and what the ten-minute check looks like
 - [own-qam-tab.md](own-qam-tab.md) — Deck Shelves' own Quick Access tab under Decky Loader
 - [cloud-sync.md](cloud-sync.md) — sync your settings across every device on your Steam account
 
@@ -50,4 +49,4 @@ want; keep it for a pinned Discussion post people will search later.
 - [power-user-tools.md](power-user-tools.md) — snapshots, cache management, diagnostics, statistics & suggestions
 
 All of the above are optional and off by default unless the file says
-otherwise. Current versions: plugin v3.3.0+, ShelvesHub v0.1.0+.
+otherwise. Current versions: plugin v3.3.0+.

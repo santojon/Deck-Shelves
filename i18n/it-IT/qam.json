@@ -18,6 +18,8 @@
   "menu_game_fallback": "Gioco",
   "menu_properties": "Proprietà",
   "menu_remove_from_shelf": "Rimuovi dallo scaffale",
+  "menu_lists": "Elenchi",
+  "menu_edit_tags": "Modifica tag…",
   "menu_resume": "Riprendi",
   "menu_shelf": "Scaffale",
   "menu_uninstall": "Disinstalla",
@@ -62,10 +64,13 @@
   "toast_filter_renamed": "Filtro rinominato",
   "mount_crash_report": "Segnala un problema",
   "safe_mode_title": "Modalità provvisoria attiva",
-  "safe_mode_desc": "I tuoi scaffali sono stati disattivati per questa sessione perché la schermata iniziale non ha completato il caricamento in tre avvii consecutivi. La schermata iniziale di Steam resta utilizzabile. Esci dalla modalità provvisoria per riprovare al prossimo riavvio di Steam.",
+  "safe_mode_desc": "I tuoi scaffali sono stati disattivati per questa sessione perché la schermata iniziale non ha completato il caricamento in tre degli ultimi sei avvii. La schermata iniziale di Steam resta utilizzabile. Esci dalla modalità provvisoria per riprovare al prossimo riavvio di Steam.",
   "safe_mode_leave": "Esci dalla modalità provvisoria",
   "report_issue_title": "Segnala un problema",
   "report_issue_desc": "Apre una segnalazione precompilata nel browser. Non viene inviato nulla finché non la controlli e la invii.",
   "report_issue_hardware": "Includi informazioni hardware",
-  "report_issue_hardware_desc": "Modello, CPU, memoria, GPU e archiviazione: aiuta a diagnosticare problemi specifici del dispositivo."
+  "report_issue_hardware_desc": "Modello, CPU, memoria, GPU e archiviazione: aiuta a diagnosticare problemi specifici del dispositivo.",
+  "sidecar_back": "Indietro",
+  "coop_stand_in": "Deck Shelves viene eseguito dalla propria scheda di Accesso rapido su questo dispositivo.",
+  "qam_sidecar_toggle": "Mostra o nascondi le impostazioni"
 }

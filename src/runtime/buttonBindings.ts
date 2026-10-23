@@ -50,13 +50,6 @@ const TOKEN_TO_RAW: Record<string, number> = {
 // in chord, so trying to bind these results in a stuck-state risk.
 const RESERVED = new Set<string>(["A", "B", "MENU", "START", "STEAM", "SCREENSHOT"]);
 
-export const ALLOWED_TOKENS = [
-  "X", "Y", "L1", "R1", "L2", "R2", "VIEW",
-  "L3", "R3", "L4", "L5", "R4", "R5",
-  "DPAD_UP", "DPAD_DOWN", "DPAD_LEFT", "DPAD_RIGHT",
-  "LSTICK", "RSTICK",
-] as const;
-
 export type Combo =
   | { kind: "single"; btn: number }
   | { kind: "chord"; btns: number[] }
@@ -109,7 +102,8 @@ export function validateCombo(raw: string | null | undefined, opts?: { allowNull
   if (!tokens.length) return { ok: false, reason: "empty" };
   const issue = comboTokenIssue(tokens);
   if (issue) return { ok: false, reason: issue };
-  if (tokens.length === 2 && tokens[0] !== tokens[1] && new Set(tokens).size !== tokens.length) {
+  // Two identical tokens are a double-tap; a repeat inside a longer chord is not.
+  if (tokens.length > 2 && new Set(tokens).size !== tokens.length) {
     return { ok: false, reason: "duplicate" };
   }
   return { ok: true };
@@ -162,6 +156,14 @@ export function matchEvent(
   });
 }
 
+// Same press, same key: aliases resolved, chord order ignored ("R1+L1" = "L1+R1").
+const TOKEN_ALIAS: Record<string, string> = { SELECT: "VIEW", START: "MENU", L3: "LSTICK", R3: "RSTICK" };
+function canonicalCombo(raw: string): string {
+  const tokens = tokenizeCombo(raw).map((t) => TOKEN_ALIAS[t] ?? t);
+  const isDouble = tokens.length === 2 && tokens[0] === tokens[1];
+  return (isDouble ? tokens : [...tokens].sort()).join("+");
+}
+
 // Collision detector — used by the UI to flag duplicate bindings.
 export function findCollisions(b: ButtonBindings): string[][] {
   const seen = new Map<string, string[]>();
@@ -171,7 +173,7 @@ export function findCollisions(b: ButtonBindings): string[][] {
   for (const f of fields) {
     const v = b[f];
     if (!v) continue;
-    const key = String(v).trim().toUpperCase();
+    const key = canonicalCombo(String(v));
     if (!key) continue;
     if (!seen.has(key)) seen.set(key, []);
     seen.get(key)!.push(f);

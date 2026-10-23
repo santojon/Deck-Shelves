@@ -37,14 +37,16 @@ function shelfSourceType(sh: any, kind: "regular" | "smart"): string {
   return String(sh.source?.type ?? "filter");
 }
 
+type SyntheticCardLike = { text?: unknown; image?: unknown; link?: unknown };
+
 // A synthetic card with no text/image/link is a pure gap/spacer.
-function isGapCard(c: any): boolean {
+function isGapCard(c: SyntheticCardLike | null | undefined): boolean {
   return !c?.text && !c?.image && !c?.link;
 }
 
 function toShelfStat(shRaw: any, kind: "regular" | "smart"): ShelfStatInput {
   const sh = shRaw || {};
-  const synth: any[] = Array.isArray(sh.syntheticCards) ? sh.syntheticCards : [];
+  const synth: SyntheticCardLike[] = Array.isArray(sh.syntheticCards) ? sh.syntheticCards : [];
   return {
     kind,
     sourceType: shelfSourceType(sh, kind),

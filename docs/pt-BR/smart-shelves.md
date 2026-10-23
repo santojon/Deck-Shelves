@@ -17,7 +17,7 @@ não é renderizada — sem ocultação via CSS, sem linha de placeholder.
 - Controlada pela alternância global `smartShelvesEnabled` no QAM.
 - Cada prateleira inteligente tem `enabled` (ativa no sistema) e `hidden` (ocultada manualmente pelo usuário). Ambos precisam ser falsos para a prateleira renderizar na home.
 - Os resultados são **memoizados por (mode, limit, params, ttl)** para evitar reexecução a cada ciclo de renderização da home. O TTL padrão é 60 minutos; override por prateleira via `refreshIntervalMinutes` (de 1 minuto a 30 dias).
-- prateleiras inteligentes **são editáveis** pelo modal **Editar prateleira inteligente** — override de ordenação (`sort`), filtros adicionais (`filterGroup`), controles de ajuste por modo (`smartParams`), intervalo de atualização, e as mesmas opções visuais das prateleiras normais (`matchNativeSize`, `highlightFirst`/`highlightAll`/`highlightedAppIds`, `hideStatusLine`, `hideNewBadge`, `hideCompatIcons`, `hideNonSteamBadge`, `hideShelfTitle`, `hideGameNames`, `hideInstallIndicator`).
+- prateleiras inteligentes **são editáveis** pelo modal **Editar prateleira inteligente** — override de ordenação (`sort`), filtros adicionais (`filterGroup`), controles de ajuste por modo (`smartParams`), intervalo de atualização, e as mesmas opções visuais das prateleiras normais (`matchNativeSize`, `highlightFirst`/`highlightAll`/`highlightedAppIds`, `highlightRandom`, `hideStatusLine`, `hideNewBadge`, `hideDiscountBadge`, `hideCompatIcons`, `hideNonSteamBadge`, `hideShelfTitle`, `hideGameNames`, `hideInstallIndicator`, `hideRefreshCard`, `dedupeByExactName`, além da sobreposição de logo / ícone / descrição com suas posições e tamanhos, do layout de página inteira e das informações do jogo acima dos cards). Com uma opção global desligada, o valor de cada prateleira inteligente vale na Home, como numa prateleira comum.
 
 > **Dica:** se uma prateleira inteligente aparece raramente ou nunca corresponde à sua biblioteca, prefira **ocultá-la** em vez de excluí-la — uma prateleira oculta pode ser reativada depois pelo QAM sem perder sua posição na lista.
 
@@ -130,16 +130,16 @@ Jogáveis para o Deck e têm menos de 2 horas de tempo de jogo.
 
 ---
 
-### Escolhas para o Deck — `deck_picks`
+### Escolhas para este aparelho — `deck_picks`
 
-**Quando aparece:** você tem pelo menos um jogo Verificado para Deck na biblioteca.
+**Quando aparece:** você tem pelo menos um jogo avaliado como *Verificado* para o aparelho em que está.
 
 **Critérios:**
-- `deck_compatibility_category = Verified` (categoria 3)
+- a nota de compatibilidade do aparelho em uso = Verificado (categoria 3) — a nota do Deck num Steam Deck, a do Machine num Steam Machine, a do Frame num Steam Frame
 
-**Ordenação:** jogados mais recentemente primeiro (destaca jogos que você usa ativamente no Deck).
+**Ordenação:** jogados mais recentemente primeiro (destaca jogos que você usa ativamente neste aparelho).
 
-**Quando desaparece:** quando a biblioteca não tem nenhum jogo Verificado para Deck.
+**Quando desaparece:** quando a biblioteca não tem nenhum jogo Verificado para este aparelho.
 
 **Confiabilidade:** alta para a maioria dos usuários de Steam Deck; a Valve certifica muitos títulos populares.
 
@@ -466,12 +466,12 @@ sistema escolhe um conjunto de templates de prateleira inteligente automaticamen
 dia usando uma semente diária determinística — mesmo dia, mesma seleção.
 
 **Contagem:** o slider define quantos templates aparecem (1–5). Quando
-definido como 0, o sistema decide: `1 + (dayIndex % 3)`, alternando entre 2, 3
-ou 4 prateleiras por dia.
+definido como 0, o sistema decide: `1 + (dayIndex % 3)`, alternando entre 1, 2
+ou 3 prateleiras por dia.
 
 > **Nota:** a contagem é o número **máximo** de prateleiras, não uma garantia. Templates que não retornam jogos para sua biblioteca seguem o caminho normal de render nulo e simplesmente não aparecem — o número real de prateleiras visíveis pode ser menor.
 
-**Seleção:** todos os 13 templates são embaralhados com a semente diária. As
+**Seleção:** os 15 modos surpresa são embaralhados com a semente diária. As
 primeiras `count` entradas da lista embaralhada são usadas. Templates que não
 retornam jogos ainda seguem o caminho natural de render nulo e desaparecem
 da tela inicial — a contagem é o máximo, não uma garantia.

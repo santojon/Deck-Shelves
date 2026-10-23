@@ -23,7 +23,7 @@ export function measure(name: string, startName?: string): number | null {
   }
 }
 
-export async function withMeasure<T>(name: string, fn: () => Promise<T>): Promise<T> {
+async function withMeasure<T>(name: string, fn: () => Promise<T>): Promise<T> {
   mark(name + ":start");
   try {
     return await fn();

@@ -22,7 +22,7 @@ describe("SETTINGS_CATEGORIES coverage", () => {
   });
 });
 
-describe("Export All wrapper (CRITICAL-NOW.md item 6)", () => {
+describe("Export All wrapper", () => {
   it("a pre-wrapper export (bare { state }, no format/version) still detects and unwraps", () => {
     const legacy = { state: { shelves: [{ id: "a" }], enabled: true } };
     const present = detectCategoriesInPayload(legacy);

@@ -18,6 +18,8 @@
   "menu_game_fallback": "Game",
   "menu_properties": "Properties",
   "menu_remove_from_shelf": "Remove from shelf",
+  "menu_lists": "Lists",
+  "menu_edit_tags": "Edit tags…",
   "menu_resume": "Resume",
   "menu_shelf": "Shelf",
   "menu_uninstall": "Uninstall",
@@ -62,10 +64,13 @@
   "toast_filter_renamed": "Filter renamed",
   "mount_crash_report": "Report issue",
   "safe_mode_title": "Safe mode is on",
-  "safe_mode_desc": "Your shelves were switched off for this session because the home screen failed to finish loading on three starts in a row. Steam's own home stays usable. Leave safe mode to try again on the next Steam restart.",
+  "safe_mode_desc": "Your shelves were switched off for this session because the home screen failed to finish loading on three of the last six starts. Steam's own home stays usable. Leave safe mode to try again on the next Steam restart.",
   "safe_mode_leave": "Leave safe mode",
   "report_issue_title": "Report a problem",
   "report_issue_desc": "Opens a pre-filled report in your browser. Nothing is sent until you review and submit it.",
   "report_issue_hardware": "Include hardware information",
-  "report_issue_hardware_desc": "Model, CPU, memory, GPU and storage — helps diagnose device-specific issues."
+  "report_issue_hardware_desc": "Model, CPU, memory, GPU and storage — helps diagnose device-specific issues.",
+  "sidecar_back": "Back",
+  "coop_stand_in": "Deck Shelves runs from its own Quick Access tab on this device.",
+  "qam_sidecar_toggle": "Show or hide settings"
 }

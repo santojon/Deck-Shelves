@@ -3,86 +3,6 @@ import type { PlatformTab } from '../runtime/platform';
 import { containerToShelfSource } from '../domain/customfilters';
 import { logInfo, logError } from '../runtime/logger';
 
-// ─── Context shape detection ──────────────────────────────────────────────
-
-export function isTabMasterContextValue(val: any): boolean {
-  if (!val || typeof val !== 'object' || Array.isArray(val)) return false;
-  // Top-level has visibleTabsList (array) or tabsMap (Map)
-  const hasList = Array.isArray(val.visibleTabsList);
-  const hasMap = val.tabsMap instanceof Map;
-  return hasList || hasMap;
-}
-
-// ─── Tab extraction from context ─────────────────────────────────────────
-
-function tabIdName(c: any, key?: string): [string, string] {
-  return [String(c?.id ?? key ?? '').trim(), String(c?.title ?? c?.name ?? '').trim()];
-}
-
-export function extractTabsFromContext(ctx: any): PlatformTab[] {
-  if (!ctx) return [];
-  const out: PlatformTab[] = [];
-  const seen = new Set<string>();
-
-  const add = (id: string, name: string) => {
-    if (id && name && !seen.has(id)) { seen.add(id); out.push({ id, name }); }
-  };
-
-  if (Array.isArray(ctx.visibleTabsList)) {
-    for (const c of ctx.visibleTabsList) {
-      add(...tabIdName(c));
-    }
-  }
-  if (ctx.tabsMap instanceof Map) {
-    ctx.tabsMap.forEach((c: any, key: string) => {
-      add(...tabIdName(c, key));
-    });
-  }
-  return out;
-}
-
-// ─── Apps for a specific tab ─────────────────────────────────────────────
-
-function normalizeText(s: string): string {
-  return s.toLowerCase().replace(/[^a-z0-9]/g, '');
-}
-
-function pickAllApps(best: any): any {
-  return best?.collection?.allApps ?? best?.allApps;
-}
-
-// 2 = exact id/name match, 1 = substring match either direction, 0 = none.
-function tabMatchScore(id: string, name: string, needle: string): number {
-  if (id === needle || name === needle) return 2;
-  return (id.includes(needle) || needle.includes(id)) ? 1 : 0;
-}
-
-export function getTabAppsFromContext(ctx: any, tabId: string): number[] {
-  if (!ctx?.tabsMap) return [];
-  const needle = normalizeText(tabId);
-
-  let best: any = null;
-  let bestScore = 0;
-  if (ctx.tabsMap instanceof Map) {
-    ctx.tabsMap.forEach((c: any, key: string) => {
-      const id = normalizeText(String(c?.id ?? key ?? ''));
-      const name = normalizeText(String(c?.title ?? c?.name ?? ''));
-      const score = tabMatchScore(id, name, needle);
-      if (score > bestScore) { bestScore = score; best = c; }
-    });
-  }
-  if (!best) return [];
-
-  const allApps = pickAllApps(best);
-  if (allApps instanceof Set) {
-    return Array.from(allApps.values()).map(Number).filter(Number.isFinite);
-  }
-  if (Array.isArray(allApps)) {
-    return allApps.map((a: any) => Number(a?.appid ?? a?.appId ?? a)).filter(Number.isFinite);
-  }
-  return [];
-}
-
 // ─── Backend API — reads TabMaster's settings file via our own backend ───
 
 export interface TabMasterTabEntry {
@@ -123,23 +43,6 @@ export async function getVisibleTabsFromSettingsFile(): Promise<PlatformTab[]> {
         : { type: 'tab' as const, tab: t.id };
       return { id: t.id, name: t.title, source };
     });
-}
-
-// Keep old names for call sites that haven't been updated yet — these now
-// delegate to the settings-file approach since TabMaster's Python IPC is
-// not accessible from other plugins.
-export async function getTabsFromBackend(): Promise<PlatformTab[]> {
-  return getVisibleTabsFromSettingsFile();
-}
-
-export async function getTabDetailsFromBackend(): Promise<Array<{ id: string; title: string; filters?: any[]; filtersMode?: string }>> {
-  const all = await getTabsFromSettingsFile();
-  return all.map((t) => ({
-    id: t.id,
-    title: t.title,
-    filters: t.filters,
-    filtersMode: t.filtersMode,
-  }));
 }
 
 // ─── Tab container → shelf source ────────────────────────────────────────

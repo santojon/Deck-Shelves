@@ -22,13 +22,14 @@
   "download_update": "下载更新",
   "update_install": "安装更新",
   "update_installing": "正在安装更新 {{version}}…",
-  "update_installed": "已更新到 {{version}} — 正在重新加载…",
+  "update_installed": "已更新到 {{version}}。",
   "update_install_failed": "安装失败 — 正在改为下载。",
+  "update_install_busy": "主机仍在检查更新 — 请稍后重试。",
   "update_downloading": "正在下载更新 {{version}}…",
   "update_downloaded": "已保存到 {{path}} — 请手动安装。",
   "update_download_failed": "下载失败 — 改为打开发布页面。",
   "shelf_type_normal": "普通",
   "shelf_type_smart": "智能",
   "update_installing_title": "正在安装更新",
-  "update_will_reload": "完成后 Steam 将重新加载。"
+  "update_will_reload": "新版本将在几秒钟后自动生效。"
 }

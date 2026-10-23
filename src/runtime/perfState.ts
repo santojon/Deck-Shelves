@@ -133,7 +133,16 @@ export function evalPerfRule(rule: any): boolean {
   return true;
 }
 
-export const PERF_RULE_KINDS = ['highCpu', 'lowMemory', 'lowFrameBudget'] as const;
+/* Whether a perf rule has real data behind it yet (profile triggers act only on
+   evidence; shelf visibility keeps failing open). Reading kicks the same refresh. */
+export function perfRuleHasData(rule: any): boolean {
+  const kind = String(rule?.kind || '');
+  if (kind === 'lowFrameBudget') { _lastFrameEvalAt = Date.now(); startFrameSampler(); return medianFrameMs() != null; }
+  ensureFresh();
+  return _snap != null;
+}
+
+const PERF_RULE_KINDS = ['highCpu', 'lowMemory', 'lowFrameBudget'] as const;
 export function isPerfRuleKind(kind: string): boolean {
   return (PERF_RULE_KINDS as readonly string[]).includes(kind);
 }

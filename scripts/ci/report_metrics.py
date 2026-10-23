@@ -231,7 +231,7 @@ def _read_portability(root: str) -> Optional[dict]:
     """Platform-portability DEBT for the current tree: OS-coupled backend call
     sites (Linux paths, OS tools/APIs) that are NOT fail-soft (`unguarded`,
     LOWER is better; target 0 — every OS touch must be guarded). `coupled` and
-    `guarded` are informational. Backend modules live at the repo root."""
+    `guarded` are informational. Scans `main.py` and `src/backend/`."""
     return _run_portability_metric(str(root), root)
 
 

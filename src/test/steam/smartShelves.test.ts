@@ -473,3 +473,39 @@ describe('profile triggers', () => {
     expect(resolveTriggeredProfile(profiles, MON(3))).toBeNull()
   })
 })
+
+describe('profile triggers act only on evidence', () => {
+  it('a perf rule without data never fires a trigger, while shelf visibility still fails open', () => {
+    const trigger = { mode: 'any' as const, rules: [{ kind: 'highCpu' }] }
+    expect(evalProfileTrigger(trigger)).toBe(false)
+    expect(evalVisibilityRules(trigger)).toBe(true)
+  })
+
+  it('an "any" trigger ignores the rule without data and still matches on the others', () => {
+    const MONDAY_NOON = new Date(2026, 9, 12, 12, 0, 0)
+    const trigger = { mode: 'any' as const, rules: [{ kind: 'highCpu' }, { kind: 'timeWindow', start: 10, end: 14 }] }
+    expect(evalProfileTrigger(trigger, MONDAY_NOON)).toBe(true)
+    expect(evalProfileTrigger({ ...trigger, mode: 'all' as const }, MONDAY_NOON)).toBe(false)
+  })
+
+  it('a rule kind this build does not know never fires a trigger, while shelf visibility still fails open', () => {
+    const MONDAY_NOON = new Date(2026, 9, 12, 12, 0, 0)
+    const unknown = { mode: 'any' as const, rules: [{ kind: 'futureSensor' }] }
+    expect(evalProfileTrigger(unknown, MONDAY_NOON)).toBe(false)
+    expect(evalVisibilityRules(unknown, MONDAY_NOON)).toBe(true)
+    const mixed = { mode: 'any' as const, rules: [{ kind: 'futureSensor' }, { kind: 'timeWindow', start: 10, end: 14 }] }
+    expect(evalProfileTrigger(mixed, MONDAY_NOON)).toBe(true)
+    expect(evalProfileTrigger({ ...mixed, mode: 'all' as const }, MONDAY_NOON)).toBe(false)
+  })
+
+  it('an external-display rule never fires a trigger before the display probe has answered, while shelf visibility still fails open', () => {
+    // deviceState starts with external = null (not probed yet); nothing here refreshes it.
+    const docked = { mode: 'any' as const, rules: [{ kind: 'externalDisplay' }] }
+    const handheld = { mode: 'any' as const, rules: [{ kind: 'externalDisplay', not: true }] }
+    expect(evalProfileTrigger(docked)).toBe(false)
+    expect(evalProfileTrigger(handheld)).toBe(false)
+    expect(evalVisibilityRules(docked)).toBe(true)
+    expect(resolveTriggeredProfile([{ name: 'Docked', trigger: docked }, { name: 'Handheld', trigger: handheld }])).toBeNull()
+  })
+})
+

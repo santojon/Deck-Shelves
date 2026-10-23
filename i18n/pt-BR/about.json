@@ -12,7 +12,7 @@
   "about_feature_edit_smart": "Editar prateleiras inteligentes: sobrescrever ordenação, adicionar filtros extras, ajustar visuais",
   "about_feature_external_imports": "Importe abas da biblioteca do TabMaster ou de outros plugins e as converta em prateleiras",
   "about_feature_filters": "Filtre por nome, tempo de jogo, status de instalação, compatibilidade, visibilidade e mais",
-  "about_feature_first_run": "Banner de primeiro uso com modelos de prateleira padrão",
+  "about_feature_first_run": "Banner de primeiro uso com o assistente de configuração",
   "about_feature_global_toggles": "Toggles globais para tamanho nativo e destaque com precedência sobre configuração individual",
   "about_feature_hero_global": "Toggle global de hero na seção Visual do QAM que ativa hero art em todas as prateleiras de uma vez",
   "about_feature_hero_per_shelf": "Imagem de hero de fundo por prateleira — regular ou inteligente — com toggle na aba Visual do modal Editar Prateleira",

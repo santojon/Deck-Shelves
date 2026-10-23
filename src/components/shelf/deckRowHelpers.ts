@@ -79,10 +79,13 @@ function computeShelfRootPaddingTop(params: { fullPageLayoutActive: boolean; inf
 // cards at the bottom via flex so the hero composes inside the shelf's own
 // 100vh bounds.
 function computeFullPageFlexStyle(fullPageLayoutActive: boolean): {
-  minHeight: string | undefined; display: 'flex' | undefined; flexDirection: 'column' | undefined; justifyContent: 'flex-end' | undefined;
+  minHeight: string | undefined; boxSizing: 'border-box' | undefined; display: 'flex' | undefined; flexDirection: 'column' | undefined; justifyContent: 'flex-end' | undefined;
 } {
-  if (!fullPageLayoutActive) return { minHeight: undefined, display: undefined, flexDirection: undefined, justifyContent: undefined };
-  return { minHeight: '100vh', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' };
+  if (!fullPageLayoutActive) return { minHeight: undefined, boxSizing: undefined, display: undefined, flexDirection: undefined, justifyContent: undefined };
+  /* border-box: the first shelf's hero band (a top padding from the stylesheet)
+     stays inside the 100vh, so that shelf is as tall as the others and its row
+     lands at the same place when centered. */
+  return { minHeight: '100vh', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' };
 }
 
 export function computeShelfRootStyle(params: {
@@ -90,7 +93,7 @@ export function computeShelfRootStyle(params: {
   fullPageLayoutActive: boolean; infoAbove: boolean; logoBelowShelf: boolean; logoBandPx: number;
 }): {
   marginBottom: number; overflow: 'visible' | 'hidden'; background: string;
-  minHeight: string | undefined; display: 'flex' | undefined; flexDirection: 'column' | undefined; justifyContent: 'flex-end' | undefined;
+  minHeight: string | undefined; boxSizing: 'border-box' | undefined; display: 'flex' | undefined; flexDirection: 'column' | undefined; justifyContent: 'flex-end' | undefined;
   paddingTop: number | undefined; paddingBottom: number | undefined;
 } {
   const { heroEnabled, enableLogo, enableDescription, hideStatusLine, fullPageLayoutActive, infoAbove, logoBelowShelf, logoBandPx } = params;
@@ -128,12 +131,6 @@ export function resolveTitleJustifyContent(position: 'left' | 'center' | 'right'
   if (position === 'center') return 'center';
   if (position === 'right') return 'flex-end';
   return 'flex-start';
-}
-
-// Small value helpers — kept separate so their branches don't count
-// against the caller's own complexity.
-export function joinOrEmpty(list: unknown[] | null | undefined): string {
-  return list?.join(",") ?? "";
 }
 
 // --- DOM-imperative focus/scroll helpers (side-effecting, but with no
@@ -178,7 +175,7 @@ export function scrollShelfIntoView(outer: HTMLElement | null, pinToTop: boolean
 
 // Centers `el` inside `container` by scrolling container's top — shared by
 // both vertical-fallback paths (ancestor scroll container, Steam viewport).
-export function centerElementInContainer(container: HTMLElement, el: HTMLElement, pinToTop: boolean): void {
+function centerElementInContainer(container: HTMLElement, el: HTMLElement, pinToTop: boolean): void {
   if (pinToTop) {
     try { container.scrollTo({ top: 0, behavior: 'smooth' }); } catch { container.scrollTop = 0; }
     return;

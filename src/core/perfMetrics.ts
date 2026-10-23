@@ -1,4 +1,6 @@
 import { mark, measure } from "./perf";
+import { registerDisposer } from "../runtime/runtimeDisposer";
+import { isHomeOwner } from "../runtime/host/ownerGuard";
 
 /* Lightweight, pure in-memory registry for the Diagnostics -> Performance
    panel. Additive instrumentation only — counters are bumped at existing
@@ -6,42 +8,173 @@ import { mark, measure } from "./perf";
    control flow or behaviour. No polling: the panel reads a snapshot on
    manual refresh, same pattern as DiagnosticsSection. */
 
+/* The bundle carries this module in more than one chunk (Home code and the
+   Settings page import it from different entry points), and each copy used to
+   own its counters — the panel then read a copy nobody bumped (`null`/0 on a
+   live session). One shared record on globalThis makes every copy count into
+   the same place. */
+type State = {
+  bootCriticalMs: number | null;
+  mountMs: number | null;
+  mountStarted: boolean;
+  activeTimers: number;
+  activeObservers: number;
+  activeSubscriptions: number;
+  reconcileLog: number[];
+  domCallbackLog: number[];
+  renderLog: number[];
+  cardRenderLog: number[];
+  cardRendersTotal: number;
+  mountCardsProcessed: number;
+  mountFetches: number;
+  remountTries: number;
+  longTaskCount: number;
+  longTaskTotalMs: number;
+  longTaskOver200Count: number;
+  longTaskOver200Ms: number;
+  longTaskObserverStarted: boolean;
+  bootStartAt: number | null;
+  bootOrigin: BootOrigin | null;
+  bootPhases: BootPhase[];
+  bootWatchdog: string | null;
+  disposedKinds: Record<string, boolean>;
+};
+
+export type BootOrigin = 'cold' | 'warm' | 'hot-swap';
+// One boot phase: when it began (ms after boot start) and how long it ran (null while open).
+export type BootPhase = { name: string; atMs: number; durationMs: number | null };
+
+function freshState(): State {
+  return {
+    bootCriticalMs: null, mountMs: null, mountStarted: false,
+    activeTimers: 0, activeObservers: 0, activeSubscriptions: 0,
+    reconcileLog: [], domCallbackLog: [], renderLog: [], cardRenderLog: [], cardRendersTotal: 0,
+    mountCardsProcessed: 0, mountFetches: 0, remountTries: 0,
+    longTaskCount: 0, longTaskTotalMs: 0, longTaskOver200Count: 0, longTaskOver200Ms: 0, longTaskObserverStarted: false,
+    bootStartAt: null, bootOrigin: null, bootPhases: [], bootWatchdog: null, disposedKinds: {},
+  };
+}
+
+const S: State = ((globalThis as any).__ds_perf_state ??= freshState());
+// A copy from an earlier build may have left its record behind; give it the fields it lacks.
+for (const [key, value] of Object.entries(freshState())) {
+  if (!(key in S)) (S as any)[key] = value;
+}
+
+function nowMs(): number {
+  try { return (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now(); } catch { return Date.now(); }
+}
+
 // --- Boot + mount timing -----------------------------------------------------
 
-let bootCriticalMs: number | null = null;
-export function markBootStart(): void { mark('ds.boot:start'); }
-export function recordBootCritical(): void { bootCriticalMs = measure('ds.boot.critical', 'ds.boot:start'); }
+/* The record is shared by every copy of the plugin in this JS context, so a
+   boot is kept aside here and lands in it only at the end of the critical path,
+   and only when this copy owns the renderer: in a dual-host install the copy
+   that defers to the host never gets there and the one that stood down drops
+   its candidate, leaving the owner's record alone. */
+type StagedBoot = { startAt: number; prior: Record<string, boolean>; watchdog: string | null };
+let staged: StagedBoot | null = null;
 
-let mountMs: number | null = null;
+export function markBootStart(): void {
+  mark('ds.boot:start');
+  staged = { startAt: nowMs(), prior: snapshotPriorInstances(), watchdog: null };
+}
+export function recordBootCritical(): void {
+  const critical = measure('ds.boot.critical', 'ds.boot:start');
+  const boot = staged ?? { startAt: nowMs(), prior: {}, watchdog: null };
+  staged = null;
+  const kind = ownInstanceKind();
+  // The shared record is the owner's: a copy that stood down keeps its number to itself.
+  if (isHomeOwner()) { S.bootCriticalMs = critical; commitBoot(boot, kind); }
+  trackInstance(kind);
+  // From here on, so the long tasks of the Home's first mount are counted too.
+  ensureLongTaskObserver();
+}
+
+function commitBoot(boot: StagedBoot, kind: string | null): void {
+  S.bootStartAt = boot.startAt;
+  S.bootPhases = [{ name: 'critical', atMs: 0, durationMs: Math.max(0, Math.round(nowMs() - boot.startAt)) }];
+  S.bootOrigin = classifyBootOrigin(boot.prior, kind);
+  S.bootWatchdog = boot.watchdog;
+}
+
 /* `mountStarted` records that the Home actually began rendering (HomeShelves
    mounted). The startup watchdog needs it to tell "injection is stuck" apart
    from "the user simply hasn't opened Home yet" — only the former is a fault. */
-let mountStarted = false;
-export function markMountStart(): void { mountStarted = true; mark('ds.mount:start'); }
-export function recordMountDone(): void { mountMs = measure('ds.mount', 'ds.mount:start'); }
-export function hasMountStarted(): boolean { return mountStarted; }
+export function markMountStart(): void { S.mountStarted = true; mark('ds.mount:start'); beginBootPhase('mount'); }
+export function recordMountDone(): void { S.mountMs = measure('ds.mount', 'ds.mount:start'); endBootPhase('mount'); }
+export function hasMountStarted(): boolean { return S.mountStarted; }
 
-// --- Home-layer timer/observer/subscription counters -------------------------
-// Tracks the Home mount/patch layer (HomeInject + homePatch), not every
-// timer in the plugin — per-shelf/per-card observers aren't wired here yet.
+// --- Boot phases + origin ------------------------------------------------------
+/* The phases are kept per boot (reset in markBootStart) and the first occurrence
+   wins: Home mounts again on every return, but the boot record wants the first. */
 
-let activeTimers = 0;
-let activeObservers = 0;
-let activeSubscriptions = 0;
+export function beginBootPhase(name: string): void {
+  if (S.bootPhases.some((p) => p.name === name)) return;
+  const at = S.bootStartAt === null ? 0 : Math.max(0, nowMs() - S.bootStartAt);
+  S.bootPhases.push({ name, atMs: Math.round(at), durationMs: null });
+}
 
-export function timerCreated(): void { activeTimers++; }
-export function timerDisposed(): void { activeTimers = Math.max(0, activeTimers - 1); }
-export function observerCreated(): void { activeObservers++; }
-export function observerDisposed(): void { activeObservers = Math.max(0, activeObservers - 1); }
-export function subscriptionCreated(): void { activeSubscriptions++; }
-export function subscriptionDisposed(): void { activeSubscriptions = Math.max(0, activeSubscriptions - 1); }
+export function endBootPhase(name: string): void {
+  const phase = S.bootPhases.find((p) => p.name === name);
+  if (!phase || phase.durationMs !== null || S.bootStartAt === null) return;
+  phase.durationMs = Math.max(0, Math.round(nowMs() - S.bootStartAt - phase.atMs));
+}
+
+// The startup watchdog's verdict on the first Home mount ('ok', 'tripped', …).
+// Recorded during the critical path (no Home patch to watch) it lands with the boot.
+export function recordBootWatchdog(outcome: string): void {
+  if (staged) staged.watchdog = outcome; else S.bootWatchdog = outcome;
+}
+
+/* Boot origin, per host kind, from the instance stash the entry keeps on
+   `window` (`__DECK_SHELVES_INSTANCES__`, one entry per kind, never removed):
+   'cold' = no earlier instance of this kind in this JS context; 'warm' = the
+   earlier one had already been dismounted by its host (a plain reload);
+   'hot-swap' = it was still live, so this instance had to dispose it itself. */
+// An instance stashed by a build that never flagged its dismount counts as live.
+function snapshotPriorInstances(): Record<string, boolean> {
+  const out: Record<string, boolean> = {};
+  try {
+    for (const kind of Object.keys((globalThis as any).__DECK_SHELVES_INSTANCES__ ?? {})) out[kind] = S.disposedKinds[kind] === true;
+  } catch {}
+  return out;
+}
+
+function ownInstanceKind(): string | null {
+  try {
+    const kind = (globalThis as any).__DECK_SHELVES_INSTANCE__?.kind;
+    return typeof kind === 'string' ? kind : null;
+  } catch { return null; }
+}
+
+function classifyBootOrigin(prior: Record<string, boolean>, kind: string | null): BootOrigin {
+  const kinds = kind === null ? Object.keys(prior) : Object.keys(prior).filter((k) => k === kind);
+  if (!kinds.length) return 'cold';
+  return kinds.some((k) => !prior[k]) ? 'hot-swap' : 'warm';
+}
+
+// Liveness of this instance, by kind, for the next boot's origin; runs once the entry has stashed it.
+function trackInstance(kind: string | null): void {
+  if (kind === null) return;
+  S.disposedKinds[kind] = false;
+  registerDisposer(() => { S.disposedKinds[kind] = true; });
+}
+
+// --- Timer/observer/subscription counters ------------------------------------
+// The Home mount/patch layer (HomeInject + homePatch) plus the shared per-card
+// input registry and the shelf viewport gate; per-row observers are not counted.
+
+export function timerCreated(): void { S.activeTimers++; }
+export function timerDisposed(): void { S.activeTimers = Math.max(0, S.activeTimers - 1); }
+export function observerCreated(): void { S.activeObservers++; }
+export function observerDisposed(): void { S.activeObservers = Math.max(0, S.activeObservers - 1); }
+export function subscriptionCreated(): void { S.activeSubscriptions++; }
+export function subscriptionDisposed(): void { S.activeSubscriptions = Math.max(0, S.activeSubscriptions - 1); }
 
 // --- Rolling per-minute rate counters -----------------------------------------
 
 const RATE_WINDOW_MS = 60_000;
-const reconcileLog: number[] = [];
-const domCallbackLog: number[] = [];
-const renderLog: number[] = [];
 
 function trim(log: number[], now: number): void {
   const cutoff = now - RATE_WINDOW_MS;
@@ -61,44 +194,47 @@ function rateOf(log: number[]): number {
 
 // A "reconcile" is one Home mount/state re-sync pass (HomeInject's
 // updateMount, triggered by route change, DOM mutation or the fallback poll).
-export function recordReconcile(): void { bump(reconcileLog); }
+export function recordReconcile(): void { bump(S.reconcileLog); }
 // A DOM-driven callback tick (MutationObserver fire, focus-divergence check).
-export function recordDomCallback(): void { bump(domCallbackLog); }
-export function recordRender(): void { bump(renderLog); }
+export function recordDomCallback(): void { bump(S.domCallbackLog); }
+export function recordRender(): void { bump(S.renderLog); }
+// One GameCard render (dev builds only bump it) — the S6 "a focus move must
+// not re-render many cards" check reads the per-minute rate.
+export function recordCardRender(): void { S.cardRendersTotal++; bump(S.cardRenderLog); }
 
 // --- Mount-cycle counters (reset at each mount start) -------------------------
 
-let mountCardsProcessed = 0;
-let mountFetches = 0;
-export function resetMountCounters(): void { mountCardsProcessed = 0; mountFetches = 0; }
-export function recordMountFetch(): void { mountFetches++; }
-export function recordMountCardsProcessed(n: number): void { mountCardsProcessed += n; }
+export function resetMountCounters(): void { S.mountCardsProcessed = 0; S.mountFetches = 0; }
+export function recordMountFetch(): void { S.mountFetches++; }
+export function recordMountCardsProcessed(n: number): void { S.mountCardsProcessed += n; }
 
 // --- Remount-retry counter (homePatch fallback-render loop) -------------------
 
-let remountTries = 0;
-export function recordRemountTry(): void { remountTries++; }
+export function recordRemountTry(): void { S.remountTries++; }
 
 // --- Long tasks ----------------------------------------------------------------
 // Feature-detected: not every host webview exposes `longtask` entries.
 
-let longTaskCount = 0;
-let longTaskTotalMs = 0;
-let longTaskObserverStarted = false;
+// Above this a task is felt as a stutter; counted apart from the 50 ms ones.
+const LONG_TASK_SEVERE_MS = 200;
 
 function ensureLongTaskObserver(): void {
-  if (longTaskObserverStarted) return;
-  longTaskObserverStarted = true;
+  if (S.longTaskObserverStarted) return;
+  S.longTaskObserverStarted = true;
   try {
     const PO = (globalThis as any).PerformanceObserver;
     if (!PO) return;
     const obs = new PO((list: any) => {
       for (const entry of list.getEntries()) {
-        longTaskCount++;
-        longTaskTotalMs += entry.duration ?? 0;
+        const duration = entry.duration ?? 0;
+        S.longTaskCount++;
+        S.longTaskTotalMs += duration;
+        if (duration > LONG_TASK_SEVERE_MS) { S.longTaskOver200Count++; S.longTaskOver200Ms += duration; }
       }
     });
     obs.observe({ entryTypes: ['longtask'] });
+    // Disconnected with this instance; the shared flag lets the next one restart it.
+    registerDisposer(() => { try { obs.disconnect(); } catch {} S.longTaskObserverStarted = false; });
   } catch {}
 }
 
@@ -114,10 +250,17 @@ export type PerfSnapshot = {
   reconcilesPerMin: number;
   domCallbacksPerMin: number;
   rendersPerMin: number;
+  cardRendersPerMin: number;
+  cardRendersTotal: number;
   longTaskCount: number;
   longTaskTotalMs: number;
+  longTaskOver200Count: number;
+  longTaskOver200Ms: number;
   usedJSHeapMB: number | null;
   totalJSHeapMB: number | null;
+  bootOrigin: BootOrigin | null;
+  bootPhases: BootPhase[];
+  bootWatchdog: string | null;
 };
 
 // `performance.memory` is a non-standard Chromium extension — present in
@@ -139,13 +282,20 @@ function readHeap(): { usedJSHeapMB: number | null; totalJSHeapMB: number | null
 export function getPerfSnapshot(): PerfSnapshot {
   ensureLongTaskObserver();
   return {
-    bootCriticalMs, mountMs, mountCardsProcessed, mountFetches, remountTries,
-    activeTimers, activeObservers, activeSubscriptions,
-    reconcilesPerMin: rateOf(reconcileLog),
-    domCallbacksPerMin: rateOf(domCallbackLog),
-    rendersPerMin: rateOf(renderLog),
-    longTaskCount, longTaskTotalMs,
+    bootCriticalMs: S.bootCriticalMs, mountMs: S.mountMs,
+    mountCardsProcessed: S.mountCardsProcessed, mountFetches: S.mountFetches, remountTries: S.remountTries,
+    activeTimers: S.activeTimers, activeObservers: S.activeObservers, activeSubscriptions: S.activeSubscriptions,
+    reconcilesPerMin: rateOf(S.reconcileLog),
+    domCallbacksPerMin: rateOf(S.domCallbackLog),
+    rendersPerMin: rateOf(S.renderLog),
+    cardRendersPerMin: rateOf(S.cardRenderLog),
+    cardRendersTotal: S.cardRendersTotal,
+    longTaskCount: S.longTaskCount, longTaskTotalMs: S.longTaskTotalMs,
+    longTaskOver200Count: S.longTaskOver200Count, longTaskOver200Ms: S.longTaskOver200Ms,
     ...readHeap(),
+    bootOrigin: S.bootOrigin,
+    bootPhases: S.bootPhases.map((p) => ({ ...p })),
+    bootWatchdog: S.bootWatchdog,
   };
 }
 
@@ -157,19 +307,6 @@ if (__DEV__) {
 
 // Test-only reset — keeps vitest cases isolated from module-level state.
 export function __resetPerfMetricsForTest(): void {
-  bootCriticalMs = null;
-  mountMs = null;
-  mountStarted = false;
-  activeTimers = 0;
-  activeObservers = 0;
-  activeSubscriptions = 0;
-  reconcileLog.length = 0;
-  domCallbackLog.length = 0;
-  renderLog.length = 0;
-  mountCardsProcessed = 0;
-  mountFetches = 0;
-  remountTries = 0;
-  longTaskCount = 0;
-  longTaskTotalMs = 0;
-  longTaskObserverStarted = false;
+  staged = null;
+  Object.assign(S, freshState());
 }

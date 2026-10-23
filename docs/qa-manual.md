@@ -36,8 +36,13 @@ Manual test checklist for regression testing on a real Steam Deck (SteamOS Stabl
 | 2.5 | Show shelf via ellipsis → shelf reappears on Home | Shelf active again |
 | 2.6 | Delete shelf → confirmation modal; confirm → removed | Shelf gone from QAM and Home |
 | 2.7 | Move shelf up/down via QAM → order changes on Home | Order matches QAM |
+| 2.7a | QAM shelf list with a controller: A on a shelf name grabs it; D-pad up/down moves it one place (stops at the ends); A saves | The row keeps Steam's own highlight, no extra frame or hint; while grabbed, Steam's button bar shows Move up / Move down (D-pad), Save Order (A) and Cancel (B); order saved once, Home follows; focus stays on the moved row |
+| 2.7b | Same, then B instead of A | Row goes back, nothing saved, the panel stays open, focus stays on the row |
+| 2.7c | Hold-drag a row with touch or a mouse | The dragged row is dimmed; order saved on release |
 | 2.8 | Edit shelf title → title updates on Home row header | New title rendered |
 | 2.9 | Edit shelf limit → card count changes | Number of cards changes |
+| 2.10 | In Steam's library, press ≡ on an installed game, a game that is not installed and a non-Steam shortcut | "Add to shelf" appears once in each menu, just before Properties |
+| 2.11 | Right after Steam starts, open the first game menu from the library and keep it open for a few seconds | "Add to shelf" stays in the menu |
 
 ---
 
@@ -77,7 +82,7 @@ Manual test checklist for regression testing on a real Steam Deck (SteamOS Stabl
 |---|----------|----------|
 | 5.1 | `hideRecents=true` → native Recently Played section hidden | Section not visible on Home |
 | 5.2 | `hideRecents=true` + `heroBackground=true` → focused card shows background art | Hero art visible |
-| 5.3 | `hideRecents=true` + `recentsReplaceSource=true` → first shelf injected into native recents DOM | First shelf uses native styles |
+| 5.3 | `hideRecents=true` + `recentsReplaceSource=true` → the native Recents row shows the first shelf's games and title | First shelf uses native styles |
 | 5.4 | `hideRecents=false` → sub-toggles (hero, replace-source) hidden in QAM | Only visible when hideRecents is on |
 
 ---
@@ -98,7 +103,7 @@ Manual test checklist for regression testing on a real Steam Deck (SteamOS Stabl
 |---|----------|----------|
 | 7.1 | `smartShelvesEnabled=false` → smart shelves section not shown in QAM | Section hidden |
 | 7.2 | `enabled=false` → smart shelves toggle not shown at all | Even toggle hidden |
-| 7.3 | Add smart shelf → modal with 15 templates opens | SmartShelfTemplateModal |
+| 7.3 | Add smart shelf → the create picker lists the smart templates by category (online-only ones hidden while online features are off) | CreateShelfModal |
 | 7.4 | Smart shelf with no results → not rendered on Home | Shelf invisible (null render) |
 | 7.5 | Smart shelf with results → rendered on Home between standard shelves | Appears in correct position |
 | 7.6 | `smartShelvesAtBottom=true` → smart shelves appear below standard shelves | Order respected |
@@ -165,6 +170,7 @@ The build accepts environment flags that force specific UI states for repeatable
 | Flag | Script | Effect |
 |------|--------|--------|
 | `DS_QA_FORCE_FIRST_RUN` | `pnpm qa:first-run` | Empty shelf list + plugin disabled — exercises the first-run banner |
+| `DS_QA_FRESH_INSTALL` | `pnpm qa:fresh-install` | A fresh install as the first-run flow sees it: master toggle off, no shelves, tour not yet seen, no setup applied — the welcome banner and the tour appear, the tour's closing choice opens the setup wizard, apply / undo run in memory only (nothing is written to the device) |
 | `DS_QA_FORCE_QAM_ERROR` | `pnpm qa:qam-error` | Throws on QAM render — exercises the QAM ErrorBoundary |
 | `DS_QA_FORCE_SHELF_ERROR` | `pnpm qa:shelf-error` | Throws on shelf render — exercises `HomeBoundary` |
 | `DS_QA_FORCE_HOME_CRASH` | `pnpm qa:home-crash` | Same throw, distinct flag for capture scripts to disambiguate |
@@ -176,6 +182,8 @@ The build accepts environment flags that force specific UI states for repeatable
 | `DS_QA_SMART_SHELVES_FIXTURE` | `pnpm qa:smart-fixture` | Seeds 4 smart shelves so the smart section renders populated |
 | `DS_QA_SAVED_FILTERS_FIXTURE` | `pnpm qa:saved-filters-fixture` | Seeds saved filters so the QAM Saved Filters section is visible |
 | `DS_QA_FORCE_HIDDEN_SHELF` | `pnpm qa:hidden-shelf` | Adds one hidden shelf to the curated fixture (for the `shelf-hidden.png` capture) |
+| `DS_QA_VIDEO_FIXTURE` | `pnpm qa:video-fixture` | Presentable shelves (three library-backed, a wishlist and a store-deals shelf), two smart shelves and a profile with a charging trigger, with the online features and Advanced mode on — the base the video scenarios (`pnpm run videos`) record; applied once per session, so an edit a recording makes stays on the Home (in memory only) |
+| `DS_QA_SCREENSHOTS_FIXTURE` | `pnpm qa:screenshots-fixture` | The video fixture plus a hidden shelf, two saved filters and a second profile, built on the default settings (not the device's own) with Quick Search and the Side Nav on and the first shelf in the native recents row under its hero art — everything the screenshot run (`pnpm run screenshots`) captures, in memory only |
 | `DS_QA_SMART_SURPRISE_ME` | `pnpm qa:surprise-me` | Forces `smartSurpriseMe=true` so the daily-rotation logic runs |
 | `DS_QA_FORCE_TABMASTER` | — | `present` / `absent` overrides TabMaster detection |
 | `DS_QA_FORCE_UNIFIDECK` | — | `present` / `absent` overrides UnifiDeck detection |
@@ -187,3 +195,49 @@ The build accepts environment flags that force specific UI states for repeatable
 | `DS_QA_COLLECTION_INVERTED` | `pnpm qa:collection-inverted` | Seeds two side-by-side shelves: "In Favorites" + "Installed but NOT in Favorites" (inverted) — visually verifies #56 |
 
 Combine flags as needed (e.g. `DS_QA_SMART_SHELVES_FIXTURE=1 DS_QA_SAVED_FILTERS_FIXTURE=1 pnpm run deploy:deck:hard`). Each one is independent and additive.
+
+## 13. Video Scenarios (CDP required)
+
+Scripted, repeatable sequences for the eight content scripts (custom shelves, smart shelves,
+filters, visual customization, Quick Search + Side Nav, profiles + triggers, online shelves,
+power-user tools) plus the quick-settings sidecar, registered with the same `videos` runner as
+the content-script recordings (the five `custom_shelves` … `profiles_triggers` scenarios, which
+perform a real edit and show its result). Deploy the video fixture first
+(`pnpm run qa:video-fixture`), then:
+
+```bash
+pnpm run videos:list                          # every registered scenario (content scripts + 01…09)
+pnpm run videos -- --only 01_custom_shelves,02_smart_shelves
+pnpm run videos -- --video-fps 8              # encode rate (default 10)
+```
+
+Each scenario drives the Big Picture window (the sidecar one, the Quick Access menu's own
+window) through a timed sequence while the runner's screencast records it, prints each cue point
+with its timestamp and writes them beside the mp4 (`<name>.cues.txt`); recordings land in
+`tmp/videos/` (gitignored) and need `ffmpeg` on PATH. Scenarios and their driving helpers live
+in `scripts/deckprobe-ext/videos/scenarios/` (`feature_scripts.py`, `content_scripts.py`,
+`_steps.py`; `_screencast.py` records with each frame's real arrival time, so a clip lasts as
+long as the sequence did even where the screen stays still). The overlays, the editors and the
+sidecar open through dev-build hooks and routes, so the sequences need the dev build the fixture
+deploys; every recording starts on a settled Home with the plugin UI in en-US and the controller
+glyphs restored after each key sent over the debug protocol.
+
+## 14. Ad-hoc probes and maintainer scripts
+
+One-off diagnostics kept beside the probe suites. They read the live client over the debug
+protocol and print what they find; none of them changes settings.
+
+| Script | What it does |
+|---|---|
+| `python3 scripts/deckprobe-ext/probes/perf_card_count.py [--max-count N --steps …]` | Raises the first shelf's limit step by step and measures home render time per card count, to find where the frame budget degrades (restores the limit afterwards) |
+| `python3 scripts/deckprobe-ext/probes/native_shelf_detection.py` | Lists every candidate for Steam's native recents row with position, parent and native-card count, so the heuristic the side nav and Quick Search use can be checked on a given client build |
+| `python3 scripts/deckprobe-ext/probes/hwcompat.py` | Prints the device's system-info fields and decodes the packed hardware-compat category for a sample of owned apps, cross-checked against the named getters |
+| `python3 scripts/deckprobe-ext/probes/in_game_focus.py [--appid N] [--seconds S] [--home-over-game] [--shortcut-exe PATH --shortcut-args …] [--max-wakeups N]` | Launches a small installed game (or a temporary non-Steam shortcut) and, while it runs, counts the focus grabs our cards make, the timer wakeups the plugin causes and the shelf resolves, opens Quick Access and the Steam menu several times to check each keeps the focus, then stops the game and checks a card is focused again on the Home. Works on any build; the power gate's state is read when the build exposes it. Run it with no game running, at least 30 seconds after a reload, and put the normal build back afterwards |
+| `python3 scripts/deckprobe-ext/probes/return_focus.py [--shelves 0,2] [--back cancel]` | Opens a game page from a card the way the A button does and comes back the way the B button does, for a shelf at the top and one below the fold: the Home must land on the same card (`--back` also offers the router-level ways back, which skip Steam's own focus handling) |
+| `DS_QA_HIDE_APPID=<appid> python3 -m deckprobe.uitests.run --only stabilization` | The `stabilization` suite: Steam-hidden games stay off tab and collection shelves (it hides the given small game in Steam for the check and unhides it at the end), plus the Roulette's refresh card on the smart-shelf fixture (`pnpm run qa:smart-fixture`). Hiding a game on a smart shelf is checked by hand: the fixture rebuilds its smart shelves on every change |
+| `python3 scripts/deckprobe-ext/probes/menu_injection.py` | Opens the game menu on cards of three shelves and checks that the per-card actions and the Shelf group (Management / Display / Visual) are injected once each, identified by their keys so any UI language works |
+| `python3 scripts/deckprobe-ext/probes/shelf_render.py` | Lists every shelf on the home with its card count and whether its apps resolve |
+| `bash scripts/dev/ensure-repo-settings.sh` | Maintainers only: checks the GitHub repository's merge settings (squash-only, delete branch on merge) and patches them when they drift; needs the `gh` CLI |
+| `pnpm run deck:debug` | Opens the device's DevTools target list (`http://<host>:<port>`) in the browser |
+| `scripts/deckprobe-ext/lib/ds_qam.py` (helper, import it) | `open_decky_ds_tab(host, port)`: opens the loader's Deck Shelves tab until the panel is really visible — the toolkit's own navigation helper is satisfied by another host's hidden copy of the panel on a two-host device |
+| `scripts/deckprobe-ext/lib/probe_base.py` (helper, import it) | `connect()` / `ev()` / `sep()` — the session helpers the older probes share |

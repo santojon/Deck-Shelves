@@ -27,7 +27,7 @@ vi.mock('../../runtime/host/decky', () => ({
 }))
 
 import {
-  evalDeviceRule, getDeviceState, isDeviceRuleKind, installDeviceState, refreshControllerState,
+  evalDeviceRule, getDeviceState, isDeviceRuleKind, installDeviceState, refreshControllerState, deviceRuleHasData,
   refreshLibraryLocations, getLibraryCategoryOf, getLibraries, subscribeDeviceState,
   setSimulatedDevice, getSimulatedDevice,
   getInputMode, setSimulatedInputMode, getSimulatedInputMode,
@@ -109,6 +109,17 @@ describe('evalDeviceRule', () => {
     const cleanup = installDeviceState()
     await new Promise((r) => setTimeout(r, 0))
     expect(evalDeviceRule({ kind: 'externalDisplay' })).toBe(true) // null → fail open
+    expect(deviceRuleHasData({ kind: 'externalDisplay' })).toBe(false) // but a trigger has no evidence
+    cleanup()
+  })
+
+  it('deviceRuleHasData: the external-display rule has evidence only once the probe answered', async () => {
+    expect(deviceRuleHasData({ kind: 'charging' })).toBe(true)
+    rpc.current = { external: false, supported: true }
+    const cleanup = installDeviceState()
+    await new Promise((r) => setTimeout(r, 0))
+    expect(deviceRuleHasData({ kind: 'externalDisplay' })).toBe(true)
+    expect(evalDeviceRule({ kind: 'externalDisplay' })).toBe(false)
     cleanup()
   })
 

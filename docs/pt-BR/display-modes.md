@@ -28,7 +28,7 @@ salvos a armazenam) e persiste entre reinicializações.
 | QAM/sidecar: smart "no rodapé" / "Me surpreenda" | ocultos | exibidos | exibidos |
 | Modal de editar prateleira: ordenação multi-chave, fonte composta, ordenação manual por arrastar | ocultos | exibidos | exibidos |
 | Seletor de criação: templates smart avançados | ocultos | exibidos | exibidos |
-| **Ferramentas avançadas** (log detalhado, visualizador de log de diagnóstico, atalhos de reset) | — | — | **exibidas** (Configurações → aba Avançado) |
+| **Ferramentas avançadas** (informações do sistema, snapshots, atalhos de reset; com o modo desenvolvedor ligado: log detalhado, visualizador de log de diagnóstico, painel de desempenho) | — | — | **exibidas** (Configurações → aba Avançado; aba Desenvolvedor) |
 
 ## Modo Normal (padrão)
 
@@ -68,11 +68,14 @@ modo leve é desligado.
 
 Tudo do modo normal, **mais**:
 
-- **Configurações → aba Avançado** — a alternância de log detalhado, o
-  **visualizador de log** de diagnóstico no dispositivo (com copiar /
-  limpar), e atalhos de reset (prateleiras / smart / tudo / personalizado por
-  categoria). Essas ferramentas vivem **somente** aqui, então ficam
-  completamente inacessíveis a menos que o modo avançado esteja ligado.
+- **Configurações → aba Avançado** — informações do sistema, snapshots, a
+  chave do modo desenvolvedor e atalhos de reset (prateleiras / smart / tudo /
+  personalizado por categoria). Com o modo desenvolvedor ligado, uma **aba
+  Desenvolvedor** adiciona a alternância de log detalhado, o **visualizador de
+  log** de diagnóstico no dispositivo (com copiar / limpar), o painel de
+  desempenho e o inspetor de resolução de fontes. Essas ferramentas vivem
+  **somente** aqui, então ficam completamente inacessíveis a menos que o modo
+  avançado esteja ligado.
 - A aba **Integrações** fica sempre visível (mesmo sem nenhum plugin de
   terceiros presente).
 

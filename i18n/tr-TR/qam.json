@@ -18,6 +18,8 @@
   "menu_game_fallback": "Oyun",
   "menu_properties": "Özellikler",
   "menu_remove_from_shelf": "Raftan kaldır",
+  "menu_lists": "Listeler",
+  "menu_edit_tags": "Etiketleri düzenle…",
   "menu_resume": "Devam et",
   "menu_shelf": "Raf",
   "menu_uninstall": "Kaldır",
@@ -62,10 +64,13 @@
   "toast_filter_renamed": "Filtre yeniden adlandırıldı",
   "mount_crash_report": "Sorun bildir",
   "safe_mode_title": "Güvenli mod açık",
-  "safe_mode_desc": "Ana ekran art arda üç başlatmada yüklemeyi tamamlayamadığı için raflarınız bu oturumda kapatıldı. Steam'in kendi ana ekranı kullanılabilir durumda. Bir sonraki Steam yeniden başlatmasında tekrar denemek için güvenli moddan çıkın.",
+  "safe_mode_desc": "Ana ekran son altı başlatmanın üçünde yüklemeyi tamamlayamadığı için raflarınız bu oturumda kapatıldı. Steam'in kendi ana ekranı kullanılabilir durumda. Bir sonraki Steam yeniden başlatmasında tekrar denemek için güvenli moddan çıkın.",
   "safe_mode_leave": "Güvenli moddan çık",
   "report_issue_title": "Sorun bildir",
   "report_issue_desc": "Tarayıcınızda önceden doldurulmuş bir rapor açar. Siz gözden geçirip göndermeden hiçbir şey gönderilmez.",
   "report_issue_hardware": "Donanım bilgilerini ekle",
-  "report_issue_hardware_desc": "Model, CPU, bellek, GPU ve depolama — cihaza özgü sorunların teşhisine yardımcı olur."
+  "report_issue_hardware_desc": "Model, CPU, bellek, GPU ve depolama — cihaza özgü sorunların teşhisine yardımcı olur.",
+  "sidecar_back": "Geri",
+  "coop_stand_in": "Deck Shelves bu cihazda kendi Hızlı Erişim sekmesinden çalışır.",
+  "qam_sidecar_toggle": "Ayarları göster veya gizle"
 }

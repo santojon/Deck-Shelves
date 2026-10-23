@@ -27,7 +27,7 @@ var expression = [
   '  // Shelf list rows',
   '  var listRoot = document.querySelector(".deck-shelves-shelf-list");',
   '  if (listRoot) {',
-  '    var rows = Array.from(listRoot.querySelectorAll("[data-ds-reorder-focused]"));',
+  '    var rows = Array.from(listRoot.querySelectorAll("[data-ds-grab-row]"));',
   '    out.shelfRows = rows.slice(0, 6).map(function (r, i) {',
   '      var label = r.querySelector(".deck-shelves-label-text");',
   '      var actions = r.querySelector("[data-ds-shelf-actions]");',

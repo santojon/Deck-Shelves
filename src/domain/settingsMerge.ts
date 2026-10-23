@@ -13,11 +13,14 @@ type Tombstones = Record<string, number>;
 // scalar bag, chosen whole by preferencesUpdatedAt.
 export const SYNC_LISTS = ["shelves", "smartShelves", "savedFilters", "savedSmartFilters", "profiles"] as const;
 
-// Dev/debug tooling + the per-device QAM tab: never part of a profile switch
-// or a cross-device sync, only ever local to this install. Shared with the
-// profile controller (controller/profiles.ts, runtime/profileTriggers.ts).
+// Dev/debug tooling + the per-device Quick Access tab option: never part of a
+// profile switch or a cross-device sync, only ever local to this install. Shared
+// with the profile controller (controller/profiles.ts, runtime/profileTriggers.ts).
 export const DEVICE_LOCAL_FIELDS = [
   "devModeEnabled", "verboseLoggingEnabled", "ownQamTabEnabled",
+  // This device's backup of Steam's own idle timeout: a factory reset or a
+  // profile switch must keep it, or turning the screensaver off can't restore it.
+  "screensaverIdleBackupAcSec", "screensaverIdleBackupBatterySec",
   "debugOverlayEnabled", "debugOverlayCorner", "debugOverlayVertical",
   "debugOverlayFps", "debugOverlayStats", "debugOverlayPerShelf",
   "debugOverlayOutlines", "debugOverlayFocus", "debugOverlayTransparent",
@@ -26,9 +29,8 @@ export const DEVICE_LOCAL_FIELDS = [
 // Per-device, never synced — always kept from the local (first) argument.
 export const LOCAL_ONLY_FIELDS = [
   "cloudSyncEnabled", "cloudSyncLastSyncedAt",
-  "screensaverIdleBackupAcSec", "screensaverIdleBackupBatterySec",
   // The active profile is a device-local presentation — a merge must keep the
-  // local one, never adopt the other device's (see cloudSync's matching list).
+  // local one, never adopt the other device's (cloudSync strips this list before a push).
   "activeProfileName",
   // The first-run tour flag: per-device, same reasoning as above (profiles
   // already keep it sticky via stickyShowcaseSeen; a sync merge must too).
@@ -98,14 +100,44 @@ function scalarBag(la: any, rb: any, lp: number, rp: number, keepLocal: boolean)
    on SYNCED fields (so both devices converge from the same pair); the device-local
    fields in LOCAL_ONLY_FIELDS always come from `local` (the first argument). */
 /* `scalars: "keepLocal"` pins the whole scalar bag (and its clock) to `local`
-   while the per-entity lists still merge — used while a profile override is
-   active so the scalar settings a profile applies stay device-local and never
-   tug-of-war across devices. This mode is intentionally NOT symmetric. */
+   while the per-entity lists still merge — for a caller that wants the scalar
+   settings a profile applies to stay device-local; the cloud sync itself merges
+   them and folds the result into the active profile. NOT symmetric. */
+/* A neutral host's own config entity rides the sync as per-key LWW (its
+   `updatedAt` map), independent of the scalar bag: a device that never had it
+   adopts it, ties keep local, and an empty remote never erases local keys. */
+type HubConfig = { values: Record<string, unknown>; updatedAt: Record<string, number> };
+type Clocks = Record<string, number>;
+
+function hubOrNull(c: HubConfig | null | undefined): HubConfig | null { return c && c.values ? c : null; }
+
+function adoptNewer(values: Record<string, unknown>, clocks: Clocks, k: string, v: unknown, tr: number): void {
+  if (!(k in values) || tr > (clocks[k] ?? 0)) { values[k] = v; clocks[k] = tr; }
+}
+
+export function mergeHubConfig(local: HubConfig | null | undefined, remote: HubConfig | null | undefined): HubConfig | null {
+  const l = hubOrNull(local);
+  const r = hubOrNull(remote);
+  if (!r || Object.keys(r.values).length === 0) return l;
+  if (!l) return r;
+  const values = { ...l.values };
+  const updatedAt: Clocks = { ...(l.updatedAt ?? {}) };
+  for (const [k, v] of Object.entries(r.values)) adoptNewer(values, updatedAt, k, v, r.updatedAt?.[k] ?? 0);
+  return { values, updatedAt };
+}
+
+// The schema version only climbs: an older document from the other device must not pull a migrated one back.
+function keepHigherSchemaVersion(out: any, la: any, rb: any): void {
+  const schema = Math.max(la.schemaVersion ?? 0, rb.schemaVersion ?? 0);
+  if (schema > 0) out.schemaVersion = schema;
+}
+
 export function mergeSettings(local: Settings, remote: Settings, opts?: { scalars?: "auto" | "keepLocal" }): Settings {
   const la = local as any, rb = remote as any;
   const lp = prefClock(la), rp = prefClock(rb);
   const { base, clock } = scalarBag(la, rb, lp, rp, opts?.scalars === "keepLocal");
   const out: any = { ...base };
+  keepHigherSchemaVersion(out, la, rb);
 
   const tombstones = mergeTombstones(la.syncTombstones ?? {}, rb.syncTombstones ?? {});
   out.syncTombstones = tombstones;
@@ -116,5 +148,7 @@ export function mergeSettings(local: Settings, remote: Settings, opts?: { scalar
     out[key] = mergeList((la[key] ?? []) as Entity[], (rb[key] ?? []) as Entity[], tombstones, orderIds);
   }
   for (const key of LOCAL_ONLY_FIELDS) out[key] = la[key];
+  const hub = mergeHubConfig(la.hubConfig, rb.hubConfig);
+  if (hub) out.hubConfig = hub; else delete out.hubConfig;
   return out as Settings;
 }

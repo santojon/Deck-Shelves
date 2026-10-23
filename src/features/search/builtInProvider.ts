@@ -1,5 +1,6 @@
+import { devStamp } from "../../runtime/devStamps";
 import type { SearchHit, SearchProviderDescriptor } from "../../core/pluginApi";
-import { focusElement } from "../../core/focusRestore";
+import { focusElement, saveFocusTarget, beginFocusRestoreLoop } from "../../core/focusRestore";
 import { getPreferredSteamDocument } from "../../runtime/steamHost";
 import { getCurrentSettings } from "../../settingsStore";
 import { readRegistry } from "./shelfRegistry";
@@ -142,7 +143,7 @@ function collectShelfApps(): ShelfHit[] {
       });
     }
   }
-  try { (globalThis as any).__ds_search_pool = out.length; } catch {}
+  devStamp("__ds_search_pool", out.length);
   return out;
 }
 
@@ -185,7 +186,7 @@ export const BUILT_IN_SHELF_SEARCH: SearchProviderDescriptor = {
     }
     scored.sort((a, b) => b.score - a.score);
     const top = scored.slice(0, Math.max(1, limit));
-    try { (globalThis as any).__ds_search_last = { q, pool: apps.length, hits: top.length }; } catch {}
+    devStamp("__ds_search_last", { q, pool: apps.length, hits: top.length });
     const hits: SearchHit[] = top.map(({ entry, score }) => ({
       id: `shelves:${entry.appid}`,
       appid: entry.appid,
@@ -215,7 +216,27 @@ function findNativeCard(doc: Document, appid: number): HTMLElement | null {
   return null;
 }
 
-function focusShelfCard(appid: number, shelfId: string | null): void {
+// The row's sideways scroller (DeckRow's own class; a card's box overflows too, so no size walk).
+function rowScrollerOf(shelfEl: HTMLElement): HTMLElement | null {
+  return shelfEl.querySelector<HTMLElement>(".ds-row-scroll");
+}
+
+/* The card is not in the DOM: the shelf is still a placeholder below the
+   fold, or the row's virtualization left the card out. Make it the pending
+   focus target (a row anchors its card window on that), bring the shelf near
+   the viewport, re-window the row, and let the restore loop land the focus
+   once the card mounts. */
+function revealAndFocus(doc: Document, appid: number, shelfId: string): void {
+  const escape = (s: string) => (globalThis as any).CSS?.escape?.(s) ?? s.replace(/["\\]/g, "\\$&");
+  const shelfEl = doc.querySelector<HTMLElement>(`.ds-shelf[data-shelfid="${escape(shelfId)}"]`);
+  if (!shelfEl) return;
+  saveFocusTarget(appid, shelfId);
+  try { shelfEl.scrollIntoView({ block: "center", inline: "center", behavior: "instant" as ScrollBehavior }); } catch {}
+  try { rowScrollerOf(shelfEl)?.dispatchEvent(new Event("scroll")); } catch {}
+  beginFocusRestoreLoop();
+}
+
+export function focusShelfCard(appid: number, shelfId: string | null): void {
   const g = globalThis as unknown as { CSS?: { escape?: (s: string) => string } };
   const escape = (s: string) => g.CSS?.escape?.(s) ?? s.replace(/["\\]/g, "\\$&");
   const doc = getPreferredSteamDocument() ?? document;
@@ -229,24 +250,7 @@ function focusShelfCard(appid: number, shelfId: string | null): void {
   };
   const target = findTarget();
   if (!target && shelfId && !isNative) {
-    // Card not mounted — scroll the shelf into view first, then retry a
-    // few times while the DOM catches up. Steam virtualises long rows so
-    // off-screen items don't render until they're near the viewport.
-    const shelfEl = doc.querySelector<HTMLElement>(`.ds-shelf[data-shelfid="${escape(shelfId)}"]`);
-    if (shelfEl) {
-      try { shelfEl.scrollIntoView({ block: "center", inline: "center", behavior: "instant" as ScrollBehavior }); } catch {}
-      let attempt = 0;
-      const id = setInterval(() => {
-        attempt++;
-        const found = findTarget();
-        if (found) {
-          clearInterval(id);
-          try { focusElement(found); } catch {}
-        } else if (attempt > 20) {
-          clearInterval(id);
-        }
-      }, 60);
-    }
+    revealAndFocus(doc, appid, shelfId);
     return;
   }
   if (!target) return;

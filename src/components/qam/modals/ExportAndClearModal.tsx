@@ -1,27 +1,17 @@
 import { useState } from 'react'
-import { ConfirmModal, Focusable, DialogButton, TextField, openFilePicker } from '../../../runtime/host/decky'
+import { ConfirmModal } from '../../../runtime/host/decky'
 import { notify } from "../../notify";
 import { ModalShell } from '../../ui'
 import type { SettingsController } from '../../../features/settings/controller'
 import { exportSettingsToFile } from '../../../settingsStore'
 import { resetMountFailed } from '../../../runtime/homePatch'
-import { textFromDeckyChange, filenameWithJson, pickerPath } from './modalUtils'
-
-async function pickFolder(startPath: string) {
-  for (const fn of [
-    async () => openFilePicker(1, startPath, false, true, undefined, undefined, false, false),
-    async () => openFilePicker(1, startPath),
-  ]) {
-    try { const v = pickerPath(await fn()); if (v) return v } catch {}
-  }
-  return ''
-}
+import { filenameWithJson } from './modalUtils'
+import { ExportFileFields } from './ExportFileFields'
 
 export function ExportAndClearModal({ closeModal, controller, folderPath }: { closeModal?: () => void; controller: SettingsController; folderPath: string }) {
   const { t, actions } = controller
   const [name, setName] = useState('deck-shelves-backup')
   const [folder, setFolder] = useState(folderPath)
-  const [browseBusy, setBrowseBusy] = useState(false)
   const [saveBusy, setSaveBusy] = useState(false)
   return (
     <ModalShell>
@@ -55,27 +45,7 @@ export function ExportAndClearModal({ closeModal, controller, folderPath }: { cl
           })();
         }}
       >
-        <Focusable>
-          <div style={{ padding: '4px 16px 1px' }} className='name-field'>
-            <div style={{ paddingBottom: '6px' }}>{t('file_name')}</div>
-            <TextField value={name} onChange={(value: unknown) => setName(textFromDeckyChange(value))} />
-            <div style={{ paddingTop: '10px' }}>
-              <DialogButton
-                onClick={async () => {
-                  setBrowseBusy(true)
-                  try {
-                    const picked = await pickFolder(folder)
-                    if (picked) setFolder(picked)
-                  } catch (error) {
-                    notify("error", { body: String(error) })
-                  } finally {
-                    setBrowseBusy(false)
-                  }
-                }}
-              >{browseBusy ? t('loading') : t('browse')}</DialogButton>
-            </div>
-          </div>
-        </Focusable>
+        <ExportFileFields t={t} name={name} setName={setName} folder={folder} setFolder={setFolder} />
       </ConfirmModal>
     </ModalShell>
   )

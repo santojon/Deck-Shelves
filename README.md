@@ -9,13 +9,12 @@
 
 [![CI](https://github.com/santojon/Deck-Shelves/actions/workflows/ci.yml/badge.svg)](https://github.com/santojon/Deck-Shelves/actions/workflows/ci.yml)
 [![Release](https://github.com/santojon/Deck-Shelves/actions/workflows/release.yml/badge.svg)](https://github.com/santojon/Deck-Shelves/actions/workflows/release.yml)
-[![Tests](https://img.shields.io/badge/vitest-1050%20passed-brightgreen?logo=vitest&logoColor=white)](src/test/)
-[![pytest](https://img.shields.io/badge/pytest-213%20passed-brightgreen?logo=pytest&logoColor=white)](src/test/test_main.py)
+[![Tests](https://img.shields.io/badge/vitest-1782%20passed-brightgreen?logo=vitest&logoColor=white)](src/test/)
+[![pytest](https://img.shields.io/badge/pytest-255%20passed-brightgreen?logo=pytest&logoColor=white)](src/test/test_main.py)
 [![TypeCheck](https://img.shields.io/badge/typecheck-clean-brightgreen?logo=typescript&logoColor=white)](tsconfig.json)
 [![Compatibility](https://img.shields.io/badge/checks-40%2F40-brightgreen?logo=steamdeck&logoColor=white)](scripts/build/validate-compat.mjs)
-[![Platform](https://img.shields.io/badge/platform-SteamOS%20%C2%B7%20Linux%20%C2%B7%20macOS%20%C2%B7%20Windows-purple?logo=steamdeck&logoColor=white)](https://github.com/ValveSoftware/SteamOS)
+[![Platform](https://img.shields.io/badge/platform-SteamOS%20%C2%B7%20Linux%20%C2%B7%20Windows-purple?logo=steamdeck&logoColor=white)](https://github.com/ValveSoftware/SteamOS)
 [![Downloads](https://img.shields.io/github/downloads/santojon/Deck-Shelves/total.svg?label=downloads&color=blue)](https://github.com/santojon/Deck-Shelves/releases/latest)
-[![ShelvesHub downloads](https://img.shields.io/github/downloads/santojon/ShelvesHub/total.svg?label=shelveshub%20downloads&color=blue)](https://github.com/santojon/ShelvesHub/releases/latest)
 [![GitHub release](https://img.shields.io/github/v/release/santojon/Deck-Shelves?label=latest&color=blue)](https://github.com/santojon/Deck-Shelves/releases/latest)
 [![Decky Store](https://img.shields.io/endpoint?url=https%3A%2F%2Fsantojon.github.io%2FDeck-Shelves%2Fstats%2Fdecky-store.json)](https://plugins.deckbrew.xyz/plugins)
 [![npm api](https://img.shields.io/npm/dt/@deck-shelves/api?label=api%20downloads&logo=npm&color=cb3837)](https://www.npmjs.com/package/@deck-shelves/api)
@@ -32,7 +31,7 @@
 
 **Deck Shelves** is a plugin that makes the Steam Deck Home screen yours. Build custom shelves from your collections, library tabs, or filters; let **smart shelves** surface games automatically when they're relevant; add hero artwork, decoration cards, and online wishlist/store rows — all configured right on the Deck through a built-in Quick Access Menu editor. No desktop mode, no config files.
 
-**New here?** Read the [getting-started guide](https://github.com/santojon/Deck-Shelves/discussions/48), then install via [ShelvesHub](https://github.com/santojon/ShelvesHub) (recommended — no Decky Loader required) or through the Decky Store (see [Installation](#installation)). Questions or ideas? Join the [Discord](https://discord.gg/EChuVEDakk) or [r/DeckShelves](https://www.reddit.com/r/DeckShelves/).
+**New here?** Read the [getting-started guide](https://github.com/santojon/Deck-Shelves/discussions/48), then install through the Decky Store (see [Installation](#installation)). Questions or ideas? Join the [Discord](https://discord.gg/EChuVEDakk) or [r/DeckShelves](https://www.reddit.com/r/DeckShelves/).
 
 ## Contents
 
@@ -41,7 +40,6 @@
   - [Features](#features)
   - [Screenshots](#screenshots)
   - [Installation](#installation)
-    - [Via ShelvesHub (recommended)](#via-shelveshub-recommended)
     - [From Decky Store](#from-decky-store)
     - [Manual Installation](#manual-installation)
     - [Install from URL](#install-from-url)
@@ -135,10 +133,10 @@
 - **Exclude owned games** — per-shelf toggle on wishlist / store sources that hides any game whose appid or exact name matches a title in your local library; sub-toggle for non-Steam shortcuts (from other storefronts), and a further sub-toggle for cloud-play catalogue stubs (cloud-gaming services surfaced via Unifideck) so promotions on the cloud catalogue still surface
 - **Discount badges** — cards on online shelves show a green "% off" badge (mirrors the NEW badge slot, shown even on placeholder cards while artwork is still loading)
 - **Refresh action everywhere** — context-aware "Refresh cache" / "Refresh" available from the QAM action menu, the shelf-card context menu, and the trailing refresh tile
-- **Own Quick Access tab (experimental, opt-in)** — puts Deck Shelves in the Quick Access tab strip itself, next to Notifications and Settings, instead of only inside Decky's plugin list. Off by default; restart Steam after enabling
+- **Own Quick Access tab (experimental, opt-in)** — puts Deck Shelves in the Quick Access tab strip itself, right after Performance, instead of only inside Decky's plugin list. Off by default; restart Steam after enabling. If another host already shows a Deck Shelves tab, the option is hidden
 - **Showcase mode (opt-in)** — while idle on the Home, slowly cycles through your shelves like a screensaver; any input stops it instantly. Configurable delay, time per shelf, and randomize order
 - **Screensaver (opt-in, experimental)** — a full-screen slideshow of everything your home screen shows, optionally mixing in your local screenshots too, in place of the built-in one. Your own start delay and time per image, plus an optional game-logo overlay you can resize and reposition to any corner
-- **Cross-device settings sync (opt-in, experimental)** — keep shelves, filters, profiles and every other preference in sync across every device on the same Steam account, using that account's own cloud storage — no extra sign-in, no cost. The **currently-active profile is device-local** (manual or trigger): a *Showcase* profile that docks one machine never flips a handheld device on the same account into it — each device keeps its own current profile while the underlying settings and the profile list still sync
+- **Cross-device settings sync (opt-in, experimental)** — keep shelves, filters, profiles and every other preference in sync across every device on the same Steam account, using that account's own cloud storage — no extra sign-in, no cost. The **currently-active profile is device-local** (manual or trigger): a *Showcase* profile that docks one machine never flips a handheld device on the same account into it — each device keeps its own current profile and its look, while the profile list (each profile's settings and triggers), your shelves and filters still sync, and the plain settings follow only between devices running the same profile
 - Import / export all shelves and smart shelf configuration as JSON
 - Persistent settings across plugin reinstalls
 - Crash protection with automatic retry
@@ -153,16 +151,6 @@
 A full visual tour — home, QAM, shelf editor, smart shelves, About docs and more — lives in **[docs/showcase.md](docs/showcase.md)**.
 
 ## Installation
-
-### Via ShelvesHub (recommended)
-
-[ShelvesHub](https://github.com/santojon/ShelvesHub) is a standalone host — it injects Deck Shelves directly and needs no plugin loader. One-click installers for every platform, automatic updates for itself and the plugin, and its own Quick Access Menu tab. (x86-64 is fully supported; ARM64/aarch64 is experimental until validated on real hardware.)
-
-1. Grab the installer for your platform from the [ShelvesHub releases page](https://github.com/santojon/ShelvesHub/releases/latest) (or see the [ShelvesHub site](https://santojon.github.io/ShelvesHub/) for details).
-2. Run it — on Steam Deck it's a `.desktop` file, no sudo required.
-3. Restart Steam if prompted. Deck Shelves gets its own Quick Access Menu tab automatically.
-
-Already using Decky Loader? ShelvesHub coexists with it — both can be installed at once, sharing the same settings.
 
 ### From Decky Store
 
@@ -193,11 +181,11 @@ Everything lives in **[docs/](docs/README.md)** — start there for the full ind
 - [Architecture](docs/architecture.md) — system overview, project structure, data flow, key systems, Home internals
 - [Plugin API](docs/plugin-api.md) — register custom shelf sources from other plugins
 - [Filter System](docs/filters.md) — filter types, groups, sort keys, built-in sources
-- [Shelf Templates](docs/shelf-templates.md) — standard and online shelf template presets
+- [Shelf Templates](docs/shelf-templates.md) — standard and online shelf template presets, and the setup packs
+- [Frame and Machine](docs/frame-and-machine.md) — device families, per-device compatibility, VR levels, ARM64
 - [Smart Shelves](docs/smart-shelves.md) — smart shelf templates, criteria, and reliability
 - [Online shelves](docs/online-shelves.md) — network-backed sources, caching and refresh
 - [Display modes](docs/display-modes.md) — what Normal / Light / Advanced show and hide
-- [Decky Loader or ShelvesHub?](docs/decky-or-shelveshub.md) — the two hosts side by side
 - [Validation matrix](docs/validation-matrix.md) — which platforms and hosts were exercised for this release, and how to validate one
 - [Development Guide](docs/development.md) — setup, build commands, testing, conventions
 - [Webpack Classmap](docs/webpack-classmap.md) — runtime CSS class discovery
@@ -229,16 +217,16 @@ bash scripts/build/validate-compat.sh
 
 ### Operating systems
 
-Deck Shelves runs two ways: standalone via **[ShelvesHub](https://github.com/santojon/ShelvesHub)** (its own per-OS installer, no plugin loader needed) or as a plugin under **Decky Loader**, which installs as a systemd service and is Linux-only at the OS level. The same plugin bundle runs unmodified under either host. Path discovery ([`paths.py`](src/backend/paths.py)) and packaging ([`scripts/build/package.py`](scripts/build/package.py)) are OS-agnostic (stdlib only, no bash/`zip` CLI).
+Deck Shelves runs as a plugin under **Decky Loader**, which installs as a systemd service and is Linux-only at the OS level. Path discovery ([`paths.py`](src/backend/paths.py)) and packaging ([`scripts/build/package.py`](scripts/build/package.py)) are OS-agnostic (stdlib only, no bash/`zip` CLI).
 
-| OS | Via ShelvesHub | Via Decky Loader |
-|---|---|---|
-| SteamOS / Steam Deck | ✅ official (primary target) — x86_64; ARM64 experimental | ✅ official (primary target) |
-| Linux — SteamOS-like (Bazzite, ChimeraOS, HoloISO, Nobara) + desktop (native / Flatpak) | ✅ x86_64 (ARM64 experimental), one-click or package | ✅ unofficial — Decky's systemd install works |
-| Windows | ✅ stable, one-click installer | ⚠️ unofficial — via a community Windows installer; unstable |
-| macOS | ✅ universal binary — native on Apple Silicon and Intel | ❌ not supported — no systemd / no remote debug port |
+| OS | Via Decky Loader |
+|---|---|
+| SteamOS / Steam Deck | ✅ official (primary target) |
+| Linux — SteamOS-like (Bazzite, ChimeraOS, HoloISO, Nobara) + desktop (native / Flatpak) | ✅ unofficial — Decky's systemd install works |
+| Windows | ⚠️ unofficial — via a community Windows installer; unstable |
+| macOS | ❌ not supported — no systemd / no remote debug port |
 
-> Decky Loader officially supports **SteamOS / Steam Deck only**; its Linux-desktop and Windows support is community-driven and may break, and it doesn't reach macOS at all. [ShelvesHub](https://github.com/santojon/ShelvesHub) closes those gaps with its own installers for every platform — see [Installation](#installation).
+> Decky Loader officially supports **SteamOS / Steam Deck only**; its Linux-desktop and Windows support is community-driven and may break, and it doesn't reach macOS at all.
 
 ### Validated environments
 

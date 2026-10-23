@@ -21,6 +21,7 @@ vão pesquisar depois.
 **Funcionalidades principais**
 - [shelf-sources-and-filters.md](shelf-sources-and-filters.md) — de onde vêm os jogos de uma prateleira, filtros, ordenações, combinar fontes
 - [smart-shelves.md](smart-shelves.md) — prateleiras que escolhem seus próprios jogos automaticamente
+- [setup-wizard.md](setup-wizard.md) — o assistente de configuração e seus pacotes: um ponto de partida inteiro numa aplicação, com desfazer
 - [visual-customization.md](visual-customization.md) — logos, ícones, descrições, hero art, cards de decoração, alternâncias de ocultar/mostrar
 - [online-features.md](online-features.md) — lista de desejos, prateleiras de promoção, preços, filtros de metadados da loja
 - [native-home-integration.md](native-home-integration.md) — substituir os Recentes nativos, ocultar a faixa de abas, reordenação manual/por arraste
@@ -39,8 +40,6 @@ vão pesquisar depois.
 - [showcase-mode.md](showcase-mode.md) — Modo Vitrine / Ocioso Dinâmico, uma exibição de prateleiras autociclante
 
 **Distribuição e sincronização**
-- [shelveshub-install.md](shelveshub-install.md) — ShelvesHub, a nova forma recomendada de instalar (não precisa de Decky Loader)
-- [call-for-validators.md](call-for-validators.md) — a chamada de validação da 3.3.4: quais plataformas ainda precisam de um validador nomeado e como é a checagem de dez minutos
 - [own-qam-tab.md](own-qam-tab.md) — a própria aba de Acesso Rápido do Deck Shelves sob o Decky Loader
 - [cloud-sync.md](cloud-sync.md) — sincronize suas configurações entre todos os dispositivos da sua conta Steam
 
@@ -52,4 +51,4 @@ vão pesquisar depois.
 - [power-user-tools.md](power-user-tools.md) — snapshots, gerenciamento de cache, diagnósticos, estatísticas e sugestões
 
 Tudo acima é opcional e desativado por padrão, exceto quando o arquivo disser
-o contrário. Versões atuais: plugin v3.3.0+, ShelvesHub v0.1.0+.
+o contrário. Versões atuais: plugin v3.3.0+.

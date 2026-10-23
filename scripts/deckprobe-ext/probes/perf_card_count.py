@@ -6,8 +6,8 @@ Measures home-screen render time at increasing card counts to find the
 threshold where FPS / frame budget degrades noticeably.
 
 Usage:
-    python3 deckprobe/probes/perf_card_count.py
-    python3 deckprobe/probes/perf_card_count.py --max-count 100 --steps 5 10 20 30 50 75 100
+    python3 scripts/deckprobe-ext/probes/perf_card_count.py
+    python3 scripts/deckprobe-ext/probes/perf_card_count.py --max-count 100 --steps 5 10 20 30 50 75 100
 
 The probe temporarily changes the first DS shelf's limit, triggers a
 re-resolve, and measures the time between the resolve start and the last
@@ -21,8 +21,8 @@ import sys
 import time
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[5]))
-from devkit.probes._base import connect, ev, sep  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "lib"))
+from probe_base import connect, ev, sep  # noqa: E402
 
 DEFAULT_STEPS = [5, 10, 15, 20, 25, 30, 40, 50]
 

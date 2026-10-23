@@ -12,7 +12,7 @@
   "about_feature_edit_smart": "Éditer les étagères intelligentes : remplacer le tri, ajouter des filtres, ajuster le visuel",
   "about_feature_external_imports": "Importez les onglets de la bibliothèque depuis TabMaster ou d'autres plugins fournisseurs et convertissez-les en étagères",
   "about_feature_filters": "Filtrez par nom, temps de jeu, statut d'installation, compatibilité, visibilité et plus",
-  "about_feature_first_run": "Bannière de première utilisation avec modèles d'étagères par défaut",
+  "about_feature_first_run": "Bannière de première utilisation avec l'assistant de configuration",
   "about_feature_global_toggles": "Boutons globaux pour taille native et mise en avant avec priorité par étagère",
   "about_feature_hero_global": "Bascule globale hero dans la section Visuel du QAM qui active l'image hero sur toutes les étagères en même temps",
   "about_feature_hero_per_shelf": "Image hero d'arrière-plan par étagère — standard ou intelligente — avec une bascule dans l'onglet Visuel du modal Modifier l'étagère",

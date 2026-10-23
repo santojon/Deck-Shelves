@@ -439,7 +439,7 @@ export function ShelfPreview({
   const highlightedSet = useMemo(() => new Set(highlightedAppIds), [highlightedAppIds.join(',')])
   /* Manual-sort drag state — used only when `manualSortMode` is true.
      Lifted here so the rowItems builder can paint the 'grabbed' mark on
-     the right card. `cappedOrder` is computed AFTER rowItems so drag
+     the right card. `cappedOrderRef` is filled AFTER rowItems so drag
      operations have the visible sentinel-bearing order to work with. */
   const [grabbedAppid, setGrabbedAppid] = useState<number | null>(null)
   const grabbedRef = useRef<number | null>(null)

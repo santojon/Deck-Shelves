@@ -24,12 +24,19 @@ from typing import Dict
 from deckprobe.screenshots.lib.cdp import Session
 from deckprobe.screenshots.lib.nav import (
     navigate_to_ds_qam, close_qam, _qam_eval, _bp_eval,
-    expand_qam_sections, dismiss_bp_modals,
+    expand_qam_sections, dismiss_bp_modals as _navigate_home, _dismiss_bp_modal,
     click_context_menu_edit, click_context_menu_delete, click_context_menu_hide_toggle,
 )
+
+
+def dismiss_bp_modals(host: str, port: int) -> None:
+    """Close whatever dialog a scenario left open (Escape while one is up —
+    a route change alone leaves a confirm dialog standing), then go home."""
+    _dismiss_bp_modal(host, port)
+    _navigate_home(host, port)
 from deckprobe.screenshots.lib.capture import capture_bigpicture, capture_qam
 from deckprobe.screenshots.lib.registry import register
-from ._locale import force_english
+from ._locale import force_english, gamepad_glyphs
 
 
 def _open_qam(sjc: Session, host: str, port: int):
@@ -168,6 +175,7 @@ def shelf_create(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str,
     _click_action(host, port, "addshelf")
     time.sleep(3.5)
     out = out_dir / "shelf-create.png"
+    gamepad_glyphs(host, port)
     p = capture_bigpicture(host, port, out)
     dismiss_bp_modals(host, port)
     return {"shelf-create.png": p} if p else {}
@@ -180,6 +188,7 @@ def shelf_import(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str,
     _click_action(host, port, "import_shelves")
     time.sleep(3.5)
     out = out_dir / "shelf-import.png"
+    gamepad_glyphs(host, port)
     p = capture_bigpicture(host, port, out)
     dismiss_bp_modals(host, port)
     return {"shelf-import.png": p} if p else {}
@@ -192,6 +201,7 @@ def shelf_export(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str,
     _click_action(host, port, "export_shelves")
     time.sleep(3.5)
     out = out_dir / "shelf-export.png"
+    gamepad_glyphs(host, port)
     p = capture_bigpicture(host, port, out)
     dismiss_bp_modals(host, port)
     return {"shelf-export.png": p} if p else {}
@@ -207,6 +217,7 @@ def shelf_edit(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, P
     click_context_menu_edit(host, port)
     time.sleep(3.5)
     out = out_dir / "shelf-edit.png"
+    gamepad_glyphs(host, port)
     p = capture_bigpicture(host, port, out)
     dismiss_bp_modals(host, port)
     return {"shelf-edit.png": p} if p else {}
@@ -233,6 +244,7 @@ def shelf_edit_filters(sjc: Session, host: str, port: int, out_dir: Path) -> Dic
 """)
     time.sleep(2.0)
     out = out_dir / "shelf-edit-filters.png"
+    gamepad_glyphs(host, port)
     p = capture_bigpicture(host, port, out)
     dismiss_bp_modals(host, port)
     return {"shelf-edit-filters.png": p} if p else {}
@@ -258,6 +270,7 @@ def shelf_edit_visual(sjc: Session, host: str, port: int, out_dir: Path) -> Dict
 """)
     time.sleep(2.0)
     out = out_dir / "shelf-edit-visual.png"
+    gamepad_glyphs(host, port)
     p = capture_bigpicture(host, port, out)
     dismiss_bp_modals(host, port)
     return {"shelf-edit-visual.png": p} if p else {}
@@ -307,6 +320,7 @@ def smart_shelf_modal(sjc: Session, host: str, port: int, out_dir: Path) -> Dict
 """)
     time.sleep(1.2)
     out = out_dir / "smart-shelf-modal.png"
+    gamepad_glyphs(host, port)
     p = capture_bigpicture(host, port, out)
     dismiss_bp_modals(host, port)
     return {"smart-shelf-modal.png": p} if p else {}
@@ -340,6 +354,7 @@ def smart_shelf_edit(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[
     click_context_menu_edit(host, port)
     time.sleep(3.5)
     out = out_dir / "smart-shelf-edit.png"
+    gamepad_glyphs(host, port)
     p = capture_bigpicture(host, port, out)
     dismiss_bp_modals(host, port)
     return {"smart-shelf-edit.png": p} if p else {}
@@ -374,6 +389,7 @@ def reset_all(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Pa
 """)
     time.sleep(3.5)
     out = out_dir / "reset-all.png"
+    gamepad_glyphs(host, port)
     p = capture_bigpicture(host, port, out)
     dismiss_bp_modals(host, port)
     return {"reset-all.png": p} if p else {}
@@ -388,6 +404,7 @@ def shelf_actions(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str
     time.sleep(1.0)
     # Capture with QAM still open (context menu stays in BP DOM).
     out = out_dir / "shelf-actions.png"
+    gamepad_glyphs(host, port)
     p = capture_bigpicture(host, port, out)
     dismiss_bp_modals(host, port)
     close_qam(sjc)
@@ -432,6 +449,7 @@ def shelf_hidden(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str,
 """)
         time.sleep(0.5)
         out = out_dir / "shelf-hidden.png"
+        gamepad_glyphs(host, port)
         p = capture_qam(host, port, out)
     finally:
         if toggled:
@@ -453,6 +471,7 @@ def shelf_delete(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str,
     click_context_menu_delete(host, port)
     time.sleep(3.5)
     out = out_dir / "shelf-delete.png"
+    gamepad_glyphs(host, port)
     p = capture_bigpicture(host, port, out)
     dismiss_bp_modals(host, port)
     return {"shelf-delete.png": p} if p else {}
@@ -481,6 +500,7 @@ def game_menu(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Pa
 """)
     time.sleep(2.5)
     out = out_dir / "game-menu.png"
+    gamepad_glyphs(host, port)
     p = capture_bigpicture(host, port, out)
     dismiss_bp_modals(host, port)
     time.sleep(0.5)

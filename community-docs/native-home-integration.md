@@ -35,8 +35,10 @@ ways to do it, pick whichever's comfortable:
 - **Press-and-hold to grab**, then move a card with the D-pad and confirm —
   works the same with a controller as it does with touch/mouse dragging.
 
-Shelf order itself (which shelf appears where on Home) is also
-drag-reorderable the same way, from the shelf list in settings.
+Shelf order itself (which shelf appears where on Home) is set from the
+shelf list in settings: drag a row with touch or a mouse, or with a
+controller press A on a shelf's name to grab it, move it with the D-pad,
+then press A to save or B to put it back.
 
 ## Troubleshooting
 

@@ -36,8 +36,13 @@ Checklist de teste manual para testes de regressão num Steam Deck real (SteamOS
 | 2.5 | Mostrar prateleira via reticências → prateleira reaparece na Home | Prateleira ativa novamente |
 | 2.6 | Excluir prateleira → modal de confirmação; confirmar → removida | Prateleira sumida do QAM e da Home |
 | 2.7 | Mover prateleira para cima/baixo via QAM → a ordem muda na Home | Ordem corresponde ao QAM |
+| 2.7a | Lista de prateleiras do QAM com controle: A no nome de uma prateleira a agarra; direcional cima/baixo move uma posição (para nas pontas); A salva | A linha mantém o destaque da própria Steam, sem moldura nem dica extra; enquanto agarrada, a barra de botões da Steam mostra Mover para cima / Mover para baixo (direcional), Salvar ordem (A) e Cancelar (B); ordem salva uma vez, a Home acompanha; o foco fica na linha movida |
+| 2.7b | O mesmo, depois B em vez de A | A linha volta, nada é salvo, o painel continua aberto, o foco fica na linha |
+| 2.7c | Segurar e arrastar uma linha com toque ou mouse | A linha arrastada fica esmaecida; ordem salva ao soltar |
 | 2.8 | Editar título da prateleira → título atualiza no cabeçalho da linha na Home | Novo título renderizado |
 | 2.9 | Editar limite da prateleira → contagem de cards muda | Número de cards muda |
+| 2.10 | Na biblioteca da Steam, apertar ≡ em um jogo instalado, em um jogo não instalado e em um atalho de fora da Steam | "Adicionar à prateleira" aparece uma vez em cada menu, logo antes de Propriedades |
+| 2.11 | Logo depois de a Steam iniciar, abrir o primeiro menu de jogo na biblioteca e deixá-lo aberto por alguns segundos | "Adicionar à prateleira" continua no menu |
 
 ---
 
@@ -77,7 +82,7 @@ Checklist de teste manual para testes de regressão num Steam Deck real (SteamOS
 |---|----------|----------|
 | 5.1 | `hideRecents=true` → seção nativa Jogados Recentemente oculta | Seção não visível na Home |
 | 5.2 | `hideRecents=true` + `heroBackground=true` → card em foco mostra arte de fundo | Hero art visível |
-| 5.3 | `hideRecents=true` + `recentsReplaceSource=true` → primeira prateleira injetada no DOM nativo de recentes | A primeira prateleira usa estilos nativos |
+| 5.3 | `hideRecents=true` + `recentsReplaceSource=true` → a linha nativa de Recentes mostra os jogos e o título da primeira prateleira | A primeira prateleira usa estilos nativos |
 | 5.4 | `hideRecents=false` → sub-alternâncias (hero, substituir-fonte) ocultas no QAM | Só visível quando hideRecents está ativo |
 
 ---
@@ -98,7 +103,7 @@ Checklist de teste manual para testes de regressão num Steam Deck real (SteamOS
 |---|----------|----------|
 | 7.1 | `smartShelvesEnabled=false` → seção de prateleiras inteligentes não mostrada no QAM | Seção oculta |
 | 7.2 | `enabled=false` → alternância de prateleiras inteligentes nem mostrada | Até a alternância fica oculta |
-| 7.3 | Adicionar prateleira inteligente → modal com 15 templates abre | SmartShelfTemplateModal |
+| 7.3 | Adicionar prateleira inteligente → o seletor de criação lista os templates smart por categoria (os que dependem de recursos online ficam ocultos com eles desligados) | CreateShelfModal |
 | 7.4 | prateleira inteligente sem resultados → não renderizada na Home | Prateleira invisível (render nulo) |
 | 7.5 | prateleira inteligente com resultados → renderizada na Home entre prateleiras normais | Aparece na posição correta |
 | 7.6 | `smartShelvesAtBottom=true` → prateleiras inteligentes aparecem abaixo das prateleiras normais | Ordem respeitada |
@@ -168,6 +173,7 @@ config do Vite). Cada script `pnpm qa:*` envolve uma variável de ambiente
 | Flag | Script | Efeito |
 |------|--------|--------|
 | `DS_QA_FORCE_FIRST_RUN` | `pnpm qa:first-run` | Lista de prateleiras vazia + plugin desativado — exercita o banner de primeira execução |
+| `DS_QA_FRESH_INSTALL` | `pnpm qa:fresh-install` | Uma instalação nova como o fluxo de primeira execução a vê: chave geral desligada, sem prateleiras, tour ainda não visto, nenhuma configuração aplicada — o banner de boas-vindas e o tour aparecem, a escolha final do tour abre o assistente de configuração, aplicar / desfazer rodam só em memória (nada é gravado no aparelho) |
 | `DS_QA_FORCE_QAM_ERROR` | `pnpm qa:qam-error` | Lança erro na renderização do QAM — exercita o ErrorBoundary do QAM |
 | `DS_QA_FORCE_SHELF_ERROR` | `pnpm qa:shelf-error` | Lança erro na renderização de prateleira — exercita o `HomeBoundary` |
 | `DS_QA_FORCE_HOME_CRASH` | `pnpm qa:home-crash` | Mesmo erro, flag distinta para scripts de captura desambiguarem |
@@ -179,6 +185,8 @@ config do Vite). Cada script `pnpm qa:*` envolve uma variável de ambiente
 | `DS_QA_SMART_SHELVES_FIXTURE` | `pnpm qa:smart-fixture` | Semeia 4 prateleiras inteligentes para que a seção smart renderize populada |
 | `DS_QA_SAVED_FILTERS_FIXTURE` | `pnpm qa:saved-filters-fixture` | Semeia filtros salvos para que a seção Filtros Salvos do QAM fique visível |
 | `DS_QA_FORCE_HIDDEN_SHELF` | `pnpm qa:hidden-shelf` | Adiciona uma prateleira oculta à fixture selecionada (para a captura `shelf-hidden.png`) |
+| `DS_QA_VIDEO_FIXTURE` | `pnpm qa:video-fixture` | Prateleiras apresentáveis (três da biblioteca, uma de lista de desejos e uma de promoções da loja), duas prateleiras inteligentes e um perfil com trigger de carregamento, com os recursos online e o modo Avançado ligados — a base que os cenários de vídeo (`pnpm run videos`) gravam; aplicada uma vez por sessão, então uma edição feita numa gravação fica na Home (só em memória) |
+| `DS_QA_SCREENSHOTS_FIXTURE` | `pnpm qa:screenshots-fixture` | O fixture de vídeo mais uma prateleira oculta, dois filtros salvos e um segundo perfil, montado sobre as configurações padrão (não as do dispositivo), com a Busca Rápida e a Side Nav ligadas e a primeira prateleira no lugar da fileira de recentes sob sua arte de fundo — tudo o que a rodada de screenshots (`pnpm run screenshots`) captura, só em memória |
 | `DS_QA_SMART_SURPRISE_ME` | `pnpm qa:surprise-me` | Força `smartSurpriseMe=true` para que a lógica de rotação diária rode |
 | `DS_QA_FORCE_TABMASTER` | — | `present` / `absent` sobrepõe a detecção do TabMaster |
 | `DS_QA_FORCE_UNIFIDECK` | — | `present` / `absent` sobrepõe a detecção do UnifiDeck |
@@ -192,3 +200,50 @@ config do Vite). Cada script `pnpm qa:*` envolve uma variável de ambiente
 Combine flags conforme necessário (ex.:
 `DS_QA_SMART_SHELVES_FIXTURE=1 DS_QA_SAVED_FILTERS_FIXTURE=1 pnpm run deploy:deck:hard`).
 Cada uma é independente e aditiva.
+
+## 13. Cenários de vídeo (requer CDP)
+
+Sequências roteirizadas e repetíveis para os oito roteiros de conteúdo (prateleiras
+personalizadas, smart shelves, filtros, personalização visual, Busca rápida + Side Nav, perfis +
+gatilhos, prateleiras online, ferramentas avançadas) mais o sidecar de configurações rápidas,
+registradas no mesmo runner `videos` das gravações dos roteiros de conteúdo (os cinco cenários
+`custom_shelves` … `profiles_triggers`, que fazem uma edição real e mostram o resultado). Implante
+primeiro a fixture de vídeo (`pnpm run qa:video-fixture`) e então:
+
+```bash
+pnpm run videos:list                          # todos os cenários registrados (roteiros de conteúdo + 01…09)
+pnpm run videos -- --only 01_custom_shelves,02_smart_shelves
+pnpm run videos -- --video-fps 8              # taxa de codificação (padrão 10)
+```
+
+Cada cenário conduz a janela Big Picture (o do sidecar, a janela própria do Menu de Acesso
+Rápido) por uma sequência cronometrada enquanto o screencast do runner grava, imprime cada ponto
+de marcação com o tempo e os escreve ao lado do mp4 (`<nome>.cues.txt`); as gravações vão para
+`tmp/videos/` (ignorado pelo git) e precisam do `ffmpeg` no PATH. Os cenários e seus helpers de
+condução ficam em `scripts/deckprobe-ext/videos/scenarios/` (`feature_scripts.py`,
+`content_scripts.py`, `_steps.py`; `_screencast.py` grava com o instante real de chegada de cada
+frame, então um clipe dura o que a sequência durou mesmo onde a tela fica parada). Os overlays,
+os editores e o sidecar abrem por hooks e rotas do build de desenvolvimento, então as sequências
+precisam do build que a fixture implanta; toda gravação começa numa Home assentada, com a UI do
+plugin em en-US e os glyphs do controle restaurados após cada tecla enviada pelo protocolo de
+depuração.
+
+## 14. Sondas avulsas e scripts de manutenção
+
+Diagnósticos pontuais guardados ao lado das suítes de sondas. Eles leem o cliente ao vivo pelo
+protocolo de depuração e imprimem o que encontram; nenhum deles altera configurações.
+
+| Script | O que faz |
+|---|---|
+| `python3 scripts/deckprobe-ext/probes/perf_card_count.py [--max-count N --steps …]` | Aumenta o limite da primeira prateleira passo a passo e mede o tempo de renderização da home por quantidade de cards, para achar onde o orçamento de frame degrada (restaura o limite depois) |
+| `python3 scripts/deckprobe-ext/probes/native_shelf_detection.py` | Lista todo candidato à fileira nativa de recentes do Steam com posição, pai e contagem de cards nativos, para conferir num dado build a heurística que o side nav e a Busca rápida usam |
+| `python3 scripts/deckprobe-ext/probes/hwcompat.py` | Imprime os campos de informação de sistema do aparelho e decodifica a categoria de compatibilidade de hardware empacotada para uma amostra de jogos, conferida contra os getters nomeados |
+| `python3 scripts/deckprobe-ext/probes/in_game_focus.py [--appid N] [--seconds S] [--home-over-game] [--shortcut-exe CAMINHO --shortcut-args …] [--max-wakeups N]` | Abre um jogo pequeno instalado (ou um atalho não-Steam temporário) e, enquanto ele roda, conta os roubos de foco dos nossos cards, os despertares de timer que o plugin causa e as resoluções de prateleira, abre o Acesso Rápido e o menu do Steam várias vezes para conferir que cada um mantém o foco, e depois encerra o jogo e confere que um card volta a ter foco na Home. Funciona em qualquer build; o estado do gate de energia é lido quando o build o expõe. Rode sem nenhum jogo aberto, pelo menos 30 segundos depois de um reload, e volte ao build normal no fim |
+| `python3 scripts/deckprobe-ext/probes/return_focus.py [--shelves 0,2] [--back cancel]` | Abre a página de um jogo a partir de um card como o botão A faz e volta como o botão B faz, para uma prateleira no topo e uma abaixo da dobra: a Home precisa cair no mesmo card (`--back` também oferece as voltas pelo roteador, que pulam o tratamento de foco do próprio Steam) |
+| `DS_QA_HIDE_APPID=<appid> python3 -m deckprobe.uitests.run --only stabilization` | A suíte `stabilization`: jogos ocultos no Steam ficam fora das prateleiras de aba e de coleção (ela oculta o jogo pequeno indicado no Steam durante a checagem e o reexibe no fim), mais o card de atualizar da Roleta no fixture de prateleiras inteligentes (`pnpm run qa:smart-fixture`). Ocultar um jogo numa prateleira inteligente é conferido à mão: o fixture refaz as prateleiras inteligentes a cada mudança |
+| `python3 scripts/deckprobe-ext/probes/menu_injection.py` | Abre o menu do jogo em cards de três prateleiras e confere que as ações por card e o grupo Prateleira (Gerenciamento / Exibição / Visual) são injetados uma vez cada, identificados pelas chaves para funcionar em qualquer idioma da interface |
+| `python3 scripts/deckprobe-ext/probes/shelf_render.py` | Lista cada prateleira da home com a quantidade de cards e se os apps dela resolvem |
+| `bash scripts/dev/ensure-repo-settings.sh` | Só para mantenedores: confere as configurações de merge do repositório no GitHub (só squash, apagar branch ao mesclar) e as corrige quando divergem; precisa do CLI `gh` |
+| `pnpm run deck:debug` | Abre a lista de alvos do DevTools do aparelho (`http://<host>:<porta>`) no navegador |
+| `scripts/deckprobe-ext/lib/ds_qam.py` (helper, para importar) | `open_decky_ds_tab(host, port)`: abre a aba Deck Shelves do loader até o painel estar visível de verdade — o helper de navegação do toolkit se contenta com a cópia oculta do painel que outro host mantém num aparelho com dois hosts |
+| `scripts/deckprobe-ext/lib/probe_base.py` (helper, para importar) | `connect()` / `ev()` / `sep()` — os helpers de sessão que as sondas mais antigas compartilham |

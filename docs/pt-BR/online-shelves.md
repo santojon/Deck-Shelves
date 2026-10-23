@@ -98,7 +98,7 @@ da Loja não os expõe).
 Toda ação que invalida cache passa por `triggerShelfRefresh()` em
 [src/core/shelfRefresh.ts](../../src/core/shelfRefresh.ts) — o único emissor
 em memória ao qual todo `ShelfView` montado está inscrito via
-`subscribeShelfRefresh(resolve)`. Os quatro pontos de entrada compartilham
+`subscribeShelfRefresh(resolve)`. Os três pontos de entrada compartilham
 esse caminho:
 
 ```mermaid
@@ -107,7 +107,6 @@ flowchart LR
         card["Card 'Atualizar cache'<br/>na linha"]
         cardmenu["Menu por card"]
         qammenu["Menu do QAM por shelf"]
-        manage["Página Gerenciar shelf"]
     end
 
     clear["Limpa o cache correspondente<br/>online / smart / random"]
@@ -118,7 +117,6 @@ flowchart LR
     card --> clear
     cardmenu --> clear
     qammenu --> clear
-    manage --> clear
     clear --> emit
     emit --> subs
     subs --> repaint
@@ -126,7 +124,7 @@ flowchart LR
     classDef ui fill:#dbeafe,stroke:#2563eb,color:#12315e
     classDef step fill:#dcfce7,stroke:#16a34a,color:#14532d
     classDef hot fill:#fee2e2,stroke:#dc2626,stroke-width:2px,color:#7f1d1d
-    class card,cardmenu,qammenu,manage ui
+    class card,cardmenu,qammenu ui
     class clear,subs step
     class emit hot
     class repaint step
@@ -137,7 +135,6 @@ flowchart LR
 | Card "Atualizar cache" na linha | `clearOnlineShelfCache()` | `triggerShelfRefresh()` |
 | Menu por card → `Deck Shelves > Atualizar cache` (prateleiras online) | `clearOnlineShelfCache()` | `triggerShelfRefresh()` |
 | Menu do QAM por prateleira → `Atualizar cache` | `clearOnlineShelfCache()` (online) / `invalidateSmartShelfCache()` (smart) / `invalidateRandomSortCache()` (random) | `triggerShelfRefresh()` |
-| Página Gerenciar prateleira → `Atualizar cache` | mesmo que acima | `triggerShelfRefresh()` |
 
 Para prateleiras não-online, o menu por card / por prateleira só invalida o cache
 daquela prateleira (smart / random); o emit global ainda dispara, então o

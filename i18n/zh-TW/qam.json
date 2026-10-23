@@ -18,6 +18,8 @@
   "menu_game_fallback": "遊戲",
   "menu_properties": "內容",
   "menu_remove_from_shelf": "從貨架移除",
+  "menu_lists": "清單",
+  "menu_edit_tags": "編輯標籤…",
   "menu_resume": "繼續",
   "menu_shelf": "書架",
   "menu_uninstall": "解除安裝",
@@ -62,10 +64,13 @@
   "toast_filter_renamed": "篩選器已重新命名",
   "mount_crash_report": "回報問題",
   "safe_mode_title": "安全模式已開啟",
-  "safe_mode_desc": "主畫面連續三次啟動都未能完成載入，因此本次工作階段已關閉你的書架。Steam 自帶的主畫面仍可使用。退出安全模式後，下次重新啟動 Steam 時會再次嘗試。",
+  "safe_mode_desc": "主畫面在最近六次啟動中有三次未能完成載入，因此本次工作階段已關閉你的書架。Steam 自帶的主畫面仍可使用。退出安全模式後，下次重新啟動 Steam 時會再次嘗試。",
   "safe_mode_leave": "退出安全模式",
   "report_issue_title": "回報問題",
   "report_issue_desc": "在瀏覽器中開啟預先填寫的回報。在你檢閱並提交之前，不會傳送任何內容。",
   "report_issue_hardware": "包含硬體資訊",
-  "report_issue_hardware_desc": "型號、CPU、記憶體、GPU 和儲存空間 — 有助於診斷裝置特有的問題。"
+  "report_issue_hardware_desc": "型號、CPU、記憶體、GPU 和儲存空間 — 有助於診斷裝置特有的問題。",
+  "sidecar_back": "返回",
+  "coop_stand_in": "在此裝置上，Deck Shelves 透過其自己的快速存取分頁執行。",
+  "qam_sidecar_toggle": "顯示或隱藏設定"
 }

@@ -12,7 +12,7 @@
   "about_feature_edit_smart": "編輯智慧書架：覆寫排序、加入額外篩選器、微調視覺效果",
   "about_feature_external_imports": "從 TabMaster 或其他供應者外掛匯入收藏庫頁籤，並轉換成書架",
   "about_feature_filters": "依名稱、遊玩時間、安裝狀態、相容性、可見性等條件篩選",
-  "about_feature_first_run": "首次啟動橫幅會提供預設書架範本",
+  "about_feature_first_run": "首次啟動橫幅會提供設定精靈",
   "about_feature_global_toggles": "提供配合原生尺寸與醒目顯示第一款遊戲的全域開關，並可依書架覆寫",
   "about_feature_hero_global": "QAM「視覺」區域中的全域英雄開關 — 一次為所有貨架啟用英雄圖",
   "about_feature_hero_per_shelf": "每個貨架的英雄背景圖 — 一般或智慧 — 在編輯貨架對話框的「視覺」分頁中切換",

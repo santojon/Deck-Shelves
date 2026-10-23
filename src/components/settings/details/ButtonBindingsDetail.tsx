@@ -3,12 +3,14 @@ import { DialogButton, Focusable, ToggleField } from "../../../runtime/host/deck
 import type { useSettingsController } from "../../../features/settings/controller";
 import { subscribeControllerInput, Button as RawBtn } from "../../../runtime/controllerInput";
 import { DEFAULT_BINDINGS, findCollisions, resolveBindings, validateCombo } from "../../../runtime/buttonBindings";
-import { validateKeyCombo, formatKeyComboForDisplay } from "../../../runtime/keyboardBindings";
+import { validateKeyCombo, formatKeyComboForDisplay, DEFAULT_KEYBOARD_BINDINGS } from "../../../runtime/keyboardBindings";
 import type { ButtonBindings, KeyboardBindings } from "../../../types";
 import { CollapsibleSection } from "../../ui/CollapsibleSection";
 import { BanIcon, CheckIcon, RefreshIcon, TargetIcon, TrashIcon, GamepadIcon, KeyboardIcon } from "../../icons";
 import { BTN_ICON_STYLE } from "../../ui/buttonStyles";
 import { confirmAction } from "../../qam/modals/ConfirmActionModal";
+import { absorbCancelButton } from "../../qam/sidecarCancel";
+import { flowChildrenProps } from "../../../core/steamOSVersion";
 
 // Maps the raw controller event button id (from `controllerInput`) to
 // the token name used by the bindings parser. Required because this
@@ -134,7 +136,7 @@ export function ButtonBindingsDetail({ controller, t }: ButtonBindingsDetailProp
       for (const r of rows) {
         void (controller.actions as any).setButtonBinding?.(r.key, (DEFAULT_BINDINGS as any)[r.key]);
         if (disabledList.includes(r.key)) void (controller.actions as any).setBindingDisabled?.(r.key, false);
-        void (controller.actions as any).setKeyboardBinding?.(r.key, null);
+        void (controller.actions as any).setKeyboardBinding?.(r.key, (DEFAULT_KEYBOARD_BINDINGS as any)[r.key] ?? null);
         if (keyDisabledList.includes(r.key)) void (controller.actions as any).setKeyboardBindingDisabled?.(r.key, false);
       }
     },
@@ -155,7 +157,7 @@ export function ButtonBindingsDetail({ controller, t }: ButtonBindingsDetailProp
           effectiveValue={(bindings as any)[row.key] ?? null}
           disabled={masterOff || disabledList.includes(row.key)}
           colliding={collisionTokens.has(row.key)}
-          rawKeyValue={(rawKeyBindings as any)[row.key] ?? null}
+          rawKeyValue={row.key in rawKeyBindings ? ((rawKeyBindings as any)[row.key] ?? null) : ((DEFAULT_KEYBOARD_BINDINGS as any)[row.key] ?? null)}
           keyDisabled={masterOff || keyDisabledList.includes(row.key)}
           controller={controller}
           t={t}
@@ -165,7 +167,7 @@ export function ButtonBindingsDetail({ controller, t }: ButtonBindingsDetailProp
   );
 
   return (
-    <Focusable flow-children="vertical" style={{ display: "flex", flexDirection: "column" }}>
+    <Focusable {...flowChildrenProps("vertical")} style={{ display: "flex", flexDirection: "column" }}>
       <CollapsibleSection
         id="bindings-card"
         title={t("settings_card_bindings_group")}
@@ -217,13 +219,14 @@ function BindingStatus({ capturing, disabled, value, t, render = renderCombo }: 
 }
 
 function BindingRowButtons({
-  capturing, disabled, rawValue, nullable, startCapture, toggleDisabled, deleteBinding, reset, t,
+  capturing, disabled, rawValue, nullable, startCapture, cancelCapture, toggleDisabled, deleteBinding, reset, t,
 }: {
   capturing: boolean;
   disabled: boolean;
   rawValue: string | null;
   nullable: boolean;
   startCapture: () => void;
+  cancelCapture: () => void;
   toggleDisabled: () => void;
   deleteBinding: () => void;
   reset: () => void;
@@ -232,9 +235,9 @@ function BindingRowButtons({
   return (
     <>
       <DialogButton
-        onClick={startCapture}
-        onOKButton={startCapture}
-        disabled={capturing}
+        onClick={capturing ? cancelCapture : startCapture}
+        onOKButton={capturing ? cancelCapture : startCapture}
+        onButtonDown={cancelOnButtonDown(capturing, cancelCapture)}
         style={BTN_ICON_STYLE}
         aria-label={capturing ? t("binding_cancel") : t("binding_capture")}
       >
@@ -273,27 +276,35 @@ function BindingRowButtons({
   );
 }
 
-// Advances the double-tap/chord capture buffer by one token — shared shape
-// with the gamepad capture's inline buffer, split out here purely to keep
-// the keyboard capture hook below under the complexity budget.
-function advanceKeyCaptureBuffer(
+/* While capturing, the focused capture button takes Steam's cancel (B, or Escape on a
+   keyboard, which Steam turns into cancel before the page sees it) and ends the capture,
+   so the press never reaches the page's back handler. */
+const cancelOnButtonDown = (capturing: boolean, cancel: () => void) =>
+  capturing ? (evt: any) => absorbCancelButton(evt, cancel) : undefined;
+
+const CAPTURE_WINDOW_MS = 300;
+const CAPTURE_MAX_TOKENS = 3;
+// A capture nobody finishes ends by itself, leaving the binding unchanged.
+const CAPTURE_IDLE_CANCEL_MS = 10000;
+
+type CaptureBuffer = { tokens: string[]; lastAt: number };
+
+/* Shared by the gamepad and keyboard captures: collects up to three presses,
+   each within 300 ms of the previous one, and commits at once on the third,
+   else 300 ms after the last ("X", "L1+R1", "L1+L1", "L4+R4+Y"). */
+function advanceCaptureBuffer(
   token: string,
   now: number,
-  buf: { tokens: string[]; firstAt: number },
+  buf: CaptureBuffer,
   timerRef: React.MutableRefObject<number | null>,
   commit: (combo: string) => void,
 ): void {
-  if (buf.tokens.length === 0) {
-    buf.tokens = [token];
-    buf.firstAt = now;
-    timerRef.current = window.setTimeout(() => {
-      if (buf.tokens.length === 1) commit(buf.tokens[0]);
-    }, 300);
-  } else if (buf.tokens.length === 1 && (now - buf.firstAt) <= 300) {
-    if (timerRef.current !== null) { clearTimeout(timerRef.current); timerRef.current = null; }
-    buf.tokens.push(token);
-    commit(buf.tokens.join("+"));
-  }
+  if (buf.tokens.length > 0 && now - buf.lastAt > CAPTURE_WINDOW_MS) return;
+  if (timerRef.current !== null) { clearTimeout(timerRef.current); timerRef.current = null; }
+  buf.tokens.push(token);
+  buf.lastAt = now;
+  if (buf.tokens.length >= CAPTURE_MAX_TOKENS) { commit(buf.tokens.join("+")); return; }
+  timerRef.current = window.setTimeout(() => commit(buf.tokens.join("+")), CAPTURE_WINDOW_MS);
 }
 
 /* Keyboard capture — a second, independent slot per row. Structurally the
@@ -311,13 +322,13 @@ function useKeyCaptureSlot(
   const [capturing, setCapturing] = useState(false);
   const [captured, setCaptured] = useState<string | null>(null);
   const [error, setError] = useState<"reserved" | "unknown" | "duplicate" | "empty" | null>(null);
-  const buffer = useRef<{ tokens: string[]; firstAt: number }>({ tokens: [], firstAt: 0 });
+  const buffer = useRef<CaptureBuffer>({ tokens: [], lastAt: 0 });
   const timerRef = useRef<number | null>(null);
   const startedAtRef = useRef<number>(0);
   useEffect(() => { setCaptured(null); setError(null); }, [rawKeyValue, keyDisabled]);
 
   const startCapture = () => {
-    buffer.current = { tokens: [], firstAt: 0 };
+    buffer.current = { tokens: [], lastAt: 0 };
     setCaptured(null);
     setError(null);
     startedAtRef.current = Date.now();
@@ -345,20 +356,22 @@ function useKeyCaptureSlot(
       const token = e.code || null;
       if (!token) return;
       e.preventDefault();
+      if (token === "Escape") { stopCapture(); return; }
       const validation = validateKeyCombo(token);
       if (!validation.ok && validation.reason === "reserved") {
         setError("reserved");
         stopCapture();
         return;
       }
-      advanceKeyCaptureBuffer(token, Date.now(), buffer.current, timerRef, commit);
+      advanceCaptureBuffer(token, Date.now(), buffer.current, timerRef, commit);
     };
     doc.addEventListener("keydown", onKeyDown, true);
-    return () => { doc.removeEventListener("keydown", onKeyDown, true); stopCapture(); };
+    const idle = window.setTimeout(stopCapture, CAPTURE_IDLE_CANCEL_MS);
+    return () => { doc.removeEventListener("keydown", onKeyDown, true); clearTimeout(idle); stopCapture(); };
   }, [capturing]);
 
   return {
-    capturing, captured, error, startCapture,
+    capturing, captured, error, startCapture, cancelCapture: stopCapture,
     deleteBinding: () => { void (controller.actions as any).setKeyboardBinding?.(bindingKey, null); },
     toggleDisabled: () => { void (controller.actions as any).setKeyboardBindingDisabled?.(bindingKey, !keyDisabled); },
   };
@@ -384,7 +397,7 @@ function KeyBindingRow({ keyState, rawKeyValue, keyDisabled, t }: {
           {t("binding_keyboard_label")}
         </div>
         <BindingStatus capturing={keyState.capturing} disabled={keyDisabled} value={keyState.captured ?? rawKeyValue} t={t} render={renderKeyCombo} />
-        <DialogButton onClick={keyState.startCapture} onOKButton={keyState.startCapture} disabled={keyState.capturing} style={BTN_ICON_STYLE} aria-label={t(keyState.capturing ? "binding_cancel" : "binding_capture")}>
+        <DialogButton onClick={keyState.capturing ? keyState.cancelCapture : keyState.startCapture} onOKButton={keyState.capturing ? keyState.cancelCapture : keyState.startCapture} onButtonDown={cancelOnButtonDown(keyState.capturing, keyState.cancelCapture)} style={BTN_ICON_STYLE} aria-label={t(keyState.capturing ? "binding_cancel" : "binding_capture")}>
           <TargetIcon size={16} />
         </DialogButton>
         <DialogButton onClick={keyState.toggleDisabled} onOKButton={keyState.toggleDisabled} disabled={keyBusy} style={BTN_ICON_STYLE} aria-label={t(keyDisabled ? "binding_enable" : "binding_disable")}>
@@ -397,6 +410,33 @@ function KeyBindingRow({ keyState, rawKeyValue, keyDisabled, t }: {
       {keyState.error && (
         <div style={{ fontSize: 12, color: "rgb(255, 120, 120)" }}>
           {t(`binding_error_${keyState.error}`)}
+        </div>
+      )}
+    </>
+  );
+}
+
+// What the row shows under its controls while capturing, and the last capture error.
+function CaptureNotes({ capturing, keyCapturing, lastRawId, error, t }: {
+  capturing: boolean;
+  keyCapturing: boolean;
+  lastRawId: { id: number; token: string | null } | null;
+  error: string | null;
+  t: (key: string) => string;
+}) {
+  return (
+    <>
+      {(capturing || keyCapturing) && (
+        <div style={{ fontSize: 11, opacity: 0.7 }}>{t("binding_capture_hint")}</div>
+      )}
+      {capturing && lastRawId && (
+        <div style={{ fontSize: 11, opacity: 0.6, fontFamily: "monospace" }}>
+          raw id {lastRawId.id} {lastRawId.token ? `→ ${lastRawId.token}` : "→ (unmapped)"}
+        </div>
+      )}
+      {error && (
+        <div style={{ fontSize: 12, color: "rgb(255, 120, 120)" }}>
+          {t(`binding_error_${error}`)}
         </div>
       )}
     </>
@@ -420,7 +460,7 @@ function BindingRowView({
   const [capturing, setCapturing] = useState(false);
   const [captured, setCaptured] = useState<string | null>(null);
   const [error, setError] = useState<"reserved" | "unknown" | "duplicate" | "empty" | null>(null);
-  const buffer = useRef<{ tokens: string[]; firstAt: number }>({ tokens: [], firstAt: 0 });
+  const buffer = useRef<CaptureBuffer>({ tokens: [], lastAt: 0 });
   const timerRef = useRef<number | null>(null);
   const captureStartedAtRef = useRef<number>(0);
   // External state changes (Reset all / Delete from a different row) bring
@@ -429,7 +469,7 @@ function BindingRowView({
   useEffect(() => { setCaptured(null); setError(null); }, [rawValue, disabled]);
 
   const startCapture = () => {
-    buffer.current = { tokens: [], firstAt: 0 };
+    buffer.current = { tokens: [], lastAt: 0 };
     setCaptured(null);
     setError(null);
     captureStartedAtRef.current = Date.now();
@@ -460,27 +500,19 @@ function BindingRowView({
         stopCapture();
         return;
       }
-      const buf = buffer.current;
-      if (buf.tokens.length === 0) {
-        buf.tokens = [token];
-        buf.firstAt = now;
-        timerRef.current = window.setTimeout(() => {
-          if (buffer.current.tokens.length === 1) commitCombo(buffer.current.tokens[0]);
-        }, 300);
-      } else if (buf.tokens.length === 1 && (now - buf.firstAt) <= 300) {
-        if (timerRef.current !== null) { clearTimeout(timerRef.current); timerRef.current = null; }
-        buf.tokens.push(token);
-        commitCombo(buf.tokens.join("+"));
-      }
+      advanceCaptureBuffer(token, now, buffer.current, timerRef, commitCombo);
     };
     const unsubRaw = subscribeControllerInput((e) => {
       if (!e.pressed) return;
+      // B cancels (it can never be bound); A reaches the capture button, which cancels too.
+      if (e.button === RawBtn.B) { stopCapture(); return; }
       const token = RAW_TO_TOKEN[e.button] ?? null;
       // Surface the raw id so the user can see what an unmapped button emits.
       setLastRawId({ id: e.button, token });
       handle(token);
     });
-    return () => { unsubRaw(); stopCapture(); };
+    const idle = window.setTimeout(stopCapture, CAPTURE_IDLE_CANCEL_MS);
+    return () => { unsubRaw(); clearTimeout(idle); stopCapture(); };
   }, [capturing]);
   const [lastRawId, setLastRawId] = useState<{ id: number; token: string | null } | null>(null);
   useEffect(() => { if (!capturing) setLastRawId(null); }, [capturing]);
@@ -522,22 +554,14 @@ function BindingRowView({
           rawValue={rawValue}
           nullable={row.nullable}
           startCapture={startCapture}
+          cancelCapture={stopCapture}
           toggleDisabled={toggleDisabled}
           deleteBinding={deleteBinding}
           reset={reset}
           t={t}
         />
       </Focusable>
-      {capturing && lastRawId && (
-        <div style={{ fontSize: 11, opacity: 0.6, fontFamily: "monospace" }}>
-          raw id {lastRawId.id} {lastRawId.token ? `→ ${lastRawId.token}` : "→ (unmapped)"}
-        </div>
-      )}
-      {error && (
-        <div style={{ fontSize: 12, color: "rgb(255, 120, 120)" }}>
-          {t(`binding_error_${error}`)}
-        </div>
-      )}
+      <CaptureNotes capturing={capturing} keyCapturing={key.capturing} lastRawId={lastRawId} error={error} t={t} />
       <KeyBindingRow keyState={key} rawKeyValue={rawKeyValue} keyDisabled={keyDisabled} t={t} />
       {colliding && (
         <div style={{ fontSize: 12, color: "rgb(255, 180, 120)" }}>

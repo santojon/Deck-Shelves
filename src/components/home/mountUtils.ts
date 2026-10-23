@@ -3,6 +3,8 @@
 import { getPreferredSteamDocument, getPreferredSteamWindow, getAllSteamDocuments } from "../../runtime/steamHost";
 import { getRuntimeClassMap } from "../../core/webpackCompat";
 import { logInfo } from "../../runtime/logger";
+import { matchesSteamText, steamTextSelectors } from "../../steam/steamText";
+import { isHomeBehindGame } from "../../runtime/powerGate";
 
 export const ROOT_ID = "deck-shelves-home-root";
 
@@ -39,6 +41,11 @@ function windowIsOnHome(win: Window): boolean {
   } catch { return false; }
 }
 
+// The Home stays mounted behind a running game; its upkeep polls skip that time.
+export function homeBehindGame(): boolean {
+  return isHomeBehindGame();
+}
+
 export function isHomeRoute(): boolean {
   return collectKnownWindows().some(windowIsOnHome);
 }
@@ -47,7 +54,7 @@ export function hasHomeDomSignals(): boolean {
   const doc = getPreferredSteamDocument();
   if (!doc) return false;
   if (doc.querySelector('[class*="libraryhome"], [class*="LibraryHome"], [class*="BasicHomeView"], [class*="gamepadlibrary"]')) return true;
-  if (doc.querySelector('[aria-label="Jogos recentes"], [aria-label="Recent Games"], [class*="ReactVirtualized__Grid"][aria-label]')) return true;
+  if (doc.querySelector([...steamTextSelectors("recentGames", "aria-label", "exact"), '[class*="ReactVirtualized__Grid"][aria-label]'].join(", "))) return true;
   try {
     const token = getRuntimeClassMap(doc)?.shelfSection || FALLBACK_SHELF_SECTION;
     if (doc.querySelector(`div.${token}, [class*="${token}"]`)) return true;
@@ -99,15 +106,27 @@ export function detectNavTreeApi(): { available: boolean; detail: string } {
   }
 }
 
-const RECENT_LABELS = ["jogos recentes", "recent games", "recently played", "jogados recentemente"];
-const CHIP_LABELS = ["what's new", "friends", "recommended", "novidades", "amigos", "recomendados"];
-
 /* `lenient` accepts an `overflow-y: auto|scroll` panel that doesn't overflow
    yet — early on, the Home holds only the native recents row, so the strict
    test fails and the anchor fell through to the multi-child wrapper, i.e.
    INSIDE the recents block (confirmed live under native Big Art: recents then
    can't be collapsed without hiding the mount; the native hero shows through). */
+/* An element inside a `display: none` subtree never lays out, so it can never
+   host the mount: a previous instance's hidden native rows look like anchors
+   otherwise (the recents label still sits inside them). */
+function isDisplayed(el: HTMLElement): boolean {
+  try {
+    const doc = el.ownerDocument;
+    const win = doc?.defaultView ?? getPreferredSteamWindow();
+    for (let cur: HTMLElement | null = el; cur && cur !== doc.body; cur = cur.parentElement) {
+      if (win.getComputedStyle(cur).display === "none") return false;
+    }
+    return true;
+  } catch { return true; }
+}
+
 function isScrollableViewport(p: HTMLElement, lenient = false): boolean {
+  if (!isDisplayed(p)) return false;
   try {
     const win = p.ownerDocument?.defaultView ?? getPreferredSteamWindow();
     const cs = win.getComputedStyle(p);
@@ -132,7 +151,7 @@ function walkToMultiChildAncestor(start: HTMLElement, body: HTMLElement, maxHops
   for (let i = 0; i < maxHops && container; i++) {
     const p: HTMLElement | null = container.parentElement;
     if (!p || p === body) break;
-    if (p.childElementCount > 1) return { parent: p, before: container.nextSibling };
+    if (p.childElementCount > 1 && isDisplayed(p)) return { parent: p, before: container.nextSibling };
     container = p;
   }
   return null;
@@ -142,8 +161,8 @@ function findScrollableAnchorAfterRecents(doc: Document): { parent: HTMLElement;
   const body = doc.body;
   const candidates = Array.from(doc.querySelectorAll('[role="list"],[aria-label],[class*="ReactVirtualized__Grid"]'));
   for (const node of candidates) {
-    const txt = `${(node.getAttribute?.("aria-label") || "")} ${(node.textContent || "")}`.toLowerCase();
-    if (!RECENT_LABELS.some((l) => txt.includes(l))) continue;
+    const txt = `${(node.getAttribute?.("aria-label") || "")} ${(node.textContent || "")}`;
+    if (!matchesSteamText(txt, "recentGames", "contains")) continue;
     const start = node as HTMLElement;
     const scrollable = walkToScrollableAncestor(start, body, 12) ?? walkToScrollableAncestor(start, body, 12, true);
     if (scrollable) return scrollable;
@@ -153,13 +172,18 @@ function findScrollableAnchorAfterRecents(doc: Document): { parent: HTMLElement;
   return null;
 }
 
+function chipRowAnchor(row: HTMLElement | null, doc: Document): { parent: HTMLElement; before: ChildNode | null } | null {
+  if (!row?.parentElement || row === doc.body || !isDisplayed(row.parentElement)) return null;
+  return { parent: row.parentElement, before: row };
+}
+
 function findAnchorByChipRow(doc: Document): { parent: HTMLElement; before: ChildNode | null } | null {
   for (const node of Array.from(doc.querySelectorAll('button, [role="tab"]'))) {
-    const text = (node.textContent || "").trim().toLowerCase();
-    if (!CHIP_LABELS.includes(text)) continue;
+    if (!matchesSteamText(node.textContent || "", "homeTabs", "exact")) continue;
     let row: HTMLElement | null = node.parentElement as HTMLElement;
     while (row && row.childElementCount <= 1 && row !== doc.body) row = row.parentElement;
-    if (row?.parentElement && row !== doc.body) return { parent: row.parentElement, before: row };
+    const anchor = chipRowAnchor(row, doc);
+    if (anchor) return anchor;
   }
   return null;
 }
@@ -168,11 +192,11 @@ function findAnchorByContainer(doc: Document): { parent: HTMLElement; before: Ch
   try {
     const token = getRuntimeClassMap(doc)?.shelfSection || FALLBACK_SHELF_SECTION;
     const known = doc.querySelector(`div.${token}, [class*="${token}"]`) as HTMLElement | null;
-    if (known?.parentElement) return { parent: known.parentElement, before: known.nextSibling };
+    if (known?.parentElement && isDisplayed(known.parentElement)) return { parent: known.parentElement, before: known.nextSibling };
   } catch (e) { logInfo("HOME", "findAnchorByContainer: known-token lookup failed", String(e)); }
   const containers = Array.from(doc.querySelectorAll('[class*="gamepadlibrary"],[class*="libraryhome"],[class*="LibraryHome"],[class*="BasicHomeView"],[class*="AppGridFilterContainer"],[class*="AllPagesContainer"],main,[role="main"]'));
   for (const node of containers) {
-    if (node instanceof HTMLElement) return { parent: node, before: node.firstChild };
+    if (node instanceof HTMLElement && isDisplayed(node)) return { parent: node, before: node.firstChild };
   }
   return null;
 }
@@ -188,6 +212,25 @@ export function resolveAnchor(doc?: Document): { parent: HTMLElement; before: Ch
 // Holds the last mount we created so we can re-insert THE SAME node
 // after Steam blows it away — keeps React's portal target stable.
 let lastCreatedMount: HTMLElement | null = null;
+
+/* Which instance owns the mount. A successor (a hot-swap) takes an existing
+   mount over by stamping it, and the predecessor's later cleanup must then
+   leave it alone: it used to remove any node with the mount's id. */
+const INSTANCE_TOKEN = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+
+function claimMount(mount: HTMLElement): HTMLElement {
+  mount.dataset.dsOwner = INSTANCE_TOKEN;
+  return mount;
+}
+
+export function removeOwnMounts(docs: Iterable<Document>): void {
+  for (const d of docs) {
+    try {
+      const mount = d.getElementById(ROOT_ID) as HTMLElement | null;
+      if (mount?.dataset.dsOwner === INSTANCE_TOKEN) mount.remove();
+    } catch {}
+  }
+}
 
 function collectKnownDocs(): Document[] {
   const seen = new Set<Document>();
@@ -220,7 +263,7 @@ function createMountIn(docs: Document[]): HTMLElement | null {
     mount.id = ROOT_ID;
     mount.style.cssText = "width:100%;display:block;position:relative;z-index:0;margin:0;padding:0;";
     anchor.parent.insertBefore(mount, anchor.before);
-    lastCreatedMount = mount;
+    lastCreatedMount = claimMount(mount);
     logInfo("HOME", "mount created", { parent: anchor.parent.tagName });
     return mount;
   }
@@ -243,7 +286,7 @@ function isRecentsAdjacent(mount: HTMLElement): boolean {
   const prev = mount.previousElementSibling as HTMLElement | null;
   if (!prev || mountNestedInRecents(mount)) return false;
   const txt = `${(prev.getAttribute?.("aria-label") || "")} ${(prev.textContent || "")}`.toLowerCase();
-  if (RECENT_LABELS.some((l) => txt.includes(l))) return true;
+  if (matchesSteamText(txt, "recentGames", "contains")) return true;
   return !!prev.querySelector('[class*="ReactVirtualized"]');
 }
 
@@ -267,7 +310,7 @@ export function findOrCreateMount(): HTMLElement | null {
   const docs = collectKnownDocs();
   for (const d of docs) {
     const existing = d.getElementById(ROOT_ID) as HTMLElement | null;
-    if (existing?.isConnected) { maybeRepositionMount(existing, d); return existing; }
+    if (existing?.isConnected) { maybeRepositionMount(existing, d); return claimMount(existing); }
   }
   return reattachExistingMount(docs) ?? createMountIn(docs);
 }
