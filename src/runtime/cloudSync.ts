@@ -9,6 +9,7 @@ import { mergeSettings, LOCAL_ONLY_FIELDS } from "../domain/settingsMerge";
 import { takeSnapshot } from "../features/settings/controller/profiles";
 import { isHomeOwner } from "./host/ownerGuard";
 import { notifyUser } from "./notify";
+import { qaOverrideActive } from "../qa/harness";
 import i18n from "../i18n";
 import type { Settings } from "../types";
 
@@ -82,7 +83,8 @@ function payloadJson(settings: Settings, active: string | null): string {
 }
 
 function remoteOf(cloud: CloudPayload | null): Remote {
-  if (!cloud) return null;
+  // A copy an older QA build pushed holds fixture data: never merged, and the next push replaces it.
+  if (!cloud || (cloud.settings as any).__dsQaOverride === true) return null;
   const settings = { ...cloud.settings } as any;
   const active = typeof settings[ACTIVE_PROFILE_KEY] === "string" ? settings[ACTIVE_PROFILE_KEY] as string : null;
   delete settings[ACTIVE_PROFILE_KEY];
@@ -182,6 +184,8 @@ function planSync(local: Settings, remote: Remote): Plan {
 }
 
 export function installCloudSync(): () => void {
+  // A QA build runs on fixture data: it never reads or writes the account's cloud copy.
+  if (qaOverrideActive) return () => {};
   let disposed = false;
   let debounceTimer: ReturnType<typeof setTimeout> | null = null;
   let lastKnownJson: string | null = null;

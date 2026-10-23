@@ -15,10 +15,8 @@ própria faixa do Acesso Rápido, logo depois de Desempenho — mesmo editor,
 um toque em vez de dois. O Deck Shelves continua também na lista de
 plugins do Decky, como antes.
 
-O [host independente](shelveshub-install.md) já te dá essa aba; essa
-configuração traz isso para instalações só com o Decky. Se o host
-independente também estiver instalado, essa configuração fica oculta
-automaticamente, e a aba do host é a que aparece.
+Se outro host já mostra uma aba do Deck Shelves, essa configuração fica
+oculta automaticamente, e essa aba é a que aparece.
 
 ## Como ativar
 

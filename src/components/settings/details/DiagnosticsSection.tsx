@@ -18,6 +18,7 @@ import {
 import { BTN_ICON_STYLE } from "../../ui/buttonStyles";
 import { copyToClipboard } from "../../ui/clipboard";
 import { notify } from "../../notify";
+import { flowChildrenProps } from "../../../core/steamOSVersion";
 
 const DASH = "—";
 const NOOP = () => { /* leaf — focus only */ };
@@ -127,13 +128,13 @@ function HardwareBlock({ hw, t }: { hw: HardwareInfo | null; t: Tr }) {
   return (
     <SectionCard title={t("hw_title")} icon={<MonitorIcon size={13} />}>
       <SpecTile label={t("hw_model")} value={hw.model ?? DASH} />
-      <Focusable flow-children="horizontal" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 6, marginTop: 6, marginBottom: hw.diskTotalBytes ? 6 : 0 }}>
+      <Focusable {...flowChildrenProps("horizontal")} style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 6, marginTop: 6, marginBottom: hw.diskTotalBytes ? 6 : 0 }}>
         <SpecTile label={t("hw_cpu")} value={hwCpuText(hw)} />
         <SpecTile label={t("hw_ram")} value={formatSize(hw.memTotalBytes)} />
         {hw.gpu ? <SpecTile label={t("hw_gpu")} value={hw.gpu} /> : null}
       </Focusable>
       {(hw.diskTotalBytes || hw.externalDisks.length > 0) && (
-        <Focusable flow-children="horizontal" style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+        <Focusable {...flowChildrenProps("horizontal")} style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
           {hw.diskTotalBytes ? <StorageDonut label={t("hw_storage")} totalBytes={hw.diskTotalBytes} freeBytes={hw.diskFreeBytes} t={t} /> : null}
           {hw.externalDisks.map((d) => (
             d.totalBytes ? <StorageDonut key={d.label} label={d.label} totalBytes={d.totalBytes} freeBytes={d.freeBytes} t={t} /> : null
@@ -147,7 +148,7 @@ function HardwareBlock({ hw, t }: { hw: HardwareInfo | null; t: Tr }) {
 function SoftwareBlock({ rows, plugins, t }: { rows: Array<[string, string]>; plugins: string[]; t: Tr }) {
   return (
     <SectionCard title={t("diag_software")} icon={<GearIcon size={13} />}>
-      <Focusable flow-children="vertical" style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+      <Focusable {...flowChildrenProps("vertical")} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
         {rows.map(([k, v]) => <KVRow key={k} label={t(k)} value={v} />)}
       </Focusable>
       <Focusable onActivate={NOOP} focusWithinClassName="gpfocuswithin" style={{ display: "flex", flexDirection: "column", gap: 3, marginTop: 4, borderRadius: 4, padding: "4px 6px" }}>
@@ -161,7 +162,7 @@ function SoftwareBlock({ rows, plugins, t }: { rows: Array<[string, string]>; pl
 function IntegrationsBlock({ items, t }: { items: Integration[]; t: Tr }) {
   return (
     <SectionCard title={t("diag_integrations")} icon={<PuzzleIcon size={13} />}>
-      <Focusable flow-children="horizontal" style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: 4 }}>
+      <Focusable {...flowChildrenProps("horizontal")} style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: 4 }}>
         {items.map((it) => <IntegrationCard key={it.key} name={t(it.key)} icon={it.icon} active={it.active} />)}
       </Focusable>
     </SectionCard>
@@ -171,7 +172,7 @@ function IntegrationsBlock({ items, t }: { items: Integration[]; t: Tr }) {
 function ConfigBlock({ stats, version, config, t }: { stats: Array<{ icon: ReactNode; value: number }>; version: string; config: string[]; t: Tr }) {
   return (
     <SectionCard title={t("diag_config")} icon={<SlidersIcon size={13} />}>
-      <Focusable flow-children="horizontal" style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+      <Focusable {...flowChildrenProps("horizontal")} style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
         {stats.map((s, i) => <IconStat key={i} icon={s.icon} value={s.value} />)}
       </Focusable>
       <KVRow label={t("diag_version")} value={version} />
@@ -289,7 +290,7 @@ export function DiagnosticsSection({ t }: { t: Tr }) {
       count={0}
       icon={<ToolsIcon size={14} />}
       headerExtra={
-        <Focusable flow-children="horizontal" style={{ display: "flex", gap: 6 }}>
+        <Focusable {...flowChildrenProps("horizontal")} style={{ display: "flex", gap: 6 }}>
           <DialogButton onClick={copyAll} onOKButton={copyAll} style={BTN_ICON_STYLE} aria-label={t("diag_copy")}>
             <CopyIcon size={12} />
           </DialogButton>

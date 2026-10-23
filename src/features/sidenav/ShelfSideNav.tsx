@@ -18,6 +18,7 @@ import { evalVisibility } from "../../steam/smartShelves";
 import { interleaveSmartShelves, pickFirstVisibleShelfId } from "../../domain/shelfOrder";
 import { closeAmbientOverlays, lockOverlay, isOverlayLocked } from "../../runtime/closeOverlays";
 import { subscribeSessionState, getSessionState } from "../../runtime/sessionState";
+import { flowChildrenProps } from "../../core/steamOSVersion";
 
 type Anchor = {
   shelfId: string;
@@ -496,7 +497,7 @@ function SideNavShell({ anchor, settings, onClose }: { anchor: Anchor; settings:
     >
       <Focusable
         ref={panelRef}
-        flow-children="vertical"
+        {...flowChildrenProps("vertical")}
         noFocusRing
         onCancelButton={onClose}
         onButtonDown={(evt: any) => {

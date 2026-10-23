@@ -37,7 +37,7 @@
   }
 
   // Same idea as data-i18n, but for the handful of strings that embed a link
-  // or bold span (e.g. "The easiest way is <a>ShelvesHub</a>...") — the
+  // or bold span (e.g. "Deck Shelves runs on <a>Decky Loader</a>...") — the
   // dictionary value carries the same markup back in translation.
   function applyHtmlNodes(dict) {
     var nodes = document.querySelectorAll("[data-i18n-html]");

@@ -11,6 +11,7 @@ import { resolveShelfAppIds } from "../steam";
 import { getCurrentSettings, saveSettings, subscribeSettings } from "../store/settingsStore";
 import { DEFAULT_SHELF_LIMIT, SHELF_LIMIT_MAX } from "../domain/shelfLimits";
 import { getStoreScreenshots } from "../core/onlineStore";
+import { qaOverrideActive } from "../qa/harness";
 import type { Settings, Shelf } from "../types";
 
 /* Scales with enabled-shelf count so each can reach its own `limit` — used
@@ -309,6 +310,8 @@ async function disableNativeIdleScreensaver(): Promise<void> {
   const alreadyBackedUp = (before as any)?.screensaverIdleBackupAcSec != null
     && (before as any)?.screensaverIdleBackupBatterySec != null;
   if (!alreadyBackedUp) {
+    // A QA build cannot persist the backup, so it never turns Steam's own timer off without one.
+    if (qaOverrideActive) return;
     const ac = readIdleTimeoutSec("system_idle_screensaver_ac_sec");
     const battery = readIdleTimeoutSec("system_idle_screensaver_battery_sec");
     if (ac === null || battery === null) return;

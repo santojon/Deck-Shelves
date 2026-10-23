@@ -71,6 +71,6 @@
   "report_issue_hardware": "Hardware-informatie toevoegen",
   "report_issue_hardware_desc": "Model, CPU, geheugen, GPU en opslag — helpt bij het vaststellen van apparaatspecifieke problemen.",
   "sidecar_back": "Terug",
-  "coop_stand_in": "Deck Shelves draait op dit apparaat via het ShelvesHub-tabblad.",
+  "coop_stand_in": "Deck Shelves draait op dit apparaat via een eigen tabblad Snelle toegang.",
   "qam_sidecar_toggle": "Instellingen tonen of verbergen"
 }

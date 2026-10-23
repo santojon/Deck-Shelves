@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react";
 import { ConfirmModal, Focusable, ToggleField } from "../../../runtime/host/decky";
 import { ModalShell } from "../../ui";
 import { useTranslation } from "react-i18next";
+import { flowChildrenProps } from "../../../core/steamOSVersion";
 
 interface SelectableItem {
   id: string;
@@ -74,7 +75,7 @@ export function SelectItemsModal({
         onEscKeypress={closeModal}
         onOK={handleOk}
       >
-        <Focusable flow-children="vertical" onMenuButton={handleOk} onMenuActionDescription={confirmLabel} style={{ display: "flex", flexDirection: "column", gap: 4, padding: "4px 16px" }}>
+        <Focusable {...flowChildrenProps("vertical")} onMenuButton={handleOk} onMenuActionDescription={confirmLabel} style={{ display: "flex", flexDirection: "column", gap: 4, padding: "4px 16px" }}>
           {header}
           {visible.length > 0 && (
             <div style={{ borderBottom: "1px solid var(--ds-border, rgba(255,255,255,0.08))", paddingBottom: 4, marginBottom: 4 }}>

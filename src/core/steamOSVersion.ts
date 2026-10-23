@@ -86,6 +86,8 @@ export function isSteamOS38OrLater(): boolean | null {
   return major > 3 || (major === 3 && minor >= 8);
 }
 
+// Always drops the prop: Steam asserts on values it does not map, and the
+// direction stays at the call site only to document the intended layout.
 export function flowChildrenProps(_direction: "horizontal" | "vertical" | "column"):
   Record<string, never> {
   return {};

@@ -11,6 +11,7 @@ import { CollapsibleSection } from "../../components/ui/CollapsibleSection";
 import { confirmAction } from "../../components/qam/modals/ConfirmActionModal";
 import { TrashIcon, StackIcon, GamepadIcon, SlidersIcon, PlayIcon } from "../../components/icons";
 import { BTN_COMPACT_STYLE } from "../../components/ui/buttonStyles";
+import { flowChildrenProps } from "../../core/steamOSVersion";
 
 export interface StatisticsDetailProps {
   controller: ReturnType<typeof useSettingsController>;
@@ -200,7 +201,7 @@ export function StatisticsDetail({ controller, t }: StatisticsDetailProps) {
   }, []);
 
   return (
-    <Focusable flow-children="vertical" style={{ display: "flex", flexDirection: "column" }}>
+    <Focusable {...flowChildrenProps("vertical")} style={{ display: "flex", flexDirection: "column" }}>
       <style>{STATS_STYLE}</style>
       <div style={{ fontSize: 12, opacity: 0.6, padding: "0 4px 8px" }}>{t("settings_statistics_desc")}</div>
 
@@ -406,7 +407,7 @@ function TrendsSection({ t, controller }: { t: (k: string) => string; controller
       {!hasData ? (
         <div style={{ fontSize: 12, opacity: 0.6 }}>{t("settings_statistics_usage_empty")}</div>
       ) : (
-        <Focusable flow-children="horizontal" style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+        <Focusable {...flowChildrenProps("horizontal")} style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
           <KpiCard title={t("settings_statistics_usage_launches")} subtitle={kpiSub} value={sumOf(recent, "launches")} refValue={sumOf(prev, "launches")} />
           <KpiCard title={t("settings_statistics_trends_views")} subtitle={kpiSub} value={sumOf(recent, "views")} refValue={sumOf(prev, "views")} />
           <KpiCard title={t("settings_statistics_usage_features")} subtitle={kpiSub} value={sumOf(recent, "features")} refValue={sumOf(prev, "features")} />
@@ -497,7 +498,7 @@ function UsageSection({ t, controller }: { t: (k: string) => string; controller:
               {`${t("settings_statistics_usage_days")}: ${summary.totalDays} · ${t("settings_statistics_usage_launches")}: ${summary.totalCardLaunches} · ${t("settings_statistics_trends_views")}: ${summary.totalShelfViews} · ${t("settings_statistics_usage_features")}: ${summary.totalFeatureUse}`}
             </div>
           )}
-          <Focusable flow-children="horizontal" style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <Focusable {...flowChildrenProps("horizontal")} style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
             <UsageBlock title={t("settings_statistics_usage_top_shelves")} rows={allRows(summary.shelfViews, shelfName)} />
             <UsageBlock title={t("settings_statistics_usage_card_types")} rows={allRows(summary.cardLaunches, (k) => CARD_TYPE_KEY[k] ? t(CARD_TYPE_KEY[k]) : k)} />
             <UsageBlock title={t("settings_statistics_usage_features")} rows={allRows(summary.featureUse, (k) => FEATURE_KEY[k] ? t(FEATURE_KEY[k]) : k)} />

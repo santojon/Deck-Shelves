@@ -41,8 +41,13 @@ function readCache(): Settings | null {
   }
 }
 
+// A QA build's edits never reach the backend, so its cached copies are tagged and a normal boot refuses them.
+function qaTagged(s: Settings): Settings {
+  return qaOverrideActive && (s as any).__dsQaOverride !== true ? ({ ...s, __dsQaOverride: true } as Settings) : s;
+}
+
 function writeCache(s: Settings) {
-  try { globalThis.localStorage?.setItem(CACHE_KEY, JSON.stringify(s)); } catch {}
+  try { globalThis.localStorage?.setItem(CACHE_KEY, JSON.stringify(qaTagged(s))); } catch {}
 }
 
 function readSharedState(): Settings | null {
@@ -58,7 +63,7 @@ function readSharedState(): Settings | null {
 
 function writeSharedState(s: Settings) {
   try {
-    (globalThis as any)[SHARED_STATE_KEY] = s;
+    (globalThis as any)[SHARED_STATE_KEY] = qaTagged(s);
   } catch {}
 }
 
@@ -105,12 +110,21 @@ function withTimeout<T>(promise: Promise<T>, ms = 8000): Promise<T> {
 // waiting on an unrelated backend refresh. Tree-shaken in release builds.
 let lastRawForQA: Settings | null = null;
 
-function notify(raw: Settings) {
+// The QA tag only means something in a QA build: a normal build never keeps or saves it, even when
+// older data carries it (the settings file or a profile snapshot written before QA builds were fenced).
+function withoutQaTag(s: Settings): Settings {
+  if (qaOverrideActive || (s as any)?.__dsQaOverride === undefined) return s;
+  const copy = { ...(s as any) };
+  delete copy.__dsQaOverride;
+  return copy as Settings;
+}
+
+function notify(raw: Settings, persist = true) {
   if (__DEV__) lastRawForQA = raw;
   // Fresh-install QA seed active: an untagged payload is a backend refresh —
   // drop it so the session's in-memory progress (tour seen, packs applied) holds.
   if (qaSeedActive() && (raw as any).__dsQaOverride !== true) return;
-  const s = applyQASettingsOverride(raw);
+  const s = applyQASettingsOverride(withoutQaTag(raw));
   // Re-sync the logger flag on every notify, BEFORE the same-settings
   // short-circuit, so the boot path's notify(cached) applies it even when the
   // payload matches the seeded `current` (verbose state would otherwise stick).
@@ -119,8 +133,10 @@ function notify(raw: Settings) {
     return;
   }
   current = s;
-  writeCache(s);
-  writeSharedState(s);
+  if (persist) {
+    writeCache(s);
+    writeSharedState(s);
+  }
   logInfo("STORAGE", "notify settings", { enabled: s.enabled, shelfCount: s.shelves.length });
   listeners.forEach((listener) => listener(s));
   try {
@@ -404,8 +420,11 @@ export async function refreshSettings(): Promise<Settings> {
   } catch (error) {
     logWarn("STORAGE", "refreshSettings failed", String(error));
     scheduleColdRetry();
-    const next = current ?? readCache() ?? readSharedState() ?? defaultSettings();
-    notify(next);
+    const known = current ?? readCache() ?? readSharedState();
+    const next = known ?? defaultSettings();
+    // Bare defaults stand in until the backend answers; persisting them would
+    // make the next start (or another copy) read them back as the user's settings.
+    notify(next, known != null);
     return effectiveState(next);
   }
 }
@@ -436,7 +455,7 @@ export function saveSettings(next: Settings, opts?: { fromSync?: boolean }): Pro
   // Stamp per-entity sync clocks + tombstones from the diff vs the current state,
   // unless this is a sync-applied write (which already carries authoritative
   // stamps from the merge — re-stamping would clobber the other device's clocks).
-  const stamped = opts?.fromSync ? next : stampChanges(current, next);
+  const stamped = withoutQaTag(opts?.fromSync ? next : stampChanges(current, next));
   // Never let a QA-overridden session reach the real backend — see
   // `qaOverrideActive`'s doc comment for the incident this guards against.
   // Replaces a narrower, two-flag version of this same check.
@@ -520,7 +539,14 @@ export async function listBackups(): Promise<BackupEntry[]> {
   }
 }
 
+// The backup actions below write the real files on the backend: a QA build only lists them.
+function skippedInQa(action: string): boolean {
+  if (qaOverrideActive) logInfo("STORAGE", `${action} skipped (QA override active)`);
+  return qaOverrideActive;
+}
+
 export async function restoreBackup(name: string): Promise<Settings | null> {
+  if (skippedInQa("restoreBackup")) return null;
   try {
     logInfo("STORAGE", "restoreBackup start", { name });
     const raw = await withTimeout(call<[unknown], any>("restore_backup", { name }), 15000);
@@ -536,6 +562,7 @@ export async function restoreBackup(name: string): Promise<Settings | null> {
 }
 
 export async function createSnapshot(): Promise<BackupEntry[]> {
+  if (skippedInQa("createSnapshot")) return listBackups();
   try {
     const raw = await withTimeout(call<[], { backups?: BackupEntry[] }>("create_backup"), 8000);
     return Array.isArray(raw?.backups) ? raw.backups : [];
@@ -549,6 +576,7 @@ export async function createSnapshot(): Promise<BackupEntry[]> {
    — always untagged-throttle-exempt (server-side tag, no frontend input) so
    it never collides with the 24h auto-snapshot cooldown. */
 export async function createPreImportSnapshot(): Promise<void> {
+  if (skippedInQa("createPreImportSnapshot")) return;
   try {
     await withTimeout(call<[], unknown>("create_pre_import_backup"), 8000);
   } catch (error) {
@@ -566,6 +594,7 @@ export async function exportBackupToFile(name: string, dest: string): Promise<bo
 }
 
 export async function deleteBackup(name: string): Promise<BackupEntry[] | null> {
+  if (skippedInQa("deleteBackup")) return null;
   try {
     const raw = await withTimeout(call<[unknown], { ok?: boolean; backups?: BackupEntry[] }>("delete_backup", { name }), 8000);
     if (!raw?.ok) return null;
@@ -577,6 +606,7 @@ export async function deleteBackup(name: string): Promise<BackupEntry[] | null> 
 }
 
 export async function clearBackups(): Promise<BackupEntry[]> {
+  if (skippedInQa("clearBackups")) return listBackups();
   try {
     const raw = await withTimeout(call<[], { backups?: BackupEntry[] }>("clear_backups"), 8000);
     return Array.isArray(raw?.backups) ? raw.backups : [];
@@ -587,6 +617,7 @@ export async function clearBackups(): Promise<BackupEntry[]> {
 }
 
 export async function importBackupFromFile(srcPath: string): Promise<BackupEntry[] | null> {
+  if (skippedInQa("importBackupFromFile")) return null;
   try {
     const raw = await withTimeout(call<[unknown], { ok?: boolean; backups?: BackupEntry[] }>("import_backup", { src_path: srcPath }), 15000);
     if (!raw?.ok) return null;

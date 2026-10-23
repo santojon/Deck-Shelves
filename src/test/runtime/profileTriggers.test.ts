@@ -1,11 +1,12 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
-const { store, saved, resolved, cb, toasts } = vi.hoisted(() => ({
+const { store, saved, resolved, cb, toasts, qa } = vi.hoisted(() => ({
   store: { current: null as any },
   saved: { list: [] as any[] },
   resolved: { current: null as string | null },
   cb: { settings: null as null | ((s: any) => void) },
   toasts: { list: [] as string[] },
+  qa: { active: false },
 }))
 
 vi.mock('../../store/settingsStore', () => ({
@@ -16,6 +17,7 @@ vi.mock('../../store/settingsStore', () => ({
 vi.mock('../../runtime/deviceState', () => ({ subscribeDeviceState: () => () => {} }))
 vi.mock('../../runtime/sessionState', () => ({ subscribeSessionState: () => () => {} }))
 vi.mock('../../runtime/notify', () => ({ notifyUser: (_title: string, body: string) => { toasts.list.push(body) } }))
+vi.mock('../../qa/harness', () => ({ get qaOverrideActive() { return qa.active } }))
 vi.mock('../../steam/smartShelves', () => ({
   resolveTriggeredProfile: () => resolved.current,
   nextProfileTriggerFlip: () => null,
@@ -310,5 +312,48 @@ describe('installProfileTriggers', () => {
     expect(reverted.globalHideGameNames).toBe(true)
     un()
     vi.unstubAllGlobals()
+  })
+
+  it('a QA build never writes or clears the stored pre-trigger copy', () => {
+    const mem = new Map<string, string>()
+    const real = JSON.stringify({ name: 'Docked', settings: { hideRecents: false }, applied: { hideRecents: true } })
+    mem.set('ds-trigger-baseline-v1', real)
+    vi.stubGlobal('localStorage', { getItem: (k: string) => mem.get(k) ?? null, setItem: (k: string, v: string) => { mem.set(k, v) }, removeItem: (k: string) => { mem.delete(k) } })
+    qa.active = true
+    store.current = { profileTriggersEnabled: true, profiles: [profile], activeProfileName: null, hideRecents: true, __dsQaOverride: true }
+    resolved.current = 'Docked'
+    const un = installProfileTriggers()
+    try {
+      resolved.current = null
+      cb.settings!(store.current) // the trigger takes over and is denied, all inside the QA session
+      expect(mem.get('ds-trigger-baseline-v1')).toBe(real)
+    } finally {
+      un()
+      qa.active = false
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('a normal boot never reverts to a pre-trigger copy a QA build left behind', () => {
+    const mem = new Map<string, string>()
+    // Fixture-era values: reverting to them would write fixture data over the real settings.
+    const fromQa = { hideRecents: false, recentsReplaceSource: true, shelves: [{ id: 'qa_st_01' }], __dsQaOverride: true }
+    mem.set('ds-trigger-baseline-v1', JSON.stringify({ name: 'Docked', settings: fromQa, applied: { ...fromQa, activeProfileName: 'Docked' } }))
+    vi.stubGlobal('localStorage', { getItem: (k: string) => mem.get(k) ?? null, setItem: (k: string, v: string) => { mem.set(k, v) }, removeItem: (k: string) => { mem.delete(k) } })
+    const docked = { id: 'p1', name: 'Docked', snapshot: { enabled: true, hideRecents: true } }
+    store.current = { profileTriggersEnabled: true, profiles: [docked], activeProfileName: 'Docked', enabled: true, hideRecents: true, recentsReplaceSource: false, shelves: [{ id: 'real' }] }
+    resolved.current = 'Docked'
+    const un = installProfileTriggers() // a restart while the trigger is active
+    try {
+      saved.list = []
+      resolved.current = null
+      cb.settings!(store.current)
+      expect(saved.list.some((x) => x.recentsReplaceSource === true || x.__dsQaOverride === true)).toBe(false)
+      expect(saved.list.some((x) => (x.shelves ?? []).some((sh: any) => sh.id === 'qa_st_01'))).toBe(false)
+      expect(mem.get('ds-trigger-baseline-v1') ?? '').not.toContain('__dsQaOverride')
+    } finally {
+      un()
+      vi.unstubAllGlobals()
+    }
   })
 })

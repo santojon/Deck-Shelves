@@ -1,23 +1,21 @@
 {
-  "recordedAt": "2026-10-10T08:58:16",
+  "recordedAt": "2026-10-23T05:17:04",
   "windowS": 150,
   "settleS": 90,
   "acOnline": "0",
-  "batteryPct": "81",
-  "standaloneHostAlsoActive": true,
+  "batteryPct": "82",
+  "standaloneHostAlsoActive": false,
   "withPlugin": {
-    "crashpad-handler": 0.0,
-    "main": 2.73,
-    "zygote": 8.35,
-    "total": 11.08,
-    "batteryW": 0.6
+    "main": 1.52,
+    "zygote": 3.21,
+    "total": 4.73,
+    "batteryW": 0.51
   },
   "withoutPlugin": {
-    "crashpad-handler": 0.0,
-    "main": 1.29,
-    "zygote": 2.55,
-    "total": 3.84,
-    "batteryW": 0.53
+    "main": 0.88,
+    "zygote": 4.63,
+    "total": 5.51,
+    "batteryW": 0.51
   },
-  "deltaPp": 7.24
+  "deltaPp": -0.78
 }

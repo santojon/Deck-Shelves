@@ -440,12 +440,13 @@ const __ds_entry = definePlugin((serverAPI?: any) => {
   const dispose = () => {
     if (disposed) return;
     disposed = true;
-    try {
-      logInfo("RUNTIME", "plugin dismount");
-      for (const step of teardown) step();
-    } catch (error) {
-      logError("RUNTIME", "failed to remove patch", String(error));
+    logInfo("RUNTIME", "plugin dismount");
+    // One failing step must not leave the later ones installed before a reboot.
+    for (const step of teardown) {
+      try { step(); } catch (error) { logError("RUNTIME", "failed to remove patch", String(error)); }
     }
+    // A loader reloading the same build calls the export again in this evaluation: let it boot.
+    __ds_ran = false;
   };
   stashInstance(getOwnerKind(), dispose);
   // A neutral host runs its unmount handlers before hot-swapping the bundle (host contract).

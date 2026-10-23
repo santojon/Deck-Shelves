@@ -6,6 +6,7 @@ import { PlayIcon, FunnelIcon } from "../../icons";
 import { BTN_COMPACT_STYLE } from "../../ui/buttonStyles";
 import type { useSettingsController } from "../../../features/settings/controller";
 import type { FilterItem } from "../../../types";
+import { flowChildrenProps } from "../../../core/steamOSVersion";
 
 interface StepCount { type: string; inverted: boolean; count: number | null; }
 interface RunResult { total: number; final: number; sort: string; steps: StepCount[]; }
@@ -78,8 +79,8 @@ export function SourceResolverInspector({ controller, t }: { controller: ReturnT
       {shelves.length === 0 ? (
         <div style={{ opacity: 0.55, fontStyle: "italic", padding: 8 }}>{t("resolver_no_shelves")}</div>
       ) : (
-        <Focusable flow-children="vertical" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          <Focusable flow-children="horizontal" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <Focusable {...flowChildrenProps("vertical")} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <Focusable {...flowChildrenProps("horizontal")} style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <div style={{ flex: 1, minWidth: 0 }}>
               <Dropdown rgOptions={options} selectedOption={selectedId} onChange={(o: any) => setSelectedId(o.data)} />
             </div>

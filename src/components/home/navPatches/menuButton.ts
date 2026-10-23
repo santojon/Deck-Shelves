@@ -9,10 +9,14 @@ import {
 import { OPTIONS_BUTTON } from "./constants";
 import { registerDisposer } from "../../../runtime/runtimeDisposer";
 import { resolveFocusNavController } from "./focusNav";
+import { getActiveFocusedElement } from "../../../core/focusRestore";
 
 const patchedMenuControllers = new WeakSet<object>();
+const HOME_MOUNT_ID = "deck-shelves-home-root";
+const PLUGIN_AREA = ".ds-card, .deck-shelves-root, #" + HOME_MOUNT_ID;
 
-function findFocusedDsCard(): HTMLElement | null {
+// `focus` is the element holding gamepad focus, when known.
+function findFocusedDsCard(focus: HTMLElement | null): HTMLElement | null {
   for (const d of getAllSteamDocuments()) {
     const el = (
       d.querySelector(".ds-card.gpfocus") ??
@@ -20,6 +24,8 @@ function findFocusedDsCard(): HTMLElement | null {
     ) as HTMLElement | null;
     if (el) return el;
   }
+  // Focus on a native element: the last focused card is no longer the one in focus.
+  if (focus && !focus.closest?.(PLUGIN_AREA)) return null;
   try {
     const el = (globalThis as any).__ds_last_focused_card as HTMLElement | null;
     if (el?.isConnected) return el;
@@ -38,21 +44,40 @@ function cardFromEventTarget(evt: Event): HTMLElement | null {
   return (target?.closest?.(".ds-card") as HTMLElement | null) ?? null;
 }
 
+/* The plugin's mount sits right after Steam's Recents row, so the row is
+   the mount's previous sibling. */
+function isOnReplacedRow(focus: HTMLElement | null): boolean {
+  if (!focus) return false;
+  const row = focus.ownerDocument?.getElementById(HOME_MOUNT_ID)?.previousElementSibling;
+  return !!row && row.contains(focus);
+}
+
+/* With the shelf shown as Recents and focus on a tile of that row: the game
+   of the last tile focus, else the row's first game. 0 leaves it to Steam. */
+function replacedRowMenuAppId(focus: HTMLElement | null): number {
+  if (!isRecentsReplaceInjecting() || !isOnReplacedRow(focus)) return 0;
+  return getOverlayFocusedAppId() || getOverlayFirstCachedAppId();
+}
+
+// The event target when it is a real element, else the gamepad focus.
+function eventFocus(evt: Event): HTMLElement | null {
+  const target = evt.target as HTMLElement | null;
+  const doc = target?.ownerDocument;
+  if (!target?.closest || target === doc?.body || target === doc?.documentElement) return getActiveFocusedElement();
+  return target;
+}
+
 function interceptMenuBtn(button: number): boolean {
   if (button !== OPTIONS_BUTTON) return false;
   try {
-    const focused = findFocusedDsCard();
+    const focus = getActiveFocusedElement();
+    const focused = findFocusedDsCard(focus);
     if (focused) {
       const { appid, shelfId } = readCardIds(focused);
       if (appid > 0) { showGameMenu(appid, shelfId); return true; }
     }
-    // Recents overlay: intercept unconditionally — native handler crashes on
-    // replaced cards. Use tracked focused appid, falling back to first cached.
-    if (isRecentsReplaceInjecting()) {
-      const appid = getOverlayFocusedAppId() || getOverlayFirstCachedAppId();
-      if (appid > 0) { showGameMenu(appid); return true; }
-      return true;
-    }
+    const appid = replacedRowMenuAppId(focus);
+    if (appid > 0) { showGameMenu(appid); return true; }
   } catch { return false; }
   return false;
 }
@@ -103,7 +128,8 @@ export function patchMenuButton(): void {
          DispatchVirtualButtonClick intercepted for the wrong card) because the
          document-level capture listener fires once the event IS dispatched on
          the correct element. */
-      const focused = cardFromEventTarget(evt) ?? findFocusedDsCard();
+      const focus = eventFocus(evt);
+      const focused = cardFromEventTarget(evt) ?? findFocusedDsCard(focus);
       if (focused) {
         const { appid, shelfId } = readCardIds(focused);
         if (appid > 0) {
@@ -113,12 +139,11 @@ export function patchMenuButton(): void {
           return;
         }
       }
-      // Overlay: intercept unconditionally — native handler crashes on replaced cards.
-      if (isRecentsReplaceInjecting()) {
+      const appid = replacedRowMenuAppId(focus);
+      if (appid > 0) {
         evt.stopImmediatePropagation();
         evt.preventDefault();
-        const appid = getOverlayFocusedAppId() || getOverlayFirstCachedAppId();
-        if (appid > 0) showGameMenu(appid);
+        showGameMenu(appid);
       }
     } catch (e) { logInfo("HOME", "handleMenu failed", String(e)); }
   };

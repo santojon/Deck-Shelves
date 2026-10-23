@@ -16,7 +16,6 @@ for what the plugin does and how to install it.
 | [smart-shelves.md](smart-shelves.md) | Smart-shelf templates, their heuristics, tuning parameters and when each appears |
 | [online-shelves.md](online-shelves.md) | Network-backed sources (wishlist, store), caching and refresh behaviour |
 | [display-modes.md](display-modes.md) | What Normal, Light and Advanced modes each show and hide |
-| [decky-or-shelveshub.md](decky-or-shelveshub.md) | The two hosts side by side — platforms, install, updates, Quick Access tab, running both |
 | [validation-matrix.md](validation-matrix.md) | Which platform / Steam channel / host combinations were exercised for the current release, and how to validate one |
 
 ## Extending the plugin

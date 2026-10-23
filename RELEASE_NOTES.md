@@ -7,7 +7,15 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
-- **"Add to shelf" in every game menu**: Steam's library menus show the plugin's entries on the macOS client too, keep them while the menu redraws, and no longer lose them on the first menu after Steam starts when other menu plugins are installed.
+- **Turning the plugin off and on in Decky Loader works**: Deck Shelves comes back right away instead of staying stopped until Steam restarts.
+
+- **The menu button behaves normally with "Use shelf as Recents"**: it opens Deck Shelves' menu only on the replaced row and on Deck Shelves cards; everywhere else Steam handles it.
+
+- **Settings from older versions load cleanly**: shelves saved with old on/off flags no longer cause a validation error at every start.
+
+- **Reordering by touch or mouse keeps every move**, and Steam's logs no longer fill with a navigation warning.
+
+- **"Add to shelf" in every game menu**: Steam's library menus keep the plugin's entries while the menu redraws, and no longer lose them on the first menu after Steam starts when other menu plugins are installed.
 
 - **Store game names read correctly**: names with "&" no longer show as "&amp;" on online shelves, and such games are matched to your library when owned games are hidden.
 
@@ -37,6 +45,8 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 - **Shelf look settings and global ones work together**: the global section only overrides what you set there, every global choice can go back to "Per shelf", and a reset button returns the whole section to its defaults.
 
+- **Smart shelves use their own settings**: the logo, description, layout and hide options and the auto-pin and auto-collapse rules you set on a smart shelf now work on the Home, the same as on a regular shelf.
+
 - **Game names line up with the card**: centre and right alignment now match the card exactly, and game info shown above the card follows that alignment without leaving the screen.
 
 - **Highlight as many games as you like**: shelves with six or more highlighted games no longer show empty spaces where cards should be.
@@ -45,7 +55,7 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 - **Back from a game page, the focus returns to the same game and shelf**, also when that shelf is further down the page and still loading, and scrolling sideways no longer jumps to another shelf.
 
-- **The wishlist shelf fills on the standalone host too.** A slow first answer from the backend no longer leaves it empty for ten minutes.
+- **The wishlist shelf fills after a slow start too.** A slow first answer from the backend no longer leaves it empty for ten minutes.
 
 - **The Steam menu and Quick Access open again while a game is running.** The Home no longer pulls the controller focus back to a shelf card behind the game, and it runs no timers at all while a game runs — non-Steam shortcuts included — while the screen is off or while the device sleeps.
 
@@ -53,13 +63,11 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 - **Smoother controller navigation on custom Home shelves.** Remove a focus-border adjustment that could repeatedly recalculate styling across the whole Home screen. Steam's native focus border is retained; the Recents replacement and Round Compatibility setting still work as before.
 
-- **A "Show or hide settings" row under the master toggle opens or closes the quick-settings sidecar**, the same panel the double dpad-right opens, for anyone who prefers a tap. The sidecar is titled "Show or hide" in a tab header like the standalone host's, and Ctrl+Shift+S opens it by default.
+- **A "Show or hide settings" row under the master toggle opens or closes the quick-settings sidecar**, the same panel the double dpad-right opens, for anyone who prefers a tap. The sidecar is titled "Show or hide" in a tab header, and Ctrl+Shift+S opens it by default.
 
-- **Quick Search lands on the game every time**, including games further along a row or on a shelf below the fold, and reopening it keeps the previous text selected instead of appending to it. A bundle hot-swap by the standalone host now hands the Home to the new instance, with the Home visible right away.
+- **Quick Search lands on the game every time**, including games further along a row or on a shelf below the fold, and reopening it keeps the previous text selected instead of appending to it.
 
 - **Pinned games, play history, queues and custom tags now work.** Once a shelf, smart shelf, saved filter or profile uses one of these sources, the game menu of a shelf card gains a **Lists** submenu that pins a game, queues it for this session or until you play it, and edits its tags; play history fills by itself, and Parser categories reads the categories your ROM manager or launcher integration gave each shortcut. Profile triggers now keep the settings you change while they are active, and the shortcut editor takes up to three buttons and can be cancelled.
-
-- **Updating through a self-installing host is smoother.** The "Installing update" dialog closes by itself once the new version is in (nothing restarts Steam), and on machines without a plugin loader your settings are no longer copied into a loader folder that nothing reads.
 
 - **Typing in Quick Search with the on-screen keyboard works again**, and profile triggers are more dependable: switching them off restores your previous settings, they survive a restart, and they wait for real readings before acting. Update notifications can now be muted like the other areas.
 
@@ -73,7 +81,7 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 - **Games without artwork look like they do in Steam**: when a cover can't load, the card shows Steam's own dark tile with the game's name.
 
-- **Deck Shelves' own Quick Access tab was rebuilt (experimental)**: under Decky Loader you can turn it on to get Deck Shelves as its own tab right after Performance; restart Steam after enabling. With the standalone host, its own tab is used instead.
+- **Deck Shelves' own Quick Access tab was rebuilt (experimental)**: under Decky Loader you can turn it on to get Deck Shelves as its own tab right after Performance; restart Steam after enabling. If another host already shows a Deck Shelves tab, that one is used instead.
 
 - **Under the hood, the home-screen rendering code, the plugin's startup, the library code that builds every shelf and the game-menu code were reorganized into smaller pieces, with no change in behavior** — verified on a real Steam Deck. Reloading the plugin now also cleans up its Settings page route.
 
@@ -183,7 +191,6 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 - **A profile switched on automatically (by a trigger like docking or charging) could revert a Smart Shelf's settings even when you'd chosen not to link shelves to that profile.** Fixed — auto-switched profiles now leave your shelves exactly as they are, same as switching manually.
 - **Card shadows and theme compatibility improvements.** The drop shadow under each card now matches the artwork exactly instead of extending past it. Fixed a couple of related visual issues that showed up with certain CSS Loader themes (Switch Like Home / Switch-like Banners): cards now correctly match the theme's resized native look, and "Use shelf as Recents" no longer renders invisibly off-screen or leaves the row's title stuck on the default text under the SLH theme.
-- **New recommended way to install: the standalone host.** No Decky Loader needed — one-click installers for Steam Deck, Linux, macOS and Windows, with automatic updates for itself and Deck Shelves. The Decky Store, manual-zip and install-from-URL options are all still there and unchanged; the standalone host is simply the easiest path for anyone starting fresh.
 - **Screensaver improvements.** It now shows a fair mix from every shelf instead of mostly the first one, resumes where it left off instead of restarting each time, and can optionally show the game's description next to the logo (above or below, with an adjustable gap). A new setting also lets you control how many games it pulls from each shelf at a time. Fixed a bug where, with 2 or more shelves enabled, none of them could ever show their own full configured number of games. It can also now optionally include each game's official online screenshots, not just ones you've captured yourself (requires Online features to be on).
 - **Compatibility icons that fit your device.** On a Steam Deck / SteamOS, cards still show the Steam Deck compatibility rating; on macOS, Windows and desktop Linux they now show controller-support icons (full or partial) — the same thing native Steam shows there — instead of a Deck rating that doesn't apply. It's the same "compatibility icons" toggle you already have, per shelf or globally.
 - **Settings sync across devices is much more reliable.** If you use the optional cross-device sync, two devices now merge their changes shelf by shelf instead of one overwriting the other, and a bug that could make synced shelves disappear (or the whole plugin read as turned off) is fixed. If the same shelf was created separately on each device, they'll show as two — delete the extra once and it stays gone.

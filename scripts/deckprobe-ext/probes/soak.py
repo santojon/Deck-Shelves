@@ -125,6 +125,36 @@ def wait_plugin(host: str, port: int, timeout: float = 90.0) -> dict:
     return j
 
 
+# The restart command returns before the loader has re-created the plugin
+# realm, so the old realm (and the old Home) can still answer for a few seconds.
+# Mark the realm before the trigger and wait until a new one no longer has it.
+def mark_realm(host: str, port: int, cycle: int) -> None:
+    try:
+        sjc = cdp.open_session(host, port, "SharedJSContext")
+        try:
+            sjc.evaluate(f"(window.__ds_soak_mark = {cycle}, true)")
+        finally:
+            sjc.close()
+    except Exception:
+        pass
+
+
+def wait_new_realm(host: str, port: int, cycle: int, timeout: float = 90.0) -> bool:
+    t0 = time.time()
+    while time.time() - t0 < timeout:
+        try:
+            sjc = cdp.open_session(host, port, "SharedJSContext")
+            try:
+                if sjc.evaluate("window.__ds_soak_mark ?? null") != cycle:
+                    return True
+            finally:
+                sjc.close()
+        except Exception:
+            pass
+        time.sleep(1)
+    return False
+
+
 # The old Steam keeps answering CDP for a few seconds after `killall`, so a
 # Home check right away would pass on the OLD session; wait for the new PID.
 def wait_steam_relaunch(env: dict, old_pid: str, timeout: float = 150.0) -> str | None:
@@ -214,7 +244,10 @@ def main() -> None:
     results = []
     for i in range(1, cycles + 1):
         t0 = time.time()
+        if mode == "reload":
+            mark_realm(host, port, i)
         trigger(mode, env, sleep_secs)
+        fresh = mode != "reload" or wait_new_realm(host, port, i)
         s = wait_home(host, port, expected, 90.0 if mode == "restart" else 150.0)
         if s is None and mode == "restart":
             # The loader's self-stop lands a few seconds after Steam exits, i.e. after
@@ -224,7 +257,7 @@ def main() -> None:
         j = read_sjc(host, port) if coexist else wait_plugin(host, port)
         time.sleep(3)
         j = read_sjc(host, port) if (coexist or j.get("instances")) else j
-        problems = judge(s, j, base, coexist)
+        problems = judge(s, j, base, coexist) + ([] if fresh else ["plugin realm not re-created"])
         rec = {"i": i, "ok": not problems, "problems": problems, "readyS": s and s.get("t_ready"), "cycleS": round(time.time() - t0, 1), "loaderSelfStops": LOADER_SELF_STOPS, "sjc": j}
         results.append(rec)
         print(f"cycle {i:3d} {'OK ' if not problems else 'BAD'} ready={rec['readyS']}s total={rec['cycleS']}s {problems or ''} owner={j.get('owner')} inst={j.get('instances')} scope={j.get('scope')} loaderSelfStops={LOADER_SELF_STOPS}", flush=True)

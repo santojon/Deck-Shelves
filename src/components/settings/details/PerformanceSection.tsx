@@ -7,6 +7,7 @@ import { getSmartShelfCacheStats } from "../../../steam/smartShelves";
 import { DonutChart, DonutLegend, TopBarChart } from "../../../features/statistics/UsageCharts";
 import { GaugeIcon, RefreshIcon } from "../../icons";
 import { BTN_ICON_STYLE } from "../../ui/buttonStyles";
+import { flowChildrenProps } from "../../../core/steamOSVersion";
 
 const DASH = "—";
 const NOOP = () => { /* leaf — focus only */ };
@@ -103,7 +104,7 @@ export function PerformanceSection({ t }: { t: Tr }) {
       count={0}
       icon={<GaugeIcon size={14} />}
       headerExtra={
-        <Focusable flow-children="horizontal" style={{ display: "flex", gap: 6 }}>
+        <Focusable {...flowChildrenProps("horizontal")} style={{ display: "flex", gap: 6 }}>
           <DialogButton onClick={refresh} onOKButton={refresh} style={BTN_ICON_STYLE} aria-label={t("diag_refresh")}>
             <RefreshIcon size={12} />
           </DialogButton>
@@ -111,19 +112,19 @@ export function PerformanceSection({ t }: { t: Tr }) {
       }
     >
       <div style={{ fontSize: 12, opacity: 0.6, margin: "2px 0 8px" }}>{t("perf_desc")}</div>
-      <Focusable flow-children="horizontal" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 6, marginBottom: 6 }}>
+      <Focusable {...flowChildrenProps("horizontal")} style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 6, marginBottom: 6 }}>
         <Stat label={t("perf_boot_critical")} value={msText(snapshot.bootCriticalMs)}
           color={snapshot.bootCriticalMs === null ? undefined : qualityColor(snapshot.bootCriticalMs, 100, 500)} />
         <Stat label={t("perf_mount")} value={msText(snapshot.mountMs)}
           color={snapshot.mountMs === null ? undefined : qualityColor(snapshot.mountMs, 3000, 6000)} />
       </Focusable>
-      <Focusable flow-children="horizontal" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 6, marginBottom: 10 }}>
+      <Focusable {...flowChildrenProps("horizontal")} style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 6, marginBottom: 10 }}>
         <Stat label={t("perf_mount_cards")} value={String(snapshot.mountCardsProcessed)} />
         <Stat label={t("perf_mount_fetches")} value={String(snapshot.mountFetches)} />
         <Stat label={t("perf_remount_tries")} value={String(snapshot.remountTries)}
           color={qualityColor(snapshot.remountTries, 2, 5)} />
       </Focusable>
-      <Focusable flow-children="horizontal" style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 10 }}>
+      <Focusable {...flowChildrenProps("horizontal")} style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 10 }}>
         <ChartBlock title={t("perf_active_title")}>
           <TopBarChart rows={liveRows} color="#1a9fff" />
         </ChartBlock>
@@ -131,13 +132,13 @@ export function PerformanceSection({ t }: { t: Tr }) {
           <TopBarChart rows={activityRows} color="#43c06d" />
         </ChartBlock>
       </Focusable>
-      <Focusable flow-children="horizontal" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 6, marginBottom: 10 }}>
+      <Focusable {...flowChildrenProps("horizontal")} style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 6, marginBottom: 10 }}>
         <Stat label={t("perf_long_tasks")} value={String(snapshot.longTaskCount)}
           color={qualityColor(snapshot.longTaskCount, 1, 4)} />
         <Stat label={t("perf_long_tasks_ms")} value={`${snapshot.longTaskTotalMs.toFixed(0)} ms`}
           color={qualityColor(snapshot.longTaskTotalMs, 200, 800)} />
       </Focusable>
-      <Focusable flow-children="horizontal" style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+      <Focusable {...flowChildrenProps("horizontal")} style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
         {snapshot.usedJSHeapMB !== null && snapshot.totalJSHeapMB !== null && (
           <DonutStat
             title={t("perf_heap_used")}

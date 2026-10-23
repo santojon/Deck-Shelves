@@ -1,5 +1,6 @@
 import { subscribeAppStart } from "./sessionState";
 import { triggerShelfRefresh } from "../core/shelfRefresh";
+import { qaOverrideActive } from "../qa/harness";
 
 /* Per-device game lists behind the "Manual" sources and the Custom tags
    filter: pinned games, play history, the session queue (until Steam restarts),
@@ -17,15 +18,22 @@ const TAG_MAX_LEN = 40;
 
 const g = (): any => globalThis as any;
 
+// A QA build keeps its list edits in memory: the device's own lists stay as they were.
+const qaLists = new Map<string, string>();
+
 function readJson<T>(key: string, fallback: T): T {
   try {
-    const raw = g().localStorage?.getItem?.(key);
+    const raw = qaLists.get(key) ?? g().localStorage?.getItem?.(key);
     return raw ? (JSON.parse(raw) as T) : fallback;
   } catch { return fallback; }
 }
 
 function writeJson(key: string, value: unknown): void {
-  try { g().localStorage?.setItem?.(key, JSON.stringify(value)); } catch {}
+  try {
+    const raw = JSON.stringify(value);
+    if (qaOverrideActive) qaLists.set(key, raw);
+    else g().localStorage?.setItem?.(key, raw);
+  } catch {}
 }
 
 function idList(value: unknown): number[] {

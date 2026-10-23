@@ -71,6 +71,6 @@
   "report_issue_hardware": "Donanım bilgilerini ekle",
   "report_issue_hardware_desc": "Model, CPU, bellek, GPU ve depolama — cihaza özgü sorunların teşhisine yardımcı olur.",
   "sidecar_back": "Geri",
-  "coop_stand_in": "Deck Shelves bu cihazda ShelvesHub sekmesinden çalışır.",
+  "coop_stand_in": "Deck Shelves bu cihazda kendi Hızlı Erişim sekmesinden çalışır.",
   "qam_sidecar_toggle": "Ayarları göster veya gizle"
 }

@@ -17,6 +17,7 @@ import { BookmarkIcon, PersonIcon, PuzzleIcon, GamepadIcon, SaveIcon, ToolsIcon,
 import { useLightMode, useAdvancedMode } from "./ui/lightMode";
 import { hasExternalIntegrations } from "../core/pluginApi";
 import { consumePendingSettingsTab } from "../runtime/settingsNav";
+import { flowChildrenProps } from "../core/steamOSVersion";
 
 function tabLabel(icon: React.ReactNode, text: string): string {
   return (
@@ -87,7 +88,7 @@ export function SettingsPage() {
   return (
     <Focusable
       className="deck-shelves-settings-page"
-      flow-children="vertical"
+      {...flowChildrenProps("vertical")}
       onCancelButton={goBack}
       style={{ position: "relative", height: "100%", display: "flex", flexDirection: "column", color: "var(--ds-text, #fff)" }}
     >

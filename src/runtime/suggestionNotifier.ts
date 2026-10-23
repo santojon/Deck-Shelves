@@ -7,6 +7,7 @@ import { getExternalStatisticsProviders } from "../core/pluginApi";
 import { deriveSuggestions, type StatSuggestion } from "../domain/statistics";
 import { coveredTemplateIds } from "../domain/templates";
 import { getCurrentSettings } from "../store/settingsStore";
+import { qaOverrideActive } from "../qa/harness";
 
 const NOTIFIED_KEY = "ds-notified-suggestions";
 const NOTIFIED_CAP = 100; // keep the ledger bounded
@@ -16,6 +17,8 @@ function loadNotified(): Set<string> {
 }
 
 function saveNotified(ids: string[]): void {
+  // A QA build computes suggestions from fixture shelves: the real ledger stays as it was.
+  if (qaOverrideActive) return;
   try { localStorage.setItem(NOTIFIED_KEY, JSON.stringify(ids.slice(-NOTIFIED_CAP))); } catch { /* best-effort */ }
 }
 

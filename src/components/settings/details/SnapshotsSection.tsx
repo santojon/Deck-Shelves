@@ -9,6 +9,7 @@ import { listBackups, createSnapshot, restoreBackup, exportBackupToFile, importB
 import { RefreshIcon, RestoreIcon, StackIcon, SparkleIcon, PersonIcon, BookmarkIcon, UploadIcon, DownloadIcon, TrashIcon, PlusCircleIcon, GearIcon } from "../../icons";
 import { BTN_ICON_STYLE } from "../../ui/buttonStyles";
 import { notify } from "../../notify";
+import { flowChildrenProps } from "../../../core/steamOSVersion";
 
 function Stat({ icon, n }: { icon: React.ReactNode; n: number }) {
   return <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>{icon}{n}</span>;
@@ -90,7 +91,7 @@ export function SnapshotsSection({ t }: { t: (k: string) => string }) {
       count={items.length}
       icon={<StackIcon size={14} />}
       headerExtra={
-        <Focusable flow-children="horizontal" style={{ display: "flex", gap: 6 }}>
+        <Focusable {...flowChildrenProps("horizontal")} style={{ display: "flex", gap: 6 }}>
           <DialogButton disabled={busy} onClick={doCreate} onOKButton={doCreate} style={BTN_ICON_STYLE} aria-label={t("snapshot_create")}>
             <PlusCircleIcon size={12} />
           </DialogButton>
@@ -110,9 +111,9 @@ export function SnapshotsSection({ t }: { t: (k: string) => string }) {
       {items.length === 0 ? (
         <div style={{ opacity: 0.55, fontStyle: "italic", padding: 8 }}>{loading ? t("snapshot_loading") : t("snapshot_empty")}</div>
       ) : (
-        <Focusable flow-children="vertical" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        <Focusable {...flowChildrenProps("vertical")} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {items.map((b) => (
-            <Focusable key={b.name} flow-children="horizontal" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <Focusable key={b.name} {...flowChildrenProps("horizontal")} style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}>
                   <span style={{ opacity: 0.7, display: "inline-flex" }}><OriginIcon name={b.name} t={t} /></span>

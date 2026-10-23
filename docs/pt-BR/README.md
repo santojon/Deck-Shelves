@@ -9,13 +9,12 @@
 
 [![CI](https://github.com/santojon/Deck-Shelves/actions/workflows/ci.yml/badge.svg)](https://github.com/santojon/Deck-Shelves/actions/workflows/ci.yml)
 [![Release](https://github.com/santojon/Deck-Shelves/actions/workflows/release.yml/badge.svg)](https://github.com/santojon/Deck-Shelves/actions/workflows/release.yml)
-[![Tests](https://img.shields.io/badge/vitest-1688%20passed-brightgreen?logo=vitest&logoColor=white)](../../src/test/)
-[![pytest](https://img.shields.io/badge/pytest-254%20passed-brightgreen?logo=pytest&logoColor=white)](../../src/test/test_main.py)
+[![Tests](https://img.shields.io/badge/vitest-1749%20passed-brightgreen?logo=vitest&logoColor=white)](../../src/test/)
+[![pytest](https://img.shields.io/badge/pytest-255%20passed-brightgreen?logo=pytest&logoColor=white)](../../src/test/test_main.py)
 [![TypeCheck](https://img.shields.io/badge/typecheck-clean-brightgreen?logo=typescript&logoColor=white)](../../tsconfig.json)
 [![Compatibility](https://img.shields.io/badge/checks-40%2F40-brightgreen?logo=steamdeck&logoColor=white)](../../scripts/build/validate-compat.mjs)
-[![Platform](https://img.shields.io/badge/platform-SteamOS%20%C2%B7%20Linux%20%C2%B7%20macOS%20%C2%B7%20Windows-purple?logo=steamdeck&logoColor=white)](https://github.com/ValveSoftware/SteamOS)
+[![Platform](https://img.shields.io/badge/platform-SteamOS%20%C2%B7%20Linux%20%C2%B7%20Windows-purple?logo=steamdeck&logoColor=white)](https://github.com/ValveSoftware/SteamOS)
 [![Downloads](https://img.shields.io/github/downloads/santojon/Deck-Shelves/total.svg?label=downloads&color=blue)](https://github.com/santojon/Deck-Shelves/releases/latest)
-[![ShelvesHub downloads](https://img.shields.io/github/downloads/santojon/ShelvesHub/total.svg?label=shelveshub%20downloads&color=blue)](https://github.com/santojon/ShelvesHub/releases/latest)
 [![GitHub release](https://img.shields.io/github/v/release/santojon/Deck-Shelves?label=latest&color=blue)](https://github.com/santojon/Deck-Shelves/releases/latest)
 [![Decky Store](https://img.shields.io/endpoint?url=https%3A%2F%2Fsantojon.github.io%2FDeck-Shelves%2Fstats%2Fdecky-store.json)](https://plugins.deckbrew.xyz/plugins)
 [![npm api](https://img.shields.io/npm/dt/@deck-shelves/api?label=api%20downloads&logo=npm&color=cb3837)](https://www.npmjs.com/package/@deck-shelves/api)
@@ -32,7 +31,7 @@
 
 **Deck Shelves** é um plugin que deixa a tela inicial do Steam Deck do seu jeito. Monte prateleiras personalizadas a partir das suas coleções, abas da biblioteca ou filtros; deixe as **prateleiras inteligentes** trazerem jogos automaticamente quando eles forem relevantes; adicione hero art, cards de decoração e linhas online de wishlist/loja — tudo configurado direto no Deck através de um editor no Quick Access Menu embutido. Sem modo desktop, sem arquivos de configuração.
 
-**Novo por aqui?** Leia o [guia de primeiros passos](https://github.com/santojon/Deck-Shelves/discussions/48) e depois instale via [ShelvesHub](https://github.com/santojon/ShelvesHub) (recomendado — não exige Decky Loader) ou pela Decky Store (veja [Instalação](#instalação)). Dúvidas ou ideias? Entre no [Discord](https://discord.gg/EChuVEDakk) ou no [r/DeckShelves](https://www.reddit.com/r/DeckShelves/).
+**Novo por aqui?** Leia o [guia de primeiros passos](https://github.com/santojon/Deck-Shelves/discussions/48) e depois instale pela Decky Store (veja [Instalação](#instalação)). Dúvidas ou ideias? Entre no [Discord](https://discord.gg/EChuVEDakk) ou no [r/DeckShelves](https://www.reddit.com/r/DeckShelves/).
 
 ## Conteúdo
 
@@ -41,7 +40,6 @@
   - [Funcionalidades](#funcionalidades)
   - [Capturas de tela](#capturas-de-tela)
   - [Instalação](#instalação)
-    - [Via ShelvesHub (recomendado)](#via-shelveshub-recomendado)
     - [Pela Decky Store](#pela-decky-store)
     - [Instalação manual](#instalação-manual)
     - [Instalar a partir de URL](#instalar-a-partir-de-url)
@@ -135,7 +133,7 @@
 - **Excluir jogos que você já possui** — alternância por prateleira nas fontes de wishlist/loja que oculta qualquer jogo cujo appid ou nome exato corresponda a um título na sua biblioteca local; sub-alternância para atalhos não-Steam (de outras lojas), e uma sub-alternância adicional para stubs de catálogo de jogo na nuvem (serviços de cloud gaming expostos via Unifideck) para que promoções no catálogo de nuvem ainda apareçam
 - **Selos de desconto** — cards em prateleiras online mostram um selo verde "% off" (espelha o slot do selo NOVO, exibido até em cards de placeholder enquanto a arte ainda está carregando)
 - **Ação de atualizar em todo lugar** — "Atualizar cache" / "Atualizar" sensível ao contexto, disponível no menu de ações do QAM, no menu de contexto do card da prateleira, e no tile final de atualização
-- **Aba própria no Acesso Rápido (experimental, opcional)** — coloca o Deck Shelves na própria faixa de abas do Acesso Rápido, logo depois de Desempenho, em vez de só dentro da lista de plugins do Decky. Desativada por padrão; reinicie a Steam após ativar. Com o host independente, a aba dele é usada no lugar
+- **Aba própria no Acesso Rápido (experimental, opcional)** — coloca o Deck Shelves na própria faixa de abas do Acesso Rápido, logo depois de Desempenho, em vez de só dentro da lista de plugins do Decky. Desativada por padrão; reinicie a Steam após ativar. Se outro host já mostra uma aba do Deck Shelves, a opção fica oculta
 - **Modo Vitrine (opcional)** — enquanto ocioso na Home, percorre lentamente suas prateleiras como um protetor de tela; qualquer entrada o interrompe instantaneamente. Atraso configurável, tempo por prateleira, e ordem aleatória
 - **Protetor de tela (opcional, experimental)** — uma apresentação de slides em tela cheia de tudo que sua tela inicial mostra, opcionalmente misturando suas próprias capturas de tela locais também, no lugar do protetor de tela nativo. Seu próprio atraso de início e tempo por imagem, além de uma sobreposição opcional do logo do jogo que você pode redimensionar e reposicionar para qualquer canto
 - **Sincronização de configurações entre dispositivos (opcional, experimental)** — mantenha prateleiras, filtros, perfis e todas as outras preferências sincronizadas entre todos os dispositivos da mesma conta Steam, usando o armazenamento em nuvem dessa própria conta — sem login extra, sem custo. O **perfil ativo no momento é local por dispositivo** (manual ou por gatilho): um perfil *Vitrine* que ativa numa máquina ao encaixar nunca vira um dispositivo portátil na mesma conta para esse perfil — cada dispositivo mantém seu próprio perfil atual e seu visual, enquanto a lista de perfis (as configurações e os gatilhos de cada perfil), suas prateleiras e filtros continuam sincronizando, e as configurações comuns só acompanham entre dispositivos rodando o mesmo perfil
@@ -153,16 +151,6 @@
 Um tour visual completo — home, QAM, editor de prateleira, prateleiras inteligentes, docs do About e mais — está em **[docs/showcase.md](showcase.md)**.
 
 ## Instalação
-
-### Via ShelvesHub (recomendado)
-
-[ShelvesHub](https://github.com/santojon/ShelvesHub) é um host independente — ele injeta o Deck Shelves diretamente e não precisa de nenhum loader de plugin. Instaladores de um clique para cada plataforma, atualizações automáticas para ele mesmo e para o plugin, e sua própria aba no Quick Access Menu.
-
-1. Pegue o instalador para a sua plataforma na [página de releases do ShelvesHub](https://github.com/santojon/ShelvesHub/releases/latest) (ou veja o [site do ShelvesHub](https://santojon.github.io/ShelvesHub/) para detalhes).
-2. Execute-o — no Steam Deck é um arquivo `.desktop`, sem necessidade de sudo.
-3. Reinicie a Steam se for solicitado. O Deck Shelves ganha sua própria aba no Quick Access Menu automaticamente.
-
-Já usa o Decky Loader? O ShelvesHub coexiste com ele — os dois podem ser instalados ao mesmo tempo, compartilhando as mesmas configurações.
 
 ### Pela Decky Store
 
@@ -198,7 +186,6 @@ Tudo está em **[docs/](docs-index.md)** — comece por lá para o índice compl
 - [Prateleiras Inteligentes](smart-shelves.md) — templates de prateleira inteligente, critérios e confiabilidade
 - [Prateleiras online](online-shelves.md) — fontes baseadas em rede, cache e atualização
 - [Modos de exibição](display-modes.md) — o que Normal / Leve / Avançado mostram e ocultam
-- [Decky Loader ou ShelvesHub?](decky-or-shelveshub.md) — os dois hosts lado a lado
 - [Matriz de validação](validation-matrix.md) — quais plataformas e hosts foram exercitados nesta release, e como validar um
 - [Guia de desenvolvimento](development.md) — setup, comandos de build, testes, convenções
 - [Webpack Classmap](webpack-classmap.md) — descoberta de classes CSS em tempo de execução
@@ -232,16 +219,16 @@ bash scripts/build/validate-compat.sh
 
 ### Sistemas operacionais
 
-O Deck Shelves roda de duas formas: de forma independente via **[ShelvesHub](https://github.com/santojon/ShelvesHub)** (instalador próprio por sistema operacional, sem precisar de plugin loader) ou como plugin sob o **Decky Loader**, que se instala como um serviço systemd e é exclusivo de Linux no nível do sistema operacional. O mesmo pacote do plugin roda sem alterações sob qualquer um dos dois hosts. A descoberta de caminhos ([`src/backend/paths.py`](../../src/backend/paths.py)) e o empacotamento ([`scripts/build/package.py`](../../scripts/build/package.py)) são agnósticos ao sistema operacional (só stdlib, sem CLI de bash/`zip`).
+O Deck Shelves roda como plugin sob o **Decky Loader**, que se instala como um serviço systemd e é exclusivo de Linux no nível do sistema operacional. A descoberta de caminhos ([`src/backend/paths.py`](../../src/backend/paths.py)) e o empacotamento ([`scripts/build/package.py`](../../scripts/build/package.py)) são agnósticos ao sistema operacional (só stdlib, sem CLI de bash/`zip`).
 
-| SO | Via ShelvesHub | Via Decky Loader |
-|---|---|---|
-| SteamOS / Steam Deck | ✅ oficial (alvo principal) — x86_64 e ARM64 | ✅ oficial (alvo principal) |
-| Linux — similares a SteamOS (Bazzite, ChimeraOS, HoloISO, Nobara) + desktop (nativo / Flatpak) | ✅ x86_64 e ARM64, com instalador de um clique ou pacote | ✅ não-oficial — a instalação via systemd do Decky funciona |
-| Windows | ✅ estável, com instalador de um clique | ⚠️ não-oficial — via um instalador comunitário para Windows; instável |
-| macOS | ✅ binário universal — nativo em Apple Silicon e Intel | ❌ sem suporte — sem systemd / sem porta remota de debug |
+| SO | Via Decky Loader |
+|---|---|
+| SteamOS / Steam Deck | ✅ oficial (alvo principal) |
+| Linux — similares a SteamOS (Bazzite, ChimeraOS, HoloISO, Nobara) + desktop (nativo / Flatpak) | ✅ não-oficial — a instalação via systemd do Decky funciona |
+| Windows | ⚠️ não-oficial — via um instalador comunitário para Windows; instável |
+| macOS | ❌ sem suporte — sem systemd / sem porta remota de debug |
 
-> O Decky Loader suporta oficialmente **apenas SteamOS / Steam Deck**; seu suporte a Linux desktop e Windows é mantido pela comunidade e pode quebrar, e ele não alcança o macOS de forma alguma. O [ShelvesHub](https://github.com/santojon/ShelvesHub) cobre essas lacunas com instaladores próprios para cada plataforma — veja [Instalação](#instalação).
+> O Decky Loader suporta oficialmente **apenas SteamOS / Steam Deck**; seu suporte a Linux desktop e Windows é mantido pela comunidade e pode quebrar, e ele não alcança o macOS de forma alguma.
 
 ### Ambientes validados
 

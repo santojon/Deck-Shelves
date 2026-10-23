@@ -13,8 +13,7 @@ not a claim of endorsement or affiliation.
 - **[Decky Loader](https://github.com/SteamDeckHomebrew/decky-loader)** — the homebrew plugin platform Deck
   Shelves runs on. The plugin uses the Decky SDK (`@decky/api`, `@decky/ui`)
   for its Python↔frontend bridge, UI primitives, routing, and toasts, through
-  one adapter module (`src/runtime/host/decky.ts`) so the same code also runs
-  on a standalone host runtime by the same author.
+  one adapter module (`src/runtime/host/decky.ts`).
   *Used throughout.*
 
 ## Inspirations & interoperability

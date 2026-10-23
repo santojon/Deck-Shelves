@@ -145,6 +145,17 @@
         "cycles": 20,
         "okPct": 100.0,
         "file": "history/soak-reload/2026-10-09T17-00-40.json"
+      },
+      {
+        "kind": "soak-reload",
+        "ts": "2026-10-23T04:22:19",
+        "version": "3.3.4",
+        "mode": "reload",
+        "coexist": false,
+        "ok": 5,
+        "cycles": 5,
+        "okPct": 100.0,
+        "file": "history/soak-reload/2026-10-23T04-22-19.json"
       }
     ],
     "soak-reload-coexist": [
@@ -171,6 +182,17 @@
         "cycles": 100,
         "okPct": 99.0,
         "file": "history/soak-restart/2026-10-09T20-02-37.json"
+      },
+      {
+        "kind": "soak-restart",
+        "ts": "2026-10-21T17:59:40",
+        "version": "3.3.4",
+        "mode": "restart",
+        "coexist": false,
+        "ok": 10,
+        "cycles": 10,
+        "okPct": 100.0,
+        "file": "history/soak-restart/2026-10-21T17-59-40.json"
       }
     ],
     "soak-restart-coexist": [
@@ -222,5 +244,5 @@
       }
     ]
   },
-  "runs": 15
+  "runs": 17
 }

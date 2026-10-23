@@ -10,6 +10,7 @@ import { SettingsSection } from "../../ui/SettingsSection";
 import { DownloadIcon, UploadIcon } from "../../icons";
 import { BTN_COMPACT_STYLE } from "../../ui/buttonStyles";
 import { getExternalExportHandlers, getExternalImportHandlers } from "../../../core/pluginApi";
+import { flowChildrenProps } from "../../../core/steamOSVersion";
 
 
 export interface BackupDetailProps {
@@ -45,7 +46,7 @@ export function BackupDetail({ controller, t }: BackupDetailProps) {
   ));
 
   return (
-    <Focusable flow-children="vertical" style={{ display: "flex", flexDirection: "column" }}>
+    <Focusable {...flowChildrenProps("vertical")} style={{ display: "flex", flexDirection: "column" }}>
       <div style={{ fontSize: 11, opacity: 0.55, padding: "0 4px 8px" }}>
         {t("settings_backup_path_hint").replace("{{path}}", getUserDownloadsDir())}
       </div>
@@ -120,7 +121,7 @@ function BackupGroup({
       title={title}
       description={description}
       trailing={
-        <Focusable flow-children="horizontal" style={{ display: "flex", gap: 8 }}>
+        <Focusable {...flowChildrenProps("horizontal")} style={{ display: "flex", gap: 8 }}>
           {onExport && (
             <DialogButton onClick={onExport} onOKButton={onExport} style={BTN_COMPACT_STYLE}>
               <UploadIcon size={12} />

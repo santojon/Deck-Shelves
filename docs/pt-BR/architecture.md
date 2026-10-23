@@ -12,9 +12,8 @@ Deck Shelves é um plugin que injeta prateleiras de jogos personalizadas na tela
 
 ### O plugin no seu ambiente
 
-O Deck Shelves roda no seu próprio host independente (sem necessidade de
-loader de plugin), ou dentro do Decky Loader — o mesmo bundle, injetado de
-qualquer uma das formas — renderiza na tela inicial do Gaming Mode da Steam, e
+O Deck Shelves roda dentro do Decky Loader, renderiza na tela inicial do
+Gaming Mode da Steam, e
 lê da biblioteca local mais algumas fontes externas opcionais.
 
 ```mermaid
@@ -26,7 +25,7 @@ flowchart TB
     end
 
     subgraph host["Plataforma host"]
-        decky["Host independente ou Decky Loader<br/>runtime de host/plugin"]
+        decky["Decky Loader<br/>runtime de host/plugin"]
         steam["Cliente Steam<br/>GamepadUI + biblioteca de apps"]
     end
 
@@ -482,7 +481,7 @@ O estado de expansão do QAM é por sessão: um valor de módulo espelhado em `s
 
 ### Aba própria no Acesso Rápido (`runtime/ownQamTab.ts`)
 
-Opcional, desativada por padrão (`ownQamTabEnabled`, guardada por dispositivo). Instalada só pela cópia que é dona do renderizador, iniciada pelo carregador de plugins, sem host neutro presente (`hostProvidesNativeTab()` em `runtime/host/resolve.ts`); os dois painéis escondem a opção enquanto há host neutro e numa cópia que não é dona do renderizador (`isHomeOwner()`). `installOwnQamTab` coloca uma entrada do Deck Shelves na lista de abas que a Steam desenha no painel de Acesso Rápido, logo depois da aba de desempenho (encontrada pela tabela de chaves da Steam em tempo de execução; por último quando não há), em toda abertura, inclusive a primeira depois que a Steam inicia, e essa aba mostra o painel de sempre do plugin com a linha de título. Ela sai do caminho enquanto o host neutro mostra a própria aba do Deck Shelves. A configuração é lida pela assinatura da store de configurações; ligar ou desligar pede um reinício da Steam (`restartSteam`). Uma proteção contra crash em `localStorage` conta as sessões da Steam cujo último desenho da aba não terminou e pausa a aba por 12 horas depois de duas seguidas. A desinstalação (plugin parado, recarregado, troca a quente) tira da Steam tudo o que o componente mudou, a menos que outra parte tenha substituído depois. O componente também tem um papel de host (opções `yieldToHostTab`, `markerFields`, `key`, `onFirstDraw`, `guardKey`) para que um host neutro o use na própria aba; o plugin usa os padrões.
+Opcional, desativada por padrão (`ownQamTabEnabled`, guardada por dispositivo). Instalada só pela cópia que é dona do renderizador, iniciada pelo carregador de plugins, sem outro host presente (`hostProvidesNativeTab()` em `runtime/host/resolve.ts`); os dois painéis escondem a opção enquanto há outro host e numa cópia que não é dona do renderizador (`isHomeOwner()`). `installOwnQamTab` coloca uma entrada do Deck Shelves na lista de abas que a Steam desenha no painel de Acesso Rápido, logo depois da aba de desempenho (encontrada pela tabela de chaves da Steam em tempo de execução; por último quando não há), em toda abertura, inclusive a primeira depois que a Steam inicia, e essa aba mostra o painel de sempre do plugin com a linha de título. Ela sai do caminho enquanto outro host mostra a própria aba do Deck Shelves. A configuração é lida pela assinatura da store de configurações; ligar ou desligar pede um reinício da Steam (`restartSteam`). Uma proteção contra crash em `localStorage` conta as sessões da Steam cujo último desenho da aba não terminou e pausa a aba por 12 horas depois de duas seguidas. A desinstalação (plugin parado, recarregado, troca a quente) tira da Steam tudo o que o componente mudou, a menos que outra parte tenha substituído depois. O componente também tem um papel de host (opções `yieldToHostTab`, `markerFields`, `key`, `onFirstDraw`, `guardKey`) para que outro host o use na própria aba; o plugin usa os padrões.
 
 ### Modo Vitrine / Ociosidade Dinâmica (`runtime/showcaseMode.ts`)
 

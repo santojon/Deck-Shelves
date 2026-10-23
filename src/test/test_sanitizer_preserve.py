@@ -87,3 +87,13 @@ def test_profile_link_shelves_survives():
 def test_sidecar_gestures_can_be_disabled():
     out = sanitizer._sanitize_settings({"buttonBindingsDisabled": ["navSidecarOpen", "navSidecarClose", "bogus"]})
     assert out["buttonBindingsDisabled"] == ["navSidecarOpen", "navSidecarClose"]
+
+
+def test_smart_shelf_logo_offset_keeps_the_regular_range():
+    smart = {"id": "sm1", "title": "Smart", "mode": "recently_played", "enabled": True}
+    out = sanitizer._sanitize_settings({"smartShelves": [
+        {**smart, "logoTopOffset": -30},
+        {**smart, "id": "sm2", "logoTopOffset": -80},
+        {**smart, "id": "sm3", "logoTopOffset": 140},
+    ]})
+    assert [s["logoTopOffset"] for s in out["smartShelves"]] == [-30, -50, 100]

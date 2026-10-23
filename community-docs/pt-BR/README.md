@@ -40,7 +40,6 @@ vão pesquisar depois.
 - [showcase-mode.md](showcase-mode.md) — Modo Vitrine / Ocioso Dinâmico, uma exibição de prateleiras autociclante
 
 **Distribuição e sincronização**
-- [shelveshub-install.md](shelveshub-install.md) — o host independente, a nova forma recomendada de instalar (não precisa de Decky Loader)
 - [own-qam-tab.md](own-qam-tab.md) — a própria aba de Acesso Rápido do Deck Shelves sob o Decky Loader
 - [cloud-sync.md](cloud-sync.md) — sincronize suas configurações entre todos os dispositivos da sua conta Steam
 
@@ -52,4 +51,4 @@ vão pesquisar depois.
 - [power-user-tools.md](power-user-tools.md) — snapshots, gerenciamento de cache, diagnósticos, estatísticas e sugestões
 
 Tudo acima é opcional e desativado por padrão, exceto quando o arquivo disser
-o contrário. Versões atuais: plugin v3.3.0+, host independente v0.1.0+.
+o contrário. Versões atuais: plugin v3.3.0+.

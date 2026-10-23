@@ -6,6 +6,7 @@ import { usePlatform } from "../../runtime/platformContext";
 import type { PlatformCollection, PlatformTab } from "../../runtime/platform";
 import { logDiagnostic } from "../../runtime/diagnostics";
 import { logError, logInfo } from "../../runtime/logger";
+import { qaOverrideActive } from "../../qa/harness";
 import { __resetUpdateCheckCache } from "../../core/updateNotifier";
 import { notify } from "../../components/notify";
 import { NOTIFICATION_AREAS } from "../../components/qam/NotificationAreaToggles";
@@ -15,6 +16,28 @@ import { createOnlineActions } from "./controller/online";
 import { createGlobalVisualActions } from "./controller/globalVisual";
 import { createShelfActions } from "./controller/shelves";
 import { createProfileActions } from "./controller/profiles";
+
+const OWN_KEY_PREFIXES = ['ds-', 'ds_', 'deck-shelves-'];
+
+function isOwnKey(k: string | null): k is string {
+  return !!k && OWN_KEY_PREFIXES.some((prefix) => k.startsWith(prefix));
+}
+
+// The plugin's own localStorage keys go with a full reset. A QA build resets only its in-memory
+// settings: the device's own lists, stats and records stay.
+export function clearOwnLocalStorage(): void {
+  if (qaOverrideActive) return;
+  try {
+    const ls = globalThis.localStorage;
+    if (!ls) return;
+    const drop: string[] = [];
+    for (let i = 0; i < ls.length; i++) {
+      const k = ls.key(i);
+      if (isOwnKey(k)) drop.push(k);
+    }
+    for (const k of drop) { try { ls.removeItem(k); } catch {} }
+  } catch {}
+}
 
 export function useSettingsController() {
   const { t } = useTranslation();
@@ -461,17 +484,7 @@ export function useSettingsController() {
     },
     async resetAll() {
       const empty: Settings = { enabled: false, hideRecents: false, recentsReplaceSource: false, hideHomeTabs: false, shelfHeroBackground: false, gameContextMenuEnabled: true, globalMatchNativeSize: false, globalHighlightFirst: false, globalHighlightAll: false, globalHideStatusLine: false, globalHideNewBadge: false, globalHideDiscountBadge: false, globalHideCompatIcons: false, globalHideNonSteamBadge: false, globalHideShelfTitle: false, globalHideGameNames: false, globalHideInstallIndicator: false, globalHideSeeMore: false, globalHideRefreshCard: false, globalDedupeByName: false, shelves: [], smartShelvesEnabled: false, smartShelvesAtBottom: false, smartShelves: [], smartSurpriseMe: false, smartSurpriseMeCount: 0, savedFilters: [], savedSmartFilters: [], updateNotifyEnabled: true, onlineFeaturesEnabled: false, onlineWishlistEnabled: true, onlinePriceSortEnabled: true, onlinePrivacyAccepted: false, onlineMetadataEnabled: false, onlineHideOwnedGames: false, onlineHideOwnedNonSteam: false, onlineHideOwnedNonSteamCloud: false, forceCssLoaderThemes: false, ownQamTabEnabled: false, showcaseModeEnabled: false, showcaseStartAfterSeconds: 60, showcaseDwellSeconds: 10, showcaseRandomize: false, showcaseStopOnInteraction: true, showcaseShelfIds: [], showcasePanCards: false, showcaseCardsPerShelf: 5, showcaseCardDwellSeconds: 4, globalHeroEnabled: false, globalGameInfoAbove: false, globalFriendsPlayingOverlay: false, globalFriendsPlayingOverlayRecent: false, qamHiddenToggles: [], qamHiddenSections: [], unifiedListEnabled: false, allShelvesOrder: [], lightModeEnabled: false, advancedModeEnabled: false, templateSuggestionsEnabled: false, offlineModeEnabled: false, featureToggles: {}, profiles: [], integrationsEnabled: {}, cardActionShortcutsEnabled: true, buttonBindings: {}, buttonBindingsDisabled: [], keyboardBindings: {}, keyboardBindingsDisabled: [], screensaverShelvesEnabled: false, screensaverShelvesIncludeScreenshots: false, screensaverOnlineScreenshotsEnabled: false, screensaverIdleBackupAcSec: null, screensaverIdleBackupBatterySec: null, screensaverStartAfterSeconds: 60, screensaverDwellSeconds: 8, screensaverLogoEnabled: true, screensaverLogoSize: 100, screensaverLogoPosition: 'left', screensaverLogoAtTop: false, screensaverLogoOffset: 8, screensaverLogoOnScreenshots: true, screensaverShelfBatchSize: 5, screensaverDescriptionEnabled: false, screensaverDescriptionAboveLogo: false, screensaverDescriptionLogoGap: 10, cloudSyncEnabled: false, cloudSyncLastSyncedAt: null };
-      try {
-        const ls = globalThis.localStorage;
-        if (ls) {
-          const drop: string[] = [];
-          for (let i = 0; i < ls.length; i++) {
-            const k = ls.key(i);
-            if (k && (k.startsWith('ds-') || k.startsWith('ds_') || k.startsWith('deck-shelves-'))) drop.push(k);
-          }
-          for (const k of drop) { try { ls.removeItem(k); } catch {} }
-        }
-      } catch {}
+      clearOwnLocalStorage();
       await persist(empty);
       notify("reset", { body: t("toast_settings_reset") });
       setSelectedId(null);

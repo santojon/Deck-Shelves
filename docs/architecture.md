@@ -12,8 +12,7 @@ Deck Shelves is a plugin that injects custom game shelves into the Steam Deck ho
 
 ### The plugin in its environment
 
-Deck Shelves runs on its own standalone host (no plugin loader needed), or
-inside Decky Loader — the same bundle, injected either way — renders into
+Deck Shelves runs inside Decky Loader, renders into
 Steam's Gaming Mode home screen, and reads from the local library plus a
 few optional external sources.
 
@@ -26,7 +25,7 @@ flowchart TB
     end
 
     subgraph host["Host platform"]
-        decky["Standalone host or Decky Loader<br/>host/plugin runtime"]
+        decky["Decky Loader<br/>host/plugin runtime"]
         steam["Steam client<br/>GamepadUI + app library"]
     end
 
@@ -481,7 +480,7 @@ QAM-expanded state is per-session: a module value mirrored in `sessionStorage`, 
 
 ### Own Quick Access tab (`runtime/ownQamTab.ts`)
 
-Opt-in, off by default (`ownQamTabEnabled`, kept per device). Installed only by the copy that owns the renderer, launched by the plugin loader, with no neutral host present (`hostProvidesNativeTab()` in `runtime/host/resolve.ts`); both panels hide the option while a neutral host is present and in a copy that does not own the renderer (`isHomeOwner()`). `installOwnQamTab` puts one Deck Shelves entry into the tab list Steam draws in its Quick Access panel, right after the performance tab (found through Steam's key table at run time; last when there is none), at every opening including the first one after Steam starts, and that tab shows the plugin's usual panel with its title row. It steps aside while the neutral host shows its own Deck Shelves tab. The setting is read through the settings store's subscription; turning it on or off asks for a Steam restart (`restartSteam`). A crash guard in `localStorage` counts Steam sessions whose last draw of the tab did not complete and pauses the tab for 12 hours after two in a row. Uninstalling (plugin stop, reload, hot swap) takes everything the component changed back out of Steam, unless another party replaced it afterwards. The component also has a host role (options `yieldToHostTab`, `markerFields`, `key`, `onFirstDraw`, `guardKey`) so a neutral host can use it for its own tab; the plugin uses the defaults.
+Opt-in, off by default (`ownQamTabEnabled`, kept per device). Installed only by the copy that owns the renderer, launched by the plugin loader, with no other host present (`hostProvidesNativeTab()` in `runtime/host/resolve.ts`); both panels hide the option while another host is present and in a copy that does not own the renderer (`isHomeOwner()`). `installOwnQamTab` puts one Deck Shelves entry into the tab list Steam draws in its Quick Access panel, right after the performance tab (found through Steam's key table at run time; last when there is none), at every opening including the first one after Steam starts, and that tab shows the plugin's usual panel with its title row. It steps aside while another host shows its own Deck Shelves tab. The setting is read through the settings store's subscription; turning it on or off asks for a Steam restart (`restartSteam`). A crash guard in `localStorage` counts Steam sessions whose last draw of the tab did not complete and pauses the tab for 12 hours after two in a row. Uninstalling (plugin stop, reload, hot swap) takes everything the component changed back out of Steam, unless another party replaced it afterwards. The component also has a host role (options `yieldToHostTab`, `markerFields`, `key`, `onFirstDraw`, `guardKey`) so another host can use it for its own tab; the plugin uses the defaults.
 
 ### Showcase / Dynamic Idle Mode (`runtime/showcaseMode.ts`)
 

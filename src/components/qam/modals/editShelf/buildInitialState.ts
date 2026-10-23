@@ -144,7 +144,7 @@ function readVisualFlags(shelf: Shelf) {
     logoPosition: pickOr(s.logoPosition, POS3, 'left'),
     descriptionPosition: pickOr(s.descriptionPosition, POS3, 'left'),
     logoSize: numOr(s.logoSize, 50, 200, 100),
-    logoTopOffset: numOr(s.logoTopOffset, 0, 100, 20),
+    logoTopOffset: numOr(s.logoTopOffset, -50, 100, 20),
     iconVerticalAlign: pickOr(s.iconVerticalAlign, ALIGN3, 'top'),
     shelfTitlePosition: pickOr(s.shelfTitlePosition, POS3, 'left'),
     gameNamePosition: pickOr(s.gameNamePosition, POS3, 'left'),

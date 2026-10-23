@@ -13,6 +13,7 @@ import { FunnelIcon, SortIcon, SparkleIcon, InfoCircleIcon, OnlineIcon } from '.
 import { PageHeader } from './ui/PageHeader'
 import { VersionFooter } from './ui/VersionFooter'
 import { DeckQAMStyles } from './styles/DeckQAMStyles'
+import { flowChildrenProps } from '../core/steamOSVersion'
 
 // `Tab.title` is typed as `string` but renders any ReactNode at
 // runtime; the cast inlines a leading icon next to the label.
@@ -33,7 +34,7 @@ export function AboutPage() {
   }, [])
   return (
     <Focusable
-      flow-children='vertical'
+      {...flowChildrenProps('vertical')}
       onCancelButton={goBack}
       className='deck-shelves-about'
       style={{ position: 'relative', height: '100%', display: 'flex', flexDirection: 'column' }}

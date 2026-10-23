@@ -5,6 +5,7 @@ import { subscribePerfState } from './perfState';
 import { subscribePeripheralsState } from './peripheralsState';
 import { resolveTriggeredProfile, nextProfileTriggerFlip } from '../steam/smartShelves';
 import { notifyUser } from './notify';
+import { qaOverrideActive } from '../qa/harness';
 import { defaultSettings } from '../domain/defaults';
 import { keepShelfFields, keepDeviceLocalFields, stickyShowcaseSeen, FACTORY_PROFILE_ID, FACTORY_PROFILE_NAME } from '../features/settings/controller/profiles';
 import i18n from '../i18n';
@@ -32,6 +33,8 @@ const BASELINE_KEY = 'ds-trigger-baseline-v1';
 const NOT_EDITS = new Set(['preferencesUpdatedAt', 'syncTombstones']);
 
 function persistTriggerState(name: string): void {
+  // A QA build runs on fixture data: the copy a normal boot reverts to stays as it was.
+  if (qaOverrideActive) return;
   try {
     if (!_baselineSettings) globalThis.localStorage?.removeItem(BASELINE_KEY);
     else globalThis.localStorage?.setItem(BASELINE_KEY, JSON.stringify({ name, settings: _baselineSettings, applied: _appliedSettings }));
@@ -41,12 +44,19 @@ function persistTriggerState(name: string): void {
 function clearTriggerState(): void {
   _baselineSettings = null;
   _appliedSettings = null;
+  if (qaOverrideActive) return;
   try { globalThis.localStorage?.removeItem(BASELINE_KEY); } catch {}
+}
+
+// A copy an older QA build left behind holds fixture data: a normal boot never reverts to it.
+function isQaLeftover(v: any): boolean {
+  return !qaOverrideActive && (v?.settings?.__dsQaOverride === true || v?.applied?.__dsQaOverride === true);
 }
 
 function storedTriggerState(name: string): { settings: Settings; applied: Settings | null } | null {
   try {
     const v = JSON.parse(globalThis.localStorage?.getItem(BASELINE_KEY) ?? 'null');
+    if (isQaLeftover(v)) return null;
     return v && v.name === name && v.settings ? { settings: v.settings as Settings, applied: (v.applied ?? null) as Settings | null } : null;
   } catch { return null; }
 }

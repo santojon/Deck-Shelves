@@ -14,10 +14,8 @@ Shelves gets a real, dedicated tab in the Quick Access strip itself, right
 after Performance — same editor, one tap away instead of two. Deck Shelves
 also stays in Decky's plugin list, as before.
 
-The [standalone host](shelveshub-install.md) already gives you this tab;
-this setting brings it to Decky-only installs. If the standalone host is
-installed too, this setting is hidden automatically, and the host's tab is
-the one you see.
+If another host already shows a Deck Shelves tab, this setting is hidden
+automatically, and that tab is the one you see.
 
 ## How to enable it
 

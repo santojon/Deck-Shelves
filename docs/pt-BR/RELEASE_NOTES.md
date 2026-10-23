@@ -7,7 +7,15 @@ técnico completo, veja [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
-- **"Adicionar à prateleira" em todo menu de jogo**: os menus da biblioteca da Steam mostram as entradas do plugin também no cliente do macOS, as mantêm enquanto o menu é redesenhado e não as perdem mais no primeiro menu depois de a Steam iniciar quando há outros plugins de menu instalados.
+- **Desligar e religar o plugin no Decky Loader funciona**: o Deck Shelves volta na hora, em vez de ficar parado até a Steam reiniciar.
+
+- **O botão de menu se comporta normalmente com "Usar prateleira como Recentes"**: ele abre o menu do Deck Shelves só na linha substituída e nos cards do Deck Shelves; em todo o resto a Steam cuida dele.
+
+- **Configurações de versões antigas carregam sem erro**: prateleiras salvas com flags antigas de ligado/desligado não causam mais um erro de validação a cada partida.
+
+- **Reordenar por toque ou mouse mantém cada movimento**, e os logs da Steam não se enchem mais com um aviso de navegação.
+
+- **"Adicionar à prateleira" em todo menu de jogo**: os menus da biblioteca da Steam mantêm as entradas do plugin enquanto o menu é redesenhado e não as perdem mais no primeiro menu depois de a Steam iniciar quando há outros plugins de menu instalados.
 
 - **Nomes de jogos da loja aparecem certos**: nomes com "&" não aparecem mais como "&amp;" nas prateleiras online, e esses jogos são reconhecidos na sua biblioteca quando os jogos que você tem ficam ocultos.
 
@@ -37,6 +45,8 @@ técnico completo, veja [CHANGELOG.md](CHANGELOG.md).
 
 - **As configurações visuais da prateleira e as globais funcionam juntas**: a seção global só sobrescreve o que você definiu nela, cada escolha global pode voltar para "Por prateleira", e um botão de redefinir devolve a seção inteira ao padrão.
 
+- **Prateleiras inteligentes usam as próprias configurações**: o logo, a descrição, o layout, as opções de ocultar e as regras de auto-pin e auto-colapso definidos numa prateleira inteligente agora funcionam na Home, como numa prateleira comum.
+
 - **Os nomes dos jogos se alinham ao card**: centro e direita agora batem exatamente com o card, e as informações do jogo acima do card seguem esse alinhamento sem sair da tela.
 
 - **Destaque quantos jogos quiser**: prateleiras com seis ou mais jogos em destaque não mostram mais espaços vazios no lugar dos cards.
@@ -45,7 +55,7 @@ técnico completo, veja [CHANGELOG.md](CHANGELOG.md).
 
 - **Ao voltar da página de um jogo, o foco retorna ao mesmo jogo e à mesma prateleira**, também quando essa prateleira está mais abaixo na página e ainda carregando, e rolar para os lados não pula mais para outra prateleira.
 
-- **A prateleira da lista de desejos também se preenche no host independente.** Uma primeira resposta lenta do backend não a deixa mais vazia por dez minutos.
+- **A prateleira da lista de desejos também se preenche depois de um início lento.** Uma primeira resposta lenta do backend não a deixa mais vazia por dez minutos.
 
 - **O menu do Steam e o Acesso Rápido voltam a abrir com um jogo rodando.** A Home não puxa mais o foco do controle de volta para um card de prateleira atrás do jogo, e não roda timer nenhum enquanto um jogo roda — inclusive atalhos não-Steam —, enquanto a tela está desligada ou enquanto o aparelho dorme.
 
@@ -53,13 +63,11 @@ técnico completo, veja [CHANGELOG.md](CHANGELOG.md).
 
 - **Navegação com o controle mais fluida nas prateleiras personalizadas da Home.** Foi removido um ajuste da borda de foco que podia recalcular estilos repetidamente em toda a tela da Home. A borda de foco nativa do Steam é mantida; a substituição dos Recentes e a opção Round Compatibility continuam funcionando como antes.
 
-- **Uma linha "Exibir ou ocultar configurações" abaixo do toggle mestre abre ou fecha o sidecar de configurações rápidas**, o mesmo painel que o D-pad direita duas vezes abre, para quem prefere um toque. O sidecar se chama "Exibir ou ocultar", num cabeçalho em abas como o do host independente, e Ctrl+Shift+S o abre por padrão.
+- **Uma linha "Exibir ou ocultar configurações" abaixo do toggle mestre abre ou fecha o sidecar de configurações rápidas**, o mesmo painel que o D-pad direita duas vezes abre, para quem prefere um toque. O sidecar se chama "Exibir ou ocultar", num cabeçalho em abas, e Ctrl+Shift+S o abre por padrão.
 
-- **A Busca Rápida chega ao jogo sempre**, inclusive jogos mais adiante numa fileira ou numa prateleira abaixo da dobra, e reabri-la mantém o texto anterior selecionado em vez de anexar a ele. Um hot-swap do bundle pelo host independente agora entrega a Home à nova instância, com a Home visível de imediato.
+- **A Busca Rápida chega ao jogo sempre**, inclusive jogos mais adiante numa fileira ou numa prateleira abaixo da dobra, e reabri-la mantém o texto anterior selecionado em vez de anexar a ele.
 
 - **Jogos fixados, histórico de jogo, filas e tags personalizadas agora funcionam.** Quando uma prateleira, prateleira inteligente, filtro salvo ou perfil usa uma dessas fontes, o menu do jogo de um card de prateleira ganha um submenu **Listas** que fixa o jogo, coloca-o na fila desta sessão ou até você jogá-lo e edita as tags dele; o histórico de jogo se preenche sozinho, e Categorias do analisador lê as categorias que o seu gerenciador de ROM ou integração de launcher deu a cada atalho. Os gatilhos de perfil agora preservam as configurações que você muda enquanto estão ativos, e o editor de atalhos aceita até três botões e pode ser cancelado.
-
-- **Atualizar por um host que instala sozinho ficou mais suave.** O diálogo "Instalando atualização" fecha sozinho assim que a nova versão entra (nada reinicia o Steam), e em máquinas sem um carregador de plugins suas configurações não são mais copiadas para uma pasta de carregador que nada lê.
 
 - **Digitar na Busca Rápida com o teclado na tela voltou a funcionar**, e os gatilhos de perfil ficaram mais confiáveis: desligá-los restaura suas configurações anteriores, eles sobrevivem a um reinício e esperam leituras reais antes de agir. As notificações de atualização agora podem ser silenciadas como as outras áreas.
 
@@ -73,7 +81,7 @@ técnico completo, veja [CHANGELOG.md](CHANGELOG.md).
 
 - **Jogos sem arte aparecem como na Steam**: quando uma capa não carrega, o card mostra o bloco escuro da própria Steam com o nome do jogo.
 
-- **A aba própria do Deck Shelves no Acesso Rápido foi refeita (experimental)**: sob o Decky Loader você pode ligá-la para ter o Deck Shelves como aba própria logo depois de Desempenho; reinicie a Steam depois de ligar. Com o host independente, a aba dele é usada no lugar.
+- **A aba própria do Deck Shelves no Acesso Rápido foi refeita (experimental)**: sob o Decky Loader você pode ligá-la para ter o Deck Shelves como aba própria logo depois de Desempenho; reinicie a Steam depois de ligar. Se outro host já mostra uma aba do Deck Shelves, essa é usada no lugar.
 
 - **Por baixo do capô, o código de renderização da tela inicial, a inicialização do plugin, o código da biblioteca que monta cada prateleira e o código do menu do jogo foram reorganizados em peças menores, sem mudança de comportamento** — verificado num Steam Deck real. Recarregar o plugin agora também limpa a rota da página de Configurações.
 
@@ -183,7 +191,6 @@ técnico completo, veja [CHANGELOG.md](CHANGELOG.md).
 
 - **Um perfil ativado automaticamente (por um trigger como conectar na doca ou carregar) podia reverter as configurações de uma Prateleira Inteligente mesmo quando você havia escolhido não vincular prateleiras a esse perfil.** Corrigido — perfis trocados automaticamente agora deixam suas prateleiras exatamente como estão, igual a quando você troca manualmente.
 - **Sombras dos cards e melhorias de compatibilidade com temas.** A sombra projetada sob cada card agora acompanha exatamente a arte em vez de se estender além dela. Corrigidos alguns problemas visuais relacionados que apareciam com certos temas do CSS Loader (Switch Like Home / Switch-like Banners): os cards agora combinam corretamente com o visual nativo redimensionado do tema, e "Usar prateleira como Recents" não renderiza mais invisível fora da tela nem deixa o título da linha preso no texto padrão sob o tema SLH.
-- **Nova forma recomendada de instalação: o host independente.** Sem necessidade do Decky Loader — instaladores de um clique para Steam Deck, Linux, macOS e Windows, com atualizações automáticas para si mesmo e para o Deck Shelves. As opções de Decky Store, zip manual e instalação por URL continuam todas disponíveis e inalteradas; o host independente é simplesmente o caminho mais fácil para quem está começando do zero.
 - **Melhorias no protetor de tela.** Agora ele mostra uma mistura justa de todas as prateleiras em vez de principalmente a primeira, retoma de onde parou em vez de reiniciar toda vez, e pode opcionalmente mostrar a descrição do jogo ao lado do logo (acima ou abaixo, com um espaçamento ajustável). Uma nova configuração também permite controlar quantos jogos ele puxa de cada prateleira por vez. Corrigido um bug em que, com 2 ou mais prateleiras ativadas, nenhuma delas conseguia mostrar seu número total configurado de jogos. Ele também pode agora incluir opcionalmente as capturas de tela oficiais online de cada jogo, não só as que você mesmo capturou (requer que os recursos Online estejam ativados).
 - **Ícones de compatibilidade que se adaptam ao seu dispositivo.** Em um Steam Deck / SteamOS, os cards continuam mostrando a classificação de compatibilidade do Steam Deck; no macOS, Windows e Linux desktop eles agora mostram ícones de suporte a controle (total ou parcial) — a mesma coisa que o Steam nativo mostra ali — em vez de uma classificação do Deck que não se aplica. É a mesma alternância "ícones de compatibilidade" que você já tem, por prateleira ou globalmente.
 - **A sincronização de configurações entre dispositivos ficou muito mais confiável.** Se você usa a sincronização opcional entre dispositivos, dois dispositivos agora mesclam suas mudanças prateleira por prateleira em vez de um sobrescrever o outro, e um bug que podia fazer prateleiras sincronizadas desaparecerem (ou o plugin inteiro ser lido como desligado) foi corrigido. Se a mesma prateleira foi criada separadamente em cada dispositivo, elas aparecerão como duas — apague a extra uma vez e ela some para sempre.

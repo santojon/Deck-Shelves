@@ -114,10 +114,9 @@ export function SupportPage() {
       <Field focusable={true} bottomSeparator="none" label={<span style={headingStyle}>{t('about_learn_more_title')}</span>} />
       <Field focusable={true} bottomSeparator="none" description={<span style={labelStyle}>{t('about_learn_more_description')}</span>} />
       <Field bottomSeparator="none" childrenLayout="below">
-        {/* `flow-children="horizontal"` tells the Decky/Steam gamepad nav
-            tree to move L/R between these buttons instead of U/D — without
-            it the buttons render side-by-side visually but D-pad navigates
-            top-to-bottom (the default Focusable flow). */}
+        {/* The buttons sit side by side; flowChildrenProps passes no
+            flow-children (Steam handles none of our direction names), so
+            Steam's default navigation applies. */}
         <Focusable
           {...flowChildrenProps("horizontal")}
           style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}

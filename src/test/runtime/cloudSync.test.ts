@@ -1,8 +1,9 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const store: { current: any } = { current: null };
 const saved: any[] = [];
 const cloud: { raw: string | null; writes: string[] } = { raw: null, writes: [] };
+const qa = { active: false };
 
 vi.mock("../../store/settingsStore", () => ({
   getCurrentSettings: () => store.current,
@@ -12,6 +13,7 @@ vi.mock("../../store/settingsStore", () => ({
 vi.mock("../../runtime/host/ownerGuard", () => ({ isHomeOwner: () => true }));
 vi.mock("../../runtime/notify", () => ({ notifyUser: () => {} }));
 vi.mock("../../i18n", () => ({ default: { t: (k: string) => k } }));
+vi.mock("../../qa/harness", () => ({ get qaOverrideActive() { return qa.active; } }));
 
 const SHELF = { id: "s1", name: "From the cloud", updatedAt: 500, enabled: true };
 const SHELF_B = { id: "s2", name: "Made on the other device", updatedAt: 600, enabled: true };
@@ -189,6 +191,63 @@ describe("cloud sync while a profile is active", () => {
     const dispose = installCloudSync();
     await settle();
     dispose();
+    expect(cloud.writes).toEqual([]);
+    expect(saved).toEqual([]);
+  });
+});
+
+describe("cloud sync and a copy a QA build pushed", () => {
+  beforeEach(() => {
+    saved.length = 0; cloud.writes.length = 0;
+    (globalThis as any).SteamClient = {
+      RoamingStorage: {
+        GetString: async () => cloud.raw ?? "",
+        SetString: async (_k: string, v: string) => { cloud.writes.push(v); cloud.raw = v; },
+      },
+    };
+    vi.resetModules();
+  });
+
+  it("never merges it and replaces it with this device's own settings", async () => {
+    store.current = { cloudSyncEnabled: true, shelves: [SHELF_B], smartShelves: [], showBadges: false, preferencesUpdatedAt: 100, syncTombstones: {} };
+    // Newer clock and a shelf this device lacks: a plain copy would be adopted.
+    cloud.raw = cloudDoc({ shelves: [SHELF], smartShelves: [], showBadges: true, preferencesUpdatedAt: 900, syncTombstones: {}, __dsQaOverride: true });
+    const { installCloudSync } = await import("../../runtime/cloudSync");
+    const dispose = installCloudSync();
+    await settle();
+    dispose();
+    expect(saved.some((s) => s.__dsQaOverride === true || s.showBadges === true || s.shelves?.some((x: any) => x.id === "s1"))).toBe(false);
+    expect(cloud.writes).toHaveLength(1);
+    const pushed = JSON.parse(cloud.writes[0]).settings;
+    expect(pushed.__dsQaOverride).toBeUndefined();
+    expect(pushed.shelves.map((s: any) => s.id)).toEqual(["s2"]);
+  });
+});
+
+describe("cloud sync in a QA session", () => {
+  const reads: string[] = [];
+  beforeEach(() => {
+    saved.length = 0; cloud.writes.length = 0; reads.length = 0;
+    (globalThis as any).SteamClient = {
+      RoamingStorage: {
+        GetString: async (k: string) => { reads.push(k); return cloud.raw ?? ""; },
+        SetString: async (_k: string, v: string) => { cloud.writes.push(v); cloud.raw = v; },
+      },
+    };
+    vi.resetModules();
+    qa.active = true;
+  });
+  afterEach(() => { qa.active = false; });
+
+  it("never reads, adopts or pushes the account's cloud copy", async () => {
+    // Fixture data that a merge would otherwise push into the account's copy.
+    store.current = { cloudSyncEnabled: true, shelves: [SHELF_B], smartShelves: [], preferencesUpdatedAt: 900, __dsQaOverride: true };
+    cloud.raw = cloudDoc({ shelves: [SHELF], smartShelves: [], preferencesUpdatedAt: 100 });
+    const { installCloudSync } = await import("../../runtime/cloudSync");
+    const dispose = installCloudSync();
+    await settle();
+    dispose();
+    expect(reads).toEqual([]);
     expect(cloud.writes).toEqual([]);
     expect(saved).toEqual([]);
   });

@@ -71,6 +71,6 @@
   "report_issue_hardware": "Hardware-Informationen einschließen",
   "report_issue_hardware_desc": "Modell, CPU, Arbeitsspeicher, GPU und Speicher – hilft bei gerätespezifischen Problemen.",
   "sidecar_back": "Zurück",
-  "coop_stand_in": "Deck Shelves läuft auf diesem Gerät über den ShelvesHub-Tab.",
+  "coop_stand_in": "Deck Shelves läuft auf diesem Gerät über seinen eigenen Schnellzugriff-Tab.",
   "qam_sidecar_toggle": "Einstellungen ein- oder ausblenden"
 }

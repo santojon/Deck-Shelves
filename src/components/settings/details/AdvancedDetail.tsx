@@ -13,6 +13,7 @@ import { SnapshotsSection } from "./SnapshotsSection";
 import { TrashIcon, StackIcon } from "../../icons";
 import { BTN_COMPACT_STYLE, BTN_ICON_STYLE } from "../../ui/buttonStyles";
 import { notify } from "../../notify";
+import { flowChildrenProps } from "../../../core/steamOSVersion";
 
 export interface AdvancedDetailProps {
   controller: ReturnType<typeof useSettingsController>;
@@ -39,11 +40,11 @@ export function AdvancedDetail({ controller, t }: AdvancedDetailProps) {
   const devMode = (controller.settings as any)?.devModeEnabled === true;
 
   return (
-    <Focusable flow-children="vertical" style={{ display: "flex", flexDirection: "column" }}>
+    <Focusable {...flowChildrenProps("vertical")} style={{ display: "flex", flexDirection: "column" }}>
       <DiagnosticsSection t={t} />
       <SettingsSection title={t("settings_advanced_reset_title")} description={t("settings_advanced_reset_desc")} icon={<TrashIcon size={14} />}>
         <Focusable
-          flow-children="horizontal"
+          {...flowChildrenProps("horizontal")}
           style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 6, alignItems: "center" }}
         >
           <DialogButton onClick={handleResetShelves} onOKButton={handleResetShelves} style={{ ...BTN_COMPACT_STYLE, minWidth: 0, width: "100%" }}>
@@ -67,7 +68,7 @@ export function AdvancedDetail({ controller, t }: AdvancedDetailProps) {
         count={cacheSizes.filter((n) => n > 0).length}
         icon={<StackIcon size={14} />}
         headerExtra={
-          <Focusable flow-children="horizontal" style={{ display: "flex", gap: 6 }}>
+          <Focusable {...flowChildrenProps("horizontal")} style={{ display: "flex", gap: 6 }}>
             <DialogButton
               onClick={handleClearAll}
               onOKButton={handleClearAll}
@@ -81,9 +82,9 @@ export function AdvancedDetail({ controller, t }: AdvancedDetailProps) {
         }
       >
         <div style={{ fontSize: 12, opacity: 0.6, margin: "2px 0 8px" }}>{t("cache_management_desc")}</div>
-        <Focusable flow-children="vertical" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        <Focusable {...flowChildrenProps("vertical")} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {CACHE_GROUPS.map((g, i) => (
-            <Focusable key={g.id} flow-children="horizontal" style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <Focusable key={g.id} {...flowChildrenProps("horizontal")} style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <span style={{ flex: 1, fontSize: 13 }}>{t(g.labelKey)}</span>
               <span style={{ fontSize: 12, opacity: 0.7, fontVariantNumeric: "tabular-nums", minWidth: 64, textAlign: "right" }}>{formatBytes(cacheSizes[i])}</span>
               <DialogButton disabled={cacheSizes[i] === 0} onClick={() => handleClearGroup(g)} onOKButton={() => handleClearGroup(g)} style={{ ...BTN_COMPACT_STYLE, minWidth: 0, width: "auto" }}>{t("cache_clear")}</DialogButton>

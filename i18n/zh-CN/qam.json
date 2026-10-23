@@ -71,6 +71,6 @@
   "report_issue_hardware": "包含硬件信息",
   "report_issue_hardware_desc": "型号、CPU、内存、GPU 和存储 — 有助于诊断设备特有的问题。",
   "sidecar_back": "返回",
-  "coop_stand_in": "在此设备上，Deck Shelves 通过 ShelvesHub 标签页运行。",
+  "coop_stand_in": "在此设备上，Deck Shelves 通过其自己的快速访问标签页运行。",
   "qam_sidecar_toggle": "显示或隐藏设置"
 }

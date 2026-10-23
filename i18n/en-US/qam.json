@@ -71,6 +71,6 @@
   "toast_filter_deleted": "Filter deleted",
   "toast_filter_renamed": "Filter renamed",
   "sidecar_back": "Back",
-  "coop_stand_in": "Deck Shelves runs from the ShelvesHub tab on this device.",
+  "coop_stand_in": "Deck Shelves runs from its own Quick Access tab on this device.",
   "qam_sidecar_toggle": "Show or hide settings"
 }

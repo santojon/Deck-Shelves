@@ -9,6 +9,7 @@ import {
   StackIcon, PuzzleIcon, BookmarkIcon, BatteryIcon, RestoreIcon, MonitorIcon, HeadsetIcon, ConsoleIcon, CloudIcon,
   WandIcon, GamepadIcon, SparkleIcon, GearIcon, CheckIcon,
 } from '../../components/icons'
+import { flowChildrenProps } from '../../core/steamOSVersion'
 
 type Glyph = React.ComponentType<{ size?: number }>
 type Step = 'choose' | 'review' | 'done'
@@ -188,13 +189,13 @@ function ChooseScreen({ t, recommended, canRevert, onPick, onRevert, onClose }: 
       <ConfirmModal strTitle={t('setup_wizard_title')} strDescription={t('setup_wizard_desc')} strOKButtonText={t('close')} bAlertDialog onOK={onClose} onCancel={onClose} onEscKeypress={onClose}>
         <style>{STYLE}</style>
         <Steps t={t} step='choose' />
-        <Focusable flow-children='vertical' style={{ padding: '0 2px', display: 'flex', flexDirection: 'column' }}>
+        <Focusable {...flowChildrenProps('vertical')} style={{ padding: '0 2px', display: 'flex', flexDirection: 'column' }}>
           {GROUPS.map((group) => {
             const GIcon = GROUP_ICON[group]
             return (
               <div key={group}>
                 <div className='ds-setup-group'><GIcon size={12} />{t(GROUP_KEY[group])}</div>
-                <Focusable flow-children='horizontal' className='ds-setup-grid'>
+                <Focusable {...flowChildrenProps('horizontal')} className='ds-setup-grid'>
                   {SETUP_PACKS.filter((p) => p.group === group).map((pack) => (
                     <PackTile key={pack.id} t={t} pack={pack} recommended={recommended.includes(pack.id)} onPick={() => onPick(pack)} />
                   ))}

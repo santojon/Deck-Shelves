@@ -10,11 +10,9 @@ desktop ou arquivos de configuração.
 
 ## Instalando
 
-Duas formas de entrar: [ShelvesHub](shelveshub-install.md) (recomendado, não
-precisa de Decky Loader) ou a [Decky Store](https://decky.xyz) se você já
-usa o Decky. De qualquer forma, uma vez instalado você encontra as
-configurações do Deck Shelves no Menu de Acesso Rápido (na própria aba, ou
-dentro da lista de plugins do Decky, dependendo de qual host você usou).
+Instale pela [Decky Store](https://decky.xyz) no Decky Loader. Uma vez
+instalado, você encontra as configurações do Deck Shelves no Menu de Acesso
+Rápido, dentro da lista de plugins do Decky.
 
 ## Criando sua primeira prateleira
 

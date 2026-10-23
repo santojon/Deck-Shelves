@@ -13,6 +13,8 @@ const allShelvesShowTabs = __DEV__ && typeof __QA_ALL_SHELVES_SHOW_HOME_TABS__ !
 const forceTabMaster = __DEV__ && typeof __QA_FORCE_TABMASTER__ !== "undefined" ? __QA_FORCE_TABMASTER__ : "";
 const forceUnifiDeck = __DEV__ && typeof __QA_FORCE_UNIFIDECK__ !== "undefined" ? __QA_FORCE_UNIFIDECK__ : "";
 const forceNonSteamBadges = __DEV__ && typeof __QA_FORCE_NONSTEAMBADGES__ !== "undefined" ? __QA_FORCE_NONSTEAMBADGES__ : "";
+// The device kind faked from boot; deviceState applies it, here it only counts as a QA flag.
+const forceDevice = __DEV__ && typeof __QA_FORCE_DEVICE__ !== "undefined" ? __QA_FORCE_DEVICE__ : "";
 const smartShelvesFixture = __DEV__ && typeof __QA_SMART_SHELVES_FIXTURE__ !== "undefined" && __QA_SMART_SHELVES_FIXTURE__;
 const savedFiltersFixture = __DEV__ && typeof __QA_SAVED_FILTERS_FIXTURE__ !== "undefined" && __QA_SAVED_FILTERS_FIXTURE__;
 const forceHidden = __DEV__ && typeof __QA_FORCE_HIDDEN_SHELF__ !== "undefined" && __QA_FORCE_HIDDEN_SHELF__;
@@ -69,7 +71,7 @@ const QA_FAKE_RELEASE_URL = "https://github.com/santojon/Deck-Shelves/releases/t
    narrow check had never covered either. */
 export const qaOverrideActive = __DEV__ && (
   firstRun || qamError || shelfError || allShelvesHide || allShelvesShow || allShelvesHideTabs || allShelvesShowTabs
-  || !!forceTabMaster || !!forceUnifiDeck || !!forceNonSteamBadges || smartShelvesFixture || savedFiltersFixture
+  || !!forceTabMaster || !!forceUnifiDeck || !!forceNonSteamBadges || !!forceDevice || smartShelvesFixture || savedFiltersFixture
   || forceHidden || surpriseMe || forceCrash || forceReplaceFailed || updateAvailable || updateDismissed
   || updateOffline || collectionEmpty || collectionInverted || sourcesFixture || templatesFixture
   || decorationFixture || stressFixture || videoFixture || screenshotsFixture || perfMatrix || freshInstall
@@ -79,7 +81,7 @@ if (qaOverrideActive) {
   console.warn("[Deck Shelves QA] active flags:", {
     firstRun, qamError, shelfError,
     allShelvesHide, allShelvesShow, allShelvesHideTabs, allShelvesShowTabs,
-    forceTabMaster, forceUnifiDeck, forceNonSteamBadges,
+    forceTabMaster, forceUnifiDeck, forceNonSteamBadges, forceDevice,
     smartShelvesFixture, savedFiltersFixture, forceHidden, surpriseMe, forceCrash, forceReplaceFailed,
     updateAvailable, updateDismissed, updateOffline, collectionEmpty, collectionInverted,
     sourcesFixture, templatesFixture, decorationFixture, stressFixture, videoFixture, screenshotsFixture, perfMatrix, freshInstall,

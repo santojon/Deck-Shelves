@@ -11,6 +11,7 @@ import { SHELF_TPL_ICON, SMART_TPL_ICON } from "../../components/qam/modals/temp
 import { PlusCircleIcon, StackIcon, CheckIcon, RefreshIcon, SparkleIcon, TrashIcon } from "../../components/icons";
 import { subscribeShelfRefresh } from "../../core/shelfRefresh";
 import { isSuggestionNew, markSuggestionsSeen } from "../../runtime/suggestionNotifier";
+import { flowChildrenProps } from "../../core/steamOSVersion";
 
 // How long the tab waits after a library/usage signal before re-deriving.
 const REACT_DEBOUNCE_MS = 1500;
@@ -93,7 +94,7 @@ function SuggestionList({ t, items, applied, fresh, whyOf, onApply }: {
 }) {
   if (items.length === 0) return null;
   return (
-    <Focusable flow-children="horizontal" style={{ display: "flex", gap: 10, marginTop: 8, flexWrap: "wrap" }}>
+    <Focusable {...flowChildrenProps("horizontal")} style={{ display: "flex", gap: 10, marginTop: 8, flexWrap: "wrap" }}>
       {items.map((sg) => (
         <SuggestionBlock key={sg.id} t={t} sg={sg} why={whyOf(sg)} applied={applied.has(sg.id)} isNew={fresh.has(sg.id)} onApply={() => onApply(sg)} />
       ))}
@@ -208,7 +209,7 @@ export function SuggestionsDetail({ controller, t }: SuggestionsDetailProps) {
   useEffect(() => () => { markSuggestionsSeen([...fresh]); }, [fresh]);
 
   return (
-    <Focusable flow-children="vertical" style={{ display: "flex", flexDirection: "column" }}>
+    <Focusable {...flowChildrenProps("vertical")} style={{ display: "flex", flexDirection: "column" }}>
       <style>{SUGGESTION_STYLE}</style>
       <div style={{ fontSize: 12, opacity: 0.6, padding: "0 4px 8px" }}>{t("settings_suggestions_desc")}</div>
 

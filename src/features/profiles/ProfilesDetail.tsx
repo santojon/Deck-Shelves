@@ -10,6 +10,7 @@ import { BTN_ICON_COMPACT_STYLE, BTN_STYLE } from "../../components/ui/buttonSty
 import { openManagedModal } from "../../components/qam/common/openManagedModal";
 import { SetProfileTriggerModal } from "../../components/qam/modals/SetProfileTriggerModal";
 import { confirmAction } from "../../components/qam/modals/ConfirmActionModal";
+import { flowChildrenProps } from "../../core/steamOSVersion";
 
 
 export interface ProfilesDetailProps {
@@ -95,7 +96,7 @@ export function ProfilesDetail({ controller, t }: ProfilesDetailProps) {
   };
 
   return (
-    <Focusable flow-children="vertical" style={{ display: "flex", flexDirection: "column" }}>
+    <Focusable {...flowChildrenProps("vertical")} style={{ display: "flex", flexDirection: "column" }}>
       <CollapsibleSection id="profiles-list" title={t("settings_profiles_list_title")} count={savedProfiles.length} icon={<PersonIcon size={14} />} initialOpen>
         <div style={{ fontSize: 12, opacity: 0.6, margin: "2px 0 8px" }}>{t("settings_profiles_list_desc")}</div>
         {/* Standalone toggle before a list gets a bottom margin so it isn't

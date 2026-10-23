@@ -10,6 +10,7 @@ import { BanIcon, CheckIcon, RefreshIcon, TargetIcon, TrashIcon, GamepadIcon, Ke
 import { BTN_ICON_STYLE } from "../../ui/buttonStyles";
 import { confirmAction } from "../../qam/modals/ConfirmActionModal";
 import { absorbCancelButton } from "../../qam/sidecarCancel";
+import { flowChildrenProps } from "../../../core/steamOSVersion";
 
 // Maps the raw controller event button id (from `controllerInput`) to
 // the token name used by the bindings parser. Required because this
@@ -166,7 +167,7 @@ export function ButtonBindingsDetail({ controller, t }: ButtonBindingsDetailProp
   );
 
   return (
-    <Focusable flow-children="vertical" style={{ display: "flex", flexDirection: "column" }}>
+    <Focusable {...flowChildrenProps("vertical")} style={{ display: "flex", flexDirection: "column" }}>
       <CollapsibleSection
         id="bindings-card"
         title={t("settings_card_bindings_group")}

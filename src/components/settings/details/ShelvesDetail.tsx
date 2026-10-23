@@ -11,6 +11,7 @@ import { EditShelfModal } from "../../qam/modals/EditShelfModal";
 import { EditSmartShelfModal } from "../../qam/modals/EditSmartShelfModal";
 import { DeleteConfirmModal } from "../../qam/modals/DeleteConfirmModal";
 import { DeleteConfirmSmartModal } from "../../qam/modals/DeleteConfirmSmartModal";
+import { flowChildrenProps } from "../../../core/steamOSVersion";
 
 export interface ShelvesDetailProps {
   controller: ReturnType<typeof useSettingsController>;
@@ -32,7 +33,7 @@ export function ShelvesDetail({ controller, t }: ShelvesDetailProps) {
   ));
 
   return (
-    <Focusable flow-children="vertical" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+    <Focusable {...flowChildrenProps("vertical")} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <Focusable flow-children="row" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 4, alignItems: "center" }}>
         <DialogButton onClick={handleAdd} onOKButton={handleAdd} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, height: 32, width: "100%" }}>
           <PlusCircleIcon size={14} />
@@ -53,7 +54,7 @@ export function ShelvesDetail({ controller, t }: ShelvesDetailProps) {
           t={t}
         />
       ) : (
-        <Focusable flow-children="horizontal" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <Focusable {...flowChildrenProps("horizontal")} style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           <ShelfColumn
             title={t("settings_tab_shelves")}
             shelves={regulars}

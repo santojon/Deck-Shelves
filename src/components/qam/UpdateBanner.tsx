@@ -5,6 +5,7 @@ import { checkForUpdate, __resetUpdateCheckCache, type UpdateCheckResult } from 
 import { installOrDownloadUpdate, canSelfInstallUpdate } from "../../runtime/updateDownload";
 import { isOnline } from "../../core/connectivity";
 import { logInfo } from "../../runtime/logger";
+import { flowChildrenProps } from "../../core/steamOSVersion";
 
 // Not inlined into the render ternary — keeps that decision out of
 // UpdateBanner's own complexity count (see DeckQAMSettings's shouldRenderSidecar).
@@ -72,7 +73,7 @@ export function UpdateBanner({ controller }: { controller: SettingsController })
       <div style={{ fontSize: 12, opacity: 0.92 }}>
         {t("update_available", { version: result.latestVersion })}
       </div>
-      <Focusable style={{ display: "flex", gap: 6 }} flow-children="horizontal">
+      <Focusable style={{ display: "flex", gap: 6 }} {...flowChildrenProps("horizontal")}>
         <DialogButton
           onClick={open}
           style={{ flex: 1, padding: "4px 8px", fontSize: 12, minWidth: 0 }}

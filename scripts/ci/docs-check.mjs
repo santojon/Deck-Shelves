@@ -163,18 +163,11 @@ if (!process.argv.includes("--no-badges")) {
 
 // ------------------------------------------------------------ 6. shipped text
 // Patterns are assembled from pieces so this file never matches itself. The
-// sibling host's name is allowed only on the install pages below; elsewhere it
-// is refused in prose (link targets, file names and code spans are ignored) and
-// in code comments (string literals are functional and ignored).
+// sibling host's name is refused in doc prose (link targets, file names and code
+// spans are ignored) and in code comments (string literals are ignored).
 {
   const w = (...parts) => parts.join("");
   const siblingName = new RegExp(w("shelves", "hub"), "i");
-  const siblingPages = new Set([
-    "README.md", "docs/pt-BR/README.md",
-    w("docs/decky-or-shelves", "hub.md"), w("docs/pt-BR/decky-or-shelves", "hub.md"),
-    w("community-docs/shelves", "hub-install.md"), w("community-docs/pt-BR/shelves", "hub-install.md"),
-    "community-docs/getting-started.md", "community-docs/pt-BR/getting-started.md",
-  ]);
   const prose = (line) => line.replace(/\]\([^)]*\)/g, "]()").replace(/`[^`]*`/g, "").replace(/https?:\/\/\S+/g, "").replace(/\S+\.md\b/g, "");
   const comment = (line, hash) => {
     const s = line.replace(/(["'`])(?:\\.|(?!\1).)*\1/g, '""');
@@ -198,7 +191,7 @@ if (!process.argv.includes("--no-badges")) {
         if (patterns.some((re) => re.test(line)) || (nameIn && siblingName.test(nameIn(line)))) hits.push(`${file}:${i + 1}`);
       });
     };
-    for (const f of docs.filter((f) => f.endsWith(".md"))) scan(f, [processWords, aiWords, internalPaths], siblingPages.has(f) ? null : prose);
+    for (const f of docs.filter((f) => f.endsWith(".md"))) scan(f, [processWords, aiWords, internalPaths], prose);
     for (const f of code.filter((f) => /\.(ts|tsx|js|mjs|cjs|py|sh)$/.test(f))) scan(f, [processWords, aiWords, internalPaths], (line) => comment(line, /\.(py|sh)$/.test(f)));
     if (hits.length) failures.push(`Shipped text: process or tool words in ${hits.length} line(s): ${hits.slice(0, 20).join(", ")}`);
     else ok.push(`Shipped text: ${docs.length + code.length} tracked files clean`);

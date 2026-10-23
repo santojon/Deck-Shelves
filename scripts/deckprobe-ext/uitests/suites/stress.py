@@ -198,6 +198,47 @@ def _shelf_ids(ctx):
 """) or []
 
 
+# Off-screen shelves stay placeholders (data-ds-skeleton) until they come near
+# the viewport, so a test that needs the real rows walks them into view first.
+_MOUNT_SHELVES = """
+(async function(onlyIds, perShelfMs, totalMs, backToTop){
+    const pick = (id) => document.querySelector('.ds-shelf[data-shelfid="' + CSS.escape(id) + '"]');
+    const ids = onlyIds || Array.from(document.querySelectorAll('.ds-shelf[data-shelfid]'))
+        .map(el => el.getAttribute('data-shelfid'));
+    const deadline = Date.now() + totalMs;
+    const pending = [];
+    let scroller = null;
+    for (const id of ids) {
+        const el = pick(id);
+        if (!el) continue;
+        for (let p = el.parentElement; !scroller && p && p !== document.body; p = p.parentElement) {
+            const oy = getComputedStyle(p).overflowY;
+            if (oy === 'auto' || oy === 'scroll') scroller = p;
+        }
+        el.scrollIntoView({ block: 'center' });
+        const until = Math.min(deadline, Date.now() + perShelfMs);
+        let cur = pick(id);
+        while (cur && cur.hasAttribute('data-ds-skeleton') && Date.now() < until) {
+            await new Promise(r => setTimeout(r, 100));
+            cur = pick(id);
+        }
+        if (cur && cur.hasAttribute('data-ds-skeleton')) pending.push(id);
+    }
+    await new Promise(r => setTimeout(r, 300));
+    if (backToTop && scroller) {
+        scroller.scrollTop = 0;
+        await new Promise(r => setTimeout(r, 300));
+    }
+    return { walked: ids.length, pending };
+})
+"""
+
+
+def _mount_shelves(ctx, ids=None, per_shelf_s: float = 4.0, total_s: float = 90.0, back_to_top: bool = True) -> Dict[str, Any]:
+    args = f"{json.dumps(ids) if ids else 'null'}, {int(per_shelf_s * 1000)}, {int(total_s * 1000)}, {json.dumps(back_to_top)}"
+    return ctx.eval(f"({_MOUNT_SHELVES})({args})", timeout=total_s + 10) or {}
+
+
 _STRESS_MIN_SHELVES = 10  # stress fixture has 30 regular + 17 smart = 47 total
 
 
@@ -253,9 +294,10 @@ def _(ctx) -> None:
 def _(ctx) -> None:
     _require_stress_fixture(ctx)
     ctx.navigate("/library/home", settle_ms=2000)
+    walk = _mount_shelves(ctx)
     result = ctx.eval("""
 (function(){
-    const shelves = Array.from(document.querySelectorAll('.ds-shelf[data-shelfid]'));
+    const shelves = Array.from(document.querySelectorAll('.ds-shelf[data-shelfid]:not([data-ds-skeleton])'));
     return shelves.map(el => ({
         id: el.getAttribute('data-shelfid'),
         cards: el.querySelectorAll('.ds-card[data-appid]').length
@@ -263,9 +305,11 @@ def _(ctx) -> None:
 })()
 """) or []
     empty = [r["id"] for r in result if r["cards"] == 0]
+    pending = walk.get("pending") or []
     assert len(result) >= 5, f"only {len(result)} shelves in DOM"
-    # Allow up to 2 empty shelves (online sources may be disabled in stress env)
-    assert len(empty) <= 2, f"shelves with 0 cards: {empty}"
+    # Allow up to 2 empty shelves (online sources may be disabled in stress env); a shelf still
+    # resolving keeps its placeholder, so it counts as one of them.
+    assert len(empty) + len(pending) <= 2, f"shelves with 0 cards: {empty}; still placeholders: {pending}"
     total_cards = sum(r["cards"] for r in result)
     print(f"  → {len(result)} shelves, {total_cards} cards total")
 
@@ -462,35 +506,14 @@ def _(ctx) -> None:
     time.sleep(1.0)  # let layout settle before scrolling
 
     # Warm-up pass: cold scroll under the stress fixture is dominated by
-    # first-time image decode + raster as off-viewport shelves come into
-    # view (810 cards across 19 shelves). That's a one-shot browser cost
-    # that does not represent steady-state scroll. Run one full scroll-to-
-    # bottom + scroll-to-top discarded, then measure the second pass — that
-    # reflects what the user actually experiences after the page has been
-    # seen once. No assert on the warm-up.
-    ctx.eval("""
-(async function(){
-    const candidates = [document.getElementById('deck-shelves-home-root')?.parentElement,
-        document.querySelector('.library_home'), document.documentElement, document.body].filter(Boolean);
-    let scr = null;
-    for (const c of candidates) {
-        let el = c;
-        for (let i = 0; i < 8; i++) {
-            if (!el || el === document.body.parentElement) break;
-            const cs = getComputedStyle(el);
-            const oy = cs.overflowY.toLowerCase();
-            if ((oy === 'auto' || oy === 'scroll' || oy === 'overlay') && el.scrollHeight > el.clientHeight + 50) { scr = el; break; }
-            el = el.parentElement;
-        }
-        if (scr) break;
-    }
-    if (!scr) scr = document.documentElement;
-    scr.scrollTop = scr.scrollHeight;
-    await new Promise(r => setTimeout(r, 600));
-    scr.scrollTop = 0;
-    await new Promise(r => setTimeout(r, 600));
-})()
-""", timeout=10)
+    # first-time row mounts, image decode and raster as off-viewport shelves
+    # come into view. That's a one-shot cost that does not represent
+    # steady-state scroll. Walk every shelf into view (a single jump to the
+    # bottom skips the placeholders in between), back to the top, then
+    # measure — that reflects what the user experiences after the page has
+    # been seen once. No assert on the warm-up.
+    _mount_shelves(ctx)
+    time.sleep(0.6)
     ctx.eval(_CLEAR_ERRORS)
 
     # Measure frames during programmatic scroll to bottom.
@@ -636,6 +659,7 @@ def _(ctx) -> None:
     deployed with `DS_QA_TEMPLATES_FIXTURE=1` (which seeds decoration shelves)."""
     _require_stress_fixture(ctx)
     ctx.navigate("/library/home", settle_ms=1500)
+    _mount_shelves(ctx, ids=["qa_st_18"])
     decorated = ctx.eval("""
 (async function(){
     const deadline = Date.now() + 6000;
@@ -725,6 +749,7 @@ def _(ctx) -> None:
     ctx.navigate("/library/home", settle_ms=800)
     n = _wait_for_shelves(ctx, min_count=_STRESS_MIN_SHELVES, timeout_s=15.0)
     assert n >= _STRESS_MIN_SHELVES, f"only {n} shelves mounted"
+    _mount_shelves(ctx, ids=["qa_st_20", "qa_st_21"])
     overlay_count = ctx.eval("""
 (function(){
     return document.querySelectorAll('.ds-shelf-logo-overlay').length;
@@ -756,11 +781,12 @@ def _(ctx) -> None:
     mount budget (i.e. neither child timed out unexpectedly)."""
     _require_stress_fixture(ctx)
     ctx.navigate("/library/home", settle_ms=800)
+    _mount_shelves(ctx, ids=["qa_st_25"], back_to_top=False)
     target = ctx.eval("""
 (async function(){
     const deadline = Date.now() + 18000;
     while (Date.now() < deadline) {
-        const el = document.querySelector('.ds-shelf[data-shelfid="qa_st_25"]');
+        const el = document.querySelector('.ds-shelf[data-shelfid="qa_st_25"]:not([data-ds-skeleton])');
         if (el) {
             const cards = el.querySelectorAll('.ds-card[data-appid]').length;
             return { mounted: true, cards };
@@ -784,11 +810,12 @@ def _(ctx) -> None:
     where the absolute logo overlapped cards landed on this exact path)."""
     _require_stress_fixture(ctx)
     ctx.navigate("/library/home", settle_ms=1000)
+    _mount_shelves(ctx, ids=["qa_st_22"], back_to_top=False)
     layout = ctx.eval("""
 (async function(){
     const deadline = Date.now() + 12000;
     while (Date.now() < deadline) {
-        const el = document.querySelector('.ds-shelf[data-shelfid="qa_st_22"]');
+        const el = document.querySelector('.ds-shelf[data-shelfid="qa_st_22"]:not([data-ds-skeleton])');
         if (el) {
             const cs = getComputedStyle(el);
             const overlay = el.querySelector('.ds-shelf-logo-overlay');
@@ -827,14 +854,18 @@ def _(ctx) -> None:
 @s.test("master-switch toggles propagate without per-shelf override leakage")
 def _(ctx) -> None:
     """Shelves 20 and 21 set per-shelf `enableLogo` true / false respectively.
-    The global master switch should win in both directions: when global is
-    off, neither shelf shows a logo overlay. We probe BOTH the live shared
-    global AND the localStorage settings cache — the shared global can be
-    `undefined` immediately after mount before the settings store has
+    Global on forces the logo on every shelf; global off lets each shelf
+    decide, so with global off only a shelf that opted in (20) may show the
+    overlay and one that opted out (21) never does. We probe BOTH the live
+    shared global AND the localStorage settings cache — the shared global
+    can be `undefined` immediately after mount before the settings store has
     emitted, so a single source produces false-negatives. Skips when the
     two sources disagree (transient state) or when neither has a value."""
     _require_stress_fixture(ctx)
     ctx.navigate("/library/home", settle_ms=800)
+    walk = _mount_shelves(ctx, ids=["qa_st_20", "qa_st_21"], back_to_top=False)
+    assert not walk.get("pending"), f"shelves still placeholders after coming into view: {walk.get('pending')}"
+    time.sleep(1.5)  # the overlay follows the shelf's first card after the row mounts
     snapshot = ctx.eval("""
 (function(){
     const live = window.__DECK_SHELVES_SHARED_SETTINGS__ || null;
@@ -847,13 +878,25 @@ def _(ctx) -> None:
         ? live.globalEnableLogo : null;
     const cacheGlobal = cached && typeof cached.globalEnableLogo === 'boolean'
         ? cached.globalEnableLogo : null;
-    const overlays = document.querySelectorAll('.ds-shelf-logo-overlay').length;
-    return { liveGlobal, cacheGlobal, overlays };
+    const optedIn = [...(cached?.shelves || []), ...(cached?.smartShelves || [])]
+        .filter(sh => sh && sh.enableLogo === true).map(sh => sh.id);
+    // The same container also holds a description-only banner; the logo slot comes first when present.
+    const hasLogo = (o) => !!o.firstElementChild && !o.firstElementChild.classList.contains('ds-shelf-logo-description');
+    const overlayShelves = Array.from(document.querySelectorAll('.ds-shelf-logo-overlay')).filter(hasLogo)
+        .map(o => o.closest('.ds-shelf[data-shelfid]')?.getAttribute('data-shelfid') || '?');
+    const row20 = document.querySelector('.ds-shelf[data-shelfid="qa_st_20"]:not([data-ds-skeleton])');
+    return {
+        liveGlobal, cacheGlobal, optedIn, overlayShelves,
+        overlays: overlayShelves.length,
+        lightMode: cached?.lightModeEnabled === true,
+        row20Cards: row20 ? row20.querySelectorAll('.ds-card[data-appid]').length : 0,
+    };
 })()
 """) or {}
     live_g = snapshot.get("liveGlobal")
     cache_g = snapshot.get("cacheGlobal")
     n = snapshot.get("overlays", 0)
+    on_shelves = snapshot.get("overlayShelves") or []
     # Pick the canonical value: prefer the live store; fall back to the
     # cache; require both sources to agree before asserting.
     from deckprobe.uitests.lib.runner import SkipTest
@@ -862,16 +905,22 @@ def _(ctx) -> None:
     if live_g is not None and cache_g is not None and live_g != cache_g:
         raise SkipTest(f"settings global in transient state: live={live_g} cache={cache_g}")
     g = live_g if live_g is not None else cache_g
-    if g is False:
-        assert n == 0, (
-            f"global logo OFF but {n} overlay(s) rendered — per-shelf=true leaked through "
+    if snapshot.get("lightMode"):
+        assert n == 0, f"light mode on but {n} overlay(s) rendered on {on_shelves}"
+    elif g is False:
+        opted_in = set(snapshot.get("optedIn") or [])
+        leaked = [sid for sid in on_shelves if sid not in opted_in]
+        assert not leaked, (
+            f"global logo OFF but overlay(s) on shelves that did not opt in: {leaked} "
             f"(live={live_g} cache={cache_g})"
         )
+        if snapshot.get("row20Cards", 0) == 0:
+            raise SkipTest("global logo OFF: shelf 20 (opted in) has no cards here, so its half was not exercised")
+        assert "qa_st_20" in on_shelves, "global logo OFF: shelf 20 opted in but shows no overlay"
     else:
-        # When global is ON we expect at least one overlay (per-shelf=true
-        # shelves), but the per-shelf=false shelf 21 must not appear.
+        # Global on forces the overlay on every shelf, opted out or not.
         assert n >= 1, "global logo ON but no overlay rendered"
-    print(f"  → master switch: global={g} (live={live_g} cache={cache_g}) overlays={n}")
+    print(f"  → master switch: global={g} (live={live_g} cache={cache_g}) overlays={n} on={on_shelves}")
 
 
 @s.test("usage seeding under load — summary stays correct and fast")

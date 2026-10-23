@@ -98,9 +98,6 @@ body:
       description: What is loading Deck Shelves?
       options:
         - Decky Loader
-        - ShelvesHub
-        - Both (coexist)
-        - Both (cooperative — ShelvesHub runs its own copy of the plugin)
         - Other / Not sure
     validations:
       required: true

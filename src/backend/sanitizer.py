@@ -589,7 +589,7 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:  # noqa: C90
             entry["logoSize"] = max(50, min(200, int(ls)))
         lto = ss.get("logoTopOffset")
         if isinstance(lto, (int, float)):
-            entry["logoTopOffset"] = max(0, min(100, int(lto)))
+            entry["logoTopOffset"] = max(-50, min(100, int(lto)))
         if ss.get("iconVerticalAlign") in ("top", "center", "bottom"):
             entry["iconVerticalAlign"] = ss["iconVerticalAlign"]
         if ss.get("shelfTitlePosition") in ("left", "center", "right"):
