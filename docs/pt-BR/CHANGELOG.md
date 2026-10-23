@@ -9,6 +9,8 @@ e este projeto segue o [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ## [Não lançado]
 
+## [3.4.0] - 2026-10-23
+
 ### Adicionado
 
 - **Informações do sistema diz como esta sessão iniciou.** O painel, o botão Copiar dele e o relatório de bug pré-preenchido agora trazem um bloco Inicialização: de onde veio o boot (uma partida a frio da Steam, um recarregamento do plugin na mesma sessão, ou um hot-swap do bundle pelo host), o tempo de cada fase da inicialização, o veredito do watchdog de partida, as tarefas longas (todas, e as acima de 200 ms) e o cache pré-carregado. Numa instalação com dois hosts, só a cópia dona da Home o registra. Avisos e erros agora chegam sempre ao Log de diagnóstico em Avançado e a essa cópia; "Mostrar todos os logs" só é preciso para as linhas informativas ([`diagnosticsInfo.ts`](../../src/runtime/diagnosticsInfo.ts), [`perfMetrics.ts`](../../src/core/perfMetrics.ts), [`issueReport.ts`](../../src/core/issueReport.ts), [`logger.ts`](../../src/runtime/logger.ts)). Testes unitários adicionados. O número de boot crítico do painel Desempenho passa a ser gravado pela mesma cópia do bloco Inicialização, então uma instalação dupla relata um único boot.

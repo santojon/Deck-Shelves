@@ -52,7 +52,7 @@ importers:
         specifier: ^6.1.2
         version: 6.1.2(vite@8.3.5(esbuild@0.28.2))
       esbuild:
-        specifier: ^0.28.2
+        specifier: ^0.28.1
         version: 0.28.2
       eslint:
         specifier: ^10.13.0
@@ -70,7 +70,7 @@ importers:
         specifier: ^8.3.5
         version: 8.3.5(esbuild@0.28.2)
       vitest:
-        specifier: ^4.1.12
+        specifier: ^4.1.11
         version: 4.1.12(jsdom@29.1.1)(vite@8.3.5(esbuild@0.28.2))
       ws:
         specifier: ^8.22.0
@@ -1078,10 +1078,6 @@ packages:
 
   caniuse-lite@1.0.30001819:
     resolution: {integrity: sha512-LFUqIIAwpzsIuevnKnsR9qnStBcgzPShTX61lBwN9uFkkf8o8zLiebEjbW8AYtZiF+1YKDWfdt/pWDtMuG8Xwg==}
-
-  chai@6.2.2:
-    resolution: {integrity: sha512-NUPRluOfOiTKBKvWPtSD4PhFvWCqOi0BGStNWs57X9js7XGTprSmFoz5F0tWhR4WPjNeR9jXqdC7/UpSJTnlRg==}
-    engines: {node: '>=18'}
 
   chai@6.3.0:
     resolution: {integrity: sha512-XWAtwJ6OHO+tj0EKCs0Y2UamnyOxseZWltU4x2U2wh8g4AigdjwvtUjvLP2tqkA/avxHEtzxNaqGq/YGNwckKg==}
@@ -2957,8 +2953,8 @@ snapshots:
       '@types/chai': 5.2.3
       '@vitest/spy': 4.1.11
       '@vitest/utils': 4.1.11
-      chai: 6.2.2
-      tinyrainbow: 3.1.1
+      chai: 6.3.0
+      tinyrainbow: 3.2.0
 
   '@vitest/expect@4.1.12':
     dependencies:
@@ -2987,7 +2983,7 @@ snapshots:
 
   '@vitest/pretty-format@4.1.11':
     dependencies:
-      tinyrainbow: 3.1.1
+      tinyrainbow: 3.2.0
 
   '@vitest/pretty-format@4.1.12':
     dependencies:
@@ -3025,7 +3021,7 @@ snapshots:
     dependencies:
       '@vitest/pretty-format': 4.1.11
       convert-source-map: 2.0.0
-      tinyrainbow: 3.1.1
+      tinyrainbow: 3.2.0
 
   '@vitest/utils@4.1.12':
     dependencies:
@@ -3116,8 +3112,6 @@ snapshots:
   callsites@3.1.0: {}
 
   caniuse-lite@1.0.30001819: {}
-
-  chai@6.2.2: {}
 
   chai@6.3.0: {}
 

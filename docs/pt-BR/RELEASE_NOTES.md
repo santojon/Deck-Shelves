@@ -7,6 +7,8 @@ técnico completo, veja [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+## [3.4.0] - 2026-10-23
+
 - **A aba no Acesso Rápido continua ligada depois do reinício que ela pede**: ligar a aba própria e escolher "Reiniciar agora" não a traz mais de volta desligada, e uma configuração mudada logo antes de a Steam reiniciar não é mais desfeita no início seguinte.
 
 - **Jogos esperando atualização atualizam em vez de abrir**: num jogo com atualização pendente, o botão View e o menu do jogo agora começam com Atualizar, como no menu da própria Steam, e o filtro "Atualização pendente" também encontra jogos com atualização necessária.

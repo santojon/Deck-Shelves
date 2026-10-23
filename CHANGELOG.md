@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.4.0] - 2026-10-23
+
 ### Added
 
 - **System information says how this session booted.** The panel, its Copy button and the pre-filled bug report now carry a Boot block: where the boot came from (a cold Steam start, a reload of the plugin in the same session, or a bundle hot-swap by the host), the timing of each startup phase, the startup watchdog's verdict, the long tasks (all of them, and those over 200 ms) and the seeded cache. In a dual-host install only the copy that owns the Home records it. Warnings and errors now always reach the Diagnostic log under Advanced and that copy; "Show all logs" is only needed for the informational lines ([`diagnosticsInfo.ts`](src/runtime/diagnosticsInfo.ts), [`perfMetrics.ts`](src/core/perfMetrics.ts), [`issueReport.ts`](src/core/issueReport.ts), [`logger.ts`](src/runtime/logger.ts)). Unit tests added. The Performance panel's boot-critical number is now written by the same copy as the Boot block, so a dual-host install reports one boot.

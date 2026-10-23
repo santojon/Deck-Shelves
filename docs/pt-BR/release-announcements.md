@@ -75,6 +75,8 @@ extraíveis pelo mesmo padrão.
 
 ## [Unreleased]
 
+## [3.4.0] - 2026-10-23
+
 ## [3.2.0] - 2026-08-14
 
 ```
