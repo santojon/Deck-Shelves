@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { Dropdown, Field, Menu, MenuItem, showContextMenu, DialogButton, ToggleField } from "../../runtime/host/decky";
 import { CollapsibleSection } from "../../components/ui";
-import { PersonIcon, CheckIcon } from "../../components/icons";
+import { PersonIcon, CheckIcon, StackIcon } from "../../components/icons";
 import { icons } from "../../components/qam/icons";
 import type { SettingsController } from "../settings/controller";
 import { FACTORY_PROFILE_ID, FACTORY_PROFILE_NAME } from "../settings/controller/profiles";
@@ -30,6 +30,7 @@ function ProfileLabel({ profile, active }: { profile: any; active: boolean }) {
       {active ? <span className="deck-shelves-hidden-icon"><CheckIcon size={14} color="currentColor" /></span> : null}
       <span className="deck-shelves-hidden-icon">{profile.hidden ? icons.eyeClosed : icons.eyeOpen}</span>
       <span className="deck-shelves-label-text">{profile.name}</span>
+      {profile.linkShelves ? <span className="deck-shelves-hidden-icon" style={{ marginLeft: 6, opacity: 0.7 }}><StackIcon size={12} /></span> : null}
     </div>
   );
 }
@@ -45,6 +46,7 @@ function ProfileActionsButton({ controller, profile }: { controller: SettingsCon
       <MenuItem onSelected={() => (actions as any).duplicateProfile?.(profile.id)}>{t("settings_profiles_duplicate" as any)}</MenuItem>
       <MenuItem onSelected={() => openManagedModal((close) => <RenameProfileModal closeModal={close} controller={controller} profileId={profile.id} currentName={profile.name} />)}>{t("settings_profiles_rename" as any)}</MenuItem>
       {triggersOn && <MenuItem onSelected={() => openManagedModal((close) => <SetProfileTriggerModal closeModal={close} controller={controller} profileId={profile.id} currentTrigger={profile.trigger} />)}>{t("settings_profiles_set_trigger" as any)}</MenuItem>}
+      <MenuItem onSelected={() => (actions as any).setProfileLinkShelves?.(profile.id, !profile.linkShelves)}>{t((profile.linkShelves ? "profile_unlink_shelves_action" : "profile_link_shelves_action") as any)}</MenuItem>
       <MenuItem onSelected={() => (actions as any).toggleProfileHidden?.(profile.id)}>{profile.hidden ? t("qam_show" as any) : t("qam_hide" as any)}</MenuItem>
       <MenuItem onSelected={() => (actions as any).exportProfiles?.(exportPath, profile.id)}>{t("settings_profiles_export" as any)}</MenuItem>
       <MenuItem onSelected={() => confirmAction({
@@ -89,7 +91,8 @@ function buildProfileDropdown(visible: any[], activeName: string | null, t: (k: 
     { label: `+ ${t("profile_add_action" as any) || "Save current"}`, data: "__SAVE__" },
     { label: t("profile_factory_name" as any) || FACTORY_PROFILE_NAME, data: FACTORY_PROFILE_ID },
     { label: t("profile_none_option" as any) || "None", data: "__NONE__" },
-    ...visible.map((p) => ({ label: p.name, data: p.id })),
+    // A shelf-linked profile says so, since only those swap the shelves.
+    ...visible.map((p) => ({ label: p.linkShelves ? `${p.name} · ${t("profile_includes_shelves" as any)}` : p.name, data: p.id })),
   ];
   const selectedData = activeName
     ? (visible.find((p) => p.name === activeName)?.id ?? "__NONE__")
@@ -127,7 +130,7 @@ export function ProfilesSection({ controller, hidden, headerExtra }: ProfilesSec
     if (d === FACTORY_PROFILE_ID) {
       confirmAction({
         title: t("settings_profiles_apply_confirm_title" as any),
-        body: t("settings_profiles_apply_confirm_message" as any),
+        body: t("settings_profiles_factory_confirm_message" as any),
         okText: t("settings_profiles_apply" as any),
         cancelText: t("cancel"),
         toggleLabel: t("settings_profiles_factory_reset_shelves" as any),

@@ -23,6 +23,11 @@ import { installSessionState } from "./runtime/sessionState";
 import { installProfileTriggers } from "./runtime/profileTriggers";
 import { installOwnQamTab } from "./runtime/ownQamTab";
 import { installShowcaseMode } from "./runtime/showcaseMode";
+import { installSteamAccountWatch } from "./runtime/steamAccount";
+import { notifyAccountSwitch } from "./features/account/accountSwitchNotice";
+import { createAccountSettingsHandler } from "./runtime/accountSettings";
+import { notifyAccountRestored, openAccountChoice } from "./features/account/AccountChoiceModal";
+import { isPerAccount } from "./domain/accountBuckets";
 import { installScreensaverInject } from "./runtime/screensaverInject";
 import { installCloudSync } from "./runtime/cloudSync";
 import { installPluginApi } from "./core/pluginApi";
@@ -429,6 +434,12 @@ const __ds_entry = definePlugin((serverAPI?: any) => {
   const uninstallShowcaseMode = isOwner ? installShowcaseMode() : null;
   // Screensaver shelf injection (experimental, default OFF). Not gated on isOwner.
   const uninstallScreensaverInject = tryInstall(installScreensaverInject);
+  // A Steam account switch: a safety snapshot and a notice; the cloud sync waits on it (owner only).
+  const uninstallAccountWatch = isOwner ? tryInstall(() => installSteamAccountWatch({
+    // With settings per account the switch is handled (and told) by the account settings instead.
+    onSwitch: () => { if (!isPerAccount(getCurrentSettings())) notifyAccountSwitch(); },
+    onKnown: createAccountSettingsHandler({ ask: openAccountChoice, restored: notifyAccountRestored }),
+  })) : null;
   // Cross-device settings sync via SteamClient.RoamingStorage (experimental, default OFF).
   const uninstallCloudSync = tryInstall(installCloudSync);
 
@@ -445,6 +456,7 @@ const __ds_entry = definePlugin((serverAPI?: any) => {
     () => uninstallShowcaseMode?.(),
     () => uninstallScreensaverInject?.(),
     () => uninstallCloudSync?.(),
+    () => uninstallAccountWatch?.(),
     uninstallUpdateProbes, uninstallWatchdog, uninstallBootToasts, uninstallHostQamPanel,
     () => uninstallOwnQamTab?.(),
     disposeAll,

@@ -9,11 +9,24 @@ those same conditions without needing a separate profile at all.
 
 ## Profiles
 
-A profile is a saved snapshot of your setup. Useful for genuinely different
+A profile is a saved copy of your settings. Useful for genuinely different
 contexts — a "Docked" layout with bigger shelves for a TV, a minimal
 "Handheld" layout for on-the-go, whatever fits how you actually use your
-Deck. There's a built-in **Default** profile that's a real factory reset,
-not just another save.
+Deck.
+
+A profile switches your **shelves** too only when it includes them: those
+are marked **Includes shelves**, and you can turn that on or off for any
+saved profile (new profiles include them by default). A profile that does
+not include shelves changes every other setting and leaves your shelves as
+they are.
+
+There's a built-in **Default** profile that resets every setting to its
+default and keeps the plugin on; it clears your shelves only if you turn on
+**Also reset shelves**.
+
+Every profile switch (by hand or by a trigger) first saves a snapshot of
+what it replaces, so you can always go back: Settings → Backup → **Restore a
+snapshot**.
 
 Create, switch, import, and export profiles from settings — export is handy
 for backing up a setup, or sharing one.

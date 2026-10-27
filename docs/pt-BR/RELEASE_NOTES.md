@@ -7,6 +7,18 @@ técnico completo, veja [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+- **Os perfis dizem se trocam suas prateleiras**: um perfil que também troca suas prateleiras aparece marcado com "Inclui prateleiras", dá para ligar ou desligar isso a qualquer momento, perfis novos incluem as prateleiras por padrão, e todo texto e confirmação de perfil agora diz o que aplicá-lo realmente faz.
+
+- **Um ponto de restauração antes de toda mudança arriscada**: trocar de perfil (à mão ou por gatilho), importar qualquer coisa e entrar com outra conta Steam salvam antes um snapshot, identificado pelo que o criou.
+
+- **Os snapshots ficam fáceis de achar**: a aba Backup explica backups e snapshots, diz quando foi o último e tem um botão **Restaurar um snapshot**; os avisos de recuperação levam até lá. As telas de snapshots dizem quando eles são criados e quanto tempo ficam guardados.
+
+- **Sem arquivos sobrando**: cópias ilegíveis das configurações e gravações interrompidas não se acumulam mais, e **Apagar tudo** limpa todos os snapshots e sobras mantendo suas configurações atuais.
+
+- **Importar ficou mais claro**: **Escolher arquivo…** vem primeiro, a tela mostra se o arquivo está lá antes de você confirmar, um `deck-shelves-shelves.json` que falta cai no seu backup completo `deck-shelves.json`, e imports que falham dizem por quê.
+
+- **Cada conta Steam tem as próprias prateleiras**: num Deck compartilhado, cada conta que entra tem as próprias prateleiras, prateleiras inteligentes, filtros salvos e perfis, e trocar de conta troca tudo isso (com um snapshot antes). Uma conta nova é perguntada se quer copiar as prateleiras atuais ou começar do zero; nada é apagado. Prefere um conjunto só para todos? Desligue **Configurações separadas por conta Steam** em Configurações → Backup. O ID da sua conta nunca é guardado nem enviado, e limpar o armazenamento do cliente Steam não faz mais todas as contas escolherem de novo.
+
 ## [3.4.0] - 2026-10-23
 
 - **A aba no Acesso Rápido continua ligada depois do reinício que ela pede**: ligar a aba própria e escolher "Reiniciar agora" não a traz mais de volta desligada, e uma configuração mudada logo antes de a Steam reiniciar não é mais desfeita no início seguinte.

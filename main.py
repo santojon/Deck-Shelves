@@ -61,7 +61,7 @@ from plugin_host import logger
 # by name so `from main import _sanitize_settings, _normalize_path`
 # continues to work for existing pytest suites + any external callers.
 from paths import _steam_install_candidates, _normalize_path, _validate_json_export_path
-from storage import _settings_dir, _primary_file, _safe_read_json, _backups_dir, _write_versioned_backup, _list_backups, _is_safe_backup_name, _export_backup, _import_backup, _delete_backup, _clear_backups, AUTO_THROTTLE_SECONDS, _read_wrapped, sync_mirror, reconcile_settings, _canonical_settings_dir, _loader_settings_dir, _is_corrupt_json, _recover_wrapped, _quarantine_corrupt_primary, take_reconcile_recovery
+from storage import _settings_dir, _primary_file, _safe_read_json, _backups_dir, _write_versioned_backup, _list_backups, _is_safe_backup_name, _export_backup, _import_backup, _delete_backup, _clear_backups, AUTO_THROTTLE_SECONDS, _read_wrapped, sync_mirror, reconcile_settings, _canonical_settings_dir, _loader_settings_dir, _is_corrupt_json, _recover_wrapped, _quarantine_corrupt_primary, take_reconcile_recovery, sweep_leftovers, sweep_export_tmps, count_quarantined, keep_account_salt
 from sanitizer import _sanitize_settings, merge_hub_config
 from css_themes import read_css_loader_themes
 from display_state import read_display_state
@@ -309,6 +309,8 @@ class Plugin:
                 pass
             raise
         sync_mirror(clean, rev, updated_at)
+        # After a successful save: stale write leftovers and old quarantined copies go.
+        sweep_leftovers()
 
     def _extract_settings(self, settings: Any = None, *args, **kwargs) -> Dict[str, Any]:
         candidates = [settings]
@@ -342,6 +344,13 @@ class Plugin:
         was = Plugin._corruption_recovered
         Plugin._corruption_recovered = False
         return was
+
+    async def keep_account_salt(self, salt: Any = "", *args, **kwargs) -> Dict[str, Any]:
+        # The salt behind the per-account keys: the one this device already keeps, else the
+        # offered one, kept beside the settings file (never in it). "" when none could be kept.
+        if isinstance(salt, dict):
+            salt = salt.get("salt", "")
+        return {"salt": await asyncio.to_thread(keep_account_salt, salt)}
 
     async def get_css_loader_themes(self, *args, **kwargs) -> Dict[str, Any]:
         # Actual active/installed CSS Loader theme names off disk (read-only).
@@ -394,7 +403,7 @@ class Plugin:
         # Cached 10 s.
         return await asyncio.to_thread(_AUDIO_CACHE.get, wants_force(force, **kwargs))
 
-    def _save_pipeline(self, data: Dict[str, Any]) -> bool:
+    def _save_pipeline(self, data: Dict[str, Any], snapshot_kind: str = "") -> bool:
         # Whole save pipeline runs in a single worker thread so neither the
         # sanitizer (CPU-bound; ~600 lines of mapping for a large settings
         # blob) nor the disk write blocks the asyncio loop. Returns True
@@ -410,6 +419,11 @@ class Plugin:
                 return True
         except Exception:
             pass
+        # A save that switches a profile asks for a safety snapshot of the file
+        # it replaces, taken here so nothing can be written in between.
+        if snapshot_kind in self._SAFETY_KINDS:
+            tag, gap = self._SAFETY_KINDS[snapshot_kind]
+            _write_versioned_backup(_primary_file(), tag=tag, tag_throttle_seconds=gap)
         self._write_state(clean)
         return True
 
@@ -421,8 +435,9 @@ class Plugin:
             except Exception:
                 pass
             return False
+        snapshot_kind = self._extract_snapshot_kind(settings, *args, **kwargs)
         try:
-            return await asyncio.to_thread(self._save_pipeline, data)
+            return await asyncio.to_thread(self._save_pipeline, data, snapshot_kind)
         except Exception as e:
             try:
                 logger.error(f"Failed saving settings: {e}")
@@ -430,12 +445,21 @@ class Plugin:
                 pass
             return False
 
+    def _extract_snapshot_kind(self, settings: Any = None, *args, **kwargs) -> str:
+        # Only the wrapper object ({settings, snapshot}) carries it.
+        for candidate in (settings, *args, kwargs):
+            if isinstance(candidate, dict) and isinstance(candidate.get("settings"), dict):
+                kind = candidate.get("snapshot")
+                return kind if isinstance(kind, str) else ""
+        return ""
+
     async def reset_settings(self) -> Dict[str, Any]:
         self._write_state(DEFAULT_SETTINGS)
         return dict(DEFAULT_SETTINGS)
 
     async def list_backups(self, *args, **kwargs) -> Dict[str, Any]:
-        return await asyncio.to_thread(lambda: {"backups": _list_backups()})
+        # `quarantined`: how many unreadable settings copies are kept (diagnostics only).
+        return await asyncio.to_thread(lambda: {"backups": _list_backups(), "quarantined": count_quarantined()})
 
     def _extract_name(self, name: Any, *args, **kwargs) -> str:
         # Decky delivers a single-object frontend arg as a positional dict.
@@ -470,13 +494,24 @@ class Plugin:
             return {"ok": True, "backups": _list_backups()}
         return await asyncio.to_thread(_do)
 
-    async def create_pre_import_backup(self, *args, **kwargs) -> Dict[str, Any]:
-        # Safety net before a category import merges into live settings — no
-        # frontend-supplied tag (avoids item 1's filename-injection class of
-        # bug), and no throttle_seconds so it's never skipped by the 24h
-        # auto-snapshot cooldown.
+    # Safety snapshot right before a risky action. The frontend names only the
+    # kind; the file tag comes from this fixed table (no frontend text reaches a
+    # file name), and none is skipped by the 24h auto-snapshot cooldown.
+    # Kind -> (tag, minimum gap between two of that tag, seconds).
+    _SAFETY_KINDS = {
+        "import": ("pre-import", 0),
+        "profile": ("pre-profile", 60),
+        "account": ("account-switch", 0),
+    }
+
+    async def create_pre_import_backup(self, kind: Any = "import", *args, **kwargs) -> Dict[str, Any]:
+        # Decky delivers a single-object frontend arg as a positional dict.
+        if isinstance(kind, dict):
+            kind = kind.get("kind", "import")
+        tag, gap = self._SAFETY_KINDS.get(str(kind or "import"), self._SAFETY_KINDS["import"])
+
         def _do():
-            _write_versioned_backup(_primary_file(), tag="pre-import")
+            _write_versioned_backup(_primary_file(), tag=tag, tag_throttle_seconds=gap)
             return {"ok": True, "backups": _list_backups()}
         return await asyncio.to_thread(_do)
 
@@ -674,7 +709,11 @@ class Plugin:
             return False
         try:
             os.makedirs(os.path.dirname(path), exist_ok=True)
-            export_data = {"state": self._read_state()}
+            state = dict(self._read_state())
+            # The settings kept for other Steam accounts on this device never leave it.
+            state.pop("accountSettings", None)
+            export_data = {"state": state}
+            sweep_export_tmps(path)
             # tmp + fsync + rename: an interrupted export never leaves a half file.
             tmp = path + ".tmp"
             with open(tmp, "w", encoding="utf-8") as f:
@@ -738,6 +777,7 @@ class Plugin:
             d = os.path.dirname(path)
             if d:
                 os.makedirs(d, exist_ok=True)
+            sweep_export_tmps(path)
             tmp = path + ".tmp"
             with open(tmp, "w", encoding="utf-8") as f:
                 f.write(content)
@@ -1193,6 +1233,7 @@ class Plugin:
         self._ensure_dirs()
         if not os.path.exists(_primary_file()):
             self._write_state(self._read_state())
+        await asyncio.to_thread(sweep_leftovers)
         try:
             logger.info(f"Deck Shelves backend loaded. Settings dir: {Plugin.settings_dir}")
         except Exception:

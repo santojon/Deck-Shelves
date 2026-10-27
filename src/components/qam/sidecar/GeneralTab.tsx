@@ -18,6 +18,7 @@ import { isCssLoaderActive } from '../../../core/cssLoaderDetect'
 import { isNonSteamBadgesAvailable } from '../../../integrations'
 import { isScreensaverSupportDetected } from '../../../runtime/screensaverInject'
 import { hasCloudSyncSupport } from '../../../runtime/cloudSync'
+import { CloudSyncAccountHold } from '../../../features/account/CloudSyncAccountHold'
 import { HideableRow, type HideableRowMode } from './HideableRow'
 
 type Mode = HideableRowMode
@@ -255,6 +256,7 @@ function cloudSyncGroup(c: GCtx): ReactNode {
         {cloudSyncStatusText(t, settings.cloudSyncLastSyncedAt)}
       </div>
     )}
+    {on && <CloudSyncAccountHold t={t} indent={14} />}
   </>)
 }
 

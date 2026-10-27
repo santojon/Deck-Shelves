@@ -8,22 +8,19 @@ import { openSetupWizard } from './SetupWizardEntry'
 import { WandIcon } from '../../components/icons'
 
 export function FirstRunBanner({ controller }: { controller: SettingsController }) {
-  const { t, settings } = controller
-  /* Empty shelves + master toggle off is normal for a fresh install — but a
-     true `showcaseSeen` means this install has seen the tour before, so
-     empty here means something cleared it, not day one. Offer the snapshot
-     picker too when that's the case, not just when the UI outright crashes
-     (see SnapshotRecovery). */
-  const looksWiped = (settings as any)?.showcaseSeen === true
+  const { t } = controller
+  /* No shelves while snapshots exist means something cleared them (a reset, a
+     profile, an import), not day one — a fresh install has none. Offer the
+     snapshot picker then, whatever cleared them (a reset also clears the tour
+     flag, so that flag cannot tell). */
   const [snaps, setSnaps] = useState<BackupEntry[] | null>(null)
   useEffect(() => {
-    if (!looksWiped) return
     let alive = true
     listBackups().then((b) => { if (alive) setSnaps(b) }).catch(() => { if (alive) setSnaps([]) })
     return () => { alive = false }
-  }, [looksWiped])
+  }, [])
   const openRecovery = () => openManagedModal((close) => <RestoreSnapshotModal closeModal={close} snapshots={snaps ?? []} />)
-  const hasSnapshots = looksWiped && !!snaps?.length
+  const hasSnapshots = !!snaps?.length
   return (
     <div style={{ margin: '8px 16px', padding: '12px 14px', background: 'rgba(255,255,255,0.06)', borderRadius: 6 }}>
       <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 6 }}>{t('first_run_title')}</div>

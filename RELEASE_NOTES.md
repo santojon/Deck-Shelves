@@ -7,6 +7,18 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+- **Profiles say whether they switch your shelves**: a profile that also switches your shelves is marked "Includes shelves", you can turn that on or off at any time, new profiles include the shelves by default, and every profile text and prompt now says what applying it really does.
+
+- **A restore point before every risky change**: switching profiles (by hand or by a trigger), importing anything and signing in with a different Steam account first save a snapshot, labelled with what made it.
+
+- **Snapshots are easy to find**: the Backup tab explains backups and snapshots, says when the last one was made and has a **Restore a snapshot** button; recovery notices lead there. The snapshot screens say when snapshots are made and how long they are kept.
+
+- **No more leftover files**: unreadable settings copies and interrupted writes no longer pile up, and **Delete all** clears every snapshot and leftover while keeping your current settings.
+
+- **Importing is clearer**: **Choose file…** comes first, the screen shows whether the file is there before you confirm, a missing `deck-shelves-shelves.json` falls back to your full `deck-shelves.json` backup, and failed imports say why.
+
+- **Each Steam account keeps its own shelves**: on a shared Deck, every account that signs in gets its own shelves, smart shelves, saved filters and profiles, and switching accounts swaps them (with a snapshot first). A new account is asked whether to copy the current shelves or start fresh; nothing is ever deleted. Prefer one set for everyone? Turn off **Separate settings per Steam account** in Settings → Backup. Your account ID is never stored or sent, and clearing the Steam client's storage no longer makes every account choose again.
+
 ## [3.4.0] - 2026-10-23
 
 - **The Quick Access tab stays on after the restart it asks for**: turning the own tab on and choosing "Restart now" no longer brings it back switched off, and a setting changed right before Steam restarts is no longer undone at the next start.

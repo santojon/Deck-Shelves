@@ -10,12 +10,24 @@ separado.
 
 ## Perfis
 
-Um perfil é um snapshot salvo da sua configuração. Útil para contextos
+Um perfil é uma cópia salva das suas configurações. Útil para contextos
 genuinamente diferentes — um layout "Encaixado" com prateleiras maiores
 para uma TV, um layout mínimo "Portátil" pra usar em movimento, o que
-combinar com o jeito que você realmente usa seu Deck. Existe um perfil
-**Padrão** embutido que é um reset de fábrica de verdade, não só mais um
-save.
+combinar com o jeito que você realmente usa seu Deck.
+
+Um perfil também troca suas **prateleiras** só quando as inclui: esses
+aparecem marcados com **Inclui prateleiras**, e dá para ligar ou desligar
+isso em qualquer perfil salvo (perfis novos incluem por padrão). Um perfil
+que não inclui prateleiras muda todas as outras configurações e deixa suas
+prateleiras como estão.
+
+Existe um perfil **Padrão** embutido que volta todas as configurações ao
+padrão e mantém o plugin ligado; ele só apaga suas prateleiras se você ligar
+**Também redefinir prateleiras**.
+
+Toda troca de perfil (à mão ou por gatilho) salva antes um snapshot do que
+vai substituir, então sempre dá para voltar: Configurações → Backup →
+**Restaurar um snapshot**.
 
 Crie, troque, importe e exporte perfis nas configurações — exportar é útil
 para fazer backup de uma configuração, ou compartilhar uma.

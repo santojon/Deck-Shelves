@@ -5,6 +5,7 @@ import { getUserDownloadsDir } from '../../../core/userPaths'
 import { ExportAndClearModal } from './ExportAndClearModal'
 import { confirmAction } from './ConfirmActionModal'
 import { openBugReport } from '../../../core/issueReport'
+import { openSnapshotPicker } from './RestoreSnapshotModal'
 
 export function MountCrashBanner({ controller, error, onDismiss }: { controller: SettingsController; error: string | null; onDismiss: () => void }) {
   const { t } = controller
@@ -40,6 +41,11 @@ export function MountCrashBanner({ controller, error, onDismiss }: { controller:
           onOKButton={() => { resetMountFailed(); onDismiss(); }}
           style={{ width: '100%', minWidth: 0 }}
         >{t('mount_crash_reset')}</DialogButton>
+        <DialogButton
+          onClick={openSnapshotPicker}
+          onOKButton={openSnapshotPicker}
+          style={{ width: '100%', minWidth: 0 }}
+        >{t('snapshot_recovery_button')}</DialogButton>
         <DialogButton
           onClick={openExportAndClear}
           onOKButton={openExportAndClear}

@@ -10,6 +10,7 @@ import { takeSnapshot } from "../features/settings/controller/profiles";
 import { isHomeOwner } from "./host/ownerGuard";
 import { notifyUser } from "./notify";
 import { qaOverrideActive } from "../qa/harness";
+import { accountReady, isCloudSyncHeldForAccount, markCloudSyncedAccount, onCloudSyncResumed } from "./steamAccount";
 import i18n from "../i18n";
 import type { Settings } from "../types";
 
@@ -206,8 +207,9 @@ export function installCloudSync(): () => void {
     return ((s as any).shelves?.length ?? 0) > 0 || ((s as any).smartShelves?.length ?? 0) > 0;
   }
 
+  // The cloud copy belongs to the signed-in account: after an account switch it waits for the user.
   function canSync(): boolean {
-    return !disposed && isHomeOwner() && hasCloudSyncSupport();
+    return !disposed && isHomeOwner() && hasCloudSyncSupport() && !isCloudSyncHeldForAccount();
   }
 
   // The cloud's own stamp when it already holds what we would publish, else the stamp of our write.
@@ -233,6 +235,7 @@ export function installCloudSync(): () => void {
     const at = await publish(plan.toPublish, plan.publishActive, cloud, remote);
     if (!at) return;
     lastKnownJson = mergedPayload;
+    markCloudSyncedAccount();
     // "Last synced" moves on a write and on an adoption; a pull that changed nothing leaves it.
     if (adopted || at !== cloud?.updatedAt) {
       await patchSettingsVerified({ cloudSyncLastSyncedAt: at }, (s) => (s as any).cloudSyncLastSyncedAt === at);
@@ -262,7 +265,14 @@ export function installCloudSync(): () => void {
     schedulePush(live);
   }
 
+  const unResume = onCloudSyncResumed(() => {
+    const live = getCurrentSettings();
+    if (live && isFeatureEnabled(live)) void syncOnce(live);
+  });
+
   void (async () => {
+    await accountReady();
+    if (disposed) return;
     const local = getCurrentSettings();
     if (local && isFeatureEnabled(local)) {
       wasEnabled = true;
@@ -282,6 +292,7 @@ export function installCloudSync(): () => void {
     disposed = true;
     if (debounceTimer) clearTimeout(debounceTimer);
     clearInterval(pullTimer);
+    unResume();
     unsub?.();
   };
 }

@@ -1,6 +1,7 @@
 import type { Settings, SmartShelf, SmartShelfMode } from "../../../types";
 import { createDefaultSmartShelf } from "../../../domain/defaults";
 import { writeJsonFile, readJsonFile } from "../../../settingsStore";
+import { createPreImportSnapshot } from "../../../store/settingsStore";
 import { notify } from "../../../components/notify";
 
 export interface SmartShelfDeps {
@@ -127,6 +128,7 @@ export function createSmartShelfActions(deps: SmartShelfDeps) {
       const next = applyImportedSmartShelves(s, raw);
       if (!next) return false;
       try {
+        await createPreImportSnapshot();
         await persist(next);
         return true;
       } catch { return false; }

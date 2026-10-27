@@ -1,18 +1,20 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
-const { store, saved, resolved, cb, toasts, qa } = vi.hoisted(() => ({
+const { store, saved, resolved, cb, toasts, qa, snapshotKinds } = vi.hoisted(() => ({
   store: { current: null as any },
   saved: { list: [] as any[] },
   resolved: { current: null as string | null },
   cb: { settings: null as null | ((s: any) => void) },
   toasts: { list: [] as string[] },
   qa: { active: false },
+  snapshotKinds: [] as string[],
 }))
 
 vi.mock('../../store/settingsStore', () => ({
   getCurrentSettings: () => store.current,
   saveSettings: (n: any) => { saved.list.push(n); return Promise.resolve(true); },
   subscribeSettings: (fn: any) => { cb.settings = fn; return () => {}; },
+  snapshotOnNextSave: (kind: string) => { snapshotKinds.push(kind) },
 }))
 vi.mock('../../runtime/deviceState', () => ({ subscribeDeviceState: () => () => {} }))
 vi.mock('../../runtime/sessionState', () => ({ subscribeSessionState: () => () => {} }))
@@ -357,3 +359,22 @@ describe('installProfileTriggers', () => {
     }
   })
 })
+
+describe('a profile applied by a trigger keeps a safety snapshot of what it replaces', () => {
+  it('asks for one with the apply, and none with the revert', () => {
+    saved.list = []; snapshotKinds.length = 0
+    store.current = { profileTriggersEnabled: true, profiles: [profile], activeProfileName: null, enabled: true, shelves: [] }
+    resolved.current = null
+    const un = installProfileTriggers()
+    resolved.current = 'Docked'
+    cb.settings!(store.current)
+    expect(saved.list.length).toBe(1)
+    expect(snapshotKinds).toEqual(['profile'])
+    store.current = saved.list[0]
+    resolved.current = null
+    cb.settings!(store.current)
+    expect(snapshotKinds).toEqual(['profile'])
+    un()
+  })
+})
+

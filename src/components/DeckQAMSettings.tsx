@@ -18,6 +18,7 @@ import { isTabMasterInstalled, isNonSteamBadgesAvailable } from '../integrations
 import { isCssLoaderActive } from '../core/cssLoaderDetect'
 import { isScreensaverSupportDetected } from '../runtime/screensaverInject'
 import { hasCloudSyncSupport } from '../runtime/cloudSync'
+import { CloudSyncAccountHold } from '../features/account/CloudSyncAccountHold'
 import { useLightMode } from './ui/lightMode'
 import { getUserDownloadsDir, joinDownloads } from '../core/userPaths'
 import { descriptorName } from '../core/descriptorName'
@@ -715,6 +716,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
               {cloudSyncStatusText(t, (settings as any).cloudSyncLastSyncedAt)}
             </div>
           )}
+          {(settings as any).cloudSyncEnabled === true && <CloudSyncAccountHold t={t} indent={16} />}
         </>)}
         {(() => (
         settings.onlineFeaturesEnabled === true && (

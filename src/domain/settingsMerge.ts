@@ -24,6 +24,8 @@ export const DEVICE_LOCAL_FIELDS = [
   "debugOverlayEnabled", "debugOverlayCorner", "debugOverlayVertical",
   "debugOverlayFps", "debugOverlayStats", "debugOverlayPerShelf",
   "debugOverlayOutlines", "debugOverlayFocus", "debugOverlayTransparent",
+  // Settings per Steam account: the other accounts' fields live here (domain/accountBuckets.ts).
+  "accountSettings",
 ] as const;
 
 // Per-device, never synced — always kept from the local (first) argument.

@@ -29,4 +29,10 @@ describe("a full reset and the device's own localStorage", () => {
     clearOwnLocalStorage();
     expect([...mem.keys()]).toEqual(["other-plugin"]);
   });
+
+  it("keeps the Steam account record the settings kept per account depend on", () => {
+    mem.set("deck-shelves-account-v1", '{"salt":"00"}');
+    clearOwnLocalStorage();
+    expect([...mem.keys()]).toEqual(["other-plugin", "deck-shelves-account-v1"]);
+  });
 });

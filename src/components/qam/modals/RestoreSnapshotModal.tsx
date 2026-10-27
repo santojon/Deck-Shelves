@@ -1,11 +1,36 @@
 import { ConfirmModal, DialogButton } from '../../../runtime/host/decky'
 import { ModalShell } from '../../ui'
-import { restoreBackup, type BackupEntry } from '../../../store/settingsStore'
+import { listBackups, restoreBackup, type BackupEntry } from '../../../store/settingsStore'
 import { notifyUser } from '../../../runtime/notify'
+import { openManagedModal } from '../common/openManagedModal'
 import i18n from '../../../i18n'
 
 // Standalone t (this opens from the error boundary, which has no controller).
 const tr = (k: string, fb: string) => { const v = i18n.t(k); return v && v !== k ? v : fb }
+
+export type SnapshotOrigin = 'account-switch' | 'pre-profile' | 'pre-import' | 'manual' | 'import' | 'auto'
+
+// What made a snapshot, read from its file name (the backend tags every kind but the daily one).
+export function snapshotOrigin(name: string): SnapshotOrigin {
+  for (const tag of ['account-switch', 'pre-profile', 'pre-import', 'manual', 'import'] as const) {
+    if (name.includes(`-${tag}`)) return tag
+  }
+  return 'auto'
+}
+
+export function snapshotOriginLabel(name: string): string {
+  const origin = snapshotOrigin(name)
+  return tr(`snapshot_origin_${origin.replace('-', '_')}`, origin)
+}
+
+/* Opens the snapshot picker from anywhere (Backup tab, recovery notices), or says
+   there is none yet. */
+export function openSnapshotPicker(): void {
+  void listBackups().then((snapshots) => {
+    if (!snapshots.length) { notifyUser('Deck Shelves', tr('snapshot_none_yet', 'No snapshots yet.'), 'info'); return }
+    openManagedModal((close) => <RestoreSnapshotModal closeModal={close} snapshots={snapshots} />)
+  }).catch(() => {})
+}
 
 /* Snapshot picker shown from the error-boundary recovery UI. Lists the settings
    snapshots (Advanced → Snapshots backups) and restores the chosen one — the
@@ -38,6 +63,7 @@ export function RestoreSnapshotModal({ closeModal, snapshots }: {
           <div key={s.name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '8px 0', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
             <div style={{ display: 'flex', flexDirection: 'column' }}>
               <span style={{ fontSize: 13 }}>{new Date(s.mtime * 1000).toLocaleString()}</span>
+              <span style={{ fontSize: 11, opacity: 0.75 }}>{snapshotOriginLabel(s.name)}</span>
               <span style={{ fontSize: 11, opacity: 0.6 }}>
                 {s.summary.shelves} · {s.summary.smartShelves} · {s.summary.profiles} · {s.summary.filters}
               </span>

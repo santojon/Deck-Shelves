@@ -637,6 +637,10 @@ export const SettingsSchema = z.object({
      experimental, per device). Has no effect when a neutral host shows its own
      Deck Shelves tab (runtime/ownQamTab.ts). */
   ownQamTabEnabled: z.boolean().nullable().optional().transform((v) => v ?? false),
+  /* Settings per Steam account (domain/accountBuckets.ts): which account the top
+     level belongs to and the other accounts' own fields. Device-local, never
+     synced, exported or kept in a profile. Read leniently: a bad value is ignored. */
+  accountSettings: z.any().optional(),
   /* Showcase / Dynamic Idle Mode — cycles attention through the user's own
      shelves during Home inactivity; any real interaction stops it instantly.
      Off by default. Empty `showcaseShelfIds` means every currently-visible
