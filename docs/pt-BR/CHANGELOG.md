@@ -37,6 +37,13 @@ e este projeto segue o [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 - **Importar prateleiras ou prateleiras inteligentes encontra seu backup completo.** Esses imports procuravam só o nome de arquivo deles (`deck-shelves-shelves.json`, `deck-shelves-smart-shelves.json`) e falhavam com um genérico "falha ao salvar" quando só o backup completo (`deck-shelves.json`) estava lá. Quando o arquivo indicado não existe, agora procuram os outros arquivos de export na mesma pasta e oferecem importar só a parte correspondente, e um import que falha diz por quê: arquivo não encontrado (com o caminho), export inválido, ou nada daquele tipo nele ([`ImportModal.tsx`](../../src/components/qam/modals/ImportModal.tsx), [`importFile.ts`](../../src/features/settings/importFile.ts)). Testes unitários adicionados.
 
+- **Um jogo instalado só em outro aparelho mostra a atualização dessa cópia.** Quando a cópia no outro aparelho (um Deck, visto de um PC ou Mac) tinha uma atualização pendente ou em andamento, a dica do card dizia "Transmitir", enquanto o menu da própria Steam começa com Atualizar ou Pausar para essa cópia; a dica agora segue o menu da Steam ([`gameCardHooks.ts`](../../src/components/shelf/gameCardHooks.ts)). Testes unitários adicionados.
+
+- **Um jogo atualizando no Deck aparece em "Atualização pendente" mesmo quando a Steam o informa como não suportado.** A Steam pode informar um jogo instalado no Deck como "plataforma inválida", mesmo durante a atualização, então o filtro não o encontrava; um jogo instalado na fila de downloads do próprio aparelho agora conta como tendo atualização pendente ([`appOverview.ts`](../../src/steam/appOverview.ts)). Testes unitários adicionados.
+
+- **O botão Steam e o Acesso Rápido funcionam num jogo aberto pela Home (#135).** Com prateleiras na Home, um jogo iniciado por ela podia deixar os dois botões sem efeito até o jogo ser fechado (um segundo lançamento, pela página do jogo, funcionava). A Home sai da tela quando um jogo começa, mas as prateleiras continuam carregadas para a volta ser rápida, e a Steam as mantinha na navegação: mandava os botões para um card que já não estava na tela, e eles nunca chegavam à Steam. Agora, quando a Home sai da tela, as prateleiras saem da navegação da Steam, liberando antes o foco como a Steam faz com as próprias páginas, e voltam no retorno ([`reparent.ts`](../../src/components/home/navPatches/reparent.ts), [`HomeInject.tsx`](../../src/components/HomeInject.tsx)). Testes unitários adicionados.
+
+
 ## [3.4.0] - 2026-10-23
 
 ### Adicionado

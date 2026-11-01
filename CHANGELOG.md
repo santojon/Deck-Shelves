@@ -37,6 +37,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Importing shelves or smart shelves finds your full backup.** Those imports looked only for their own file name (`deck-shelves-shelves.json`, `deck-shelves-smart-shelves.json`) and failed with a generic "save failed" when only the full backup (`deck-shelves.json`) was there. When the named file is missing, they now look for the other export files in the same folder and offer to import just the matching part, and a failed import says why: file not found (with the path), not a valid export, or nothing of that kind in it ([`ImportModal.tsx`](src/components/qam/modals/ImportModal.tsx), [`importFile.ts`](src/features/settings/importFile.ts)). Unit tests added.
 
+- **A game installed only on another device shows that copy's update.** When the copy on the other device (a Deck, seen from a PC or Mac) had an update pending or under way, the card's hint said "Stream" while Steam's own menu starts with Update or Pause for that copy; the hint now follows Steam's menu ([`gameCardHooks.ts`](src/components/shelf/gameCardHooks.ts)). Unit tests added.
+
+- **A game updating on the Deck is found by "Update pending" even when Steam reports it as unsupported.** Steam can report an installed game on the Deck as "invalid platform", even while it updates, so the filter missed it; an installed game in the device's own download queue now counts as having an update pending ([`appOverview.ts`](src/steam/appOverview.ts)). Unit tests added.
+
+- **The Steam button and Quick Access work in a game launched from the Home (#135).** With shelves on the Home, a game started from it could leave both buttons doing nothing until the game was closed (a second launch, from the game's page, worked). The Home leaves the screen when a game starts, but the shelves stay loaded for a quick return, and Steam kept them in its navigation: it sent the buttons to a card no longer on screen, so they never reached Steam. When the Home leaves the screen the shelves now step out of Steam's navigation, releasing the focus first as Steam does for its own pages, and step back in on the return ([`reparent.ts`](src/components/home/navPatches/reparent.ts), [`HomeInject.tsx`](src/components/HomeInject.tsx)). Unit tests added.
+
+
 ## [3.4.0] - 2026-10-23
 
 ### Added

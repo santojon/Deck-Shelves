@@ -19,6 +19,11 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 - **Each Steam account keeps its own shelves**: on a shared Deck, every account that signs in gets its own shelves, smart shelves, saved filters and profiles, and switching accounts swaps them (with a snapshot first). A new account is asked whether to copy the current shelves or start fresh; nothing is ever deleted. Prefer one set for everyone? Turn off **Separate settings per Steam account** in Settings → Backup. Your account ID is never stored or sent, and clearing the Steam client's storage no longer makes every account choose again.
 
+- **Updates on your other devices show up right**: a game installed only on another device offers that copy's Update or Pause, as Steam's menu does, instead of Stream, and a game updating on the Deck appears on update shelves even when Steam marks it as unsupported there.
+
+- **Steam and Quick Access buttons work in games started from the Home (#135)**: launching a game from the Home no longer leaves both buttons doing nothing until the game is closed.
+
+
 ## [3.4.0] - 2026-10-23
 
 - **The Quick Access tab stays on after the restart it asks for**: turning the own tab on and choosing "Restart now" no longer brings it back switched off, and a setting changed right before Steam restarts is no longer undone at the next start.

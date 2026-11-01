@@ -101,6 +101,11 @@ describe("watching the signed-in Steam account", () => {
     expect(mod.readSteamId()).toBe(A);
     vi.stubGlobal("App", { GetCurrentUser: () => ({ strSteamID: "12345" }) });
     expect(mod.readSteamId()).toBeNull();
+    // Account 0, reported at start before anyone is signed in, is no account.
+    vi.stubGlobal("App", { GetCurrentUser: () => ({ strSteamID: "76561197960265728" }) });
+    expect(mod.readSteamId()).toBeNull();
+    vi.stubGlobal("App", { GetCurrentUser: () => ({ strSteamID: "76561197960265729" }) });
+    expect(mod.readSteamId()).toBe("76561197960265729");
     vi.stubGlobal("App", { GetCurrentUser: () => { throw new Error("not ready"); } });
     expect(mod.readSteamId()).toBeNull();
     vi.stubGlobal("App", undefined);

@@ -19,6 +19,11 @@ técnico completo, veja [CHANGELOG.md](CHANGELOG.md).
 
 - **Cada conta Steam tem as próprias prateleiras**: num Deck compartilhado, cada conta que entra tem as próprias prateleiras, prateleiras inteligentes, filtros salvos e perfis, e trocar de conta troca tudo isso (com um snapshot antes). Uma conta nova é perguntada se quer copiar as prateleiras atuais ou começar do zero; nada é apagado. Prefere um conjunto só para todos? Desligue **Configurações separadas por conta Steam** em Configurações → Backup. O ID da sua conta nunca é guardado nem enviado, e limpar o armazenamento do cliente Steam não faz mais todas as contas escolherem de novo.
 
+- **Atualizações nos seus outros aparelhos aparecem certo**: um jogo instalado só em outro aparelho oferece Atualizar ou Pausar dessa cópia, como o menu da Steam, em vez de Transmitir, e um jogo atualizando no Deck aparece nas prateleiras de atualização mesmo quando a Steam o marca como não suportado lá.
+
+- **Botões Steam e Acesso Rápido funcionam em jogos iniciados pela Home (#135)**: abrir um jogo pela Home não deixa mais os dois botões sem efeito até o jogo ser fechado.
+
+
 ## [3.4.0] - 2026-10-23
 
 - **A aba no Acesso Rápido continua ligada depois do reinício que ela pede**: ligar a aba própria e escolher "Reiniciar agora" não a traz mais de volta desligada, e uma configuração mudada logo antes de a Steam reiniciar não é mais desfeita no início seguinte.

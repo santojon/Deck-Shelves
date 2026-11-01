@@ -263,14 +263,23 @@ function resolveNotInstalledCardState(overview: any, localEntry: any, pcdRaw: an
   const remotePcd: any[] = Array.isArray(overview.remote_per_client_data)
     ? overview.remote_per_client_data
     : pcdRaw.filter((c: any) => String(c?.clientid) !== "0");
-  const installedRemote = remotePcd.some((c: any) => !!c?.installed || Number(c?.display_status) === EAppDisplayStatus.ReadyToLaunch);
-  if (installedRemote) return { label: i18n.t('menu_stream'), action: 'run' };
+  const remote = remotePcd.find((c: any) => !!c?.installed || Number(c?.display_status) === EAppDisplayStatus.ReadyToLaunch);
+  if (remote) return remoteCardState(remote);
   /* No local per-client entry at all — Steam hasn't given us anything to
      judge compatibility from, so keep the old default rather than guess
      it's unsupported. A local entry that DID resolve, just not to a clean
      not-installed state, means neither action applies. */
   if (!localEntry) return { label: i18n.t('menu_install'), action: 'run' };
   return { label: undefined, action: 'run' };
+}
+
+/* Another device's copy: Steam's first item is that copy's update (run on that device) while one
+   is pending or under way, else Stream. */
+export function remoteCardState(remote: any): CardState {
+  const next = resolveQuickLaunchAction({ installed: true, displayStatus: Number(remote?.display_status ?? 0), statusPercentage: remote?.status_percentage });
+  if (next === 'update') return { label: i18n.t('menu_update'), action: 'resume_update' };
+  if (next === 'pause') return { label: i18n.t('menu_pause'), action: 'resume_update' };
+  return { label: i18n.t('menu_stream'), action: 'run' };
 }
 
 function readDisplayStatus(overview: any): number {

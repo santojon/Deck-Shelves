@@ -137,6 +137,32 @@ function moveNodeUnder(ourNode: any, target: any): boolean {
   return true;
 }
 
+// Steam's focus source for a change the app makes itself (its own unmount uses it).
+const FOCUS_SOURCE_APPLICATION = 2;
+
+function releaseNode(node: any): boolean {
+  const parent = node.m_Parent;
+  if (!listedUnder(node, parent)) return false;
+  const tree = node.Tree ?? node.m_Tree;
+  const focused = navNodeElement(tree?.GetLastFocusedNode?.());
+  if (focused && navNodeElement(node)?.contains(focused)) tree.TransferFocus?.(FOCUS_SOURCE_APPLICATION, null);
+  if (typeof parent.RemoveChild === "function") parent.RemoveChild(node);
+  else parent.m_rgChildren.splice(parent.m_rgChildren.indexOf(node), 1);
+  return true;
+}
+
+/* The Home left the document (a game launched from it) while our React tree lives on, so our
+   nodes would stay in Steam's tree: Steam then focuses a card no one sees and sends it the Steam
+   and QAM buttons, which never reach Steam. Take them out as Steam's own unmount does (focus
+   released first); reparentNavTreeNodes puts them back on the return. -1 while still attached. */
+export function releaseDetachedNavNodes(mountEl: HTMLElement): number {
+  if (mountEl.isConnected) return -1;
+  let released = 0;
+  for (const node of findOurNavNodesByFiber(mountEl)) if (releaseNode(node)) released++;
+  if (released) logInfo("HOME", "Home left the document: shelves taken out of the nav tree", { released });
+  return released;
+}
+
 export function reparentNavTreeNodes(mountEl: HTMLElement): number {
   const ctrl = resolveFocusNavController();
   if (!ctrl) return -1;

@@ -9,6 +9,8 @@ import { logInfo } from "./logger";
 
 const STORE_KEY = "deck-shelves-account-v1";
 const STEAM_ID = /^7656119\d{10}$/;
+// Account 0: what Steam reports while no one is signed in yet, early at start.
+const NO_ACCOUNT_ID = "76561197960265728";
 const CHECK_GAP_MS = 5000;
 const MAX_CHECKS = 4;
 const SALT = /^[0-9a-f]{32}$/;
@@ -28,7 +30,8 @@ export function readSteamId(): string | null {
     const app = (globalThis as any).App;
     const user = app?.GetCurrentUser?.() ?? app?.m_CurrentUser;
     const id = user?.strSteamID;
-    return typeof id === "string" && STEAM_ID.test(id) ? id : null;
+    // Same length, so a text comparison orders them: only ids above account 0 are accounts.
+    return typeof id === "string" && STEAM_ID.test(id) && id > NO_ACCOUNT_ID ? id : null;
   } catch { return null; }
 }
 

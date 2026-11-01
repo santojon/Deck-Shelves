@@ -23,7 +23,8 @@ import { getPowerState } from "../runtime/powerGate";
 import { allShelvesWarm, getShelfWarmEntry, isShelfResolved, subscribeShelfResolved } from "./shelf/shelfWarmState";
 import { recordBootStarted, recordBootCompleted } from "../runtime/safeMode";
 import { focusNativeRecentsFirstCard, findNativeRecentsEl } from "../features/sidenav/ShelfSideNav";
-import { patchShelfEdgeNavigation, patchMenuButton, installVerticalFocusBridge, reparentNavTreeNodes } from "./home/navPatches";
+import { patchShelfEdgeNavigation, patchMenuButton, installVerticalFocusBridge, reparentNavTreeNodes, releaseDetachedNavNodes } from "./home/navPatches";
+import { steamUIStore } from "../steam/internals";
 import { useHeroIdlePause } from "./home/heroIdlePause";
 import { triggerShelfRefresh } from "../core/shelfRefresh";
 import { bumpAssetRevision } from "../core/assetRevision";
@@ -843,6 +844,27 @@ const SHELVES_CONTAINER_DEFAULTS = {
   autoCollapseEnabled: false,
 } as const satisfies Partial<ShelvesContainerProps>;
 
+/* Steam's own router (it does not use the window history): leaving the Home, by a game launched
+   from it or back to a game from the Home opened over it, takes our nav nodes out of Steam's tree
+   once the Home is out of the document. A few tries: the route commits after the router event. */
+function watchHomeLeave(mountEl: HTMLElement): () => void {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  const release = (tries: number) => {
+    timer = null;
+    if (isHomeRoute() || releaseDetachedNavNodes(mountEl) >= 0 || tries >= 5) return;
+    timer = setTimeout(() => release(tries + 1), 200);
+  };
+  let unlisten: unknown = null;
+  try {
+    const router = steamUIStore()?.WindowStore?.GamepadUIMainWindowInstance?.m_history;
+    unlisten = router?.listen?.(() => { if (!timer && !isHomeRoute()) release(0); });
+  } catch {}
+  return () => {
+    if (timer) clearTimeout(timer);
+    if (typeof unlisten === "function") unlisten();
+  };
+}
+
 function ShelvesContainer(props: ShelvesContainerProps) {
   const { mountEl, shelves, onSettleChange, globalMatchNativeSize, globalHighlightFirst, globalHighlightAll, globalHighlightRandom, globalHideStatusLine, globalHideNewBadge, globalHideDiscountBadge, globalHideCompatIcons, globalHideNonSteamBadge, globalHideShelfTitle, globalHideGameNames, globalHideInstallIndicator, globalHideSeeMore, globalHideRefreshCard, globalDedupeByName, globalHeroEnabled, globalGameInfoAbove, globalFriendsPlayingOverlay, globalFriendsPlayingOverlayRecent, globalEnableLogo, globalEnableIcon, globalEnableDescription, globalDescriptionBelowLogo, globalLogoBelowShelf, globalLogoPosition, globalDescriptionPosition, globalLogoSize, globalLogoTopOffset, globalFullPageShelf, globalIconVerticalAlign, globalShelfTitlePosition, globalGameNamePosition, globalPlaytimePosition, globalDescriptionHeight, shelfHeroBackground, perShelfHeroAllowed, hideRecentsSetting, forceCssLoaderThemes, interleaveSmart, autoCollapseEnabled } = withDefaults(props, SHELVES_CONTAINER_DEFAULTS);
   /* One-time reveal gate: hides this region until every shelf has rendered
@@ -968,7 +990,10 @@ function ShelvesContainer(props: ShelvesContainerProps) {
     win.addEventListener("popstate", onNavEvent);
     win.addEventListener("hashchange", onNavEvent);
 
+    const stopHomeLeaveWatch = watchHomeLeave(mountEl);
+
     return () => {
+      stopHomeLeaveWatch();
       obs.disconnect();
       parentObs?.disconnect();
       window.clearInterval(poll);
