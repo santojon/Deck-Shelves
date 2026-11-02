@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.4.1] - 2026-11-02
+
 ### Added
 
 - **A safety snapshot before every profile switch, import and Steam account change.** Applying a profile (by hand or by a trigger, the Default one included), importing anything (shelves, smart shelves, profiles, a full or partial backup, a plugin format) and signing in with a different Steam account now first save a restore point of the settings they are about to change. A profile switch takes it in the same step as the save, so nothing can land in between, and a trigger that flips back and forth saves at most one a minute. The snapshot list and the restore picker say what made each one: daily, manual, imported, before an import, before a profile switch, or a Steam account change ([`settingsStore.ts`](src/store/settingsStore.ts), [`profiles.ts`](src/features/settings/controller/profiles.ts), [`profileTriggers.ts`](src/runtime/profileTriggers.ts), [`storage.py`](src/backend/storage.py), [`main.py`](main.py)). Unit tests added.

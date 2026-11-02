@@ -7,6 +7,8 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+## [3.4.1] - 2026-11-02
+
 - **Profiles say whether they switch your shelves**: a profile that also switches your shelves is marked "Includes shelves", you can turn that on or off at any time, new profiles include the shelves by default, and every profile text and prompt now says what applying it really does.
 
 - **A restore point before every risky change**: switching profiles (by hand or by a trigger), importing anything and signing in with a different Steam account first save a snapshot, labelled with what made it.

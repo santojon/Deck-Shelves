@@ -7,6 +7,8 @@ técnico completo, veja [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+## [3.4.1] - 2026-11-02
+
 - **Os perfis dizem se trocam suas prateleiras**: um perfil que também troca suas prateleiras aparece marcado com "Inclui prateleiras", dá para ligar ou desligar isso a qualquer momento, perfis novos incluem as prateleiras por padrão, e todo texto e confirmação de perfil agora diz o que aplicá-lo realmente faz.
 
 - **Um ponto de restauração antes de toda mudança arriscada**: trocar de perfil (à mão ou por gatilho), importar qualquer coisa e entrar com outra conta Steam salvam antes um snapshot, identificado pelo que o criou.

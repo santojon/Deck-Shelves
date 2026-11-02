@@ -9,6 +9,8 @@ e este projeto segue o [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ## [Não lançado]
 
+## [3.4.1] - 2026-11-02
+
 ### Adicionado
 
 - **Um snapshot de segurança antes de toda troca de perfil, import e troca de conta Steam.** Aplicar um perfil (à mão ou por gatilho, o Padrão incluído), importar qualquer coisa (prateleiras, prateleiras inteligentes, perfis, um backup completo ou parcial, um formato de outro plugin) e entrar com outra conta Steam agora salvam antes um ponto de restauração das configurações que vão mudar. Uma troca de perfil o tira no mesmo passo da gravação, então nada entra no meio, e um gatilho que vai e volta salva no máximo um por minuto. A lista de snapshots e o seletor de restauração dizem o que criou cada um: diário, manual, importado, antes de um import, antes de trocar de perfil ou troca de conta Steam ([`settingsStore.ts`](../../src/store/settingsStore.ts), [`profiles.ts`](../../src/features/settings/controller/profiles.ts), [`profileTriggers.ts`](../../src/runtime/profileTriggers.ts), [`storage.py`](../../src/backend/storage.py), [`main.py`](../../main.py)). Testes unitários adicionados.
