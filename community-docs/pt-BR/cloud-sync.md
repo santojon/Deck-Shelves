@@ -71,6 +71,21 @@ diferentes, cada um mantém seu próprio visual: as configurações do dia a dia
 só acompanham entre dispositivos rodando o mesmo perfil (ou nenhum), então o
 *Showcase* de uma máquina docked nunca vaza para o *Handheld* de um portátil.
 
+## Trocando de conta Steam
+
+Cada conta Steam tem num aparelho as próprias prateleiras, prateleiras
+inteligentes, filtros salvos e perfis, e a cópia na nuvem também é da conta,
+então a sincronização sempre junta a cópia na nuvem de uma conta com as
+configurações dela mesma. Quando outra conta entra, as configurações dela
+voltam (ou ela é perguntada se quer copiar as prateleiras atuais ou começar
+do zero), e a sincronização espera até isso se resolver.
+
+Se você desligou **Configurações separadas por conta Steam** (Configurações
+→ Backup) para compartilhar um conjunto só, quando outra conta entra aparece
+um aviso e um snapshot, e a sincronização espera até você escolher
+**Sincronizar com esta conta** abaixo do status da sincronização no Acesso
+Rápido. O ID da sua conta nunca é guardado nem enviado.
+
 ## Solução de problemas
 
 - **A linha de status diz "ainda não sincronizado" e continua assim.**

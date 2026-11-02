@@ -220,7 +220,7 @@ export function scheduleBootToasts(openSettings: (tab?: string) => void): Uninst
       if (!recovered) return;
       notify("warning", {
         body: i18next.t("settings_recovered_toast_body" as any),
-        onClick: () => openSettings(),
+        onClick: () => openSettings("backup"),
       });
     }).catch(() => {});
   }, 5000);

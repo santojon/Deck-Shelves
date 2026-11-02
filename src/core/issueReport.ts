@@ -23,7 +23,7 @@ import { getDeviceProfile } from "../runtime/deviceState";
 import { getPerfSnapshot } from "./perfMetrics";
 import { getLearnedTimeoutsSummary } from "./adaptiveTimeout";
 import { getSmartShelfCacheStats } from "../steam/smartShelves";
-import { getCurrentSettings } from "../store/settingsStore";
+import { countQuarantinedSettings, getCurrentSettings } from "../store/settingsStore";
 import { openExternalUrl } from "./updateNotifier";
 import { copyToClipboard } from "../components/ui/clipboard";
 import { notify } from "../components/notify";
@@ -37,6 +37,12 @@ const DASH = "—";
 // in the URL; the full log buffer goes to the clipboard instead.
 const MAX_CONTEXT_URL_CHARS = 1800;
 const CLIPBOARD_LOG_BUDGET = 6000;
+// A SteamID64 anywhere in what leaves the device (an error text, a log line) is replaced.
+const STEAM_ID64 = /7656119\d{10}/g;
+
+export function redactAccountIds(text: string): string {
+  return text.replace(STEAM_ID64, "[steamid]");
+}
 
 export type IssueType = "bug" | "enhancement" | "feature";
 
@@ -131,7 +137,7 @@ function hostLine(hs: RuntimeInfo["hostHandshake"]): string {
   return s;
 }
 
-function diagnosticsText(runtime: RuntimeInfo, sys: SystemInfo | null, hw: HardwareInfo | null): string {
+function diagnosticsText(runtime: RuntimeInfo, sys: SystemInfo | null, hw: HardwareInfo | null, quarantined = 0): string {
   const yn = (b: boolean) => (b ? "yes" : "no");
   const plugins = listCoLoadedPlugins();
   return [
@@ -149,6 +155,8 @@ function diagnosticsText(runtime: RuntimeInfo, sys: SystemInfo | null, hw: Hardw
     `UnifiDeck: ${yn(runtime.unifiDeck)}`,
     `Non-Steam Badges: ${yn(runtime.nonSteamBadges)}`,
     `Plugins: ${plugins.length ? plugins.join(", ") : DASH}`,
+    // A count above 0 means the settings file was unreadable at some point (copies kept aside).
+    `Unreadable settings copies kept: ${quarantined}`,
     "Config:",
     ...summarizeConfig(getCurrentSettings()).map((l) => `  ${l}`),
   ].join("\n");
@@ -223,14 +231,14 @@ export async function openIssueReport(
   let hw: HardwareInfo | null = null;
   if (opts.includeHardware) { try { hw = await collectHardwareInfo(); } catch { /* fail-soft — report without hardware */ } }
 
-  const diag = diagnosticsText(runtime, sys, hw);
-  const context = [
+  const diag = diagnosticsText(runtime, sys, hw, await countQuarantinedSettings());
+  const context = redactAccountIds([
     ...(opts.error ? ["### Error", "```", opts.error.slice(0, 400), "```", ""] : []),
     "### Diagnostics",
     "```", diag, "```",
-  ].join("\n").slice(0, MAX_CONTEXT_URL_CHARS);
+  ].join("\n")).slice(0, MAX_CONTEXT_URL_CHARS);
 
-  const logs = logsText(CLIPBOARD_LOG_BUDGET);
+  const logs = redactAccountIds(logsText(CLIPBOARD_LOG_BUDGET));
   void copyToClipboard([context, "", "### Logs (most recent first)", "```", logs, "```"].join("\n"))
     .then((ok) => { if (ok) notify("copy", { body: i18next.t("about_report_copied") }); });
 

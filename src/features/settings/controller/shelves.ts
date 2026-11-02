@@ -5,7 +5,7 @@ import { createDefaultShelf, createDefaultSource, randomShelfId } from "../../..
 import { DEFAULT_SHELF_TEMPLATES } from "../../../domain/templates";
 import { setupPackById, applySetupPack, revertSetupApply } from "../../../domain/setupPacks";
 import { writeJsonFile, readJsonFile } from "../../../settingsStore";
-import { createSnapshot } from "../../../store/settingsStore";
+import { createPreImportSnapshot, createSnapshot } from "../../../store/settingsStore";
 import { notify } from "../../../components/notify";
 import { trackFeature } from "../../../steam/usageTracking";
 import { buildSnapshot, applySnapshot, type SnapshotConcept } from "../../../domain/snapshot";
@@ -83,6 +83,7 @@ export function createShelfActions(deps: ShelvesDeps) {
       const imported = parseImportedShelves(raw);
       if (!imported) return false;
       try {
+        await createPreImportSnapshot();
         await persist({ ...s, shelves: imported });
         if (imported[0]?.id) setSelectedId(imported[0].id);
         try { trackFeature("import"); } catch {}
@@ -104,6 +105,7 @@ export function createShelfActions(deps: ShelvesDeps) {
       if (!raw) return false;
       try {
         const next = applySnapshot(s, JSON.parse(raw), mode);
+        await createPreImportSnapshot();
         await persist(next);
         if (next.shelves[0]?.id) setSelectedId(next.shelves[0].id);
         try { trackFeature("import"); } catch {}
@@ -138,6 +140,7 @@ export function createShelfActions(deps: ShelvesDeps) {
         const snapshotJson = await handler.import(raw);
         if (typeof snapshotJson !== "string") return false;
         const next = applySnapshot(s, JSON.parse(snapshotJson), mode);
+        await createPreImportSnapshot();
         await persist(next);
         if (next.shelves[0]?.id) setSelectedId(next.shelves[0].id);
         try { trackFeature("import"); } catch {}

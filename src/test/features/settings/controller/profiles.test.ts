@@ -4,6 +4,8 @@ vi.mock('i18next', () => ({ default: { t: (k: string) => k } }))
 vi.mock('../../../../components/notify', () => ({ notify: vi.fn() }))
 vi.mock('../../../../steam/usageTracking', () => ({ trackFeature: vi.fn() }))
 vi.mock('../../../../settingsStore', () => ({ writeJsonFile: vi.fn(), readJsonFile: vi.fn() }))
+const snapshots = vi.hoisted(() => ({ kinds: [] as string[] }))
+vi.mock('../../../../store/settingsStore', () => ({ snapshotOnNextSave: (kind: string) => { snapshots.kinds.push(kind) }, createPreImportSnapshot: async () => { snapshots.kinds.push('import') } }))
 vi.mock('../../../../domain/defaults', () => ({
   defaultSettings: () => ({ enabled: false, shelves: [], smartShelves: [], allShelvesOrder: [], theme: 'default' }),
 }))
@@ -183,3 +185,45 @@ describe('applyFactoryProfile', () => {
     expect(persisted[0].ownQamTabEnabled).toBe(false)
   })
 })
+
+describe('a profile switch keeps a safety snapshot of what it replaces', () => {
+  const live = () => ({ enabled: true, shelves: [{ id: 's1' }], theme: 'a', profiles: [{ id: 'p1', name: 'Work', snapshot: { enabled: true, shelves: [], theme: 'b' } }], activeProfileName: null })
+
+  it('asks for it on the save of a manual apply', async () => {
+    snapshots.kinds = []
+    const { deps } = makeDeps(live())
+    await createProfileActions(deps as any).applyProfile('p1')
+    expect(snapshots.kinds).toEqual(['profile'])
+  })
+
+  it('asks for it before a Default profile reset too', async () => {
+    snapshots.kinds = []
+    const { deps } = makeDeps(live())
+    await createProfileActions(deps as any).applyFactoryProfile(false)
+    expect(snapshots.kinds).toEqual(['profile'])
+  })
+
+  it('does not ask when the switch changes nothing', async () => {
+    snapshots.kinds = []
+    const { deps } = makeDeps({ ...live(), theme: 'b', shelves: [{ id: 's1' }] })
+    const actions = createProfileActions(deps as any)
+    await actions.applyProfile('p1')
+    snapshots.kinds = []
+    await actions.applyProfile('p1')
+    expect(snapshots.kinds).toEqual([])
+  })
+})
+
+describe('setProfileLinkShelves', () => {
+  it('links or unlinks the shelves of a saved profile, and nothing else', async () => {
+    const { deps, state } = makeDeps({ enabled: true, shelves: [], profiles: [{ id: 'p1', name: 'Work', snapshot: {} }, { id: 'p2', name: 'Home', snapshot: {}, linkShelves: true }] })
+    const actions = createProfileActions(deps as any)
+    expect(await actions.setProfileLinkShelves('p1', true)).toBe(true)
+    expect(state.current.profiles[0]).toEqual({ id: 'p1', name: 'Work', snapshot: {}, linkShelves: true })
+    expect(await actions.setProfileLinkShelves('p2', false)).toBe(true)
+    expect('linkShelves' in state.current.profiles[1]).toBe(false)
+    expect(await actions.setProfileLinkShelves('p2', false)).toBe(false)
+    expect(await actions.setProfileLinkShelves('nope', true)).toBe(false)
+  })
+})
+

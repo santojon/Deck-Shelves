@@ -7,7 +7,10 @@ import { ExportAllModal } from "../../qam/modals/ExportAllModal";
 import { ImportAllModal } from "../../qam/modals/ImportAllModal";
 import { getUserDownloadsDir, joinDownloads } from "../../../core/userPaths";
 import { SettingsSection } from "../../ui/SettingsSection";
-import { DownloadIcon, UploadIcon } from "../../icons";
+import { DownloadIcon, RestoreIcon, UploadIcon } from "../../icons";
+import { openSnapshotPicker } from "../../qam/modals/RestoreSnapshotModal";
+import { AccountsSection } from "../../../features/account/AccountsSection";
+import { LastSnapshotLine } from "./LastSnapshotLine";
 import { BTN_COMPACT_STYLE } from "../../ui/buttonStyles";
 import { getExternalExportHandlers, getExternalImportHandlers } from "../../../core/pluginApi";
 import { flowChildrenProps } from "../../../core/steamOSVersion";
@@ -47,6 +50,20 @@ export function BackupDetail({ controller, t }: BackupDetailProps) {
 
   return (
     <Focusable {...flowChildrenProps("vertical")} style={{ display: "flex", flexDirection: "column" }}>
+      {/* Backup (a file you export) vs snapshot (a restore point kept for you), and the way to the snapshots. */}
+      <SettingsSection
+        title={t("settings_backup_snapshots_title")}
+        description={t("settings_backup_vs_snapshot")}
+        trailing={
+          <DialogButton onClick={openSnapshotPicker} onOKButton={openSnapshotPicker} style={BTN_COMPACT_STYLE}>
+            <RestoreIcon size={12} />
+            <span>{t("snapshot_recovery_button")}</span>
+          </DialogButton>
+        }
+      >
+        <LastSnapshotLine t={t} />
+      </SettingsSection>
+      <AccountsSection controller={controller} t={t} />
       <div style={{ fontSize: 11, opacity: 0.55, padding: "0 4px 8px" }}>
         {t("settings_backup_path_hint").replace("{{path}}", getUserDownloadsDir())}
       </div>

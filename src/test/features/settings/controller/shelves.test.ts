@@ -5,7 +5,7 @@ vi.mock('../../../../steam/usageTracking', () => ({ trackFeature: vi.fn() }))
 vi.mock('../../../../settingsStore', () => ({ writeJsonFile: vi.fn(), readJsonFile: vi.fn() }))
 
 const createSnapshot = vi.fn(async () => [])
-vi.mock('../../../../store/settingsStore', () => ({ createSnapshot: () => createSnapshot() }))
+vi.mock('../../../../store/settingsStore', () => ({ createSnapshot: () => createSnapshot(), createPreImportSnapshot: async () => {} }))
 
 import { createShelfActions } from '../../../../features/settings/controller/shelves'
 

@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { SettingsSchema } from "../../types";
 import {
   SETTINGS_CATEGORIES,
+  NOT_EXPORTED_FIELDS,
   detectCategoriesInPayload,
   unwrapPayload,
   buildExportPayload,
@@ -17,8 +18,9 @@ describe("SETTINGS_CATEGORIES coverage", () => {
         owner.set(k, cat.id);
       }
     }
-    const missing = schemaKeys.filter((k) => !owner.has(k));
+    const missing = schemaKeys.filter((k) => !owner.has(k) && !NOT_EXPORTED_FIELDS.includes(k));
     expect(missing).toEqual([]);
+    for (const k of NOT_EXPORTED_FIELDS) expect(owner.has(k), `"${k}" must never be exported`).toBe(false);
   });
 });
 

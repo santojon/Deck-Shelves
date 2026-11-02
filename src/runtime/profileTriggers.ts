@@ -1,4 +1,4 @@
-import { getCurrentSettings, saveSettings, subscribeSettings } from '../store/settingsStore';
+import { getCurrentSettings, saveSettings, snapshotOnNextSave, subscribeSettings } from '../store/settingsStore';
 import { subscribeDeviceState } from './deviceState';
 import { subscribeSessionState } from './sessionState';
 import { subscribePerfState } from './perfState';
@@ -104,8 +104,10 @@ function stableStringify(o: unknown, skipClocks = false): string {
 /* Persist + notify only when it is a REAL change. If applying/restoring would
    leave the settings identical (e.g. the pre-trigger baseline WAS the triggered
    profile), do nothing — no save, no toast. */
-function saveIfChanged(next: Settings, onChanged: () => void): void {
+function saveIfChanged(next: Settings, onChanged: () => void, snapshot = false): void {
   if (stableStringify(next) === stableStringify(getCurrentSettings())) return;
+  // Applying a profile keeps a safety snapshot of the state it replaces (see snapshotOnNextSave).
+  if (snapshot) snapshotOnNextSave("profile");
   void saveSettings(next);
   onChanged();
 }
@@ -127,7 +129,7 @@ function applyFactory(): void {
   keepShelfFields(next, s);
   keepDeviceLocalFields(next, s);
   keepTriggerFields(next, s);
-  saveIfChanged(next, () => triggerToast(FACTORY_PROFILE_NAME));
+  saveIfChanged(next, () => triggerToast(FACTORY_PROFILE_NAME), true);
   rememberApplied(FACTORY_PROFILE_NAME, next);
 }
 
@@ -152,7 +154,7 @@ function applyByName(name: string): void {
     if (!target.linkShelves) keepShelfFields(next, s);
     keepDeviceLocalFields(next, s);
     keepTriggerFields(next, s);
-    saveIfChanged(next, () => triggerToast(name));
+    saveIfChanged(next, () => triggerToast(name), true);
     rememberApplied(name, next);
   }
 }

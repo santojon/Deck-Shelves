@@ -66,6 +66,21 @@ its own look: the everyday settings only follow between devices running the
 same profile (or none), so a docked machine's *Showcase* never leaks into a
 handheld's *Handheld*.
 
+## Switching Steam accounts
+
+Each Steam account keeps its own shelves, smart shelves, saved filters and
+profiles on a device, and the cloud copy belongs to the account too, so
+sync always pairs an account's cloud copy with that account's own
+settings. When another account signs in, its own settings come back (or it
+is asked whether to copy the current shelves or start fresh), and sync
+waits until that is settled.
+
+If you turned off **Separate settings per Steam account** (Settings →
+Backup) to share one set, a different account signing in gets a notice and
+a snapshot, and sync waits until you choose **Sync with this account** under
+the sync status in Quick Access. Your account ID itself is never stored or
+sent.
+
 ## Troubleshooting
 
 - **The status line says "not synced yet" and stays that way.** Make sure

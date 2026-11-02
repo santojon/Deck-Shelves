@@ -198,8 +198,18 @@ function pcdUpdatePending(clientData: SteamPerClientData | null | undefined): bo
   return pcdHasDownloadBytes(clientData);
 }
 
-function deriveUpdatePending(node: SteamAppOverviewRaw): boolean | undefined {
-  if (pcdUpdatePending(getPerClientData(node))) return true;
+/* An installed app in this device's download queue has an update coming, even when its status
+   hides it (Steam can report an installed game on the Deck as "invalid platform" while it updates). */
+function inLocalDownloadQueue(appid: number, installed: boolean | undefined): boolean {
+  try {
+    if (installed !== true) return false;
+    const queue = (globalThis as any).downloadsStore?.m_DownloadItems?.get?.("0");
+    return Array.isArray(queue) && queue.some((i: any) => Number(i?.appid) === appid && i?.completed !== true);
+  } catch { return false; }
+}
+
+function deriveUpdatePending(node: SteamAppOverviewRaw, appid: number, installed: boolean | undefined): boolean | undefined {
+  if (pcdUpdatePending(getPerClientData(node)) || inLocalDownloadQueue(appid, installed)) return true;
   const explicit = readOptionalBoolean(node, UPDATE_PENDING_FLAG_KEYS);
   return explicit === true ? true : explicit;
 }
@@ -361,12 +371,13 @@ function buildClientFields(node: SteamAppOverviewRaw) {
 export function normalizeAppOverview(node: SteamAppOverviewRaw): AppOverview | null {
   const appid = appIdOf(node);
   if (!Number.isFinite(appid) || appid <= 0) return null;
+  const installed = deriveInstalled(node, appid);
   return {
     ...buildIdentityFields(node, appid),
     ...buildPlaytimeFields(node),
     ...buildFlagFields(node),
-    installed: deriveInstalled(node, appid),
-    update_pending: deriveUpdatePending(node),
+    installed,
+    update_pending: deriveUpdatePending(node, appid, installed),
     display_status: deriveDisplayStatus(node),
     ...buildAssetFields(node),
     ...buildTimestampFields(node),

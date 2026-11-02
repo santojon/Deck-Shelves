@@ -588,7 +588,19 @@ export function saveSettings(next: Settings, opts?: { fromSync?: boolean }): Pro
   return held ?? new Promise<boolean>((resolve) => { queueSave(stamped, [resolve]); });
 }
 
+/* A save that switches a profile carries a request for a safety snapshot: the
+   backend copies the file it is about to replace, in the same step, so nothing
+   lands in between (a separate call could be served after the write). Kept until
+   the next write, which also covers a save that was coalesced or held. */
+let nextSaveSnapshot: SafetySnapshotKind | null = null;
+
+export function snapshotOnNextSave(kind: SafetySnapshotKind): void {
+  if (!qaOverrideActive) nextSaveSnapshot = kind;
+}
+
 async function runSave(next: Settings): Promise<boolean> {
+  const snapshot = nextSaveSnapshot;
+  nextSaveSnapshot = null;
   // Single-writer: a stood-down instance (dual-host install) never writes
   // settings — the owning instance is authoritative. The local notify()
   // already ran, so this instance's UI stays responsive.
@@ -604,7 +616,8 @@ async function runSave(next: Settings): Promise<boolean> {
      The cache + `lastSaveSucceeded` flag handle one-off failures gracefully
      — the next user-triggered save will retry the write naturally. */
   try {
-    const ok = await withTimeout(call<[unknown], boolean>("set_settings", { settings: next }), 8000);
+    const payload = snapshot ? { settings: next, snapshot } : { settings: next };
+    const ok = await withTimeout(call<[unknown], boolean>("set_settings", payload), 8000);
     if (!ok) {
       logWarn("STORAGE", "saveSettings backend returned false");
       try { (globalThis as any).__ds_save_last_err = { kind: "backend-false", at: Date.now() }; } catch {}
@@ -649,6 +662,14 @@ export async function listBackups(): Promise<BackupEntry[]> {
   }
 }
 
+// How many unreadable settings copies the backend keeps aside (never their content); 0 when unknown.
+export async function countQuarantinedSettings(): Promise<number> {
+  try {
+    const raw = await withTimeout(call<[], { quarantined?: number }>("list_backups"), 8000);
+    return typeof raw?.quarantined === "number" ? raw.quarantined : 0;
+  } catch { return 0; }
+}
+
 // The backup actions below write the real files on the backend: a QA build only lists them.
 function skippedInQa(action: string): boolean {
   if (qaOverrideActive) logInfo("STORAGE", `${action} skipped (QA override active)`);
@@ -682,16 +703,22 @@ export async function createSnapshot(): Promise<BackupEntry[]> {
   }
 }
 
-/* Best-effort safety net before a category import merges into live settings
-   — always untagged-throttle-exempt (server-side tag, no frontend input) so
-   it never collides with the 24h auto-snapshot cooldown. */
-export async function createPreImportSnapshot(): Promise<void> {
-  if (skippedInQa("createPreImportSnapshot")) return;
+/* Best-effort safety snapshot right before a risky action: an import, a profile
+   switch (at most one a minute) or a Steam account change. The backend maps the
+   kind to a fixed file tag, and none waits on the 24h auto-snapshot cooldown. */
+export type SafetySnapshotKind = "import" | "profile" | "account";
+
+export async function createSafetySnapshot(kind: SafetySnapshotKind): Promise<void> {
+  if (skippedInQa("createSafetySnapshot")) return;
   try {
-    await withTimeout(call<[], unknown>("create_pre_import_backup"), 8000);
+    await withTimeout(call<[unknown], unknown>("create_pre_import_backup", { kind }), 8000);
   } catch (error) {
-    logError("STORAGE", "createPreImportSnapshot failed", String(error));
+    logError("STORAGE", "createSafetySnapshot failed", String(error));
   }
+}
+
+export async function createPreImportSnapshot(): Promise<void> {
+  await createSafetySnapshot("import");
 }
 
 export async function exportBackupToFile(name: string, dest: string): Promise<boolean> {

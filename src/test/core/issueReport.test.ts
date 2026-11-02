@@ -16,7 +16,7 @@ vi.mock('../../runtime/diagnosticsInfo', () => ({
 vi.mock('../../runtime/diagnostics', () => ({
   getDiagnostics: () => [{ id: '1', time: '2026-07-17T00:00:00Z', level: 'error', scope: 'HOME', message: 'render crashed', context: 'boom' }],
 }))
-vi.mock('../../store/settingsStore', () => ({ getCurrentSettings: () => ({ betaChannelEnabled: false }) }))
+vi.mock('../../store/settingsStore', () => ({ getCurrentSettings: () => ({ betaChannelEnabled: false }), countQuarantinedSettings: async () => 2 }))
 const copied: string[] = []
 vi.mock('../../components/ui/clipboard', () => ({ copyToClipboard: async (text: string) => { copied.push(text); return true } }))
 vi.mock('../../components/notify', () => ({ notify: vi.fn() }))
@@ -68,6 +68,7 @@ describe('openBugReport', () => {
     expect(q.get('version')).toBe('3.0.2')
     const ctx = q.get('context') ?? ''
     expect(ctx).toContain('### Diagnostics')
+    expect(ctx).toContain('Unreadable settings copies kept: 2')
     expect(ctx).toContain('Version: 3.0.2')
     expect(ctx).toContain('Plugins: DeckShelves, CSSLoader')
     expect(ctx).toContain('Boot:')

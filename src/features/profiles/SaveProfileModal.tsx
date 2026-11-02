@@ -9,7 +9,8 @@ export interface SaveProfileModalProps {
 
 export function SaveProfileModal({ closeModal, controller }: SaveProfileModalProps) {
   const [name, setName] = useState("");
-  const [linkShelves, setLinkShelves] = useState(false);
+  // New profiles include the shelves by default (saved profiles keep their own choice).
+  const [linkShelves, setLinkShelves] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const existing: any[] = (controller.settings as any)?.profiles ?? [];
 

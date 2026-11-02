@@ -14,6 +14,7 @@ import { activeThemeLabels } from "../themes";
 import * as pluginRegistry from "../integrations/registry";
 import { getHostHandshake } from "./hostHandshake";
 import { getPerfSnapshot, type PerfSnapshot } from "../core/perfMetrics";
+import { accountSwitchSeen } from "./steamAccount";
 
 export interface RuntimeInfo {
   version: string;
@@ -402,6 +403,8 @@ export function summarizeConfig(settings: any): string[] {
     `Saved filters: ${count(s.savedFilters)} · smart ${count(s.savedSmartFilters)}`,
     `Modes: Light ${onOff(s.lightModeEnabled)} · Advanced ${onOff(s.advancedModeEnabled)} · Developer ${onOff(s.devModeEnabled)}`,
     `Recents: ${recents} · Home tabs: ${s.hideHomeTabs ? "hidden" : "shown"} · Debug overlay: ${onOff(s.debugOverlayEnabled)}`,
+    // Whether another Steam account signed in here, never which one.
+    `Cloud sync: ${onOff(s.cloudSyncEnabled)} · Steam account switch seen: ${accountSwitchSeen() ? "yes" : "no"}`,
     featureLine(s),
     ...visualLines(s),
   ];

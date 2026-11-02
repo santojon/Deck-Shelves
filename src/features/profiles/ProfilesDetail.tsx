@@ -5,7 +5,7 @@ import { FACTORY_PROFILE_ID, FACTORY_PROFILE_NAME } from "../settings/controller
 import { joinDownloads } from "../../core/userPaths";
 import { SettingsSection } from "../../components/ui/SettingsSection";
 import { CollapsibleSection } from "../../components/ui/CollapsibleSection";
-import { CheckIcon, CopyIcon, DownloadIcon, PencilIcon, PlayIcon, SaveIcon, TrashIcon, UploadIcon, XIcon, PersonIcon, TargetIcon } from "../../components/icons";
+import { CheckIcon, CopyIcon, DownloadIcon, PencilIcon, PlayIcon, SaveIcon, TrashIcon, UploadIcon, XIcon, PersonIcon, TargetIcon, StackIcon } from "../../components/icons";
 import { BTN_ICON_COMPACT_STYLE, BTN_STYLE } from "../../components/ui/buttonStyles";
 import { openManagedModal } from "../../components/qam/common/openManagedModal";
 import { SetProfileTriggerModal } from "../../components/qam/modals/SetProfileTriggerModal";
@@ -18,10 +18,51 @@ export interface ProfilesDetailProps {
   t: (key: string) => string;
 }
 
+// What applying this profile changes: the shelves too only when it is linked to them.
+function applyConfirmMessage(profile: any, t: (key: string) => string): string {
+  if (profile.id === FACTORY_PROFILE_ID) return t("settings_profiles_factory_confirm_message");
+  return profile.linkShelves
+    ? t("settings_profiles_apply_confirm_message")
+    : t("settings_profiles_apply_confirm_message_keep_shelves");
+}
+
+// Turns "include shelves" on or off for a saved profile (green while on).
+function LinkShelvesButton({ profile, controller, t }: { profile: any; controller: ProfilesDetailProps["controller"]; t: (key: string) => string }) {
+  const linked = profile.linkShelves === true;
+  const toggle = () => (controller.actions as any).setProfileLinkShelves?.(profile.id, !linked);
+  return (
+    <DialogButton
+      onClick={toggle}
+      onOKButton={toggle}
+      style={linked ? { ...BTN_ICON_COMPACT_STYLE, color: "#4caf50" } : BTN_ICON_COMPACT_STYLE}
+      aria-label={t(linked ? "profile_unlink_shelves_action" : "profile_link_shelves_action")}
+    >
+      <StackIcon size={14} />
+    </DialogButton>
+  );
+}
+
+// "Includes shelves" pill next to a shelf-linked profile's name.
+function IncludesShelvesBadge({ profile, t }: { profile: any; t: (key: string) => string }) {
+  if (!profile.linkShelves) return null;
+  return <IncludesShelvesPill t={t} />;
+}
+
+function IncludesShelvesPill({ t }: { t: (key: string) => string }) {
+  return (
+    <span style={{
+      fontSize: 10, fontWeight: 700, opacity: 0.8, padding: "2px 6px", borderRadius: 999,
+      background: "rgba(255,255,255,0.08)", textTransform: "uppercase", letterSpacing: 0.5,
+      display: "inline-flex", alignItems: "center", gap: 4,
+    }}><StackIcon size={10} />{t("profile_includes_shelves")}</span>
+  );
+}
+
 export function ProfilesDetail({ controller, t }: ProfilesDetailProps) {
   const settings = controller.settings;
   const [newName, setNewName] = useState("");
-  const [linkShelves, setLinkShelves] = useState(false);
+  // New profiles include the shelves by default (saved profiles keep their own choice).
+  const [linkShelves, setLinkShelves] = useState(true);
   const [renameId, setRenameId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
 
@@ -66,7 +107,7 @@ export function ProfilesDetail({ controller, t }: ProfilesDetailProps) {
   // triggerable without a properly focused Cancel / Confirm.
   const askApply = (profile: any) => confirmAction({
     title: t("settings_profiles_apply_confirm_title"),
-    body: profile.id === FACTORY_PROFILE_ID ? t("settings_profiles_factory_confirm_message") : t("settings_profiles_apply_confirm_message"),
+    body: applyConfirmMessage(profile, t),
     okText: t("settings_profiles_apply"),
     cancelText: t("settings_profiles_cancel"),
     ...(profile.id === FACTORY_PROFILE_ID ? {
@@ -157,6 +198,7 @@ export function ProfilesDetail({ controller, t }: ProfilesDetailProps) {
                             letterSpacing: 0.5,
                           }}>{t("settings_profiles_active")}</span>
                         ) : null}
+                        <IncludesShelvesBadge profile={profile} t={t} />
                       </div>
                       <div style={{ opacity: 0.55, fontSize: 12, marginTop: 2 }}>
                         {profile.createdAt ? profile.createdAt.slice(0, 10) : ""}
@@ -194,6 +236,7 @@ export function ProfilesDetail({ controller, t }: ProfilesDetailProps) {
                       )}
                       {!isFactory ? (
                         <>
+                          <LinkShelvesButton profile={profile} controller={controller} t={t} />
                           <DialogButton
                             onClick={() => (controller.actions as any).updateProfileSnapshot?.(profile.id)}
                             onOKButton={() => (controller.actions as any).updateProfileSnapshot?.(profile.id)}

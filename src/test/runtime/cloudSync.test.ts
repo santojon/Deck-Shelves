@@ -4,6 +4,7 @@ const store: { current: any } = { current: null };
 const saved: any[] = [];
 const cloud: { raw: string | null; writes: string[] } = { raw: null, writes: [] };
 const qa = { active: false };
+const account = { held: false, synced: 0, resume: null as null | (() => void) };
 
 vi.mock("../../store/settingsStore", () => ({
   getCurrentSettings: () => store.current,
@@ -14,6 +15,12 @@ vi.mock("../../runtime/host/ownerGuard", () => ({ isHomeOwner: () => true }));
 vi.mock("../../runtime/notify", () => ({ notifyUser: () => {} }));
 vi.mock("../../i18n", () => ({ default: { t: (k: string) => k } }));
 vi.mock("../../qa/harness", () => ({ get qaOverrideActive() { return qa.active; } }));
+vi.mock("../../runtime/steamAccount", () => ({
+  accountReady: async () => {},
+  isCloudSyncHeldForAccount: () => account.held,
+  markCloudSyncedAccount: () => { account.synced++; },
+  onCloudSyncResumed: (fn: () => void) => { account.resume = fn; return () => { account.resume = null; }; },
+}));
 
 const SHELF = { id: "s1", name: "From the cloud", updatedAt: 500, enabled: true };
 const SHELF_B = { id: "s2", name: "Made on the other device", updatedAt: 600, enabled: true };
@@ -252,3 +259,35 @@ describe("cloud sync in a QA session", () => {
     expect(saved).toEqual([]);
   });
 });
+
+describe("cloud sync after a Steam account switch", () => {
+  beforeEach(() => {
+    saved.length = 0; cloud.writes.length = 0;
+    account.held = false; account.synced = 0; account.resume = null;
+    (globalThis as any).SteamClient = {
+      RoamingStorage: {
+        GetString: async () => cloud.raw ?? "",
+        SetString: async (_k: string, v: string) => { cloud.writes.push(v); cloud.raw = v; },
+      },
+    };
+    vi.resetModules();
+  });
+
+  it("neither reads nor writes the new account's cloud copy until the user resumes it", async () => {
+    account.held = true;
+    store.current = { cloudSyncEnabled: true, shelves: [SHELF_B], smartShelves: [], preferencesUpdatedAt: 0 };
+    cloud.raw = cloudDoc({ shelves: [SHELF], smartShelves: [], preferencesUpdatedAt: 900 });
+    const { installCloudSync } = await import("../../runtime/cloudSync");
+    const dispose = installCloudSync();
+    await settle();
+    expect(saved).toEqual([]);
+    expect(cloud.writes).toEqual([]);
+    account.held = false;
+    account.resume!();
+    await settle();
+    dispose();
+    expect(saved.length).toBeGreaterThan(0);
+    expect(account.synced).toBeGreaterThan(0); // the cloud copy now belongs to this account
+  });
+});
+

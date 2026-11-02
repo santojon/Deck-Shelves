@@ -7,6 +7,7 @@ local-dev outside Decky still works.
 """
 import json
 import os
+import re
 import shutil
 import sys
 import time
@@ -150,6 +151,12 @@ def _atomic_write_wrapped(path: str, wrapped: Dict[str, Any]) -> None:
             logger.error(f"Deck Shelves: mirror write failed for {path}: {e}")
         except Exception:
             pass
+        # Same as the primary writer: no leftover of a failed write.
+        try:
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
+        except Exception:
+            pass
 
 
 def sync_mirror(state: Dict[str, Any], rev: int, updated_at: float) -> None:
@@ -291,19 +298,192 @@ def _quarantine_corrupt_primary(primary_path: str) -> None:
         stamp = time.strftime("%Y%m%d-%H%M%S")
         dest = os.path.join(bdir, "settings-" + stamp + "-corrupt.json")
         shutil.copy(primary_path, dest)
+        _prune_quarantine(bdir)
     except Exception:
         pass
 
 
+def _is_quarantine_file(name: str) -> bool:
+    return name.startswith("settings-") and name.endswith(".json") and "-corrupt" in name
+
+
+def _prune_quarantine(bdir: str) -> None:
+    """Quarantined copies expire like automatic snapshots and at most QUARANTINE_CAP
+    stay (newest kept). A quota of their own: they never count against snapshots."""
+    try:
+        now = time.time()
+        files = []
+        for f in os.listdir(bdir):
+            if not _is_quarantine_file(f):
+                continue
+            path = os.path.join(bdir, f)
+            if now - os.path.getmtime(path) > QUARANTINE_MAX_AGE_SECONDS:
+                _remove_quietly(path)
+            else:
+                files.append((os.path.getmtime(path), path))
+        for _, path in sorted(files, reverse=True)[QUARANTINE_CAP:]:
+            _remove_quietly(path)
+    except Exception:
+        pass
+
+
+def _remove_quietly(path: str) -> bool:
+    try:
+        os.remove(path)
+        return True
+    except Exception:
+        return False
+
+
+def _is_settings_tmp(name: str) -> bool:
+    # settings.json.tmp (older builds) and settings.json.<pid>.tmp (per writer).
+    if name == "settings.json.tmp":
+        return True
+    middle = name[len("settings.json."):-len(".tmp")] if name.startswith("settings.json.") and name.endswith(".tmp") else ""
+    return middle.isdigit()
+
+
+def _settings_dirs() -> List[str]:
+    """This session's settings folder and both mirrored ones (loader and canonical)."""
+    dirs: List[str] = []
+    for path in (_primary_file(), *_mirror_paths()):
+        d = os.path.normpath(os.path.dirname(path))
+        if d not in dirs and os.path.isdir(d):
+            dirs.append(d)
+    return dirs
+
+
+def _sweep_stale_tmps(folder: str, min_age: Optional[float] = None) -> int:
+    """Remove settings write leftovers older than `min_age` — never this process's
+    own (a write of ours may be under way) nor a recent one (maybe the other host's)."""
+    removed = 0
+    own = f"settings.json.{os.getpid()}.tmp"
+    limit = TMP_STALE_SECONDS if min_age is None else min_age
+    try:
+        now = time.time()
+        for f in os.listdir(folder):
+            if not _is_settings_tmp(f) or f == own:
+                continue
+            path = os.path.join(folder, f)
+            if now - os.path.getmtime(path) >= limit and _remove_quietly(path):
+                removed += 1
+    except Exception:
+        pass
+    return removed
+
+
+def sweep_leftovers() -> None:
+    """Stale write leftovers and expired or excess quarantined copies, in every
+    settings folder. Run at start and after each successful save; best-effort."""
+    for folder in _settings_dirs():
+        _sweep_stale_tmps(folder)
+        bdir = os.path.join(folder, "backups")
+        if os.path.isdir(bdir):
+            _prune_quarantine(bdir)
+
+
+def sweep_export_tmps(dest: str) -> None:
+    """Before an export: leftovers of earlier exports in that same folder only
+    (`<name>.json.tmp`), when their `.json` exists or they are stale. Other folders
+    are never scanned."""
+    folder = os.path.dirname(dest)
+    try:
+        now = time.time()
+        for f in os.listdir(folder):
+            if not f.endswith(".json.tmp") or os.path.join(folder, f) == dest + ".tmp":
+                continue
+            path = os.path.join(folder, f)
+            age = now - os.path.getmtime(path)
+            finished = os.path.exists(path[:-len(".tmp")])
+            # A few seconds of grace: a tmp that young may be another export still writing.
+            if age >= TMP_STALE_SECONDS or (finished and age >= 30):
+                _remove_quietly(path)
+    except Exception:
+        pass
+
+
+def count_quarantined() -> int:
+    """How many unreadable settings copies are kept (for diagnostics; never their content)."""
+    total = 0
+    for folder in _settings_dirs():
+        try:
+            total += sum(1 for f in os.listdir(os.path.join(folder, "backups")) if _is_quarantine_file(f))
+        except Exception:
+            pass
+    return total
+
+
+# The salt behind the per-account keys, kept in its own small file beside the settings
+# file, never inside it: snapshots, exports, imports and the mirrored settings copy never
+# carry it, and a reset leaves it. The frontend keeps a mirror of it in local storage.
+ACCOUNT_FILE = "account.json"
+_SALT_RE = re.compile(r"^[0-9a-f]{32}$")
+
+
+def _is_salt(value: Any) -> bool:
+    return isinstance(value, str) and bool(_SALT_RE.match(value))
+
+
+def _read_salt(folder: str) -> str:
+    salt = _safe_read_json(os.path.join(folder, ACCOUNT_FILE)).get("salt")
+    return salt if _is_salt(salt) else ""
+
+
+def _write_salt(folder: str, salt: str) -> bool:
+    path = os.path.join(folder, ACCOUNT_FILE)
+    tmp = f"{path}.{os.getpid()}.tmp"
+    try:
+        os.makedirs(folder, exist_ok=True)
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump({"salt": salt}, f)
+            f.flush()
+            os.fsync(f.fileno())
+        try:
+            os.chmod(tmp, 0o600)
+        except Exception:
+            pass
+        os.replace(tmp, path)
+        return True
+    except Exception as e:
+        try:
+            logger.error(f"Deck Shelves: could not keep the account salt in {folder}: {type(e).__name__}")
+        except Exception:
+            pass
+        _remove_quietly(tmp)
+        return False
+
+
+def keep_account_salt(candidate: Any) -> str:
+    """The salt this device keeps: the first one found (this session's folder first, then
+    the other existing settings folder), else `candidate` when it is a valid salt. Folders
+    without it get a copy; a salt already kept is never replaced. "" when none is kept."""
+    primary = os.path.normpath(_settings_dir())
+    folders = [primary] + [d for d in _settings_dirs() if d != primary]
+    found = [_read_salt(d) for d in folders]
+    salt = next((s for s in found if s), "") or (candidate if _is_salt(candidate) else "")
+    if not salt:
+        return ""
+    kept = any(found)
+    for folder, have in zip(folders, found):
+        if not have:
+            kept = _write_salt(folder, salt) or kept
+    return salt if kept else ""
+
+
 # Versioned settings backups: a rolling history under `<settings>/backups/` so a
-# bad edit or a destructive action can be rolled back. Auto snapshots are heavily
-# throttled and capped (the plugin runs for months, so we must not accumulate);
-# only automatic snapshots are auto-pruned — manual ("-manual") and imported
-# ("-import") ones are user-initiated and kept until the user deletes them. Every
-# helper is best-effort and never raises, so a backup problem can never block or
-# corrupt a settings save.
+# bad edit or a destructive action can be rolled back. Automatic snapshots are
+# throttled, expire and go first when the total cap is reached; manual and
+# import ones are kept until the user deletes them. Every helper is best-effort
+# and never raises, so a backup problem can never block or corrupt a save.
 TOTAL_BACKUP_CAP = 10          # max snapshots kept in total (auto + manual + import)
+# Taken by the plugin on its own right before a profile switch or an account
+# change: automatic for pruning (they expire and go first), never for the daily throttle.
+AUTO_SAFETY_TAGS = ("pre-profile", "account-switch")
+# Unreadable settings copied aside, and write leftovers: separate quotas from snapshots.
+QUARANTINE_CAP = 3
+TMP_STALE_SECONDS = 600
 AUTO_MAX_AGE_SECONDS = 7 * 86400  # auto snapshots older than 7 days are dropped
+QUARANTINE_MAX_AGE_SECONDS = AUTO_MAX_AGE_SECONDS  # a broken copy lasts no longer than a good one
 AUTO_THROTTLE_SECONDS = 86400  # min gap between automatic snapshots (24 h)
 
 
@@ -317,9 +497,18 @@ def _is_backup_file(name: str) -> bool:
     return name.startswith("settings-") and name.endswith(".json") and "-corrupt" not in name
 
 
+def _backup_tag(name: str) -> str:
+    # settings-YYYYmmdd-HHMMSS[-tag][-ms].json -> tag ("" for an automatic one)
+    parts = name[len("settings-"):-len(".json")].split("-")[2:]
+    if parts and parts[-1].isdigit():
+        parts = parts[:-1]
+    return "-".join(parts)
+
+
 def _is_auto_backup(name: str) -> bool:
-    # Automatic snapshots carry no origin tag; manual/imported ones do.
-    return _is_backup_file(name) and "-manual" not in name and "-import" not in name
+    # Automatic for pruning: the daily snapshot (no tag) and the ones the plugin
+    # takes before a profile switch or an account change.
+    return _is_backup_file(name) and (_backup_tag(name) == "" or _backup_tag(name) in AUTO_SAFETY_TAGS)
 
 
 def _summarize_settings(data: Dict[str, Any]) -> Dict[str, int]:
@@ -375,16 +564,21 @@ def _prune_auto_backups(bdir: str, cap: int = TOTAL_BACKUP_CAP) -> None:
         pass
 
 
-def _newest_auto_mtime(bdir: str) -> float:
+def _newest_mtime(bdir: str, tag: str = "") -> float:
     try:
         times = [os.stat(os.path.join(bdir, f)).st_mtime
-                 for f in os.listdir(bdir) if _is_auto_backup(f)]
+                 for f in os.listdir(bdir) if _is_backup_file(f) and _backup_tag(f) == tag]
         return max(times) if times else 0.0
     except Exception:
         return 0.0
 
 
-def _write_versioned_backup(src_path: str, throttle_seconds: int = 0, tag: str = "") -> None:
+def _newest_auto_mtime(bdir: str) -> float:
+    return _newest_mtime(bdir, "")
+
+
+def _write_versioned_backup(src_path: str, throttle_seconds: int = 0, tag: str = "",
+                            tag_throttle_seconds: int = 0) -> None:
     """Snapshot the current settings file into backups/ (timestamped). Automatic
     snapshots (no tag) are throttled vs the newest auto snapshot, aged out after
     AUTO_MAX_AGE_SECONDS, and — with manual/imported ones — kept within a total
@@ -395,6 +589,9 @@ def _write_versioned_backup(src_path: str, throttle_seconds: int = 0, tag: str =
         bdir = _backups_dir()
         os.makedirs(bdir, exist_ok=True)
         if throttle_seconds > 0 and (time.time() - _newest_auto_mtime(bdir)) < throttle_seconds:
+            return
+        # A tagged kind can carry its own minimum gap (a flapping profile trigger).
+        if tag and tag_throttle_seconds > 0 and (time.time() - _newest_mtime(bdir, tag)) < tag_throttle_seconds:
             return
         stamp = time.strftime("%Y%m%d-%H%M%S")
         suffix = ("-" + tag) if tag else ""
@@ -436,19 +633,20 @@ def _export_backup(name: str, dest: str) -> bool:
 
 
 def _clear_backups() -> int:
-    """Delete every backup file. Returns how many were removed."""
-    bdir = _backups_dir()
+    """Delete all: every snapshot (any kind), every quarantined copy and every write
+    leftover, in each settings folder (loader and canonical). The live settings and
+    their `.bak` stay. Returns how many files were removed."""
     removed = 0
-    try:
-        for f in list(os.listdir(bdir)):
-            if _is_backup_file(f):
-                try:
-                    os.remove(os.path.join(bdir, f))
+    for folder in _settings_dirs():
+        bdir = os.path.join(folder, "backups")
+        try:
+            for f in list(os.listdir(bdir)):
+                if (_is_backup_file(f) or _is_quarantine_file(f)) and _remove_quietly(os.path.join(bdir, f)):
                     removed += 1
-                except Exception:
-                    pass
-    except Exception:
-        pass
+        except Exception:
+            pass
+        # Except this process's own and any written in the last seconds: a write may be under way.
+        removed += _sweep_stale_tmps(folder, min_age=5)
     return removed
 
 

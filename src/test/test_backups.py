@@ -56,7 +56,7 @@ def test_rotation_prunes_autos_keeps_manual(monkeypatch, tmp_path):
         f.write("{}")
     storage._prune_auto_backups(bdir)
     remaining = os.listdir(bdir)
-    # Total capped at 10; manual + imported kept, autos trimmed to make room.
+    # Total capped; manual + imported kept, autos trimmed to make room.
     assert len(remaining) == storage.TOTAL_BACKUP_CAP
     assert "settings-20170101-000000-manual.json" in remaining
     assert "settings-20170101-000000-import.json" in remaining
@@ -166,6 +166,67 @@ def test_create_pre_import_backup_ignores_auto_throttle(monkeypatch, tmp_path):
     assert any(n.endswith("-pre-import.json") for n in names)
     # Tagged, so it's excluded from the auto-only pruning/throttle bookkeeping.
     assert not storage._is_auto_backup(next(n for n in names if "pre-import" in n))
+
+
+
+def _settings_file(d):
+    os.makedirs(d, exist_ok=True)
+    path = os.path.join(d, "settings.json")
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump({"state": {"shelves": []}}, f)
+    return path
+
+
+def test_safety_kinds_map_to_fixed_tags(monkeypatch, tmp_path):
+    _settings_file(_use_dir(monkeypatch, tmp_path))
+    p = Plugin()
+    asyncio.run(p.create_pre_import_backup({"kind": "profile"}))
+    asyncio.run(p.create_pre_import_backup({"kind": "account"}))
+    asyncio.run(p.create_pre_import_backup({"kind": "../../evil"}))  # unknown kind: the import tag
+    tags = sorted(storage._backup_tag(b["name"]) for b in storage._list_backups())
+    assert tags == ["account-switch", "pre-import", "pre-profile"]
+    assert all(".." not in b["name"] and "evil" not in b["name"] for b in storage._list_backups())
+
+
+def test_profile_snapshots_keep_a_one_minute_gap(monkeypatch, tmp_path):
+    _settings_file(_use_dir(monkeypatch, tmp_path))
+    p = Plugin()
+    asyncio.run(p.create_pre_import_backup({"kind": "profile"}))
+    asyncio.run(p.create_pre_import_backup({"kind": "profile"}))
+    assert len(storage._list_backups()) == 1
+    # Other kinds are never held back by it.
+    asyncio.run(p.create_pre_import_backup({"kind": "import"}))
+    assert len(storage._list_backups()) == 2
+
+
+
+def test_a_save_that_switches_a_profile_snapshots_the_file_it_replaces(monkeypatch, tmp_path):
+    _use_dir(monkeypatch, tmp_path)
+    p = Plugin()
+    shelf = {"id": "s1", "title": "One", "source": {"type": "tab", "tab": "all"}, "limit": 5, "enabled": True, "hidden": False}
+    p._write_state({"enabled": True, "shelves": [shelf]})
+    for name in os.listdir(storage._backups_dir()) if os.path.isdir(storage._backups_dir()) else []:
+        os.remove(os.path.join(storage._backups_dir(), name))
+    switched = {"enabled": True, "shelves": []}
+    assert asyncio.run(p.set_settings({"settings": switched, "snapshot": "profile"})) is True
+    pre = [b["name"] for b in storage._list_backups() if storage._backup_tag(b["name"]) == "pre-profile"]
+    assert len(pre) == 1
+    with open(os.path.join(storage._backups_dir(), pre[0]), encoding="utf-8") as f:
+        assert json.load(f)["state"]["shelves"][0]["id"] == "s1"   # the state before the switch
+    # Unchanged settings write nothing, so nothing is snapshotted; unknown kinds are ignored.
+    assert asyncio.run(p.set_settings({"settings": switched, "snapshot": "profile"})) is True
+    asyncio.run(p.set_settings({"settings": {"enabled": False, "shelves": []}, "snapshot": "../x"}))
+    assert [storage._backup_tag(b["name"]) for b in storage._list_backups()].count("pre-profile") == 1
+    assert not any("x" == storage._backup_tag(b["name"]) for b in storage._list_backups())
+
+
+def test_backup_tag_parsing():
+    assert storage._backup_tag("settings-20240101-000000.json") == ""
+    assert storage._backup_tag("settings-20240101-000000-123.json") == ""
+    assert storage._backup_tag("settings-20240101-000000-manual.json") == "manual"
+    assert storage._backup_tag("settings-20240101-000000-pre-import-42.json") == "pre-import"
+    assert storage._backup_tag("settings-20240101-000000-account-switch.json") == "account-switch"
+
 
 
 def test_restore_round_trip(monkeypatch, tmp_path):

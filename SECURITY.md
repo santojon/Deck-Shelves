@@ -81,6 +81,11 @@ The following are generally considered out of scope unless they lead to a practi
 Deck Shelves aims to:
 
 * Avoid unnecessary data collection
+* Never store or send your Steam account ID: to keep settings per account, only a salted
+  16-character key of it is kept; the salt stays on the device (in a file beside the
+  settings file, never in it, and in the Steam client's local storage), so no file that
+  carries settings (the settings file, snapshots, exports, the cloud copy, reports) can lead
+  back to the account
 * Operate fully locally whenever possible
 * Minimize filesystem permissions and access scope
 * Avoid executing arbitrary external code

@@ -66,6 +66,10 @@ export const SETTINGS_CATEGORIES: ReadonlyArray<SettingsCategory> = [
   ] },
 ];
 
+/* Fields no export, import or reset category takes: the settings kept for the other
+   Steam accounts on this device stay on it. */
+export const NOT_EXPORTED_FIELDS: ReadonlyArray<string> = ["accountSettings"];
+
 const CATEGORY_BY_ID: Readonly<Record<string, SettingsCategory>> = Object.freeze(
   Object.fromEntries(SETTINGS_CATEGORIES.map((c) => [c.id, c])),
 );

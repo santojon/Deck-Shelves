@@ -6,7 +6,9 @@ import { tryPickerCalls } from "../../qam/modals/modalUtils";
 import { getUserDownloadsDir } from "../../../core/userPaths";
 import { formatBytes } from "../../../runtime/cacheRegistry";
 import { listBackups, createSnapshot, restoreBackup, exportBackupToFile, importBackupFromFile, deleteBackup, clearBackups, type BackupEntry } from "../../../store/settingsStore";
-import { RefreshIcon, RestoreIcon, StackIcon, SparkleIcon, PersonIcon, BookmarkIcon, UploadIcon, DownloadIcon, TrashIcon, PlusCircleIcon, GearIcon } from "../../icons";
+import { RefreshIcon, RestoreIcon, StackIcon, SparkleIcon, PersonIcon, BookmarkIcon, UploadIcon, DownloadIcon, TrashIcon, PlusCircleIcon, GearIcon, SteamIcon } from "../../icons";
+import { snapshotOrigin, snapshotOriginLabel } from "../../qam/modals/RestoreSnapshotModal";
+import { LastSnapshotLine } from "./LastSnapshotLine";
 import { BTN_ICON_STYLE } from "../../ui/buttonStyles";
 import { notify } from "../../notify";
 import { flowChildrenProps } from "../../../core/steamOSVersion";
@@ -15,11 +17,16 @@ function Stat({ icon, n }: { icon: React.ReactNode; n: number }) {
   return <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>{icon}{n}</span>;
 }
 
-/** Origin marker: automatic vs user-created vs imported (derived from the name). */
-function OriginIcon({ name, t }: { name: string; t: (k: string) => string }) {
-  if (name.includes("-manual")) return <span aria-label={t("snapshot_origin_manual")} title={t("snapshot_origin_manual")}><PersonIcon size={12} /></span>;
-  if (name.includes("-import")) return <span aria-label={t("snapshot_origin_import")} title={t("snapshot_origin_import")}><DownloadIcon size={12} /></span>;
-  return <span aria-label={t("snapshot_origin_auto")} title={t("snapshot_origin_auto")}><GearIcon size={12} /></span>;
+const ORIGIN_ICONS = {
+  "account-switch": SteamIcon, "pre-profile": PersonIcon, "pre-import": DownloadIcon,
+  manual: PlusCircleIcon, import: DownloadIcon, auto: GearIcon,
+} as const;
+
+/** Origin marker: what made the snapshot (derived from the name), with its label. */
+function OriginIcon({ name }: { name: string }) {
+  const Icon = ORIGIN_ICONS[snapshotOrigin(name)];
+  const label = snapshotOriginLabel(name);
+  return <span aria-label={label} title={label}><Icon size={12} /></span>;
 }
 
 /** Advanced → Snapshots: the rolling versioned settings history. Create a
@@ -108,6 +115,7 @@ export function SnapshotsSection({ t }: { t: (k: string) => string }) {
       }
     >
       <div style={{ fontSize: 12, opacity: 0.6, margin: "2px 0 8px" }}>{t("snapshot_desc")}</div>
+      <LastSnapshotLine t={t} version={items.length + (items[0]?.mtime ?? 0)} />
       {items.length === 0 ? (
         <div style={{ opacity: 0.55, fontStyle: "italic", padding: 8 }}>{loading ? t("snapshot_loading") : t("snapshot_empty")}</div>
       ) : (
@@ -116,8 +124,9 @@ export function SnapshotsSection({ t }: { t: (k: string) => string }) {
             <Focusable key={b.name} {...flowChildrenProps("horizontal")} style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}>
-                  <span style={{ opacity: 0.7, display: "inline-flex" }}><OriginIcon name={b.name} t={t} /></span>
+                  <span style={{ opacity: 0.7, display: "inline-flex" }}><OriginIcon name={b.name} /></span>
                   {new Date(b.mtime * 1000).toLocaleString()}
+                  <span style={{ fontSize: 11, opacity: 0.6 }}>{snapshotOriginLabel(b.name)}</span>
                 </div>
                 <div style={{ fontSize: 11, opacity: 0.65, display: "flex", gap: 10, alignItems: "center", marginTop: 2, flexWrap: "wrap" }}>
                   <Stat icon={<StackIcon size={11} />} n={b.summary.shelves} />

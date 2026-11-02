@@ -1,5 +1,8 @@
 import type { Settings } from "../../../types";
 import { writeJsonFile, readJsonFile } from "../../../settingsStore";
+import { createPreImportSnapshot, snapshotOnNextSave } from "../../../store/settingsStore";
+import { isPerAccount, setPerAccount } from "../../../domain/accountBuckets";
+import { currentAccountKey } from "../../../runtime/steamAccount";
 import { trackFeature } from "../../../steam/usageTracking";
 import { notify } from "../../../components/notify";
 import { DEVICE_LOCAL_FIELDS } from "../../../domain/settingsMerge";
@@ -64,6 +67,11 @@ export function stickyShowcaseSeen(live: Settings, incoming?: Record<string, unk
   if ((live as any)?.showcaseSeen === true) return true;
   if ((incoming as any)?.showcaseSeen === true) return true;
   return (live as any)?.showcaseSeen;
+}
+
+// A profile switch that changes anything saves a safety snapshot of the state it replaces first.
+function snapshotBeforeSwitch(next: Settings, current: Settings): void {
+  if (JSON.stringify(next) !== JSON.stringify(current)) snapshotOnNextSave("profile");
 }
 
 function isNameTaken(profiles: ProfileRecord[], name: string): boolean {
@@ -155,7 +163,23 @@ export function createProfileActions(deps: ProfilesDeps) {
       // Shelf-link opt-in: unlinked profiles change everything BUT the shelves.
       if (!profile.linkShelves) keepShelfFields(next, s);
       keepDeviceLocalFields(next, s);
+      snapshotBeforeSwitch(next, s);
       await persist(next);
+      return true;
+    },
+    // Linking can be turned on or off after the profile was saved.
+    async setProfileLinkShelves(id: string, linkShelves: boolean): Promise<boolean> {
+      const s = liveSettings();
+      if (!s) return false;
+      const profiles: ProfileRecord[] = (s as any).profiles ?? [];
+      const target = profiles.find((p) => p.id === id);
+      if (!target || !!target.linkShelves === linkShelves) return false;
+      const nextProfiles = profiles.map((p) => {
+        if (p.id !== id) return p;
+        const { linkShelves: _old, ...rest } = p;
+        return linkShelves ? { ...rest, linkShelves: true } : rest;
+      });
+      await persist({ ...s, profiles: nextProfiles } as Settings);
       return true;
     },
     async deleteProfile(id: string): Promise<boolean> {
@@ -272,6 +296,12 @@ export function createProfileActions(deps: ProfilesDeps) {
       if (reordered.length !== profiles.length) return;
       await persist({ ...s, profiles: reordered } as Settings);
     },
+    // Settings per Steam account on or off; turning it on gives what is shown to the signed-in account.
+    async setPerAccountSettings(perAccount: boolean): Promise<void> {
+      const s = liveSettings();
+      if (!s || isPerAccount(s) === perAccount) return;
+      await persist(setPerAccount(s, perAccount, currentAccountKey()));
+    },
     async clearActiveProfile(): Promise<void> {
       const s = liveSettings();
       if (!s) return;
@@ -368,6 +398,7 @@ export function createProfileActions(deps: ProfilesDeps) {
         if (!Array.isArray(incoming)) return 0;
         const { added, next } = applyProfileImport(s, incoming, mode);
         if (added.length === 0 && mode === "merge") return 0;
+        await createPreImportSnapshot();
         await persist(next);
         return added.length;
       } catch { return 0; }
@@ -391,6 +422,7 @@ export function createProfileActions(deps: ProfilesDeps) {
       } as Settings;
       if (!resetShelves) keepShelfFields(next, s);
       keepDeviceLocalFields(next, s);
+      snapshotBeforeSwitch(next, s);
       await persist(next);
     },
     // per-integration enable. Stored only when the user
