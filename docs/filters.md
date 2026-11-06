@@ -182,7 +182,7 @@ Each item can be `inverted` to negate the condition:
 
 > **Tip:** use `mode: "or"` when you want to surface games that match *any* of several conditions — for example, games by one developer **or** another. Use `mode: "and"` (the default) when every condition must hold simultaneously.
 
-> **Tip:** `inverted` is available on most filter types. Combine it with `mode: "and"` to exclude specific subsets — e.g. installed games that are *not* hidden.
+> **Tip:** `inverted` works on every filter type. Combine it with `mode: "and"` to exclude specific subsets — e.g. installed games that are *not* hidden.
 
 ### `merge` — nested predicate groups
 
@@ -351,6 +351,6 @@ These are automatically converted to the group format at runtime via `legacyFilt
 ## Implementation
 
 - Filter evaluation: `src/steam/index.ts` → `evaluateFilterItem()`, `evaluateFilterGroup()`
-- Filter UI: `src/components/FilterPanel.tsx`
+- Filter UI: `src/components/conditions/ConditionEditor.tsx`
 - Legacy conversion: `src/domain/settings.ts` → `legacyFilterToGroup()`
 - Custom filter types: `src/domain/customfilters.ts`

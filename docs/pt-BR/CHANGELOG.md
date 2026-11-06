@@ -9,6 +9,48 @@ e este projeto segue o [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ## [Não lançado]
 
+### Modificado
+
+- **As linhas das listas do Acesso Rápido abrem as ações por um novo botão de menu compacto.**
+
+- **As barras de ações do Acesso Rápido distribuem os botões por igual na largura do painel.**
+
+- **O campo de nome dos editores de prateleira e dos diálogos de arquivo é o campo de texto com rótulo do próprio cliente.**
+
+- **O painel do Acesso Rápido, as listas e os divisores, e o título, as linhas e os campos dos diálogos ganham estilos novos.**
+
+- **Classes CSS renomeadas, para temas:** de `deck-shelves-qam-scope` para `deck-shelves-qam-panel`, de `deck-shelves-modal-scope` para `deck-shelves-dialog`, de `deck-shelves-separator` para `deck-shelves-divider`, de `deck-shelves-label-cont` e `deck-shelves-label-text` para `deck-shelves-nameplate` e `deck-shelves-nameplate-text`, de `deck-shelves-about` para `deck-shelves-info-page`, de `field-item-container` para `deck-shelves-editor-fields`, de `name-field` para `deck-shelves-title-input`, e de `no-sep` para `deck-shelves-bare-row`.
+
+- **O editor de filtros mostra cada condição como uma seção que se abre para editar, com o tipo, o valor e se ela está negada no cabeçalho.**
+
+- **O cabeçalho de uma condição termina, ao lado da seta, com uma marca de certo quando ela está completa e um X quando não está.**
+
+- **As ações de negar e remover uma condição e a de adicionar condição são botões de ícone, com o nome nas dicas do rodapé.**
+
+- **As seções recolhíveis dos diálogos, como as condições dos filtros e os grupos das regras de visibilidade, ganham o visual do Acesso Rápido e um anel de foco no cabeçalho.**
+
+- **Qualquer condição pode ser negada, seja qual for o tipo.**
+
+- **Escolher se todas ou qualquer uma das condições precisam passar é um toque só, com as duas opções à vista.**
+
+- **Adicionar ou remover uma condição deixa o foco na lista, na condição nova ou ao lado da removida.**
+
+- **Uma condição que contém outras continua com elas ao mudar para outro tipo de agrupamento.**
+
+- **O título dos editores de prateleira diz "Editar prateleira:" e o nome da prateleira, e o rótulo da ordenação diz "Ordenar por".**
+
+- **A aba Integrações não marca mais os tipos de filtro de plugins como invertíveis: toda condição pode ser negada.**
+
+- **O inspetor do resolvedor de fontes marca um filtro negado como "negado".**
+
+- **Módulos do editor de filtros renomeados, para quem contribui:** de `src/components/filter/` para `src/components/conditions/`, de `FilterPanel` para `ConditionEditor`, de `FilterItemOptions` para `ConditionFields`, de `MergeFilterOptions` para `NestedConditionEditor`, de `CompositeFilterOptions` para `CompositeFields`, de `DeveloperFilterOptions` para `DeveloperFields`, de `PublisherFilterOptions` para `PublisherFields`, de `LibraryLocationOptions` para `LibraryLocationFields`, de `isValidParams` para `isConditionComplete`, e de `defaultParams` para `startingOptions`.
+
+### Corrigido
+
+- **Mover para cima e Mover para baixo na lista unificada de prateleiras movem a prateleira dentro dessa lista**, como arrastar.
+
+- **A dica do botão da linha de perfil diz Ações em vez de Aplicar.**
+
 ## [3.4.1] - 2026-11-02
 
 ### Adicionado

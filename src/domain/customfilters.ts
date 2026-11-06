@@ -1,33 +1,5 @@
 import type { FilterGroup, FilterItem, FilterItemType, ShelfSource } from '../types'
 
-export const KNOWN_FILTER_TYPES = [
-  'last played',
-  'friends',
-  'install folder',
-  'achievements',
-  'store tag',
-  'merge',
-  'name',
-  'playtime',
-  'installed',
-  'non-steam',
-  'hidden',
-  'update pending',
-  'deck compatibility',
-  'system compatibility',
-  'steamos compatibility',
-  'remote play',
-  'price range',
-  'review score',
-  'release date',
-  'coming soon',
-  'demo',
-  'size on disk',
-  'regex',
-  'recently active',
-  'neglected',
-] as const
-
 // Normalised external filter-type aliases → our internal FilterItemType.
 // Anything unrecognised falls back to `nameIncludes`.
 const FILTER_TYPE_ALIASES: Record<string, FilterItemType> = {

@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach } from 'vitest'
 import type { AppOverview } from '../../steam'
 import { FilterItemTypeSchema } from '../../types'
-import { ALL_FILTER_TYPES, canBeInverted } from '../../components/filter/utils'
+import { ALL_FILTER_TYPES } from '../../components/conditions/utils'
 import { FILTER_V3_EVALUATORS } from '../../steam/v3Extensions'
 
 // evalFamilySharing reads the app overview from the global appStore, so mock it.
@@ -16,10 +16,9 @@ const app = (appid: number): AppOverview => ({ appid, display_name: `App ${appid
 afterEach(() => { delete (globalThis as any).appStore })
 
 describe('familySharing filter — exposure', () => {
-  it('is a valid schema type, listed in the picker, invertible, with a registered evaluator', () => {
+  it('is a valid schema type, listed in the picker, with a registered evaluator', () => {
     expect(FilterItemTypeSchema.options).toContain('familySharing')
     expect(ALL_FILTER_TYPES).toContain('familySharing')
-    expect(canBeInverted('familySharing')).toBe(true)
     expect(typeof FILTER_V3_EVALUATORS.familySharing).toBe('function')
   })
 })

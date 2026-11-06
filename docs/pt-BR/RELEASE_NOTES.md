@@ -7,6 +7,20 @@ técnico completo, veja [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+- **Um editor de filtros novo**: cada condição é uma seção que se abre para editar. Fechada, o cabeçalho mostra o tipo, o valor, se ela está negada e, ao lado da seta, uma marca de certo ou um X para completa ou não. Negar, remover e adicionar são botões de ícone, escolher se todas ou qualquer uma das condições precisam passar é um toque só, e o foco fica na lista quando você adiciona ou remove condições.
+
+- **Qualquer condição pode ser negada**: todo tipo de filtro oferece Negar, para prateleiras como "tudo, menos…". A aba Integrações não marca mais os tipos de filtro como invertíveis, e o inspetor do resolvedor de fontes diz "negado".
+
+- **Condições agrupadas ficam seguras**: uma condição que contém outras continua com elas quando você a troca para outro tipo de agrupamento, e não pode mudar para um tipo que as perderia.
+
+- **Painel de Acesso Rápido e diálogos mais limpos**: as linhas das listas abrem as ações por um botão de menu compacto, as barras de ações distribuem os botões por igual, e o painel, as listas e os diálogos ganham estilos novos. As seções recolhíveis dos diálogos ganham o visual do painel e um anel de foco visível.
+
+- **Rótulos mais claros**: o título dos editores de prateleira diz "Editar prateleira:" com o nome da prateleira, o rótulo da ordenação diz "Ordenar por", e o campo de nome é o campo de texto com rótulo do próprio cliente.
+
+- **Para quem faz temas**: várias classes CSS têm nomes novos; o [CHANGELOG](CHANGELOG.md) lista cada uma.
+
+- **Correções menores**: Mover para cima e Mover para baixo na lista unificada de prateleiras mantêm a prateleira dentro dessa lista, como arrastar, e a dica do botão da linha de perfil diz Ações em vez de Aplicar.
+
 ## [3.4.1] - 2026-11-02
 
 - **Os perfis dizem se trocam suas prateleiras**: um perfil que também troca suas prateleiras aparece marcado com "Inclui prateleiras", dá para ligar ou desligar isso a qualquer momento, perfis novos incluem as prateleiras por padrão, e todo texto e confirmação de perfil agora diz o que aplicá-lo realmente faz.

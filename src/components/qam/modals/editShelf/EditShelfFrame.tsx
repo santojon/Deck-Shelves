@@ -18,17 +18,18 @@ export function EditShelfFrame({ t, heading, title, onTitleChange, previewCount,
   tabs: ReactNode
   preview: ReactNode
 }) {
+  const saveText = t('save')
   return (
     <ModalShell>
       <ConfirmModal
-        bAllowFullSize
+        strTitle={heading}
+        strOKButtonText={saveText}
+        onOK={onSave}
         onCancel={onClose}
         onEscKeypress={onClose}
-        strTitle={heading}
-        onOK={onSave}
-        strOKButtonText={t('save')}
+        bAllowFullSize
       >
-        <Focusable onMenuButton={onSave} onMenuActionDescription={t('save')} style={{ paddingBottom: 8 }}>
+        <Focusable style={{ paddingBottom: 8 }} onMenuButton={onSave} onMenuActionDescription={saveText}>
           <ModalHeader t={t} title={title} onTitleChange={onTitleChange} previewCount={previewCount} />
           <div style={{ display: 'flex', flexDirection: 'column', height: 'min(calc(100vh - 130px), 540px)', minHeight: 400 }}>
             <div style={{ flex: '1 1 0', minHeight: 0, position: 'relative', overflow: tabsOverflow }}>

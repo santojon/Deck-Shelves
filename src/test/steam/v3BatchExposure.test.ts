@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { FilterItemTypeSchema, ShelfSourceSchema } from '../../types'
-import { ALL_FILTER_TYPES, canBeInverted } from '../../components/filter/utils'
+import { ALL_FILTER_TYPES } from '../../components/conditions/utils'
 import { FILTER_V3_EVALUATORS, SORT_V3_COMPARATORS, SOURCE_V3_RESOLVERS } from '../../steam/v3Extensions'
 import { SORT_OPTIONS, V3_SOURCE_OPTIONS } from '../../components/qam/modals/editShelf/constants'
 
@@ -31,10 +31,9 @@ const BATCH_SORTS = [
 const STUB_SORTS = ['weighted_random', 'smart_random', 'seeded_random', 'rotating_daily_random', 'avoid_recently_shown']
 
 describe('Filter v3 batch — param-free filters exposed and wired', () => {
-  it.each(BATCH_FILTERS)('%s is a schema type, in the picker, invertible, with an evaluator', (id) => {
+  it.each(BATCH_FILTERS)('%s is a schema type, in the picker, with an evaluator', (id) => {
     expect(FilterItemTypeSchema.options).toContain(id)
     expect(ALL_FILTER_TYPES).toContain(id)
-    expect(canBeInverted(id as any)).toBe(true)
     expect(typeof FILTER_V3_EVALUATORS[id]).toBe('function')
   })
 })

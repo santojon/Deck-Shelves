@@ -185,29 +185,14 @@ def _click_checkbox(host: str, port: int, index: int) -> bool:
 """) is True
 
 
-def _click_nth_button(host: str, port: int, index: int) -> bool:
+def _click_button_with_text(host: str, port: int, text_prefix: str) -> bool:
+    """Clicks the modal's first button whose visible text starts with
+    `text_prefix` (the forced en-US label), wherever the tab puts it."""
     return _bp_eval(host, port, f"""
 (function(){{
   const modal = document.querySelector({_MODAL_SEL!r});
   const buttons = modal ? Array.from(modal.querySelectorAll('button, [role=button]')) : [];
-  if (buttons.length <= {index}) return false;
-  buttons[{index}].click();
-  return true;
-}})()
-""") is True
-
-
-def _select_dropdown_option(host: str, port: int, text_prefix: str) -> bool:
-    """Picks a real option from a floating SteamUI Dropdown popup (portal-mounted
-    outside the modal, as `.BasicUIContextMenu [role=option]`) by its visible
-    text — confirmed live: a plain `.click()` on the option both selects it AND
-    closes the popup. Without this, a scenario that only opens the dropdown
-    (`_click_nth_button`) leaves it open as a floating overlay that survives
-    Save/navigate-home and bleeds into every scenario that runs after it."""
-    return _bp_eval(host, port, f"""
-(function(){{
-  const opts = Array.from(document.querySelectorAll('.BasicUIContextMenu [role=option]'));
-  const target = opts.find(o => (o.textContent || '').trim().startsWith({text_prefix!r}));
+  const target = buttons.find(b => (b.textContent || '').trim().startsWith({text_prefix!r}));
   if (!target) return false;
   target.click();
   return true;
@@ -390,19 +375,11 @@ def filters(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Path
     stacked conditions) live on the Filters tab, then shows the shelf's
     result set actually change on Home.
 
-    The mode-toggle button's position (index 1 among the tab's own buttons,
-    after the "save current as a saved filter" quick action) was confirmed
-    live against a shelf with a populated filterGroup + saved-filters bar —
-    same layout the fixture's shelf renders, but re-verify if this drifts.
-    The button only opens a floating popup (a SteamUI Dropdown, portal-mounted
-    outside the modal) — the actual flip is picking "Any must match" from it,
-    which also closes the popup; leaving it open bled into every scenario
-    that ran after this one (confirmed live)."""
+    Both match modes sit side by side as buttons above the conditions, so the
+    flip is one press on the "Any must match" one, found by its label; no
+    popup opens."""
     def _flip_mode(h: str, p: int) -> bool:
-        if not _click_nth_button(h, p, 1):
-            return False
-        time.sleep(0.6)
-        return _select_dropdown_option(h, p, "Any must match")
+        return _click_button_with_text(h, p, "Any must match")
 
     return _edit_flow(
         sjc, host, port, out_dir, "03-filters.mp4",

@@ -21,7 +21,7 @@
   "side_nav_toggle": "Navegación lateral",
   "dismiss": "Descartar",
   "duplicate_shelf": "Duplicar estantería",
-  "editing": "Modificando",
+  "editing": "Editar estantería: {{name}}",
   "enabled": "Activar estanterías en Inicio",
   "exclude_owned_label": "Ignorar juegos que ya tengo",
   "expand_shelf": "Expandir estante",

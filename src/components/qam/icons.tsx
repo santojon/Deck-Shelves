@@ -30,8 +30,6 @@ export const icons = {
   // arrow on the right indicating direction.
   sortDesc: icon(<><path d='M3 6h13M3 12h9M3 18h5' /><path d='M19 6v12M16 15l3 3 3-3' /></>),
   sortAsc: icon(<><path d='M3 6h5M3 12h9M3 18h13' /><path d='M19 18V6M16 9l3-3 3 3' /></>),
-  // Filter-invert icons: equals (matches) and not-equals (negated). Two
-  // horizontal bars; the inverted variant adds a diagonal slash.
-  filterInvertOff: icon(<path d='M4 9h16M4 15h16' />),
-  filterInvertOn: icon(<><path d='M4 9h16M4 15h16' /><path d='M5 4l14 16' /></>),
+  // Negating a filter condition: a struck-through circle, read as "not".
+  negate: icon(<><circle cx='12' cy='12' r='8.5' /><path d='M6 18 18 6' /></>),
 };

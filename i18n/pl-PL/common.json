@@ -21,7 +21,7 @@
   "side_nav_toggle": "Nawigacja boczna",
   "dismiss": "Odrzuć",
   "duplicate_shelf": "Duplikuj półkę",
-  "editing": "Edycja",
+  "editing": "Edytuj półkę: {{name}}",
   "enabled": "Włącz półki na ekranie głównym",
   "exclude_owned_label": "Ignoruj gry, które już posiadam",
   "expand_shelf": "Rozwiń półkę",

@@ -1,6 +1,5 @@
 import { describe, it, expect } from "vitest";
 import { SettingsSchema, ShelfSourceSchema } from "../types";
-import { canBeInverted } from "../components/filter/utils";
 import { evaluateFilterGroup, type AppOverview } from "../steam";
 
 describe("SettingsSchema — Python sanitizer compatibility", () => {
@@ -57,25 +56,6 @@ describe("SettingsSchema — Python sanitizer compatibility", () => {
       expect(parsed.data.updateNotifyDismissedVersion).toBe("2.2.0");
     }
   });
-});
-
-describe("Filter editor — invertibility (#56)", () => {
-  it("collection filter is invertible after #56 fix", () => {
-    expect(canBeInverted("collection")).toBe(true);
-  });
-
-  // Pin the rest so a future edit removing them is caught.
-  it.each(["favorites", "deckCompatibility", "shortcutType", "appStatus", "playedWithinDays", "playtimeRange", "nameIncludes", "nameRegex", "developer", "publisher", "cloudAvailable", "controllerSupport"] as const)(
-    "%s remains invertible",
-    (type) => { expect(canBeInverted(type as any)).toBe(true); },
-  );
-
-  // Every filter type is now invertible — the evaluator negates uniformly, so
-  // the editor exposes the opposite-effect toggle for all of them.
-  it.each(["installed", "nonSteam", "hidden", "updatePending", "isNew", "friends", "storeTag", "achievements", "appIdList", "merge"] as const)(
-    "%s is invertible",
-    (type) => { expect(canBeInverted(type as any)).toBe(true); },
-  );
 });
 
 describe("Collection filter — Bazzite #55 fix", () => {
@@ -210,7 +190,7 @@ describe("Online sort/filter gating", () => {
   // online; friendsPlayingNow/friendsPlayedRecently read the local friend
   // list and are always offered (see the sort-side note above).
   it("isOnlineFilterType returns true only for discount/priceRange", async () => {
-    const { isOnlineFilterType } = await import("../components/filter/utils");
+    const { isOnlineFilterType } = await import("../components/conditions/utils");
     expect(isOnlineFilterType("discount" as any)).toBe(true);
     expect(isOnlineFilterType("priceRange" as any)).toBe(true);
     expect(isOnlineFilterType("friendsPlayingNow" as any)).toBe(false);
@@ -224,7 +204,7 @@ describe("Online sort/filter gating", () => {
   // usable local data at all — see v3Extensions.ts) — a different gate than
   // isOnlineFilterType's source-type check above, so it's a separate flag.
   it("isOnlineFeatureFilterType returns true only for genres/categories/franchise", async () => {
-    const { isOnlineFeatureFilterType } = await import("../components/filter/utils");
+    const { isOnlineFeatureFilterType } = await import("../components/conditions/utils");
     expect(isOnlineFeatureFilterType("genres" as any)).toBe(true);
     expect(isOnlineFeatureFilterType("categories" as any)).toBe(true);
     expect(isOnlineFeatureFilterType("franchise" as any)).toBe(true);

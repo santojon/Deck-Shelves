@@ -59,7 +59,7 @@ function checkCoverage(label, ids, docPath) {
 }
 
 // ---------------------------------------------------------------- 1. coverage
-const filterUtils = read("src/components/filter/utils.tsx");
+const filterUtils = read("src/components/conditions/utils.tsx");
 const editorConsts = read("src/components/qam/modals/editShelf/constants.ts");
 const types = read("src/types.ts");
 const templates = read("src/domain/templates.ts");

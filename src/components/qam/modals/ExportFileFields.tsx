@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { Focusable, DialogButton, TextField, openFilePicker } from '../../../runtime/host/decky'
+import { Focusable, DialogButton, openFilePicker } from '../../../runtime/host/decky'
 import { notify } from '../../notify'
-import { textFromDeckyChange, tryPickerCalls } from './modalUtils'
+import { TitleField } from '../../ui'
+import { tryPickerCalls } from './modalUtils'
 
 export async function pickExportFolder(startPath: string): Promise<string> {
   return await tryPickerCalls([
@@ -23,24 +24,21 @@ export function ExportFileFields({ t, name, setName, folder, setFolder }: {
   const [browseBusy, setBrowseBusy] = useState(false)
   return (
     <Focusable>
-      <div style={{ padding: '4px 16px 1px' }} className='name-field'>
-        <div style={{ paddingBottom: '6px' }}>{t('file_name')}</div>
-        <TextField value={name} onChange={(value: unknown) => setName(textFromDeckyChange(value))} />
-        <div style={{ paddingTop: '10px' }}>
-          <DialogButton
-            onClick={async () => {
-              setBrowseBusy(true)
-              try {
-                const picked = await pickExportFolder(folder)
-                if (picked) setFolder(picked)
-              } catch (error) {
-                notify("error", { body: String(error) })
-              } finally {
-                setBrowseBusy(false)
-              }
-            }}
-          >{browseBusy ? t('loading') : t('browse')}</DialogButton>
-        </div>
+      <TitleField label={t('file_name')} value={name} onChange={setName} />
+      <div style={{ paddingTop: '10px' }}>
+        <DialogButton
+          onClick={async () => {
+            setBrowseBusy(true)
+            try {
+              const picked = await pickExportFolder(folder)
+              if (picked) setFolder(picked)
+            } catch (error) {
+              notify("error", { body: String(error) })
+            } finally {
+              setBrowseBusy(false)
+            }
+          }}
+        >{browseBusy ? t('loading') : t('browse')}</DialogButton>
       </div>
     </Focusable>
   )

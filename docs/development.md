@@ -195,7 +195,7 @@ dir and returns a `{filename: Path}` map. The runner is split into `lib/cdp.py`
 | `shelf-create.png` | Template picker modal (grouped by category) |
 | `shelf-actions.png` | Per-shelf action menu (Edit / Duplicate / Hide / Delete / reorder) |
 | `shelf-edit.png` | Edit shelf modal — Source tab (sort, source type, limit) |
-| `shelf-edit-filters.png` | Edit shelf modal — Filters tab (FilterPanel + SavedFiltersBar) |
+| `shelf-edit-filters.png` | Edit shelf modal — Filters tab (SavedFiltersBar + ConditionEditor) |
 | `shelf-edit-visual.png` | Edit shelf modal — Visual tab (highlight toggles + picker + Odd/Even) |
 | `shelf-hidden.png` | QAM showing a shelf toggled to hidden (eye-slash icon) |
 | `shelf-delete.png` | Delete shelf confirmation dialog |

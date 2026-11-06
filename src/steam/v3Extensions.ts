@@ -414,7 +414,8 @@ function evalExclusionGroup(item: any, app: AppOverview, evalChild?: ChildEvalua
   return !childrenOf(item).some((c) => runChild(c, app, evalChild));
 }
 
-// ── TabMaster-parity filters (data confirmed present) ─────────────────────
+// Filters on fields the app overview already carries, natively or from the
+// online metadata, so they need no fetch of their own.
 
 // Review score — metacritic (default) or Steam review %. Both are online-
 // enriched (onlineMetadata.ts); an app with no score never matches (so the

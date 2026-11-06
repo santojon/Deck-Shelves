@@ -1,11 +1,11 @@
-import { Menu, MenuGroup, MenuItem, DialogButton, showContextMenu } from '../../../runtime/host/decky'
-import { icons } from '../icons'
 import type { SettingsController } from '../../../features/settings/controller'
 import type { Shelf } from '../../../types'
+import { Menu, MenuGroup, MenuItem, MenuSeparator } from '../../../runtime/host/decky'
 import { DeleteConfirmModal } from '../modals/DeleteConfirmModal'
 import { EditShelfModal } from '../modals/EditShelfModal'
 import { confirmAction } from '../modals/ConfirmActionModal'
 import { openManagedModal } from '../common/openManagedModal'
+import { RowMenuButton } from '../common/RowMenuButton'
 import { clearOnlineShelfCache } from '../../../core/shelfActions'
 import { invalidateRandomSortCache } from '../../../steam'
 import { invalidateSmartShelfCache } from '../../../steam/smartShelves'
@@ -50,40 +50,44 @@ export function showComposeConfirm(controller: SettingsController, source: Shelf
   })
 }
 
-function ShelfActionsContextMenu({ controller, shelf }: { controller: SettingsController; shelf: Shelf }) {
-  const { t, shelves, actions } = controller
-  const index = shelves.findIndex((s) => s.id === shelf.id)
-  const showRefresh = isOnlineSource(shelf.source) || isRandomOrSmart(shelf)
-  const otherShelves = shelves.filter((s) => s.id !== shelf.id)
+type ShelfRowMenuProps = {
+  controller: SettingsController
+  shelf: Shelf
+  // The row's place in the list it is shown in, and how that list moves it.
+  index: number
+  count: number
+  onMove: (dir: -1 | 1) => void
+}
+
+export function ShelfRowMenu({ controller, shelf, index, count, onMove }: ShelfRowMenuProps) {
+  const { t, actions, shelves } = controller
+  const others = shelves.filter((other) => other.id !== shelf.id)
+  const online = isOnlineSource(shelf.source)
   return (
-    <Menu label={shelf.title || t('actions')}>
+    <Menu label={shelf.title.trim() || t('actions')} cancelText={t('cancel')}>
       <MenuItem onSelected={() => showEditShelfModal(controller, shelf)}>{t('edit_shelf')}</MenuItem>
-      <MenuItem onSelected={() => actions.duplicateShelf(shelf.id)}>{t('duplicate_shelf')}</MenuItem>
-      <MenuItem onSelected={() => actions.toggleShelfHidden(shelf.id)}>{shelf.hidden ? t('show_shelf') : t('hide_shelf')}</MenuItem>
-      <MenuItem disabled={index <= 0} onSelected={() => actions.moveShelf(shelf.id, -1)}>{t('move_up')}</MenuItem>
-      <MenuItem disabled={index >= shelves.length - 1} onSelected={() => actions.moveShelf(shelf.id, 1)}>{t('move_down')}</MenuItem>
-      {showRefresh && (
-        <MenuItem onSelected={() => refreshShelfCache(shelf)}>
-          {isOnlineSource(shelf.source) ? t('refresh_cache') : t('refresh')}
-        </MenuItem>
-      )}
-      {otherShelves.length > 0 && (
+      {others.length > 0 && (
         <MenuGroup label={t('compose_with')}>
-          {otherShelves.map((other) => (
-            <MenuItem key={other.id} onSelected={() => showComposeConfirm(controller, shelf, other)}>{other.title}</MenuItem>
+          {others.map((target) => (
+            <MenuItem key={target.id} onSelected={() => showComposeConfirm(controller, shelf, target)}>{target.title}</MenuItem>
           ))}
         </MenuGroup>
       )}
+      <MenuSeparator />
+      <MenuItem disabled={index <= 0} onSelected={() => onMove(-1)}>{t('move_up')}</MenuItem>
+      <MenuItem disabled={index >= count - 1} onSelected={() => onMove(1)}>{t('move_down')}</MenuItem>
+      <MenuSeparator />
+      <MenuItem onSelected={() => void actions.toggleShelfHidden(shelf.id)}>{t(shelf.hidden ? 'show_shelf' : 'hide_shelf')}</MenuItem>
+      {(online || isRandomOrSmart(shelf)) && (
+        <MenuItem onSelected={() => refreshShelfCache(shelf)}>{t(online ? 'refresh_cache' : 'refresh')}</MenuItem>
+      )}
+      <MenuSeparator />
+      <MenuItem onSelected={() => void actions.duplicateShelf(shelf.id)}>{t('duplicate_shelf')}</MenuItem>
       <MenuItem onSelected={() => showDeleteConfirm(controller, shelf)}>{t('delete_shelf')}</MenuItem>
     </Menu>
   )
 }
 
-export function ShelfActionsButton({ controller, shelf }: { controller: SettingsController; shelf: Shelf }) {
-  const onClick = () => showContextMenu(<ShelfActionsContextMenu controller={controller} shelf={shelf} />)
-  return (
-    <DialogButton data-ds-shelf-actions='true' style={{ height: '40px', minWidth: '40px', width: '40px', display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '10px' }} onClick={onClick} onOKButton={onClick} onOKActionDescription={controller.t('open_shelf_options')}>
-      {icons.ellipsis}
-    </DialogButton>
-  )
+export function ShelfRowMenuButton(props: ShelfRowMenuProps) {
+  return <RowMenuButton hint={props.controller.t('actions')} data-ds-shelf-actions={props.shelf.id} menu={() => <ShelfRowMenu {...props} />} />
 }

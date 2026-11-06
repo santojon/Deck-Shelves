@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import type { AppOverview } from '../../steam'
 import { FilterItemTypeSchema } from '../../types'
-import { ALL_FILTER_TYPES, canBeInverted, defaultParams } from '../../components/filter/utils'
+import { ALL_FILTER_TYPES, startingOptions } from '../../components/conditions/utils'
 import { FILTER_V3_EVALUATORS, type ChildEvaluator } from '../../steam/v3Extensions'
 
 const COMPOSITES = ['weightedFilter', 'priorityFilter', 'exclusionGroup']
@@ -23,17 +23,16 @@ const weighted = (children: any[], threshold: number) =>
   FILTER_V3_EVALUATORS.weightedFilter({ type: 'weightedFilter', params: { children, threshold } }, app({ appid: 1 }), hostEval)
 
 describe('composite filters — exposure', () => {
-  it.each(COMPOSITES)('%s is a schema type, in the picker, invertible, with an evaluator', (id) => {
+  it.each(COMPOSITES)('%s is a schema type, in the picker, with an evaluator', (id) => {
     expect(FilterItemTypeSchema.options).toContain(id)
     expect(ALL_FILTER_TYPES).toContain(id)
-    expect(canBeInverted(id as any)).toBe(true)
     expect(typeof FILTER_V3_EVALUATORS[id]).toBe('function')
   })
 
   it('seeds an empty children list (and a threshold for weighted)', () => {
-    expect(defaultParams('weightedFilter' as any)).toEqual({ children: [], threshold: 1 })
-    expect(defaultParams('priorityFilter' as any)).toEqual({ children: [] })
-    expect(defaultParams('exclusionGroup' as any)).toEqual({ children: [] })
+    expect(startingOptions('weightedFilter' as any)).toEqual({ children: [], threshold: 1 })
+    expect(startingOptions('priorityFilter' as any)).toEqual({ children: [] })
+    expect(startingOptions('exclusionGroup' as any)).toEqual({ children: [] })
   })
 })
 

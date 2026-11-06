@@ -128,7 +128,7 @@ flowchart TB
 
     subgraph components["src/components"]
         shelf["shelf/*<br/>GameCard, linhas"]
-        filter["filter/*<br/>editor de filtro"]
+        filter["conditions/*<br/>editor de filtro"]
         qam["qam/*<br/>painel Quick Access"]
         about["páginas about + settings"]
     end
@@ -189,7 +189,6 @@ src/
 │ ├── DeckRow.tsx Layout da linha de shelf (importa módulos de shelf/)
 │ ├── Shelf.tsx Resolvedor de dados de uma única shelf (memoizado + cancelamento por generation-id)
 │ ├── DeckQAMSettings.tsx Painel de configurações do Quick Access Menu
-│ ├── FilterPanel.tsx UI do editor de grupo de filtros
 │ ├── AboutPage.tsx Página Sobre / documentação
 │ ├── Settings.tsx Wrapper da página de Configurações
 │ ├── SettingsPage.tsx Configurações em página inteira: uma aba por área (Prateleiras, Perfis, Integrações, Atalhos, Backup, Sugestões, Estatísticas, Avançado, Desenvolvedor)
@@ -201,12 +200,12 @@ src/
 │ │ ├── edgeNavigation.ts Throttle de L/R + guarda de inclinação DOWN (quando as abas da home estão ocultas)
 │ │ ├── verticalBridge.ts Ponte DOWN/UP entre o mount e os vizinhos nativos
 │ │ └── constants.ts DIR_*, DS_*_PATCHED, OPTIONS_BUTTON
-│ ├── filter/ Editor de grupo de filtros (UI recursiva)
+│ ├── conditions/ Editor de grupo de filtros (UI recursiva)
 │ ├── ui/ Primitivas compartilhadas agnósticas de domínio
-│ │ ├── ModalShell.deck-shelves-modal-scope + DeckModalStyles
-│ │ ├── FieldContainer.field-item-container + modo rolável (focusin → scrollIntoView)
-│ │ ├── LabeledTextField Field + TextField + textFromDeckyChange
-│ │ ├── CollapsibleSection Seção colapsável do QAM com estado em localStorage
+│ │ ├── ModalShell.deck-shelves-dialog + DeckModalStyles
+│ │ ├── FieldContainer.deck-shelves-editor-fields + modo rolável (focusin → scrollIntoView)
+│ │ ├── TitleField TextField com rótulo próprio + textFromDeckyChange
+│ │ ├── CollapsibleSection Seção colapsável (QAM, página de configurações, diálogos); estado aberto em localStorage quando recebe um id
 │ │ └── PageHeader Seta de voltar + título + slot final para rotas dedicadas
 │ ├── settings/details/ Um arquivo por aba de Configurações (Perfis, Estatísticas e Sugestões ficam em src/features/)
 │ │ ├── ShelvesDetail CRUD de shelves normais + smart (chips, editar/excluir, reordenação unificada ↑↓)
@@ -453,9 +452,9 @@ Um adaptador por visual suportado, em `themes/adapters/` (Switch Like Home, Cent
 ### Card de atualização nas prateleiras (`shelf/RefreshCard.tsx` + `shelf/types.ts > REFRESHABLE_SMART_MODES`)
 prateleiras inteligentes cujo resultado pode mudar entre dois cliques (`random_pick` / `time_of_day` / `spare_time` / `recently_played`) recebem um card de Atualizar em vez do tile "ver mais na biblioteca". Prateleiras não-smart com `sort === "random"` também recebem o card de Atualizar (é o único caso não-smart cuja ordem pode mudar entre cliques; clicar limpa o cache `ds-random-*` do localStorage e reresolve apenas aquela prateleira). A animação de rotação é conduzida por um keyframe CSS via alternância de classe no DOM (`.ds-refresh-spinning` em `iconRef`) — não estado React, então a reconciliação de `setAppIds()` não consegue cancelar a animação em andamento. `hideRefreshCard` por prateleira e `globalHideRefreshCard` global suprimem o card final de atualizar sem mudar a cadência de recomputação/cache; `hideSeeMore` / `globalHideSeeMore` espelham o mesmo par por-prateleira vs. global para o card final "Ver mais".
 
-### Sistema de filtros (`steam/index.ts > evaluateFilterGroup` + `components/filter/`)
+### Sistema de filtros (`steam/index.ts > evaluateFilterGroup` + `components/conditions/`)
 
-Grupos de filtro são predicados AND/OR avaliados contra um único pool de origem — nunca uniões de listas. A biblioteca inteira flui pelo `evaluateFilterGroup` uma vez e cada app é testado contra cada item independentemente. `merge` é um tipo de filtro especial que envolve um grupo de predicados aninhado com seu próprio `mode: "and" | "or"` mais um array `items` filho — útil para compor OR-de-predicados dentro de um grupo AND externo (ex.: `merge { or, [installed, nonSteam] }` para trazer "Steam instalado OU qualquer app não-Steam" numa única prateleira). Sub-filtros são editados via o componente recursivo `MergeFilterOptions`, que renderiza um `<FilterPanel>` para os filhos; filtros salvos podem ser aplicados em qualquer nível de merge.
+Grupos de filtro são predicados AND/OR avaliados contra um único pool de origem — nunca uniões de listas. A biblioteca inteira flui pelo `evaluateFilterGroup` uma vez e cada app é testado contra cada item independentemente. `merge` é um tipo de filtro especial que envolve um grupo de predicados aninhado com seu próprio `mode: "and" | "or"` mais um array `items` filho — útil para compor OR-de-predicados dentro de um grupo AND externo (ex.: `merge { or, [installed, nonSteam] }` para trazer "Steam instalado OU qualquer app não-Steam" numa única prateleira). Sub-filtros são editados via o componente recursivo `NestedConditionEditor`, que renderiza um `<ConditionEditor>` para os filhos; filtros salvos podem ser aplicados em qualquer nível de merge.
 
 `genres`, `categories`, `multiplayerType`, `franchise` e `vrSupport` (`steam/v3Extensions.ts`) leem `rawField`, que checa primeiro o `AppOverview` real de um jogo que você possui localmente, por campo, e só então recorre aos dados buscados — nunca por objeto, já que a visão geral de um jogo que você possui existe mas nunca traz dados de gênero/franquia e só traz categorias como ids numéricos (`BHasStoreCategory(id)`, não strings de nome). `multiplayerType` e `vrSupport` têm um caminho local rápido para jogos que você possui e só precisam da busca para ids que o cliente nunca viu; `genres`/`categories` (via `getCatalogMetaMap` do `onlineStore.ts`, `appdetails` da loja, um appid por requisição — requisições em lote retornam 400 para esse conjunto de filtros mesmo que `price_overview` funcione em lote normalmente) e `franchise` (via `associations.rgFranchises` de `SteamClient.Apps.GetCachedAppDetails`, a única fonte para franquia) precisam disso para *todo* jogo, possuído ou não — então esses três ficam condicionados a Funcionalidades Online no seletor (`isOnlineFeatureFilterType`, diferente do gate por tipo de fonte de `isOnlineFilterType` para `discount`/`priceRange`) em vez de por tipo de fonte, já que fazem sentido numa prateleira de biblioteca simples. `prefetchCatalogFilterData` (+ `collectFilterGroupItemsFlat` para os casos que percorrem a árvore) aquece ambos os caches antes da avaliação em todo caminho de resolução de grupo de filtro: o filtro de biblioteca simples, o filtro filho da própria coleção, o grupo de filtro de uma Prateleira Inteligente, e o `childFilter` de um composto filho.
 

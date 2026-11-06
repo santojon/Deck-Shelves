@@ -6,7 +6,7 @@ use capture_bigpicture (landscape). The QAM is opened first so the flow
 that reveals each modal is exercised, with DOM clicks running in the QAM
 popup target (not SJC, which has no DS DOM).
 
-For shelves/smart-shelf actions that live behind an ellipsis context menu,
+For shelves/smart-shelf actions that live behind a row's menu button,
 the scenario:
   1. Clicks the [data-ds-shelf-actions] / [data-ds-smart-actions] button on
      the first row.
@@ -48,10 +48,10 @@ def _open_qam(sjc: Session, host: str, port: int):
 
 
 def _click_action(host: str, port: int, ok_description: str) -> bool:
-    """Click a DS QAM ActionButton by its SVG icon content.
+    """Click a QAM toolbar button by its SVG icon content.
 
-    ActionButton uses onOKActionDescription (gamepad hint), not aria-label,
-    so we identify buttons by the SVG path of their icon instead.
+    Toolbar buttons show only an icon (their name is the gamepad hint), so we
+    identify them by the SVG path of the icon.
     Icons (src/components/qam/icons.tsx): add=M12 5v14, import=M12 3v12,
     export=M12 21V9, reset=M3 12a9. Keep in sync if those change.
     """
@@ -63,7 +63,7 @@ def _click_action(host: str, port: int, ok_description: str) -> bool:
     if desc == "smart_add_shelf":
         return _qam_eval(host, port, """
 (function(){
-  var scope = document.querySelector('.deck-shelves-qam-scope');
+  var scope = document.querySelector('.deck-shelves-qam-panel');
   // Primary: anchor on the smart section header.
   var hdr = document.querySelector('[data-ds-section="smart"]');
   if (hdr) {
@@ -125,22 +125,22 @@ def _click_action(host: str, port: int, ok_description: str) -> bool:
 
 
 def _click_first_shelf_actions(host: str, port: int) -> str:
-    """Click the ellipsis (…) button on the first regular shelf row.
+    """Click the menu button on the first regular shelf row.
 
-    Uses [data-ds-shelf-actions] added to ShelfActionsButton in v2.0.3+.
-    Falls back to the first ellipsis button inside the shelves section.
+    Uses [data-ds-shelf-actions], set on ShelfRowMenuButton. Falls back to
+    the first row menu button (its chevron icon) that is not a smart shelf's.
     """
     return _qam_eval(host, port, """
 (function(){
   // Primary: attribute placed directly on the shelf actions DialogButton.
   var btns = Array.from(document.querySelectorAll('[data-ds-shelf-actions]'));
   if (btns.length) { btns[0].click(); return 'shelf-actions'; }
-  // Fallback: legacy approach — first button whose innerHTML contains 'cx='
-  // (the ellipsis SVG uses <circle cx="...">). Skip smart-shelf action buttons.
+  // Fallback: first button with the row menu chevron (icons.tsx `down`).
+  // Skip smart-shelf menu buttons.
   var all = Array.from(document.querySelectorAll('button'));
   for (var b of all) {
     if (b.getAttribute('data-ds-smart-actions')) continue;
-    if (b.innerHTML.indexOf('cx=') !== -1) { b.click(); return 'fallback-cx'; }
+    if (b.innerHTML.indexOf('m6 10 6 6 6-6') !== -1) { b.click(); return 'fallback-chevron'; }
   }
   return 'not-found';
 })()
@@ -148,20 +148,20 @@ def _click_first_shelf_actions(host: str, port: int) -> str:
 
 
 def _click_first_smart_actions(host: str, port: int) -> str:
-    """Click the ellipsis (…) button on the first smart shelf row.
+    """Click the menu button on the first smart shelf row.
 
-    Uses [data-ds-smart-actions] added to SmartShelfActionsButton in v2.0.3+.
+    Uses [data-ds-smart-actions], set on SmartShelfRowMenuButton.
     """
     return _qam_eval(host, port, """
 (function(){
   // Primary: attribute placed directly on the smart-shelf actions DialogButton.
   var btns = Array.from(document.querySelectorAll('[data-ds-smart-actions]'));
   if (btns.length) { btns[0].click(); return 'smart-actions'; }
-  // Fallback: last ellipsis button in the scope (smart shelves come after regular).
+  // Fallback: last row menu button (smart shelves come after regular).
   var all = Array.from(document.querySelectorAll('button')).filter(function(b) {
-    return b.innerHTML.indexOf('cx=') !== -1;
+    return b.innerHTML.indexOf('m6 10 6 6 6-6') !== -1;
   });
-  if (all.length) { all[all.length - 1].click(); return 'fallback-last-cx'; }
+  if (all.length) { all[all.length - 1].click(); return 'fallback-last-chevron'; }
   return 'not-found';
 })()
 """) or "no-result"
@@ -209,7 +209,7 @@ def shelf_export(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str,
 
 @register("shelf_edit")
 def shelf_edit(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Path]:
-    """Shelf edit modal — opens via ellipsis context menu → Edit."""
+    """Shelf edit modal — opens via the row menu → Edit."""
     _open_qam(sjc, host, port)
     expand_qam_sections(host, port)
     _click_first_shelf_actions(host, port)
@@ -284,7 +284,7 @@ def smart_shelf_modal(sjc: Session, host: str, port: int, out_dir: Path) -> Dict
     # Scroll to bottom so the smart section add button is visible
     _qam_eval(host, port, """
 (function(){
-  var scope = document.querySelector('.deck-shelves-qam-scope');
+  var scope = document.querySelector('.deck-shelves-qam-panel');
   if (scope) scope.scrollTop = scope.scrollHeight;
 })()
 """)
@@ -328,13 +328,13 @@ def smart_shelf_modal(sjc: Session, host: str, port: int, out_dir: Path) -> Dict
 
 @register("smart_shelf_edit")
 def smart_shelf_edit(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Path]:
-    """Smart-shelf editor — opens via ellipsis context menu → Edit."""
+    """Smart-shelf editor — opens via the row menu → Edit."""
     _open_qam(sjc, host, port)
     expand_qam_sections(host, port)
-    # Scroll to smart section and click its first ellipsis
+    # Scroll to smart section and open its first row menu
     _qam_eval(host, port, """
 (function(){
-  var scope = document.querySelector('.deck-shelves-qam-scope');
+  var scope = document.querySelector('.deck-shelves-qam-panel');
   if (!scope) return 'no-scope';
   var walker = document.createTreeWalker(scope, NodeFilter.SHOW_TEXT);
   var node;
@@ -367,7 +367,7 @@ def reset_all(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Pa
     # Scroll to bottom so the footer Reset All button is in view
     _qam_eval(host, port, """
 (function(){
-  var scope = document.querySelector('.deck-shelves-qam-scope');
+  var scope = document.querySelector('.deck-shelves-qam-panel');
   if (scope) scope.scrollTop = scope.scrollHeight;
   return 'ok';
 })()
@@ -377,7 +377,7 @@ def reset_all(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Pa
     # Uses the full SVG path from icons.tsx: M3 12a9 9 0 1 0 3-6.7
     _qam_eval(host, port, r"""
 (function(){
-  var scope = document.querySelector('.deck-shelves-qam-scope');
+  var scope = document.querySelector('.deck-shelves-qam-panel');
   if (!scope) return 'no-scope';
   var btns = Array.from(scope.querySelectorAll('button')).filter(function(b) {
     return b.innerHTML.indexOf('M3 12a9 9 0 1 0 3-6.7') !== -1;
@@ -417,8 +417,8 @@ def shelf_hidden(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str,
 
     Hidden state is the `deck-shelves-hidden` CSS class on the row label
     (there is no data attribute for it). If nothing is currently hidden, the
-    first shelf is toggled hidden for the capture via the same ellipsis →
-    Hide/Show menu item a user would click, then toggled back right after —
+    first shelf is toggled hidden for the capture via the same row menu →
+    Hide/Show item a user would click, then toggled back right after —
     guaranteed by `finally` even if the capture step itself fails, so a run
     never leaves a real shelf hidden behind.
     """
@@ -426,7 +426,7 @@ def shelf_hidden(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str,
     expand_qam_sections(host, port)
     already_hidden = _qam_eval(host, port, """
 (function(){
-  return !!document.querySelector('.deck-shelves-label-cont.deck-shelves-hidden');
+  return !!document.querySelector('.deck-shelves-nameplate.deck-shelves-hidden');
 })()
 """) is True
 
@@ -442,7 +442,7 @@ def shelf_hidden(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str,
 
         _qam_eval(host, port, """
 (function(){
-  const row = document.querySelector('.deck-shelves-label-cont.deck-shelves-hidden');
+  const row = document.querySelector('.deck-shelves-nameplate.deck-shelves-hidden');
   if (row) row.scrollIntoView({block:'center'});
   return 'ok';
 })()
@@ -463,7 +463,7 @@ def shelf_hidden(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str,
 
 @register("shelf_delete")
 def shelf_delete(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Path]:
-    """Shelf delete confirmation modal — opens via ellipsis context menu → Delete."""
+    """Shelf delete confirmation modal — opens via the row menu → Delete."""
     _open_qam(sjc, host, port)
     expand_qam_sections(host, port)
     _click_first_shelf_actions(host, port)

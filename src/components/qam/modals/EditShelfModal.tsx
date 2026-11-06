@@ -13,7 +13,7 @@ import type { FilterGroup, Shelf, ShelfFilter } from '../../../types'
 import { normalizeFilter } from '../../../domain/settings'
 import { SHELF_LIMIT_MAX } from '../../../domain/shelfLimits'
 import { consumePendingShelfModalTab } from '../../../core/shelfActions'
-import { FilterPanel } from '../../FilterPanel'
+import { ConditionEditor } from '../../conditions/ConditionEditor'
 import { FieldContainer, DSSliderField} from '../../ui'
 import { logInfo } from '../../../runtime/logger'
 import { notify } from '../../notify'
@@ -694,7 +694,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
   return (
     <EditShelfFrame
       t={t}
-      heading={`${t('editing')}: ${shelf.title}`}
+      heading={t('editing', { name: shelf.title })}
       title={state.title}
       onTitleChange={(next) => setState((prev) => ({ ...prev, title: next }))}
       previewCount={previewCount}
@@ -859,7 +859,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
                             <div style={{ fontSize: 13, opacity: 0.85, padding: '4px 0', fontWeight: 600 }}>{`${t('source_filter')} ${i + 1}`}</div>
                           )}
                           <SavedFiltersBar controller={controller} currentGroup={slot.group} onApply={slot.onChange} />
-                          <FilterPanel group={slot.group} onChange={slot.onChange} controller={controller} allowOnlineFilters={false} onlineFeaturesOn={onlineOn} />
+                          <ConditionEditor group={slot.group} onChange={slot.onChange} controller={controller} allowOnlineFilters={false} onlineFeaturesOn={onlineOn} />
                         </div>
                       ))}
                     </FieldContainer>
@@ -932,7 +932,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
                             currentGroup={slot.group}
                             onApply={slot.onChange}
                           />
-                          <FilterPanel group={slot.group} onChange={slot.onChange} controller={controller} allowOnlineFilters={slot.allowOnline} onlineFeaturesOn={onlineOn} />
+                          <ConditionEditor group={slot.group} onChange={slot.onChange} controller={controller} allowOnlineFilters={slot.allowOnline} onlineFeaturesOn={onlineOn} />
                         </div>
                       ))}
                     </FieldContainer>

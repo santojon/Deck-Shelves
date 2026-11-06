@@ -180,7 +180,7 @@ Cada item pode ser `inverted` para negar a condição:
 
 > **Dica:** use `mode: "or"` quando você quer trazer jogos que correspondam a *qualquer uma* de várias condições — por exemplo, jogos de um desenvolvedor **ou** outro. Use `mode: "and"` (o padrão) quando toda condição precisa valer ao mesmo tempo.
 
-> **Dica:** `inverted` está disponível na maioria dos tipos de filtro. Combine com `mode: "and"` para excluir subconjuntos específicos — ex.: jogos instalados que *não* estão ocultos.
+> **Dica:** `inverted` funciona em todos os tipos de filtro. Combine com `mode: "and"` para excluir subconjuntos específicos — ex.: jogos instalados que *não* estão ocultos.
 
 ### `merge` — grupos de predicados aninhados
 
@@ -384,6 +384,6 @@ Estes são convertidos automaticamente para o formato de grupo em runtime via `l
 ## Implementação
 
 - Avaliação de filtro: `src/steam/index.ts` → `evaluateFilterItem()`, `evaluateFilterGroup()`
-- UI de filtro: `src/components/FilterPanel.tsx`
+- UI de filtro: `src/components/conditions/ConditionEditor.tsx`
 - Conversão legada: `src/domain/settings.ts` → `legacyFilterToGroup()`
 - Tipos de filtro personalizado: `src/domain/customfilters.ts`

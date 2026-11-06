@@ -90,7 +90,7 @@ describe('regular templates — configs are well-formed (no impossible reference
     'alphabetical', 'recent', 'playtime', 'release_date', 'size_on_disk', 'metacritic',
     'review_score', 'added', 'random', 'manual', 'price_low', 'discount_high', 'original_price_high',
   ])
-  const KNOWN_FILTER_TYPES = new Set<string>(FilterItemTypeSchema.options)
+  const CONDITION_TYPES = new Set<string>(FilterItemTypeSchema.options)
   const all = [...SHELF_TEMPLATES, ...ONLINE_SHELF_TEMPLATES]
 
   it.each(all.map((t) => [t.id, t] as const))('%s uses a known sort and known filter types', (_id, tpl) => {
@@ -101,7 +101,7 @@ describe('regular templates — configs are well-formed (no impossible reference
       expect(KNOWN_SORTS.has(s)).toBe(true)
     }
     for (const item of f.filterGroup?.items ?? []) {
-      expect(KNOWN_FILTER_TYPES.has(item.type)).toBe(true)
+      expect(CONDITION_TYPES.has(item.type)).toBe(true)
     }
   })
 })

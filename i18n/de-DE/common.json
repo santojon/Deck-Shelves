@@ -21,7 +21,7 @@
   "side_nav_toggle": "Seitliche Navigation",
   "dismiss": "Verwerfen",
   "duplicate_shelf": "Regal duplizieren",
-  "editing": "Bearbeiten",
+  "editing": "Regal bearbeiten: {{name}}",
   "enabled": "Regale auf Home aktivieren",
   "exclude_owned_label": "Bereits besessene Spiele ignorieren",
   "expand_shelf": "Regal ausklappen",

@@ -3,7 +3,7 @@ import { DialogButton, Focusable } from "../../runtime/host/decky";
 import i18n from "../../i18n";
 import { getUniqueDevelopers, preloadDeveloperData, getAllAppOverviews } from "../../steam";
 
-export default function DeveloperFilterOptions({ selected, onChange }: { selected: string[]; onChange: (devs: string[]) => void }) {
+export default function DeveloperFields({ selected, onChange }: { selected: string[]; onChange: (devs: string[]) => void }) {
   const t = i18n.t.bind(i18n);
   const [allDevs, setAllDevs] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);

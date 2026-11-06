@@ -85,8 +85,8 @@ run_checks() {
     ((fail++))
   fi
 
-  if grep -rq 'deck-shelves-modal-scope' "$src" 2>/dev/null; then
-    echo "  ✅ Modal styles scoped under .deck-shelves-modal-scope"
+  if grep -rq 'deck-shelves-dialog' "$src" 2>/dev/null; then
+    echo "  ✅ Modal styles scoped under .deck-shelves-dialog"
     ((pass++))
   else
     echo "  ⚠️  Modal styles may not be scoped — Obsidian theme overrides possible"

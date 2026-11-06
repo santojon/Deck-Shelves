@@ -21,7 +21,7 @@
   "side_nav_toggle": "사이드 내비게이션",
   "dismiss": "닫기",
   "duplicate_shelf": "선반 복제",
-  "editing": "수정 중",
+  "editing": "선반 편집: {{name}}",
   "enabled": "홈 화면에서 선반 활성화",
   "exclude_owned_label": "이미 보유한 게임 무시",
   "expand_shelf": "선반 펼치기",

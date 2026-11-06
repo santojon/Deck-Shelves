@@ -1,6 +1,6 @@
 export { ModalShell } from './ModalShell'
 export { FieldContainer } from './FieldContainer'
-export { LabeledTextField } from './LabeledTextField'
+export { TitleField } from './TitleField'
 export { CollapsibleSection } from './CollapsibleSection'
 export { DSSliderField } from './DSSliderField'
 export { PositionField, type HorizontalPosition } from './PositionField'

@@ -2,7 +2,6 @@ import { devTrace } from "../runtime/devStamps";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import {
   ConfirmModal,
-  Field,
   Focusable,
   ToggleField,
 } from '../runtime/host/decky'
@@ -24,8 +23,8 @@ import { getUserDownloadsDir, joinDownloads } from '../core/userPaths'
 import { descriptorName } from '../core/descriptorName'
 
 import { icons } from './qam/icons'
-import { ActionButton } from './qam/common/ActionButton'
 import { ImportMenuButton, type ImportEntry } from './qam/common/ImportMenuButton'
+import { QamToolbar, ToolbarButton } from './qam/common/QamToolbar'
 import { openManagedModal } from './qam/common/openManagedModal'
 import { getExternalImportTypesForTarget, registerInternalImportType } from '../core/pluginApi'
 import { formatComboForDisplay, resolveBindings, parseRawCombo, matchEvent, createMatcherState, DEFAULT_BINDINGS } from '../runtime/buttonBindings'
@@ -45,9 +44,9 @@ import { SafeModeSlot } from './qam/modals/SafeModeBanner'
 import { RecentsReplaceErrorBanner } from './qam/modals/RecentsReplaceErrorBanner'
 import { getRecentsReplaceFailed, getRecentsReplaceError, subscribeRecentsReplaceFailed } from '../runtime/recentsReplace'
 import { ResetAllModal } from './qam/modals/ResetAllModal'
-import { ShelvesPanelSection } from './qam/list/ShelvesPanelSection'
-import { SmartShelvesPanelSection } from './qam/list/SmartShelvesPanelSection'
-import { UnifiedShelvesPanelSection } from './qam/list/UnifiedShelvesPanelSection'
+import { RegularShelfList } from './qam/list/RegularShelfList'
+import { SmartShelfList } from './qam/list/SmartShelfList'
+import { UnifiedShelfList } from './qam/list/UnifiedShelfList'
 import { SavedFilterRow } from './qam/list/SavedFilterRow'
 import { SavedSmartFilterRow } from './qam/list/SavedSmartFilterRow'
 import { SmartShelvesFirstRunBanner } from '../features/setup/SmartShelvesFirstRunBanner'
@@ -534,7 +533,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
   const handleAddSmart = () => openManagedModal((close) => <CreateShelfModal closeModal={close} controller={controller} initialTab="smart" />)
 
   return (
-    <div ref={dsScopeRef} className='deck-shelves-qam-scope' data-ds-qam-expanded={qamExpanded ? '1' : '0'}>
+    <div ref={dsScopeRef} className='deck-shelves-qam-panel' data-ds-qam-expanded={qamExpanded ? '1' : '0'}>
       <DeckQAMStyles />
       <Focusable className='deck-shelves-qam-flex' flow-children='row' noFocusRing>
       <Focusable className='deck-shelves-qam-main' noFocusRing onCancelButton={sidecarCancelHandler(qamExpanded, closeSidecar)} onButtonDown={(evt: any) => mainCancelButtonDown(evt, qamExpanded, closeSidecar)}>
@@ -830,35 +829,17 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
       )}
 
       <CollapsibleSection id='shelves' icon={<StackIcon />} title={t('shelves_section')} count={shelves.filter(s => s.enabled && !s.hidden).length} initialOpen>
-        {/* `childrenLayout="below"` + `childrenContainerWidth="max"` give Decky's
-            Field the full row width — without them the empty-label slot grabs
-            ~half the row and the `space-between` Focusable overflows right (CDP:
-            width 150 in a 300-wide scope, pushing the rightmost button to 457). */}
-        <Field className='no-sep' childrenLayout='below' childrenContainerWidth='max'>
-          <Focusable style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxSizing: 'border-box', padding: '0 16px' }}>
-            <div style={{ display: 'flex' }}>
-              <ActionButton iconNode={icons.add} onClick={handleAdd} okDescription={t('add_shelf')} />
-              <div style={{ marginLeft: '10px' }}><ActionButton iconNode={icons.import} onClick={handleImport} okDescription={t('import_shelves')} /></div>
-              <div style={{ marginLeft: '10px' }}><ActionButton iconNode={icons.export} onClick={handleExport} okDescription={t('export_shelves')} /></div>
-            </div>
-            <div style={{ display: 'flex' }}>
-              {(() => {
-                const shelfImports = buildImportEntries('shelves')
-                if (shelfImports.length === 0) return null
-                return (
-                  <div style={{ marginRight: 10 }}>
-                    <ImportMenuButton entries={shelfImports} overflowDescription={t('import_more_options' as any)} />
-                  </div>
-                )
-              })()}
-              <ActionButton iconNode={icons.reset} onClick={handleResetShelves} okDescription={t('reset_shelves')} />
-            </div>
-          </Focusable>
-        </Field>
-        <div className='deck-shelves-separator' />
+        <QamToolbar>
+          <ToolbarButton icon={icons.add} label={t('add_shelf')} onActivate={handleAdd} />
+          <ToolbarButton icon={icons.import} label={t('import_shelves')} onActivate={handleImport} />
+          <ToolbarButton icon={icons.export} label={t('export_shelves')} onActivate={handleExport} />
+          <ImportMenuButton entries={buildImportEntries('shelves')} overflowDescription={t('import_more_options')} />
+          <ToolbarButton icon={icons.reset} label={t('reset_shelves')} onActivate={handleResetShelves} />
+        </QamToolbar>
+        <div className='deck-shelves-divider' />
         {(settings as any).unifiedListEnabled === true
-          ? <UnifiedShelvesPanelSection controller={controller} />
-          : <ShelvesPanelSection controller={controller} />}
+          ? <UnifiedShelfList controller={controller} />
+          : <RegularShelfList controller={controller} />}
       </CollapsibleSection>
 
       {(() => {
@@ -914,30 +895,16 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
         {settings.smartShelvesEnabled && !settings.smartSurpriseMe && (settings.smartShelves ?? []).length > 0 && (
           <>
             <div style={{ marginTop: 8 }} />
-            <div className='deck-shelves-separator' />
-            <Field className='no-sep' childrenLayout='below' childrenContainerWidth='max'>
-              <Focusable style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxSizing: 'border-box', padding: '0 16px' }}>
-                <div style={{ display: 'flex' }}>
-                  <ActionButton iconNode={icons.add} onClick={handleAddSmart} okDescription={t('smart_add_shelf')} />
-                  <div style={{ marginLeft: '10px' }}><ActionButton iconNode={icons.import} onClick={handleImportSmart} okDescription={t('import_smart_shelves')} /></div>
-                  <div style={{ marginLeft: '10px' }}><ActionButton iconNode={icons.export} onClick={handleExportSmart} okDescription={t('export_smart_shelves')} /></div>
-                </div>
-                <div style={{ display: 'flex' }}>
-                  {(() => {
-                    const smartImports = buildImportEntries('smart_shelves')
-                    if (smartImports.length === 0) return null
-                    return (
-                      <div style={{ marginRight: 10 }}>
-                        <ImportMenuButton entries={smartImports} overflowDescription={t('import_more_options' as any)} />
-                      </div>
-                    )
-                  })()}
-                  <ActionButton iconNode={icons.reset} onClick={handleResetSmart} okDescription={t('reset_smart_shelves')} />
-                </div>
-              </Focusable>
-            </Field>
-            <div className='deck-shelves-separator' />
-            <SmartShelvesPanelSection controller={controller} />
+            <div className='deck-shelves-divider' />
+            <QamToolbar>
+              <ToolbarButton icon={icons.add} label={t('smart_add_shelf')} onActivate={handleAddSmart} />
+              <ToolbarButton icon={icons.import} label={t('import_smart_shelves')} onActivate={handleImportSmart} />
+              <ToolbarButton icon={icons.export} label={t('export_smart_shelves')} onActivate={handleExportSmart} />
+              <ImportMenuButton entries={buildImportEntries('smart_shelves')} overflowDescription={t('import_more_options')} />
+              <ToolbarButton icon={icons.reset} label={t('reset_smart_shelves')} onActivate={handleResetSmart} />
+            </QamToolbar>
+            <div className='deck-shelves-divider' />
+            <SmartShelfList controller={controller} />
           </>
         )}
         </>))()}
@@ -975,18 +942,13 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
         );
       })()}
 
-      <Field className='no-sep' childrenLayout='below' childrenContainerWidth='max'>
-        {/* `padding: 0 16px` matches the per-section action rows above
-            so the trailing import / export / reset trio aligns with the
-            shelf-list left and right edges (16 px from each side). */}
-        <Focusable style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxSizing: 'border-box', padding: '0 16px' }}>
-          <div style={{ display: 'flex' }}>
-            <ActionButton iconNode={icons.import} onClick={handleImportAll} okDescription={t('import_settings')} />
-            <div style={{ marginLeft: '10px' }}><ActionButton iconNode={icons.export} onClick={handleExportAll} okDescription={t('export_settings')} /></div>
-          </div>
-          <ActionButton iconNode={icons.reset} onClick={handleResetAll} okDescription={t('reset_all_button')} />
-        </Focusable>
-      </Field>
+      <div style={{ marginTop: 8 }} />
+      <div className='deck-shelves-divider' />
+      <QamToolbar>
+        <ToolbarButton icon={icons.import} label={t('import_settings')} onActivate={handleImportAll} />
+        <ToolbarButton icon={icons.export} label={t('export_settings')} onActivate={handleExportAll} />
+        <ToolbarButton icon={icons.reset} label={t('reset_all_button')} onActivate={handleResetAll} />
+      </QamToolbar>
       <VersionFooter />
       </Focusable>
       {shouldRenderSidecar(isActiveTab, qamExpanded) && (

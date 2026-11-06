@@ -25,7 +25,7 @@ export function DeckQAMStyles() {
          Single source of truth for colour / radius / spacing across QAM,
          sidecar, About page, Settings page and modals. Themes can
          override at the :root level via CSS Loader. */
-      :where(:root, .deck-shelves-qam-scope, .deck-shelves-settings-page, .deck-shelves-root, .deck-shelves-about, .deck-shelves-modal-scope) {
+      :where(:root, .deck-shelves-qam-panel, .deck-shelves-settings-page, .deck-shelves-root, .deck-shelves-info-page, .deck-shelves-dialog) {
         --ds-surface:        rgba(255, 255, 255, 0.04);
         --ds-surface-hi:     rgba(255, 255, 255, 0.08);
         --ds-surface-row:    rgba(255, 255, 255, 0.03);
@@ -53,21 +53,18 @@ export function DeckQAMStyles() {
         --ds-gap-sm:  6px;
         --ds-gap-md:  8px;
         --ds-gap-lg: 12px;
-        --ds-pad-row:    "8px 10px";
+        --ds-pad-row:    16px;
         --ds-pad-card:   "12px 14px";
       }
 
-      .deck-shelves-qam-scope {
-        width: inherit;
-        height: inherit;
-        flex: 1 1 1px;
-        display: flex;
-        flex-direction: column;
-        justify-content: flex-start;
-        align-content: stretch;
-        overflow-x: hidden;
+      /* The panel fills the tab and never scrolls sideways; anything positioned
+         inside it is placed against it. */
+      .deck-shelves-qam-panel {
         position: relative;
+        width: 100%;
+        overflow-x: clip;
       }
+
       .deck-shelves-qam-flex {
         display: flex;
         flex-direction: row;
@@ -77,161 +74,74 @@ export function DeckQAMStyles() {
       .deck-shelves-qam-main {
         width: 300px;
         min-width: 300px;
-        display: flex;
-        flex-direction: column;
-        justify-content: flex-start;
-        align-content: stretch;
       }
-      /* When expanded, scope and its constrained ancestors must allow the
+      /* When expanded, the panel and its constrained ancestors must allow the
          sidecar to overflow to the right (the Decky plugin tab wrapper
          normally clips at 300px). */
-      .deck-shelves-qam-scope[data-ds-qam-expanded="1"] {
+      .deck-shelves-qam-panel[data-ds-qam-expanded="1"] {
         overflow-x: visible;
         overflow-y: visible;
       }
-      .deck-shelves-root:has(.deck-shelves-qam-scope[data-ds-qam-expanded="1"]),
-      .deck-shelves-root:has(.deck-shelves-qam-scope[data-ds-qam-expanded="1"]) ~ *,
-      [id^="quickaccess_content_"]:has(.deck-shelves-qam-scope[data-ds-qam-expanded="1"]),
-      [id^="quickaccess_content_"]:has(.deck-shelves-qam-scope[data-ds-qam-expanded="1"]) > * {
+      .deck-shelves-root:has(.deck-shelves-qam-panel[data-ds-qam-expanded="1"]),
+      .deck-shelves-root:has(.deck-shelves-qam-panel[data-ds-qam-expanded="1"]) ~ *,
+      [id^="quickaccess_content_"]:has(.deck-shelves-qam-panel[data-ds-qam-expanded="1"]),
+      [id^="quickaccess_content_"]:has(.deck-shelves-qam-panel[data-ds-qam-expanded="1"]) > * {
         overflow: visible !important;
       }
 
-      .deck-shelves-qam-scope .${quickAccessControlsClasses.PanelSection} {
-        padding: 0px;
+      /* Other Quick Access tabs get this inset from a panel section, which this
+         panel does not use, so field rows carry it themselves. */
+      .deck-shelves-qam-panel .${gamepadDialogClasses.Field} {
+        padding-inline: var(--ds-pad-row, 16px);
       }
-      .deck-shelves-qam-scope .${quickAccessControlsClasses.PanelSectionTitle} {
-        margin-top: 3px;
-        margin-left: 5px;
+      /* Rows of our own (the toolbars, saved filters): one line, same inset. */
+      .deck-shelves-qam-panel .deck-shelves-bare-row {
+        display: flex;
+        align-items: center;
+        gap: var(--ds-gap-sm, 6px);
+        padding: var(--ds-gap-sm, 6px) var(--ds-pad-row, 16px);
+        box-sizing: border-box;
       }
-
-      .deck-shelves-qam-scope .${gamepadDialogClasses.FieldChildrenInner} {
-        margin: 0px 16px;
-      }
-      .deck-shelves-qam-scope .${gamepadDialogClasses.FieldLabel} {
-        margin-left: 16px;
-      }
-
-      .deck-shelves-qam-scope .add-shelf-btn .${gamepadDialogClasses.Field}.${gamepadDialogClasses.WithBottomSeparatorStandard}::after,
-      .deck-shelves-qam-scope .deck-shelves-action-btn .${gamepadDialogClasses.Field}.${gamepadDialogClasses.WithBottomSeparatorStandard}::after {
-        display: none;
-      }
-      .deck-shelves-qam-scope .add-shelf-btn .${gamepadDialogClasses.FieldLabel},
-      .deck-shelves-qam-scope .deck-shelves-action-btn .${gamepadDialogClasses.FieldLabel} {
-        display: none;
-      }
-      .deck-shelves-qam-scope .add-shelf-btn .${gamepadDialogClasses.FieldChildrenInner},
-      .deck-shelves-qam-scope .deck-shelves-action-btn .${gamepadDialogClasses.FieldChildrenInner} {
-        width: calc(100% - 32px);
-      }
-
-      .deck-shelves-qam-scope .deck-shelves-separator {
-        width: 100%;
-        height: 1px;
-        background: #23262e;
-        margin: 0;
-      }
-
-      /* Side nav row — Netflix / macOS dock style focus animation.
-         No gpfocus ring; instead a thick left bar, a strong tinted
-         gradient, a soft glow, and a tiny scale-bump that slides in
-         from the left. rem / em / vw / clamp so it scales handheld →
-         docked TV → 4K. */
-      @keyframes ds-sidenav-bump {
-        from { transform: translateX(-0.5em) scale(0.98); opacity: 0.75; }
-        to   { transform: translateX(0)      scale(1.05); opacity: 1; }
-      }
-      .ds-sidenav-row {
-        transition: transform 180ms cubic-bezier(0.2, 0.85, 0.3, 1.2),
-                    background 220ms ease,
-                    box-shadow 220ms ease;
-        will-change: transform;
-        transform-origin: left center;
-        border-radius: 6px;
-      }
-      .ds-sidenav-row--focused {
-        background: linear-gradient(
-          to right,
-          var(--gpSystemLighterStill, rgba(255, 255, 255, 0.35)) 0%,
-          var(--gpSystemLighter,      rgba(255, 255, 255, 0.18)) 55%,
-          rgba(255, 255, 255, 0.02) 100%
-        ) !important;
-        box-shadow:
-          -10px 0 24px -4px var(--gpSystemLighterStill, rgba(255, 255, 255, 0.45)),
-          inset 4px 0 0 0 var(--gpSystemLighterStill, rgba(255, 255, 255, 0.95))
-          !important;
-        animation: ds-sidenav-bump 200ms cubic-bezier(0.2, 0.85, 0.3, 1.2) forwards;
-      }
-      .ds-sidenav-row--focused span {
-        color: white !important;
-        font-weight: 700 !important;
-        text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
-      }
-
-      /* Quick Search pill — strip the default Decky TextField chrome so
-         the rendered input looks like a typed-text pill while still
-         being a real input (Steam Deck shows the virtual keyboard only
-         on focused VISIBLE inputs). */
-      .ds-search-pill .${gamepadDialogClasses.Field} {
-        padding: 0;
-        margin: 0;
-        background: transparent;
-        border: none;
-        width: 100%;
-      }
-      .ds-search-pill .${gamepadDialogClasses.Field} input {
-        background: transparent;
-        border: none;
-        outline: none;
-        color: white;
-        font-size: inherit;
-        font-weight: 600;
-        text-align: center;
-        padding: 0;
-        width: 100%;
+      .deck-shelves-qam-panel .deck-shelves-bare-row > .deck-shelves-action-btn {
+        flex: 1 1 0;
         min-width: 0;
       }
-      .ds-search-pill .${gamepadDialogClasses.FieldChildrenInner} {
-        background: transparent;
-        width: 100%;
+      .deck-shelves-divider {
+        margin-inline: var(--ds-pad-row, 16px);
+        border-top: 1px solid var(--ds-border-strong, rgba(255, 255, 255, 0.1));
       }
-      /* Inside the sidecar, the per-section divider should stop short of
-         the eye-button column so it doesn't run under the section eye. */
-      .ds-sidecar-body .deck-shelves-separator {
-        width: calc(100% - 60px);
-      }
-
-      .deck-shelves-qam-scope .deck-shelves-section-header {
-        font-weight: 600;
-        font-size: 12px;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        color: var(--ds-text-dim, #b8bcbf);
-        padding: 8px 16px 6px;
+      /* Stops where the sidecar's eye column starts, like the hide-row lines. */
+      .deck-shelves-qam-sidecar .deck-shelves-divider {
+        margin-inline-end: 60px;
       }
 
-      .deck-shelves-qam-scope .deck-shelves-shelf-list {
+      .deck-shelves-qam-panel .deck-shelves-shelf-list {
         padding: 0;
+      }
+      .deck-shelves-qam-panel .deck-shelves-empty {
+        padding: var(--ds-gap-md, 8px) var(--ds-pad-row, 16px);
+        color: var(--ds-text-faint, rgba(255, 255, 255, 0.45));
       }
       /* Force ellipsis on shelf titles in the QAM shelf lists */
-      .deck-shelves-qam-scope .deck-shelves-shelf-list .${gamepadDialogClasses.Field} {
+      .deck-shelves-qam-panel .deck-shelves-shelf-list .${gamepadDialogClasses.Field} {
         overflow: hidden;
       }
-      .deck-shelves-qam-scope .deck-shelves-shelf-list .${gamepadDialogClasses.Field} > div {
+      .deck-shelves-qam-panel .deck-shelves-shelf-list .${gamepadDialogClasses.Field} > div {
         overflow: hidden;
         min-width: 0;
       }
-      .deck-shelves-qam-scope .deck-shelves-shelf-list .${gamepadDialogClasses.FieldChildrenInner} {
+      .deck-shelves-qam-panel .deck-shelves-shelf-list .${gamepadDialogClasses.FieldChildrenInner} {
         overflow: hidden;
         min-width: 0;
         flex-wrap: nowrap !important;
       }
-      .deck-shelves-qam-scope .deck-shelves-shelf-list .${gamepadDialogClasses.FieldLabel} {
+      .deck-shelves-qam-panel .deck-shelves-shelf-list .${gamepadDialogClasses.FieldLabel} {
         overflow: hidden;
         min-width: 0;
         flex: 1 1 0;
       }
       /* Controller grab: the name area; focus and the held row use Steam's own row highlight */
-      .deck-shelves-qam-scope .ds-grab-target {
+      .deck-shelves-qam-panel .ds-grab-target {
         flex: 1 1 auto;
         width: 100%;
         max-width: 100%;
@@ -239,22 +149,21 @@ export function DeckQAMStyles() {
         overflow: hidden;
       }
 
-      .deck-shelves-qam-scope .deck-shelves-label-cont {
+      .deck-shelves-qam-panel .deck-shelves-nameplate {
         display: flex;
         align-items: center;
-        width: 100%;
-        max-width: 100%;
+        flex: 1 1 auto;
         min-width: 0;
         overflow: hidden;
       }
-      .deck-shelves-qam-scope .deck-shelves-hidden-icon {
+      .deck-shelves-qam-panel .deck-shelves-hidden-icon {
         margin-right: 8px;
         flex-shrink: 0;
         display: inline-flex;
         align-items: center;
         opacity: 0.85;
       }
-      .deck-shelves-qam-scope .deck-shelves-label-text {
+      .deck-shelves-qam-panel .deck-shelves-nameplate-text {
         white-space: nowrap;
         min-width: 0;
         max-width: 100%;
@@ -263,28 +172,11 @@ export function DeckQAMStyles() {
         line-height: 1.3;
         flex: 1 1 0;
       }
-      .deck-shelves-qam-scope .deck-shelves-hidden {
+      .deck-shelves-qam-panel .deck-shelves-hidden {
         opacity: 0.56;
       }
 
-      .deck-shelves-qam-scope .no-sep .${gamepadDialogClasses.FieldLabel},
-      .deck-shelves-qam-scope .no-sep .${gamepadDialogClasses.Field}.${gamepadDialogClasses.WithBottomSeparatorStandard}::after,
-      .deck-shelves-qam-scope .no-sep.${gamepadDialogClasses.Field}.${gamepadDialogClasses.WithBottomSeparatorStandard}::after {
-        display: none;
-      }
-      .deck-shelves-qam-scope .no-sep .${gamepadDialogClasses.FieldChildrenInner},
-      .deck-shelves-qam-scope .no-sep .${gamepadDialogClasses.FieldChildrenWithIcon} {
-        width: 100%;
-        margin: 0;
-      }
-
-      .deck-shelves-qam-scope .deck-shelves-empty {
-        padding: 10px 16px;
-        color: #8b929a;
-        font-size: 14px;
-      }
-
-      .deck-shelves-qam-scope .ds-collapsible-row,
+      .deck-shelves-qam-panel .ds-collapsible-row,
       .deck-shelves-settings-page .ds-collapsible-row {
         display: flex;
         align-items: center;
@@ -294,14 +186,14 @@ export function DeckQAMStyles() {
       }
       /* Whole-row highlight: fires whether the title toggle or the inline
          action button holds focus, so the bar reads as one focus unit. */
-      .deck-shelves-qam-scope .ds-collapsible-row.gpfocuswithin,
-      .deck-shelves-qam-scope .ds-collapsible-row:focus-within,
+      .deck-shelves-qam-panel .ds-collapsible-row.gpfocuswithin,
+      .deck-shelves-qam-panel .ds-collapsible-row:focus-within,
       .deck-shelves-settings-page .ds-collapsible-row.gpfocuswithin,
       .deck-shelves-settings-page .ds-collapsible-row:focus-within {
         background: rgba(255, 255, 255, 0.1);
         outline: none;
       }
-      .deck-shelves-qam-scope .ds-collapsible-header,
+      .deck-shelves-qam-panel .ds-collapsible-header,
       .deck-shelves-settings-page .ds-collapsible-header {
         display: flex;
         align-items: center;
@@ -318,7 +210,7 @@ export function DeckQAMStyles() {
         box-sizing: border-box;
         border-radius: 0;
       }
-      .deck-shelves-qam-scope .ds-collapsible-badge,
+      .deck-shelves-qam-panel .ds-collapsible-badge,
       .deck-shelves-settings-page .ds-collapsible-badge {
         display: inline-flex;
         align-items: center;
@@ -335,7 +227,7 @@ export function DeckQAMStyles() {
          keeps the flat look (header + content, no surrounding box). Inter-box
          spacing: top-margin in the QAM, bottom-margin in settings (so the last
          box also keeps space before the next, non-box section). */
-      .deck-shelves-qam-scope .ds-collapsible-box {
+      .deck-shelves-qam-panel .ds-collapsible-box {
         margin-top: 8px;
       }
       .deck-shelves-settings-page .ds-collapsible-box {
@@ -346,23 +238,14 @@ export function DeckQAMStyles() {
         margin-bottom: 12px;
       }
       /* No horizontal padding: content focusables span the section's full
-         width (so focus highlights read edge-to-edge like the header row), and
-         each item's own internal padding (FieldLabel / FieldChildrenInner 16px,
-         action rows 0 16px) aligns everything to 16px — matching the section
-         title and the QAM-footer actions row. */
-      .deck-shelves-qam-scope .ds-collapsible-content {
+         width (so focus highlights read edge-to-edge like the header row). */
+      .deck-shelves-qam-panel .ds-collapsible-content {
         padding: 2px 0 10px;
       }
       /* More breathing room below the header in the settings page (the QAM
          stays compact). */
       .deck-shelves-settings-page .ds-collapsible-content {
         padding: 10px 14px 12px;
-      }
-      .deck-shelves-settings-page .deck-shelves-separator {
-        width: 100%;
-        height: 1px;
-        background: var(--ds-border, rgba(255,255,255,0.08));
-        margin: 0;
       }
 
       /* The native Decky ToggleField wrapper paints an opaque slate
@@ -379,14 +262,13 @@ export function DeckQAMStyles() {
       }
       /* About pages are pure documentation — strip the native Field slate so
          text items are transparent and follow the theme surface behind them. */
-      .deck-shelves-about .${gamepadDialogClasses.Field} {
+      .deck-shelves-info-page .${gamepadDialogClasses.Field} {
         background: transparent !important;
       }
 
       /* ───── Shared "card" surface used by Settings details + About
          page + modals. Uses --ds-* tokens so themes can override. */
-      .ds-settings-section,
-      .ds-about-section {
+      .ds-settings-section {
         display: flex;
         flex-direction: column;
         gap: var(--ds-gap-md, 8px);
@@ -415,49 +297,6 @@ export function DeckQAMStyles() {
       }
       .ds-settings-section__trailing { flex-shrink: 0; display: inline-flex; align-items: center; gap: var(--ds-gap-sm, 6px); }
       .ds-settings-section__body { display: flex; flex-direction: column; gap: var(--ds-gap-md, 8px); }
-      .ds-settings-row {
-        display: flex;
-        align-items: center;
-        gap: var(--ds-gap-md, 10px);
-        padding: 8px 10px;
-        border-radius: var(--ds-radius-md, 6px);
-        background: var(--ds-surface-row, rgba(255, 255, 255, 0.03));
-      }
-      .ds-settings-row--danger {
-        background: var(--ds-danger-soft, rgba(255, 80, 80, 0.10));
-        border: 1px solid rgba(255, 80, 80, 0.25);
-      }
-
-      /* ───── Shared button primitives. Compose with default
-         DialogButton — these add layout, not chrome (so the underlying
-         Decky DialogButton colour/focus rules continue to apply). */
-      .ds-btn {
-        display: inline-flex !important;
-        align-items: center;
-        justify-content: center;
-        gap: var(--ds-gap-xs, 4px);
-        padding: 0 12px !important;
-        height: 32px !important;
-        min-width: 0 !important;
-        font-size: 13px !important;
-      }
-      .ds-btn--compact {
-        height: 28px !important;
-        padding: 0 10px !important;
-        font-size: 12px !important;
-      }
-      .ds-btn--icon {
-        width: 32px !important;
-        padding: 0 !important;
-      }
-      .ds-btn--icon-compact {
-        width: 28px !important;
-        height: 28px !important;
-        padding: 0 !important;
-      }
-      .ds-btn--danger {
-        color: var(--ds-danger, rgba(255, 110, 110, 0.95)) !important;
-      }
 
       /* Log row focus state — visible highlight on gamepad focus */
       .ds-log-row.gpfocus,
@@ -468,27 +307,6 @@ export function DeckQAMStyles() {
         outline: none;
       }
 
-      /* Chip / badge used for BUILT-IN / ACTIVE / log level markers */
-      .ds-chip {
-        display: inline-flex;
-        align-items: center;
-        padding: 2px 6px;
-        font-size: 10px;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        border-radius: 999px;
-        background: var(--ds-surface-hi, rgba(255, 255, 255, 0.10));
-        color: var(--ds-text, #fff);
-      }
-      .ds-chip--accent {
-        background: var(--ds-accent-soft, rgba(120, 180, 255, 0.18));
-        color: var(--ds-accent, rgba(120, 180, 255, 0.95));
-      }
-      .ds-chip--builtin {
-        background: rgba(120, 220, 120, 0.18);
-        color: rgba(180, 240, 180, 0.95);
-      }
       .ds-settings-section__header {
         display: flex;
         align-items: flex-start;
@@ -508,48 +326,9 @@ export function DeckQAMStyles() {
       }
       .ds-settings-section__trailing { flex-shrink: 0; display: inline-flex; align-items: center; gap: 6px; }
       .ds-settings-section__body { display: flex; flex-direction: column; gap: 8px; }
-      .ds-settings-row {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        padding: 8px 10px;
-        border-radius: 6px;
-        background: rgba(255, 255, 255, 0.03);
-      }
-      .ds-settings-row__main { flex: 1; min-width: 0; }
-      .ds-settings-row__name { font-weight: 600; font-size: 13px; }
-      .ds-settings-row__sub { opacity: 0.55; font-size: 11px; margin-top: 2px; }
-      .ds-settings-row__actions { display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0; }
-      .ds-settings-row--danger {
-        background: rgba(255, 80, 80, 0.08);
-        border: 1px solid rgba(255, 80, 80, 0.25);
-      }
 
-      /* Expand-toggle button (always visible, top of panel). */
-      .deck-shelves-qam-scope .deck-shelves-qam-expand-toggle {
-        display: inline-flex;
-        align-items: center;
-        margin: 6px 8px;
-        padding: 4px 10px;
-        border-radius: 6px;
-        background: rgba(255, 255, 255, 0.06);
-        color: #d6d9dc;
-        font-size: 11px;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.3px;
-        cursor: pointer;
-        user-select: none;
-        align-self: flex-end;
-      }
-      .deck-shelves-qam-scope .deck-shelves-qam-expand-toggle.gpfocus,
-      .deck-shelves-qam-scope .deck-shelves-qam-expand-toggle:focus,
-      .deck-shelves-qam-scope .deck-shelves-qam-expand-toggle:focus-within {
-        background: rgba(255, 255, 255, 0.14);
-        outline: none;
-      }
-      .deck-shelves-qam-scope .deck-shelves-qam-sidecar-row.gpfocus,
-      .deck-shelves-qam-scope .deck-shelves-qam-sidecar-row:focus {
+      .deck-shelves-qam-panel .deck-shelves-qam-sidecar-row.gpfocus,
+      .deck-shelves-qam-panel .deck-shelves-qam-sidecar-row:focus {
         background: rgba(255, 255, 255, 0.1);
         outline: none;
       }
@@ -655,12 +434,6 @@ export function DeckQAMStyles() {
         overflow-y: auto;
         padding: 16px;
         box-sizing: border-box;
-      }
-      .deck-shelves-qam-sidecar-placeholder {
-        color: #8b929a;
-        font-size: 13px;
-        text-align: center;
-        margin-top: 40%;
       }
 
       /* Sidecar General tab — hideable rows + eye buttons. */

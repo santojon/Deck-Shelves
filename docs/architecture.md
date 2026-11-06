@@ -127,7 +127,7 @@ flowchart TB
 
     subgraph components["src/components"]
         shelf["shelf/*<br/>GameCard, rows"]
-        filter["filter/*<br/>filter editor"]
+        filter["conditions/*<br/>filter editor"]
         qam["qam/*<br/>Quick Access panel"]
         about["about + settings pages"]
     end
@@ -188,7 +188,6 @@ src/
 │ ├── DeckRow.tsx Shelf row layout (imports shelf/ modules)
 │ ├── Shelf.tsx Single shelf data resolver (memoized + generation-id cancel)
 │ ├── DeckQAMSettings.tsx Quick Access Menu settings panel
-│ ├── FilterPanel.tsx Filter group editor UI
 │ ├── AboutPage.tsx About / documentation page
 │ ├── Settings.tsx Settings page wrapper
 │ ├── SettingsPage.tsx Full-page Settings: one tab per area (Shelves, Profiles, Integrations, Bindings, Backup, Suggestions, Statistics, Advanced, Developer)
@@ -200,12 +199,12 @@ src/
 │ │ ├── edgeNavigation.ts L/R throttle + DOWN tilt guard (when home tabs hidden)
 │ │ ├── verticalBridge.ts DOWN/UP bridge between mount and native neighbors
 │ │ └── constants.ts DIR_*, DS_*_PATCHED, OPTIONS_BUTTON
-│ ├── filter/ Filter group editor (recursive UI)
+│ ├── conditions/ Filter group editor (recursive UI)
 │ ├── ui/ Shared domain-agnostic primitives
-│ │ ├── ModalShell.deck-shelves-modal-scope + DeckModalStyles
-│ │ ├── FieldContainer.field-item-container + scrollable mode (focusin → scrollIntoView)
-│ │ ├── LabeledTextField Field + TextField + textFromDeckyChange
-│ │ ├── CollapsibleSection QAM collapsible section with localStorage state
+│ │ ├── ModalShell.deck-shelves-dialog + DeckModalStyles
+│ │ ├── FieldContainer.deck-shelves-editor-fields + scrollable mode (focusin → scrollIntoView)
+│ │ ├── TitleField TextField with its own label + textFromDeckyChange
+│ │ ├── CollapsibleSection Collapsible section (QAM, settings page, dialogs); open state in localStorage when given an id
 │ │ └── PageHeader Back arrow + title + trailing slot for dedicated routes
 │ ├── settings/details/ One file per Settings tab (Profiles, Statistics and Suggestions live in src/features/)
 │ │ ├── ShelvesDetail Regular + smart shelves CRUD (chips, edit/delete, unified reorder ↑↓)
@@ -452,9 +451,9 @@ One adapter per supported look, under `themes/adapters/` (Switch Like Home, Cent
 ### Refresh card on shelves (`shelf/RefreshCard.tsx` + `shelf/types.ts > REFRESHABLE_SMART_MODES`)
 Smart shelves whose result can change between two clicks (`random_pick` / `time_of_day` / `spare_time` / `recently_played`) get a Refresh card instead of the "view more in library" tile. Non-smart shelves with `sort === "random"` also get the Refresh card (it's the only non-smart case whose order can change between clicks; clicking clears the `ds-random-*` localStorage cache and re-resolves only that shelf). Spin animation is driven by a CSS keyframe via DOM class toggle (`.ds-refresh-spinning` on `iconRef`) — not React state, so `setAppIds()` reconciliation cannot cancel the animation mid-flight. Per-shelf `hideRefreshCard` and global `globalHideRefreshCard` suppress the trailing refresh card without changing recompute / cache cadence; `hideSeeMore` / `globalHideSeeMore` mirror the same per-shelf vs. global pair for the trailing "See more" card.
 
-### Filter system (`steam/index.ts > evaluateFilterGroup` + `components/filter/`)
+### Filter system (`steam/index.ts > evaluateFilterGroup` + `components/conditions/`)
 
-Filter groups are AND/OR predicates evaluated against a single source pool — never list-unions. The full library flows through `evaluateFilterGroup` once and each app is tested against every item independently. `merge` is a special filter type that wraps a nested predicate group with its own `mode: "and" | "or"` plus a sub-`items` array — useful for composing OR-of-predicates inside an outer AND group (e.g. `merge { or, [installed, nonSteam] }` to surface "Steam installed OR any non-Steam app" in one shelf). Sub-filters are edited via the recursive `MergeFilterOptions` component which renders a `<FilterPanel>` for the children; saved filters can be applied at any merge level.
+Filter groups are AND/OR predicates evaluated against a single source pool — never list-unions. The full library flows through `evaluateFilterGroup` once and each app is tested against every item independently. `merge` is a special filter type that wraps a nested predicate group with its own `mode: "and" | "or"` plus a sub-`items` array — useful for composing OR-of-predicates inside an outer AND group (e.g. `merge { or, [installed, nonSteam] }` to surface "Steam installed OR any non-Steam app" in one shelf). Sub-filters are edited via the recursive `NestedConditionEditor` component which renders a `<ConditionEditor>` for the children; saved filters can be applied at any merge level.
 
 `genres`, `categories`, `multiplayerType`, `franchise` and `vrSupport` (`steam/v3Extensions.ts`) read `rawField`, which checks a **locally-owned game's real `AppOverview` first, per field, then falls back to fetched data** — never per-object, since an owned game's overview exists but never carries genre/franchise data and only carries categories as numeric ids (`BHasStoreCategory(id)`, not name strings). `multiplayerType` and `vrSupport` have a fast local path for owned games and only need the fetch for ids the client has never seen; `genres`/`categories` (via `onlineStore.ts`'s `getCatalogMetaMap`, Store `appdetails`, one appid per request — batched requests 400 for this filter set even though `price_overview` batches fine) and `franchise` (via `SteamClient.Apps.GetCachedAppDetails`'s `associations.rgFranchises`, the only source for franchise at all) need it for *every* game, owned or not — so these three are gated behind Online Features in the picker (`isOnlineFeatureFilterType`, distinct from `isOnlineFilterType`'s source-type gate for `discount`/`priceRange`) rather than by source type, since they're meaningful on a plain library shelf. `prefetchCatalogFilterData` (+ `collectFilterGroupItemsFlat` for the tree-walking cases) warms both caches before evaluation in every filter-group resolution path: the plain library filter, a collection's own child filter, a Smart Shelf's filter group, and a composite child's `childFilter`.
 

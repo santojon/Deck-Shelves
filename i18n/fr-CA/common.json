@@ -21,7 +21,7 @@
   "side_nav_toggle": "Navigation latérale",
   "dismiss": "Ignorer",
   "duplicate_shelf": "Dupliquer l'étagère",
-  "editing": "Modification",
+  "editing": "Modifier l'étagère : {{name}}",
   "enabled": "Activer les étagères sur l'accueil",
   "exclude_owned_label": "Ignorer les jeux déjà possédés",
   "expand_shelf": "Développer l'étagère",

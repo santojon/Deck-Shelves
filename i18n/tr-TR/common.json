@@ -21,7 +21,7 @@
   "side_nav_toggle": "Yan gezinme",
   "dismiss": "Yoksay",
   "duplicate_shelf": "Rafı çoğalt",
-  "editing": "Düzenleniyor",
+  "editing": "Rafı düzenle: {{name}}",
   "enabled": "Ana Sayfada rafları etkinleştir",
   "exclude_owned_label": "Zaten sahip olduğum oyunları yoksay",
   "expand_shelf": "Rafı genişlet",

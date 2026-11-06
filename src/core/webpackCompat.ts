@@ -459,7 +459,7 @@ function discoverNativeCardDimensionsViaClass(doc: Document): NativeCardDims | n
 
 function imgIsCardCandidate(img: HTMLImageElement): boolean {
   if (img.closest('.ds-card') || img.closest('#deck-shelves-home-root')) return false;
-  if (img.closest('.ds-highlight-mini') || img.closest('.deck-shelves-modal-scope')) return false;
+  if (img.closest('.ds-highlight-mini') || img.closest('.deck-shelves-dialog')) return false;
   return img.getBoundingClientRect().height >= 80;
 }
 

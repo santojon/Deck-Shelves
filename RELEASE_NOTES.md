@@ -7,6 +7,20 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+- **A new filter editor**: each condition is a section that opens to edit it. Closed, its header shows the type, the value, whether it is negated, and a check mark or an X beside the arrow for complete or not. Negate, remove and add are icon buttons, choosing whether all or any of the conditions must match takes one press, and the focus stays in the list as you add or remove conditions.
+
+- **Any condition can be negated**: every filter type offers Negate, for shelves like "everything except…". The Integrations tab no longer marks filter types as invertible, and the source resolver inspector says "negated".
+
+- **Grouped conditions stay safe**: a condition that holds others keeps them when you switch it to another grouping type, and it cannot change to a type that would drop them.
+
+- **A cleaner Quick Access panel and dialogs**: list rows open their actions from a compact menu button, action bars spread their buttons evenly, and the panel, its lists and the dialogs are restyled. Collapsible sections in dialogs get the panel's look and a visible focus ring.
+
+- **Clearer labels**: the shelf editors' title reads "Edit shelf:" with the shelf's name, the sort label reads "Order by", and the name field is the client's own labelled text field.
+
+- **For theme authors**: several CSS classes have new names; the [CHANGELOG](CHANGELOG.md) lists each one.
+
+- **Smaller fixes**: Move up and Move down in the unified shelf list keep the shelf within that list, as dragging does, and the profile row's button hint reads Actions instead of Apply.
+
 ## [3.4.1] - 2026-11-02
 
 - **Profiles say whether they switch your shelves**: a profile that also switches your shelves is marked "Includes shelves", you can turn that on or off at any time, new profiles include the shelves by default, and every profile text and prompt now says what applying it really does.

@@ -21,7 +21,7 @@
   "side_nav_toggle": "侧边导航",
   "dismiss": "忽略",
   "duplicate_shelf": "复制书架",
-  "editing": "修改中",
+  "editing": "编辑书架：{{name}}",
   "enabled": "在主页启用书架",
   "exclude_owned_label": "忽略已拥有的游戏",
   "expand_shelf": "展开书架",

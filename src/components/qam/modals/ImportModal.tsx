@@ -1,14 +1,14 @@
 import { useState } from 'react'
-import { ConfirmModal, Focusable, DialogButton, TextField, openFilePicker } from '../../../runtime/host/decky'
+import { ConfirmModal, Focusable, DialogButton, openFilePicker } from '../../../runtime/host/decky'
 import { notify } from "../../notify";
-import { ModalShell } from '../../ui'
+import { ModalShell, TitleField } from '../../ui'
 import { createPreImportSnapshot, getCurrentSettings, readJsonFile, saveSettings } from '../../../settingsStore'
 import { mergeCategoriesIntoSettings } from '../../../features/settings/settingsCategories'
 import { categoryIdsForScope } from '../../../features/settings/categoryScope'
 import { findAlternativeImport, readImportFile, type ImportScope } from '../../../features/settings/importFile'
 import type { SettingsController } from '../../../features/settings/controller'
 import { confirmAction } from './ConfirmActionModal'
-import { textFromDeckyChange, tryPickerCalls, splitPath, joinPath } from './modalUtils'
+import { tryPickerCalls, splitPath, joinPath } from './modalUtils'
 import { ImportFileStatus, useImportRead } from './ImportFileStatus'
 
 export type { ImportScope }
@@ -117,15 +117,10 @@ export function ImportModal({ closeModal, controller, initialPath, scope = 'all'
         }}
       >
         <Focusable>
-          <div style={{ padding: '4px 16px 1px', display: 'flex', flexDirection: 'column', gap: 10 }} className='name-field'>
-            {/* Picking the file comes first: the name below is only a suggestion. */}
-            <DialogButton autoFocus onClick={browse} onOKButton={browse}>{browseBusy ? t('loading') : t('import_choose_file' as any)}</DialogButton>
-            <div>
-              <div style={{ paddingBottom: '6px' }}>{t('file_name')}</div>
-              <TextField value={name} onChange={(value: unknown) => setName(textFromDeckyChange(value))} />
-            </div>
-            {handlerId ? null : <ImportFileStatus path={joinPath(folder, name)} read={read} t={t as any} />}
-          </div>
+          {/* Picking the file comes first: the name below is only a suggestion. */}
+          <DialogButton autoFocus onClick={browse} onOKButton={browse}>{browseBusy ? t('loading') : t('import_choose_file' as any)}</DialogButton>
+          <TitleField label={t('file_name')} value={name} onChange={setName} />
+          {handlerId ? null : <ImportFileStatus path={joinPath(folder, name)} read={read} t={t as any} />}
         </Focusable>
       </ConfirmModal>
     </ModalShell>

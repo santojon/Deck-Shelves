@@ -140,7 +140,6 @@ export function IntegrationsDetail({ controller, t }: IntegrationsDetailProps) {
       name: localizedName(d, 'filters'),
       group: t("settings_integration_filters"),
       builtIn: isInternalFilterType(d.id),
-      meta: d.invertible === false ? undefined : t("settings_integration_invertible"),
     })),
     ...sortOptions.map((d: any) => ({
       id: d.id,

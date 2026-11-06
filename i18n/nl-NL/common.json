@@ -21,7 +21,7 @@
   "side_nav_toggle": "Zij-navigatie",
   "dismiss": "Negeren",
   "duplicate_shelf": "Plank dupliceren",
-  "editing": "Bewerken",
+  "editing": "Plank bewerken: {{name}}",
   "enabled": "Planken op Home inschakelen",
   "exclude_owned_label": "Spellen die ik al heb negeren",
   "expand_shelf": "Schap uitklappen",

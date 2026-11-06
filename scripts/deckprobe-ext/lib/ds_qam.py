@@ -1,6 +1,6 @@
 """Open Decky's Quick Access tab with the Deck Shelves panel actually VISIBLE.
 
-The toolkit's `navigate_to_ds_qam()` returns as soon as a `.deck-shelves-qam-scope`
+The toolkit's `navigate_to_ds_qam()` returns as soon as a `.deck-shelves-qam-panel`
 exists in the QuickAccess target — but on a two-host install the neutral host keeps a
 hidden copy of the panel mounted in its own tab, which satisfies that check with the
 menu closed (every rect 0, and `Page.captureScreenshot` then hangs). This helper

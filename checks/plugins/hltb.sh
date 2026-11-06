@@ -31,8 +31,8 @@ run_checks() {
     ((pass++))
   fi
 
-  if grep -rq 'deck-shelves-section\|deck-shelves-header\|deck-shelves-grid\|deck-shelves-inner' "$src" 2>/dev/null; then
-    echo "  ✅ Shelf DOM elements use unique 'deck-shelves-' prefix"
+  if grep -rq 'deck-shelves-home-root\|ds-shelf' "$src" 2>/dev/null; then
+    echo "  ✅ Shelf DOM elements use unique prefixes (deck-shelves-, ds-)"
     ((pass++))
   else
     echo "  ⚠️  Shelf DOM elements may not have unique prefixes"

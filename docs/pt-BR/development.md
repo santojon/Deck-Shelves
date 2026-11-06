@@ -198,7 +198,7 @@ fallback de frame em branco) e `run.py` (orquestrador sobre `ALL_SCENARIOS`).
 | `shelf-create.png` | Modal do seletor de templates (agrupado por categoria) |
 | `shelf-actions.png` | Menu de ações por prateleira (Editar / Duplicar / Ocultar / Excluir / reordenar) |
 | `shelf-edit.png` | Modal de edição de prateleira — aba Fonte (ordenação, tipo de fonte, limite) |
-| `shelf-edit-filters.png` | Modal de edição de prateleira — aba Filtros (FilterPanel + SavedFiltersBar) |
+| `shelf-edit-filters.png` | Modal de edição de prateleira — aba Filtros (SavedFiltersBar + ConditionEditor) |
 | `shelf-edit-visual.png` | Modal de edição de prateleira — aba Visual (alternâncias de destaque + seletor + Ímpar/Par) |
 | `shelf-hidden.png` | QAM mostrando uma prateleira alternada para oculta (ícone de olho cortado) |
 | `shelf-delete.png` | Diálogo de confirmação para excluir prateleira |

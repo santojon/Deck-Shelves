@@ -32,8 +32,8 @@ Manual test checklist for regression testing on a real Steam Deck (SteamOS Stabl
 | 2.1 | Create shelf via "+" → template picker opens | Modal with templates displayed |
 | 2.2 | Select blank template → edit modal opens directly | EditShelfModal with empty config |
 | 2.3 | Create shelf with filter (Favorites) → shelf appears on Home | Games filtered correctly |
-| 2.4 | Hide shelf via ellipsis → shelf disappears from Home | Shelf shows grayed in QAM |
-| 2.5 | Show shelf via ellipsis → shelf reappears on Home | Shelf active again |
+| 2.4 | Hide shelf via the row menu → shelf disappears from Home | Shelf shows grayed in QAM |
+| 2.5 | Show shelf via the row menu → shelf reappears on Home | Shelf active again |
 | 2.6 | Delete shelf → confirmation modal; confirm → removed | Shelf gone from QAM and Home |
 | 2.7 | Move shelf up/down via QAM → order changes on Home | Order matches QAM |
 | 2.7a | QAM shelf list with a controller: A on a shelf name grabs it; D-pad up/down moves it one place (stops at the ends); A saves | The row keeps Steam's own highlight, no extra frame or hint; while grabbed, Steam's button bar shows Move up / Move down (D-pad), Save Order (A) and Cancel (B); order saved once, Home follows; focus stays on the moved row |

@@ -9,6 +9,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **The Quick Access list rows open their actions from a new compact menu button.**
+
+- **The Quick Access action bars spread their buttons evenly across the panel.**
+
+- **The name field in the shelf editors and the file dialogs is the client's own labelled text field.**
+
+- **The Quick Access panel, its lists and dividers, and the dialogs' title, lines and editor fields are restyled.**
+
+- **CSS classes renamed, for themes:** from `deck-shelves-qam-scope` to `deck-shelves-qam-panel`, from `deck-shelves-modal-scope` to `deck-shelves-dialog`, from `deck-shelves-separator` to `deck-shelves-divider`, from `deck-shelves-label-cont` and `deck-shelves-label-text` to `deck-shelves-nameplate` and `deck-shelves-nameplate-text`, from `deck-shelves-about` to `deck-shelves-info-page`, from `field-item-container` to `deck-shelves-editor-fields`, from `name-field` to `deck-shelves-title-input`, and from `no-sep` to `deck-shelves-bare-row`.
+
+- **The filter editor shows each condition as a section that opens to edit it, its header giving the type, the value and whether it is negated.**
+
+- **A condition's header ends, beside its arrow, with a check mark when the condition is complete and an X when it is not.**
+
+- **A condition's negate and remove actions and the add-condition action are icon buttons, named in the footer hints.**
+
+- **Collapsible sections in dialogs, such as the filter conditions and the visibility rule groups, get the Quick Access look and a focus ring on their header.**
+
+- **Any condition can be negated, whatever its type.**
+
+- **Whether all or any of the conditions must match is one press, with both choices in view.**
+
+- **Adding or removing a condition keeps the focus in the list, on the new condition or next to the removed one.**
+
+- **A condition that holds others keeps them when it changes to another grouping type.**
+
+- **The shelf editors' title reads "Edit shelf:" and the shelf's name, and the sort label reads "Order by".**
+
+- **The Integrations tab no longer marks plugin filter types as invertible: every condition can be negated.**
+
+- **The source resolver inspector marks a negated filter "negated".**
+
+- **Filter editor modules renamed, for contributors:** from `src/components/filter/` to `src/components/conditions/`, from `FilterPanel` to `ConditionEditor`, from `FilterItemOptions` to `ConditionFields`, from `MergeFilterOptions` to `NestedConditionEditor`, from `CompositeFilterOptions` to `CompositeFields`, from `DeveloperFilterOptions` to `DeveloperFields`, from `PublisherFilterOptions` to `PublisherFields`, from `LibraryLocationOptions` to `LibraryLocationFields`, from `isValidParams` to `isConditionComplete`, and from `defaultParams` to `startingOptions`.
+
+### Fixed
+
+- **Move up and Move down in the unified shelf list move the shelf within that list**, as dragging does.
+
+- **The profile row's button hint reads Actions instead of Apply.**
+
 ## [3.4.1] - 2026-11-02
 
 ### Added

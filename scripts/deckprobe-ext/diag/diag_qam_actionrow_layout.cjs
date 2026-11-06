@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 // Deep probe of the QAM action row layout. Walks the DOM from the first
 // `.deck-shelves-action-btn` upward, dumping the computed width / padding
-// / flex props of every ancestor up to the QAM scope so we can spot the
+// / flex props of every ancestor up to the QAM panel so we can spot the
 // exact element that's collapsing to its content width instead of
-// stretching to fill the Field/scope.
+// stretching to fill the Field/panel.
 //
 // Usage:  node diag_qam_actionrow_layout.cjs <quickaccess-target-id>
 'use strict';
@@ -48,7 +48,7 @@ var expression = [
   '  var cur = btn;',
   '  for (var i = 0; i < 14 && cur; i++) {',
   '    chain.push({ depth: i, ...inspect(cur) });',
-  '    if (cur.classList && cur.classList.contains("deck-shelves-qam-scope")) break;',
+  '    if (cur.classList && cur.classList.contains("deck-shelves-qam-panel")) break;',
   '    cur = cur.parentElement;',
   '  }',
   '  return JSON.stringify({ chain: chain });',

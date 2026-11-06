@@ -62,7 +62,7 @@ export interface ImportableTab {
 export function extractTabsForImport(managerOrCtx: any): ImportableTab[] {
   if (!managerOrCtx) return [];
   try {
-    // Shape 1: PublicTabMasterContext — has visibleTabsList array
+    // From the running plugin: its visible tabs, in the order it shows them.
     const list = managerOrCtx.visibleTabsList
       ?? (typeof managerOrCtx.getTabs === 'function' ? managerOrCtx.getTabs()?.visibleTabsList : undefined);
     if (Array.isArray(list)) {

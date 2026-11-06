@@ -21,7 +21,7 @@
   "side_nav_toggle": "サイドナビゲーション",
   "dismiss": "閉じる",
   "duplicate_shelf": "シェルフを複製",
-  "editing": "編集中",
+  "editing": "シェルフを編集：{{name}}",
   "enabled": "ホーム画面でシェルフを有効にする",
   "exclude_owned_label": "所有済みゲームを除外",
   "expand_shelf": "棚を展開する",

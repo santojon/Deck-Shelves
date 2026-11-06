@@ -1,9 +1,9 @@
 import type { FilterItem, FilterGroup } from "../../types";
-import { FilterPanel } from "../FilterPanel";
+import { ConditionEditor } from "./ConditionEditor";
 import { SavedFiltersBar } from "../qam/modals/editShelf/SavedFiltersBar";
 import type { SettingsController } from "../../features/settings/controller";
 
-export default function MergeFilterOptions({
+export default function NestedConditionEditor({
   item,
   onChange,
   controller,
@@ -37,7 +37,7 @@ export default function MergeFilterOptions({
           onApply={(applied) => setGroup({ mode: applied.mode, items: applied.items.slice() })}
         />
       )}
-      <FilterPanel group={group} onChange={setGroup} controller={controller} allowOnlineFilters={allowOnlineFilters} onlineFeaturesOn={onlineFeaturesOn} />
+      <ConditionEditor group={group} onChange={setGroup} controller={controller} allowOnlineFilters={allowOnlineFilters} onlineFeaturesOn={onlineFeaturesOn} />
     </div>
   );
 }

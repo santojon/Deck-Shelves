@@ -22,6 +22,7 @@ export const Focusable = passthrough;
 export const Menu = passthrough;
 export const MenuGroup = passthrough;
 export const MenuItem = passthrough;
+export const MenuSeparator = passthrough;
 export const Navigation: any = { Navigate: noop, NavigateBack: noop };
 export const PanelSection = passthrough;
 export const PanelSectionRow = passthrough;

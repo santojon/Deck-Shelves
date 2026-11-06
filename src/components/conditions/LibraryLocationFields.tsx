@@ -3,7 +3,7 @@ import { DialogButton, Focusable } from "../../runtime/host/decky";
 import i18n from "../../i18n";
 import { getLibraries, refreshLibraryLocations, type LibraryEntry } from "../../runtime/deviceState";
 
-/* Mirrors DeveloperFilterOptions.tsx's multi-select-from-live-data pattern.
+/* Mirrors DeveloperFields.tsx's multi-select-from-live-data pattern.
    One toggle per detected Steam library (SD card, USB drive, network share,
    the internal drive, …) rather than the old single internal/external/network
    category dropdown — a shelf can mix specific libraries together, e.g. "this
@@ -12,7 +12,7 @@ const CATEGORY_ICON: Record<LibraryEntry["category"], string> = {
   internal: "\u{1F4BE}", external: "\u{1F4C0}", network: "\u{1F310}",
 };
 
-export default function LibraryLocationOptions({ selected, onChange }: { selected: string[]; onChange: (ids: string[]) => void }) {
+export default function LibraryLocationFields({ selected, onChange }: { selected: string[]; onChange: (ids: string[]) => void }) {
   const t = i18n.t.bind(i18n);
   const [libraries, setLibraries] = useState<LibraryEntry[]>(getLibraries());
   const [loading, setLoading] = useState(libraries.length === 0);

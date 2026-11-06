@@ -29,7 +29,7 @@ var expression = [
   '  if (listRoot) {',
   '    var rows = Array.from(listRoot.querySelectorAll("[data-ds-grab-row]"));',
   '    out.shelfRows = rows.slice(0, 6).map(function (r, i) {',
-  '      var label = r.querySelector(".deck-shelves-label-text");',
+  '      var label = r.querySelector(".deck-shelves-nameplate-text");',
   '      var actions = r.querySelector("[data-ds-shelf-actions]");',
   '      var labelRect = label ? label.getBoundingClientRect() : null;',
   '      var actionsRect = actions ? actions.getBoundingClientRect() : null;',

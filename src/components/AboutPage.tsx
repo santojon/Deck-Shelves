@@ -36,7 +36,7 @@ export function AboutPage() {
     <Focusable
       {...flowChildrenProps('vertical')}
       onCancelButton={goBack}
-      className='deck-shelves-about'
+      className='deck-shelves-info-page'
       style={{ position: 'relative', height: '100%', display: 'flex', flexDirection: 'column' }}
     >
       <DeckQAMStyles />

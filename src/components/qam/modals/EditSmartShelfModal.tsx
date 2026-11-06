@@ -15,7 +15,7 @@ import { TIME_OF_DAY_WINDOWS, invalidateSmartShelfCache } from '../../../steam/s
 import { SHELF_LIMIT_MAX } from '../../../domain/shelfLimits'
 import type { SettingsController } from '../../../features/settings/controller'
 import type { SmartShelf, SmartShelfMode } from '../../../types'
-import { FilterPanel } from '../../FilterPanel'
+import { ConditionEditor } from '../../conditions/ConditionEditor'
 import { FieldContainer, DSSliderField} from '../../ui'
 import { resolveShelfAppIds, invalidateRandomSortCache } from '../../../steam'
 import { isNonSteamBadgesAvailable } from '../../../integrations'
@@ -312,7 +312,7 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
   return (
     <EditShelfFrame
       t={t}
-      heading={`${t('editing')}: ${shelf.title}`}
+      heading={t('editing', { name: shelf.title })}
       title={state.title}
       onTitleChange={(next) => setState((prev) => ({ ...prev, title: next }))}
       previewCount={previewCount}
@@ -746,7 +746,7 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
                         currentGroup={state.filterGroup}
                         onApply={(group) => setState((prev) => ({ ...prev, filterGroup: { ...group } }))}
                       />
-                      <FilterPanel group={state.filterGroup} onChange={(group) => setState((prev) => ({ ...prev, filterGroup: group }))} controller={controller} allowOnlineFilters={false} onlineFeaturesOn={onlineOn} />
+                      <ConditionEditor group={state.filterGroup} onChange={(group) => setState((prev) => ({ ...prev, filterGroup: group }))} controller={controller} allowOnlineFilters={false} onlineFeaturesOn={onlineOn} />
                     </FieldContainer>
                   ),
                 },

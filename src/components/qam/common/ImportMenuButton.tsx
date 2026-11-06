@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { ConfirmModal, DialogButton, Focusable } from '../../../runtime/host/decky'
 import { ModalShell } from '../../ui'
-import { ActionButton } from './ActionButton'
+import { ToolbarButton } from './QamToolbar'
 
 export type ImportEntry = {
   id: string
@@ -24,16 +24,12 @@ export function ImportMenuButton({
 
   if (entries.length === 1) {
     const e = entries[0]
-    return <ActionButton iconNode={e.icon} onClick={e.onActivate} okDescription={e.okDescription} />
+    return <ToolbarButton icon={e.icon} label={e.okDescription} onActivate={e.onActivate} />
   }
 
   return (
     <>
-      <ActionButton
-        iconNode={<MoreDotsIcon />}
-        onClick={() => setOpen(true)}
-        okDescription={overflowDescription}
-      />
+      <ToolbarButton icon={<MoreDotsIcon />} label={overflowDescription} onActivate={() => setOpen(true)} />
       {open && (
         <ModalShell>
           <ConfirmModal

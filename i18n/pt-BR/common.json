@@ -21,7 +21,7 @@
   "side_nav_toggle": "Navegação lateral",
   "dismiss": "Dispensar",
   "duplicate_shelf": "Duplicar prateleira",
-  "editing": "Editando",
+  "editing": "Editar prateleira: {{name}}",
   "enabled": "Ativar prateleiras na Home",
   "exclude_owned_label": "Ignorar jogos que já tenho",
   "expand_shelf": "Expandir prateleira",

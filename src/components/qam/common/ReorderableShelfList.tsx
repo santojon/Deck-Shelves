@@ -1,6 +1,6 @@
 import { useRef, type ReactNode } from 'react'
 import { GrabReorderList } from '../../ui/GrabReorderList'
-import { ShelfListLabel } from './ShelfListLabel'
+import { ShelfNameplate } from './ShelfNameplate'
 import { useContainerDragReorder } from '../../../core/reorder'
 
 export function ReorderableShelfList<T extends { id: string; title?: string; hidden?: boolean }>({
@@ -14,7 +14,7 @@ export function ReorderableShelfList<T extends { id: string; title?: string; hid
   emptyText: string
   renderActions: (item: T) => ReactNode
   onReorder: (ids: string[]) => void
-  // Defaults to the shelf label; other lists (e.g. profiles) pass their own.
+  // Defaults to the shelf nameplate; other lists (e.g. profiles) pass their own.
   renderLabel?: (item: T) => ReactNode
 }) {
   const listRef = useRef<HTMLDivElement>(null)
@@ -34,7 +34,7 @@ export function ReorderableShelfList<T extends { id: string; title?: string; hid
       data-ds-shelf-row={item.id}
       style={grabbedId === item.id ? { opacity: 0.6 } : undefined}
     >
-      {renderLabel ? renderLabel(item) : <ShelfListLabel shelf={item} />}
+      {renderLabel ? renderLabel(item) : <ShelfNameplate shelf={item} />}
     </div>
   )
 

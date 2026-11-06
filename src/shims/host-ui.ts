@@ -141,6 +141,7 @@ export const GamepadButton = frontendLib.GamepadButton ?? {
 export const Menu = frontendLib.Menu ?? passthroughMenu;
 export const MenuGroup = frontendLib.MenuGroup ?? passthroughMenu;
 export const MenuItem = frontendLib.MenuItem ?? passthroughComponent;
+export const MenuSeparator = frontendLib.MenuSeparator ?? passthroughComponent;
 export const Navigation = frontendLib.Navigation ?? { Navigate: noop };
 export const PanelSection = frontendLib.PanelSection ?? passthroughComponent;
 export const PanelSectionRow = frontendLib.PanelSectionRow ?? passthroughComponent;

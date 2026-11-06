@@ -21,7 +21,7 @@
   "side_nav_toggle": "Side navigation",
   "dismiss": "Dismiss",
   "duplicate_shelf": "Duplicate shelf",
-  "editing": "Modifying",
+  "editing": "Edit shelf: {{name}}",
   "enabled": "Enable shelves on Home",
   "exclude_owned_label": "Ignore games I already own",
   "expand_shelf": "Expand shelf",

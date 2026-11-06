@@ -120,9 +120,9 @@ src/store/               Settings store (backend RPC + localStorage cache)
 src/components/          React components
   shelf/                 Card components (GameCard, MoreCard, PlaceholderCard, HeroBackground)
   home/                  Home screen nav patches
-  filter/                Filter type editors and utilities
+  conditions/            Filter group editor and per-type options
   qam/                   QAM modals, shelf list, action buttons, icons
-    common/              Shared QAM components (ActionButton, ShelfListLabel)
+    common/              Shared QAM components (QamToolbar, RowMenuButton, ShelfNameplate)
     list/                Shelf list panel and actions
     modals/              Delete, Edit, Export, Import, Template modals
   about/                 Documentation tabs (Overview, HowTo, Shelves, Filters, Support)

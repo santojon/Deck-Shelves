@@ -32,8 +32,8 @@ Checklist de teste manual para testes de regressão num Steam Deck real (SteamOS
 | 2.1 | Criar prateleira via "+" → seletor de templates abre | Modal com templates exibido |
 | 2.2 | Selecionar template em branco → modal de edição abre diretamente | EditShelfModal com configuração vazia |
 | 2.3 | Criar prateleira com filtro (Favoritos) → prateleira aparece na Home | Jogos filtrados corretamente |
-| 2.4 | Ocultar prateleira via reticências → prateleira desaparece da Home | Prateleira mostrada acinzentada no QAM |
-| 2.5 | Mostrar prateleira via reticências → prateleira reaparece na Home | Prateleira ativa novamente |
+| 2.4 | Ocultar prateleira pelo menu da linha → prateleira desaparece da Home | Prateleira mostrada acinzentada no QAM |
+| 2.5 | Mostrar prateleira pelo menu da linha → prateleira reaparece na Home | Prateleira ativa novamente |
 | 2.6 | Excluir prateleira → modal de confirmação; confirmar → removida | Prateleira sumida do QAM e da Home |
 | 2.7 | Mover prateleira para cima/baixo via QAM → a ordem muda na Home | Ordem corresponde ao QAM |
 | 2.7a | Lista de prateleiras do QAM com controle: A no nome de uma prateleira a agarra; direcional cima/baixo move uma posição (para nas pontas); A salva | A linha mantém o destaque da própria Steam, sem moldura nem dica extra; enquanto agarrada, a barra de botões da Steam mostra Mover para cima / Mover para baixo (direcional), Salvar ordem (A) e Cancelar (B); ordem salva uma vez, a Home acompanha; o foco fica na linha movida |

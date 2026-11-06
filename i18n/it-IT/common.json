@@ -21,7 +21,7 @@
   "side_nav_toggle": "Navigazione laterale",
   "dismiss": "Ignora",
   "duplicate_shelf": "Duplica scaffale",
-  "editing": "Modificando",
+  "editing": "Modifica scaffale: {{name}}",
   "enabled": "Attiva gli scaffali in Home",
   "exclude_owned_label": "Ignora giochi già posseduti",
   "expand_shelf": "Espandi scaffale",

@@ -79,17 +79,8 @@ export const COMPAT_LEVELS = ["verified", "playable", "unsupported", "unknown"] 
 // VR in three values (Steam's "VR Only" / "VR Supported" categories, else none).
 export const VR_LEVELS = ["only", "supported", "none"] as const;
 
-/* Every filter type is invertible: the evaluator negates uniformly
-   (`evaluateFilterItem`: `item.inverted ? !result : result`), so the editor
-   exposes the opposite-effect toggle for all types — installed, non-Steam,
-   hidden, appId blacklist, merge groups, etc. */
-export function canBeInverted(_type: FilterItemType): boolean {
-  return true;
-}
-
-// Fresh default-params factory per filter type (functions so each call gets its
-// own object/array — never a shared mutable reference).
-const DEFAULT_PARAMS: Partial<Record<FilterItemType, () => Record<string, any>>> = {
+// Functions, so each new condition gets its own objects and arrays.
+const STARTING_OPTIONS: Partial<Record<FilterItemType, () => Record<string, any>>> = {
   hidden: () => ({ mode: "exclude" }),
   deckCompatibility: () => ({ levels: ["verified", "playable"] }),
   deviceCompatibility: () => ({ levels: ["verified", "playable"] }),
@@ -144,8 +135,8 @@ const DEFAULT_PARAMS: Partial<Record<FilterItemType, () => Record<string, any>>>
   exclusionGroup: () => ({ children: [] }),
 };
 
-export function defaultParams(type: FilterItemType): Record<string, any> {
-  return DEFAULT_PARAMS[type]?.() ?? {};
+export function startingOptions(type: FilterItemType): Record<string, any> {
+  return STARTING_OPTIONS[type]?.() ?? {};
 }
 
 const nonEmptyArray = (v: any): boolean => Array.isArray(v) && v.length > 0;
@@ -156,10 +147,10 @@ function isValidRegex(pattern: any): boolean {
   try { new RegExp(pat); return true; } catch { return false; }
 }
 
-// Per-type param validators. Types with no entry (installed / favorites /
-// nonSteam / updatePending / isNew / cloudAvailable / controllerSupport /
-// playtimeRange / friendsPlayingNow / achievements) are always valid.
-const PARAM_VALIDATORS: Partial<Record<FilterItem["type"], (p: any) => boolean>> = {
+// Whether a type's options are enough to test anything. Types with no entry
+// (installed / favorites / nonSteam / updatePending / isNew / cloudAvailable /
+// controllerSupport / playtimeRange / friendsPlayingNow / achievements) always are.
+const COMPLETE_WHEN: Partial<Record<FilterItem["type"], (p: any) => boolean>> = {
   hidden: (p) => !!p.mode,
   deckCompatibility: (p) => nonEmptyArray(p.levels),
   deviceCompatibility: (p) => nonEmptyArray(p.levels),
@@ -184,9 +175,9 @@ const PARAM_VALIDATORS: Partial<Record<FilterItem["type"], (p: any) => boolean>>
   discount: (p) => Number(p.minDiscount ?? 0) >= 0 && Number(p.minDiscount ?? 0) <= 100,
 };
 
-export function isValidParams(item: FilterItem): boolean {
-  const validator = PARAM_VALIDATORS[item.type];
-  return validator ? validator(item.params ?? {}) : true;
+export function isConditionComplete(item: FilterItem): boolean {
+  const check = COMPLETE_WHEN[item.type];
+  return check ? check(item.params ?? {}) : true;
 }
 
 export function getTypeLabel(type: FilterItemType): string {
@@ -287,16 +278,3 @@ export function isOnlineFeatureFilterType(type: FilterItemType): boolean {
     // (onlineMetadata.ts), absent locally on desktop — unlike demo/steamosCompatibility.
     || type === "reviewScore" || type === "releaseDate" || type === "comingSoon";
 }
-
-export function capitalizeFirst(s: string): string {
-  return s.charAt(0).toUpperCase() + s.slice(1);
-}
-
-/* Icons moved to the shared `src/components/icons.tsx` module so other
-   surfaces (QAM section headers, edit modal tabs, About) consume the same
-   stroke-style set. Re-exported here to keep existing call sites working
-   without churn — they import `CheckIcon` / `XIcon` / `ChevronIcon` /
-   `TrashIcon` from this filter-utils module. */
-export { CheckIcon, XIcon, ChevronIcon, TrashIcon } from '../icons';
-
-export default {};

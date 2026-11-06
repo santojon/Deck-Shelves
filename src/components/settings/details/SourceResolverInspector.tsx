@@ -101,7 +101,7 @@ export function SourceResolverInspector({ controller, t }: { controller: ReturnT
                       <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}>
                         <span style={{ flex: 1, opacity: 0.85 }}>
                           {s.type}
-                          {s.inverted ? <span style={{ marginLeft: 6, opacity: 0.6 }}>({t("resolver_inverted")})</span> : null}
+                          {s.inverted ? <span style={{ marginLeft: 6, opacity: 0.6 }}>({t("resolver_negated")})</span> : null}
                         </span>
                         <span style={{ opacity: 0.75, fontVariantNumeric: "tabular-nums" }}>{s.count == null ? "—" : s.count}</span>
                       </div>

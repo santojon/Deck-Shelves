@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Dropdown, Field, Menu, MenuItem, showContextMenu, DialogButton, ToggleField } from "../../runtime/host/decky";
+import { Dropdown, Field, ToggleField } from "../../runtime/host/decky";
 import { CollapsibleSection } from "../../components/ui";
 import { PersonIcon, CheckIcon, StackIcon } from "../../components/icons";
 import { icons } from "../../components/qam/icons";
@@ -7,12 +7,10 @@ import type { SettingsController } from "../settings/controller";
 import { FACTORY_PROFILE_ID, FACTORY_PROFILE_NAME } from "../settings/controller/profiles";
 import { openManagedModal } from "../../components/qam/common/openManagedModal";
 import { SaveProfileModal } from "./SaveProfileModal";
-import { RenameProfileModal } from "./RenameProfileModal";
-import { SetProfileTriggerModal } from "../../components/qam/modals/SetProfileTriggerModal";
 import { confirmAction } from "../../components/qam/modals/ConfirmActionModal";
-import { joinDownloads } from "../../core/userPaths";
 import { ReorderableShelfList } from "../../components/qam/common/ReorderableShelfList";
 import { HideableRow, type HideableRowMode } from "../../components/qam/sidecar/HideableRow";
+import { ProfileRowMenuButton } from "./ProfileRowMenu";
 
 export interface ProfilesSectionProps {
   controller: SettingsController;
@@ -26,47 +24,12 @@ export interface ProfilesSectionProps {
 // shelves list (left-aligned, only ellipsised on real overflow).
 function ProfileLabel({ profile, active }: { profile: any; active: boolean }) {
   return (
-    <div className={`deck-shelves-label-cont ${profile.hidden ? "deck-shelves-hidden" : ""}`}>
+    <div className={`deck-shelves-nameplate ${profile.hidden ? "deck-shelves-hidden" : ""}`}>
       {active ? <span className="deck-shelves-hidden-icon"><CheckIcon size={14} color="currentColor" /></span> : null}
       <span className="deck-shelves-hidden-icon">{profile.hidden ? icons.eyeClosed : icons.eyeOpen}</span>
-      <span className="deck-shelves-label-text">{profile.name}</span>
+      <span className="deck-shelves-nameplate-text">{profile.name}</span>
       {profile.linkShelves ? <span className="deck-shelves-hidden-icon" style={{ marginLeft: 6, opacity: 0.7 }}><StackIcon size={12} /></span> : null}
     </div>
-  );
-}
-
-function ProfileActionsButton({ controller, profile }: { controller: SettingsController; profile: any }) {
-  const { t, actions } = controller;
-  const triggersOn = (controller.settings as any)?.profileTriggersEnabled === true;
-  const exportPath = joinDownloads(`profile-${profile.name}.json`.replace(/\s+/g, "-").toLowerCase());
-  const onClick = () => showContextMenu(
-    <Menu label={profile.name}>
-      <MenuItem onSelected={() => (actions as any).applyProfile?.(profile.id)}>{t("settings_profiles_apply" as any)}</MenuItem>
-      <MenuItem onSelected={() => (actions as any).updateProfileSnapshot?.(profile.id)}>{t("settings_profiles_update" as any)}</MenuItem>
-      <MenuItem onSelected={() => (actions as any).duplicateProfile?.(profile.id)}>{t("settings_profiles_duplicate" as any)}</MenuItem>
-      <MenuItem onSelected={() => openManagedModal((close) => <RenameProfileModal closeModal={close} controller={controller} profileId={profile.id} currentName={profile.name} />)}>{t("settings_profiles_rename" as any)}</MenuItem>
-      {triggersOn && <MenuItem onSelected={() => openManagedModal((close) => <SetProfileTriggerModal closeModal={close} controller={controller} profileId={profile.id} currentTrigger={profile.trigger} />)}>{t("settings_profiles_set_trigger" as any)}</MenuItem>}
-      <MenuItem onSelected={() => (actions as any).setProfileLinkShelves?.(profile.id, !profile.linkShelves)}>{t((profile.linkShelves ? "profile_unlink_shelves_action" : "profile_link_shelves_action") as any)}</MenuItem>
-      <MenuItem onSelected={() => (actions as any).toggleProfileHidden?.(profile.id)}>{profile.hidden ? t("qam_show" as any) : t("qam_hide" as any)}</MenuItem>
-      <MenuItem onSelected={() => (actions as any).exportProfiles?.(exportPath, profile.id)}>{t("settings_profiles_export" as any)}</MenuItem>
-      <MenuItem onSelected={() => confirmAction({
-        title: t("settings_profiles_delete_confirm_title" as any),
-        body: t("settings_profiles_delete_confirm_message" as any),
-        okText: t("settings_profiles_delete" as any),
-        cancelText: t("cancel"),
-        onConfirm: () => (actions as any).deleteProfile?.(profile.id),
-      })}>{t("settings_profiles_delete" as any)}</MenuItem>
-    </Menu>,
-  );
-  return (
-    <DialogButton
-      style={{ height: "40px", minWidth: "40px", width: "40px", display: "flex", justifyContent: "center", alignItems: "center", padding: "10px" }}
-      onClick={onClick}
-      onOKButton={onClick}
-      onOKActionDescription={t("settings_profiles_apply" as any)}
-    >
-      {icons.ellipsis}
-    </DialogButton>
   );
 }
 
@@ -149,8 +112,8 @@ export function ProfilesSection({ controller, hidden, headerExtra }: ProfilesSec
   // In the sidecar the list is represented by a single item; the QAM renders
   // the full reorderable list.
   const listNode = isSidecar ? (
-    <div className="deck-shelves-label-cont" style={{ padding: "6px 16px" }}>
-      <span className="deck-shelves-label-text">{t("profile_list_label" as any) || "Profiles list"}</span>
+    <div className="deck-shelves-nameplate" style={{ padding: "6px 16px" }}>
+      <span className="deck-shelves-nameplate-text">{t("profile_list_label" as any) || "Profiles list"}</span>
     </div>
   ) : (
     <ReorderableShelfList
@@ -158,7 +121,7 @@ export function ProfilesSection({ controller, hidden, headerExtra }: ProfilesSec
       emptyText={t("settings_profiles_empty" as any)}
       onReorder={(ids) => (controller.actions as any).setProfilesOrder?.(ids)}
       renderLabel={(p: any) => <ProfileLabel profile={p} active={activeName === p.name} />}
-      renderActions={(p: any) => <ProfileActionsButton controller={controller} profile={p} />}
+      renderActions={(p: any) => <ProfileRowMenuButton controller={controller} profile={p} />}
     />
   );
 

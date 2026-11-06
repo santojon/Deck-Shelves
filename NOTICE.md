@@ -1,8 +1,8 @@
 # Notice — Acknowledgements & Inspirations
 
 Deck Shelves is built on the work of the Steam Deck homebrew community. This file credits the projects that inspired or enabled parts of it — and is explicit about **which parts**. No source is copied from these projects; where Deck
-Shelves interoperates with another plugin it reads that plugin's public runtime
-state rather than vendoring its code.
+Shelves interoperates with another plugin it reads that plugin's saved settings
+and runtime state rather than vendoring its code.
 
 If you maintain one of these projects and would like the wording, link, or
 attribution adjusted, please open an issue — this is meant as honest credit,
@@ -20,8 +20,14 @@ not a claim of endorsement or affiliation.
 
 - **[TabMaster](https://github.com/Tormak9970/TabMaster)** — inspired Deck
   Shelves' filter model: the nested **filter-group** shape (AND/OR groups of
-  typed filters); no code is copied. Deck Shelves also reads TabMaster's tab context at runtime so
-  shelves can reuse user-defined tabs when TabMaster is installed.
+  typed filters). Up to 3.4.1, Deck Shelves also carried some of TabMaster's
+  CSS rules in its two stylesheets, and its filter editor, row action menus,
+  action bar and name field followed TabMaster's components. In 3.4.2 those
+  parts were removed and written again from functional descriptions by someone
+  who did not read TabMaster's code, and an independent comparison found none of
+  its code or structure in the result. Deck Shelves also reads TabMaster's tab
+  context at runtime so shelves can reuse user-defined tabs when TabMaster is
+  installed.
   *Used in: the filter-group system (`src/types.ts`, `src/steam/filterEval.ts`)
   and TabMaster interop (`src/integrations/tabmaster.ts`: reading its saved
   tabs and turning a tab into a shelf source or an import).*

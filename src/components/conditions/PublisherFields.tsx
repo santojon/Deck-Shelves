@@ -3,7 +3,7 @@ import { ToggleField } from "../../runtime/host/decky";
 import i18n from "../../i18n";
 import { getUniquePublishers, preloadPublisherData, getAllAppOverviews } from "../../steam";
 
-export default function PublisherFilterOptions({ selected, onChange }: { selected: string[]; onChange: (pubs: string[]) => void }) {
+export default function PublisherFields({ selected, onChange }: { selected: string[]; onChange: (pubs: string[]) => void }) {
   const t = i18n.t.bind(i18n);
   const [allPubs, setAllPubs] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);

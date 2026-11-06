@@ -3,11 +3,11 @@ import { DropdownItem, Field, TextField, ToggleField } from "../../runtime/host/
 import type { FilterItem } from "../../types";
 import type { SettingsController } from "../../features/settings/controller";
 import i18n from "../../i18n";
-import DeveloperFilterOptions from "./DeveloperFilterOptions";
-import PublisherFilterOptions from "./PublisherFilterOptions";
-import MergeFilterOptions from "./MergeFilterOptions";
-import CompositeFilterOptions from "./CompositeFilterOptions";
-import LibraryLocationOptions from "./LibraryLocationOptions";
+import DeveloperFields from "./DeveloperFields";
+import PublisherFields from "./PublisherFields";
+import NestedConditionEditor from "./NestedConditionEditor";
+import CompositeFields from "./CompositeFields";
+import LibraryLocationFields from "./LibraryLocationFields";
 import { COMPAT_LEVELS, VR_LEVELS } from "./utils";
 import { APP_STATUS_GROUP_KEYS } from "../../steam/appDisplayStatus";
 import { DSSliderField } from '../ui'
@@ -192,7 +192,7 @@ const RENDERERS: Record<string, (c: OptCtx) => ReactNode> = {
   libraryLocation: ({ t, p, patchParams }) => (
     <>
       <Field label={t("filter_type_library_location")} description={t("filter_library_location_hint")} bottomSeparator="none" />
-      <LibraryLocationOptions
+      <LibraryLocationFields
         selected={Array.isArray(p.libraryIds) ? p.libraryIds : []}
         onChange={(ids) => patchParams({ libraryIds: ids })}
       />
@@ -228,8 +228,8 @@ const RENDERERS: Record<string, (c: OptCtx) => ReactNode> = {
   nameRegex: ({ t, p, patchParams }) => textRow(t("filter_type_name_regex"), undefined, String(p.pattern ?? ""), (pattern) => patchParams({ pattern })),
   storeTag: ({ t, p, patchParams }) => textRow(t("filter_type_store_tag"), t("filter_tags_hint"), (Array.isArray(p.tags) ? p.tags : []).join(", "), (raw) => patchParams({ tags: raw.split(",").map((s: string) => s.trim()).filter(Boolean) })),
   appIdList: ({ t, p, patchParams }) => textRow(t("filter_type_app_id_list"), t("filter_app_id_list_hint"), (Array.isArray(p.appIds) ? p.appIds : []).join(", "), (raw) => patchParams({ appIds: raw.split(",").map((s: string) => Number(s.trim())).filter((n: number) => Number.isFinite(n) && n > 0) })),
-  developer: ({ p, patchParams }) => <DeveloperFilterOptions selected={Array.isArray(p.developers) ? p.developers : []} onChange={(devs) => patchParams({ developers: devs })} />,
-  publisher: ({ p, patchParams }) => <PublisherFilterOptions selected={Array.isArray(p.publishers) ? p.publishers : []} onChange={(pubs) => patchParams({ publishers: pubs })} />,
+  developer: ({ p, patchParams }) => <DeveloperFields selected={Array.isArray(p.developers) ? p.developers : []} onChange={(devs) => patchParams({ developers: devs })} />,
+  publisher: ({ p, patchParams }) => <PublisherFields selected={Array.isArray(p.publishers) ? p.publishers : []} onChange={(pubs) => patchParams({ publishers: pubs })} />,
   friends: ({ t }) => <div>{dimHint(t("filter_friends_info"))}</div>,
   achievements: ({ t }) => <div>{dimHint(t("filter_achievements_info"))}</div>,
   familySharing: ({ t }) => <div>{dimHint(t("filter_family_sharing_info"))}</div>,
@@ -330,13 +330,13 @@ const RENDERERS: Record<string, (c: OptCtx) => ReactNode> = {
   launchOptionTags: ({ t, p, patchParams }) => textRow(t("filter_type_launch_option_tags"), t("filter_comma_hint"), (Array.isArray(p.tags) ? p.tags : []).join(", "), (raw) => patchParams({ tags: splitList(raw) })),
   customTags: ({ t, p, patchParams }) => textRow(t("filter_type_custom_tags"), t("filter_comma_hint"), (Array.isArray(p.tags) ? p.tags : []).join(", "), (raw) => patchParams({ tags: splitList(raw) })),
   parserCategories: ({ t, p, patchParams }) => textRow(t("filter_type_parser_categories"), t("filter_comma_hint"), (Array.isArray(p.tags) ? p.tags : []).join(", "), (raw) => patchParams({ tags: splitList(raw) })),
-  merge: ({ item, onChange, controller, allowOnlineFilters, onlineFeaturesOn }) => <MergeFilterOptions item={item} onChange={onChange} controller={controller} allowOnlineFilters={allowOnlineFilters} onlineFeaturesOn={onlineFeaturesOn} />,
-  weightedFilter: ({ item, onChange, controller, allowOnlineFilters, onlineFeaturesOn }) => <CompositeFilterOptions item={item} onChange={onChange} controller={controller} allowOnlineFilters={allowOnlineFilters} onlineFeaturesOn={onlineFeaturesOn} />,
-  priorityFilter: ({ item, onChange, controller, allowOnlineFilters, onlineFeaturesOn }) => <CompositeFilterOptions item={item} onChange={onChange} controller={controller} allowOnlineFilters={allowOnlineFilters} onlineFeaturesOn={onlineFeaturesOn} />,
-  exclusionGroup: ({ item, onChange, controller, allowOnlineFilters, onlineFeaturesOn }) => <CompositeFilterOptions item={item} onChange={onChange} controller={controller} allowOnlineFilters={allowOnlineFilters} onlineFeaturesOn={onlineFeaturesOn} />,
+  merge: ({ item, onChange, controller, allowOnlineFilters, onlineFeaturesOn }) => <NestedConditionEditor item={item} onChange={onChange} controller={controller} allowOnlineFilters={allowOnlineFilters} onlineFeaturesOn={onlineFeaturesOn} />,
+  weightedFilter: ({ item, onChange, controller, allowOnlineFilters, onlineFeaturesOn }) => <CompositeFields item={item} onChange={onChange} controller={controller} allowOnlineFilters={allowOnlineFilters} onlineFeaturesOn={onlineFeaturesOn} />,
+  priorityFilter: ({ item, onChange, controller, allowOnlineFilters, onlineFeaturesOn }) => <CompositeFields item={item} onChange={onChange} controller={controller} allowOnlineFilters={allowOnlineFilters} onlineFeaturesOn={onlineFeaturesOn} />,
+  exclusionGroup: ({ item, onChange, controller, allowOnlineFilters, onlineFeaturesOn }) => <CompositeFields item={item} onChange={onChange} controller={controller} allowOnlineFilters={allowOnlineFilters} onlineFeaturesOn={onlineFeaturesOn} />,
 };
 
-export default function FilterItemOptions({ item, onChange, controller, allowOnlineFilters = false, onlineFeaturesOn = false }: { item: FilterItem; onChange: (patch: Partial<FilterItem>) => void; controller?: SettingsController; allowOnlineFilters?: boolean; onlineFeaturesOn?: boolean }) {
+export default function ConditionFields({ item, onChange, controller, allowOnlineFilters = false, onlineFeaturesOn = false }: { item: FilterItem; onChange: (patch: Partial<FilterItem>) => void; controller?: SettingsController; allowOnlineFilters?: boolean; onlineFeaturesOn?: boolean }) {
   const t = i18n.t.bind(i18n) as Tfn;
   const p = item.params ?? {};
   const patchParams = (patch: Record<string, any>) => onChange({ params: { ...p, ...patch } });

@@ -1,4 +1,4 @@
-import { LabeledTextField } from '../../../ui'
+import { TitleField } from '../../../ui'
 
 export function ModalHeader({ t, title, onTitleChange, previewCount }: {
   t: (k: any, opts?: any) => string;
@@ -8,9 +8,7 @@ export function ModalHeader({ t, title, onTitleChange, previewCount }: {
 }) {
   return (
     <>
-      <div style={{ padding: '4px 16px 1px' }} className='name-field'>
-        <LabeledTextField label={t('title')} value={title} onChange={onTitleChange} />
-      </div>
+      <TitleField label={t('title')} value={title} onChange={onTitleChange} />
       <div style={{ padding: '0 16px 8px', fontSize: '12px', color: previewCount === 0 ? '#f59e0b' : '#8b949e' }}>
         {previewCount === null ? t('preview_loading') : previewCount === 0 ? `⚠️ ${t('preview_empty')}` : t('preview_count', { count: previewCount })}
       </div>

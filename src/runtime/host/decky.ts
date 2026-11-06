@@ -13,7 +13,7 @@ export { call, toaster, openFilePicker };
 import {
   ConfirmModal, DialogBody, DialogButton, DialogControlsSection,
   Dropdown, DropdownItem, Field, Focusable, GamepadButton,
-  Menu, MenuGroup, MenuItem, Navigation, PanelSection, PanelSectionRow,
+  Menu, MenuGroup, MenuItem, MenuSeparator, Navigation, PanelSection, PanelSectionRow,
   SliderField, Spinner, Tabs, TextField, ToggleField, showContextMenu, showModal,
   afterPatch,
   fakeRenderComponent,
@@ -32,7 +32,7 @@ import {
 export {
   ConfirmModal, DialogBody, DialogButton, DialogControlsSection,
   Dropdown, DropdownItem, Field, Focusable, GamepadButton,
-  Menu, MenuGroup, MenuItem, Navigation, PanelSection, PanelSectionRow,
+  Menu, MenuGroup, MenuItem, MenuSeparator, Navigation, PanelSection, PanelSectionRow,
   SliderField, Spinner, Tabs, TextField, ToggleField, showContextMenu, showModal,
   afterPatch,
   fakeRenderComponent,

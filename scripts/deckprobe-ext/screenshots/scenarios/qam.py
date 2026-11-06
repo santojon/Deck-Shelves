@@ -44,8 +44,8 @@ def _scroll_qam_to_section(host: str, port: int, section_id: str) -> str:
     return 'idx:' + idx;
   }}
 
-  // Fallback 2: fractional scrollTop on the QAM scope.
-  var scope = document.querySelector('.deck-shelves-qam-scope');
+  // Fallback 2: fractional scrollTop on the QAM panel.
+  var scope = document.querySelector('.deck-shelves-qam-panel');
   if (scope) {{
     scope.scrollTop = Math.floor(scope.scrollHeight * {frac});
     return 'frac:{frac}';
@@ -60,11 +60,11 @@ def _scroll_qam_to_section(host: str, port: int, section_id: str) -> str:
 
 def _scroll_qam_to_top(host: str, port: int) -> str:
     """Scroll the panel back to its top. The scrolling element is an ancestor
-    of the plugin's scope (the menu's own panel), so resetting the scope's
+    of the plugin's panel (the menu's own panel), so resetting the panel's
     scrollTop alone does nothing after an earlier scenario scrolled down."""
     result = _qam_eval(host, port, """
 (function(){
-  var scope = document.querySelector('.deck-shelves-qam-scope');
+  var scope = document.querySelector('.deck-shelves-qam-panel');
   if (!scope) return 'no-scope';
   var el = scope, n = 0;
   while (el) { if (el.scrollTop > 0) { el.scrollTop = 0; n++; } el = el.parentElement; }
@@ -78,12 +78,12 @@ def _scroll_qam_to_top(host: str, port: int) -> str:
 
 
 def _scroll_qam_to_text(host: str, port: int, *needles: str) -> str:
-    """Scroll the QAM scope to the first text node containing any needle.
+    """Scroll the QAM panel to the first text node containing any needle.
     Runs in the QAM popup target (not SJC) so the DS DOM is reachable."""
     needle_js = ", ".join(repr(n.lower()) for n in needles)
     expr = f"""
 (function() {{
-  var scope = document.querySelector('.deck-shelves-qam-scope');
+  var scope = document.querySelector('.deck-shelves-qam-panel');
   if (!scope) return 'no-scope';
   var needles = [{needle_js}];
   var walker = document.createTreeWalker(scope, NodeFilter.SHOW_TEXT);

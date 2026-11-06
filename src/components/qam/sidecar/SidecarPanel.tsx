@@ -157,7 +157,7 @@ export function SidecarPanel({ controller, onCollapse }: { controller: SettingsC
          first, and measuring against it put the sidecar over the main column. */
       const sideEl = innerEl.closest('.deck-shelves-qam-sidecar') as HTMLElement | null;
       if (!sideEl) return;
-      const scope = sideEl.closest('.deck-shelves-qam-scope') as HTMLElement | null;
+      const scope = sideEl.closest('.deck-shelves-qam-panel') as HTMLElement | null;
       const main = (scope?.querySelector('.deck-shelves-qam-main') ?? null) as HTMLElement | null;
       // The QAM tab's dark panel that hosts every plugin tab content area.
       // The class is obfuscated but consistently present; if Steam ever

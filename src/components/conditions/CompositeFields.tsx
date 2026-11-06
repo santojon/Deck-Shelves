@@ -1,5 +1,5 @@
 import type { FilterItem, FilterGroup } from "../../types";
-import { FilterPanel } from "../FilterPanel";
+import { ConditionEditor } from "./ConditionEditor";
 import type { SettingsController } from "../../features/settings/controller";
 import i18n from "../../i18n";
 import { DSSliderField } from "../ui";
@@ -14,8 +14,8 @@ function compositeHint(type: FilterItem["type"], t: (k: any) => string): string 
    holds child filter items in `params.children` — any filter type, evaluated
    through the host's full evaluator. `weightedFilter` adds a `threshold`: match
    when at least that many children match (children default to weight 1). Reuses
-   FilterPanel, with its AND/OR mode hidden — the composite defines the rule. */
-export default function CompositeFilterOptions({
+   ConditionEditor, with its AND/OR mode hidden — the composite defines the rule. */
+export default function CompositeFields({
   item,
   onChange,
   controller,
@@ -53,7 +53,7 @@ export default function CompositeFilterOptions({
           onChange={(v: number) => onChange({ params: { ...p, threshold: v } })}
         />
       )}
-      <FilterPanel group={group} onChange={setChildren} controller={controller} allowOnlineFilters={allowOnlineFilters} onlineFeaturesOn={onlineFeaturesOn} hideMode />
+      <ConditionEditor group={group} onChange={setChildren} controller={controller} allowOnlineFilters={allowOnlineFilters} onlineFeaturesOn={onlineFeaturesOn} hideMode />
     </div>
   );
 }

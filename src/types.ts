@@ -53,7 +53,7 @@ export const FilterItemTypeSchema = z.enum([
   "chiakiApp",
   "moonlightApp",
   "hiddenLauncherShortcuts",
-  // Filter v3 — parameterized predicates (editors in FilterItemOptions.tsx).
+  // Filter v3 — parameterized predicates (editors in ConditionFields.tsx).
   "reviewScore",
   "releaseDate",
   "genres",
@@ -188,7 +188,8 @@ export const FilterSchema = z.object({
   minPlaytimeMinutes: z.number().int().min(0).optional(),
   maxPlaytimeMinutes: z.number().int().min(0).optional(),
   updatePending: legacyBool().optional(),
-  // New CustomTabs-style filter group (takes priority over legacy fields when present)
+  // The filter group is the current format and, when present, wins over the
+  // older flat filter fields (updatePending and the like) that old settings carry.
   filterGroup: FilterGroupSchema.optional(),
 }).passthrough();
 

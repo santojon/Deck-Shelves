@@ -57,5 +57,5 @@ export function FieldContainer({
     ...(scrollable ? { maxHeight: 'min(calc(100vh - 190px), 500px)', overflowY: 'auto', overflowX: 'hidden' } : {}),
     ...style,
   }
-  return <div ref={ref} className='field-item-container' style={base}>{children}</div>
+  return <div ref={ref} className='deck-shelves-editor-fields' style={base}>{children}</div>
 }

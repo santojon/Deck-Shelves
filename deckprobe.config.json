@@ -2,7 +2,7 @@
   "$schema": "./deckprobe/docs/config.schema.json",
   "selectors": {
     "HOME_MOUNT_ID":          "deck-shelves-home-root",
-    "QAM_SCOPE_SEL":          ".deck-shelves-qam-scope",
+    "QAM_SCOPE_SEL":          ".deck-shelves-qam-panel",
     "ROOT_SEL":               ".deck-shelves-root",
     "SHELF_SEL":              ".ds-shelf",
     "ROW_SEL":                ".ds-row-scroll",

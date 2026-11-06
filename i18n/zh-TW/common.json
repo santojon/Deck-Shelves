@@ -21,7 +21,7 @@
   "side_nav_toggle": "側邊導覽",
   "dismiss": "忽略",
   "duplicate_shelf": "複製書架",
-  "editing": "修改中",
+  "editing": "編輯書架：{{name}}",
   "enabled": "在首頁啟用書架",
   "exclude_owned_label": "忽略已擁有的遊戲",
   "expand_shelf": "展開書架",
