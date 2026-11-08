@@ -82,8 +82,7 @@ prices, deals) read Steam's own store and community endpoints
 (`store.steampowered.com`, `api.steampowered.com`, `steamcommunity.com`) and
 Steam's artwork CDNs; update checks ask GitHub's releases API for this
 repository (the pre-release channel is opt-in). No other server is contacted,
-and nothing is sent anywhere except those requests. The project website (built
-from `site/`) uses GoatCounter for cookie-free page counts.
+and nothing is sent anywhere except those requests.
 
 ## Dependencies
 
@@ -91,6 +90,6 @@ Runtime libraries: `react` / `react-dom`, `i18next` / `react-i18next` and `zod`,
 plus the Decky SDK packages the loader provides (`@decky/ui`, `@decky/api`), each
 under its own license; see the packages for details. The Python backend uses
 only the standard library. Build and test tooling (Vite, esbuild, TypeScript,
-ESLint, Vitest) never ships. The `api`, `host` and `deckprobe` folders are git
-submodules of the author's own sibling projects (the public plugin API, the host
-contract and the device QA toolkit), each with its own notices.
+ESLint, Vitest) never ships. `@deck-shelves/api` and `@deck-shelves/host` are the author's own sibling
+projects (the public plugin API and the host contract), consumed as npm packages
+with their own notices.

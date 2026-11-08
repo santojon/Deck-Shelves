@@ -1,10 +1,8 @@
 # Development Guide
 
-*[Leia em português](pt-BR/development.md)*
-
 ## Prerequisites
 
-- Node.js 20+, pnpm 10+, Python 3
+- Node.js 26+, pnpm 12+, Python 3
 - Steam Deck with [Decky Loader](https://decky.xyz) and SSH access
 - CEF Remote Debugging enabled on the Deck
 
@@ -12,7 +10,7 @@
 > [CONTRIBUTING.md § Supported platforms](../CONTRIBUTING.md#supported-platforms)).
 > The `pnpm` scripts invoke Python cross-OS via `scripts/build/py.mjs`; the raw
 > `python3 …` examples below assume `python3` on PATH — on Windows use
-> `python` / `py -3` or the equivalent `pnpm` / `pnpm --filter deckprobe …` flows.
+> `python` / `py -3`.
 
 ## Setup
 
@@ -40,11 +38,6 @@ pnpm run deploy:local:hard   # + reload plugin_loader and restart Steam (Linux)
 - After a plain `deploy:local`, reload from Decky (Developer → Reload
   deck-shelves) or restart Steam. `:hard` tries to do that for you on Linux
   (needs passwordless `sudo` or `DECK_SUDO_PASS`).
-- **CDP against local Steam:** `deckprobe` defaults to the Deck's LAN port
-  (`8081`). To point it at the local Steam instead, set `DECK_CDP_HOST=127.0.0.1`
-  and `DECK_CDP_PORT=8080` in `.env` — Steam's CEF listens on `8080` on the same
-  machine. This is opt-in via `.env`; the shipped default stays `8081`, so
-  existing Deck/CI flows are unaffected.
 
 ## Environment Variables (`.env`)
 
@@ -112,13 +105,9 @@ Runs in CI and fails the build when the docs drift from the code:
   sources (`SORT_OPTIONS` / `V3_SOURCE_OPTIONS` → `filters.md`), smart-shelf
   modes (`SmartShelfModeSchema` → [`smart-shelves.md`](./smart-shelves.md)) and
   shelf templates (`templates.ts` → [`shelf-templates.md`](./shelf-templates.md)).
-- **Index** — every file in `docs/` is listed in [`docs/README.md`](./README.md)
-  and all of its links resolve.
 - **Diagrams** — no HTML entities in diagram labels, fences balanced.
 - **Icon** — the `DeckShelvesLogo` mark inlined in `icons.tsx` matches
   `assets/icon.svg` (same rects + fit transform), so the two never drift.
-- **Badges** — the hard-coded `vitest` / `pytest` counts in the root README match
-  the suites, collected with `vitest list` and `pytest --collect-only`.
 
 So when you expose a new filter, sort, source, smart mode or template, add it to
 the matching doc in the same change. If an extractor ever reports `0 ids`, the
@@ -131,157 +120,13 @@ letting the check pass hollow.
 
 The `plugin.json` ships without the `debug` flag (required for Decky Store). During development, `deploy-deck.sh` automatically injects the flag into the staged copy so Decky reloads the plugin on deploy.
 
-## Screenshots
-
-The CDP tooling lives in the `deckprobe/` package (host/port come from
-`.env`: `DECK_HOST`, `DECK_CDP_PORT`). Deploy the screenshots fixture first:
+## Validation
 
 ```bash
-pnpm run qa:screenshots-fixture
+pnpm validate:ci    # typecheck, lint, build, tests, package, compat
 ```
 
-It is a dev build whose shelves, smart shelves, saved filters, profiles and
-Advanced mode live in memory only (nothing is written to the device), so every
-capture — including the ones that need a hidden shelf, a saved filter or the
-Advanced tools tab — has what it needs, and the dev-only hooks that open the
-sidecar, Quick Search and the Side Nav exist. Each scenario forces the plugin
-UI to en-US; Steam's own chrome stays in the device's language. Put the normal
-build back afterwards (`pnpm run deploy:deck:release`).
-
-```bash
-# Capture all screenshots via CDP automation
-pnpm run devtools:screenshots
-
-# Validate captured screenshots (required files present, PNG magic header,
-# >= 60 KB — catches blank popup frames)
-pnpm run screenshots:validate
-```
-
-Captures land in `assets/screenshots/`. The gallery is rendered in
-[`showcase.md`](./showcase.md).
-
-Capture is driven by the **modular runner** (`pnpm run devtools:screenshots`
-calls `deckprobe/cli.py screenshot`, which runs it):
-
-```bash
-# All captures (via the CLI — reads scenarios + out dir from deckprobe.config.json)
-python3 deckprobe/cli.py screenshot
-
-# Or invoke the runner directly (as a module, from the repo root):
-python3 -m deckprobe.screenshots.run --scenarios-dir scripts/deckprobe-ext/screenshots/scenarios
-python3 deckprobe/cli.py screenshot --only home,qam,about_overview   # subset
-python3 -m deckprobe.screenshots.run --list                          # list scenarios
-```
-
-Project scenarios live in `scripts/deckprobe-ext/screenshots/scenarios/*.py`
-(wired via `screenshots_scenarios_dir` in `deckprobe.config.json`). Each file
-groups related captures; add one by writing a function decorated with
-`@register("name")` that receives the SharedJS session, host, port and output
-dir and returns a `{filename: Path}` map. The runner is split into `lib/cdp.py`
-(minimal CDP `Session`), `lib/nav.py` (navigation primitives), `lib/capture.py`
-(`capture_bigpicture` / `capture_qam` with blank-frame fallback) and `run.py`
-(orchestrator over `ALL_SCENARIOS`).
-
-### Screenshot set
-
-| File | Captures |
-|------|----------|
-| `home.png` | Home with the Deck Shelves portal mounted after native recents |
-| `home-shelves.png` | Home scrolled to show the second DS shelf in full |
-| `game-menu.png` | Context menu opened on a shelf card (MENU button) |
-| `search.png` | Quick Search open over the Home, with the results for a typed query |
-| `sidenav.png` | The shelf Side Nav open beside the focused card |
-| `qam.png` | QAM with the Deck Shelves plugin tab active |
-| `shelf-create.png` | Template picker modal (grouped by category) |
-| `shelf-actions.png` | Per-shelf action menu (Edit / Duplicate / Hide / Delete / reorder) |
-| `shelf-edit.png` | Edit shelf modal — Source tab (sort, source type, limit) |
-| `shelf-edit-filters.png` | Edit shelf modal — Filters tab (SavedFiltersBar + ConditionEditor) |
-| `shelf-edit-visual.png` | Edit shelf modal — Visual tab (highlight toggles + picker + Odd/Even) |
-| `shelf-hidden.png` | QAM showing a shelf toggled to hidden (eye-slash icon) |
-| `shelf-delete.png` | Delete shelf confirmation dialog |
-| `shelf-import.png` / `shelf-export.png` | Import / export modals |
-| `reset-all.png` | Reset-all destructive confirmation |
-| `about-page.png` | About & Filter Documentation page |
-| `smart-shelves-qam.png` | QAM scrolled to the Smart Shelves section |
-| `smart-shelf-modal.png` | Smart Shelf template picker (category accordions) |
-| `smart-shelf-edit.png` | Edit Smart Shelf modal (sort override + filters + visual) |
-| `saved-filters-qam.png` | Saved Filters section in QAM (the fixture seeds two filters) |
-| `global-toggles.png` | Apply Globally section in QAM |
-| `settings-backup.png` | Settings page — Backup tab |
-
-## Local UI test suite
-
-```bash
-pnpm uitests             # run every registered suite against the Deck
-pnpm uitests:list        # list every suite + test name
-pnpm uitests --only home,qam_shelves   # subset
-```
-
-Suites live in `scripts/deckprobe-ext/uitests/suites/` and reuse the screenshot
-pipeline's `lib/` (CDP session, navigation, capture). Local-only — runs against
-a real Deck or a SteamOS VM via CDP, never on CI. Use it as the optional pre-PR
-check for flows the unit tests can't reach.
-
-## Validation flows (with HTML reports)
-
-Three commands orchestrate all checks end-to-end and write an HTML report to
-`reports/`:
-
-```bash
-pnpm validate:ci             # offline: typecheck, build, tests, package, compat
-pnpm validate:full           # with Deck: above + deploy + UI tests + perf bench
-pnpm validate:full:stress    # with Deck + stress fixture (16 shelves, 50 cards each)
-```
-
-`validate:ci` is designed for CI/CD — no device or `.env` required.
-`validate:full` skips device steps gracefully when the Deck is unreachable.
-Reports land in `reports/` (gitignored) organised in three scopes (`ci/`,
-`local/`, `release/`) plus a top-level `index.html` and a statistics
-`dashboard.html`. Open them with `pnpm reports`.
-
-## Performance bench
-
-```bash
-pnpm perf:bench          # 3 runs, prints mount p_avg / p_min / p_max
-pnpm perf:bench --runs 10
-```
-
-Drops `performance.mark` / `performance.measure` calls into Big Picture,
-navigates to the home, reads the durations back. Pair with the `[PERF]` PR tag
-and before/after numbers — see [`performance.md`](./performance.md).
-
-## CDP Diagnostics
-
-`deckprobe/cdp.py` covers the common debug loop (find target → run probe →
-check result). See [`cdp.md`](./cdp.md) for the full reference.
-
-```bash
-# List CDP targets with aliases (bp / qam / sjc / mainmenu)
-python3 deckprobe/cdp.py targets
-
-# Evaluate a JS expression in a target
-python3 deckprobe/cdp.py eval bp 'document.title'
-
-# Capture a screenshot of the QAM
-python3 deckprobe/cdp.py screenshot qam /tmp/qam.png
-
-# Stream console warnings/errors
-python3 deckprobe/cdp.py console sjc
-
-# Inject a classmap for testing
-python3 deckprobe/tools/inject_classmap.py
-
-# List every diag script (deckprobe's generic ones + this project's own)
-python3 deckprobe/cli.py diag list
-python3 deckprobe/cli.py diag run diag_composite_filter -- <bp-target-id>
-```
-
-Project-specific diag scripts (ones that hardcode Deck Shelves' own
-selectors/features rather than the generic, override-anything defaults
-deckprobe ships with) live in `scripts/deckprobe-ext/diag/` — wired via
-`diag_dirs` in `deckprobe.config.json`, same convention as the screenshot
-scenarios and UI-test suites above. `diag list`/`diag run` merge both
-directories automatically.
+It needs no device or `.env`, and it is what CI runs.
 
 ## i18n
 

@@ -39,17 +39,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
+        uses: actions/checkout@v7
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 26
           cache: pnpm
 
       - name: Install dependencies
@@ -125,7 +123,7 @@ jobs:
       # unchanged; never blocks the release.
       - name: Attest build provenance
         continue-on-error: true
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: |
             deck-shelves-v*.zip
@@ -153,7 +151,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub pre-release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           token: ${{ secrets.SUBMIT_TOKEN || github.token }}
           tag_name: ${{ steps.version.outputs.tag }}

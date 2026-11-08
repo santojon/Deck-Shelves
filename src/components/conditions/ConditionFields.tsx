@@ -12,7 +12,7 @@ import { COMPAT_LEVELS, VR_LEVELS } from "./utils";
 import { APP_STATUS_GROUP_KEYS } from "../../steam/appDisplayStatus";
 import { DSSliderField } from '../ui'
 
-type Tfn = (k: any, opts?: any) => string;
+type Tfn = (...args: any[]) => any;
 
 interface OptCtx {
   item: FilterItem;

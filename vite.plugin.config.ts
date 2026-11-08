@@ -55,8 +55,6 @@ export default defineConfig(({ mode }) => {
         { find: /^@host\/api$/, replacement: path.resolve(import.meta.dirname, "src/shims/host-api.ts") },
         { find: /^@host\/ui$/, replacement: path.resolve(import.meta.dirname, "src/shims/host-ui.ts") },
         { find: /^@host\/manifest$/, replacement: path.resolve(import.meta.dirname, "src/shims/host-manifest.ts") },
-        { find: /^@deck-shelves\/host$/, replacement: path.resolve(import.meta.dirname, "host/src/contract/index.ts") },
-        { find: /^@deck-shelves\/api$/, replacement: path.resolve(import.meta.dirname, "api/src/index.ts") },
         { find: /^@$/, replacement: path.resolve(import.meta.dirname, "src") },
       ],
     },

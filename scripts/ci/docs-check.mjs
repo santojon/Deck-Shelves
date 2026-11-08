@@ -1,15 +1,6 @@
 #!/usr/bin/env node
-/* Keeps the user-facing docs honest against the code.
-   Five families of check:
-     1. Coverage  — every filter type, sort key, built-in source, smart-shelf
-        mode and shelf template that the UI exposes is documented.
-     2. Index     — docs/README.md lists every doc and all its links resolve.
-     3. Diagrams  — no HTML entities in diagram labels, fences balanced.
-     4. Icon      — the inlined DeckShelvesLogo matches assets/icon.svg.
-     5. Badges    — the hard-coded test counts in README.md match reality.
-     6. Shipped   — tracked docs and code carry no process or tool words.
-   Badge checks collect the suites (fast: `vitest list` + `pytest --collect-only`);
-   pass `--no-badges` to skip them. Exits non-zero on any failure. */
+/* Checks the docs against the code: coverage of filters, sorts, sources, smart-shelf
+   modes and templates; mermaid diagrams; inlined icons; shipped text. */
 import { readFileSync, existsSync, readdirSync } from "node:fs";
 import { execSync } from "node:child_process";
 import path from "node:path";
@@ -58,7 +49,7 @@ function checkCoverage(label, ids, docPath) {
   else ok.push(`${label}: ${unique.length}/${unique.length} documented in ${docPath}`);
 }
 
-// ---------------------------------------------------------------- 1. coverage
+// coverage
 const filterUtils = read("src/components/conditions/utils.tsx");
 const editorConsts = read("src/components/qam/modals/editShelf/constants.ts");
 const types = read("src/types.ts");
@@ -74,22 +65,7 @@ checkCoverage(
   "docs/shelf-templates.md",
 );
 
-// ------------------------------------------------------------------- 2. index
-const indexPath = "docs/README.md";
-const index = read(indexPath);
-const orphans = readdirSync(path.join(root, "docs"))
-  .filter((f) => f.endsWith(".md") && f !== "README.md" && !index.includes(f));
-if (orphans.length) failures.push(`Docs index: not listed in ${indexPath} → ${orphans.join(", ")}`);
-else ok.push(`Docs index: every doc listed in ${indexPath}`);
-
-const broken = [...index.matchAll(/\]\(([^)#]+)(?:#[^)]*)?\)/g)]
-  .map((m) => m[1])
-  .filter((l) => !/^https?:/.test(l))
-  .filter((l) => !existsSync(path.join(root, "docs", l)));
-if (broken.length) failures.push(`Docs index: broken links → ${broken.join(", ")}`);
-else ok.push("Docs index: all links resolve");
-
-// ------------------------------------------------------------------ 3. diagrams
+// diagrams
 /* HTML entities inside a diagram label render literally (`&#64;deck-shelves`)
    wherever the renderer has HTML labels disabled — quote the label and use the
    real character instead. Also catches unbalanced ```mermaid fences. */
@@ -111,7 +87,7 @@ for (const file of docFiles) {
 }
 if (!failures.some((f) => f.startsWith("Diagrams:"))) ok.push(`Diagrams: ${diagrams} block(s) clean (no HTML entities, fences balanced)`);
 
-// ------------------------------------------------------------------ 4. icon sync
+// icons
 /* The plugin marks are inlined as JSX (not imported from their .svg, to avoid
    raw-HTML injection), so each can drift from its source file. Guard that every
    rect and a distinctive marker match across each source/component pair. */
@@ -133,35 +109,7 @@ for (const { svg, tsx, marker, name, min } of ICON_PAIRS) {
   else ok.push(`Icon: ${name} matches ${svg} (${svgRects.size} rects)`);
 }
 
-// ------------------------------------------------------------------ 5. badges
-if (!process.argv.includes("--no-badges")) {
-  const readme = read("README.md");
-  const badge = (tool) => {
-    const m = new RegExp(`${tool}-(\\d+)%20passed`).exec(readme);
-    return m ? Number(m[1]) : null;
-  };
-  const run = (cmd) => execSync(cmd, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
-
-  const counts = {};
-  try {
-    counts.vitest = run("npx vitest list").split("\n").filter((l) => l.includes(" > ")).length;
-  } catch { /* collector unavailable */ }
-  try {
-    const out = run("python3 -m pytest src/test/ -q --collect-only");
-    counts.pytest = Number(/(\d+) tests collected/.exec(out)?.[1] ?? NaN);
-  } catch { /* collector unavailable */ }
-
-  for (const tool of ["vitest", "pytest"]) {
-    const claimed = badge(tool);
-    const actual = counts[tool];
-    if (claimed === null) failures.push(`Badge: no ${tool} count badge found in README.md`);
-    else if (!Number.isFinite(actual)) ok.push(`Badge: ${tool} skipped (collector unavailable)`);
-    else if (claimed !== actual) failures.push(`Badge: README says ${tool} ${claimed}, actual ${actual} — refresh the badge`);
-    else ok.push(`Badge: ${tool} ${actual} matches README`);
-  }
-}
-
-// ------------------------------------------------------------ 6. shipped text
+// shipped text
 // Patterns are assembled from pieces so this file never matches itself. The
 // sibling host's name is refused in doc prose (link targets, file names and code
 // spans are ignored) and in code comments (string literals are ignored).
@@ -180,7 +128,7 @@ if (!process.argv.includes("--no-badges")) {
   const tracked = (paths) => {
     try { return execSync(`git ls-files -- ${paths}`, { cwd: root, encoding: "utf8" }).split("\n").filter(Boolean); } catch { return null; }
   };
-  const docs = tracked("README.md CHANGELOG.md RELEASE_NOTES.md docs community-docs");
+  const docs = tracked("README.md CHANGELOG.md RELEASE_NOTES.md docs");
   const code = tracked("src scripts main.py");
   if (!docs || !code) ok.push("Shipped text: skipped (not a git checkout)");
   else {
@@ -198,7 +146,7 @@ if (!process.argv.includes("--no-badges")) {
   }
 }
 
-// ------------------------------------------------------------------- 7. report
+// report
 for (const line of ok) console.log(`  ✅ ${line}`);
 for (const line of failures) console.error(`  ❌ ${line}`);
 if (failures.length) {

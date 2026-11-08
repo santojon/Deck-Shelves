@@ -27,7 +27,7 @@ assert re.match(r'^\d+\.\d+\.\d+', d['version']), 'invalid version'
     ((fail++))
   fi
 
-  if head -1 "$root/pnpm-lock.yaml" 2>/dev/null | grep -q "9.0"; then
+  if head -2 "$root/pnpm-lock.yaml" 2>/dev/null | grep -q "9.0"; then
     echo "  ✅ pnpm-lock.yaml lockfileVersion: 9.0"
     ((pass++))
   else

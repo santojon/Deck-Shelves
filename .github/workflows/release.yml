@@ -24,17 +24,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
+        uses: actions/checkout@v7
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 26
           cache: pnpm
 
       - name: Install dependencies
@@ -44,36 +42,6 @@ jobs:
         run: |
           python3 -m pip install -U pip setuptools
           python3 -m pip install ruff pytest
-
-      - name: Generate report
-        run: pnpm run validate:ci
-
-      - name: Rebuild aggregates
-        if: always()
-        run: pnpm run reports:rebuild
-
-      - name: Upload release report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: ci-release-report-${{ github.run_id }}
-          # Tag runs write to release/; manual runs write to ci/.
-          path: |
-            site/reports/release/
-            site/reports/ci/
-          retention-days: 90
-
-      - name: Commit release report
-        if: always()
-        env:
-          # SUBMIT_TOKEN (maintainer PAT) bypasses branch protection on
-          # main, so the report can be pushed directly without opening a
-          # chore(report) PR that itself has to pass required checks.
-          # GITHUB_TOKEN stays exported as a fallback for `gh` if the PR
-          # path is still needed (e.g. SUBMIT_TOKEN missing / revoked).
-          SUBMIT_TOKEN: ${{ secrets.SUBMIT_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.SUBMIT_TOKEN || secrets.GITHUB_TOKEN }}
-        run: bash scripts/ci/commit-report.sh
 
       - name: Lint (ESLint + Ruff)
         run: |
@@ -114,7 +82,7 @@ jobs:
       # unchanged; never blocks the release.
       - name: Attest build provenance
         continue-on-error: true
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: |
             deck-shelves-v*.zip
@@ -158,7 +126,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           token: ${{ secrets.SUBMIT_TOKEN || github.token }}
           tag_name: ${{ steps.tag.outputs.tag }}

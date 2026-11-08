@@ -6,7 +6,7 @@ Thank you for your interest in contributing! This guide covers the development s
 
 - **Node.js** 20 or later
 - **pnpm** 10 or later
-- **Python 3.9+** (for the backend, lint and devtools)
+- **Python 3.9+** (for the backend and lint)
 - A **Steam Deck** with [Decky Loader](https://decky.xyz) installed (for testing)
 - SSH access to the Deck on your local network
 
@@ -26,14 +26,12 @@ The dev / build / validation flows run on **Linux, macOS, and Windows**.
 | `pnpm run validate:compat`                     |  ✅  |  ✅   |   ⚠️    |
 | `pnpm run deploy:deck*` (bash)                  |  ✅  |  ✅   |   ⚠️    |
 | `pnpm run deploy:deck:win*` (PowerShell)        |  —   |  —    |   ✅    |
-| `pnpm run devtools:*` (CDP)                    |  ✅  |  ✅   |   ✅    |
-| `pnpm run qa` / `validate:full` / `validate:ci`|  ✅  |  ✅   |   ✅    |
+| `pnpm run validate:ci`                         |  ✅  |  ✅   |   ✅    |
 | `pnpm run update` / `update:*`                 |  ✅  |  ✅   |   ✅    |
 
 Everything a contributor needs to validate a change — build, typecheck,
-lint, tests, **packaging + verify**, the full QA/validation harness
-(`qa` / `validate:*`), the dependency-update flow (`update:*`), and the CDP
-tooling — is Node or Python and runs natively on all three OSes (no bash, no
+lint, tests, **packaging + verify** (`validate:ci`) and the dependency-update
+flow (`update:*`) — is Node or Python and runs natively on all three OSes (no bash, no
 `zip`/`unzip` CLI; packaging uses Python's `zipfile`). Python is invoked through
 a cross-OS launcher (`scripts/build/py.mjs`, which resolves `python3` /
 `python` / `py -3`), so a bare `python3` on PATH is not required on Windows.
@@ -53,7 +51,7 @@ a cross-OS launcher (`scripts/build/py.mjs`, which resolves `python3` /
 
 ### Windows quickstart
 
-1. Install [Node.js 20+](https://nodejs.org/), [Python 3.9+](https://www.python.org/),
+1. Install [Node.js 26+](https://nodejs.org/), [Python 3.9+](https://www.python.org/),
    and (only for `validate:compat`) [Git for Windows](https://git-scm.com/download/win).
 2. From PowerShell or Git Bash: `corepack enable && pnpm install`. If `corepack` isn't on PATH (some Node packagers don't link it), run `pnpm run upgrade` instead — the helper (`scripts/build/upgrade-pnpm.cjs`) finds Corepack from `node`'s bundled location and falls back to `npm install -g pnpm@latest`.
 3. `pnpm run dev:check && pnpm run package` — the full local build + package flow runs natively.
@@ -150,7 +148,7 @@ src/shims/               React/Decky GamepadUI shims
 src/test/                Vitest test suites
 i18n/                    Locale files
 docs/                    Architecture, API, filter, and development docs
-scripts/                 Build, deploy, devtools, and screenshot automation
+scripts/                 Build, deploy and CI scripts
 ```
 
 See [`docs/architecture.md`](docs/architecture.md) for a detailed breakdown.
@@ -192,91 +190,24 @@ All checks should pass. The individual check scripts live in the `checks/` subfo
 
 - Run unit tests (TypeScript + Python) locally with: `pnpm run test:all`
 - The CI installs and runs `pytest` for Python tests in addition to Vitest for TypeScript tests. Ensure `pytest` is available locally (`pip install pytest`).
-- **Local UI suite (optional, hardware needed):** `pnpm uitests` exercises higher-level user flows (home render, QAM panel, About route) against a real Deck or a SteamOS VM via CDP. Local-only — never on CI. Useful before submitting flow-affecting PRs. List individual tests with `pnpm uitests:list`; filter with `--only suite[,suite.test]`.
-- **Performance bench (optional):** `pnpm perf:bench` reports `mount p_avg / p_min / p_max` for the home cold-mount path so `[PERF]` PRs can include a measured before/after delta. See [docs/performance.md](docs/performance.md).
 - **QA harness flags** are documented in [docs/qa-manual.md §12](docs/qa-manual.md). Use `pnpm qa:<scenario>` scripts to deploy a build with a fixture pre-applied.
 
-## Validation flows and reports
+## Validation
 
-Three validation commands are available depending on context:
-
-| Command | When to use | Device needed |
-|---|---|---|
-| `pnpm validate:ci` | Before a PR, in CI, or offline | No |
-| `pnpm validate:full` | Final check before release, with Deck on the network | Yes (skips gracefully if unreachable) |
-| `pnpm validate:full:stress` | After changes to rendering, shelves, or perf-sensitive paths | Yes |
-
-All three produce an HTML report with per-step captured output, test result counts, and VS Code-clickable file links for errors. Reports are written to `reports/` (gitignored):
-
-```
-reports/
-  index.html        ← top-level overview + link to dashboard
-  dashboard.html    ← statistics dashboard with charts (see below)
-  ci/               ← automated runs (validate:ci)
-    index.html
-    YYYY-MM-DD_HH-MM-SS.html + .json
-  local/            ← manual runs with Deck (validate:full / :stress)
-  release/          ← reserved for release-gate runs
-```
-
-Open the report index and dashboard after any run with:
-```bash
-pnpm reports        # opens reports/index.html (includes 📊 Dashboard link)
-```
-
-### Dashboard (`reports/dashboard.html`)
-
-The dashboard aggregates statistics across **all runs and all scopes** automatically after each `validate:*` command. It shows:
-
-- **KPI cards** — total runs, run pass rate, tests executed, test pass rate, last run result
-- **Pass-rate trend** — line chart of pass % per run over time (green = all pass, red = failures)
-- **Coverage by test suite** — stacked bars per suite (home, QAM shelves, QAM smart, QAM global, about, context menu, performance, crash protection, stress) showing cumulative pass/fail/skip distribution; populated automatically from UI tests logs and backfilled retroactively from HTML when JSON metadata predates the feature
-- **Overall distribution** — donut chart of total pass/fail/skip
-- **Results by scope** — stacked bars (local / CI / release) with totals
-- **Context pills** — how many runs were with/without Deck and with/without stress fixture
-
-The dashboard is a self-contained HTML file (inline SVG, no CDN, works offline).
-
-### CI integration
-
-`pnpm validate:ci` is designed to run in GitHub Actions (no device, no .env required):
+`pnpm validate:ci` runs typecheck, lint, build, unit tests, packaging and the compatibility checks. It needs no device or `.env`, and it is the same command CI uses:
 
 ```yaml
 - name: Validate
   run: pnpm validate:ci
 ```
 
-It exits with code 1 on any failure. Reports are local-only (`reports/ci/` is gitignored); add an artifact upload step to preserve them across CI runs if needed.
+It exits with code 1 on any failure.
 
 ## Maintainer scripts
 
 - `bash scripts/dev/ensure-repo-settings.sh` — checks and patches the GitHub repository's merge
   settings (squash-only, delete branch on merge); needs the `gh` CLI.
 - `pnpm run deck:debug` — opens the device's DevTools target list in the browser.
-- The ad-hoc probes under `scripts/deckprobe-ext/probes/` are listed in
-  [docs/qa-manual.md](docs/qa-manual.md) (section 14).
-
-## Screenshots (optional)
-
-> Screenshot capture and Devtools usage are documented in the main README and the Devtools readme under `scripts/devtools/README.md`.
-
-See `README.md` for quick commands and `scripts/devtools/README.md` for detailed diagnostic and screenshot guidance.
-
-### Screenshot capture workflow
-
-Follow these steps to regenerate the canonical screenshots:
-
-1. **Set the Steam Deck language to English** — open Settings → System → Language → English. This ensures all UI labels in the screenshots are in English.
-2. **Import the screenshot configuration** — in the plugin QAM, click the import button and import `assets/import/screenshots-en.json`. This sets up the exact shelf configuration used for automation (3 standard shelves, 1 hidden shelf, 3 smart shelves).
-3. **Adjust if needed** — if the implementation being captured adds new UI elements or changes behavior, verify that the import still reflects the current feature set. Edit the JSON if needed.
-4. **Ensure QAM sections have data and are expanded** — open the QAM and navigate to the Deck Shelves plugin tab. All sections (Behavior, Shelves, Smart Shelves, Visual / Global, Saved Filters) must have data populated and must be manually expanded before running the script. Collapsed sections will not be captured correctly. The Saved Filters section only appears when at least one saved filter exists — create one if needed.
-5. **Open the Steam main menu** — press the Steam button to open the main menu before running the script. This ensures Steam's UI state is initialized and the home screen will render without overlays after the script navigates away from the menu.
-6. **Run the script**:
-   ```bash
-   pnpm run screenshots
-   ```
-   The script connects via CDP, validates at least 2 shelves and 1 game card are present, then captures all scenarios automatically.
-7. **Verify output** — screenshots are saved to `assets/screenshots/`. Review each PNG before committing.
 
 ## Submitting Changes
 

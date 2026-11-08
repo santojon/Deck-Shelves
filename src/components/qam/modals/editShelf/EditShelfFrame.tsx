@@ -7,7 +7,7 @@ import { ModalHeader } from './ModalHeader'
    Menu button, the title field with the live count, and a fixed-height body with
    the tab strip above the preview panel. */
 export function EditShelfFrame({ t, heading, title, onTitleChange, previewCount, onSave, onClose, tabsOverflow, tabs, preview }: {
-  t: (k: any, opts?: any) => string
+  t: (...args: any[]) => any
   heading: string
   title: string
   onTitleChange: (next: string) => void

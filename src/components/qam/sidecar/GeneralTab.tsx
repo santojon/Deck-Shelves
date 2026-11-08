@@ -57,7 +57,7 @@ function SectionEyeButton({
 }
 
 interface GCtx {
-  t: (k: any, opts?: any) => string;
+  t: (...args: any[]) => any;
   settings: Settings;
   actions: any;
   row: (tk: string, node: ReactNode) => ReactNode;

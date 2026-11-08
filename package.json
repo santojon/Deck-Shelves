@@ -4,14 +4,7 @@
   "description": "A plugin that injects configurable shelves into Steam Deck Home and provides a Steam Deck focused QAM editor.",
   "type": "module",
   "scripts": {
-    "qa": "node scripts/ci/validate.mjs",
-    "qa:stress": "node scripts/ci/validate.mjs --stress",
-    "validate:full": "node scripts/ci/validate.mjs",
-    "validate:full:stress": "node scripts/ci/validate.mjs --stress",
     "validate:ci": "node scripts/ci/validate-ci.mjs",
-    "reports": "node scripts/build/serve-reports.mjs --open",
-    "reports:serve": "node scripts/build/serve-reports.mjs",
-    "reports:rebuild": "node scripts/build/py.mjs scripts/ci/report.py --rebuild --root .",
     "test": "NODE_NO_WARNINGS=1 vitest run",
     "typecheck": "tsc --noEmit",
     "lint:complexity": "eslint --no-warn-ignored --pass-on-unpruned-suppressions 'src/**/*.{ts,tsx}'",
@@ -20,12 +13,8 @@
     "lint:py": "node scripts/build/py.mjs -m ruff check main.py src/backend/ scripts/ && node scripts/build/py.mjs scripts/build/check-py-file-size.py",
     "lint:py:size": "node scripts/build/py.mjs scripts/build/check-py-file-size.py",
     "docs:check": "node scripts/ci/docs-check.mjs",
-    "perf:gate": "python3 scripts/deckprobe-ext/probes/backnav_gate.py",
-    "perf:gate:check": "node scripts/ci/perf-gate.mjs",
-    "qa:coop-fallback": "python3 scripts/deckprobe-ext/probes/coop_fallback.py",
     "lint": "pnpm run lint:js && pnpm run lint:py",
     "upgrade": "node scripts/build/upgrade-pnpm.cjs && pnpm --version",
-    "upgrade:api": "cd api && node scripts/upgrade-pnpm.cjs && pnpm --version",
     "build": "node scripts/build/build-decky.mjs --mode development",
     "build:plugin": "pnpm run build",
     "build:release": "node scripts/build/build-decky.mjs --mode production",
@@ -58,12 +47,6 @@
     "qa:device-frame": "DS_QA_FORCE_DEVICE=frame pnpm run deploy:deck:hard",
     "qa:device-machine": "DS_QA_FORCE_DEVICE=machine pnpm run deploy:deck:hard",
     "qa:perf-matrix": "DS_QA_PERF_MATRIX=1 pnpm run deploy:deck:hard",
-    "uitests": "pnpm --filter deckprobe uitests",
-    "uitests:list": "pnpm --filter deckprobe uitests:list",
-    "uitests:stress": "pnpm --filter deckprobe uitests -- --only stress",
-    "uitests:record": "pnpm --filter deckprobe uitests -- --record bp",
-    "uitests:record:qam": "pnpm --filter deckprobe uitests -- --record qam",
-    "perf:bench": "pnpm --filter deckprobe perf:bench",
     "package": "node scripts/build/py.mjs scripts/build/package.py",
     "dist": "pnpm run package",
     "verify:package": "node scripts/build/py.mjs scripts/build/verify-package.py",
@@ -87,27 +70,16 @@
     "check": "pnpm run typecheck && node scripts/build/validate.mjs",
     "dev:check": "pnpm run typecheck && pnpm run lint && pnpm run test",
     "validate:compat": "node scripts/build/validate-compat.mjs",
-    "screenshots": "pnpm --filter deckprobe screenshots",
-    "screenshots:validate": "node scripts/build/validate-screenshots.mjs",
-    "videos": "pnpm --filter deckprobe videos",
-    "videos:list": "pnpm --filter deckprobe videos:list",
-    "devtools:cli": "pnpm --filter deckprobe cli --",
-    "devtools:screenshots": "pnpm --filter deckprobe screenshots",
-    "devtools:diag": "pnpm --filter deckprobe diag",
     "test:all": "pnpm run test && node scripts/build/py.mjs -m pip install -U pip setuptools && node scripts/build/py.mjs -m pip install pytest && node scripts/build/py.mjs -m pytest src/test/ -v",
     "clean": "node scripts/build/clean.mjs",
-    "precommit": "pnpm run typecheck && pnpm run lint && pnpm run test:all && pnpm run build:release && pnpm run validate:compat && node scripts/build/validate-screenshots.mjs",
-    "deploy:verify": "pnpm run deploy:deck:hard && sleep 20 && pnpm run devtools:cli -- probe --mode smoke",
+    "precommit": "pnpm run typecheck && pnpm run lint && pnpm run test:all && pnpm run build:release && pnpm run validate:compat",
     "update": "node scripts/devtools/update.mjs all",
     "update:all": "node scripts/devtools/update.mjs all --yes",
     "update:check": "node scripts/devtools/update.mjs check",
     "update:pnpm": "node scripts/devtools/update.mjs pnpm",
     "update:safe": "node scripts/devtools/update.mjs safe",
     "update:major": "node scripts/devtools/update.mjs major",
-    "update:verify": "node scripts/devtools/update.mjs verify",
-    "update:api": "pnpm --filter @deck-shelves/api run update",
-    "update:deckprobe": "pnpm --filter deckprobe run update",
-    "update:packages": "pnpm run update:api && pnpm run update:deckprobe"
+    "update:verify": "node scripts/devtools/update.mjs verify"
   },
   "repository": {
     "type": "git",
@@ -123,49 +95,32 @@
   "author": "Jonathan Santos",
   "license": "BSD-3-Clause",
   "devDependencies": {
-    "@types/react": "19.2.17",
-    "@types/react-dom": "19.2.3",
+    "@deck-shelves/api": "4.1.1",
+    "@deck-shelves/host": "1.6.1",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
     "@typescript-eslint/eslint-plugin": "^8.72.1",
     "@typescript-eslint/parser": "^8.72.1",
-    "@vitejs/plugin-react": "^6.2.0",
+    "@vitejs/plugin-react": "^6.2.1",
     "esbuild": "^0.28.2",
     "eslint": "^10.14.0",
     "eslint-plugin-react-hooks": "^7.1.1",
-    "jsdom": "29.1.1",
-    "typescript": "^6.0.3",
-    "vite": "^8.3.5",
-    "vitest": "^4.1.12",
+    "jsdom": "31.0.0",
+    "typescript": "npm:@typescript/typescript6@6.0.2",
+    "typescript7": "npm:typescript@7.0.2",
+    "vite": "^8.3.6",
+    "vitest": "^5.1.0",
     "ws": "^8.22.1"
   },
   "dependencies": {
-    "i18next": "^26.7.1",
-    "react": "19.2.7",
-    "react-dom": "19.2.7",
-    "react-i18next": "^17.1.11",
+    "i18next": "^27.0.1",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "react-i18next": "^18.0.0",
     "zod": "^4.6.7"
   },
-  "pnpm": {
-    "peerDependencyRules": {
-      "ignoreMissing": [
-        "react",
-        "react-dom"
-      ]
-    },
-    "onlyBuiltDependencies": [
-      "esbuild"
-    ],
-    "overrides": {
-      "glob": "^13.0.0",
-      "rimraf": "^6.0.1",
-      "globby": "^14.1.0",
-      "postcss": "^8.5.23",
-      "esbuild": "^0.28.1",
-      "undici": "^7.29.0",
-      "brace-expansion@1": "^1.1.21",
-      "brace-expansion@5": "^5.0.12",
-      "js-yaml": "^4.3.2",
-      "vitest": "^4.1.12"
-    }
-  },
-  "packageManager": "pnpm@10.33.0"
+  "packageManager": "pnpm@12.18.0",
+  "engines": {
+    "node": ">=26"
+  }
 }

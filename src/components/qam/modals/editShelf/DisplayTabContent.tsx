@@ -12,7 +12,7 @@ export function DisplayTabContent({
   hiddenPickerOpen,
   setHiddenPickerOpen,
 }: {
-  t: (k: any, opts?: any) => string;
+  t: (...args: any[]) => any;
   display: { hideStatusLine: boolean; hideNewBadge: boolean; hideDiscountBadge: boolean; hideCompatIcons: boolean; hideNonSteamBadge: boolean; hideShelfTitle: boolean; hideGameNames: boolean; hideInstallIndicator: boolean; hideSeeMore: boolean; hideRefreshCard: boolean };
   setDisplay: (patch: Partial<{ hideStatusLine: boolean; hideNewBadge: boolean; hideDiscountBadge: boolean; hideCompatIcons: boolean; hideNonSteamBadge: boolean; hideShelfTitle: boolean; hideGameNames: boolean; hideInstallIndicator: boolean; hideSeeMore: boolean; hideRefreshCard: boolean }>) => void;
   hasNonSteamBadges: boolean;

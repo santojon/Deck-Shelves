@@ -15,11 +15,6 @@ export default defineConfig({
       '@host/manifest': fileURLToPath(new URL('./src/test/stubs/host-manifest.ts', import.meta.url)),
       '@host/api': fileURLToPath(new URL('./src/test/stubs/host-api.ts', import.meta.url)),
       '@host/ui': fileURLToPath(new URL('./src/test/stubs/host-ui.ts', import.meta.url)),
-      // Resolve the workspace packages to their source (mirrors tsconfig `paths`
-      // + the vite.plugin.config alias) so tests don't need the packages built
-      // to dist — CI runs vitest before any package build.
-      '@deck-shelves/host': fileURLToPath(new URL('./host/src/contract/index.ts', import.meta.url)),
-      '@deck-shelves/api': fileURLToPath(new URL('./api/src/index.ts', import.meta.url)),
     },
   },
   test: {

@@ -36,19 +36,18 @@ jobs:
         startsWith(github.event.pull_request.title, '[FEATURE]')))
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
-          submodules: recursive
           token: ${{ secrets.SUBMIT_TOKEN || github.token }}
 
       - name: Set up pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
 
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 26
           cache: pnpm
 
       - name: Install dependencies
@@ -136,33 +135,6 @@ jobs:
             fi
           fi
 
-          # Promote the Reddit announcement draft the same way, if present.
-          # Also not fatal when missing/empty — post-release.yml's Reddit job
-          # falls back to the raw release body for a version with no entry.
-          if [[ -f "docs/release-announcements.md" ]] && grep -q "^## \[Unreleased\]" docs/release-announcements.md; then
-            ANNOUNCE_CONTENT=$(awk '/^## \[Unreleased\]/{found=1; next} /^## \[/{exit} found{print}' docs/release-announcements.md)
-            ANNOUNCE_TRIMMED=$(echo "$ANNOUNCE_CONTENT" | sed '/^[[:space:]]*$/d')
-            if [[ -n "$ANNOUNCE_TRIMMED" ]]; then
-              sed -i "s/^## \[Unreleased\]/## [Unreleased]\n\n## [${VERSION}] - ${DATE}/" docs/release-announcements.md
-            else
-              echo "⚠️ docs/release-announcements.md [Unreleased] is empty — skipping promote (Reddit post will fall back to the raw release body)"
-            fi
-          fi
-
-          # Promote the pt-BR translations too, so the site's "What's new" shows
-          # pt-BR for the new version instead of falling back to English. The two
-          # files use different "unreleased" headings (RELEASE_NOTES: [Unreleased];
-          # CHANGELOG: [Não lançado]) — handle whichever each one has.
-          for f in docs/pt-BR/CHANGELOG.md docs/pt-BR/RELEASE_NOTES.md docs/pt-BR/release-announcements.md; do
-            [[ -f "$f" ]] || continue
-            for H in "Unreleased" "Não lançado"; do
-              if grep -q "^## \[$H\]" "$f"; then
-                sed -i "s/^## \[$H\]/## [$H]\n\n## [${VERSION}] - ${DATE}/" "$f"
-                break
-              fi
-            done
-          done
-
       - name: TypeScript check
         run: pnpm run typecheck
 
@@ -185,7 +157,6 @@ jobs:
         run: |
           git add package.json pnpm-lock.yaml CHANGELOG.md
           [[ -f RELEASE_NOTES.md ]] && git add RELEASE_NOTES.md || true
-          for f in docs/release-announcements.md docs/pt-BR/CHANGELOG.md docs/pt-BR/RELEASE_NOTES.md docs/pt-BR/release-announcements.md; do [[ -f "$f" ]] && git add "$f" || true; done
 
       - name: Commit bump
         env:

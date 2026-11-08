@@ -1,7 +1,5 @@
 # Shelf Templates
 
-*[Leia em português](pt-BR/shelf-templates.md)*
-
 Shelf templates are preset configurations available in the template picker when creating a new shelf. Each template has a predefined source (library tab or filter) and a suggested title. The user can rename and edit any shelf after creation — templates are just starting points.
 
 <p align="center">
@@ -155,8 +153,7 @@ Pairs with *Verified on this device*, covering the *Playable* tier of the same p
 ## Online templates
 
 These appear in the picker only while online features are enabled, and resolve
-over the network. See [online-shelves.md](./online-shelves.md) for the caching
-and refresh mechanics.
+over the network.
 
 | Template | Id | Source | Default sort |
 |---|---|---|---|

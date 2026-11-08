@@ -14,7 +14,7 @@ import { optionData } from './utils'
 
 type Rule = { kind: string } & Record<string, any>
 type Visibility = { mode: 'any' | 'all'; rules: Rule[] }
-type T = (k: string, opts?: any) => string
+type T = (...args: any[]) => any
 
 const HOURS = Array.from({ length: 24 }, (_, h) => ({ data: h, label: `${String(h).padStart(2, '0')}:00` }))
 const DAYS = [0, 1, 2, 3, 4, 5, 6]

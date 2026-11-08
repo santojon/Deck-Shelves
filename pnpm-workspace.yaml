@@ -1,4 +1,25 @@
-packages:
-  - "api"
-  - "deckprobe"
-  - "host"
+overrides:
+  'glob': '^13.0.0'
+  'rimraf': '^6.0.1'
+  'globby': '^14.1.0'
+  'postcss': '^8.5.23'
+  'esbuild': '^0.28.1'
+  'undici': '^7.29.0'
+  'brace-expansion@1': '^1.1.21'
+  'brace-expansion@5': '^5.0.12'
+  'js-yaml': '^4.3.2'
+  'vitest': '^5.1.0'
+
+peerDependencyRules:
+  ignoreMissing:
+    - react
+    - react-dom
+
+allowBuilds:
+  esbuild: true
+
+minimumReleaseAgeExclude:
+    - '@eslint-community/regexpp@4.12.3'
+    - i18next@27.0.1
+    - parse5-parser-stream@8.1.1
+    - parse5@8.1.1

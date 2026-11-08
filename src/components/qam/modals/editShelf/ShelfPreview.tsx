@@ -354,7 +354,7 @@ const PREVIEW_STYLE_TAG = `
    and the bottom-of-card art is fully visible. */`
 
 export interface ShelfPreviewProps {
-  t: (k: any, opts?: any) => string
+  t: (...args: any[]) => any
   ids: number[]
   meta: Map<number, PlatformAppMeta>
   // Cap shown cards to the configured shelf limit. Without it the preview

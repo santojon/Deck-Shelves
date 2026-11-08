@@ -15,7 +15,7 @@ export function VisualTabContent({
   prePatternHighlightsRef,
   effectiveManualOrder,
 }: {
-  t: (k: any, opts?: any) => string;
+  t: (...args: any[]) => any;
   flags: { matchNativeSize: boolean; highlightFirst: boolean; highlightAll: boolean; highlightRandom: boolean; enableLogo: boolean; enableIcon: boolean; enableDescription: boolean; descriptionScale: number; descriptionBelowLogo: boolean; logoPosition: 'left' | 'center' | 'right'; descriptionPosition: 'left' | 'center' | 'right'; logoSize: number; logoTopOffset: number; iconVerticalAlign: 'top' | 'center' | 'bottom'; shelfTitlePosition: 'left' | 'center' | 'right'; gameNamePosition: 'left' | 'center' | 'right'; playtimePosition: 'left' | 'center' | 'right'; descriptionHeight: number; descriptionLogoGap: number; fullPageShelf: boolean; heroEnabled: boolean; gameInfoAbove: boolean; friendsPlayingOverlay: boolean; friendsPlayingOverlayRecent: boolean };
   setFlags: (patch: Partial<{ matchNativeSize: boolean; highlightFirst: boolean; highlightAll: boolean; highlightRandom: boolean; enableLogo: boolean; enableIcon: boolean; enableDescription: boolean; descriptionScale: number; descriptionBelowLogo: boolean; logoPosition: 'left' | 'center' | 'right'; descriptionPosition: 'left' | 'center' | 'right'; logoSize: number; logoTopOffset: number; iconVerticalAlign: 'top' | 'center' | 'bottom'; shelfTitlePosition: 'left' | 'center' | 'right'; gameNamePosition: 'left' | 'center' | 'right'; playtimePosition: 'left' | 'center' | 'right'; descriptionHeight: number; descriptionLogoGap: number; fullPageShelf: boolean; heroEnabled: boolean; gameInfoAbove: boolean; friendsPlayingOverlay: boolean; friendsPlayingOverlayRecent: boolean }>) => void;
   highlightedAppIds: number[];

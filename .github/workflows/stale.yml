@@ -70,7 +70,7 @@ jobs:
             close_message: ''
     steps:
       - name: Stale (${{ matrix.bucket }})
-        uses: actions/stale@v9
+        uses: actions/stale@v11
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           debug-only: ${{ github.event_name == 'workflow_dispatch' && inputs.debug_only }}

@@ -13,7 +13,7 @@ jobs:
     continue-on-error: true
     steps:
       - name: Ensure squash merge and delete-branch-on-merge
-        uses: actions/github-script@v6
+        uses: actions/github-script@v9
         with:
           github-token: ${{ secrets.ADMIN_GH_TOKEN || github.token }}
           script: |
@@ -34,7 +34,7 @@ jobs:
             }
 
       - name: Sync labels (create required, delete deprecated)
-        uses: actions/github-script@v6
+        uses: actions/github-script@v9
         with:
           github-token: ${{ secrets.ADMIN_GH_TOKEN || github.token }}
           script: |
@@ -113,7 +113,7 @@ jobs:
             }
 
       - name: Ensure branch protection defaults
-        uses: actions/github-script@v6
+        uses: actions/github-script@v9
         with:
           github-token: ${{ secrets.ADMIN_GH_TOKEN || github.token }}
           script: |

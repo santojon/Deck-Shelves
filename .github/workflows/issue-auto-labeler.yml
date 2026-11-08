@@ -14,7 +14,7 @@ jobs:
     steps:
       - name: Detect type from title
         id: detect
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           result-encoding: string
           script: |
@@ -34,7 +34,7 @@ jobs:
 
       - name: Apply type label
         if: steps.detect.outputs.result != ''
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           LABEL: ${{ steps.detect.outputs.result }}
         with:

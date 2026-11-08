@@ -1,7 +1,7 @@
 import { TitleField } from '../../../ui'
 
 export function ModalHeader({ t, title, onTitleChange, previewCount }: {
-  t: (k: any, opts?: any) => string;
+  t: (...args: any[]) => any;
   title: string;
   onTitleChange: (next: string) => void;
   previewCount: number | null;

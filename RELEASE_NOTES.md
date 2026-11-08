@@ -1,7 +1,5 @@
 # Release Notes
 
-*[Leia em português](docs/pt-BR/RELEASE_NOTES.md)*
-
 User-facing highlights for each Deck Shelves release. For the full technical
 changelog, see [CHANGELOG.md](CHANGELOG.md).
 
@@ -485,7 +483,7 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 - **Side panel could be pushed below the visible area** with logo + description on. Promoted (full-page) shelves no longer add extra padding for the logo zone — the logo composes inside the existing hero area instead of pushing the card row off the screen.
 - **Accidental side panel open** when moving onto the rightmost button in a row. Pressing right twice on the same focused element is now required to expand the panel; the first press just lands the focus there.
 
-> Plugin API changes (`registerSearchProvider`, `registerSideMenuProvider`, new descriptor types, public registry getters) are tracked in [api/RELEASE_NOTES.md](api/RELEASE_NOTES.md). CDP deckprobe additions are tracked in [deckprobe/RELEASE_NOTES.md](deckprobe/CHANGELOG.md).
+> Plugin API changes (`registerSearchProvider`, `registerSideMenuProvider`, new descriptor types, public registry getters) are tracked in [api/RELEASE_NOTES.md](api/RELEASE_NOTES.md).
 
 ## [2.4.3] - 2026-06-12
 

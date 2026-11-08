@@ -1,7 +1,5 @@
 # Deck Shelves
 
-*[Leia em português](docs/pt-BR/README.md)*
-
 <div align="center">
 <p>
   <img src="assets/logo.svg" alt="Deck Shelves" width="352">
@@ -9,18 +7,14 @@
 
 [![CI](https://github.com/santojon/Deck-Shelves/actions/workflows/ci.yml/badge.svg)](https://github.com/santojon/Deck-Shelves/actions/workflows/ci.yml)
 [![Release](https://github.com/santojon/Deck-Shelves/actions/workflows/release.yml/badge.svg)](https://github.com/santojon/Deck-Shelves/actions/workflows/release.yml)
-[![Tests](https://img.shields.io/badge/vitest-1850%20passed-brightgreen?logo=vitest&logoColor=white)](src/test/)
-[![pytest](https://img.shields.io/badge/pytest-276%20passed-brightgreen?logo=pytest&logoColor=white)](src/test/test_main.py)
 [![TypeCheck](https://img.shields.io/badge/typecheck-clean-brightgreen?logo=typescript&logoColor=white)](tsconfig.json)
 [![Compatibility](https://img.shields.io/badge/checks-40%2F40-brightgreen?logo=steamdeck&logoColor=white)](scripts/build/validate-compat.mjs)
 [![Platform](https://img.shields.io/badge/platform-SteamOS%20%C2%B7%20Linux%20%C2%B7%20Windows-purple?logo=steamdeck&logoColor=white)](https://github.com/ValveSoftware/SteamOS)
 [![Downloads](https://img.shields.io/github/downloads/santojon/Deck-Shelves/total.svg?label=downloads&color=blue)](https://github.com/santojon/Deck-Shelves/releases/latest)
 [![GitHub release](https://img.shields.io/github/v/release/santojon/Deck-Shelves?label=latest&color=blue)](https://github.com/santojon/Deck-Shelves/releases/latest)
-[![Decky Store](https://img.shields.io/endpoint?url=https%3A%2F%2Fsantojon.github.io%2FDeck-Shelves%2Fstats%2Fdecky-store.json)](https://plugins.deckbrew.xyz/plugins)
 [![npm api](https://img.shields.io/npm/dt/@deck-shelves/api?label=api%20downloads&logo=npm&color=cb3837)](https://www.npmjs.com/package/@deck-shelves/api)
 [![npm host](https://img.shields.io/npm/dt/@deck-shelves/host?label=host%20downloads&logo=npm&color=cb3837)](https://www.npmjs.com/package/@deck-shelves/host)
 [![Forks](https://img.shields.io/github/forks/santojon/Deck-Shelves?style=flat&color=blue)](https://github.com/santojon/Deck-Shelves/network/members)
-[![Clones](https://img.shields.io/endpoint?url=https%3A%2F%2Fsantojon.github.io%2FDeck-Shelves%2Fstats%2Fclones-main.json)](https://github.com/santojon/Deck-Shelves/graphs/traffic)
 
 [![Discord](https://img.shields.io/badge/chat-on%20discord-7289da.svg?logo=discord&logoColor=white)](https://discord.gg/EChuVEDakk)
 [![Reddit](https://img.shields.io/badge/community-r%2FDeckShelves-FF4500?logo=reddit&logoColor=white)](https://www.reddit.com/r/DeckShelves/)
@@ -49,7 +43,6 @@
   - [Compatibility](#compatibility)
     - [Operating systems](#operating-systems)
     - [Validated environments](#validated-environments)
-  - [Developer Tools](#developer-tools)
   - [Contributing](#contributing)
   - [License](#license)
   - [About](#about)
@@ -149,8 +142,6 @@
   <img src="assets/screenshots/home.png" alt="Deck Shelves — Home Screen" width="768">
 </p>
 
-A full visual tour — home, QAM, shelf editor, smart shelves, About docs and more — lives in **[docs/showcase.md](docs/showcase.md)**.
-
 ## Installation
 
 ### From Decky Store
@@ -176,18 +167,11 @@ A Decky developer-mode option — works, but is less reliable than the zip above
 
 ## Documentation
 
-Everything lives in **[docs/](docs/README.md)** — start there for the full index.
-
-- [Screenshots / showcase](docs/showcase.md) — full visual tour of every surface
 - [Architecture](docs/architecture.md) — system overview, project structure, data flow, key systems, Home internals
 - [Plugin API](docs/plugin-api.md) — register custom shelf sources from other plugins
 - [Filter System](docs/filters.md) — filter types, groups, sort keys, built-in sources
 - [Shelf Templates](docs/shelf-templates.md) — standard and online shelf template presets, and the setup packs
-- [Frame and Machine](docs/frame-and-machine.md) — device families, per-device compatibility, VR levels, ARM64
 - [Smart Shelves](docs/smart-shelves.md) — smart shelf templates, criteria, and reliability
-- [Online shelves](docs/online-shelves.md) — network-backed sources, caching and refresh
-- [Display modes](docs/display-modes.md) — what Normal / Light / Advanced show and hide
-- [Validation matrix](docs/validation-matrix.md) — which platforms and hosts were exercised for this release, and how to validate one
 - [Development Guide](docs/development.md) — setup, build commands, testing, conventions
 - [Webpack Classmap](docs/webpack-classmap.md) — runtime CSS class discovery
 - [Performance audit](docs/performance.md) — measurement methodology, hot paths, applied wins
@@ -232,14 +216,6 @@ Deck Shelves runs as a plugin under **Decky Loader**, which installs as a system
 ### Validated environments
 
 The compatibility suite green-lights the build toolchain (Vite/ESM, TypeScript/Node), Decky Loader 3.x (API v1) + Decky Store publishing, SteamOS 3.5–3.10 (incl. GamepadUI), i18n, and the Python backend — see the [`checks 40/40`](scripts/build/validate-compat.mjs) badge and run `pnpm run validate:compat` to reproduce.
-
-## Developer Tools
-
-The project includes CDP-based diagnostics and screenshot automation for Steam Deck development. See [deckprobe/README.md](deckprobe/README.md) for details on:
-
-- **CDP probe** — runtime mount, row, and smoke-test checks
-- **Deck diagnostics** — SSH-based diagnostic wrapper
-- **Screenshot capture** — automated screenshot capture via CDP for documentation
 
 ## Contributing
 

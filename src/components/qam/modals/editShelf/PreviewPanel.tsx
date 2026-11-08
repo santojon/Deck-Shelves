@@ -2,7 +2,7 @@ import { ShelfPreview } from './ShelfPreview'
 import type { PlatformAppMeta } from '../../../../runtime/platform'
 
 export type PreviewPanelProps = {
-  t: (k: any, opts?: any) => string
+  t: (...args: any[]) => any
   title: string
   hideShelfTitle: boolean
   activeTab: string

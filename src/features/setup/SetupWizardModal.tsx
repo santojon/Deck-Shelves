@@ -80,7 +80,7 @@ function tplIcon(el: React.ReactElement | undefined, Fallback: Glyph): React.Rea
   return <Fallback size={16} />
 }
 
-function ReviewRows({ t, preview }: { t: (k: any, o?: any) => string; preview: SetupPreview }) {
+function ReviewRows({ t, preview }: { t: (...args: any[]) => any; preview: SetupPreview }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
       {preview.shelves.map((s) => (
@@ -130,7 +130,7 @@ function StandaloneWizard({ closeModal }: { closeModal?: () => void }) {
   return <SetupWizardBody closeModal={closeModal} controller={controller} />
 }
 
-type T = (k: any, o?: any) => string
+type T = (...args: any[]) => any
 const btnRow: React.CSSProperties = { width: '100%', minHeight: 36, fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }
 
 function ReviewScreen({ t, pack, preview, onApply, onBack }: { t: T; pack: SetupPack; preview: SetupPreview; onApply: () => void; onBack: () => void }) {

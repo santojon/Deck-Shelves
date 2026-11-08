@@ -323,7 +323,7 @@ function cardIconVisible(params: { hideGameName: boolean; hideStatusLine: boolea
 type CardStatusLineProps = {
   hideStatusLine: boolean; overlayFriends: { avatar?: string }[]; friendsLabel: string;
   isLibraryGame: boolean; updatePending: boolean; isInstalled: boolean; playtime: string | null;
-  hasPlaytime: boolean; hideInstallIndicator: boolean; t: (k: string, o?: any) => string;
+  hasPlaytime: boolean; hideInstallIndicator: boolean; t: (...args: any[]) => any;
 };
 
 function FriendsStatusRow({ friendsLabel }: { friendsLabel: string }) {
@@ -361,14 +361,14 @@ function resolveInstallStatusContent(params: { isInstalled: boolean; updatePendi
     : { icon: playIcon, labelKey: 'status_no_playtime' };
 }
 
-function InstallStatusRow({ isInstalled, updatePending, hasPlaytime, playtime, hideInstallIndicator, t }: { isInstalled: boolean; updatePending: boolean; hasPlaytime: boolean; playtime: string | null; hideInstallIndicator: boolean; t: (k: string, o?: any) => string }) {
+function InstallStatusRow({ isInstalled, updatePending, hasPlaytime, playtime, hideInstallIndicator, t }: { isInstalled: boolean; updatePending: boolean; hasPlaytime: boolean; playtime: string | null; hideInstallIndicator: boolean; t: (...args: any[]) => any }) {
   const { icon, labelKey, labelOpts } = resolveInstallStatusContent({ isInstalled, updatePending, hasPlaytime, playtime });
   return <div className="ds-card-status">{!hideInstallIndicator && icon}<span>{t(labelKey, labelOpts)}</span></div>;
 }
 
 // Avatar pixels are drawn by the global FriendsAvatarOverlay (portaled above
 // the focus ring); the card just advertises the friend avatar URLs.
-function computeFriendsDisplay(overlayFriends: { avatar?: string }[], t: (k: string, o?: any) => string): { friendsLabel: string; friendAvatarAttr: string | undefined } {
+function computeFriendsDisplay(overlayFriends: { avatar?: string }[], t: (...args: any[]) => any): { friendsLabel: string; friendAvatarAttr: string | undefined } {
   if (overlayFriends.length === 0) return { friendsLabel: "", friendAvatarAttr: undefined };
   const friendsLabel = overlayFriends.length === 1
     ? t("friends_overlay_count_one", { count: 1 })
@@ -474,7 +474,7 @@ function CardSelectionMarkOverlay({ mark, cssArtH }: { mark: DeckRowItem['select
   );
 }
 
-export function CardBadgeHost({ hasBadge, showDiscountBadge, showNewBadge, discount, t }: { hasBadge: boolean; showDiscountBadge: boolean; showNewBadge: boolean; discount: number | undefined; t: (k: string, o?: any) => string }) {
+export function CardBadgeHost({ hasBadge, showDiscountBadge, showNewBadge, discount, t }: { hasBadge: boolean; showDiscountBadge: boolean; showNewBadge: boolean; discount: number | undefined; t: (...args: any[]) => any }) {
   if (!hasBadge) return null;
   return (
     <div

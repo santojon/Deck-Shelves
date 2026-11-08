@@ -1,7 +1,5 @@
 # Filter System
 
-*[Leia em português](pt-BR/filters.md)*
-
 Deck Shelves supports advanced game filtering with AND/OR logic using filter groups.
 
 <p align="center">
@@ -52,8 +50,8 @@ flowchart LR
 | `isNew` | Added to library within 30 days | — |
 | `deckCompatibility` | Steam Deck compatibility level | `levels`: `["verified", "playable", "unsupported", "unknown"]` |
 | `steamosCompatibility` | SteamOS compatibility rating — distinct from Deck Compatibility (a different Valve rating, same 4-level scale) | `levels`: `["verified", "playable", "unsupported", "unknown"]` |
-| `machineCompatibility` | Steam Machine compatibility rating (the living-room box; same 4-level scale) — see [Frame and Machine](frame-and-machine.md) | `levels`: `["verified", "playable", "unsupported", "unknown"]` |
-| `frameCompatibility` | Steam Frame compatibility rating (the VR headset; same 4-level scale) — see [Frame and Machine](frame-and-machine.md) | `levels`: `["verified", "playable", "unsupported", "unknown"]` |
+| `machineCompatibility` | Steam Machine compatibility rating (the living-room box; same 4-level scale) | `levels`: `["verified", "playable", "unsupported", "unknown"]` |
+| `frameCompatibility` | Steam Frame compatibility rating (the VR headset; same 4-level scale) | `levels`: `["verified", "playable", "unsupported", "unknown"]` |
 | `deviceCompatibility` | Compatibility rating **of the device you are on** — the Deck rating on a Steam Deck, the Machine rating on a Steam Machine, the Frame rating on a Steam Frame (Deck rating elsewhere). What the "Verified on this device" / "Playable on this device" templates use | `levels`: `["verified", "playable", "unsupported", "unknown"]` |
 | `demo` | Steam demo listings | — |
 | `playedWithinDays` | Played within N days | `days`: number |
