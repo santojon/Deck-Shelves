@@ -13,9 +13,7 @@
 
 ## Description
 
-<!-- AUTOFILL:DESCRIPTION:START -->
 <!-- Describe what this PR does and why. -->
-<!-- AUTOFILL:DESCRIPTION:END -->
 
 ## Related Issues
 
@@ -24,24 +22,18 @@
 
 ## Changelog
 
-<!-- AUTOFILL:CHANGELOG:START -->
 <!-- Required. Add entries under ## [Unreleased] in CHANGELOG.md (technical detail). -->
 <!-- Example: "- Fixed shelf disappearing after reboot." -->
-<!-- AUTOFILL:CHANGELOG:END -->
 
 ## Release Notes
 
-<!-- AUTOFILL:RELEASE_NOTES:START -->
 <!-- Required. Add entries under ## [Unreleased] in RELEASE_NOTES.md (user-facing, less jargon). -->
 <!-- Release bodies are extracted from this file at tag time. -->
 <!-- Example: "- Shelves no longer disappear after a reboot." -->
-<!-- AUTOFILL:RELEASE_NOTES:END -->
 
 ## Type of Change
 
-<!-- At least ONE of the first three rows MUST be checked. The CI validator
-     enforces this — a PR with none of the main categories selected fails the
-     `pr-checklist` check. -->
+<!-- Check at least one of the first three rows. -->
 
 - [ ] Refactor / restructure (`[REFACTOR]`)
 - [ ] New feature / Code cleanup (`[FEATURE]`, `[CLEANUP]`)
@@ -60,7 +52,7 @@
 - [ ] I added my changes to `CHANGELOG.md` and `RELEASE_NOTES.md` under `## [Unreleased]`.
 - [ ] I have read [CONTRIBUTING.md](../CONTRIBUTING.md).
 - [ ] My code follows the project's code style (2 spaces, semicolons, double quotes).
-- [ ] I ran `pnpm run build:plugin` with no errors.
+- [ ] I ran `pnpm run build` with no errors.
 - [ ] I ran `pnpm run validate:compat` and all checks pass.
 - [ ] I tested on a Steam Deck (or explained why this isn't needed).
 - [ ] If I added i18n keys, I added them to **all** locale files.

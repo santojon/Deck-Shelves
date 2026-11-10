@@ -66,9 +66,6 @@ export default defineConfig(({ mode }) => {
       minify: isProd ? "esbuild" : false,
       lib: {
         entry: path.resolve(import.meta.dirname, "src/index.tsx"),
-        // `formats` / `fileName` are superseded by the explicit
-        // rollupOptions.output array below — one build, two output
-        // flavours from the same entry, not two separate build commands.
       },
       rollupOptions: {
         output: [
@@ -92,20 +89,6 @@ export default defineConfig(({ mode }) => {
               if (id.includes("/src/core/onlineStore")) return "onlineStore";
               return undefined;
             },
-          },
-          {
-            // IIFE: one self-contained script, no `export`/`import` at the
-            // top level — the only shape a raw `Runtime.evaluate` (no module
-            // loader involved) can run directly. Chunking isn't possible for
-            // a single script, so every dynamic import is inlined instead of
-            // split automatically for this format; the self-invoke bootstrap
-            // in src/index.tsx is what actually boots the plugin body once
-            // this runs, since nothing calls the default export for it.
-            format: "iife",
-            name: "DeckShelvesBundle",
-            entryFileNames: "index.iife.js",
-            assetFileNames: "assets/[name]-[hash][extname]",
-            exports: "named",
           },
         ],
       },

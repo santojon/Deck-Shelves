@@ -1,13 +1,6 @@
 #!/usr/bin/env pwsh
-# Windows / cross-platform deploy variant of scripts/deploy/deploy-deck.sh.
-# Uses the OpenSSH client (ssh/scp) bundled with Windows 10+ and PowerShell 5.1+
-# (or pwsh 7+). No rsync / bash required — upload uses scp -r.
-#
-#   pnpm run deploy:deck:win            # soft (sync only)
-#   pnpm run deploy:deck:win:hard       # restart plugin_loader + kill Steam
-#   pwsh scripts/deploy/deploy-deck.ps1 -Hard -DeckHost 192.168.1.15 -DeckUser deck
-#
-# Reads DECK_HOST / DECK_USER / DECK_SUDO_PASS from .env (gitignored).
+# Windows variant of deploy-deck.sh (OpenSSH + scp, no rsync or bash); reads .env.
+# -Hard restarts the loader and Steam; -DeckHost / -DeckUser override .env.
 [CmdletBinding()]
 param(
   [switch]$Hard,
@@ -19,7 +12,7 @@ $ErrorActionPreference = 'Stop'
 $ScriptDir   = Split-Path -Parent $MyInvocation.MyCommand.Path
 $ProjectRoot = (Resolve-Path (Join-Path $ScriptDir '..\..')).Path
 
-# ── Load .env (KEY=VALUE, # comments, optional quotes) ───────────────────────
+# Load .env (KEY=VALUE, # comments, optional quotes)
 $envVars = @{}
 $envPath = Join-Path $ProjectRoot '.env'
 if (Test-Path $envPath) {
@@ -62,16 +55,15 @@ function Invoke-Remote([string[]]$opts, [string]$cmd) {
 
 Push-Location $ProjectRoot
 try {
-  # ── 1. Build ────────────────────────────────────────────────────────────────
-  & pnpm run build
+  # Build
+  & pnpm run build:dev
   if ($LASTEXITCODE -ne 0) { throw 'build failed' }
 
-  # ── 2. Stage ────────────────────────────────────────────────────────────────
+  # Stage
   if (Test-Path (Join-Path $ProjectRoot '.deploy')) { Remove-Item -Recurse -Force (Join-Path $ProjectRoot '.deploy') }
   New-Item -ItemType Directory -Force -Path (Join-Path $StageDir 'dist') | Out-Null
   Copy-Item 'plugin.json', 'package.json', 'main.py' $StageDir
-  # Ship every Python module main.py depends on, staged at src/backend/ to
-  # match main.py's own sys.path splice (paths/storage/...).
+  # Backend modules in the repo layout main.py also accepts.
   New-Item -ItemType Directory -Force -Path (Join-Path $StageDir 'src\backend') | Out-Null
   Get-ChildItem -Path (Join-Path $ProjectRoot 'src\backend') -Filter '*.py' -File |
     ForEach-Object { Copy-Item $_.FullName (Join-Path $StageDir 'src\backend') }
@@ -85,12 +77,12 @@ try {
     }
   }
 
-  # ── 3. Upload to a temp dir the deck user owns (scp -r the folder into /tmp) ──
+  # Upload to a temp dir the deck user owns (scp -r the folder into /tmp)
   Invoke-Remote $SshOpts "rm -rf '$TempRemote'" | Out-Null
   & scp @SshOpts -r $StageRel "${Target}:/tmp/"    # creates /tmp/deck-shelves
   if ($LASTEXITCODE -ne 0) { throw 'scp upload failed' }
 
-  # ── 4. Move temp → plugin dir (sudo -n → sudo -S → direct) ───────────────────
+  # Move temp → plugin dir (sudo -n → sudo -S → direct)
   $moveCmd = "mkdir -p '$PluginDir' && cp -rf '$TempRemote/.' '$PluginDir/' && rm -rf '$TempRemote'"
   $moved = $false
   if ((Invoke-Remote $SshOpts "sudo -n bash -c `"$moveCmd`"") -eq 0) {
@@ -112,7 +104,7 @@ try {
     exit 1
   }
 
-  # ── 5. Reload ────────────────────────────────────────────────────────────────
+  # Reload
   if ($Hard) {
     if ($SudoPass) {
       Invoke-Remote $SshAlive "test -f '$PluginDir/dist/index.js' || echo '[deploy] WARN: index.js missing'; printf '%s\n' '$SudoPass' | sudo -S systemctl restart plugin_loader.service 2>/dev/null; killall steam 2>/dev/null || true" | Out-Null

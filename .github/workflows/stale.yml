@@ -1,23 +1,9 @@
 name: "Triage · Stale issues"
 
-# Phase 2 — acts on issues per the agreed tiered policy. Three buckets, run
-# one at a time over a shared `stale` label; the buckets are kept disjoint by
-# their label scopes so an issue is only ever handled by one of them.
-#
-#   1 · awaiting-reporter (needs-info)      warn 21d → close 35d
-#   2 · untriaged-idle (no type::/priority) warn 30d → close 60d
-#   3 · confirmed/accepted (type::/prio)    label `stale` at 60d, NEVER close
-#
-# Bucket 4 (won't-converge: old + high comment count) is not automated —
-# actions/stale can't filter by age or comment count.
-#
-# Global exemptions: keep-open, priority::critical, priority::high, any
-# assigned issue, any milestoned issue. PRs are never touched.
-#
-# Safety: a manual run (workflow_dispatch) defaults to debug-only — it logs
-# what it WOULD do without changing anything. The Monday schedule acts for
-# real. To stay label-only on buckets 1-2 for longer, set their
-# days-before-issue-close to -1.
+# Three disjoint buckets over one `stale` label: needs-info warns at 21d and closes at 35d;
+# untriaged warns at 30d and closes at 60d; labelled issues only get `stale` at 60d.
+# keep-open, critical/high priority, assigned and milestoned issues and all PRs are exempt;
+# a manual run is a dry run by default.
 
 on:
   workflow_dispatch:
@@ -27,7 +13,7 @@ on:
         type: boolean
         default: true
   schedule:
-    - cron: '0 9 * * 1'  # Monday 09:00 UTC (after the 07:30 digest + 08:00 enforce)
+    - cron: '0 9 * * 1'  # Monday 09:00 UTC, after enforce-repo-settings
 
 permissions:
   issues: write

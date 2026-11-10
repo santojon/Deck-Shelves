@@ -41,9 +41,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
           echo "Plugin: $PLUGIN_NAME v$VERSION ($COMMIT)"
 
-          # Extract release notes for this version — prefer the user-facing
-          # RELEASE_NOTES.md, fall back to the technical CHANGELOG.md when
-          # the version is missing there.
+          # RELEASE_NOTES.md first, CHANGELOG.md when the version is missing there.
           CHANGELOG=""
           if [[ -f "RELEASE_NOTES.md" ]]; then
             CHANGELOG=$(awk "/^## \\[${VERSION}\\]/{found=1; next} /^## \\[/{if(found) exit} found{print}" RELEASE_NOTES.md | sed '/^$/N;/^\n$/d' | sed -e 's/^[[:space:]]*//' -e '/^$/d')
@@ -55,32 +53,18 @@ jobs:
             CHANGELOG="Version ${VERSION} release."
           fi
 
-          # Persist description & changelog to files to avoid embedding raw multi-line
-          # data into the job run script (prevents accidental shell evaluation).
+          # Files, not inline text, so multi-line content is never evaluated by the shell.
           mkdir -p .github/tmp
           printf '%s\n' "$PLUGIN_DESC" > .github/tmp/plugin_description.txt
           printf '%s\n' "$CHANGELOG" > .github/tmp/changelog.txt
 
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v6
+      - uses: ./.github/actions/setup
 
-      - name: Set up Node
-        uses: actions/setup-node@v7
-        with:
-          node-version: 26
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile=false
-
-      - name: Build plugin (release mode)
-        run: pnpm run build:release
+      - name: Build plugin
+        run: pnpm run build
 
       - name: Package release zip
-        run: pnpm run dist
-
-      - name: Verify release zip contents
-        run: pnpm run verify:package
+        run: pnpm run package
 
       - name: Verify release zip
         run: |
@@ -105,8 +89,6 @@ jobs:
           COMMIT="${{ steps.meta.outputs.commit }}"
           VERSION="${{ steps.meta.outputs.version }}"
           AUTHOR="${{ steps.meta.outputs.plugin_author }}"
-          # Read description & changelog from files created in the earlier step to
-          # avoid embedding raw multi-line content into the generated runner script.
           DESCRIPTION_FILE="${{ github.workspace }}/.github/tmp/plugin_description.txt"
           CHANGELOG_FILE="${{ github.workspace }}/.github/tmp/changelog.txt"
           REPO_URL="https://github.com/${{ github.repository }}"
@@ -165,8 +147,7 @@ jobs:
               }
             }
 
-            # Ensure plugin folder is present and populated. Prefer a direct
-            # clone (reliable) rather than depending on submodule semantics.
+            # A direct clone is more reliable than submodule update here.
             if [[ -d "plugins/${PLUGIN_SLUG}" ]]; then
               rm -rf "plugins/${PLUGIN_SLUG}"
             fi
@@ -205,14 +186,7 @@ jobs:
             echo "🚀 Force pushing rebased branch ${BRANCH}..."
             git push "https://x-access-token:${GH_TOKEN}@github.com/${FORK}.git" "${BRANCH}" --force
 
-            # Update only the PR title so it reflects the latest version.
-            # The branch is reused across versions (since the PR stays open
-            # until merged); subsequent runs would otherwise leave the
-            # title pinned to the version that opened the PR. The body is
-            # intentionally left untouched — reviewers may have edited it,
-            # checked off items, or left context that must survive a
-            # version bump — and no comments are posted from this workflow
-            # so the PR stays clean of bot noise.
+            # Only the title follows the version; the body may carry reviewer edits.
             gh pr edit "${PR_NUMBER}" \
               --repo SteamDeckHomebrew/decky-plugin-database \
               --title "Update ${PLUGIN} to v${VERSION}" \
@@ -281,10 +255,7 @@ jobs:
 
             PULLS_URL="https://github.com/SteamDeckHomebrew/decky-plugin-database/pulls?q=is%3Apr+is%3Aopen+sort%3Acreated-desc+-status%3Afailure+-draft%3Atrue+-author%3A%40me"
 
-            # Write checklist to a temp file using printf to avoid YAML/heredoc indentation issues.
-            # Written OUTSIDE db-fork (the absolute workspace path, matching CHECKLIST_FILE below) —
-            # a relative path here would land inside db-fork and get swept into `git add .`,
-            # committing a stray workflow-internal file into the generated submission branch.
+            # Outside db-fork, or `git add .` would commit it.
             mkdir -p "${{ github.workspace }}/.github/tmp"
             printf '%s\n' \
               "## Task Checklist" \

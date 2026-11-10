@@ -1,8 +1,6 @@
-
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Load .env from project root if present
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 if [[ -f "${PROJECT_ROOT}/.env" ]]; then
@@ -12,9 +10,7 @@ fi
 
 HARD=0
 RELEASE=0
-# Leading flags in any order: --hard (restart plugin_loader + reload Steam),
-# --release (ship the minified production build with __DEV__ stripped and no
-# debug flag, for daily use instead of the default dev build).
+# --hard restarts the loader and Steam; --release ships the production build without the debug flag.
 while [[ "${1:-}" == --* ]]; do
   case "$1" in
     --hard) HARD=1; shift ;;
@@ -36,20 +32,14 @@ PLUGIN_SLUG="deck-shelves"
 PLUGIN_DIR="/home/${USER_NAME}/homebrew/plugins/${PLUGIN_SLUG}"
 STAGE_DIR=".deploy/${PLUGIN_SLUG}"
 
-# SSH option arrays — bash arrays avoid the word-splitting issue that breaks
-# the `=` syntax on macOS OpenSSH 9.x when SSH_OPTS is a plain string variable.
+# Arrays for ssh (macOS OpenSSH rejects the `=` form there); a string for rsync -e.
 SSH_OPTS=(-o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" -o "LogLevel ERROR")
-# Same options as a string, used for rsync's -e flag (rsync passes it to sh
-# which splits correctly; the `=` form is fine there via the shell).
 SSH_OPTS_STR="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR"
-# ServerAliveInterval keeps the connection alive during long remote commands
-# (systemctl restart plugin_loader takes ~8 s).
 SSH_ALIVE=(-o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" -o "LogLevel ERROR" -o "ServerAliveInterval 10" -o "ServerAliveCountMax 6")
 
-# A failed build must stop the deploy — piping the build into grep used to
-# swallow its exit code and ship whatever stale bundle sat in dist/.
+# A failed build stops the deploy.
 BUILD_LOG="$(mktemp)"
-if [[ "$RELEASE" == "1" ]]; then BUILD_CMD="build:release"; else BUILD_CMD="build"; fi
+if [[ "$RELEASE" == "1" ]]; then BUILD_CMD="build"; else BUILD_CMD="build:dev"; fi
 if ! pnpm run "$BUILD_CMD" > "$BUILD_LOG" 2>&1; then
   grep -E "error|Error" "$BUILD_LOG" | tail -20 || true
   echo "✗ pnpm run $BUILD_CMD failed — deploy aborted" >&2
@@ -62,18 +52,12 @@ rm -f "$BUILD_LOG"
 rm -rf .deploy
 mkdir -p "${STAGE_DIR}/dist"
 cp plugin.json package.json main.py "${STAGE_DIR}/"
-# Ship every Python module main.py depends on, staged at src/backend/ to
-# match main.py's own sys.path splice. Auto-include anything new dropped
-# there so future extractions don't get silently dropped from the deploy —
-# that's how paths / storage / sanitizer / launchers stopped reaching the
-# deck when they were split out of main.py, breaking every RPC with
-# "Route does not exist".
+# Every backend module, where main.py looks for it in a repo layout.
 mkdir -p "${STAGE_DIR}/src/backend"
 for pyf in src/backend/*.py; do
   cp "$pyf" "${STAGE_DIR}/src/backend/"
 done
-# Inject debug flag for dev deploy (not present in source plugin.json for store
-# submission). Skipped for --release so the deployed plugin matches a store build.
+# Dev deploys get the debug flag; the repo's plugin.json never carries it.
 if [[ "$RELEASE" != "1" ]]; then
   node -e 'const fs=require("fs"),p=JSON.parse(fs.readFileSync(process.argv[1]));if(!p.flags.includes("debug"))p.flags.push("debug");fs.writeFileSync(process.argv[1],JSON.stringify(p,null,2)+"\n")' "${STAGE_DIR}/plugin.json"
 fi
@@ -81,30 +65,23 @@ rsync -a dist/ "${STAGE_DIR}/dist/"
 if [[ -d assets ]]; then mkdir -p "${STAGE_DIR}/assets" && rsync -a assets/ "${STAGE_DIR}/assets/"; fi
 if [[ -d i18n ]]; then mkdir -p "${STAGE_DIR}/i18n" && rsync -a i18n/ "${STAGE_DIR}/i18n/"; fi
 
-# Strategy: rsync to a temp dir the deck user owns, then sudo-move to the plugin dir.
-# This avoids needing the remote rsync process to run as root (--rsync-path="sudo rsync"
-# requires a TTY which SSH doesn't provide by default).
+# Upload to a temp dir the deck user owns, then move it into the root-owned plugin dir.
 TEMP_REMOTE="/tmp/ds_deploy_${PLUGIN_SLUG}"
 
-# rsync for upload — faster than tar+ssh + handles partial transfers.
-# SSH passed as string to -e (macOS OpenSSH 9.x rejects `=` form in that slot).
 ssh "${SSH_OPTS[@]}" "${USER_NAME}@${HOST}" "mkdir -p '${TEMP_REMOTE}'"
 rsync -az --delete --no-perms --omit-dir-times \
   -e "ssh ${SSH_OPTS_STR}" \
   "${STAGE_DIR}/" "${USER_NAME}@${HOST}:${TEMP_REMOTE}/"
 
-# Move temp → plugin dir with sudo.
-# Try passwordless sudo first (sudo -n), fall back to sudo -S with DECK_SUDO_PASS.
+# sudo -n, then sudo -S with DECK_SUDO_PASS, then a plain copy when deck owns the dir.
 MOVE_CMD="mkdir -p '${PLUGIN_DIR}' && rsync -a --delete '${TEMP_REMOTE}/' '${PLUGIN_DIR}/' && rm -rf '${TEMP_REMOTE}'"
 
 MOVED=0
-# 1. Try sudo -n (NOPASSWD setups)
 if ssh "${SSH_OPTS[@]}" "${USER_NAME}@${HOST}" "sudo -n bash -c \"${MOVE_CMD}\"" 2>/dev/null; then
   MOVED=1
   echo "[deploy] Moved with sudo -n (NOPASSWD)"
 fi
 
-# 2. Try sudo -S with DECK_SUDO_PASS
 if [[ "$MOVED" == "0" ]] && [[ -n "$SUDO_PASS" ]]; then
   if ssh "${SSH_OPTS[@]}" "${USER_NAME}@${HOST}" "printf '%s\n' '${SUDO_PASS}' | sudo -S bash -c \"${MOVE_CMD}\" 2>/dev/null"; then
     MOVED=1
@@ -112,7 +89,6 @@ if [[ "$MOVED" == "0" ]] && [[ -n "$SUDO_PASS" ]]; then
   fi
 fi
 
-# 3. Fallback: direct copy (works if deck already owns the plugin dir from a previous deploy)
 if [[ "$MOVED" == "0" ]]; then
   if ssh "${SSH_OPTS[@]}" "${USER_NAME}@${HOST}" "rsync -a --delete '${TEMP_REMOTE}/' '${PLUGIN_DIR}/' && rm -rf '${TEMP_REMOTE}'" 2>/dev/null; then
     MOVED=1
@@ -128,11 +104,7 @@ if [[ "$MOVED" == "0" ]]; then
 fi
 
 if [[ "$HARD" == "1" ]]; then
-  # Batch: verify + restart plugin_loader + kill Steam in one SSH session.
-  # systemctl restart takes ~8 s; ServerAliveInterval keeps the connection alive.
-  # The loader's unit only signals its main PID (KillMode=process), so a plain
-  # restart leaves the previous loader + every plugin backend alive and still
-  # injecting; stop the whole cgroup first, then let the unit restart.
+  # The loader unit only signals its main PID, so kill the whole cgroup before restarting.
   if [[ -n "${SUDO_PASS}" ]]; then
     ssh "${SSH_ALIVE[@]}" "${USER_NAME}@${HOST}" \
       "test -f '${PLUGIN_DIR}/dist/index.js' || echo '[deploy] WARN: index.js missing'; \

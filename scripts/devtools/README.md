@@ -37,7 +37,7 @@ bash scripts/deck/deck-smoke-test.sh steamdeck
 ## Suggested CI-style local workflow
 
 ```bash
-pnpm run build:plugin
+pnpm run build
 pnpm run deploy:deck steamdeck
 pnpm run test:deck:smoke steamdeck
 ```

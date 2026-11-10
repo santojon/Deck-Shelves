@@ -17,7 +17,7 @@ The dev / build / validation flows run on **Linux, macOS, and Windows**.
 | Workflow                                       | Linux | macOS | Windows |
 |------------------------------------------------|:-----:|:-----:|:-------:|
 | `pnpm install`                                 |  ✅  |  ✅   |   ✅    |
-| `pnpm run build` / `build:release`             |  ✅  |  ✅   |   ✅    |
+| `pnpm run build` / `build:dev`                 |  ✅  |  ✅   |   ✅    |
 | `pnpm run typecheck`                           |  ✅  |  ✅   |   ✅    |
 | `pnpm run test`                                |  ✅  |  ✅   |   ✅    |
 | `pnpm run lint`                                |  ✅  |  ✅   |   ✅    |
@@ -53,7 +53,7 @@ a cross-OS launcher (`scripts/build/py.mjs`, which resolves `python3` /
 
 1. Install [Node.js 26+](https://nodejs.org/), [Python 3.9+](https://www.python.org/),
    and (only for `validate:compat`) [Git for Windows](https://git-scm.com/download/win).
-2. From PowerShell or Git Bash: `corepack enable && pnpm install`. If `corepack` isn't on PATH (some Node packagers don't link it), run `pnpm run upgrade` instead — the helper (`scripts/build/upgrade-pnpm.cjs`) finds Corepack from `node`'s bundled location and falls back to `npm install -g pnpm@latest`.
+2. From PowerShell or Git Bash: `npm install -g pnpm && pnpm install` (Node 26 no longer ships Corepack).
 3. `pnpm run dev:check && pnpm run package` — the full local build + package flow runs natively.
 4. `pnpm run validate:compat` only needs Git Bash / WSL for the bash integration checks.
 
@@ -75,7 +75,7 @@ pnpm run deck:setup <deck-hostname>
 4. Build and deploy:
 
 ```bash
-pnpm run build:plugin
+pnpm run build
 pnpm run deploy:deck <deck-hostname>
 ```
 
@@ -165,8 +165,8 @@ See [`docs/architecture.md`](docs/architecture.md) for a detailed breakdown.
 
 ## Build Modes
 
-- `pnpm run build:plugin` — development build (sourcemaps, no minification, `__DEV__` = true)
-- `pnpm run build:release` — production build (minified, no sourcemaps, `__DEV__` = false)
+- `pnpm run build` — production build (minified, no sourcemaps, `__DEV__` = false); the Decky store runs this one
+- `pnpm run build:dev` — development build (sourcemaps, no minification, `__DEV__` = true)
 
 ## Compatibility Checks
 
@@ -184,11 +184,11 @@ All checks should pass. The individual check scripts live in the `checks/` subfo
 - Base locale: the `i18n/en-US/` directory
 - Every locale must have the same merged key set as `en-US` (no cross-area key collisions)
 - When adding a new i18n key, add it to the matching area file in **all** locale directories
-- `pnpm run validate:compat` (and `pnpm run check` for the build-time check) verifies per-locale key consistency automatically
+- `pnpm run validate:compat` (and `node scripts/build/validate.mjs` for the build-time check) verifies per-locale key consistency automatically
 
 ## Tests
 
-- Run unit tests (TypeScript + Python) locally with: `pnpm run test:all`
+- Run unit tests (TypeScript + Python) locally with: `pnpm run validate:ci` (it also builds and packages)
 - The CI installs and runs `pytest` for Python tests in addition to Vitest for TypeScript tests. Ensure `pytest` is available locally (`pip install pytest`).
 - **QA harness flags** are documented in [docs/qa-manual.md §12](docs/qa-manual.md). Use `pnpm qa:<scenario>` scripts to deploy a build with a fixture pre-applied.
 
@@ -215,8 +215,8 @@ It exits with code 1 on any failure.
 2. Make your changes in focused, atomic commits
 3. Add entries under `## [Unreleased]` in **both** `CHANGELOG.md` (technical detail) and `RELEASE_NOTES.md` (user-facing language). Use `### Added`, `### Fixed`, `### Changed`, `### Removed`, or `### Performance` as appropriate.
 4. Run `pnpm run validate:compat` and ensure all checks pass
-5. Build with `pnpm run build:plugin` and verify no errors
-6. Run `pnpm run precommit` and verify no errors
+5. Build with `pnpm run build` and verify no errors
+6. Run `pnpm run validate:ci` and verify no errors
 7. Test on a real Steam Deck if possible
 8. Open a Pull Request with a title starting with one of these tags:
 
@@ -236,7 +236,7 @@ When a PR is merged to `main`, the version bump and tag creation happen automati
 
 ### Pull Request Format
 
-Your PR must follow the template. The `pr-checklist` GitHub Actions workflow validates the body on every push and **blocks merge** if any of the rules below fail; the `pr-autofill` workflow mirrors `## [Unreleased]` from `CHANGELOG.md` and `RELEASE_NOTES.md` into the PR body, so editing those files is enough to populate the corresponding sections.
+Your PR must follow the template, and the CI `validate` job must pass before it can merge.
 
 **Required sections:**
 
@@ -258,14 +258,13 @@ The remaining rows (Documentation update / i18n / Build / CI) are additive — c
 - [ ] I added my changes to `CHANGELOG.md` and `RELEASE_NOTES.md` under `## [Unreleased]`
 - [ ] I have read [CONTRIBUTING.md](CONTRIBUTING.md)
 - [ ] My code follows the project's code style (2 spaces, semicolons, double quotes)
-- [ ] I ran `pnpm run build:plugin` with no errors
+- [ ] I ran `pnpm run build` with no errors
 - [ ] I ran `pnpm run validate:compat` and all checks pass
 - [ ] I tested on a Steam Deck (or explained why this isn't needed)
 - [ ] **(only if i18n / localization is checked above)** New i18n keys added to **all** locale files
 
 **Other sections** — Screenshots / Videos and Additional Notes are optional but encouraged for UI changes and non-obvious decisions.
 
-> The `pr-checklist` validator runs on every PR push (including from forks) and is a required status check on `main` — the PR cannot merge with red. The repository owner can bypass via the `lock-main` ruleset's bypass-actor entry, but everyone else must satisfy the rules above.
 
 ## Reporting Issues
 

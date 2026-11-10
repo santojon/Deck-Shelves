@@ -6,7 +6,7 @@ const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"))
 const plugin = JSON.parse(fs.readFileSync(path.join(root, "plugin.json"), "utf8"));
 const errors = [];
 
-const requiredScripts = ["build:plugin", "deck:setup", "deploy:deck", "watch:deck", "package"];
+const requiredScripts = ["build", "deck:setup", "deploy:deck", "watch:deck", "package"];
 for (const name of requiredScripts) {
   if (!pkg.scripts?.[name]) errors.push(`Missing script: ${name}`);
 }

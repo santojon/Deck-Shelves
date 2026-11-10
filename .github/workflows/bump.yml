@@ -41,17 +41,7 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.SUBMIT_TOKEN || github.token }}
 
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v6
-
-      - name: Set up Node
-        uses: actions/setup-node@v7
-        with:
-          node-version: 26
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile=false
+      - uses: ./.github/actions/setup
 
       - name: Determine bump type
         id: bump_type
@@ -122,9 +112,7 @@ jobs:
 
           sed -i "s/^## \[Unreleased\]/## [Unreleased]\n\n## [${VERSION}] - ${DATE}/" CHANGELOG.md
 
-          # Promote the user-facing RELEASE_NOTES.md too, if present. Not
-          # fatal when it's missing or empty — the release workflow falls
-          # back to CHANGELOG.md in that case.
+          # Optional: the release falls back to CHANGELOG.md.
           if [[ -f "RELEASE_NOTES.md" ]] && grep -q "^## \[Unreleased\]" RELEASE_NOTES.md; then
             NOTES_CONTENT=$(awk '/^## \[Unreleased\]/{found=1; next} /^## \[/{exit} found{print}' RELEASE_NOTES.md)
             NOTES_TRIMMED=$(echo "$NOTES_CONTENT" | sed '/^[[:space:]]*$/d')
@@ -139,10 +127,7 @@ jobs:
         run: pnpm run typecheck
 
       - name: Lint (ESLint + Ruff)
-        run: |
-          python3 -m pip install -U pip
-          python3 -m pip install ruff
-          pnpm run lint
+        run: pnpm run lint
 
       - name: Static validation
         run: node scripts/build/validate.mjs
@@ -164,10 +149,7 @@ jobs:
         run: |
           VERSION="${{ steps.version.outputs.new }}"
           MSG="chore: bump version to v${VERSION}"
-          # rc.yml gates Decky-store submission on the literal '[rc]'
-          # token in the tag commit message. Only PRs carrying the 'rc'
-          # label append it — manual dispatch bumps + tags + cuts the
-          # GitHub Release but never reaches the store.
+          # `[rc]` (PRs with the `rc` label only) is what sends the release to the store.
           if echo "$PR_LABELS" | grep -q '"rc"'; then
             MSG="$MSG [rc]"
           fi

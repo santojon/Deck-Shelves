@@ -17,77 +17,29 @@ permissions:
 
 jobs:
   release:
-    # Skip pre-release tags (v3.0.0-beta.1 etc.) — those are handled by
-    # prerelease.yml. Only clean `vX.Y.Z` tags (no SemVer pre-release suffix)
-    # cut a real release. Manual dispatch always runs.
+    # Pre-release tags belong to prerelease.yml; manual dispatch always runs.
     if: ${{ github.event_name == 'workflow_dispatch' || !contains(github.ref_name, '-') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v6
+      - uses: ./.github/actions/setup
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v7
-        with:
-          node-version: 26
-          cache: pnpm
+      - name: Typecheck, lint, build, tests, package and compat
+        run: pnpm run validate:ci
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile=false
-
-      - name: Install Python test/lint deps
-        run: |
-          python3 -m pip install -U pip setuptools
-          python3 -m pip install ruff pytest
-
-      - name: Lint (ESLint + Ruff)
-        run: |
-          python3 -m pip install -U pip
-          python3 -m pip install ruff
-          pnpm run lint
-
-      - name: Build plugin (release mode)
-        run: pnpm run build:release
-
-      - name: Package release zip
-        run: pnpm run dist
-
-      # Same package audit CI runs: refuse a package carrying a binary for a
-      # foreign architecture.
+      # Refuse a binary for a foreign architecture, as in CI.
       - name: Audit package architecture
-        run: python3 scripts/ci/elf-arch-audit.py "$(ls deck-shelves-v*.zip | head -1)" --forbid x86_64 --forbid i386
+        run: python3 scripts/ci/elf-arch-audit.py deck-shelves-v*.zip --forbid x86_64 --forbid i386
 
-      # Standalone backend archive: the Python backend (`main.py` + `src/backend/`)
-      # published so it can run without a plugin loader (e.g. on macOS/Windows). The
-      # archive root mirrors the repo so `main.py`'s own `sys.path` splice of
-      # `src/backend` resolves after extraction.
-      - name: Package backend archive
-        run: tar -czf deck-shelves-backend.tar.gz --exclude='__pycache__' main.py src/backend
-
-      # Lets anyone (or a host, before it installs a download) verify the
-      # release assets weren't corrupted or tampered with in transit.
-      - name: Generate SHA256SUMS
-        # The bundle is uploaded as `index.iife.js`, and the host matches checksum
-        # lines by that exact asset name — hash it from inside dist/.
-        run: |
-          sha256sum deck-shelves-v*.zip deck-shelves-backend.tar.gz > SHA256SUMS
-          (cd dist && sha256sum index.iife.js) >> SHA256SUMS
-
-      # Build provenance (signed by GitHub, no key or secret): verify a download
-      # with `gh attestation verify <file> --repo santojon/Deck-Shelves`. Adds no
-      # release asset, so the store submission and the host's checksum check are
-      # unchanged; never blocks the release.
+      # Keyless provenance; check with `gh attestation verify <file> --repo santojon/Deck-Shelves`.
       - name: Attest build provenance
         continue-on-error: true
         uses: actions/attest-build-provenance@v4
         with:
           subject-path: |
             deck-shelves-v*.zip
-            dist/index.iife.js
-            deck-shelves-backend.tar.gz
 
       - name: Resolve release tag
         id: tag
@@ -135,9 +87,6 @@ jobs:
           generate_release_notes: ${{ steps.notes.outputs.body == '' }}
           files: |
             deck-shelves-v*.zip
-            dist/index.iife.js
-            deck-shelves-backend.tar.gz
-            SHA256SUMS
       # Every #N in this release's changelog section gets a comment pointing at the release.
       - name: Comment on issues named in the changelog
         env:

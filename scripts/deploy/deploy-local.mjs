@@ -1,16 +1,6 @@
 #!/usr/bin/env node
-// Local deploy: install the built plugin into THIS machine's Decky Loader plugin
-// dir — no SSH, no remote Deck. For developing directly on a Steam Deck / Linux
-// box / Windows machine that ALREADY has Decky Loader installed.
-//
-// It does NOT install Decky. If Decky lives outside the default location
-// (`~/homebrew`), point it with DECKY_PLUGINS_DIR (or DECKY_HOME).
-//
-// Usage:
-//   pnpm run deploy:local          # build + copy into the local Decky plugin dir
-//   pnpm run deploy:local:hard     # + reload plugin_loader and restart Steam (Linux)
-//   pnpm run deploy:local -- --no-build   # skip the build (use existing dist/)
-//   DECKY_PLUGINS_DIR=/custom/homebrew/plugins pnpm run deploy:local
+// Installs the build into this machine's Decky plugin dir (DECKY_PLUGINS_DIR or DECKY_HOME override ~/homebrew).
+// --hard reloads the loader and Steam (Linux); --no-build reuses dist/.
 import { spawnSync } from "node:child_process";
 import {
   existsSync, mkdirSync, rmSync, cpSync, copyFileSync,
@@ -30,8 +20,7 @@ loadEnv();
 const pluginsDir = resolvePluginsDir();
 const deckyHome = dirname(pluginsDir); // …/homebrew
 
-// Assume Decky is installed — do not install it. The homebrew dir existing is
-// our "Decky is here" proxy.
+// The homebrew dir stands in for "Decky is installed".
 if (!existsSync(deckyHome)) {
   fail([
     `Decky Loader not found at ${deckyHome}.`,
@@ -45,7 +34,7 @@ mkdirSync(pluginsDir, { recursive: true });
 // 1. Build (development) unless --no-build.
 if (!NO_BUILD) {
   console.log("[deploy:local] Building plugin (development)…");
-  const b = spawnSync("pnpm", ["run", "build"], {
+  const b = spawnSync("pnpm", ["run", "build:dev"], {
     cwd: ROOT,
     shell: process.platform === "win32",
     stdio: "inherit",
@@ -53,7 +42,7 @@ if (!NO_BUILD) {
   if (b.status !== 0) fail(["build failed — fix the errors above and re-run."]);
 }
 if (!existsSync(join(ROOT, "dist", "index.js"))) {
-  fail(["dist/index.js missing — run `pnpm run build` first (or drop --no-build)."]);
+  fail(["dist/index.js missing — run `pnpm run build:dev` first (or drop --no-build)."]);
 }
 
 // 2. Stage the plugin payload fresh (mirrors the remote deploy's rsync --delete).
@@ -69,9 +58,7 @@ try {
 }
 mkdirSync(join(dest, "dist"), { recursive: true });
 
-// plugin.json (+ dev `debug` flag), package.json, main.py + every backend
-// module main.py depends on (staged at src/backend/, matching main.py's own
-// sys.path splice).
+// Manifest with the debug flag, main.py and the backend modules in the repo layout.
 const pluginJson = JSON.parse(readFileSync(join(ROOT, "plugin.json"), "utf8"));
 pluginJson.flags = Array.isArray(pluginJson.flags) ? pluginJson.flags : [];
 if (!pluginJson.flags.includes("debug")) pluginJson.flags.push("debug");
@@ -102,7 +89,6 @@ if (HARD) {
   console.log("[deploy:local] Reload from Decky (Developer → Reload deck-shelves) or restart Steam.");
 }
 
-// ── helpers ──────────────────────────────────────────────────────────────────
 function reloadHard() {
   if (process.platform === "win32") {
     console.log("[deploy:local] --hard: on Windows, restart Decky + Steam manually (no standard service name).");

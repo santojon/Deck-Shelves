@@ -40,7 +40,6 @@ fi
 TOTAL_SAMPLES=$(( (DURATION * 60) / INTERVAL ))
 SSH_CMD="ssh -o ConnectTimeout=10 -o BatchMode=yes ${USER_NAME}@${HOST}"
 
-# ─── helpers ──────────────────────────────────────────────────────────────────
 
 # Run a remote command, return stdout (never abort on non-zero)
 remote() { $SSH_CMD "$@" 2>/dev/null || true; }
@@ -166,7 +165,6 @@ run_sampling() {
   echo "__SUMMARY__ drain_per_hr=${drain_per_hr} ds_inhibit=${DS_INHIBIT_DETECTED} avg_cpu=${avg_cpu} avg_power_mw=${avg_pwr}"
 }
 
-# ─── pre-flight ───────────────────────────────────────────────────────────────
 
 echo ""
 echo "═══════════════════════════════════════════════════════════════════"

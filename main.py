@@ -39,18 +39,9 @@ def _build_ssl_context() -> ssl.SSLContext:
 _SSL_CTX = _build_ssl_context()
 
 import sys
-# Decky's sandboxed plugin loader doesn't put the plugin's own directory
-# on `sys.path`, so bare imports of sibling modules raise
-# ModuleNotFoundError at boot — every RPC ends up returning
-# "Route does not exist" because the plugin process never finished
-# initialising. Splice the plugin directory in front of `sys.path` here
-# so `from paths import ...` (and any future sibling extractions) keep
-# working under both the test harness and the deck. The backend modules
-# themselves live in src/backend/ (not next to main.py, which must stay at
-# the plugin root) — same reasoning, same fix, one directory further in.
+# Sibling modules live in src/backend/ in the repo and in py_modules/ in the package.
 _PLUGIN_DIR = os.path.dirname(os.path.abspath(__file__))
-_BACKEND_DIR = os.path.join(_PLUGIN_DIR, "src", "backend")
-for _p in (_PLUGIN_DIR, _BACKEND_DIR):
+for _p in (_PLUGIN_DIR, os.path.join(_PLUGIN_DIR, "py_modules"), os.path.join(_PLUGIN_DIR, "src", "backend")):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 

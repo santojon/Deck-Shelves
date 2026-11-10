@@ -61,10 +61,11 @@ argument takes precedence.
 
 | Command | Description |
 |---------|-------------|
-| `pnpm run build` | Development build (sourcemaps, `__DEV__=true`) |
-| `pnpm run build:release` | Production build (minified, `__DEV__=false`) |
+| `pnpm run build` | Production build (minified, `__DEV__=false`), plus the `py_modules/` and `defaults/` folders the store packer reads. The Decky store runs this command |
+| `pnpm run build:dev` | Development build (sourcemaps, `__DEV__=true`) |
+| `pnpm run package` | Pack the last `pnpm run build` into the installable `.zip` and check it |
 
-> **Caution:** always use `build:release` when creating a package for distribution or submission to the Decky Store. The `build` command includes sourcemaps and enables debug logging — it is for local development only.
+> **Caution:** `build:dev` includes sourcemaps and enables debug logging — it is for local development only. `pnpm run package` refuses a development build.
 | `pnpm run deploy:deck` | Build + deploy to Deck via SSH |
 | `pnpm run deploy:deck:hard` | Deploy + restart Steam |
 | `pnpm run deploy:local` | Build + install into the **local** Decky (no SSH; Decky must already be installed) |
@@ -79,7 +80,7 @@ argument takes precedence.
 
 ```bash
 pnpm test              # Vitest (TypeScript)
-pnpm run test:all      # Vitest + pytest (Python)
+pnpm run validate:ci   # everything CI runs, pytest included
 pnpm run typecheck     # TypeScript type checking
 ```
 

@@ -9,128 +9,42 @@ on:
 permissions:
   contents: read
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
   validate:
     runs-on: ubuntu-latest
     # Skip the bump-only commit on main (the auto-commit from bump.yml).
     if: |
-      github.ref_type == 'tag'
-      || !startsWith(github.event.head_commit.message, 'chore: bump version')
+      github.ref_type == 'tag' || !startsWith(github.event.head_commit.message, 'chore: bump version')
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
+      - uses: actions/checkout@v7
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v6
+      - uses: ./.github/actions/setup
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v7
-        with:
-          node-version: 26
-          cache: pnpm
+      - name: Typecheck, lint, build, tests, package and compat
+        run: pnpm run validate:ci
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile=false
-
-      - name: TypeScript check
-        run: pnpm run typecheck
-
-      - name: ESLint (JS/TS — complexity + react-hooks + bug catchers)
-        run: pnpm run lint:js
-
-      - name: Ruff (Python — pyflakes bug catchers)
+      - name: Backend deps and package architecture audits
         run: |
-          python3 -m pip install -U pip
-          python3 -m pip install ruff pytest
-          pnpm run lint:py
+          bash scripts/ci/arm64-pydeps-audit.sh requirements.txt
+          python3 scripts/ci/elf-arch-audit.py deck-shelves-v*.zip --forbid x86_64 --forbid i386
 
-      - name: Static validation
-        run: node scripts/build/validate.mjs
-
-      - name: Docs check
-        run: pnpm run docs:check
-
-      - name: Run TypeScript unit tests
-        run: pnpm run test
-
-      - name: Setup Python
-        run: |
-          python3 -m pip install -U pip setuptools
-          python3 -m pip install pytest
-
-      - name: Run Python unit tests
-        run: python3 -m pytest src/test/ -v
-
-      # ARM64 readiness: every backend runtime dep must have a linux/aarch64 wheel,
-      # so the backend installs on an ARM64 device (Steam Frame / ARM SteamOS).
-      - name: ARM64 backend deps audit
-        run: bash scripts/ci/arm64-pydeps-audit.sh requirements.txt
-
-      - name: Build plugin (release mode)
-        run: pnpm run build:release
-
-      - name: Package release zip
-        run: pnpm run dist
-
-      # ARM64 readiness: the package must carry no x86-only native binary
-      # (it ships Python sources + a JS bundle — the expected answer is none).
-      - name: Package architecture audit
-        run: python3 scripts/ci/elf-arch-audit.py "$(ls deck-shelves-v*.zip | head -1)" --forbid x86_64 --forbid i386
-
-      - name: Run compatibility checks
-        run: pnpm run validate:compat
-
-      - name: Upload release zip artifact
+      - name: Upload zip
         uses: actions/upload-artifact@v7
         with:
           name: deck-shelves-${{ github.sha }}
-          path: |
-            deck-shelves-v*.zip
+          path: deck-shelves-v*.zip
 
-  # ARM64 as a first-class target (Steam Frame / ARM SteamOS): the same build,
-  # package, backend tests and architecture audit on a native arm64 runner.
   validate-arm64:
     runs-on: ubuntu-24.04-arm
     if: |
-      github.ref_type == 'tag'
-      || !startsWith(github.event.head_commit.message, 'chore: bump version')
+      github.ref_type == 'tag' || !startsWith(github.event.head_commit.message, 'chore: bump version')
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
+      - uses: actions/checkout@v7
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v6
+      - uses: ./.github/actions/setup
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v7
-        with:
-          node-version: 26
-          cache: pnpm
+      - name: Typecheck, lint, build, tests, package and compat
+        run: pnpm run validate:ci
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile=false
-
-      - name: Build plugin (release mode)
-        run: pnpm run build:release
-
-      - name: Package release zip
-        run: pnpm run dist
-
-      - name: Package architecture audit (no x86-only binaries)
-        run: python3 scripts/ci/elf-arch-audit.py "$(ls deck-shelves-v*.zip | head -1)" --forbid x86_64 --forbid i386
-
-      - name: Setup Python
-        run: |
-          python3 -m pip install -U pip setuptools
-          python3 -m pip install pytest
-
-      - name: Run Python unit tests (arm64)
-        run: python3 -m pytest src/test/ -q
-
-      - name: ARM64 backend deps audit
-        run: bash scripts/ci/arm64-pydeps-audit.sh requirements.txt
+      - name: Package architecture audit
+        run: python3 scripts/ci/elf-arch-audit.py deck-shelves-v*.zip --forbid x86_64 --forbid i386

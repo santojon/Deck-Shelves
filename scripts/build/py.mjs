@@ -1,11 +1,6 @@
 #!/usr/bin/env node
-// Cross-platform Python launcher. Resolves a Python 3 interpreter and runs it
-// with the forwarded args, so pnpm scripts that call Python work natively on
-// Windows (py -3 / python), macOS, SteamOS, and Linux (python3) — without
-// requiring `python3` specifically to be on PATH.
-//
-// Windows order is `py -3` first (the reliable launcher) so we never hit the
-// Microsoft Store `python3.exe` stub that pops the Store when Python is absent.
+// Runs Python 3 with the forwarded args on any OS. On Windows `py -3` goes first, so the
+// Microsoft Store `python3.exe` stub is never hit.
 import { spawnSync } from "node:child_process";
 
 const args = process.argv.slice(2);

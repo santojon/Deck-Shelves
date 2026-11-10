@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 // Dependency upgrade flow. Modes: check | pnpm | safe | major | verify | all.
-// Cross-OS Node port of update.sh (runs on Windows, macOS, SteamOS, Linux).
 // Non-interactive (CI / piped) or `--yes` / `YES=1` skips every confirmation.
 import { spawnSync } from "node:child_process";
 import { createInterface } from "node:readline/promises";
@@ -95,7 +94,7 @@ function cmdVerify() {
   blue("Running tests…");
   run("pnpm test --run");
   blue("Running production build…");
-  run("pnpm run build:release");
+  run("pnpm run build");
   green("Verification passed");
 }
 

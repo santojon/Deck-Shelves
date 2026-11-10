@@ -61,12 +61,12 @@ jobs:
               { name: "type::duplicated",  color: "cfd3d7", description: "Issue or pull request already exists" },
               { name: "type::invalid",     color: "e4e669", description: "Not a real issue or doesn't seem right" },
               { name: "type::wontfix",     color: "ffffff", description: "This will not be worked on" },
-              // Priority labels (assigned automatically by issue-priority-labeler; critical is manual-only)
+              // Priority labels
               { name: "priority::critical", color: "B60205", description: "Critical — immediate fix (crash, regression, security)" },
               { name: "priority::high",     color: "D93F0B", description: "High — prioritized fix in the next PATCH release" },
               { name: "priority::medium",   color: "FBCA04", description: "Medium — fix planned for an upcoming release" },
               { name: "priority::low",      color: "0E8A16", description: "Low — backlog, addressed when capacity allows" },
-              // Area labels (assigned automatically by pr-auto-labeler)
+              // Area labels
               { name: "area::core",         color: "5319E7", description: "src/core/ — sensitive logic" },
               { name: "area::runtime",      color: "5319E7", description: "src/runtime/ — Steam integration" },
               { name: "area::ui",           color: "1D76DB", description: "src/components/ — React UI" },
@@ -119,11 +119,7 @@ jobs:
           script: |
             const { owner, repo } = context.repo;
             const branch = (context.payload.repository && context.payload.repository.default_branch) || 'main';
-            // Required status checks: CI's `validate` job + the PR-body
-            // checklist validator. The owner / admin can still bypass via
-            // the lock-main ruleset's bypass_actors entry; this just blocks
-            // accidental merges of PRs that haven't filled the checklist
-            // or run CI to green.
+            // CI's `validate` job must pass; the owner can still bypass through the ruleset.
             try {
               await github.rest.repos.updateBranchProtection({
                 owner,
@@ -131,7 +127,7 @@ jobs:
                 branch,
                 required_status_checks: {
                   strict: true,
-                  contexts: ['validate', 'PR · Checklist / pr-checklist']
+                  contexts: ['validate']
                 },
                 enforce_admins: false,
                 required_pull_request_reviews: null,

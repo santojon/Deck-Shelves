@@ -17,9 +17,3 @@ peerDependencyRules:
 
 allowBuilds:
   esbuild: true
-
-minimumReleaseAgeExclude:
-    - '@eslint-community/regexpp@4.12.3'
-    - i18next@27.0.1
-    - parse5-parser-stream@8.1.1
-    - parse5@8.1.1
