@@ -1033,9 +1033,11 @@ describe("ownQamTab — structure, cost and reports", () => {
   };
   it("U33 — reports: what happened, at most five lines per start, none per render", u33);
 
-  // React keeps the root's two fibers and the lists memoized on them. Its development build also
-  // keeps the call stack of each element's creation, with the arrays mapped there, for a time-dependent
-  // share of elements; stack capture is off for the run. Nothing else that Steam replaced may stay.
+  /* React keeps the root's two fibers and the lists memoized on them. Its development build also
+     keeps a call stack per element for the first ten thousand it creates each second, and sets
+     Error.stackTraceLimit itself to take it, so the frames hold the lists they ran over: an accessor
+     in that property's place keeps the engine from taking any frames while this runs.
+     Nothing else that Steam replaced may stay. */
   async function survivors(): Promise<{ alive: object[]; tracked: number }> {
     await newSession();
     install(on()); runDeferred(); fx.openPanel();
@@ -1064,9 +1066,9 @@ describe("ownQamTab — structure, cost and reports", () => {
     const builtin = (globalThis as any).process.getBuiltinModule;
     builtin("node:v8").setFlagsFromString("--expose_gc");
     gc = builtin("node:vm").runInNewContext("gc") as () => void;
-    const errors = Error as unknown as { stackTraceLimit: number }, limit = errors.stackTraceLimit;
-    errors.stackTraceLimit = 0;
-    const { alive, tracked } = await survivors().finally(() => { errors.stackTraceLimit = limit; });
+    const limit = Object.getOwnPropertyDescriptor(Error, "stackTraceLimit")!;
+    Object.defineProperty(Error, "stackTraceLimit", { get: () => 0, set: () => {}, configurable: true });
+    const { alive, tracked } = await survivors().finally(() => { Object.defineProperty(Error, "stackTraceLimit", limit); });
     expect([alive.length, tracked > 100]).toEqual([0, true]);
   };
   it("U35 — nothing that Steam replaced stays reachable", u35);
