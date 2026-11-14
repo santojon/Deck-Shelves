@@ -66,10 +66,9 @@ describe('smart templates — structural modes surface the right games', () => {
 describe('smart templates — DATA-dependent modes (need review/metacritic)', () => {
   beforeEach(() => invalidateSmartShelfCache())
 
-  it('hidden_gems is EMPTY without review data, POPULATES with it', () => {
+  it('hidden_gems is empty without review data and fills with it', () => {
     const noData = [app({ appid: 1, playtime_forever: 0, last_played: 0, deck_compatibility_category: 3 })]
     expect(resolveSmartShelf('hidden_gems', noData, 20)).toEqual([])
-
     invalidateSmartShelfCache()
     const withData = [app({ appid: 1, playtime_forever: 0, last_played: 0, deck_compatibility_category: 3, review_percentage: 90 } as any)]
     expect(resolveSmartShelf('hidden_gems', withData, 20)).toEqual([1])

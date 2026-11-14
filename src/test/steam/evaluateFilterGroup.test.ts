@@ -333,10 +333,10 @@ describe('evaluateFilterGroup — per filter type', () => {
     expect(evaluateFilterGroup(g, apps).map((a) => a.appid)).toEqual([1, 2])
   })
 
-  it('unknown filter type passes through (does not exclude apps)', () => {
+  it('a condition nothing evaluates matches nothing (the resolver refuses such a query before this)', () => {
     const apps = [app({ appid: 1 }), app({ appid: 2 })]
-    const g = group([{ type: 'storeTag' as any, params: {} }])
-    expect(evaluateFilterGroup(g, apps).map((a) => a.appid)).toEqual([1, 2])
+    const g = group([{ type: 'launchCount' as any, params: {} }])
+    expect(evaluateFilterGroup(g, apps).map((a) => a.appid)).toEqual([])
   })
 })
 

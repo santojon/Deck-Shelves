@@ -21,7 +21,7 @@ ROOT_FILES = ["LICENSE", "README.md", "main.py", "package.json", "plugin.json"]
 REQUIRED = ROOT_FILES + [
     "dist/index.js", "NOTICE.md", "assets/tab-icon.svg",
     "py_modules/paths.py", "py_modules/storage.py", "py_modules/sanitizer.py",
-    "py_modules/launchers.py", "py_modules/plugin_host.py",
+    "py_modules/plugin_host.py",
 ]
 
 

@@ -1,17 +1,18 @@
 import type { AppOverview } from "./index";
 import { getCachedCatalogMeta } from "../core/onlineStore";
-import { steamAppStore, steamCollectionStore, steamClient, type SteamCollectionLike } from "./internals";
+import { steamAppStore, steamClient } from "./internals";
 import { customTagsFor, historyIds, pinnedIds, sessionQueueIds, temporaryQueueIds } from "../runtime/gameLists";
 import { shortcutTagsFor } from "../runtime/shortcutTags";
+import { achievementPercent, achievementsOf } from "./achievements";
+import { dynamicCollectionAppIds, normalizeText } from "./collections";
+import { friendsOwningCount } from "./friendsOwned";
+
+/* The conditions, sorts and sources beyond the base set: catalog data (genres, categories,
+   franchise, VR, multiplayer), store tags, score and date conditions, achievements, friends'
+   libraries, family sharing, the per-device game lists and the dynamic collections. */
 
 function appIdOf(a: any): number {
   return Number(a?.appid ?? a?.m_unAppID ?? 0);
-}
-function isNonSteamOf(a: any): boolean {
-  return a?.app_type === 1073741824 || a?.is_non_steam === true;
-}
-function isInstalledOf(a: any): boolean {
-  return a?.installed === true || a?.is_installed === true;
 }
 
 /** Strictly local — used where "does the client have this app" is the actual
@@ -97,16 +98,7 @@ function rawField<T = unknown>(appid: number, ...keys: string[]): T | undefined 
   return undefined;
 }
 
-function parseLaunchOptions(appid: number): string[] {
-  const raw = rawField<string>(appid, "rt_launch_command_line", "launch_options");
-  if (!raw || typeof raw !== "string") return [];
-  return raw.split(/\s+/).filter(Boolean);
-}
-
-/** Evaluates one child filter item of any type — supplied by the caller so the
- *  composites can reach the host's full evaluator without a module cycle. */
-export type ChildEvaluator = (item: any, app: AppOverview) => boolean;
-export type FilterEvaluator = (item: any, app: AppOverview, evalChild?: ChildEvaluator) => boolean;
+export type FilterEvaluator = (item: any, app: AppOverview) => boolean;
 
 function evalGenres(item: any, app: AppOverview): boolean {
   const want: string[] = Array.isArray(item.params?.genres) ? item.params.genres.map((g: string) => String(g).toLowerCase()) : [];
@@ -171,24 +163,49 @@ function evalVrSupport(item: any, app: AppOverview): boolean {
   return levels.length ? levels.includes(level) : level !== "none";
 }
 
-/* Steam's official store-category ids (stable, public taxonomy) — the local
-   AppOverview never exposes category *names*, only these numeric ids via
-   BHasStoreCategory(id), so "kind" is matched against ids here instead of
-   the name-string regexes the fetched-Store-metadata fallback path uses. */
+/* Steam's store-category ids (a stable public taxonomy). The local overview carries
+   categories only as these ids, through BHasStoreCategory(id). */
+export const STORE_CATEGORY = {
+  multiplayer: 1,
+  singlePlayer: 2,
+  coop: 9,
+  sharedScreen: 24,
+  crossPlatformMultiplayer: 27,
+  onlinePvp: 36,
+  sharedScreenPvp: 37,
+  onlineCoop: 38,
+  sharedScreenCoop: 39,
+  lanCoop: 48,
+  pvp: 49,
+  partialController: 18,
+  steamAchievements: 22,
+  steamCloud: 23,
+  fullController: 28,
+  workshop: 30,
+  vrSupport: 31,
+  remotePlayTogether: 44,
+  hdr: 61,
+} as const;
+const C = STORE_CATEGORY;
+
 const MP_CATEGORY_IDS: Record<string, number[]> = {
-  single: [2],
-  multi: [1],
-  coop: [9, 38, 39, 48],
-  online: [27, 36, 38],
-  any: [1, 9, 27, 36, 38, 39, 48, 49],
+  single: [C.singlePlayer],
+  multi: [C.multiplayer],
+  coop: [C.coop, C.onlineCoop, C.sharedScreenCoop, C.lanCoop],
+  online: [C.crossPlatformMultiplayer, C.onlinePvp, C.onlineCoop],
+  any: [C.multiplayer, C.coop, C.crossPlatformMultiplayer, C.onlinePvp, C.onlineCoop, C.sharedScreenCoop, C.lanCoop, C.pvp],
 };
 
-function evalMultiplayerTypeLocal(app: AppOverview, want: string): boolean | null {
-  const local = rawLocalOverview(appIdOf(app));
-  if (!local || typeof local.BHasStoreCategory !== "function") return null; // not a real local overview
-  const ids = MP_CATEGORY_IDS[want];
-  if (!ids) return false;
+/** Whether the client's own record of the app carries any of the categories; null without a local record. */
+export function hasStoreCategory(appid: number, ids: readonly number[]): boolean | null {
+  const local = rawLocalOverview(appid);
+  if (!local || typeof local.BHasStoreCategory !== "function") return null;
   return ids.some((id) => local.BHasStoreCategory(id));
+}
+
+function evalMultiplayerTypeLocal(app: AppOverview, want: string): boolean | null {
+  const ids = MP_CATEGORY_IDS[want];
+  return ids ? hasStoreCategory(appIdOf(app), ids) : false;
 }
 
 function evalMultiplayerTypeFetched(app: AppOverview, want: string): boolean {
@@ -209,145 +226,19 @@ function evalMultiplayerType(item: any, app: AppOverview): boolean {
   return local != null ? local : evalMultiplayerTypeFetched(app, want);
 }
 
-function evalFamilySharing(_item: any, app: AppOverview): boolean {
-  const raw = rawField<boolean>(appIdOf(app), "family_sharing", "rt_family_sharing", "family_shareable");
-  return raw === true;
-}
-
-function evalDlcOwned(item: any, app: AppOverview): boolean {
-  const min = Number(item.params?.minCount ?? 1);
-  const raw = rawField<number[]>(appIdOf(app), "rt_owned_dlc", "owned_dlc", "dlc_owned");
-  if (!Array.isArray(raw)) return false;
-  return raw.length >= min;
-}
-
-function evalSoundtrackOwned(_item: any, app: AppOverview): boolean {
-  const raw = rawField<number[] | boolean>(appIdOf(app), "rt_owned_soundtrack", "soundtrack_owned");
-  if (typeof raw === "boolean") return raw;
-  return Array.isArray(raw) && raw.length > 0;
-}
-
-function evalLaunchCount(item: any, app: AppOverview): boolean {
-  const min = Number(item.params?.min ?? 0);
-  const max = Number(item.params?.max ?? Number.POSITIVE_INFINITY);
-  const totalMinutes = Number(app.playtime_forever ?? 0);
-  const launchCount = rawField<number>(appIdOf(app), "rt_launch_count", "launch_count")
-    ?? Math.floor(totalMinutes / 45); // 45-min session proxy
-  return launchCount >= min && launchCount <= max;
-}
-
-function evalAvgSessionMinutes(item: any, app: AppOverview): boolean {
-  const minM = Number(item.params?.min ?? 0);
-  const maxM = Number(item.params?.max ?? Number.POSITIVE_INFINITY);
-  const totalMinutes = Number(app.playtime_forever ?? 0);
-  const launchCount = rawField<number>(appIdOf(app), "rt_launch_count", "launch_count") ?? Math.floor(totalMinutes / 45);
-  if (!launchCount) return false;
-  const avg = totalMinutes / launchCount;
-  return avg >= minM && avg <= maxM;
-}
-
-function evalNeverCompleted(_item: any, app: AppOverview): boolean {
-  const pct = rawField<number>(appIdOf(app), "rt_achievement_completion", "achievement_completion", "achievement_percentage");
-  return typeof pct === "number" ? pct < 100 : false;
-}
-
-function evalRecentlyAbandoned(item: any, app: AppOverview): boolean {
-  const last = Number(app.last_played ?? 0);
-  if (!last) return false;
-  const minDaysAgo = Number(item.params?.minDaysAgo ?? 7);
-  const maxDaysAgo = Number(item.params?.maxDaysAgo ?? 60);
-  const daysAgo = (Date.now() / 1000 - last) / 86400;
-  return daysAgo >= minDaysAgo && daysAgo <= maxDaysAgo;
-}
-
-function evalInstalledNeverPlayed(_item: any, app: AppOverview): boolean {
-  const installed = isInstalledOf(app);
-  const played = Number(app.playtime_forever ?? 0);
-  return installed && played === 0;
-}
-
 function evalPlayedOnce(item: any, app: AppOverview): boolean {
   const max = Number(item.params?.maxMinutes ?? 60);
   const played = Number(app.playtime_forever ?? 0);
   return played > 0 && played <= max;
 }
 
-function evalAchievementPercentRange(item: any, app: AppOverview): boolean {
-  const pct = rawField<number>(appIdOf(app), "rt_achievement_completion", "achievement_completion", "achievement_percentage");
-  if (typeof pct !== "number") return false;
-  const min = Number(item.params?.min ?? 0);
-  const max = Number(item.params?.max ?? 100);
-  return pct >= min && pct <= max;
-}
-
-function evalStorageDevice(item: any, app: AppOverview): boolean {
-  const want = String(item.params?.device ?? "ssd").toLowerCase();
-  const folder = rawField<string>(appIdOf(app), "install_folder", "rt_install_folder", "path");
-  if (!folder) return false;
-  const isSd = /\/run\/media\/mmcblk|\/mmcblk|sd\sCard/i.test(folder);
-  return want === "sd" ? isSd : !isSd;
-}
-
 function evalInstalledSizeRange(item: any, app: AppOverview): boolean {
-  const size = Number(rawField<number>(appIdOf(app), "size_on_disk", "rt_size_on_disk") ?? 0);
+  const size = Number(app.size_on_disk ?? 0);
   if (!size) return false;
   const sizeMb = size / (1024 * 1024);
   const min = Number(item.params?.minMB ?? 0);
   const max = Number(item.params?.maxMB ?? Number.POSITIVE_INFINITY);
   return sizeMb >= min && sizeMb <= max;
-}
-
-function evalCompatDataQuality(_item: any, app: AppOverview): boolean {
-  const cat = Number(app.deck_compatibility_category ?? 0);
-  // 0 = unknown, 1 = unsupported, 2 = playable, 3 = verified.
-  return cat > 0;
-}
-
-function execContains(appid: number, ...needles: string[]): boolean {
-  const cmd = rawField<string>(appid, "rt_launch_command_line", "launch_options") ?? "";
-  const exe = rawField<string>(appid, "rt_exe", "exe") ?? "";
-  const haystack = (cmd + " " + exe).toLowerCase();
-  return needles.some((n) => haystack.includes(n.toLowerCase()));
-}
-
-function evalEmuDeckSystem(_item: any, app: AppOverview): boolean {
-  if (!isNonSteamOf(app)) return false;
-  return execContains(appIdOf(app), "emudeck", "EmuDeck/", "Emulation/");
-}
-function evalRetroDeckSystem(_item: any, app: AppOverview): boolean {
-  if (!isNonSteamOf(app)) return false;
-  return execContains(appIdOf(app), "retrodeck", "RetroDECK/", "/retrodeck");
-}
-function evalHeroicLauncher(_item: any, app: AppOverview): boolean {
-  if (!isNonSteamOf(app)) return false;
-  return execContains(appIdOf(app), "heroic", "Heroic/", "heroic-launcher");
-}
-function evalLutrisApp(_item: any, app: AppOverview): boolean {
-  if (!isNonSteamOf(app)) return false;
-  return execContains(appIdOf(app), "lutris", "lutris-wrapper");
-}
-function evalChiakiApp(_item: any, app: AppOverview): boolean {
-  if (!isNonSteamOf(app)) return false;
-  return execContains(appIdOf(app), "chiaki", "chiaki-ng");
-}
-function evalMoonlightApp(_item: any, app: AppOverview): boolean {
-  if (!isNonSteamOf(app)) return false;
-  return execContains(appIdOf(app), "moonlight", "moonlight-qt");
-}
-
-function evalExecutableType(item: any, app: AppOverview): boolean {
-  const want = String(item.params?.ext ?? "").toLowerCase().replace(/^\./, "");
-  if (!want) return true;
-  const cmd = rawField<string>(appIdOf(app), "rt_launch_command_line", "launch_options") ?? "";
-  const exe = rawField<string>(appIdOf(app), "rt_exe", "exe") ?? "";
-  return cmd.toLowerCase().includes("." + want) || exe.toLowerCase().endsWith("." + want);
-}
-
-function evalLaunchOptionTags(item: any, app: AppOverview): boolean {
-  const want: string[] = Array.isArray(item.params?.tags) ? item.params.tags.map((t: string) => String(t).toLowerCase()) : [];
-  if (!want.length) return true;
-  const tokens = parseLaunchOptions(appIdOf(app)).map((t) => t.toLowerCase());
-  return want.some((t) => tokens.includes(t));
 }
 
 function anyTagMatches(item: any, tags: readonly string[]): boolean {
@@ -367,59 +258,7 @@ function evalParserCategories(item: any, app: AppOverview): boolean {
   return anyTagMatches(item, shortcutTagsFor(appIdOf(app)));
 }
 
-function evalHiddenLauncherShortcuts(_item: any, app: AppOverview): boolean {
-  return isNonSteamOf(app) && (app as any).is_hidden === true;
-}
-
-/* Composite children can be ANY filter type (base + v3). The caller passes the
-   host's full evaluator in (see `evalDefault` in steam/index.ts) rather than
-   this module importing it back — that would be a cycle. `_compositeDepth`
-   bounds the recursion so a pathological self-referential tree can't spin. */
-let _compositeDepth = 0;
-function runChild(child: any, app: AppOverview, evalChild?: ChildEvaluator): boolean {
-  if (!evalChild || !child || typeof child.type !== "string") return false;
-  if (_compositeDepth >= 6) return false;
-  _compositeDepth++;
-  try {
-    return evalChild(child, app);
-  } catch {
-    return false;
-  } finally {
-    _compositeDepth--;
-  }
-}
-
-function childrenOf(item: any): any[] {
-  return Array.isArray(item.params?.children) ? item.params.children : [];
-}
-
-function evalWeighted(item: any, app: AppOverview, evalChild?: ChildEvaluator): boolean {
-  // Sum the weights of matching children; pass when the sum ≥ threshold. With
-  // the default weight of 1 this reads as "at least N of these conditions".
-  const threshold = Number(item.params?.threshold ?? 1);
-  let sum = 0;
-  for (const c of childrenOf(item)) {
-    if (runChild(c, app, evalChild)) sum += Number(c.weight ?? 1);
-  }
-  return sum >= threshold;
-}
-
-function evalPriority(item: any, app: AppOverview, evalChild?: ChildEvaluator): boolean {
-  // First child that matches wins (boolean: matches if ANY child matches).
-  return childrenOf(item).some((c) => runChild(c, app, evalChild));
-}
-
-function evalExclusionGroup(item: any, app: AppOverview, evalChild?: ChildEvaluator): boolean {
-  // ANY child matches → exclude (returns false).
-  return !childrenOf(item).some((c) => runChild(c, app, evalChild));
-}
-
-// Filters on fields the app overview already carries, natively or from the
-// online metadata, so they need no fetch of their own.
-
-// Review score — metacritic (default) or Steam review %. Both are online-
-// enriched (onlineMetadata.ts); an app with no score never matches (so the
-// filter narrows to titles that actually have a rating meeting the bound).
+// Review score — metacritic (default) or Steam review %; an app with no score never matches.
 function reviewScoreOf(app: AppOverview, source: string): number | undefined {
   const key = source === "steam" ? "review_percentage" : "metacritic_score";
   const v = (app as any)[key];
@@ -433,17 +272,33 @@ function evalReviewScore(item: any, app: AppOverview): boolean {
   return op === "<=" ? score <= value : score >= value;
 }
 
-// Release date — `rt_original_release_date` is in SECONDS (native + enriched).
-// Param `ts` is a seconds timestamp; `op` after/before is inclusive.
+/* Dates in seconds: `op` after/before is inclusive of `ts`; "unknown" matches an app
+   without the date. No `ts` yet does not constrain. */
+function dateMatches(sec: number, item: any): boolean {
+  const op = String(item.params?.op ?? "after");
+  if (op === "unknown") return !sec;
+  const ts = Number(item.params?.ts ?? 0);
+  if (!ts) return true;
+  if (!sec) return false;
+  return op === "before" ? sec <= ts : sec >= ts;
+}
+
 function releaseSecOf(app: AppOverview): number {
   return Number(app.rt_original_release_date ?? (app as any).rt_steam_release_date ?? 0);
 }
 function evalReleaseDate(item: any, app: AppOverview): boolean {
-  const ts = Number(item.params?.ts ?? 0);
-  if (!ts) return true; // no date set yet → don't constrain
-  const rel = releaseSecOf(app);
-  if (!rel) return false;
-  return String(item.params?.op ?? "after") === "before" ? rel <= ts : rel >= ts;
+  return dateMatches(releaseSecOf(app), item);
+}
+function evalPurchaseDate(item: any, app: AppOverview): boolean {
+  return dateMatches(Number(app.rt_purchased_time ?? 0), item);
+}
+
+// Store categories by id, any or all of them, from the client's own record of the app.
+function evalStoreCategory(item: any, app: AppOverview): boolean {
+  const ids: number[] = Array.isArray(item.params?.ids) ? item.params.ids.map(Number).filter(Number.isFinite) : [];
+  if (!ids.length) return true;
+  const has = (id: number) => hasStoreCategory(appIdOf(app), [id]) === true;
+  return item.params?.mode === "all" ? ids.every(has) : ids.some(has);
 }
 
 // Coming soon — released in the future (or unreleased with a future date).
@@ -452,9 +307,58 @@ function evalComingSoon(_item: any, app: AppOverview): boolean {
   return rel > Date.now() / 1000;
 }
 
-// Demo — Steam EAppType demo bit (8). Non-Steam shortcuts never qualify.
-function evalDemo(_item: any, app: AppOverview): boolean {
-  return Number(app.app_type) === 8;
+/* Store tags, from the client's own tag ids on the app and their names in the client's
+   language; a wanted tag is a name or a tag id. */
+function wantedTags(item: any): string[] {
+  const tags: unknown[] = Array.isArray(item.params?.tags) ? item.params.tags : [];
+  return tags.map((t) => normalizeText(String(t))).filter(Boolean);
+}
+
+function tagNameOf(id: number): string {
+  try { return normalizeText(String(steamAppStore()?.GetLocalizationForStoreTag?.(id) ?? "")); } catch { return ""; }
+}
+
+// Any of the wanted tags, or all of them with `mode: "all"`.
+function evalStoreTag(item: any, app: AppOverview): boolean {
+  const want = wantedTags(item);
+  if (!want.length) return true;
+  const local = rawLocalOverview(appIdOf(app));
+  if (typeof local?.GetStoreTags !== "function") return false;
+  const have = new Set<string>();
+  for (const id of local.GetStoreTags() ?? []) { have.add(String(id)); have.add(tagNameOf(id)); }
+  return item.params?.mode === "all" ? want.every((t) => have.has(t)) : want.some((t) => have.has(t));
+}
+
+// Owned by at least `min` friends; `friends` narrows the count to those account ids.
+function evalFriends(item: any, app: AppOverview): boolean {
+  const min = Math.max(1, Number(item.params?.min ?? 1));
+  const among: number[] = Array.isArray(item.params?.friends) ? item.params.friends.map(Number) : [];
+  return friendsOwningCount(appIdOf(app), among) >= min;
+}
+
+// Unlocked achievements in [min, max]; an app without any loaded never matches.
+function evalAchievements(item: any, app: AppOverview): boolean {
+  const counts = achievementsOf(appIdOf(app));
+  if (!counts || counts.total === 0) return false;
+  const min = Number(item.params?.min ?? 1);
+  const max = Number(item.params?.max ?? Number.POSITIVE_INFINITY);
+  return counts.achieved >= min && counts.achieved <= (max > 0 ? max : Number.POSITIVE_INFINITY);
+}
+
+function evalAchievementPercentRange(item: any, app: AppOverview): boolean {
+  const pct = achievementPercent(appIdOf(app));
+  if (pct === undefined) return false;
+  return pct >= Number(item.params?.min ?? 0) && pct <= Number(item.params?.max ?? 100);
+}
+
+function evalNeverCompleted(_item: any, app: AppOverview): boolean {
+  const pct = achievementPercent(appIdOf(app));
+  return pct !== undefined && pct < 100;
+}
+
+// Borrowed through Family Sharing, as the client marks it.
+function isBorrowed(app: AppOverview): boolean {
+  try { return rawLocalOverview(appIdOf(app))?.BIsBorrowed?.() === true; } catch { return false; }
 }
 
 export const FILTER_V3_EVALUATORS: Record<string, FilterEvaluator> = {
@@ -463,83 +367,24 @@ export const FILTER_V3_EVALUATORS: Record<string, FilterEvaluator> = {
   franchise: evalFranchise,
   vrSupport: evalVrSupport,
   multiplayerType: evalMultiplayerType,
-  familySharing: evalFamilySharing,
-  dlcOwned: evalDlcOwned,
-  soundtrackOwned: evalSoundtrackOwned,
-  launchCount: evalLaunchCount,
-  avgSessionMinutes: evalAvgSessionMinutes,
-  neverCompleted: evalNeverCompleted,
-  recentlyAbandoned: evalRecentlyAbandoned,
-  installedNeverPlayed: evalInstalledNeverPlayed,
   playedOnce: evalPlayedOnce,
-  achievementPercentRange: evalAchievementPercentRange,
-  storageDevice: evalStorageDevice,
   installedSizeRange: evalInstalledSizeRange,
-  compatDataQuality: evalCompatDataQuality,
-  emuDeckSystem: evalEmuDeckSystem,
-  retroDeckSystem: evalRetroDeckSystem,
-  heroicLauncher: evalHeroicLauncher,
-  lutrisApp: evalLutrisApp,
-  chiakiApp: evalChiakiApp,
-  moonlightApp: evalMoonlightApp,
-  executableType: evalExecutableType,
-  launchOptionTags: evalLaunchOptionTags,
   customTags: evalCustomTags,
   parserCategories: evalParserCategories,
-  hiddenLauncherShortcuts: evalHiddenLauncherShortcuts,
-  weightedFilter: evalWeighted,
-  priorityFilter: evalPriority,
-  exclusionGroup: evalExclusionGroup,
   reviewScore: evalReviewScore,
   releaseDate: evalReleaseDate,
   comingSoon: evalComingSoon,
-  demo: evalDemo,
+  storeTag: evalStoreTag,
+  storeCategory: evalStoreCategory,
+  purchaseDate: evalPurchaseDate,
+  friends: evalFriends,
+  achievements: evalAchievements,
+  achievementPercentRange: evalAchievementPercentRange,
+  neverCompleted: evalNeverCompleted,
+  familySharing: (_item, app) => isBorrowed(app),
 };
 
 export type SortComparator = (a: AppOverview, b: AppOverview) => number;
-
-const cmpDesc = (na: number, nb: number) => nb - na;
-const cmpAsc  = (na: number, nb: number) => na - nb;
-
-function launchCountOf(app: AppOverview): number {
-  const explicit = rawField<number>(appIdOf(app), "rt_launch_count", "launch_count");
-  if (typeof explicit === "number") return explicit;
-  const total = Number(app.playtime_forever ?? 0);
-  return Math.floor(total / 45); // 45-min session proxy
-}
-
-function avgSessionMinutesOf(app: AppOverview): number {
-  const total = Number(app.playtime_forever ?? 0);
-  const count = launchCountOf(app);
-  if (!count) return 0;
-  return total / count;
-}
-
-function completionPctOf(app: AppOverview): number {
-  return rawField<number>(appIdOf(app), "rt_achievement_completion", "achievement_completion", "achievement_percentage") ?? 0;
-}
-
-function rarityScoreOf(app: AppOverview): number {
-  return rawField<number>(appIdOf(app), "rt_rarest_achievement_score", "rare_achievement_score") ?? 0;
-}
-
-function installDateOf(app: AppOverview): number {
-  return rawField<number>(appIdOf(app), "rt_install_date", "install_date") ?? 0;
-}
-
-function purchaseDateOf(app: AppOverview): number {
-  return Number((app as any).rt_purchased_time ?? 0);
-}
-
-function sizeOnDiskOf(app: AppOverview): number {
-  return Number(rawField<number>(appIdOf(app), "size_on_disk", "rt_size_on_disk") ?? 0);
-}
-
-function storageBitOf(app: AppOverview): 0 | 1 {
-  const folder = rawField<string>(appIdOf(app), "install_folder", "rt_install_folder", "path");
-  if (!folder) return 0;
-  return /\/run\/media\/mmcblk|\/mmcblk/i.test(folder) ? 1 : 0; // 1 = SD card
-}
 
 // Real per-app friend count (not just a 0/1 presence check) so "most
 // friends playing" actually ranks by how many, not just whether any do.
@@ -550,10 +395,6 @@ function friendsPlayingCountOf(app: AppOverview): number {
   } catch { return 0; }
 }
 
-function friendsOwnCountOf(app: AppOverview): number {
-  return rawField<number>(appIdOf(app), "rt_friends_owning_count", "friends_owning") ?? 0;
-}
-
 // A merged pool (wishlist/store, composite) mixes real AppOverviews with
 // bare `{ appid }` placeholders for unowned items — a fresh client lookup,
 // not the `app` param itself, is what distinguishes them here.
@@ -561,169 +402,40 @@ function isOwnedLocally(app: AppOverview): boolean {
   return rawLocalOverview(appIdOf(app)) !== null;
 }
 
-function isFamilyShared(app: AppOverview): boolean {
-  return rawField<boolean>(appIdOf(app), "family_sharing", "rt_family_sharing", "family_shareable") === true;
-}
+const pctOf = (app: AppOverview) => achievementPercent(appIdOf(app)) ?? -1;
+// Nearest to 100% first; finished games and games without progress go last.
+const remainingOf = (app: AppOverview) => { const pct = pctOf(app); return pct < 0 || pct >= 100 ? Number.POSITIVE_INFINITY : 100 - pct; };
+const owningOf = (app: AppOverview) => friendsOwningCount(appIdOf(app));
+const trendingOf = (app: AppOverview) => friendsPlayingCountOf(app) * 10 + owningOf(app);
 
 export const SORT_V3_COMPARATORS: Record<string, SortComparator> = {
-  most_launched:           (a, b) => cmpDesc(launchCountOf(a), launchCountOf(b)),
-  least_launched:          (a, b) => cmpAsc(launchCountOf(a), launchCountOf(b)),
-  longest_session:         (a, b) => cmpDesc(avgSessionMinutesOf(a), avgSessionMinutesOf(b)),
-  shortest_session:        (a, b) => cmpAsc(avgSessionMinutesOf(a), avgSessionMinutesOf(b)),
-  most_ignored: (a, b) => {
-    const aIdle = Date.now()/1000 - Number(a.last_played ?? 0);
-    const bIdle = Date.now()/1000 - Number(b.last_played ?? 0);
-    return cmpDesc(aIdle, bIdle);
-  },
-  rediscovered_recently: (a, b) => {
-    const aIdle = Date.now()/1000 - Number(a.last_played ?? 0);
-    const bIdle = Date.now()/1000 - Number(b.last_played ?? 0);
-    return cmpAsc(aIdle, bIdle);
-  },
-  completion_percent:      (a, b) => cmpDesc(completionPctOf(a), completionPctOf(b)),
-  closest_to_completion:   (a, b) => {
-    const ax = completionPctOf(a); const bx = completionPctOf(b);
-    return cmpAsc(Math.abs(100 - ax), Math.abs(100 - bx));
-  },
-  rarest_achievements:     (a, b) => cmpDesc(rarityScoreOf(a), rarityScoreOf(b)),
-  newest_installed:        (a, b) => cmpDesc(installDateOf(a), installDateOf(b)),
-  oldest_installed:        (a, b) => cmpAsc(installDateOf(a), installDateOf(b)),
-  oldest_unplayed: (a, b) => {
-    const ax = Number(a.playtime_forever ?? 0) === 0 ? installDateOf(a) : Number.MAX_SAFE_INTEGER;
-    const bx = Number(b.playtime_forever ?? 0) === 0 ? installDateOf(b) : Number.MAX_SAFE_INTEGER;
-    return cmpAsc(ax, bx);
-  },
-  newest_purchased:        (a, b) => cmpDesc(purchaseDateOf(a), purchaseDateOf(b)),
-  largest_install:         (a, b) => cmpDesc(sizeOnDiskOf(a), sizeOnDiskOf(b)),
-  smallest_install:        (a, b) => cmpAsc(sizeOnDiskOf(a), sizeOnDiskOf(b)),
-  ssd_priority:            (a, b) => cmpAsc(storageBitOf(a), storageBitOf(b)),
-  sd_priority:             (a, b) => cmpDesc(storageBitOf(a), storageBitOf(b)),
-  friends_playing_now:     (a, b) => cmpDesc(friendsPlayingCountOf(a), friendsPlayingCountOf(b)),
-  most_friends_owning:     (a, b) => cmpDesc(friendsOwnCountOf(a), friendsOwnCountOf(b)),
-  trending_among_friends:  (a, b) => cmpDesc(
-    friendsPlayingCountOf(a) * 10 + friendsOwnCountOf(a),
-    friendsPlayingCountOf(b) * 10 + friendsOwnCountOf(b),
-  ),
-  owned_games:             (a, b) => cmpDesc(isOwnedLocally(a) ? 1 : 0, isOwnedLocally(b) ? 1 : 0),
-  family_shared_games:     (a, b) => cmpDesc(isFamilyShared(a) ? 1 : 0, isFamilyShared(b) ? 1 : 0),
-  weighted_random:         () => 0,
-  smart_random:            () => 0,
-  seeded_random:           () => 0,
-  rotating_daily_random:   () => 0,
-  avoid_recently_shown:    () => 0,
+  friends_playing_now:    (a, b) => friendsPlayingCountOf(b) - friendsPlayingCountOf(a),
+  owned_games:            (a, b) => (isOwnedLocally(b) ? 1 : 0) - (isOwnedLocally(a) ? 1 : 0),
+  completion_percent:     (a, b) => pctOf(b) - pctOf(a),
+  closest_to_completion:  (a, b) => remainingOf(a) - remainingOf(b),
+  most_friends_owning:    (a, b) => owningOf(b) - owningOf(a),
+  trending_among_friends: (a, b) => trendingOf(b) - trendingOf(a),
+  family_shared_games:    (a, b) => (isBorrowed(b) ? 1 : 0) - (isBorrowed(a) ? 1 : 0),
 };
 
 export type ShelfSourceResolver = (all: AppOverview[]) => AppOverview[];
 
-function bySteamFlag(all: AppOverview[], pred: (a: AppOverview) => boolean): AppOverview[] {
-  return all.filter(pred);
+// The listed games still in the library, in the list's own order.
+function fromIdList(all: AppOverview[], ids: number[]): AppOverview[] {
+  if (!ids.length) return [];
+  const byId = new Map(all.map((a) => [appIdOf(a), a] as const));
+  return [...new Set(ids)].map((id) => byId.get(id)).filter((a): a is AppOverview => !!a);
 }
 
-function pinnedIdsFromStorage(): Set<number> {
-  return new Set(pinnedIds());
-}
-
-function historyIdsFromStorage(): number[] {
-  return historyIds();
-}
-
-// Collect every appid held by a set of (dynamic) Steam collections, tolerant of
-// the shape variants across SteamOS versions (allApps / m_rgApps).
-function collectCollectionAppIds(collections: any[]): Set<number> {
-  const ids = new Set<number>();
-  for (const c of collections) {
-    const apps = c?.allApps ?? c?.m_rgApps ?? [];
-    for (const a of apps) {
-      const id = Number(a?.appid);
-      if (Number.isFinite(id)) ids.add(id);
-    }
-  }
-  return ids;
-}
-
+// The per-device game lists (runtime/gameLists.ts) and the client's dynamic collections together.
 export const SOURCE_V3_RESOLVERS: Record<string, ShelfSourceResolver> = {
-  // Steam-side
-  dynamic_collections: (all) => {
-    try {
-      const cs = steamCollectionStore();
-      const list: SteamCollectionLike[] = cs?.userCollections ?? [];
-      const dynamic = list.filter((c) => c?.bIsDynamic === true || c?.m_bIsDynamic === true);
-      const ids = collectCollectionAppIds(dynamic);
-      return all.filter((a) => ids.has(appIdOf(a)));
-    } catch { return []; }
-  },
-  followed_games: (all) => bySteamFlag(all, (a) => {
-    return rawField<boolean>(appIdOf(a), "rt_followed", "followed") === true;
-  }),
-  ignored_games: (all) => bySteamFlag(all, (a) => {
-    return rawField<boolean>(appIdOf(a), "rt_ignored", "ignored") === true;
-  }),
-  dlc_source: (all) => bySteamFlag(all, (a) => a.app_type === 32),
-  soundtrack_source: (all) => bySteamFlag(all, (a) => a.app_type === 8192),
-  // Manual
-  pinned_games: (all) => {
-    const pinned = pinnedIdsFromStorage();
-    if (!pinned.size) return [];
-    return all.filter((a) => pinned.has(appIdOf(a)));
-  },
-  history_source: (all) => {
-    const order = historyIdsFromStorage();
-    if (!order.length) return [];
-    const set = new Set(order);
-    const filtered = all.filter((a) => set.has(appIdOf(a)));
-    // Preserve history order.
-    return filtered.sort((a, b) => order.indexOf(appIdOf(a)) - order.indexOf(appIdOf(b)));
-  },
-  session_queue_source: (all) => {
-    const ids = sessionQueueIds();
-    if (!ids.length) return [];
-    const set = new Set(ids);
-    return all.filter((a) => set.has(appIdOf(a)));
-  },
-  temporary_queue_source: (all) => {
-    const ids = temporaryQueueIds();
-    if (!ids.length) return [];
-    const set = new Set(ids);
-    return all.filter((a) => set.has(appIdOf(a)));
-  },
-  // Contextual
-  recently_updated: (all) => bySteamFlag(all, (a) => {
-    const ts = Number((a as any).rt_recent_activity_time ?? 0);
-    if (!ts) return false;
-    const daysAgo = (Date.now() / 1000 - ts) / 86400;
-    return daysAgo <= 14;
-  }),
-  with_events: (all) => bySteamFlag(all, (a) => {
-    return rawField<boolean>(appIdOf(a), "rt_has_event", "has_event") === true;
-  }),
-  with_workshop_updates: (all) => bySteamFlag(all, (a) => {
-    return rawField<boolean>(appIdOf(a), "rt_workshop_update", "workshop_updated") === true;
-  }),
-  controller_specific_source: (all) => bySteamFlag(all, (a) => {
-    const n = Number(a.controller_support ?? 0);
-    return n >= 2;
-  }),
-  emudeck_collections:   (all) => filterByLauncherNames(all, "emudeck"),
-  retrodeck_collections: (all) => filterByLauncherNames(all, "retrodeck"),
-  heroic_library:        (all) => filterByLauncherNames(all, "heroic"),
-  lutris_library:        (all) => filterByLauncherNames(all, "lutris"),
-  moonlight_sessions:    (all) => filterByLauncherNames(all, "moonlight"),
-  chiaki_sessions:       (all) => filterByLauncherNames(all, "chiaki"),
+  dynamic_collections: (all) => { const ids = dynamicCollectionAppIds(); return all.filter((a) => ids.has(appIdOf(a))); },
+  // Last pinned first.
+  pinned_games: (all) => fromIdList(all, pinnedIds().slice().reverse()),
+  history_source: (all) => fromIdList(all, historyIds()),
+  session_queue_source: (all) => fromIdList(all, sessionQueueIds()),
+  temporary_queue_source: (all) => fromIdList(all, temporaryQueueIds()),
 };
-
-function normaliseTitle(s: string): string {
-  return String(s).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, " ").trim();
-}
-
-function filterByLauncherNames(all: AppOverview[], launcherId: string): AppOverview[] {
-  try {
-    const cache = (globalThis as any).__ds_launcher_cache;
-    const list = (cache?.games?.[launcherId] ?? []) as Array<{ name: string }>;
-    if (!list.length) return [];
-    const wanted = new Set(list.map((g) => normaliseTitle(g.name)));
-    return all.filter((a) => isNonSteamOf(a) && wanted.has(normaliseTitle((a as any).display_name ?? (a as any).name ?? "")));
-  } catch { return []; }
-}
 
 export interface V3Descriptor {
   id: string;
@@ -732,94 +444,45 @@ export interface V3Descriptor {
 }
 
 export const V3_FILTER_DESCRIPTORS: V3Descriptor[] = [
-  // Steam metadata
-  { id: "genres",                 displayName: "Genres",                 category: "steam-metadata" },
-  { id: "categories",             displayName: "Categories",             category: "steam-metadata" },
-  { id: "franchise",              displayName: "Franchise",              category: "steam-metadata" },
-  { id: "vrSupport",              displayName: "VR support",             category: "steam-metadata" },
-  { id: "multiplayerType",        displayName: "Multiplayer type",       category: "steam-metadata" },
-  { id: "familySharing",          displayName: "Family sharing",         category: "steam-metadata" },
-  { id: "dlcOwned",               displayName: "DLC owned",              category: "steam-metadata" },
-  { id: "soundtrackOwned",        displayName: "Soundtrack owned",       category: "steam-metadata" },
-  // User behaviour
-  { id: "launchCount",            displayName: "Launch count",           category: "user-behaviour" },
-  { id: "avgSessionMinutes",      displayName: "Avg session length",     category: "user-behaviour" },
-  { id: "neverCompleted",         displayName: "Never completed",        category: "user-behaviour" },
-  { id: "recentlyAbandoned",      displayName: "Recently abandoned",     category: "user-behaviour" },
-  { id: "installedNeverPlayed",   displayName: "Installed but never played", category: "user-behaviour" },
-  { id: "playedOnce",             displayName: "Played once only",       category: "user-behaviour" },
+  { id: "genres",             displayName: "Genres",             category: "steam-metadata" },
+  { id: "categories",         displayName: "Categories",         category: "steam-metadata" },
+  { id: "franchise",          displayName: "Franchise",          category: "steam-metadata" },
+  { id: "vrSupport",          displayName: "VR support",         category: "steam-metadata" },
+  { id: "multiplayerType",    displayName: "Multiplayer type",   category: "steam-metadata" },
+  { id: "reviewScore",        displayName: "Review score",       category: "steam-metadata" },
+  { id: "releaseDate",        displayName: "Release date",       category: "steam-metadata" },
+  { id: "comingSoon",         displayName: "Coming soon",        category: "steam-metadata" },
+  { id: "playedOnce",         displayName: "Played once only",   category: "user-behaviour" },
+  { id: "installedSizeRange", displayName: "Installed size",     category: "storage" },
+  { id: "customTags",         displayName: "Custom tags",        category: "advanced-non-steam" },
+  { id: "parserCategories",   displayName: "Parser categories",  category: "advanced-non-steam" },
+  { id: "storeTag",           displayName: "Store tag",          category: "steam-metadata" },
+  { id: "storeCategory",      displayName: "Steam features",     category: "steam-metadata" },
+  { id: "purchaseDate",       displayName: "Purchase date",      category: "steam-metadata" },
+  { id: "familySharing",      displayName: "Family sharing",     category: "steam-metadata" },
+  { id: "friends",            displayName: "Friends who own",    category: "social" },
+  { id: "achievements",       displayName: "Achievements",       category: "user-behaviour" },
   { id: "achievementPercentRange", displayName: "Achievement percentage", category: "user-behaviour" },
-  // Storage / device
-  { id: "storageDevice",          displayName: "Storage device",         category: "storage" },
-  { id: "installedSizeRange",     displayName: "Installed size",         category: "storage" },
-  { id: "compatDataQuality",      displayName: "Compat-data quality",    category: "storage" },
-  // External ecosystem
-  { id: "emuDeckSystem",          displayName: "EmuDeck system",         category: "external" },
-  { id: "retroDeckSystem",        displayName: "RetroDECK system",       category: "external" },
-  { id: "heroicLauncher",         displayName: "Heroic launcher",        category: "external" },
-  { id: "lutrisApp",              displayName: "Lutris app",             category: "external" },
-  { id: "chiakiApp",              displayName: "Chiaki app",             category: "external" },
-  { id: "moonlightApp",           displayName: "Moonlight app",          category: "external" },
-  // Advanced non-Steam
-  { id: "executableType",         displayName: "Executable type",        category: "advanced-non-steam" },
-  { id: "launchOptionTags",       displayName: "Launch option tags",     category: "advanced-non-steam" },
-  { id: "customTags",             displayName: "Custom tags",            category: "advanced-non-steam" },
-  { id: "parserCategories",       displayName: "Parser categories",      category: "advanced-non-steam" },
-  { id: "hiddenLauncherShortcuts", displayName: "Hidden launcher shortcuts", category: "advanced-non-steam" },
-  // Composite
-  { id: "weightedFilter",         displayName: "Weighted filter",        category: "composite" },
-  { id: "priorityFilter",         displayName: "Priority filter",        category: "composite" },
-  { id: "exclusionGroup",         displayName: "Exclusion group",        category: "composite" },
+  { id: "neverCompleted",     displayName: "Never completed",    category: "user-behaviour" },
+  { id: "weightedFilter",     displayName: "Weighted filter",    category: "composite" },
+  { id: "priorityFilter",     displayName: "Priority filter",    category: "composite" },
+  { id: "exclusionGroup",     displayName: "Exclusion group",    category: "composite" },
 ];
 
 export const V3_SORT_DESCRIPTORS: V3Descriptor[] = [
-  { id: "most_launched",          displayName: "Most launched" },
-  { id: "least_launched",         displayName: "Least launched" },
-  { id: "longest_session",        displayName: "Longest session" },
-  { id: "shortest_session",       displayName: "Shortest session" },
-  { id: "most_ignored",           displayName: "Most ignored" },
-  { id: "rediscovered_recently",  displayName: "Rediscovered recently" },
+  { id: "friends_playing_now",    displayName: "Friends playing now" },
+  { id: "owned_games",            displayName: "Games I own" },
   { id: "completion_percent",     displayName: "Completion %" },
   { id: "closest_to_completion",  displayName: "Closest to completion" },
-  { id: "rarest_achievements",    displayName: "Rarest achievements owned" },
-  { id: "newest_installed",       displayName: "Newest installed" },
-  { id: "oldest_installed",       displayName: "Oldest installed" },
-  { id: "oldest_unplayed",        displayName: "Oldest unplayed" },
-  { id: "newest_purchased",       displayName: "Newest purchased" },
-  { id: "largest_install",        displayName: "Largest install" },
-  { id: "smallest_install",       displayName: "Smallest install" },
-  { id: "ssd_priority",           displayName: "SSD priority" },
-  { id: "sd_priority",            displayName: "SD card priority" },
-  { id: "friends_playing_now",    displayName: "Friends playing now" },
   { id: "most_friends_owning",    displayName: "Most friends owning" },
   { id: "trending_among_friends", displayName: "Trending among friends" },
-  { id: "owned_games",            displayName: "Games I own" },
   { id: "family_shared_games",    displayName: "Family-shared games" },
-  { id: "weighted_random",        displayName: "Weighted random" },
-  { id: "smart_random",           displayName: "Smart random" },
-  { id: "seeded_random",          displayName: "Seeded random" },
-  { id: "rotating_daily_random",  displayName: "Rotating daily random" },
-  { id: "avoid_recently_shown",   displayName: "Avoid recently shown" },
 ];
 
 export const V3_SOURCE_DESCRIPTORS: V3Descriptor[] = [
-  { id: "dynamic_collections",      displayName: "Dynamic collections",   category: "steam" },
-  { id: "followed_games",           displayName: "Followed games",        category: "steam" },
-  { id: "ignored_games",            displayName: "Ignored games",         category: "steam" },
-  { id: "dlc_source",               displayName: "DLC",                   category: "steam" },
-  { id: "soundtrack_source",        displayName: "Soundtracks",           category: "steam" },
-  { id: "pinned_games",             displayName: "Pinned games",          category: "manual" },
-  { id: "history_source",           displayName: "Play history",          category: "manual" },
-  { id: "session_queue_source",     displayName: "Session queue",         category: "manual" },
-  { id: "temporary_queue_source",   displayName: "Temporary queue",       category: "manual" },
-  { id: "recently_updated",         displayName: "Recently updated",      category: "contextual" },
-  { id: "with_events",              displayName: "With events",           category: "contextual" },
-  { id: "with_workshop_updates",    displayName: "With workshop updates", category: "contextual" },
-  { id: "controller_specific_source", displayName: "Controller-specific", category: "contextual" },
-  { id: "emudeck_collections",      displayName: "EmuDeck collections",   category: "external" },
-  { id: "retrodeck_collections",    displayName: "RetroDECK collections", category: "external" },
-  { id: "heroic_library",           displayName: "Heroic library",        category: "external" },
-  { id: "lutris_library",           displayName: "Lutris library",        category: "external" },
-  { id: "moonlight_sessions",       displayName: "Moonlight sessions",    category: "external" },
-  { id: "chiaki_sessions",          displayName: "Chiaki sessions",       category: "external" },
+  { id: "dynamic_collections",    displayName: "Dynamic collections", category: "steam" },
+  { id: "pinned_games",           displayName: "Pinned games",    category: "manual" },
+  { id: "history_source",         displayName: "Play history",    category: "manual" },
+  { id: "session_queue_source",   displayName: "Session queue",   category: "manual" },
+  { id: "temporary_queue_source", displayName: "Temporary queue", category: "manual" },
 ];

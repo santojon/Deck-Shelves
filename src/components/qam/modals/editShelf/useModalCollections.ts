@@ -17,8 +17,8 @@ export function useModalCollections(initial: ReadonlyArray<PlatformCollection>):
       modalPlatform.listCollections().then((next) => {
         if (cancelled) return
         setModalCollections((current) => {
-          const a = JSON.stringify(current.map((c) => ({ id: c.id, name: c.name })))
-          const b = JSON.stringify(next.map((c) => ({ id: c.id, name: c.name })))
+          const a = JSON.stringify(current.map((c) => ({ id: c.id, name: c.name, isDynamic: c.isDynamic })))
+          const b = JSON.stringify(next.map((c) => ({ id: c.id, name: c.name, isDynamic: c.isDynamic })))
           return a === b ? current : next
         })
       }).catch(() => {})

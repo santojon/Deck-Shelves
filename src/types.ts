@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+// The condition types the plugin evaluates. Evaluators: steam/filterEval.ts and steam/v3Extensions.ts.
 export const FilterItemTypeSchema = z.enum([
   "installed",
   "favorites",
@@ -15,11 +16,8 @@ export const FilterItemTypeSchema = z.enum([
   "neglected",
   "nameIncludes",
   "nameRegex",
-  "friends",
   "friendsPlayingNow",
   "friendsPlayedRecently",
-  "storeTag",
-  "achievements",
   "collection",
   "developer",
   "publisher",
@@ -37,47 +35,37 @@ export const FilterItemTypeSchema = z.enum([
   "appStatus",
   "discount",
   "priceRange",
-  "familySharing",
-  // Filter v3 — param-free predicates (evaluators in steam/v3Extensions.ts).
   "vrSupport",
-  "demo",
   "comingSoon",
-  "soundtrackOwned",
-  "neverCompleted",
-  "installedNeverPlayed",
-  "compatDataQuality",
-  "emuDeckSystem",
-  "retroDeckSystem",
-  "heroicLauncher",
-  "lutrisApp",
-  "chiakiApp",
-  "moonlightApp",
-  "hiddenLauncherShortcuts",
-  // Filter v3 — parameterized predicates (editors in ConditionFields.tsx).
   "reviewScore",
   "releaseDate",
   "genres",
   "categories",
   "franchise",
   "multiplayerType",
-  "dlcOwned",
-  "launchCount",
-  "avgSessionMinutes",
-  "recentlyAbandoned",
   "playedOnce",
-  "achievementPercentRange",
-  "storageDevice",
   "installedSizeRange",
-  "executableType",
-  "launchOptionTags",
   "customTags",
   "parserCategories",
-  // Filter v3 — composites: combine other filter items (nested editor).
+  "storeTag",
+  "storeCategory",
+  "purchaseDate",
+  "friends",
+  "achievements",
+  "achievementPercentRange",
+  "neverCompleted",
+  "familySharing",
   "weightedFilter",
   "priorityFilter",
   "exclusionGroup",
 ]);
 export type FilterItemType = z.infer<typeof FilterItemTypeSchema>;
+
+const KNOWN_FILTER_TYPES: ReadonlySet<string> = new Set(FilterItemTypeSchema.options);
+
+export function isKnownFilterType(type: string): type is FilterItemType {
+  return KNOWN_FILTER_TYPES.has(type);
+}
 
 // Early imports stored boolean flags as 0/1; read them as booleans so the
 // whole document doesn't fail validation over a legacy filter item.
@@ -85,8 +73,11 @@ const legacyFlag = (v: unknown) => (v === 1 ? true : v === 0 ? false : v);
 // A stored boolean that also reads the legacy 0/1 encoding.
 const legacyBool = () => z.preprocess(legacyFlag, z.boolean());
 
+/* A condition keeps whatever type it was saved with: a type the plugin no longer
+   evaluates (retired, or a plugin's that is not loaded) stays in the document and
+   makes the query unavailable instead of being dropped or ignored. */
 export const FilterItemSchema = z.object({
-  type: FilterItemTypeSchema,
+  type: z.string().min(1).max(64),
   inverted: z.preprocess(legacyFlag, z.boolean().optional()),
   params: z.record(z.string(), z.any()).optional(),
 });
@@ -213,42 +204,26 @@ export const SmartShelfModeSchema = z.enum([
   "videos",
   "demos",
   "cloud_games",
-  // v2 heuristic templates (see src/steam/heuristics.ts).
   "backlog_rescue",
   "forgotten_gems",
   "weekly_rotation",
-  // v2 heuristic templates — second wave (composes existing AppOverview
-  // signals: playtime, last_played, deck_compatibility_category, size_on_disk,
-  // review_percentage, rt_purchased_time). No new backend signals needed.
   "short_battery",
-  "long_session_night",
   "travel_mode",
-  "hidden_gems",
-  "never_touched_classics",
   "recent_hidden_installs",
-  "monthly_spotlight",
-  "seasonal_rotation",
-  /* Battery-aware template: only resolves to its candidate pool when the
-     device is actually on battery below the threshold. When battery is OK
-     / charging / unknown, the resolver returns the same candidates as
-     short_battery (Deck-friendly + small) so the shelf isn't empty. */
   "low_battery_mode",
-  // Achievement-aware: nearly-complete achievement progress per app.
-  // Best-effort against SteamClient.Apps appDetails; returns empty when
-  // achievement data isn't reachable.
+  "friends_playing",
   "almost_finished",
-  // store_categories-aware: local multi-player / co-op / party. Best-effort
-  // against SteamClient.Apps.RegisterForAppDetails(.vecCategories); returns
-  // empty when category data isn't reachable.
   "couch_gaming",
   "coop_ready",
   "party_games",
-  /* Online-gated runtime template: reads Steam friends presence via
-     `friendStore.allFriends`. Returns empty when onlineFeaturesEnabled is
-     off (reuses the existing master toggle — no new toggle needed since
-     friends presence is conceptually network-sourced). */
-  "friends_playing",
   "custom",
+  /* Modes that duplicated another one, still accepted so a saved shelf survives:
+     rewritten to the mode they duplicated when the settings load (domain/retired.ts). */
+  "long_session_night",
+  "hidden_gems",
+  "never_touched_classics",
+  "monthly_spotlight",
+  "seasonal_rotation",
 ]);
 export type SmartShelfMode = z.infer<typeof SmartShelfModeSchema>;
 
@@ -402,7 +377,10 @@ export type SmartShelf = z.infer<typeof SmartShelfSchema>;
    bounded at resolve time (`MAX_COMPOSITE_DEPTH` in `steam/index.ts`);
    the schema accepts arbitrary nesting so power users editing JSON can
    go deeper than the editor exposes. */
-export type ShelfSource =
+// A source's own sort inside a composite shelf sorted by "source order".
+type SourceOrder = { sort?: string | string[]; sortReverse?: boolean | boolean[] };
+
+export type ShelfSource = SourceOrder & (
   | { type: "collection"; collectionId: string; childFilter?: FilterGroup }
   | { type: "tab"; tab: string; childFilter?: FilterGroup }
   | { type: "filter"; filter: ShelfFilter }
@@ -411,18 +389,23 @@ export type ShelfSource =
   | { type: "smart"; mode: SmartShelfMode }
   | { type: "wishlist"; childFilter?: FilterGroup; excludeOwned?: boolean; excludeOwnedNonSteam?: boolean; hideOwnedNonSteamCloud?: boolean }
   | { type: "store"; childFilter?: FilterGroup; excludeOwned?: boolean; excludeOwnedNonSteam?: boolean; hideOwnedNonSteamCloud?: boolean }
-  | { type: "composite"; combine: "union" | "intersection"; sources: ShelfSource[]; childFilter?: FilterGroup };
+  | { type: "composite"; combine: "union" | "intersection"; sources: ShelfSource[]; childFilter?: FilterGroup });
+
+const sourceOrder = {
+  sort: z.union([z.string(), z.array(z.string())]).optional(),
+  sortReverse: z.union([legacyBool(), z.array(legacyBool())]).optional(),
+};
 
 export const ShelfSourceSchema: z.ZodType<ShelfSource> = z.lazy(() => z.union([
-  z.object({ type: z.literal("collection"), collectionId: z.string(), childFilter: FilterGroupSchema.optional() }),
-  z.object({ type: z.literal("tab"), tab: z.string().min(1), childFilter: FilterGroupSchema.optional() }),
-  z.object({ type: z.literal("filter"), filter: FilterSchema.default({}) }),
-  z.object({ type: z.literal("external"), sourceId: z.string().min(1) }),
-  z.object({ type: z.literal("builtin"), sourceId: z.string().min(1) }),
-  z.object({ type: z.literal("smart"), mode: SmartShelfModeSchema }),
-  z.object({ type: z.literal("wishlist"), childFilter: FilterGroupSchema.optional(), excludeOwned: legacyBool().optional(), excludeOwnedNonSteam: legacyBool().optional(), hideOwnedNonSteamCloud: legacyBool().optional() }),
-  z.object({ type: z.literal("store"), childFilter: FilterGroupSchema.optional(), excludeOwned: legacyBool().optional(), excludeOwnedNonSteam: legacyBool().optional(), hideOwnedNonSteamCloud: legacyBool().optional() }),
-  z.object({ type: z.literal("composite"), combine: z.enum(["union", "intersection"]), sources: z.array(ShelfSourceSchema), childFilter: FilterGroupSchema.optional() }),
+  z.object({ type: z.literal("collection"), collectionId: z.string(), childFilter: FilterGroupSchema.optional(), ...sourceOrder }),
+  z.object({ type: z.literal("tab"), tab: z.string().min(1), childFilter: FilterGroupSchema.optional(), ...sourceOrder }),
+  z.object({ type: z.literal("filter"), filter: FilterSchema.default({}), ...sourceOrder }),
+  z.object({ type: z.literal("external"), sourceId: z.string().min(1), ...sourceOrder }),
+  z.object({ type: z.literal("builtin"), sourceId: z.string().min(1), ...sourceOrder }),
+  z.object({ type: z.literal("smart"), mode: SmartShelfModeSchema, ...sourceOrder }),
+  z.object({ type: z.literal("wishlist"), childFilter: FilterGroupSchema.optional(), excludeOwned: legacyBool().optional(), excludeOwnedNonSteam: legacyBool().optional(), hideOwnedNonSteamCloud: legacyBool().optional(), ...sourceOrder }),
+  z.object({ type: z.literal("store"), childFilter: FilterGroupSchema.optional(), excludeOwned: legacyBool().optional(), excludeOwnedNonSteam: legacyBool().optional(), hideOwnedNonSteamCloud: legacyBool().optional(), ...sourceOrder }),
+  z.object({ type: z.literal("composite"), combine: z.enum(["union", "intersection"]), sources: z.array(ShelfSourceSchema), childFilter: FilterGroupSchema.optional(), ...sourceOrder }),
 ]) as unknown as z.ZodType<ShelfSource>);
 export type ShelfFilter = z.infer<typeof FilterSchema>;
 
@@ -581,6 +564,8 @@ export const SettingsSchema = z.object({
   globalHideStatusLine: z.boolean().default(false),
   globalHideNewBadge: z.boolean().default(false),
   globalHideDiscountBadge: z.boolean().default(false),
+  // What the discount badge of an online card shows: the percentage, the sale price, or both.
+  discountBadgeMode: z.enum(["percent", "price", "both"]).optional(),
   globalHideCompatIcons: z.boolean().default(false),
   globalHideNonSteamBadge: z.boolean().default(false),
   globalHideShelfTitle: z.boolean().default(false),

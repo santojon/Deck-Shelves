@@ -72,13 +72,19 @@ async function applyWishlistChildFilter(ids: number[], childFilter: FilterGroup 
   }
   const byId = new Map(all.map((a) => [appIdOf(a), a] as const));
   await prefetchCatalogFilterData(childFilter.items, ids, byId);
-  return ids.filter((id) => {
-    const app = byId.get(id);
-    return childFilter.items.every((item) => evaluateWishlistChildItem(item, id, app));
-  });
+  return ids.filter((id) => matchesWishlistChildFilter(childFilter, id, byId.get(id)));
 }
 
-function evaluateWishlistChildItem(item: FilterItem, id: number, app: AppOverview | undefined): boolean {
+/* Same and/or as the library's groups. A personal condition says nothing about a store game the
+   user does not own, so it neither passes nor fails it: only the conditions that apply count, and a
+   group where none applies keeps the game. */
+export function matchesWishlistChildFilter(group: FilterGroup, id: number, app: AppOverview | undefined): boolean {
+  const results = group.items.map((item) => evaluateWishlistChildItem(item, id, app)).filter((r): r is boolean => r !== null);
+  if (results.length === 0) return true;
+  return (group.mode ?? "and") === "or" ? results.some(Boolean) : results.every(Boolean);
+}
+
+function evaluateWishlistChildItem(item: FilterItem, id: number, app: AppOverview | undefined): boolean | null {
   // Price-cache filters (discount / priceRange) only need the appid, so a store
   // game absent from the local library must still be checked against the cache —
   // never waved through, or unowned/free titles leak past a price bound.
@@ -86,7 +92,7 @@ function evaluateWishlistChildItem(item: FilterItem, id: number, app: AppOvervie
   // Catalog filters read v3Extensions' rawField, which falls back to fetched
   // Store metadata for ids not in `all` — a bare `{ appid }` is enough.
   if (CATALOG_FILTER_TYPES.has(item.type)) return evaluateFilterItem(item, (app ?? { appid: id }) as any, undefined);
-  if (!app) return true; // personal/play-history filters don't apply to unowned items
+  if (!app) return null;
   return evaluateFilterItem(item, app, undefined);
 }
 

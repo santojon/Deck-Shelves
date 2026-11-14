@@ -1,28 +1,27 @@
+import type { SmartShelfMode } from '../../../../types'
+
 export type SourceType = 'collection' | 'tab' | 'filter' | 'external' | 'wishlist' | 'store' | 'builtin'
 
-// Built-in Shelf Source v3 options — resolvers in steam/v3Extensions.ts. Each
-// is parameter-less; the picker stores `{ type: 'builtin', sourceId: value }`.
-// The launcher ones use their proper-noun name directly (no translation).
+// Built-in sources: the client's dynamic collections together, and the per-device game
+// lists (resolvers in steam/v3Extensions.ts). The picker stores `{ type: 'builtin', sourceId: value }`.
 export const V3_SOURCE_OPTIONS: { value: string; labelKey?: string; label?: string }[] = [
   { value: 'dynamic_collections', labelKey: 'source_v3_dynamic_collections' },
-  { value: 'followed_games', labelKey: 'source_v3_followed_games' },
-  { value: 'ignored_games', labelKey: 'source_v3_ignored_games' },
-  { value: 'dlc_source', labelKey: 'source_v3_dlc' },
-  { value: 'soundtrack_source', labelKey: 'source_v3_soundtracks' },
   { value: 'pinned_games', labelKey: 'source_v3_pinned' },
   { value: 'history_source', labelKey: 'source_v3_history' },
   { value: 'session_queue_source', labelKey: 'source_v3_session_queue' },
   { value: 'temporary_queue_source', labelKey: 'source_v3_temporary_queue' },
-  { value: 'recently_updated', labelKey: 'source_v3_recently_updated' },
-  { value: 'with_events', labelKey: 'source_v3_with_events' },
-  { value: 'with_workshop_updates', labelKey: 'source_v3_with_workshop_updates' },
-  { value: 'controller_specific_source', labelKey: 'source_v3_controller_specific' },
-  { value: 'emudeck_collections', label: 'EmuDeck' },
-  { value: 'retrodeck_collections', label: 'RetroDECK' },
-  { value: 'heroic_library', label: 'Heroic' },
-  { value: 'lutris_library', label: 'Lutris' },
-  { value: 'moonlight_sessions', label: 'Moonlight' },
-  { value: 'chiaki_sessions', label: 'Chiaki' },
+]
+/* Every live smart-shelf mode, highest-result-probability first (the order of
+   `smartTemplates.ts`). `custom` is left out: it is the filter-only mode. */
+export const SMART_MODE_OPTIONS: SmartShelfMode[] = [
+  'daily_pick', 'deck_picks', 'on_deck', 'recently_played',
+  'long_session', 'random_pick', 'not_started',
+  'best_unplayed', 'quick_play', 'short_battery', 'low_battery_mode',
+  'interrupted', 'non_steam', 'spare_time', 'time_of_day',
+  'rediscover', 'forgotten',
+  'backlog_rescue', 'forgotten_gems', 'hidden_gems', 'almost_finished',
+  'couch_gaming', 'coop_ready', 'party_games', 'friends_playing',
+  'travel_mode', 'recent_hidden_installs', 'weekly_rotation',
 ]
 export type EditTab = 'source' | 'filters' | 'childFilters' | 'visual' | 'display' | 'decoration'
 
@@ -47,34 +46,17 @@ export const SORT_OPTIONS = [
   { value: 'discount_high', labelKey: 'sort_discount_high', requiresOnline: true },
   { value: 'original_price_high', labelKey: 'sort_original_price_high', requiresOnline: true },
   { value: 'random', labelKey: 'sort_random' },
-  // Sort v3 — comparators in steam/v3Extensions.ts (reverse via the sortReverse toggle).
-  { value: 'most_launched', labelKey: 'sort_most_launched' },
-  { value: 'least_launched', labelKey: 'sort_least_launched' },
-  { value: 'longest_session', labelKey: 'sort_longest_session' },
-  { value: 'shortest_session', labelKey: 'sort_shortest_session' },
-  { value: 'most_ignored', labelKey: 'sort_most_ignored' },
-  { value: 'rediscovered_recently', labelKey: 'sort_rediscovered_recently' },
+  // Reads Steam's local friend list, so it is valid on any source.
+  { value: 'friends_playing_now', labelKey: 'sort_friends_playing_now' },
+  { value: 'owned_games', labelKey: 'sort_owned_games' },
   { value: 'completion_percent', labelKey: 'sort_completion_percent' },
   { value: 'closest_to_completion', labelKey: 'sort_closest_to_completion' },
-  { value: 'rarest_achievements', labelKey: 'sort_rarest_achievements' },
-  { value: 'newest_installed', labelKey: 'sort_newest_installed' },
-  { value: 'oldest_installed', labelKey: 'sort_oldest_installed' },
-  { value: 'oldest_unplayed', labelKey: 'sort_oldest_unplayed' },
-  { value: 'newest_purchased', labelKey: 'sort_newest_purchased' },
-  { value: 'largest_install', labelKey: 'sort_largest_install' },
-  { value: 'smallest_install', labelKey: 'sort_smallest_install' },
-  { value: 'ssd_priority', labelKey: 'sort_ssd_priority' },
-  { value: 'sd_priority', labelKey: 'sort_sd_priority' },
-  // Not `requiresOnline` — these read Steam's local friend list (same
-  // source as the "friends playing" home overlay), not DS's online-store
-  // features, so they're valid on any shelf source, not just wishlist/store.
-  { value: 'friends_playing_now', labelKey: 'sort_friends_playing_now' },
-  { value: 'most_friends_owning', labelKey: 'sort_most_friends_owning' },
-  { value: 'trending_among_friends', labelKey: 'sort_trending_among_friends' },
-  // Also local-only data, not `requiresOnline` — see v3Extensions.ts for
-  // what each one reads.
-  { value: 'owned_games', labelKey: 'sort_owned_games' },
   { value: 'family_shared_games', labelKey: 'sort_family_shared_games' },
+  // The friends' libraries are fetched from Steam, so these follow the online toggle.
+  { value: 'most_friends_owning', labelKey: 'sort_most_friends_owning', requiresOnline: true },
+  { value: 'trending_among_friends', labelKey: 'sort_trending_among_friends', requiresOnline: true },
+  // The order the source gives; in a composite, each source with its own sort.
+  { value: 'source_order', labelKey: 'sort_source_order' },
   { value: 'manual', labelKey: 'sort_manual' },
 ] as const
 

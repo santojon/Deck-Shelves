@@ -4,6 +4,7 @@
    capped at the total catalog size. */
 import type { SingleDropdownOption } from '../../../../runtime/host/decky';
 import type { EditableShelfState } from './types';
+import { SMART_MODE_OPTIONS, V3_SOURCE_OPTIONS } from './constants';
 
 type SourceUsage = {
   filterCount: number;
@@ -12,6 +13,8 @@ type SourceUsage = {
   usedTabs: Set<string>;
   usedCollections: Set<string>;
   usedExternal: Set<string>;
+  usedBuiltin: Set<string>;
+  usedSmart: Set<string>;
 };
 
 function countAdditionalByType(state: EditableShelfState, type: string, excludeRow?: number | 'primary'): number {
@@ -30,13 +33,19 @@ function collectAdditionalKeys(state: EditableShelfState, type: string, key: str
   return out;
 }
 
+// The values in use for one source type, the primary's included unless it is the excluded row.
+function usedValues(state: EditableShelfState, type: string, key: string, primaryValue: string, excludeRow?: number | 'primary'): Set<string> {
+  const used = new Set<string>(collectAdditionalKeys(state, type, key, excludeRow));
+  if (state.sourceType === type && excludeRow !== 'primary' && primaryValue) used.add(primaryValue);
+  return used;
+}
+
 function computeSourceUsage(state: EditableShelfState, excludeRow?: number | 'primary'): SourceUsage {
-  const usedTabs = new Set<string>(collectAdditionalKeys(state, 'tab', 'tab', excludeRow));
-  if (state.sourceType === 'tab' && excludeRow !== 'primary') usedTabs.add(state.tab);
-  const usedCollections = new Set<string>(collectAdditionalKeys(state, 'collection', 'collectionId', excludeRow));
-  if (state.sourceType === 'collection' && excludeRow !== 'primary') usedCollections.add(state.collectionId);
-  const usedExternal = new Set<string>(collectAdditionalKeys(state, 'external', 'sourceId', excludeRow));
-  if (state.sourceType === 'external' && excludeRow !== 'primary' && state.externalSourceId) usedExternal.add(String(state.externalSourceId));
+  const usedTabs = usedValues(state, 'tab', 'tab', state.tab, excludeRow);
+  const usedCollections = usedValues(state, 'collection', 'collectionId', state.collectionId, excludeRow);
+  const usedExternal = usedValues(state, 'external', 'sourceId', String(state.externalSourceId ?? ''), excludeRow);
+  const usedBuiltin = usedValues(state, 'builtin', 'sourceId', String(state.builtinSourceId ?? ''), excludeRow);
+  const usedSmart = new Set<string>(collectAdditionalKeys(state, 'smart', 'mode', excludeRow));
   return {
     filterCount: primaryContributes(state, 'filter', excludeRow) + countAdditionalByType(state, 'filter', excludeRow),
     storeCount: primaryContributes(state, 'store', excludeRow) + countAdditionalByType(state, 'store', excludeRow),
@@ -44,6 +53,8 @@ function computeSourceUsage(state: EditableShelfState, excludeRow?: number | 'pr
     usedTabs,
     usedCollections,
     usedExternal,
+    usedBuiltin,
+    usedSmart,
   };
 }
 
@@ -52,6 +63,8 @@ type LabelFns = {
   tab: string;
   filter: string;
   external: string;
+  builtin: string;
+  smart: string;
   wishlistLabel: any;
   storeLabel: any;
 };
@@ -64,6 +77,14 @@ type Opts = {
   onlineEnabled: boolean;
   labels: LabelFns;
 };
+
+// Built-in lists and smart modes, offered until each one is in use.
+function listSourceOptions(u: SourceUsage, labels: LabelFns): SingleDropdownOption[] {
+  const out: SingleDropdownOption[] = [];
+  if (u.usedBuiltin.size < V3_SOURCE_OPTIONS.length) out.push({ data: 'builtin', label: labels.builtin });
+  if (u.usedSmart.size < SMART_MODE_OPTIONS.length) out.push({ data: 'smart', label: labels.smart });
+  return out;
+}
 
 export function buildChildTypeOptions(opts: Opts, excludeRow: number): SingleDropdownOption[] {
   const { state, collectionOptions, tabOptions, externalOptions, onlineEnabled, labels } = opts;
@@ -84,6 +105,7 @@ export function buildChildTypeOptions(opts: Opts, excludeRow: number): SingleDro
   if (externalOptions.length > 0 && u.usedExternal.size < externalOptions.length) {
     out.push({ data: 'external', label: labels.external });
   }
+  out.push(...listSourceOptions(u, labels));
   // Filter has no cap: it's the one source that's fully composable internally
   // (AND/OR + many criteria), and the user can stack as many as they want.
   out.push({ data: 'filter', label: labels.filter });
@@ -98,6 +120,16 @@ export function buildCollectionValueOpts(state: EditableShelfState, collectionOp
 export function buildTabValueOpts(state: EditableShelfState, tabOptions: SingleDropdownOption[], excludeRow: number): SingleDropdownOption[] {
   const u = computeSourceUsage(state, excludeRow);
   return tabOptions.filter((o) => !u.usedTabs.has(String(o.data)));
+}
+
+export function builtinValueIds(state: EditableShelfState, excludeRow: number): string[] {
+  const u = computeSourceUsage(state, excludeRow);
+  return V3_SOURCE_OPTIONS.map((o) => o.value).filter((id) => !u.usedBuiltin.has(id));
+}
+
+export function smartValueIds(state: EditableShelfState, excludeRow: number): string[] {
+  const u = computeSourceUsage(state, excludeRow);
+  return SMART_MODE_OPTIONS.filter((m) => !u.usedSmart.has(m));
 }
 
 export function buildExternalValueOpts(state: EditableShelfState, externalOptions: SingleDropdownOption[], excludeRow: number): SingleDropdownOption[] {
@@ -123,6 +155,8 @@ const NEXT_SOURCE_FACTORIES: Record<SourceTypeId, (opts: Opts) => any> = {
     const e = buildExternalValueOpts(opts.state, opts.externalOptions, -1)[0];
     return { type: 'external', sourceId: String(e?.data ?? '') };
   },
+  builtin: (opts) => ({ type: 'builtin', sourceId: builtinValueIds(opts.state, -1)[0] ?? '' }),
+  smart: (opts) => ({ type: 'smart', mode: smartValueIds(opts.state, -1)[0] ?? 'recently_played' }),
 };
 
 export function pickNextAvailableSource(opts: Opts): any {
@@ -134,23 +168,29 @@ export function pickNextAvailableSource(opts: Opts): any {
 
 // ── Additional-source row helpers (composite "source 2+" rows) ─────────────
 
-export type ChildSourceType = 'collection' | 'tab' | 'wishlist' | 'store' | 'filter' | 'external';
+export type ChildSourceType = 'collection' | 'tab' | 'wishlist' | 'store' | 'filter' | 'external' | 'builtin' | 'smart';
 
-const CHILD_SOURCE_TYPES: ReadonlySet<string> = new Set(['collection', 'wishlist', 'store', 'filter', 'external']);
+const CHILD_SOURCE_TYPES: ReadonlySet<string> = new Set(['collection', 'wishlist', 'store', 'filter', 'external', 'builtin', 'smart']);
+const VALUE_KEY: Partial<Record<ChildSourceType, string>> = { collection: 'collectionId', tab: 'tab', external: 'sourceId', builtin: 'sourceId', smart: 'mode' };
 
 export function normalizeChildSourceType(rawType: unknown): ChildSourceType {
   return typeof rawType === 'string' && CHILD_SOURCE_TYPES.has(rawType) ? (rawType as ChildSourceType) : 'tab';
 }
 
 export function childSourceNeedsValuePicker(childType: ChildSourceType): boolean {
-  return childType === 'collection' || childType === 'tab' || childType === 'external';
+  return VALUE_KEY[childType] !== undefined;
 }
 
 export function childSourceValue(child: any, childType: ChildSourceType): string {
-  if (childType === 'collection') return String(child?.collectionId ?? '');
-  if (childType === 'tab') return String(child?.tab ?? 'all');
-  if (childType === 'external') return String(child?.sourceId ?? '');
-  return '';
+  const key = VALUE_KEY[childType];
+  if (!key) return '';
+  return String(child?.[key] ?? (childType === 'tab' ? 'all' : ''));
+}
+
+// The row with a new value: same type, its own sort kept.
+export function withChildValue(child: any, childType: ChildSourceType, value: string): any {
+  const key = VALUE_KEY[childType];
+  return key ? { ...child, [key]: value } : child;
 }
 
 const CHILD_SOURCE_LABEL_KEYS: Record<ChildSourceType, string> = {
@@ -160,6 +200,8 @@ const CHILD_SOURCE_LABEL_KEYS: Record<ChildSourceType, string> = {
   filter: 'source_filter',
   external: 'source_external',
   store: 'source_store',
+  builtin: 'source_builtin',
+  smart: 'source_smart',
 };
 
 export function childSourceTypeLabel(childType: ChildSourceType, t: (key: any) => string): string {

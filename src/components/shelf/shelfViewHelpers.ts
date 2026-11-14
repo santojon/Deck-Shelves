@@ -69,6 +69,13 @@ function getCachedDiscount(appid: number): number | null {
   } catch { return null; }
 }
 
+function getCachedPriceText(appid: number): string | undefined {
+  try {
+    const f = readPriceCache()?.[appid]?.data?.formatted;
+    return typeof f === 'string' && f ? f : undefined;
+  } catch { return undefined; }
+}
+
 // Small value-normalizing helpers — kept separate so their branches don't
 // count against the caller's own complexity (each is a plain, pure read).
 export function joinOrEmpty(list: unknown[] | null | undefined): string {
@@ -336,6 +343,7 @@ export function buildOnlineFallbackRowItem(params: { appid: number; shelfId: str
     onActivate: () => openSteamStorePage(appid),
     onMenuButton: showOnlineMenu,
     discountPercent: discountPct ?? undefined,
+    priceText: getCachedPriceText(appid),
     shelfId,
   } as DeckRowItem;
 }

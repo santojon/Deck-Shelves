@@ -8,6 +8,9 @@ import { optionData } from './utils'
    manualOrder) and `random` (non-deterministic tiebreaker); a secondary key
    can only be added when multi-key is allowed and the primary isn't one of
    those two. */
+// Keys that order the whole list on their own, never as a tiebreaker.
+const SINGLE_ONLY: ReadonlySet<string> = new Set(['manual', 'random', 'source_order'])
+
 function deriveSortState(
   sort: string | string[],
   reverse: boolean | boolean[],
@@ -19,9 +22,17 @@ function deriveSortState(
   const primary = sortArr[0] ?? ''
   const primaryReverse = reverseArr[0] ?? false
   const isMulti = sortArr.length > 1
-  const secondaryOptions = options.filter((o) => o.data !== 'manual' && o.data !== 'random')
-  const canAddSecondary = allowMultiKey && primary !== 'manual' && primary !== 'random'
-  return { sortArr, reverseArr, primary, primaryReverse, isMulti, secondaryOptions, canAddSecondary }
+  // A saved key no build offers any more stays selectable, named as unavailable.
+  const offered = withUnavailable(options, sortArr)
+  const secondaryOptions = offered.filter((o) => !SINGLE_ONLY.has(String(o.data)))
+  const canAddSecondary = allowMultiKey && !SINGLE_ONLY.has(primary)
+  return { sortArr, reverseArr, primary, primaryReverse, isMulti, offered, secondaryOptions, canAddSecondary }
+}
+
+function withUnavailable(options: SingleDropdownOption[], keys: string[]): SingleDropdownOption[] {
+  const missing = keys.filter((k) => k && !options.some((o) => o.data === k))
+  if (!missing.length) return options
+  return [...options, ...missing.map((k) => ({ data: k, label: i18n.t('filter_type_unavailable', { type: k }) }))]
 }
 
 export function SortField({
@@ -50,7 +61,7 @@ export function SortField({
 
   // If user picks manual/random as primary, secondary keys are stripped.
   const setPrimary = (next: string) => {
-    if (next === 'manual' || next === 'random') {
+    if (SINGLE_ONLY.has(next)) {
       onSortChange(next)
       onReverseChange(reverseArr[0] ?? false)
       return

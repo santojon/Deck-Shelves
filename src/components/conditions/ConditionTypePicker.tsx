@@ -19,8 +19,8 @@ function allowed(type: FilterItemType, gates: TypeGates): boolean {
 }
 
 /** The types to offer, sorted by name in the interface language; the current one always stays, so a stored condition still reads right. */
-export function offeredTypes(current: FilterItemType, gates: TypeGates, language = i18n.language): { type: FilterItemType; name: string }[] {
-  const types = ALL_FILTER_TYPES.filter((type) => type === current || allowed(type, gates))
+export function offeredTypes(current: string, gates: TypeGates, language = i18n.language): { type: string; name: string }[] {
+  const types: string[] = ALL_FILTER_TYPES.filter((type) => type === current || allowed(type, gates))
   if (!types.includes(current)) types.push(current)
   const collator = new Intl.Collator(language)
   return types
@@ -28,9 +28,9 @@ export function offeredTypes(current: FilterItemType, gates: TypeGates, language
     .sort((a, b) => collator.compare(a.name, b.name))
 }
 
-const needsOnline = (type: FilterItemType) => isOnlineFilterType(type) || isOnlineFeatureFilterType(type)
+const needsOnline = (type: string) => isOnlineFilterType(type) || isOnlineFeatureFilterType(type)
 
-export function ConditionTypePicker({ type, onChange, ...gates }: { type: FilterItemType; onChange: (type: FilterItemType) => void } & TypeGates) {
+export function ConditionTypePicker({ type, onChange, ...gates }: { type: string; onChange: (type: FilterItemType) => void } & TypeGates) {
   const options: SingleDropdownOption[] = offeredTypes(type, gates).map((choice) => ({
     data: choice.type,
     label: needsOnline(choice.type)

@@ -39,7 +39,7 @@ export async function getVisibleTabsFromSettingsFile(): Promise<PlatformTab[]> {
     .sort((a, b) => a.position - b.position)
     .map((t) => {
       const source = t.filters && t.filters.length > 0
-        ? containerToShelfSource({ id: t.id, title: t.title, filters: t.filters })
+        ? containerToShelfSource({ id: t.id, title: t.title, filters: t.filters, filtersMode: t.filtersMode })
         : { type: 'tab' as const, tab: t.id };
       return { id: t.id, name: t.title, source };
     });

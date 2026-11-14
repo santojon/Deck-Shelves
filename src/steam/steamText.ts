@@ -24,12 +24,38 @@ type TokenStrings = { user: string | null; english: string | null };
 const tokens = new Map<string, TokenStrings>();
 const names = new Map<string, string[]>();
 
+/* Steam's names for the store categories the editor offers: the features Steam lists on
+   an app's page, by category id. The ids are Steam's own; the text comes from its tokens. */
+export const STORE_CATEGORY_TOKENS: Record<number, string> = {
+  2: "#AppDetails_Feature_SinglePlayer",
+  1: "#AppDetails_Feature_MultiPlayer",
+  9: "#AppDetails_Feature_CoOp",
+  22: "#AppDetails_Feature_SteamAchievements",
+  23: "#AppDetails_Feature_SteamCloud",
+  28: "#AppDetails_Feature_FullController",
+  18: "#AppDetails_Feature_PartialController",
+  30: "#AppDetails_Feature_SteamWorkshop",
+  31: "#AppDetails_Feature_VRSupport",
+  44: "#AppDetails_Feature_RemotePlayTogether",
+  61: "#AppDetails_Feature_HDR",
+};
+
 // An unknown token comes back as null (or as the token itself on some clients).
-function read(fn: unknown, owner: unknown, token: string): string | null {
+function readRaw(fn: unknown, owner: unknown, token: string): string | null {
   try {
     const text = typeof fn === "function" ? fn.call(owner, token) : null;
-    return typeof text === "string" && text.trim() && !text.startsWith("#") ? text.trim().toLowerCase() : null;
+    return typeof text === "string" && text.trim() && !text.startsWith("#") ? text.trim() : null;
   } catch { return null; }
+}
+
+function read(fn: unknown, owner: unknown, token: string): string | null {
+  return readRaw(fn, owner, token)?.toLowerCase() ?? null;
+}
+
+/** Steam's own string for a token as it shows it, in the user's language or English; null when unknown. */
+export function steamLabel(token: string): string | null {
+  const lm = steamLocalization();
+  return readRaw(lm?.LocalizeString, lm, token) ?? readRaw(lm?.LocalizeStringFromFallback, lm, token);
 }
 
 function stringsOf(token: string): TokenStrings {

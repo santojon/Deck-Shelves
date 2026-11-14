@@ -262,6 +262,8 @@ let role: "plugin" | "host" = "plugin";
 let firstDrawReports = 0;
 const hostRole = () => ({ yieldToHostTab: false, markerFields: { __shelvesTab: true }, key: HOST_KEY, onFirstDraw: () => { firstDrawReports += 1; }, guardKey: HOST_GUARD });
 const asHost = (row: () => Promise<void>) => async () => { role = "host"; try { await row(); } finally { role = "plugin"; } };
+// A row that runs in both roles: once as the plugin, then again as the host.
+const inBothRoles = (name: string, row: () => Promise<void>, timeout?: number) => { it(name, row, timeout); it(`${name}, in the host role`, asHost(row), timeout); };
 
 function install(s: Settings, panel = pluginPanel(), extra: Record<string, unknown> = {}, m: Mod = mod) {
   return { panel, uninstall: m.installOwnQamTab({ title: "Deck Shelves", icon, renderPanel: panel.factory, isEnabled: s.isEnabled, subscribe: s.subscribe, ...(role === "host" ? hostRole() : {}), ...extra }) };
@@ -332,7 +334,7 @@ afterEach(() => {
 });
 
 describe("ownQamTab — the entry and its place", () => {
-  const u1 = async () => {
+  inBothRoles("one entry after performance, before the loader's, with the given icon and title", async () => {
     await newSession(); fx.installLoader(); cycle(1);
     const before = fx.lastList.slice();
     const fields = before.map((e: AnyEntry) => ({ ...e }));
@@ -351,18 +353,16 @@ describe("ownQamTab — the entry and its place", () => {
     others.forEach((x, i) => { expect(x).toBe(before[i]); expect({ ...x }).toEqual(fields[i]); });
     await flush();
     expect(firstDrawReports).toBe(role === "host" ? 1 : 0);
-  };
-  it("U1 — one entry after performance, before the loader's, with the given icon and title", u1);
+  });
 
-  const u2 = async () => {
+  inBothRoles("the entry is in the list drawn at the opening that mounts the root again", async () => {
     await newSession(); fx.installLoader(); begin();
     const [mounts, from] = [fx.rootMounts, fx.draws.length];
     fx.openPanel(); const first: Draw = fx.draws[from];
     expect([fx.rootMounts, mine(first).length, first.keys[first.keys.length - 1]]).toEqual([mounts + 1, 1, 999]);
-  };
-  it("U2 — the entry is in the list drawn at the opening that mounts the root again", u2);
+  });
 
-  const u3 = async () => {
+  inBothRoles("a panel open before install keeps its tab and content", async () => {
     await newSession(); fx.openPanel();
     expect(fx.contentMounts[4]).toBe(1); begin();
     for (let i = 0; i < 5; i++) fx.renderRoot();
@@ -370,10 +370,9 @@ describe("ownQamTab — the entry and its place", () => {
     expect(fx.contentMounts[4]).toBe(1);
     for (const d of fx.draws as Draw[]) expect(mine(d).length).toBeLessThanOrEqual(1);
     expect(mine()).toHaveLength(1);
-  };
-  it("U3 — a panel open before install keeps its tab and content", u3);
+  });
 
-  const u4 = async () => {
+  inBothRoles("each new list holds one entry at its first draw", async () => {
     await shown();
     for (const voice of [true, false]) {
       const previous = fx.lastList;
@@ -382,29 +381,26 @@ describe("ownQamTab — the entry and its place", () => {
       expect([fx.lastList !== previous, mine(first).length]).toEqual([true, 1]);
       if (voice) expect(first.keys[0]).toBe(2);
     }
-  };
-  it("U4 — each new list holds one entry at its first draw", u4);
+  });
 
-  const u5 = async () => {
+  inBothRoles("without a performance tab the entry is last", async () => {
     await newSession(); fx.flags = { perf: false }; begin(); fx.openPanel();
     expect(ownEntries(fx.lastDraw().entries.slice(-1))).toHaveLength(1);
     fx.setFlags({ voice: false, rpt: false, notifications: false, friends: false, perf: false, soundtrack: false, help: false, vr: false });
     const d: Draw = fx.lastDraw();
     expect([d.keys[0], d.entries.length, ownEntries([d.entries[1]]).length]).toEqual([4, 2, 1]);
-  };
-  it("U5 — without a performance tab the entry is last", u5);
+  });
 
-  const u6 = async () => {
+  inBothRoles("the panel factory runs once and the panel keeps its instance", async () => {
     const { panel } = await shown();
     const key = ownKey();
     for (const k of [key, 4, key]) fx.selectTab(k);
     for (let i = 0; i < 5; i++) { fx.closePanel(); fx.openPanel(); }
     expect(panel.stats).toEqual({ calls: 1, renders: 1, mounts: 1 });
     expect(fx.panelDoc.getElementById(`quickaccess_content_${key}`).querySelector("[data-plugin-panel]")).not.toBeNull();
-  };
-  it("U6 — the panel factory runs once and the panel keeps its instance", u6);
+  });
 
-  const u7 = async () => {
+  inBothRoles("the same entry object in every list; the root mounts again at most once", async () => {
     await newSession(); begin();
     const mounts = fx.rootMounts; fx.openPanel();
     for (let i = 0; i < 20; i++) if (i % 2) fx.setFlags({ voice: !fx.flags.voice }); else fx.renderRoot();
@@ -412,10 +408,9 @@ describe("ownQamTab — the entry and its place", () => {
     expect(all.length).toBeGreaterThanOrEqual(20);
     for (const e of all) expect(e).toBe(all[0]);
     expect(fx.rootMounts - mounts).toBeLessThanOrEqual(1);
-  };
-  it("U7 — the same entry object in every list; the root mounts again at most once", u7);
+  });
 
-  const u8 = async () => {
+  inBothRoles("its own key, kept across reinstalls and restarts; a taken key gives no entry", async () => {
     await newSession();
     const namesBefore = new Set(Object.keys(fx.table));
     let r = begin(); const from = fx.draws.length;
@@ -443,14 +438,12 @@ describe("ownQamTab — the entry and its place", () => {
       await newSession(); logs.length = 0; begin(on(), { key: given }); cycle(2);
       noOwnEntryDrawn(); expect(count("warn")).toBe(1);
     }
-  };
-  it("U8 — its own key, kept across reinstalls and restarts; a taken key gives no entry", u8);
+  });
 
-  for (const [id, row] of Object.entries({ U1: u1, U2: u2, U3: u3, U4: u4, U5: u5, U6: u6, U7: u7, U8: u8 })) it(`U55 — ${id} in the host role`, asHost(row));
 });
 
 describe("ownQamTab — activation, the neutral host and copies", () => {
-  it("U9 — quiet while the activation is unknown and then off", async () => {
+  it("quiet while the activation is unknown and then off", async () => {
     await newSession();
     const reads = { records: 0, document: 0 };
     const bw = fx.uiStore.WindowStore.GamepadUIMainWindowInstance.BrowserWindow;
@@ -466,7 +459,7 @@ describe("ownQamTab — activation, the neutral host and copies", () => {
     noOwnEntryDrawn();
   });
 
-  it("U10 — an activation known late, before and after the start-up window", async () => {
+  it("an activation known late, before and after the start-up window", async () => {
     for (const lateMs of [3000, 60000]) {
       await newSession();
       const s = settingsSource(undefined);
@@ -480,7 +473,7 @@ describe("ownQamTab — activation, the neutral host and copies", () => {
     }
   });
 
-  it("U11 — off when known: nothing in this start, the tab after a restart", async () => {
+  it("off when known: nothing in this start, the tab after a restart", async () => {
     await newSession();
     const s = settingsSource(false);
     install(s); const [reads, timers] = [steamReads(), vi.getTimerCount()]; s.set(true);
@@ -492,7 +485,7 @@ describe("ownQamTab — activation, the neutral host and copies", () => {
     expect(mine()).toHaveLength(1);
   });
 
-  it("U12 — off and on again in one start; repeated notifications change nothing; off before the start-up work", async () => {
+  it("off and on again in one start; repeated notifications change nothing; off before the start-up work", async () => {
     await newSession();
     const s = on(), { panel } = begin(s);
     fx.openPanel(); const first = mine()[0];
@@ -512,7 +505,7 @@ describe("ownQamTab — activation, the neutral host and copies", () => {
     expect(changedValues()).toEqual(before);
   });
 
-  it("U13 — the owner stamp or the host's entry holds the tab back", async () => {
+  it("the owner stamp or the host's entry holds the tab back", async () => {
     for (const hostEntry of [true, false]) {
       await newSession();
       if (hostEntry) { fx.installHost("root"); cycle(1); } else win.__SHELVES_QAM_OWNER__ = "neutral-host";
@@ -527,7 +520,7 @@ describe("ownQamTab — activation, the neutral host and copies", () => {
     expect(mine()).toHaveLength(1);
   });
 
-  it("U14 — the host's tab arriving later wins after at most one opening", async () => {
+  it("the host's tab arriving later wins after at most one opening", async () => {
     for (const mode of ["root", "strip"] as const) {
       await shown(); fx.closePanel();
       expect(mine()).toHaveLength(1);
@@ -540,7 +533,7 @@ describe("ownQamTab — activation, the neutral host and copies", () => {
     }
   });
 
-  it("U15 — the bridge alone does not hold the tab back", async () => {
+  it("the bridge alone does not hold the tab back", async () => {
     for (const bridgeFirst of [true, false]) {
       await newSession();
       if (bridgeFirst) win.__SHELVES_QAM__ = { registerPanel: () => {} };
@@ -550,7 +543,7 @@ describe("ownQamTab — activation, the neutral host and copies", () => {
     }
   });
 
-  it("U16 — an empty or non-string owner stamp counts as unset", async () => {
+  it("an empty or non-string owner stamp counts as unset", async () => {
     for (const stamp of ["", 5, {}]) {
       await newSession();
       win.__SHELVES_QAM_OWNER__ = stamp;
@@ -559,7 +552,7 @@ describe("ownQamTab — activation, the neutral host and copies", () => {
     }
   });
 
-  const u20 = async () => {
+  inBothRoles("two copies: every list holds the last-installed copy's entry; both uninstalled leave Steam as it was", async () => {
     const first = await shown();
     fx.closePanel();
     // The global object holds one session marker, kept as it is, with only the session's id.
@@ -614,13 +607,11 @@ describe("ownQamTab — activation, the neutral host and copies", () => {
       b.uninstall(); cycle(1); fx.renderRoot();
       expect([changedValues(), fx.rootMounts, mine().length]).toEqual([before, mounts, 0]);
     }
-  };
-  it("U20 — two copies: every list holds the last-installed copy's entry; both uninstalled leave Steam as it was", u20);
-  it("U55 — U20 in the host role", asHost(u20));
+  });
 });
 
 describe("ownQamTab — uninstall and errors", () => {
-  const u17 = async () => {
+  inBothRoles("uninstall restores every changed value and leaves nothing running", async () => {
     await newSession(); cycle(1);
     const before = changedValues(), s = on(), { uninstall } = begin(s);
     fx.openPanel(); expect(mine()).toHaveLength(1);
@@ -638,20 +629,18 @@ describe("ownQamTab — uninstall and errors", () => {
     await newSession(); const again = begin(); fx.installLoader(); cycle(1);
     const mounts = fx.rootMounts; again.uninstall(); cycle(2); fx.renderRoot();
     expect([fx.rootMounts, rootFiber().type, rootFiber().elementType, mine().length]).toEqual([mounts, fx.rootType, fx.rootType, 0]);
-  };
-  it("U17 — uninstall restores every changed value and leaves nothing running", u17);
+  });
 
-  const u18 = async () => {
+  inBothRoles("uninstall twice, then install again", async () => {
     const first = await shown();
     expect(() => { first.uninstall(); first.uninstall(); }).not.toThrow();
     fx.closePanel(); begin(); fx.openPanel();
     expect(mine()).toHaveLength(1);
     await newSession(); fx.withPanelView = false; fx.renderApp(); const early = install(on()); vi.advanceTimersByTime(1000); early.uninstall();
     expect(vi.getTimerCount()).toBe(0);
-  };
-  it("U18 — uninstall twice, then install again", u18);
+  });
 
-  const u19 = async () => {
+  inBothRoles("values another party replaced after the component stay and keep working", async () => {
     const { uninstall } = await shown();
     fx.closePanel();
     const calls = { view: 0, root: 0, memo: 0 };
@@ -668,10 +657,9 @@ describe("ownQamTab — uninstall and errors", () => {
     expect([fx.panelView.type, viewFiber().type, rootFiber().type]).toEqual([memoType, viewWrap, rootWrap]);
     expect([calls.view > 0, calls.root > 0]).toEqual([true, true]);
     expect(fx.lastDraw().keys).toEqual([0, 3, 4, 5, 7, 6]);
-  };
-  it("U19 — values another party replaced after the component stay and keep working", u19);
+  });
 
-  const u21 = async () => {
+  inBothRoles("errors from the options and the component stay inside; Steam's pass through", async () => {
     await newSession();
     let factoryCalls = 0;
     const throwing = { stats: {}, elements: [], factory: () => { factoryCalls += 1; throw new Error("factory"); } };
@@ -726,10 +714,8 @@ describe("ownQamTab — uninstall and errors", () => {
     const sealed = fx.lastList.slice(), drawsBefore = fx.draws.length; begin(); expect(() => cycle(3)).not.toThrow();
     for (const d of fx.draws as Draw[]) { expect(d.list).toBe(fx.lastList); expect(d.entries).toHaveLength(sealed.length); d.entries.forEach((e, i) => expect(e).toBe(sealed[i])); }
     expect([count("error"), fx.draws.length >= drawsBefore + 6]).toEqual([1, true]);
-  };
-  it("U21 — errors from the options and the component stay inside; Steam's pass through", u21);
+  });
 
-  for (const [id, row] of Object.entries({ U17: u17, U18: u18, U19: u19, U21: u21 })) it(`U55 — ${id} in the host role`, asHost(row));
 });
 
 describe("ownQamTab — start-up", () => {
@@ -741,7 +727,7 @@ describe("ownQamTab — start-up", () => {
     return times;
   }
 
-  const u22 = async () => {
+  inBothRoles("missing pieces: bounded attempts, one report, no timer left", async () => {
     const cases: Array<(f: any) => void> = [
       (f) => { reg.modules = f.modules.filter((m: any) => !("a" in m)); },
       (f) => { f.withPanelView = false; f.renderApp(); },
@@ -757,10 +743,9 @@ describe("ownQamTab — start-up", () => {
       const last = attemptsWithin(t0).pop()!;
       expect([last > 27000, last <= 30000, count("warn"), vi.getTimerCount()]).toEqual([true, true, 1, 0]);
     }
-  };
-  it("U22 — missing pieces: bounded attempts, one report, no timer left", u22);
+  });
 
-  const u23 = async () => {
+  inBothRoles("install returns at once; the first Steam read within 5 s", async () => {
     // The busy UI runs the work only when a timeout given to it elapses.
     const busy = (cb: () => void, o?: { timeout?: number }) => (typeof o?.timeout === "number" ? setTimeout(cb, o.timeout) : 0);
     const idles: Array<null | ((cb: () => void, o?: { timeout?: number }) => unknown)> = [(cb) => setTimeout(cb, 0), busy, null];
@@ -775,10 +760,9 @@ describe("ownQamTab — start-up", () => {
       vi.unstubAllGlobals();
       for (const [name, value] of Object.entries({ localStorage: store, SP_REACT: React, window: win })) vi.stubGlobal(name, value);
     }
-  };
-  it("U23 — install returns at once; the first Steam read within 5 s", u23);
+  });
 
-  const u24 = async () => {
+  inBothRoles("the panel appearing late, and never", async () => {
     for (const appears of [true, false]) {
       await newSession();
       fx.withPanelView = false; fx.renderApp(); fx.attemptTimes.length = 0;
@@ -797,10 +781,8 @@ describe("ownQamTab — start-up", () => {
       fx.openPanel();
       expect(mine()).toHaveLength(1);
     }
-  };
-  it("U24 — the panel appearing late, and never", u24);
+  });
 
-  for (const [id, row] of Object.entries({ U22: u22, U23: u23, U24: u24 })) it(`U55 — ${id} in the host role`, asHost(row));
 });
 
 describe("ownQamTab — crash guard", () => {
@@ -835,7 +817,7 @@ describe("ownQamTab — crash guard", () => {
     expectRoleGuardKey([...store.map.keys()]);
   }
 
-  const u25 = async () => {
+  inBothRoles("failures in a row pause it; a completed draw clears the count; a caught throw and a later list count", async () => {
     for (let i = 0; i < 2; i++) await crashingStart();
     recordSizes();
     expect(await startIsPaused()).toBe(true);
@@ -864,10 +846,9 @@ describe("ownQamTab — crash guard", () => {
       }
       expect(await startIsPaused()).toBe(true);
     }
-  };
-  it("U25 — failures in a row pause it; a completed draw clears the count; a caught throw and a later list count", u25);
+  });
 
-  const u26 = async () => {
+  inBothRoles("no failure without a broken draw", async () => {
     // A reload during a draw; a kept old copy's work is taken over before its draw's confirmation runs.
     const reload = async (stopOld = true) => {
       const first = begin();
@@ -898,10 +879,9 @@ describe("ownQamTab — crash guard", () => {
     }
     expect([pauseReports(), await startIsPaused()]).toEqual([0, false]);
     expect(mine()).toHaveLength(1);
-  };
-  it("U26 — no failure without a broken draw", u26);
+  });
 
-  const u27 = async () => {
+  inBothRoles("a pause expires; the next failure pauses again at once", async () => {
     for (let i = 0; i < 2; i++) await crashingStart();
     expect(await startIsPaused()).toBe(true);
     vi.setSystemTime(Date.now() + 12 * 60 * 60 * 1000);
@@ -918,10 +898,9 @@ describe("ownQamTab — crash guard", () => {
     expect(await startIsPaused()).toBe(true);
     vi.setSystemTime(Date.now() - 60 * 60 * 1000);
     expect(await startIsPaused()).toBe(false);
-  };
-  it("U27 — a pause expires; the next failure pauses again at once", u27);
+  });
 
-  it("U28 — turning the activation off and on ends a pause", async () => {
+  it("turning the activation off and on ends a pause", async () => {
     for (const sameStart of [true, false]) {
       store.clear();
       for (let i = 0; i < 2; i++) await crashingStart();
@@ -935,7 +914,7 @@ describe("ownQamTab — crash guard", () => {
     }
   });
 
-  const u29 = async () => {
+  inBothRoles("storage that throws stops nothing and cannot pause", async () => {
     const keys: string[] = [];
     vi.stubGlobal("localStorage", { getItem: (k: string) => { keys.push(k); throw new Error("read"); }, setItem: (k: string) => { keys.push(k); throw new Error("write"); } });
     await newSession();
@@ -944,16 +923,14 @@ describe("ownQamTab — crash guard", () => {
     for (let i = 0; i < 3; i++) await crashingStart();
     expect(await startIsPaused()).toBe(false);
     expectRoleGuardKey(keys);
-  };
-  it("U29 — storage that throws stops nothing and cannot pause", u29);
+  });
 
-  for (const [id, row] of Object.entries({ U25: u25, U26: u26, U27: u27, U29: u29 })) it(`U55 — ${id} in the host role`, asHost(row));
 });
 
 describe("ownQamTab — structure, cost and reports", () => {
   let gc: () => void = () => {};
 
-  const u30 = async () => {
+  inBothRoles("the same result in two languages; no function source read", async () => {
     const results: number[][] = [];
     for (const lang of ["en", "pt"]) {
       await newSession();
@@ -968,10 +945,9 @@ describe("ownQamTab — structure, cost and reports", () => {
     }
     expect(results[0]).toEqual(results[1]);
     expect(results[0]).toContain(-1);
-  };
-  it("U30 — the same result in two languages; no function source read", u30);
+  });
 
-  const u31 = async () => {
+  inBothRoles("work per render grows with the list only; locating reads a bounded number of records", async () => {
     const measure = async (entries: number, records: number) => {
       await newSession({ mount: false });
       Object.assign(fx, { extraEntries: entries, extraRecords: records, countReads: true });
@@ -988,20 +964,18 @@ describe("ownQamTab — structure, cost and reports", () => {
     expect(large.perRender).toBeLessThanOrEqual(small.perRender * (209 / 19) * 1.5);
     for (const run of [small, bigTree]) expect(run.located).toBeLessThanOrEqual(WALK_CAP);
     expect([bigTree.located - small.located <= 2 * 4900, reg.scans]).toEqual([true, 1]);
-  };
-  it("U31 — work per render grows with the list only; locating reads a bounded number of records", u31, 30000);
+  }, 30000);
 
-  const u32 = async () => {
+  inBothRoles("no timers or listeners after start-up", async () => {
     await newSession();
     const addSpy = vi.spyOn(EventTarget.prototype, "addEventListener"), s = on();
     begin(s); cycle(20); vi.advanceTimersByTime(60 * 60 * 1000);
     expect([vi.getTimerCount(), s.listeners.size]).toEqual([0, 1]);
     expect(addSpy).not.toHaveBeenCalled();
-  };
-  it("U32 — no timers or listeners after start-up", u32);
+  });
 
   const crashOwnEntry = (e: AnyEntry) => ownEntries([e]).length > 0;
-  const u33 = async () => {
+  inBothRoles("reports: what happened, at most five lines per start, none per render", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     const check = (info: number, warn: number) => {
       expect(logs.length).toBeLessThanOrEqual(5);
@@ -1030,8 +1004,7 @@ describe("ownQamTab — structure, cost and reports", () => {
     await newSession(); logs.length = 0;
     install(on()); vi.advanceTimersByTime(60000); cycle(5);
     check(0, 1);
-  };
-  it("U33 — reports: what happened, at most five lines per start, none per render", u33);
+  });
 
   /* React keeps the root's two fibers and the lists memoized on them. Its development build also
      keeps a call stack per element for the first ten thousand it creates each second, and sets
@@ -1062,7 +1035,7 @@ describe("ownQamTab — structure, cost and reports", () => {
     return { alive: [...new Set(alive)], tracked: new Set(refs.map((r) => r.deref() ?? r)).size };
   }
 
-  const u35 = async () => {
+  inBothRoles("nothing that Steam replaced stays reachable", async () => {
     const builtin = (globalThis as any).process.getBuiltinModule;
     builtin("node:v8").setFlagsFromString("--expose_gc");
     gc = builtin("node:vm").runInNewContext("gc") as () => void;
@@ -1070,10 +1043,9 @@ describe("ownQamTab — structure, cost and reports", () => {
     Object.defineProperty(Error, "stackTraceLimit", { get: () => 0, set: () => {}, configurable: true });
     const { alive, tracked } = await survivors().finally(() => { Object.defineProperty(Error, "stackTraceLimit", limit); });
     expect([alive.length, tracked > 100]).toEqual([0, true]);
-  };
-  it("U35 — nothing that Steam replaced stays reachable", u35);
+  });
 
-  const u36 = async () => {
+  inBothRoles("VR and kiosk mode: the tab is drawn and can be selected", async () => {
     for (const flags of [{ vr: true }, { kiosk: true }] as Flags[]) {
       await newSession();
       fx.flags = { ...fx.flags, ...flags };
@@ -1083,10 +1055,9 @@ describe("ownQamTab — structure, cost and reports", () => {
       expect([button.getAttribute("aria-selected"), button.disabled]).toEqual(["true", false]);
       expect(fx.panelDoc.getElementById(`quickaccess_content_${key}`).querySelector("[data-plugin-panel]")).not.toBeNull();
     }
-  };
-  it("U36 — VR and kiosk mode: the tab is drawn and can be selected", u36);
+  });
 
-  const u37 = async () => {
+  inBothRoles("the inline container, alone and beside the panel view", async () => {
     for (const mode of ["alone", "both", "late"]) {
       await newSession({ mount: false });
       Object.assign(fx, { withInlineView: mode !== "late", withPanelView: mode !== "alone" });
@@ -1095,12 +1066,11 @@ describe("ownQamTab — structure, cost and reports", () => {
       expect(new Set(draws.map((d) => d.list)).size).toBe(mode === "alone" ? 1 : 2);
       for (const d of draws) expect(mine(d)).toHaveLength(1);
     }
-  };
-  it("U37 — the inline container, alone and beside the panel view", u37);
+  });
 
   // The setting off, the owner stamp set, or the host's entry put into the same memoized list in the
   // root's render before the component's work. No opening draws a strip with no tab selected.
-  it("U38 — Steam's remembered tab on the plugin's key falls back to Steam's first tab", async () => {
+  it("Steam's remembered tab on the plugin's key falls back to Steam's first tab", async () => {
     const hostEntry = { key: HOST_KEY, tab: createElement("i"), panel: createElement("div"), vrLocation: "quick-access-menu", __shelvesTab: true };
     const selected = () => fx.panelDoc.querySelectorAll('[role="tab"][aria-selected="true"]').length;
     for (const how of ["off", "stamp", "entry"]) {
@@ -1114,7 +1084,7 @@ describe("ownQamTab — structure, cost and reports", () => {
     }
   });
 
-  const u39 = async () => {
+  inBothRoles("Steam's key table is not changed; the loader library's table is never read or written", async () => {
     await newSession();
     // A separate library table with names of its own (E9); the component never touches it.
     const [touched, names] = [[] as string[], ["Alder", "Birch", "Cedar", "Elm", "Fir", "Hazel", "Larch", "Maple"]];
@@ -1126,10 +1096,9 @@ describe("ownQamTab — structure, cost and reports", () => {
     const r = begin(); fx.openPanel(); expect(fx.table).toEqual(table);
     r.uninstall(); cycle(1); fx.openPanel();
     expect([fx.table, touched]).toEqual([table, []]);
-  };
-  it("U39 — Steam's key table is not changed; the loader library's table is never read or written", u39);
+  });
 
-  const u40 = async () => {
+  inBothRoles("frozen entries of Steam and the other parties", async () => {
     await newSession();
     fx.freezeEntries = true; fx.installLoader(); Object.freeze(fx.loaderEntry); cycle(1);
     const before = fx.lastList.map((e: AnyEntry) => ({ ...e }));
@@ -1137,9 +1106,6 @@ describe("ownQamTab — structure, cost and reports", () => {
     const d: Draw = fx.lastDraw();
     expect(d.entries.filter((e) => !ownEntries([e]).length).map((e) => ({ ...e }))).toEqual(before);
     expect(d.entries.length).toBe(before.length + 1);
-  };
-  it("U40 — frozen entries of Steam and the other parties", u40);
+  });
 
-  const hostRuns = { U30: u30, U31: u31, U32: u32, U33: u33, U35: u35, U36: u36, U37: u37, U39: u39, U40: u40 };
-  for (const [id, row] of Object.entries(hostRuns)) it(`U55 — ${id} in the host role`, asHost(row), id === "U31" ? 30000 : undefined);
 });

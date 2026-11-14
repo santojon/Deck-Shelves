@@ -38,6 +38,14 @@ flowchart LR
     class out result
 ```
 
+Every condition, sort key and built-in source below reads data the Steam client
+holds, or data the plugin fetches when Online features are on. A shelf whose
+saved configuration names something the plugin no longer evaluates (a condition
+or sort key from an older version, or one that a plugin which is not running
+registered) stays empty and is logged as unavailable; the editor shows that
+condition as "Unavailable" with an X until it is changed. A query never widens
+to the whole library because one of its parts is missing.
+
 ## Filter Types
 
 | Type | Description | Parameters |
@@ -47,15 +55,17 @@ flowchart LR
 | `nonSteam` | Non-Steam shortcuts (Epic, GOG, etc.) | — |
 | `hidden` | Hidden games | `mode`: `"only"` or `"exclude"` |
 | `updatePending` | Games with pending updates | — |
-| `isNew` | Added to library within 30 days | — |
+| `isNew` | Added to library within 14 days (older configurations only; not offered in the editor) | — |
 | `deckCompatibility` | Steam Deck compatibility level | `levels`: `["verified", "playable", "unsupported", "unknown"]` |
 | `steamosCompatibility` | SteamOS compatibility rating — distinct from Deck Compatibility (a different Valve rating, same 4-level scale) | `levels`: `["verified", "playable", "unsupported", "unknown"]` |
 | `machineCompatibility` | Steam Machine compatibility rating (the living-room box; same 4-level scale) | `levels`: `["verified", "playable", "unsupported", "unknown"]` |
 | `frameCompatibility` | Steam Frame compatibility rating (the VR headset; same 4-level scale) | `levels`: `["verified", "playable", "unsupported", "unknown"]` |
 | `deviceCompatibility` | Compatibility rating **of the device you are on** — the Deck rating on a Steam Deck, the Machine rating on a Steam Machine, the Frame rating on a Steam Frame (Deck rating elsewhere). What the "Verified on this device" / "Playable on this device" templates use | `levels`: `["verified", "playable", "unsupported", "unknown"]` |
-| `demo` | Steam demo listings | — |
 | `playedWithinDays` | Played within N days | `days`: number |
 | `playtimeRange` | Total playtime in a range | `minHours`: number, `maxHours`: number (either optional) |
+| `recentlyActive` | Played in the current session window | `minMinutes`: number |
+| `neglected` | Played before, but not for N days | `days`: number |
+| `playedOnce` | Played, but no more than N minutes | `maxMinutes`: number |
 | `nameIncludes` | Name contains substring | `text`: string |
 | `nameRegex` | Name matches regex | `pattern`: string |
 | `collection` | Games in a specific Steam collection | `collectionId`: string |
@@ -64,62 +74,20 @@ flowchart LR
 | `appIdList` | Explicit whitelist of app IDs | `appIds`: number[] |
 | `cloudAvailable` | Steam Cloud support | — |
 | `controllerSupport` | Native controller support | `min`: number (1 = partial or full, 2 = full only; default 1) |
-| `shortcutType` | Filter by entry kind: game (Steam app_type 1 or unknown), software (app_type 2), tool (any other Steam app_type), link (non-Steam shortcut) | `kinds`: `("game" \| "software" \| "tool" \| "link")[]` (default `["game"]`) |
-| `merge` | Nested predicate group with its own `and`/`or` mode (per-app boolean) | `mode`: `"and"` \| `"or"`, `items`: FilterItem[] |
-| `storeTag` | Has specific Steam store tags _(pass-through, not yet evaluated)_ | `tags`: string[] |
-| `achievements` | Achievement count range _(pass-through, not yet evaluated)_ | `min`, `max`: number |
-| `friends` | Minimum friends who own _(pass-through, not yet evaluated)_ | `min`: number |
-
-| `recentlyActive` | Played in the current session window | `minMinutes`: number |
-| `neglected` | Not played for N days | `days`: number |
+| `shortcutType` | Filter by entry kind: game (Steam app_type 1 or unknown), software (app_type 2), tool (any other Steam app_type), demo, dlc, music, video, comic, guide, driver, config, hardware, beta, link (non-Steam shortcut) | `kinds`: string[] (default `["game"]`) |
 | `systemCompatibility` | Runs natively / via compatibility layer | — |
 | `remotePlayLocation` | Remote Play availability | `mode`: `"local"` \| `"local-only"` \| `"remote"` \| `"remote-only"` \| `"both"` |
 | `libraryLocation` | Which Steam libraries the game is installed in — mix specific ones (an SD card + a USB drive, say) | `libraryIds`: string[] (device-specific library ids; empty = no restriction). Legacy saves without `libraryIds` fall back to `category`: `"internal"` \| `"external"` \| `"network"` |
+| `installedSizeRange` | Installed size in a range | `minMB`, `maxMB`: number (the editor shows GB) |
 | `appStatus` | Download / update activity | `groups`: `("downloading" \| "queued" \| …)[]` |
 | `friendsPlayingNow` | Friends currently in-game | — |
 | `friendsPlayedRecently` | Friends played within N days | `days`: number |
+| `friends` | Owned by at least N of your friends _(needs Online features)_; `friends` narrows the count to those account ids | `min`: number, `friends`: number[] (optional) |
+| `storeTag` | Carries the Steam Store tags, by name in the client's language or by tag id | `tags`: string[], `mode`: `"any"` \| `"all"` (default `"any"`) |
+| `achievements` | Unlocked achievements in a range; a game with no achievements never matches | `min`, `max`: number (`max` omitted = no upper bound) |
 | `discount` | Discount percentage range _(online)_ | `minDiscount`, `maxDiscount`: number |
 | `priceRange` | Price range _(online)_ | `minPrice`, `maxPrice`: number (either optional) |
-
-> **Note:** `storeTag`, `achievements`, and `friends` are stored and exported correctly but are not yet evaluated at runtime — shelves using only these filters will return all library games.
-
-### Library and metadata
-
-| Type | Description | Parameters |
-|------|-------------|------------|
-| `genres` | Any of the listed genres | `genres`: string[] |
-| `categories` | Any of the listed store categories | `categories`: string[] |
-| `franchise` | Franchise name contains | `franchise`: string |
-| `vrSupport` | VR support level: VR-only titles, titles that support VR, or titles with no VR at all | `levels`: `("only" \| "supported" \| "none")[]` (default `["only", "supported"]`, which matches the old yes/no behavior) |
-| `multiplayerType` | Multiplayer capability | `kind`: `"any"` \| `"single"` \| `"multi"` \| `"coop"` \| `"online"` |
-| `familySharing` | Flagged for Steam Family Sharing | — |
-| `dlcOwned` | Owns at least N DLC | `minCount`: number |
-| `soundtrackOwned` | Owns the soundtrack | — |
-| `compatDataQuality` | Has any Deck compatibility rating | — |
-| `reviewScore` | Review score meets a threshold | `value`: number (0–100), `op`: `">="` \| `"<="` (default `">="`), `source`: `"metacritic"` \| `"steam"` (default `"metacritic"`) |
-| `releaseDate` | Released before/after a date | `ts`: number (Unix seconds), `op`: `"after"` \| `"before"` (default `"after"`) |
-| `comingSoon` | Not yet released (future release date) | — |
-
-> **Where each of these actually reads its data:** `multiplayerType` and `vrSupport` read the Steam client's own local data for games you own — instant, works offline, no Online features needed. `genres`, `categories`, `franchise`, `reviewScore`, `releaseDate` and `comingSoon` have no usable local data at all, even for games in your own library, so they fetch and cache it (from the Store for genres/categories/review-score/release-date, from the Steam client's details cache for franchise) the first time such a filter runs — this needs Online features enabled, and on a large library the first resolve only covers a batch of games at a time, filling in the rest over the next few refreshes rather than all at once. All of these also work correctly on wishlist/store cards you don't own yet. Every other filter in this section is personal play data and only ever matches games already in your library.
-
-### Usage and progress
-
-| Type | Description | Parameters |
-|------|-------------|------------|
-| `launchCount` | Number of launches in a range | `min`, `max`: number (`max` omitted = no upper bound) |
-| `avgSessionMinutes` | Average session length in a range | `min`, `max`: number (minutes) |
-| `playedOnce` | Played, but no more than N minutes | `maxMinutes`: number |
-| `installedNeverPlayed` | Installed with zero playtime | — |
-| `neverCompleted` | Achievement completion below 100% | — |
-| `achievementPercentRange` | Achievement completion in a range | `min`, `max`: number (0–100) |
-| `recentlyAbandoned` | Last played between N and M days ago | `minDaysAgo`, `maxDaysAgo`: number |
-
-### Storage
-
-| Type | Description | Parameters |
-|------|-------------|------------|
-| `storageDevice` | Installed on internal storage or SD card (path-pattern heuristic) | `device`: `"ssd"` \| `"sd"` |
-| `installedSizeRange` | Installed size in a range | `minMB`, `maxMB`: number (the editor shows GB) |
+| `merge` | Nested predicate group with its own `and`/`or` mode (per-app boolean) | `mode`: `"and"` \| `"or"`, `items`: FilterItem[] |
 
 `libraryLocation` reads Steam's own library records instead of guessing from the
 install path — it also distinguishes network libraries and has a matching
@@ -129,32 +97,64 @@ editor shows one toggle per detected library (labelled, e.g. "SD_CARD",
 shelf can mix any combination — every external drive but not the network
 share, say, or two specific SD cards but not a third.
 
-### Non-Steam shortcuts
+### Store metadata
 
 | Type | Description | Parameters |
 |------|-------------|------------|
-| `emuDeckSystem` / `retroDeckSystem` | Shortcut belongs to EmuDeck / RetroDECK | — |
-| `heroicLauncher` / `lutrisApp` | Shortcut belongs to Heroic / Lutris | — |
-| `chiakiApp` / `moonlightApp` | Remote-play shortcut (Chiaki / Moonlight) | — |
-| `hiddenLauncherShortcuts` | Hidden non-Steam shortcut | — |
-| `executableType` | Target executable extension | `ext`: string (e.g. `exe`, `sh`) |
-| `launchOptionTags` | Launch options contain any tag | `tags`: string[] |
+| `genres` | Any of the listed genres | `genres`: string[] |
+| `categories` | Any of the listed store categories | `categories`: string[] |
+| `franchise` | Franchise name contains | `franchise`: string |
+| `vrSupport` | VR support level: VR-only titles, titles that support VR, or titles with no VR at all | `levels`: `("only" \| "supported" \| "none")[]` (default `["only", "supported"]`, which matches the old yes/no behavior) |
+| `multiplayerType` | Multiplayer capability | `kind`: `"any"` \| `"single"` \| `"multi"` \| `"coop"` \| `"online"` |
+| `reviewScore` | Review score meets a threshold | `value`: number (0–100), `op`: `">="` \| `"<="` (default `">="`), `source`: `"metacritic"` \| `"steam"` (default `"metacritic"`) |
+| `releaseDate` | Released on or after / on or before a date, or with no release date | `ts`: number (Unix seconds), `op`: `"after"` \| `"before"` \| `"unknown"` (default `"after"`) |
+| `purchaseDate` | Bought on or after / on or before a date, or with no purchase date | `ts`: number (Unix seconds), `op`: `"after"` \| `"before"` \| `"unknown"` (default `"after"`) |
+| `storeCategory` | Carries the Steam features (store categories) the client records for the game, by category id; the editor names the ones Steam names | `ids`: number[], `mode`: `"any"` \| `"all"` (default `"any"`) |
+| `comingSoon` | Not yet released (future release date) | — |
+
+> **Where each of these reads its data:** `multiplayerType` and `vrSupport` read the Steam client's own local data for games you own — instant, works offline, no Online features needed. `reviewScore` reads the Steam review percentage and the metacritic score the client holds for your library; `releaseDate` and `comingSoon` read the release date the client holds. `genres`, `categories` and `franchise` have no local data, even for games in your own library, so they fetch and cache it (from the Store for genres and categories, from the Steam client's details cache for franchise) the first time such a filter runs — this needs Online features enabled, and on a large library the first resolve only covers part of the games, filling in the rest over the next few refreshes. All of these also work on wishlist/store cards you don't own yet.
+
+### Progress and sharing
+
+| Type | Description | Parameters |
+|------|-------------|------------|
+| `achievementPercentRange` | Achievement completion in a range | `min`, `max`: number (0–100) |
+| `neverCompleted` | Has achievements, not all of them unlocked | — |
+| `familySharing` | Borrowed through Steam Family Sharing | — |
+
+The achievement conditions read the client's own achievement list for the Steam
+games you have played; a game never played counts as having no progress.
+
+### Tags
+
+| Type | Description | Parameters |
+|------|-------------|------------|
 | `customTags` | Game carries any of your own tags (set them from the game menu: **Lists** → **Edit tags…**) | `tags`: string[] |
 | `parserCategories` | Non-Steam shortcut carries any of the categories the tool that added it wrote (ROM managers and launcher integrations store them in Steam's shortcuts file) | `tags`: string[] |
 
-### Composite filters
+### Composite conditions
 
-These carry a list of **child filter items** in `children` — any filter type is
-allowed, and each child is evaluated through the normal filter evaluator, so you
-can nest ranges, name matches and the types above freely.
+These hold a list of conditions of any type in `children`, each evaluated like
+a condition of the group, so ranges, name matches and the types above nest freely.
 
 | Type | Description | Parameters |
 |------|-------------|------------|
-| `weightedFilter` | Matches when the summed weight of matching children reaches `threshold`. With the default weight of 1 this reads as "at least N of these conditions" | `children`: FilterItem[] (each may carry `weight`: number), `threshold`: number |
-| `priorityFilter` | Matches when any child matches (children are checked in order) | `children`: FilterItem[] |
+| `weightedFilter` | Matches when the summed weight of the matching children reaches `threshold`; with the default weight of 1 this reads as "at least N of these" | `children`: FilterItem[] (each may carry `weight`: number), `threshold`: number |
+| `priorityFilter` | Matches when any child matches | `children`: FilterItem[] |
 | `exclusionGroup` | Excludes the game when any child matches | `children`: FilterItem[] |
 
-Nesting is depth-capped at runtime, so a self-referential tree cannot loop.
+### Conditions from older versions
+
+Versions before 3.4.2 offered conditions that read fields the Steam client
+never had, or that duplicated a condition above. The duplicates are rewritten
+when the settings load: `demo` becomes `shortcutType` with the demo kind,
+`installedNeverPlayed` becomes installed with no playtime, `recentlyAbandoned`
+becomes `neglected` plus `playedWithinDays`, `compatDataQuality` becomes
+`deckCompatibility` without "unknown", and `hiddenLauncherShortcuts` becomes
+non-Steam plus hidden. The others (DLC and soundtrack ownership, launch counts,
+session length, storage device, executable type, launch option tags and the
+launcher conditions) stay in the saved configuration as they are, and the
+shelf that uses them is unavailable until the condition is changed.
 
 ## Filter Groups
 
@@ -235,35 +235,29 @@ match by name.
 | `app_status` | Download / update activity |
 | `deck_compat` | Steam Deck compatibility rating |
 | `controller_support` | Controller support level |
+| `friends_playing_now` | Friends currently playing (most first) |
+| `owned_games` | Games already in your local library first |
+| `completion_percent` | Achievement completion (highest first) |
+| `closest_to_completion` | Nearest to 100% completion first; finished games last |
+| `family_shared_games` | Games borrowed through Family Sharing first |
+| `most_friends_owning` | Most friends who own it first _(needs Online features)_ |
+| `trending_among_friends` | Friends playing now, then friends who own it _(needs Online features)_ |
 | `price_low` | Price, lowest first _(online)_ |
 | `discount_high` | Discount, highest first _(online)_ |
 | `original_price_high` | Original price, highest first _(online)_ |
 | `random` | Stable random shuffle, refreshes every 24 h |
+| `source_order` | The order the source gives: pinned games last pinned first, play history newest first, the queues in queue order, a smart mode in its own ranking. On a multi-source shelf, each source in turn, each with its own sort |
 | `manual` | User-defined order (`manualOrder`); ids not in the list fall through to `manualBaseSort` |
 
-Usage, progress and storage keys:
-
-| Value | Description |
-|-------|-------------|
-| `most_launched` / `least_launched` | Number of launches |
-| `longest_session` / `shortest_session` | Average session length |
-| `most_ignored` | Longest since last played |
-| `rediscovered_recently` | Most recently returned to |
-| `completion_percent` | Achievement completion (highest first) |
-| `closest_to_completion` | Nearest to 100% completion |
-| `rarest_achievements` | Rarest achievements owned |
-| `newest_installed` / `oldest_installed` | Install date |
-| `oldest_unplayed` | Longest-installed with zero playtime |
-| `newest_purchased` | Purchase date (newest first) |
-| `largest_install` / `smallest_install` | Installed size |
-| `ssd_priority` / `sd_priority` | Internal storage or SD card first |
-| `friends_playing_now` | Friends currently playing |
-| `most_friends_owning` | Most friends who own it |
-| `trending_among_friends` | Combined friend activity |
-| `owned_games` | Games already in your local library first |
-| `family_shared_games` | Family-shared games first |
-
 Every key can be inverted with `sortReverse`.
+
+Sort keys from older versions that duplicated one of these are rewritten when
+the settings load: `newest_purchased` to `added`, `largest_install` and
+`smallest_install` to `size_on_disk`, `rediscovered_recently` and `most_ignored`
+to `recent` (reversed where the old key was). The other old keys (launch
+counts, session length, rarest achievements, install date, storage device and
+the random variants) have no data behind them; a shelf still using one is
+unavailable until its sort is changed.
 
 ### Multi-key sort
 
@@ -275,28 +269,46 @@ Every key can be inverted with `sortReverse`.
 
 The first entry is primary; subsequent entries break ties. Internally a single composite comparator walks each key in order until one returns a non-zero result, then JavaScript's stable sort preserves the established order across passes. Using `Array.sort().reverse()` per key would have inverted tied items and undone the secondary ordering — see `src/test/steam/applySortToIds.test.ts` for the pinned regression case.
 
-`manual` and `random` cannot appear in a multi-key chain (non-deterministic — they wouldn't behave as tiebreakers). The editor only exposes them as the single-key primary choice; the resolver drops them from chained arrays.
+`manual`, `random` and `source_order` cannot appear in a multi-key chain (non-deterministic — they wouldn't behave as tiebreakers). The editor only exposes them as the single-key primary choice; the resolver drops them from chained arrays.
 
 Per-key `sortReverse` works for any key the multi-key path supports. When `sort` is an array and `sortReverse` is a boolean, the boolean applies to every key.
 
 ## Built-in sources
 
-Besides a collection, library tab or filter, a shelf can draw from a ready-made
-source. Pick **Built-in source** in the shelf editor and choose one; it is stored
-as `{ "type": "builtin", "sourceId": "<id>" }` and takes no further parameters.
+Besides a collection, library tab or filter, a shelf can draw from the client's
+dynamic collections together or from one of the plugin's own game lists. Pick
+**Built-in source** in the shelf editor and choose one; it is stored as
+`{ "type": "builtin", "sourceId": "<id>" }` and takes no further parameters.
 
-| Group | Sources |
-|-------|---------|
-| Steam | `dynamic_collections`, `followed_games`, `ignored_games`, `dlc_source`, `soundtrack_source` |
-| Manual | `pinned_games`, `history_source`, `session_queue_source`, `temporary_queue_source` |
-| Contextual | `recently_updated`, `with_events`, `with_workshop_updates`, `controller_specific_source` |
-| Launchers | `emudeck_collections`, `retrodeck_collections`, `heroic_library`, `lutris_library`, `moonlight_sessions`, `chiaki_sessions` |
+| Source | Contents |
+|--------|----------|
+| `dynamic_collections` | Every game in any of your dynamic collections (the ones Steam fills from a filter; a single collection is a collection source) |
+| `pinned_games` | Games you pinned from the game menu, last pinned first |
+| `history_source` | Play history, newest launch first (the last 100) |
+| `session_queue_source` | The session queue in queue order, kept until Steam restarts |
+| `temporary_queue_source` | The temporary queue in queue order; a game leaves it when you launch it |
 
-**Manual sources** fill from the game menu. Once a shelf, smart shelf, saved filter or
-profile uses one of them, every game menu gains a **Lists** submenu that toggles the game
-in **Pinned games**, the **Session queue** (kept until Steam restarts) or the **Temporary
-queue** (a game leaves it when you launch it). **Play history** fills by itself, newest
-launch first (the last 100). These lists, and the custom tags, are stored on this device.
+Once a shelf, smart shelf, saved filter or profile uses one of them, every game
+menu gains a **Lists** submenu that toggles the game in **Pinned games**, the
+**Session queue** or the **Temporary queue**. **Play history** fills by itself.
+These lists, and the custom tags, are stored on this device.
+
+Three built-in sources from older versions are rewritten to the filter that
+produces the same games when the settings load: the DLC and soundtrack sources
+to `shortcutType`, the controller-specific source to `controllerSupport` with
+full support. The others (followed and ignored games, recently updated, events,
+workshop updates and the launcher libraries) are not offered any more; a shelf
+still using one is unavailable until its source is changed.
+
+## Collections
+
+A collection shelf reads the collection by its id from the Steam client's own
+collection store, and shows the games the collection holds at that moment: a
+dynamic collection gives the games its filter selects, a static one the games
+you put in it that are still in your library. The collection's name plays no
+part, so two collections with similar names never mix. A collection the client
+does not know (deleted, or from another account) leaves the shelf empty and is
+logged as not found.
 
 ## Multi-source shelves
 
@@ -316,17 +328,47 @@ A shelf can stack multiple sources and combine their result sets. The editor exp
 }
 ```
 
+Any source can be stacked: a collection, a library tab, a filter, a built-in
+list, a smart mode, the wishlist, the store or a plugin's source. A smart mode
+used as a source runs with its default parameters.
+
+### Source order
+
+With the shelf sorted by **Source order**, the sources follow each other in the
+order they are listed, and each one can have its own sort (stored as `sort` and
+`sortReverse` on the source; a source without one keeps its own order). For
+example, pinned games first and then recently played games:
+
+```json
+{
+  "sort": "source_order",
+  "source": {
+    "type": "composite",
+    "combine": "union",
+    "sources": [
+      { "type": "builtin", "sourceId": "pinned_games" },
+      { "type": "smart", "mode": "recently_played" }
+    ]
+  }
+}
+```
+
+A collection by last session, a filter in random order and the wishlist by
+biggest discount work the same way: give each source its sort. A game already
+listed by an earlier source is not repeated.
+
 ### Combine operators
 
-- `union` — games that appear in **any** child source. The first child's order wins; subsequent children append their items in declaration order, de-duped.
+- `union` — games that appear in **any** child source, without repeats. Under **Source order** each source comes after the one before it; otherwise the sources take turns, one game each, and the shelf sort then orders the whole list.
 - `intersection` — games that appear in **every** child source. Iteration order follows the first child, so users get a predictable primary ordering.
 
 ### Per-shelf exhaustion rules
 
 A single shelf cannot stack two identical sources (e.g. *Collection A* + *Collection A*). The editor enforces this per-shelf via an exhaustion check:
 
-- **filter / wishlist / store** — capped at 1 per shelf. Once one is in the source list, the type disappears from the "+ Add source" dropdown for that shelf.
-- **tab / collection** — capped at the total Steam catalog size. Each tab/collection used reduces the available options; once every tab (or collection) is in use on this shelf, the type disappears.
+- **wishlist / store** — capped at 1 per shelf. Once one is in the source list, the type disappears from the "+ Add source" dropdown for that shelf.
+- **filter** — no cap; each filter is its own set of conditions.
+- **tab / collection / built-in list / smart mode** — each one once per shelf. Once every option of a type is in use on this shelf, the type disappears.
 - The same source CAN appear on multiple shelves — exhaustion is per-shelf, not global.
 
 For multi-criteria predicates on a single source, use the [`merge` filter](#merge--nested-predicate-groups) instead of stacking multiple `filter` sources.
@@ -337,7 +379,28 @@ Composite sources may nest (the schema permits it for power users editing JSON d
 
 ## Legacy Filter Format
 
-> **Note:** if you are importing shelves from a backup or from TabMaster, the conversion to the group format happens automatically — you do not need to migrate manually.
+## Importing from TabMaster
+
+A TabMaster tab imports as a shelf whose conditions are the tab's filters under
+the tab's own any/all mode, each mapped to the condition above that reads the
+same data (TabMaster 3.1):
+
+| TabMaster filter | Condition here |
+|---|---|
+| collection, installed, regex, whitelist, blacklist (negated), merge | `collection`, `installed`, `nameRegex`, `appIdList`, `appIdList` negated, `merge` |
+| platform | `nonSteam`, negated for Steam |
+| deck compatibility, steamos compatibility | `deckCompatibility`, `steamosCompatibility` |
+| review score, time played, size on disk | `reviewScore`, `playtimeRange`, `installedSizeRange` |
+| release date, purchase date (a day, month or year; days ago; unknown) | `releaseDate`, `purchaseDate` |
+| last played (since / not since) | `playedWithinDays` / `neglected` |
+| family sharing, demo, coming soon, streamable | `familySharing`, `shortcutType` (demo), `comingSoon`, `remotePlayLocation`, negated when the flag is off |
+| steam features (any / all) | `storeCategory` with the same category ids |
+| tags (any / all) | `storeTag` with the same tag ids |
+| achievements (count or percentage, above / below) | `achievements` or `achievementPercentRange` |
+| friends (any / all of the listed friends) | `friends` counting those friends |
+| sd card, install folder | `libraryLocation` by the library's category (an SD card and a folder under `/run/media` are external) |
+
+> **Note:** if you are importing shelves from a backup or from TabMaster, the conversion to the group format happens automatically — you do not need to migrate manually. A TabMaster filter with no equivalent here keeps its own name and imports as an unavailable condition, so the shelf is empty until you change it, instead of matching everything.
 
 Older settings may use a flat filter format:
 ```json
@@ -348,7 +411,9 @@ These are automatically converted to the group format at runtime via `legacyFilt
 
 ## Implementation
 
-- Filter evaluation: `src/steam/index.ts` → `evaluateFilterItem()`, `evaluateFilterGroup()`
+- Filter evaluation: `src/steam/filterEval.ts` → `evaluateFilterItem()`, `evaluateFilterGroup()`; the store-metadata and tag conditions in `src/steam/v3Extensions.ts`
+- What makes a shelf unavailable: `src/steam/availability.ts`
+- Rewrites of older ids: `src/domain/retired.ts`
 - Filter UI: `src/components/conditions/ConditionEditor.tsx`
 - Legacy conversion: `src/domain/settings.ts` → `legacyFilterToGroup()`
 - Custom filter types: `src/domain/customfilters.ts`

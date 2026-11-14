@@ -1,4 +1,5 @@
 import { memo, useEffect, useRef, useState, useMemo, useCallback } from "react";
+import type { DiscountBadgeMode } from './shelf/discountBadge';
 import { withDefaults } from "./withDefaults";
 import { mark, measure } from "../core/perf";
 import { computeCenteredScrollLeft } from "../core/scrollUtils";
@@ -103,6 +104,7 @@ type DeckRowProps = {
   title?: string; items: DeckRowItem[]; shelfId?: string; removableSet?: Set<number>; matchNativeSize?: boolean;
   highlightFirst?: boolean; highlightAll?: boolean; highlightedAppIds?: number[];
   hideStatusLine?: boolean; hideNewBadge?: boolean; hideDiscountBadge?: boolean; hideCompatIcons?: boolean; hideNonSteamBadge?: boolean;
+  discountBadgeMode?: DiscountBadgeMode;
   hideShelfTitle?: boolean; hideGameNames?: boolean; hideInstallIndicator?: boolean;
   enableLogo?: boolean; enableIcon?: boolean; enableDescription?: boolean; descriptionBelowLogo?: boolean; logoBelowShelf?: boolean;
   logoPosition?: HPos; descriptionPosition?: HPos; logoSize?: number; logoTopOffset?: number;
@@ -116,6 +118,7 @@ type DeckRowProps = {
 const ROW_DEFAULTS = {
   matchNativeSize: false, highlightFirst: false, highlightAll: false,
   hideStatusLine: false, hideNewBadge: false, hideDiscountBadge: false, hideCompatIcons: false, hideNonSteamBadge: false,
+  discountBadgeMode: 'percent' as DiscountBadgeMode,
   hideShelfTitle: false, hideGameNames: false, hideInstallIndicator: false,
   enableLogo: false, enableIcon: false, enableDescription: false, descriptionBelowLogo: false, logoBelowShelf: false,
   logoPosition: 'left', descriptionPosition: 'left', logoSize: 100, logoTopOffset: 20,
@@ -181,7 +184,7 @@ function ShelfTitle({ title, collapsed, position, titleRef, locked, onToggle }: 
 function DeckRowImpl(props: DeckRowProps) {
   const {
     title, items, shelfId, removableSet, matchNativeSize, highlightFirst, highlightAll, highlightedAppIds,
-    hideStatusLine, hideNewBadge, hideDiscountBadge, hideCompatIcons, hideNonSteamBadge, hideShelfTitle, hideGameNames, hideInstallIndicator,
+    hideStatusLine, hideNewBadge, hideDiscountBadge, discountBadgeMode, hideCompatIcons, hideNonSteamBadge, hideShelfTitle, hideGameNames, hideInstallIndicator,
     enableLogo, enableIcon, enableDescription, descriptionBelowLogo, logoBelowShelf, logoPosition, descriptionPosition, logoSize, logoTopOffset,
     iconVerticalAlign, shelfTitlePosition, gameNamePosition, playtimePosition, descriptionHeight, descriptionLogoGap, descriptionScale,
     forceExpanded, fullPageLayoutOnly, pinScrollTop, forceLayoutAsRecents, heroEnabled, heroLabelMount, infoAbove,
@@ -777,6 +780,7 @@ function DeckRowImpl(props: DeckRowProps) {
             hideStatusLine={hideStatusLine}
             hideNewBadge={hideNewBadge}
             hideDiscountBadge={hideDiscountBadge}
+            discountBadgeMode={discountBadgeMode}
             hideCompatIcons={hideCompatIcons}
             hideNonSteamBadge={hideNonSteamBadge}
             hideGameName={hideGameNames}

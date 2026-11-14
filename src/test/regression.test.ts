@@ -179,11 +179,12 @@ describe("Online sort/filter gating", () => {
   // even though they read Steam's local friend list, not DS's online
   // features — same source the "friends playing" home overlay already
   // uses without requiring online features. Un-pinned so they're always
-  // offered.
+  // offered. The two sorts over the friends' libraries fetch them from
+  // Steam, so those follow the online toggle.
   it("online-only sorts carry requiresOnline=true", async () => {
     const { SORT_OPTIONS } = await import("../components/qam/modals/editShelf/constants");
     const online = SORT_OPTIONS.filter((o) => (o as any).requiresOnline).map((o) => o.value).sort();
-    expect(online).toEqual(["discount_high", "original_price_high", "price_low"]);
+    expect(online).toEqual(["discount_high", "most_friends_owning", "original_price_high", "price_low", "trending_among_friends"]);
   });
 
   // Mirror check for the filter side — only price/discount are gated as

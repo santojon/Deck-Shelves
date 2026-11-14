@@ -135,7 +135,7 @@ export type AppOverview = {
   app_type?: number;
   cloud_available?: boolean;
   controller_support?: number;
-  // Steam fields the sort comparators read straight off the overview.
+  // Copied from the client's overview for the sorts and the date and score filters.
   rt_original_release_date?: number;
   size_on_disk?: number | string;
   metacritic_score?: number;
@@ -330,6 +330,18 @@ export function frameCompatCategory(n: SteamAppOverviewRaw): number {
     ((((Number(n.steam_hw_compat_category_packed ?? 0) >> 8) & 0x3)) || 0));
 }
 
+// What the size, date and score sorts and filters read; the client keeps the size as a string.
+function buildMetaFields(node: SteamAppOverviewRaw) {
+  const n = node ?? {};
+  const size = Number(n.size_on_disk ?? n.m_nSizeOnDisk ?? 0);
+  return {
+    size_on_disk: Number.isFinite(size) && size > 0 ? size : undefined,
+    rt_original_release_date: firstNumber(n.rt_original_release_date, n.rt_steam_release_date) || undefined,
+    metacritic_score: typeof n.metacritic_score === "number" ? n.metacritic_score : undefined,
+    review_percentage: firstNumber(n.review_percentage, n.review_percentage_with_bombs) || undefined,
+  };
+}
+
 function buildTypeFields(node: SteamAppOverviewRaw) {
   const n = node ?? {};
   return {
@@ -381,6 +393,7 @@ export function normalizeAppOverview(node: SteamAppOverviewRaw): AppOverview | n
     display_status: deriveDisplayStatus(node),
     ...buildAssetFields(node),
     ...buildTimestampFields(node),
+    ...buildMetaFields(node),
     ...buildTypeFields(node),
     ...buildClientFields(node),
   };

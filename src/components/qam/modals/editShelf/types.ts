@@ -1,6 +1,8 @@
 import type { FilterGroup, ShelfFilter, ShelfSource } from '../../../../types'
 import type { SourceType } from './constants'
 
+export type SourceOrder = { sort?: string | string[]; sortReverse?: boolean | boolean[] }
+
 export type EditableShelfState = {
   title: string
   sourceType: SourceType
@@ -14,6 +16,8 @@ export type EditableShelfState = {
   // hold an array of sort keys + per-key reverse flags (aligned indices).
   sort: string | string[]
   sortReverse: boolean | boolean[]
+  // The first source's own sort inside a composite sorted by "source order".
+  primaryOrder?: SourceOrder
   // Manual base sort accepts a string OR a multi-key chain — when sort
   // is "manual", `manualOrder` overrides positions of specific games
   // and the base order falls through to this chain.

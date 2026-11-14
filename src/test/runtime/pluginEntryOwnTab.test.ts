@@ -139,7 +139,7 @@ afterEach(() => {
 })
 
 describe('own Quick Access tab, installed by the plugin entry', () => {
-  it('U45 — a start under the loader alone installs it once, after the renderer is claimed, with the plugin\'s title and icon, the reader and the subscription, and no role option', async () => {
+  it('a start under the loader alone installs it once, after the renderer is claimed, with the plugin\'s title and icon, the reader and the subscription, and no role option', async () => {
     const entry = await startUnderLoader()
     expect(edge.installOwnQamTab).toHaveBeenCalledTimes(1)
     const { options, ownerAtInstall } = edge.installs[0]
@@ -152,7 +152,7 @@ describe('own Quick Access tab, installed by the plugin entry', () => {
     expect(ownerAtInstall).toBe('decky')
   })
 
-  it('U45 — the subscription waits for the settings file, then reports every change', async () => {
+  it('the subscription waits for the settings file, then reports every change', async () => {
     await startUnderLoader()
     const listener = vi.fn()
     const unsubscribe = edge.installs[0].options.subscribe(listener)
@@ -172,7 +172,7 @@ describe('own Quick Access tab, installed by the plugin entry', () => {
     expect(listener).toHaveBeenCalledTimes(2)
   })
 
-  it('U45 — the file being read is enough, even when it matches what was shown (no change notice)', async () => {
+  it('the file being read is enough, even when it matches what was shown (no change notice)', async () => {
     await startUnderLoader()
     const listener = vi.fn()
     edge.installs[0].options.subscribe(listener)
@@ -184,7 +184,7 @@ describe('own Quick Access tab, installed by the plugin entry', () => {
     expect(listener).toHaveBeenCalledTimes(1)
   })
 
-  it('U45 — the subscription asks for the settings file itself, once it listens, so the tab decides with nothing else reading it (Safe Mode, away from the Home)', async () => {
+  it('the subscription asks for the settings file itself, once it listens, so the tab decides with nothing else reading it (Safe Mode, away from the Home)', async () => {
     await startUnderLoader()
     const listening: number[] = []
     edge.requestSettingsFileRead.mockImplementation(() => { listening.push(edge.fileReadListeners.size) })
@@ -193,7 +193,7 @@ describe('own Quick Access tab, installed by the plugin entry', () => {
     expect(listening).toEqual([1])
   })
 
-  it('U45 — when the store already trusts its copy (a failed save left the newer one local), the first loaded document counts', async () => {
+  it('when the store already trusts its copy (a failed save left the newer one local), the first loaded document counts', async () => {
     edge.fileRead = true
     await startUnderLoader()
     const listener = vi.fn()
@@ -203,7 +203,7 @@ describe('own Quick Access tab, installed by the plugin entry', () => {
     expect(edge.requestSettingsFileRead).not.toHaveBeenCalled()
   })
 
-  it('U45 — with no answer from the file in 10 s, the local copy decides (never the stand-in defaults), and unsubscribing stops the wait', async () => {
+  it('with no answer from the file in 10 s, the local copy decides (never the stand-in defaults), and unsubscribing stops the wait', async () => {
     vi.useFakeTimers()
     try {
       await startUnderLoader()
@@ -232,7 +232,7 @@ describe('own Quick Access tab, installed by the plugin entry', () => {
     }
   })
 
-  it('U45 — the reader follows the setting in the settings store', async () => {
+  it('the reader follows the setting in the settings store', async () => {
     await startUnderLoader()
     const { isEnabled } = edge.installs[0].options
     expect(isEnabled()).toBe(false)
@@ -242,7 +242,7 @@ describe('own Quick Access tab, installed by the plugin entry', () => {
     expect(isEnabled()).toBe(true)
   })
 
-  it('U45 — the panel factory is the one the neutral host\'s tab gets: the title row, then the settings editor', async () => {
+  it('the panel factory is the one the neutral host\'s tab gets: the title row, then the settings editor', async () => {
     const entry = await startUnderLoader()
     const { renderPanel } = edge.installs[0].options
     expect(scope().__SHELVES_QAM_PENDING__.map((panel: any) => panel.content)).toEqual([renderPanel])
@@ -256,14 +256,14 @@ describe('own Quick Access tab, installed by the plugin entry', () => {
     expect(panel.indexOf(titleRow)).toBeLessThan(panel.length - editor.length)
   })
 
-  it('U45 — once per start: a second call of the entry installs nothing more', async () => {
+  it('once per start: a second call of the entry installs nothing more', async () => {
     const run = await loadPlugin()
     run(loaderServerApi())
     expect(run(loaderServerApi())).toBeUndefined()
     expect(edge.installOwnQamTab).toHaveBeenCalledTimes(1)
   })
 
-  it('U45 — stop: the loader\'s dismount uninstalls it, once', async () => {
+  it('stop: the loader\'s dismount uninstalls it, once', async () => {
     const entry = await startUnderLoader()
     const { uninstall } = edge.installs[0]
     expect(uninstall).not.toHaveBeenCalled()
@@ -273,7 +273,7 @@ describe('own Quick Access tab, installed by the plugin entry', () => {
     expect(uninstall).toHaveBeenCalledTimes(1)
   })
 
-  it('U45 — reload: the old copy uninstalls at its dismount, and the new copy installs once', async () => {
+  it('reload: the old copy uninstalls at its dismount, and the new copy installs once', async () => {
     const first = await startUnderLoader()
     first.onDismount()
     const second = await startUnderLoader()
@@ -284,7 +284,7 @@ describe('own Quick Access tab, installed by the plugin entry', () => {
     expect(edge.installs[1].uninstall).toHaveBeenCalledTimes(1)
   })
 
-  it('U45 — hot swap: the new copy uninstalls the old copy\'s tab, whose dismount never ran, before installing its own', async () => {
+  it('hot swap: the new copy uninstalls the old copy\'s tab, whose dismount never ran, before installing its own', async () => {
     await startUnderLoader()
     await startUnderLoader()
     expect(edge.installOwnQamTab).toHaveBeenCalledTimes(2)
@@ -294,7 +294,7 @@ describe('own Quick Access tab, installed by the plugin entry', () => {
     expect(current.uninstall).not.toHaveBeenCalled()
   })
 
-  it('U47 — the loader\'s entry is the same with the setting on, off, or not loaded yet', async () => {
+  it('the loader\'s entry is the same with the setting on, off, or not loaded yet', async () => {
     const describeEntry = (entry: LoaderEntry) => ({
       keys: Object.keys(entry).sort(),
       name: entry.name,
@@ -335,12 +335,12 @@ describe('own Quick Access tab, where the start installs it', () => {
     return bridge
   }
 
-  it('U43 — the loader alone: installed', async () => {
+  it('the loader alone: installed', async () => {
     expectBooted(await startUnderLoader())
     expect(edge.installOwnQamTab).toHaveBeenCalledTimes(1)
   })
 
-  it('U43 — the neutral host alone: not installed', async () => {
+  it('the neutral host alone: not installed', async () => {
     const bridge = withNeutralHost()
     await loadPlugin()
     expect(scope().__DECK_SHELVES_INSTANCES__?.shelveshub).toBeDefined()
@@ -348,7 +348,7 @@ describe('own Quick Access tab, where the start installs it', () => {
     expect(edge.installOwnQamTab).not.toHaveBeenCalled()
   })
 
-  it('U43 — both hosts: not installed', async () => {
+  it('both hosts: not installed', async () => {
     vi.stubGlobal('DFL', {})
     const bridge = withNeutralHost()
     expectBooted(await startUnderLoader())
@@ -357,7 +357,7 @@ describe('own Quick Access tab, where the start installs it', () => {
     expect(edge.installOwnQamTab).not.toHaveBeenCalled()
   })
 
-  it('U43 — cooperative ownership: not installed', async () => {
+  it('cooperative ownership: not installed', async () => {
     vi.stubGlobal('DFL', {})
     vi.stubGlobal('__SHELVES_FORCE_OWNER__', 'shelveshub')
     const bridge = withNeutralHost()
@@ -367,7 +367,7 @@ describe('own Quick Access tab, where the start installs it', () => {
     expect(edge.installOwnQamTab).not.toHaveBeenCalled()
   })
 
-  it('U43 — a copy that does not own the renderer: not installed', async () => {
+  it('a copy that does not own the renderer: not installed', async () => {
     vi.stubGlobal('__DECK_SHELVES_OWNER__', 'shelveshub')
     expectBooted(await startUnderLoader())
     expect(scope().__DECK_SHELVES_OWNER__).toBe('shelveshub')

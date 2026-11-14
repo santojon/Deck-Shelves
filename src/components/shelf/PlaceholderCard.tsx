@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { DiscountBadgeMode } from './discountBadge';
 import { Focusable, GamepadButton } from "../../runtime/host/decky";
 import { useTranslation } from "react-i18next";
 import i18n from "../../i18n";
@@ -58,11 +59,12 @@ function placeholderBadges(item: DeckRowItem): { showDiscountBadge: boolean; sho
 }
 
 // `data-isnew` / `data-discount` feed the Home's focus badge overlay, as on the art card.
-function badgeDataAttrs(item: DeckRowItem): { "data-isnew"?: string; "data-discount"?: string } {
+function badgeDataAttrs(item: DeckRowItem): { "data-isnew"?: string; "data-discount"?: string; "data-price"?: string } {
   const badges = placeholderBadges(item);
   return {
     "data-isnew": badges.showNewBadge ? 'true' : undefined,
     "data-discount": badges.showDiscountBadge ? String(item.discountPercent) : undefined,
+    "data-price": badges.showDiscountBadge ? item.priceText : undefined,
   };
 }
 
@@ -124,8 +126,10 @@ export function PlaceholderCard({
   onRemoveCard,
   hiddenSet,
   onHideCard,
+  discountBadgeMode = 'percent',
 }: {
   item: DeckRowItem;
+  discountBadgeMode?: DiscountBadgeMode;
   cardW?: number;
   cardH?: number;
   artH?: number;
@@ -226,7 +230,7 @@ export function PlaceholderCard({
         ["--ds-card-art-h" as string]: size.cssArtH,
       }}
     >
-      <CardBadgeHost hasBadge={badges.showDiscountBadge || badges.showNewBadge} showDiscountBadge={badges.showDiscountBadge} showNewBadge={badges.showNewBadge} discount={item.discountPercent} t={t} />
+      <CardBadgeHost hasBadge={badges.showDiscountBadge || badges.showNewBadge} showDiscountBadge={badges.showDiscountBadge} showNewBadge={badges.showNewBadge} discount={item.discountPercent} priceText={item.priceText} mode={discountBadgeMode} t={t} />
       <PlaceholderArt featured={featured} name={item.name} radius={getCachedCardRadius()} />
     </Focusable>
   );

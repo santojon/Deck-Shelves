@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import { isKnownFilterType } from '../../types'
 import {
   mapFilterTypeToInternal,
   convertFilterToItem,
@@ -36,20 +37,21 @@ describe('mapFilterTypeToInternal', () => {
     expect(mapFilterTypeToInternal('name')).toBe('nameIncludes')
     expect(mapFilterTypeToInternal('nameIncludes')).toBe('nameIncludes')
     expect(mapFilterTypeToInternal('nameregex')).toBe('nameRegex')
-    expect(mapFilterTypeToInternal('friends')).toBe('friends')
-    expect(mapFilterTypeToInternal('store tag')).toBe('storeTag')
-    expect(mapFilterTypeToInternal('storetag')).toBe('storeTag')
-    expect(mapFilterTypeToInternal('tag')).toBe('storeTag')
-    expect(mapFilterTypeToInternal('achievements')).toBe('achievements')
     expect(mapFilterTypeToInternal('collection')).toBe('collection')
     expect(mapFilterTypeToInternal('merge')).toBe('merge')
     expect(mapFilterTypeToInternal('favorites')).toBe('favorites')
   })
 
-  it('falls back to nameIncludes for unknown types', () => {
-    expect(mapFilterTypeToInternal('unknown_type')).toBe('nameIncludes')
-    expect(mapFilterTypeToInternal('')).toBe('nameIncludes')
-    expect(mapFilterTypeToInternal('something_else')).toBe('nameIncludes')
+  it('keeps a type it cannot map under its normalised name, so the condition imports as unavailable', () => {
+    expect(mapFilterTypeToInternal('unknown_type')).toBe('unknowntype')
+    expect(mapFilterTypeToInternal('')).toBe('')
+  })
+
+  it('maps the base-set types that read the client data', () => {
+    expect(mapFilterTypeToInternal('store tag')).toBe('storeTag')
+    expect(mapFilterTypeToInternal('tags')).toBe('storeTag')
+    expect(mapFilterTypeToInternal('friends')).toBe('friends')
+    expect(mapFilterTypeToInternal('achievements')).toBe('achievements')
   })
 
   it('is case and separator insensitive', () => {
@@ -77,10 +79,9 @@ describe('convertFilterToItem', () => {
     expect(item.params).toMatchObject({ text: 'elden' })
   })
 
-  it('normalizes storeTag params.tag to params.tags array', () => {
-    const item = convertFilterToItem({ type: 'store tag', params: { tag: 'RPG' } })
-    expect(item.type).toBe('storeTag')
-    expect(item.params?.tags).toEqual(['RPG'])
+  it('imports a demo filter as the demo kind of shortcut type, negated when it says not a demo', () => {
+    expect(convertFilterToItem({ type: 'demo', params: {} })).toEqual({ type: 'shortcutType', inverted: false, params: { kinds: ['demo'] } })
+    expect(convertFilterToItem({ type: 'demo', params: { isDemo: false } })).toEqual({ type: 'shortcutType', inverted: true, params: { isDemo: false, kinds: ['demo'] } })
   })
 
   it('normalizes collection params.id to params.collectionId', () => {
@@ -167,15 +168,14 @@ describe('containerToShelfSource', () => {
 describe('TabMaster v2.10+ filter parity (import mapping)', () => {
   it('maps current TabMaster filter types instead of falling back to nameIncludes', () => {
     expect(mapFilterTypeToInternal('regex')).toBe('nameRegex')
-    expect(mapFilterTypeToInternal('tags')).toBe('storeTag')
     expect(mapFilterTypeToInternal('time played')).toBe('playtimeRange')
     expect(mapFilterTypeToInternal('size on disk')).toBe('installedSizeRange')
     expect(mapFilterTypeToInternal('review score')).toBe('reviewScore')
     expect(mapFilterTypeToInternal('release date')).toBe('releaseDate')
     expect(mapFilterTypeToInternal('coming soon')).toBe('comingSoon')
-    expect(mapFilterTypeToInternal('demo')).toBe('demo')
+    expect(mapFilterTypeToInternal('demo')).toBe('shortcutType')
     expect(mapFilterTypeToInternal('streamable')).toBe('remotePlayLocation')
-    expect(mapFilterTypeToInternal('install folder')).toBe('storageDevice')
+    expect(mapFilterTypeToInternal('tags')).toBe('storeTag')
   })
 
   it('keeps SteamOS compatibility DISTINCT from system compatibility (divergent data)', () => {
@@ -201,5 +201,101 @@ describe('TabMaster v2.10+ filter parity (import mapping)', () => {
     expect(convertFilterToItem({ type: 'blacklist', params: { appIds: [1] } }).inverted).toBe(true)
     expect(convertFilterToItem({ type: 'coming soon', params: { isComingSoon: false } }).inverted).toBe(true)
     expect(convertFilterToItem({ type: 'coming soon', params: { isComingSoon: true } }).inverted).toBe(false)
+  })
+})
+
+describe('TabMaster 3.1 import', () => {
+  const tm = (type: string, params: any, inverted = false) => convertFilterToItem({ type, inverted, params })
+  const DAY = 86400
+
+  it('maps every filter type of the 3.1 release to a condition the plugin evaluates', () => {
+    const defaults: Record<string, any> = {
+      collection: { id: 'favorite', name: 'Favorites' }, installed: { installed: true }, regex: { regex: '' },
+      friends: { friends: [], mode: 'and' }, tags: { tags: [], mode: 'and' }, whitelist: { games: [] }, blacklist: { games: [] },
+      merge: { filters: [], mode: 'and' }, platform: { platform: 'steam' }, 'deck compatibility': { category: 3 },
+      'steamos compatibility': { category: 2 }, 'review score': { scoreThreshold: 50, condition: 'above', type: 'metacritic' },
+      'time played': { timeThreshold: 60, condition: 'above', units: 'minutes' }, 'size on disk': { gbThreshold: 10, condition: 'above' },
+      'release date': { date: undefined, condition: 'above' }, 'purchase date': { date: undefined, condition: 'above' },
+      'last played': { date: undefined, condition: 'above' }, 'family sharing': { isFamilyShared: true }, demo: { isDemo: true },
+      'coming soon': { isComingSoon: true }, streamable: { isStreamable: true }, 'steam features': { features: [], mode: 'and' },
+      achievements: { threshold: 10, thresholdType: 'percent', condition: 'above' }, 'sd card': { card: 0 }, 'install folder': { driveName: '/home' },
+    }
+    for (const [type, params] of Object.entries(defaults)) {
+      const item = tm(type, params)
+      expect(isKnownFilterType(item.type), `${type} → ${item.type}`).toBe(true)
+    }
+  })
+
+  it('negates the flags that mean the opposite of our condition', () => {
+    expect(tm('installed', { installed: false })).toMatchObject({ type: 'installed', inverted: true })
+    expect(tm('installed', { installed: true }).inverted).toBe(false)
+    expect(tm('streamable', { isStreamable: false })).toMatchObject({ type: 'remotePlayLocation', inverted: true })
+    expect(tm('platform', { platform: 'steam' })).toMatchObject({ type: 'nonSteam', inverted: true })
+    expect(tm('platform', { platform: 'nonSteam' })).toMatchObject({ type: 'nonSteam', inverted: false })
+    expect(tm('family sharing', { isFamilyShared: false })).toMatchObject({ type: 'familySharing', inverted: true })
+    expect(tm('family sharing', { isFamilyShared: true }, true)).toMatchObject({ type: 'familySharing', inverted: true })
+  })
+
+  it('reads the 3.x date shapes: a day/month/year object, days ago, unknown, and the older timestamp', () => {
+    const after = tm('release date', { date: { day: 15, month: 3, year: 2024 }, condition: 'above' })
+    expect(after.params).toMatchObject({ op: 'after', ts: Math.floor(new Date(2024, 2, 15).getTime() / 1000) })
+    const beforeYear = tm('purchase date', { date: { year: 2020 }, condition: 'below' })
+    expect(beforeYear).toMatchObject({ type: 'purchaseDate', params: { op: 'before', ts: Math.floor(new Date(2021, 0, 1).getTime() / 1000) - 1 } })
+    const beforeMonth = tm('release date', { date: { month: 6, year: 2022 }, condition: 'below' })
+    expect(beforeMonth.params!.ts).toBe(Math.floor(new Date(2022, 6, 1).getTime() / 1000) - 1)
+    const daysAgo = tm('purchase date', { daysAgo: 30, condition: 'above' })
+    expect(Math.abs(Number(daysAgo.params!.ts) - (Date.now() / 1000 - 30 * DAY))).toBeLessThan(5)
+    expect(tm('release date', { isUnknown: true, condition: 'above' }).params).toMatchObject({ op: 'unknown' })
+    expect(tm('release date', { date: 1600000000, condition: 'below' }).params).toMatchObject({ op: 'before', ts: 1600000000 })
+  })
+
+  it('turns "last played" into played within N days or not played for N days', () => {
+    expect(tm('last played', { daysAgo: 30, condition: 'above' })).toMatchObject({ type: 'playedWithinDays', params: { days: 30 } })
+    expect(tm('last played', { daysAgo: 60, condition: 'below' })).toMatchObject({ type: 'neglected', params: { days: 60 } })
+    const since = tm('last played', { date: { day: 1, month: 1, year: 2020 }, condition: 'above' })
+    expect(since.type).toBe('playedWithinDays')
+    expect(Number(since.params!.days)).toBeGreaterThan(365)
+  })
+
+  it('turns the achievements filter into a count range or a percentage range', () => {
+    expect(tm('achievements', { threshold: 10, thresholdType: 'count', condition: 'above' })).toMatchObject({ type: 'achievements', params: { min: 10 } })
+    expect(tm('achievements', { threshold: 5, thresholdType: 'count', condition: 'below' })).toMatchObject({ type: 'achievements', params: { min: 0, max: 5 } })
+    expect(tm('achievements', { threshold: 70, thresholdType: 'percent', condition: 'above' })).toMatchObject({ type: 'achievementPercentRange', params: { min: 70, max: 100 } })
+    expect(tm('achievements', { threshold: 30, thresholdType: 'percent', condition: 'below' })).toMatchObject({ type: 'achievementPercentRange', params: { min: 0, max: 30 } })
+  })
+
+  it('keeps the friends, tags and features lists with their any/all mode', () => {
+    expect(tm('friends', { friends: [11, 22], mode: 'and' }).params).toMatchObject({ friends: [11, 22], min: 2 })
+    expect(tm('friends', { friends: [11, 22], mode: 'or' }).params).toMatchObject({ friends: [11, 22], min: 1 })
+    expect(tm('tags', { tags: [3964, 19], mode: 'and' })).toMatchObject({ type: 'storeTag', params: { tags: ['3964', '19'], mode: 'all' } })
+    expect(tm('tags', { tags: [19], mode: 'or' }).params).toMatchObject({ tags: ['19'], mode: 'any' })
+    expect(tm('steam features', { features: [28, 23], mode: 'or' })).toMatchObject({ type: 'storeCategory', params: { ids: [28, 23], mode: 'any' } })
+    expect(tm('steam features', { features: [2], mode: 'and' }).params).toMatchObject({ ids: [2], mode: 'all' })
+  })
+
+  it('maps the game lists, the SD card and the install folder', () => {
+    expect(tm('whitelist', { games: [10, 20] })).toMatchObject({ type: 'appIdList', inverted: false, params: { appIds: [10, 20] } })
+    expect(tm('blacklist', { games: [10] })).toMatchObject({ type: 'appIdList', inverted: true, params: { appIds: [10] } })
+    expect(tm('sd card', { card: 0 })).toMatchObject({ type: 'libraryLocation', params: { category: 'external' } })
+    expect(tm('install folder', { driveName: '/run/media/deck/842f' }).params).toMatchObject({ category: 'external' })
+    expect(tm('install folder', { driveName: '/home' }).params).toMatchObject({ category: 'internal' })
+  })
+
+  it('keeps the tab\'s any/all mode on the group', () => {
+    expect(convertFiltersToGroup([{ type: 'installed', params: { installed: true } }], 'or').mode).toBe('or')
+    expect(convertFiltersToGroup([], 'and').mode).toBe('and')
+    expect(containerToShelfSource({ id: 't', title: 'T', filters: [{ type: 'installed', params: {} }], filtersMode: 'or' })).toMatchObject({ type: 'filter', filter: { filterGroup: { mode: 'or' } } })
+  })
+
+  it('converts a nested 3.1 tab with every child', () => {
+    const group = convertFiltersToGroup([
+      { type: 'merge', inverted: false, params: { mode: 'or', filters: [
+        { type: 'platform', inverted: false, params: { platform: 'steam' } },
+        { type: 'achievements', inverted: false, params: { threshold: 50, thresholdType: 'percent', condition: 'above' } },
+      ] } },
+      { type: 'installed', inverted: false, params: { installed: true } },
+    ])
+    expect(group.items.map((i) => i.type)).toEqual(['merge', 'installed'])
+    expect((group.items[0].params!.items as any[]).map((i) => [i.type, i.inverted])).toEqual([['nonSteam', true], ['achievementPercentRange', false]])
   })
 })

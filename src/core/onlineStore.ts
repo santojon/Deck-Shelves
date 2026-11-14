@@ -322,6 +322,8 @@ export interface PriceData {
   discount: number;     // 0–100
   currency: string;
   isFree: boolean;
+  // The sale price as the store writes it in the user's currency and format ("$4.99", "R$ 4,99").
+  formatted?: string;
   // True when Steam returned no `price_overview` for this appid. Cached
   // as a negative entry so we don't re-issue the fetch on every shelf
   // resolve; the discount filter treats this as "no discount data".
@@ -400,6 +402,10 @@ async function fetchPriceBatch(batch: number[]): Promise<any | null> {
 /* `success: false` and "no price_overview" (permanently free / region-
    blocked) both become negative cache entries so the fetch is not re-issued
    every resolve — the "first 200 always re-fetched" pattern with F2P games. */
+function formattedOf(po: any): string | undefined {
+  return typeof po?.final_formatted === "string" && po.final_formatted ? po.final_formatted : undefined;
+}
+
 function priceDataFromEntry(entry: any): PriceData {
   if (!entry?.success) return { price: 0, originalPrice: 0, discount: 0, currency: "USD", isFree: false, unpriced: true };
   const po = entry.data?.price_overview;
@@ -410,6 +416,7 @@ function priceDataFromEntry(entry: any): PriceData {
     discount: po.discount_percent ?? 0,
     currency: po.currency ?? "USD",
     isFree: false,
+    formatted: formattedOf(po),
   };
 }
 

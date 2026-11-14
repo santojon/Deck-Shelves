@@ -65,6 +65,7 @@ export function createGlobalVisualActions(deps: GlobalVisualDeps) {
     setGlobalDescriptionLogoGap: (v: number) => setClampedNumber("globalDescriptionLogoGap", v, -40, 80),
     setGlobalHideNewBadge: (v: boolean) => setBool("globalHideNewBadge", v),
     setGlobalHideDiscountBadge: (v: boolean) => setBool("globalHideDiscountBadge" as any, v),
+    setGlobalDiscountBadgeMode: (v: "percent" | "price" | "both") => setEnum("discountBadgeMode", v),
     setGlobalHideCompatIcons: (v: boolean) => setBool("globalHideCompatIcons", v),
     setGlobalHideSeeMore: (v: boolean) => setBool("globalHideSeeMore", v),
     setGlobalHideRefreshCard: (v: boolean) => setBool("globalHideRefreshCard", v),

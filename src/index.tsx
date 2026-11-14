@@ -35,7 +35,7 @@ import "./core/internalRegistry";
 import { logDiagnostic } from "./runtime/diagnostics";
 import { prefetchSteamOSVersion } from "./core/steamOSVersion";
 import { prewarmUserPaths } from "./core/userPaths";
-import { invalidateRandomSortCache } from "./steam";
+import { getAllAppOverviews, invalidateRandomSortCache, resolveShelfAppIds } from "./steam";
 import { pruneCache as pruneImageCache, hydrateHotCacheFromStorage } from "./core/imageCache";
 import { pruneShelfCaches } from "./components/shelf/shelfViewHelpers";
 import { getCurrentSettings, isSettingsFileRead, onSettingsFileRead, requestSettingsFileRead, subscribeSettings } from "./store/settingsStore";
@@ -210,6 +210,8 @@ function installDevHooks(): void {
   if (!__DEV__) return;
   // Expose the live device snapshot for on-device CDP inspection.
   try { (globalThis as any).__ds_device = getDeviceState; } catch {}
+  // The resolver and the library pool, so a probe can resolve a source without saving a shelf.
+  try { (globalThis as any).__ds_dev_resolve = resolveShelfAppIds; (globalThis as any).__ds_dev_overviews = getAllAppOverviews; } catch {}
   // Navigation/nav-tree hooks for on-device drivers, via the host abstraction.
   try { registerDisposer(installDevNavHooks()); } catch {}
 }

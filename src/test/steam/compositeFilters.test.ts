@@ -2,81 +2,53 @@ import { describe, it, expect } from 'vitest'
 import type { AppOverview } from '../../steam'
 import { FilterItemTypeSchema } from '../../types'
 import { ALL_FILTER_TYPES, startingOptions } from '../../components/conditions/utils'
-import { FILTER_V3_EVALUATORS, type ChildEvaluator } from '../../steam/v3Extensions'
+import { evaluateFilterItem, flattenItems, unsupportedFilterType } from '../../steam/filterEval'
 
-const COMPOSITES = ['weightedFilter', 'priorityFilter', 'exclusionGroup']
+const COMPOSITES = ['weightedFilter', 'priorityFilter', 'exclusionGroup'] as const
 
-const app = (over: Partial<AppOverview> & { appid: number }): AppOverview =>
-  ({ display_name: `App ${over.appid}`, ...over } as AppOverview)
+const app = (over: Record<string, unknown> & { appid: number }): AppOverview =>
+  ({ display_name: `App ${over.appid}`, ...over } as unknown as AppOverview)
 
-/* Stand-in for the host evaluator the dispatch injects: understands the two
-   base predicates used below, so these tests prove composites can combine
-   NON-v3 children (the point of the upgrade). */
-const hostEval: ChildEvaluator = (item, a: any) => {
-  const res = item.type === 'installed' ? a.installed === true
-    : item.type === 'favorites' ? a.is_favorite === true
-    : false
-  return item.inverted ? !res : res
-}
+const both = app({ appid: 1, installed: true, is_favorite: true })
+const onlyInstalled = app({ appid: 2, installed: true, is_favorite: false })
+const neither = app({ appid: 3, installed: false, is_favorite: false })
+const kids = [{ type: 'installed', params: {} }, { type: 'favorites', params: {} }]
+const run = (type: string, params: Record<string, unknown>, a: AppOverview, inverted = false) =>
+  evaluateFilterItem({ type, inverted, params } as any, a)
 
-const weighted = (children: any[], threshold: number) =>
-  FILTER_V3_EVALUATORS.weightedFilter({ type: 'weightedFilter', params: { children, threshold } }, app({ appid: 1 }), hostEval)
-
-describe('composite filters — exposure', () => {
-  it.each(COMPOSITES)('%s is a schema type, in the picker, with an evaluator', (id) => {
+describe('composite conditions', () => {
+  it.each(COMPOSITES)('%s is a schema type, offered, and starts with no conditions inside', (id) => {
     expect(FilterItemTypeSchema.options).toContain(id)
     expect(ALL_FILTER_TYPES).toContain(id)
-    expect(typeof FILTER_V3_EVALUATORS[id]).toBe('function')
+    expect(startingOptions(id)).toEqual(id === 'weightedFilter' ? { children: [], threshold: 1 } : { children: [] })
   })
 
-  it('seeds an empty children list (and a threshold for weighted)', () => {
-    expect(startingOptions('weightedFilter' as any)).toEqual({ children: [], threshold: 1 })
-    expect(startingOptions('priorityFilter' as any)).toEqual({ children: [] })
-    expect(startingOptions('exclusionGroup' as any)).toEqual({ children: [] })
-  })
-})
-
-describe('composite filters — evaluate children of ANY type', () => {
-  const both = app({ appid: 1, installed: true, is_favorite: true } as any)
-  const onlyInstalled = app({ appid: 2, installed: true, is_favorite: false } as any)
-  const neither = app({ appid: 3, installed: false, is_favorite: false } as any)
-  const kids = [{ type: 'installed', params: {} }, { type: 'favorites', params: {} }]
-
-  it('weighted: matches when at least `threshold` children match', () => {
-    const run = (a: AppOverview, threshold: number) =>
-      FILTER_V3_EVALUATORS.weightedFilter({ type: 'weightedFilter', params: { children: kids, threshold } }, a, hostEval)
-    expect(run(both, 2)).toBe(true)
-    expect(run(onlyInstalled, 2)).toBe(false)
-    expect(run(onlyInstalled, 1)).toBe(true)
-    expect(run(neither, 1)).toBe(false)
-  })
-
-  it('weighted: honours per-child weights', () => {
+  it('weighted: matches when at least `threshold` children match, each counting its weight', () => {
+    expect(run('weightedFilter', { children: kids, threshold: 2 }, both)).toBe(true)
+    expect(run('weightedFilter', { children: kids, threshold: 2 }, onlyInstalled)).toBe(false)
+    expect(run('weightedFilter', { children: kids, threshold: 1 }, onlyInstalled)).toBe(true)
+    expect(run('weightedFilter', { children: kids, threshold: 1 }, neither)).toBe(false)
     const heavy = [{ type: 'installed', params: {}, weight: 5 }]
-    expect(weighted(heavy, 5)).toBe(false) // app 1 in `weighted()` has no flags
-    expect(FILTER_V3_EVALUATORS.weightedFilter(
-      { type: 'weightedFilter', params: { children: heavy, threshold: 5 } }, onlyInstalled, hostEval,
-    )).toBe(true)
+    expect(run('weightedFilter', { children: heavy, threshold: 5 }, onlyInstalled)).toBe(true)
+    expect(run('weightedFilter', { children: heavy, threshold: 5 }, neither)).toBe(false)
   })
 
-  it('priority: matches when any child matches', () => {
-    const run = (a: AppOverview) =>
-      FILTER_V3_EVALUATORS.priorityFilter({ type: 'priorityFilter', params: { children: kids } }, a, hostEval)
-    expect(run(onlyInstalled)).toBe(true)
-    expect(run(neither)).toBe(false)
+  it('priority: matches when any child matches; exclusion: excludes when any child matches', () => {
+    expect(run('priorityFilter', { children: kids }, onlyInstalled)).toBe(true)
+    expect(run('priorityFilter', { children: kids }, neither)).toBe(false)
+    expect(run('exclusionGroup', { children: kids }, onlyInstalled)).toBe(false)
+    expect(run('exclusionGroup', { children: kids }, neither)).toBe(true)
   })
 
-  it('exclusion: excludes when any child matches', () => {
-    const run = (a: AppOverview) =>
-      FILTER_V3_EVALUATORS.exclusionGroup({ type: 'exclusionGroup', params: { children: kids } }, a, hostEval)
-    expect(run(onlyInstalled)).toBe(false)
-    expect(run(neither)).toBe(true)
+  it('with nothing inside, priority matches nothing and exclusion everything', () => {
+    expect(run('priorityFilter', { children: [] }, both)).toBe(false)
+    expect(run('exclusionGroup', {}, both)).toBe(true)
   })
 
-  it('is fail-soft with no children and with no host evaluator', () => {
-    expect(FILTER_V3_EVALUATORS.priorityFilter({ type: 'priorityFilter', params: { children: [] } }, both, hostEval)).toBe(false)
-    expect(FILTER_V3_EVALUATORS.exclusionGroup({ type: 'exclusionGroup', params: {} }, both, hostEval)).toBe(true)
-    // No evaluator injected → children can't be judged, so nothing matches.
-    expect(FILTER_V3_EVALUATORS.priorityFilter({ type: 'priorityFilter', params: { children: kids } }, both)).toBe(false)
+  it('is negated like any condition, and the conditions inside count at any depth', () => {
+    expect(run('priorityFilter', { children: kids }, neither, true)).toBe(true)
+    const nested = { type: 'exclusionGroup', params: { children: [{ type: 'merge', params: { mode: 'and', items: [{ type: 'launchCount', params: {} }] } }] } }
+    expect(flattenItems([nested]).map((i) => i.type)).toEqual(['exclusionGroup', 'merge', 'launchCount'])
+    expect(unsupportedFilterType({ mode: 'and', items: [nested] } as any)).toBe('launchCount')
   })
 })

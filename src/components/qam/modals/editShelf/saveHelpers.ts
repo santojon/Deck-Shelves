@@ -120,11 +120,21 @@ export function dropEmptyChildFilter(s: any): any {
   return rest;
 }
 
+// A source's own sort, without empty fields.
+export function withSourceOrder(source: any, order: { sort?: unknown; sortReverse?: unknown } | undefined): any {
+  const { sort: _s, sortReverse: _r, ...rest } = source ?? {};
+  return {
+    ...rest,
+    ...(order?.sort !== undefined ? { sort: order.sort } : {}),
+    ...(order?.sortReverse ? { sortReverse: order.sortReverse } : {}),
+  };
+}
+
 export function assembleFinalSource(primary: any, state: EditableShelfState): any {
   // A filter primary now composes with additional sources like any other
   // primary; only a truly single-source shelf returns the bare primary.
   if (state.additionalSources.length === 0) return primary;
-  const allChildren = [primary, ...state.additionalSources].map(dropEmptyChildFilter);
+  const allChildren = [withSourceOrder(primary, state.primaryOrder), ...state.additionalSources].map(dropEmptyChildFilter);
   return { type: 'composite', combine: state.compositeCombine, sources: allChildren };
 }
 
@@ -135,7 +145,9 @@ export function shelfSortForPatch(state: EditableShelfState): Partial<Shelf>['so
      chosen sort there too (state.filter.sort), otherwise the order is lost. */
   if (state.sourceType === 'filter' && state.additionalSources.length === 0) return undefined;
   const eff = state.sourceType === 'filter' ? state.filter.sort : state.sort;
-  const hasUserSort = Array.isArray(eff) ? eff.length > 0 : (eff != null && eff !== 'alphabetical');
+  // A built-in or composite source has its own order, so "alphabetical" is saved explicitly there.
+  const ownOrder = state.sourceType === 'builtin' || state.additionalSources.length > 0;
+  const hasUserSort = Array.isArray(eff) ? eff.length > 0 : (eff != null && (eff !== 'alphabetical' || ownOrder));
   if (!hasUserSort) return undefined;
   return normalizeManualSort(eff as ShelfFilter['sort']) as Partial<Shelf>['sort'];
 }

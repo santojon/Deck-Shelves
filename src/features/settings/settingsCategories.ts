@@ -22,7 +22,7 @@ export const SETTINGS_CATEGORIES: ReadonlyArray<SettingsCategory> = [
   { id: "integrations",     labelKey: "settings_category_integrations",     keys: ["integrationsEnabled", "featureToggles"] },
   { id: "visual_global",    labelKey: "settings_category_visual_global",    keys: [
     "globalMatchNativeSize", "globalHighlightFirst", "globalHighlightAll", "globalHighlightRandom",
-    "globalHideStatusLine", "globalHideNewBadge", "globalHideDiscountBadge", "globalHideCompatIcons",
+    "globalHideStatusLine", "globalHideNewBadge", "globalHideDiscountBadge", "discountBadgeMode", "globalHideCompatIcons",
     "globalHideNonSteamBadge", "globalHideShelfTitle", "globalHideGameNames", "globalHideInstallIndicator",
     "globalHideSeeMore", "globalHideRefreshCard", "globalDedupeByName", "globalHeroEnabled",
     "globalEnableLogo", "globalEnableIcon", "globalEnableDescription", "globalDescriptionBelowLogo",

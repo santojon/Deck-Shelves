@@ -23,7 +23,7 @@ type GrabRowNodes = {
   row: RefObject<HTMLDivElement | null>
 }
 
-type RowTexts = { grab: string; drop: string; cancel: string; moves: { [button: number]: string } }
+type RowTexts = { primary: string; grab: string; drop: string; cancel: string; moves: { [button: number]: string } }
 
 const LIST_STYLE = { display: 'flex', flexDirection: 'column' } as const
 const noop = () => undefined
@@ -74,6 +74,14 @@ function focusTarget(target: HTMLElement | null): void {
 function scrollIntoNearest(row: HTMLElement | null): void {
   if (!row || typeof row.scrollIntoView !== 'function') return
   try { row.scrollIntoView({ block: 'nearest' }) } catch { /* detached element */ }
+}
+
+// The row's own menu control, when the caller's actions include one (RowMenuButton).
+function openRowMenu(row: HTMLElement | null): boolean {
+  const control = row?.querySelector<HTMLElement>('[data-ds-row-menu]')
+  if (!control) return false
+  try { control.click() } catch { /* detached element */ }
+  return true
 }
 
 /* Grab state for one list. Handlers read and write it here at once, so rapid
@@ -162,10 +170,16 @@ function createGrabControl(setGrab: (next: Grab | null) => void) {
       alive = true
       return () => { alive = false; landing = null; cancelFrame() }
     },
-    ok(index: number, evt: PadEvent, refs: GrabRowNodes): void {
-      if (!alive || isRepeat(evt)) return
-      if (holds(index)) { drop(refs); return }
-      if (index >= ids.length) return
+    // A: drops the held row; on any other row it opens that row's menu, ending a grab elsewhere first.
+    ok(index: number, evt: PadEvent, refs: GrabRowNodes): boolean {
+      if (!alive || isRepeat(evt)) return false
+      if (holds(index)) { drop(refs); return true }
+      if (grab) { cancelFrame(); landing = null; commit(null) }
+      return openRowMenu(refs.row.current)
+    },
+    // X: grabs the row; a grab elsewhere in the list ends first.
+    grab(index: number, evt: PadEvent): void {
+      if (!alive || isRepeat(evt) || holds(index) || index >= ids.length) return
       cancelFrame()
       landing = null
       commit({ from: index, perm: ids.map((_id, i) => i), base: ids })
@@ -174,6 +188,7 @@ function createGrabControl(setGrab: (next: Grab | null) => void) {
       if (!holds(index)) return false
       const button = evt?.detail?.button
       if (button === GamepadButton.CANCEL) return cancelPress(evt, refs)
+      if (button === GamepadButton.SECONDARY) { absorb(evt); return true }
       const delta = directionDelta(button)
       if (delta === null) return false
       absorb(evt)
@@ -245,7 +260,9 @@ function GrabRowView<T>({ item, id, index, order, grabbed, texts, control, rende
       className='ds-grab-target'
       onActivate={noop}
       onOKButton={(evt: PadEvent) => control.ok(index, evt, refs)}
-      onOKActionDescription={grabbed ? texts.drop : texts.grab}
+      onOKActionDescription={grabbed ? texts.drop : texts.primary}
+      onSecondaryButton={(evt: PadEvent) => control.grab(index, evt)}
+      onSecondaryActionDescription={grabbed ? undefined : texts.grab}
       {...(grabbed ? grabbedProps(control, index, refs, texts) : {})}
     >
       {renderLabel(item)}
@@ -269,9 +286,10 @@ function GrabRowView<T>({ item, id, index, order, grabbed, texts, control, rende
 // Rows re-render only when their own props change, so a move costs two rows.
 const GrabRow = memo(GrabRowView) as typeof GrabRowView
 
-/* A list the controller reorders one row at a time: A on a name grabs the row,
+/* A list the controller reorders one row at a time: X on a name grabs the row,
    the D-pad moves it, A drops it (saving once if its place changed) and B puts
-   it back. The DOM order stays fixed during a grab; CSS order shows the move. */
+   it back; A on an idle name opens the row's menu. The DOM order stays fixed
+   during a grab; CSS order shows the move. */
 export function GrabReorderList<T>({ items, getId, renderLabel, renderActions, onReorder }: {
   items: T[]
   getId: (item: T) => string
@@ -291,6 +309,7 @@ export function GrabReorderList<T>({ items, getId, renderLabel, renderActions, o
   useLayoutEffect(() => { control.sync(ids, onReorder) })
   useEffect(() => control.attach(), [control])
   useEndOnPointer(rootRef, live !== null, control)
+  const primaryText = t('actions')
   const grabText = t('reorder_label')
   const dropText = t('reorder_save_order')
   const cancelText = t('cancel')
@@ -298,12 +317,13 @@ export function GrabReorderList<T>({ items, getId, renderLabel, renderActions, o
   const downText = t('move_down')
   const texts = useMemo(
     () => ({
+      primary: primaryText,
       grab: grabText,
       drop: dropText,
       cancel: cancelText,
       moves: { [GamepadButton.DIR_UP]: upText, [GamepadButton.DIR_DOWN]: downText },
     }),
-    [grabText, dropText, cancelText, upText, downText],
+    [primaryText, grabText, dropText, cancelText, upText, downText],
   )
   const positions = live ? positionsOf(live.perm) : null
   return (

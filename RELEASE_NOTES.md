@@ -17,6 +17,24 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 - **For theme authors**: several CSS classes have new names; the [CHANGELOG](CHANGELOG.md) lists each one.
 
+- **Collection shelves show exactly what the collection holds**: the shelf reads the collection by its id from the Steam client and shows its current games, dynamic collections included. Collections with similar names no longer mix.
+
+- **Sorting by size, release date, metacritic or review score works on the Deck** without the online enrichment, and the templates that pick small games or well-reviewed ones (Short battery, Travel mode, Low battery, Forgotten gems) find their games again.
+
+- **Conditions, sort keys and templates that read what the Steam client really has**: store tags (by name in your language or by id), friends who own a game, achievements (count, percentage, not completed), Family Sharing, the "at least N of", "any of" and "none of" groups, the Almost finished, Couch gaming, Co-op ready and Party games templates and the Dynamic collections source all work from the client's own records now, several of them for the first time. What read data the client never provides is gone (launch counts, session length, install date, storage device, executable type, DLC and soundtrack ownership, the launcher libraries), and the duplicates of other options are rewritten to them when your settings load. A shelf that still names something no longer evaluated stays empty and shows "Unavailable" in the editor until you change it; it never fills with the whole library by mistake.
+
+- **Dynamic collections are marked** with a bolt in the collection picker.
+
+- **Steam features and purchase date conditions**: filter by the features Steam lists for a game (single-player, co-op, cloud saves, controller support…) and by the date you bought it; store tags can require any or all of the tags, and release dates can be "unknown".
+
+- **TabMaster 3.1 tabs import whole**: every filter of a TabMaster tab becomes the matching condition here, dates, achievements, friends, tags, features, SD card and install folder included.
+
+- **Pinned games first, then recently played**: a new "Source order" sort lists the sources of a shelf one after the other, each with its own sort, and built-in lists (pinned games, play history, the queues) and smart shelves can now be added as sources. Pinned games come last pinned first; reverse the sort to start from the first one.
+
+- **Hidden gems is back**: never-played games with a high review score, best first.
+
+- **The discount badge can show the sale price (#125)**: pick the percentage, the price as the store writes it in your currency, or both, in the Visual settings.
+
 - **Smaller fixes**: Move up and Move down in the unified shelf list keep the shelf within that list, as dragging does, and the profile row's button hint reads Actions instead of Apply.
 
 ## [3.4.1] - 2026-11-02

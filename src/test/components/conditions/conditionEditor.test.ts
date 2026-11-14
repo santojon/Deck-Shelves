@@ -151,15 +151,13 @@ describe('condition editor', () => {
     expect(latest.items[0]).toEqual({ type: 'favorites', inverted: true, params: {} })
   })
 
-  it('a condition holding others only changes to another grouping type', () => {
+  it('a condition holding others keeps its grouping type', () => {
     const inner = cond('installed')
     show([{ type: 'merge', params: { mode: 'or', items: [inner] } }])
     click(headers()[0])
     const offered = Array.from(mount.querySelector('[data-picker]')!.querySelectorAll('[data-option]'), (o) => o.getAttribute('data-option'))
-    expect(offered.sort()).toEqual(['exclusionGroup', 'merge', 'priorityFilter', 'weightedFilter'])
+    expect(offered).toEqual(['priorityFilter', 'weightedFilter', 'merge', 'exclusionGroup'])
     expect(mount.textContent).toContain('Remove the conditions inside to pick another type.')
-    click(option('exclusionGroup'))
-    expect(latest.items[0]).toEqual({ type: 'exclusionGroup', params: { children: [inner] } })
   })
 
   it('adds inside a nested group and leaves the outer list alone', () => {

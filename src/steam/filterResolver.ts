@@ -209,9 +209,8 @@ async function _resolveFilterGroupPath(
   await Promise.all(colIds.map(async (colId) => {
     try {
       const ids = await getCollectionApps(colId);
-      // Always set, even on empty result, so the evaluator can tell
-      // "lookup completed with 0 apps" from "lookup never attempted".
-      evalCtx.collectionAppIds.set(colId, new Set(ids));
+      // Set even when the collection is missing or empty: the item then matches nothing.
+      evalCtx.collectionAppIds.set(colId, new Set(ids ?? []));
     } catch {}
   }));
   // Warm developer / publisher caches before evaluation — cold caches

@@ -9,8 +9,8 @@ import { evaluateFilterGroup } from "./filterEval";
 import { extractAppIdsDeep, extractCollectionAppIds } from "./steamGraph";
 import { getAdaptiveTimeout, recordDuration } from "../core/adaptiveTimeout";
 import { getAllAppOverviews } from "./library";
-import { getCollectionApps, listCollections, normalizeText } from "./collections";
-import { appIdOfRow, getSteamClients, getSteamWindows, uniqNumbers } from "./steamAccess";
+import { normalizeText } from "./collections";
+import { appIdOfRow, getSteamWindows, uniqNumbers } from "./steamAccess";
 import { logInfo, logWarn } from "../runtime/logger";
 import { withOnlineSwr } from "./onlineCache";
 import { collectFilterGroupItemsFlat, deduplicateNonSteam, enrichForSort, mergeCompositeResults } from "./resolveShared";
@@ -18,6 +18,8 @@ import { _resolveFilter } from "./filterResolver";
 import { _resolveCollection, _resolveExternal } from "./collectionResolver";
 import { PRICE_SORT_KEYS, _resolveStore, _resolveWishlist } from "./onlineResolvers";
 import { _resolveSmart } from "./smartResolver";
+import { unavailableReason } from "./availability";
+import { SOURCE_V3_RESOLVERS } from "./v3Extensions";
 
 // Moved into sibling modules by concern; re-exported so every importer keeps its path.
 export { compareByAdded, normalizeAppOverview } from "./appOverview";
@@ -78,14 +80,7 @@ function getCustomFiltersAppsForContainer(tabId: string): number[] {
   return tabContainer ? extractAppIdsFromContainer(tabContainer) : [];
 }
 
-const FAVORITES_LOCALIZED_NAMES = [
-  "Favorites", "Favoris", "Favoriten", "Favoritos", "Preferiti",
-  "Избранное", "Ulubione", "Favorieten", "Favoriler", "Обране",
-  "お気に入り", "즐겨찾기", "收藏夹",
-];
-const FAVORITES_INTERNAL_IDS = ["favorite", "favorites", "user-collections-favorite"];
-const FAVORITES_CLIENT_METHODS = ["GetFavoriteCollectionApps", "GetFavoriteApps", "GetFavoriteAppIDs"];
-
+// The client's own favorites collection (id "favorite" on every client).
 function favoritesFromCollectionStore(): number[] {
   for (const win of getSteamWindows()) {
     try {
@@ -100,47 +95,10 @@ function favoritesFromCollectionStore(): number[] {
   return [];
 }
 
-async function favoritesFromClientApi(): Promise<number[]> {
-  for (const sc of getSteamClients()) {
-    for (const method of FAVORITES_CLIENT_METHODS) {
-      try {
-        const fn = (sc?.Collections as any)?.[method];
-        if (typeof fn !== "function") continue;
-        const res = await fn.call(sc.Collections);
-        if (Array.isArray(res) && res.length) {
-          return res.map((x: unknown) => appIdOfRow(x, "appid")).filter(Number.isFinite);
-        }
-      } catch {}
-    }
-  }
-  return [];
-}
-
-async function favoritesFromAllCollections(): Promise<number[]> {
-  try {
-    const collections = await listCollections();
-    const needles = new Set([...FAVORITES_LOCALIZED_NAMES.map((n) => normalizeText(n)), ...FAVORITES_INTERNAL_IDS]);
-    for (const coll of collections) {
-      if (!needles.has(normalizeText(coll.id)) && !needles.has(normalizeText(coll.name))) continue;
-      const ids = await getCollectionApps(coll.id, coll.name);
-      if (ids.length) return ids;
-    }
-  } catch {}
-  return [];
-}
-
-async function getFavoritesCollectionAppIds(): Promise<number[]> {
-  const fromStore = favoritesFromCollectionStore();
-  if (fromStore.length) return fromStore;
-  const fromClient = await favoritesFromClientApi();
-  if (fromClient.length) return fromClient;
-  return favoritesFromAllCollections();
-}
-
-async function resolveFavoritesTab(all: AppOverview[]): Promise<AppOverview[]> {
+function resolveFavoritesTab(all: AppOverview[]): AppOverview[] {
   const byFlag = all.filter((a) => isFavoriteOf(a));
   if (byFlag.length > 0) return byFlag;
-  const favIds = await getFavoritesCollectionAppIds();
+  const favIds = favoritesFromCollectionStore();
   if (!favIds.length) return byFlag;
   const favSet = new Set(favIds);
   return all.filter((a) => favSet.has(appIdOf(a)));
@@ -286,7 +244,7 @@ async function resolveTabUuidViaTabMaster(rawTab: string, limit: number, shelfId
     const tmTabs = await getTabsFromSettingsFile();
     const tmTab = tmTabs.find((t) => t.id === rawTab);
     if (!tmTab || !tmTab.filters || tmTab.filters.length === 0) return null;
-    const filterGroup = convertFiltersToGroup(tmTab.filters);
+    const filterGroup = convertFiltersToGroup(tmTab.filters, tmTab.filtersMode);
     try { logInfo("STEAM", "resolveShelfAppIds(tab): UUID fallback via TabMaster filters", { tab: rawTab, title: tmTab.title }); } catch {}
     return resolveShelfAppIds({ type: 'filter', filter: { filterGroup } } as ShelfSource, limit, undefined, shelfId);
   } catch { return null; }
@@ -401,8 +359,24 @@ function compositeChildLimit(overShootLimit: number): number {
   return Math.min(Math.max(overShootLimit * 4, 200), 600);
 }
 
+const primaryKeyOf = (sort: string | string[] | undefined) => (Array.isArray(sort) ? sort[0] : sort);
+
+type ChildOrder = { source: LooseSource; sort: string | string[] | undefined; sortReverse: boolean | boolean[] | undefined };
+
+/* Under "source order" each source keeps its own sort (none = the source's own order);
+   a filter carries it inside the filter, like a filter shelf. Otherwise the shelf sort applies. */
+function childOrderOf(child: LooseSource, ctx: ResolverContext): ChildOrder {
+  if (primaryKeyOf(ctx.sort) !== "source_order") return { source: child, sort: ctx.sort, sortReverse: ctx.sortReverse };
+  const sort = child?.sort ?? "source_order";
+  const sortReverse = child?.sortReverse;
+  if (child?.type === "filter" && child.sort !== undefined) {
+    return { source: { ...child, filter: { ...child.filter, sort, sortReverse } }, sort, sortReverse };
+  }
+  return { source: child, sort, sortReverse };
+}
+
 async function resolveCompositeChildren(childSources: LooseSource[], ctx: ResolverContext): Promise<number[][]> {
-  const { sort, shelfId, sortReverse, options, depth: _depth, overShootLimit } = ctx;
+  const { shelfId, options, depth: _depth, overShootLimit } = ctx;
   const childLimit = compositeChildLimit(overShootLimit);
   /* Ceiling per child (15s max) so a single hung online source can't park
      the parent composite resolve forever; a misbehaving child just resolves
@@ -420,7 +394,8 @@ async function resolveCompositeChildren(childSources: LooseSource[], ctx: Resolv
          child per resolve, which adds up fast across home remounts. */
       let timer: ReturnType<typeof setTimeout> | null = null;
       const clear = () => { if (timer !== null) { clearTimeout(timer); timer = null; } };
-      const inner = resolveShelfAppIds(child, childLimit, sort, shelfId, sortReverse, options, _depth + 1)
+      const order = childOrderOf(child, ctx);
+      const inner = resolveShelfAppIds(order.source as ShelfSource, childLimit, order.sort, shelfId, order.sortReverse, options, _depth + 1)
         .then((r) => { recordDuration(timeoutKey, Date.now() - startedAt); clear(); return r; });
       const fallback = new Promise<number[]>((resolve) => {
         timer = setTimeout(() => {
@@ -439,7 +414,7 @@ async function resortCompositeMerged(merged: number[], all: AppOverview[], ctx: 
   const { sort, shelfId, sortReverse } = ctx;
   const sortKeys: string[] = Array.isArray(sort) ? sort : (sort ? [sort] : []);
   const primary = sortKeys[0];
-  if (merged.length <= 1 || !primary || primary === "manual" || primary === "random") return merged;
+  if (merged.length <= 1 || !primary || primary === "manual" || primary === "random" || primary === "source_order") return merged;
   try {
     const hasPriceKey = sortKeys.some((k) => PRICE_SORT_KEYS.has(k));
     const priceMap = hasPriceKey ? await (await import("../core/onlineStore")).getPriceMap(merged) : undefined;
@@ -461,7 +436,9 @@ async function _resolveComposite(ctx: ResolverContext): Promise<number[]> {
   const compositeItems = compositeChildFilterItems(source);
   const childSources = rebuildCompositeChildSources(rawChildSources, compositeItems);
   const childResults = await resolveCompositeChildren(childSources, ctx);
-  let merged = mergeCompositeResults(childResults, combine);
+  // "Source order" lists each source after the one before it; otherwise the union interleaves them.
+  const inSourceOrder = combine === "union" && primaryKeyOf(ctx.sort) === "source_order";
+  let merged = inSourceOrder ? [...new Set(childResults.flat())] : mergeCompositeResults(childResults, combine);
   merged = await resortCompositeMerged(merged, all, ctx);
   logInfo("STEAM", "resolveShelfAppIds(composite) resolved", { combine, children: childSources.length, count: merged.length, hasChildFilter: !!(source as any).childFilter });
   return finish(merged.slice(0, overShootLimit));
@@ -535,11 +512,8 @@ function computeOvershootLimit(source: { type: string }, limit: number, hiddenSe
   return Math.min(limit + hiddenOvershoot + ownedOvershoot, limit * 3);
 }
 
-/* first-party Shelf Source Ecosystem v3 lives in a sibling module. Each
-   resolver synchronously projects from the already-loaded `all` AppOverview
-   list. The resolver receives `all` and returns the filtered AppOverview[],
-   which we then map to ids + apply sort + finish overshoot trimming. */
-async function resolveViaV3Extension(
+// A built-in source projects from the loaded library (`{ type: "builtin", sourceId }`).
+async function resolveBuiltinSource(
   source: LooseSource,
   all: AppOverview[],
   sort: string | string[] | undefined,
@@ -548,18 +522,23 @@ async function resolveViaV3Extension(
   finish: (ids: number[]) => number[],
 ): Promise<number[]> {
   try {
-    const { SOURCE_V3_RESOLVERS } = require("./v3Extensions") as typeof import("./v3Extensions");
-    // `builtin` wraps a v3 source id (the picker's shape); a bare v3 `type`
-    // is also honoured for power-users editing JSON directly.
-    const v3id = source.type === "builtin" ? String((source as any).sourceId ?? "") : source.type;
-    const v3 = SOURCE_V3_RESOLVERS[v3id];
-    if (!v3) return [];
-    const filtered = v3(all);
-    const ids = filtered.map((a) => appIdOf(a)).filter(Number.isFinite);
+    const resolver = SOURCE_V3_RESOLVERS[String((source as any).sourceId ?? "")];
+    if (!resolver) return [];
+    const ids = resolver(all).map((a) => appIdOf(a)).filter(Number.isFinite);
     if (sort) await enrichForSort(sort, ids, all);
     const sorted = sort ? applySortToIds(ids, sort, all, shelfId, sortReverse) : ids;
     return finish(sorted);
-  } catch { return []; /* fall through to empty */ }
+  } catch { return []; }
+}
+
+const unavailableLogged = new Set<string>();
+
+// Logged once per shelf and reason, so a refresh loop does not repeat it.
+function logUnavailable(shelfId: string | undefined, reason: string, type: string): void {
+  const key = `${shelfId ?? type}:${reason}`;
+  if (unavailableLogged.has(key)) return;
+  unavailableLogged.add(key);
+  logWarn("STEAM", "resolveShelfAppIds: shelf unavailable", { shelfId, type, reason });
 }
 
 export async function resolveShelfAppIds(
@@ -572,6 +551,12 @@ export async function resolveShelfAppIds(
   _depth: number = 0,
 ): Promise<number[]> {
   const { hiddenAppIds, dedupeByName, onResolveTotal } = options ?? {};
+  const reason = unavailableReason(source, sort);
+  if (reason) {
+    logUnavailable(shelfId, reason, source.type);
+    onResolveTotal?.(0);
+    return [];
+  }
   const hiddenSet = hiddenAppIds?.length ? new Set(hiddenAppIds) : undefined;
   const overShootLimit = computeOvershootLimit(source, limit, hiddenSet);
 
@@ -596,5 +581,5 @@ export async function resolveShelfAppIds(
   };
   const handler = SOURCE_RESOLVERS[source.type];
   if (handler) return handler(ctx);
-  return resolveViaV3Extension(source, all, sort, shelfId, sortReverse, finish);
+  return resolveBuiltinSource(source, all, sort, shelfId, sortReverse, finish);
 }

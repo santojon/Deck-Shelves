@@ -434,7 +434,7 @@ afterEach(() => {
 });
 
 describe("installGameMenuEntries", () => {
-  it("U1 places the separator and the entries once, before Properties, in an installed game's gamepad menu", () => {
+  it("places the separator and the entries once, before Properties, in an installed game's gamepad menu", () => {
     const { steam, inputs } = setup();
     const game = steam.open(steam.game({ installed: true, inCollection: true }));
     const list = steam.listOf(game);
@@ -448,7 +448,7 @@ describe("installGameMenuEntries", () => {
     }
   });
 
-  it("U2 places the block the same way for other layouts, in the gamepad and desktop presentations", () => {
+  it("places the block the same way for other layouts, in the gamepad and desktop presentations", () => {
     const layouts: Layout[] = [{ installed: true }, { installed: false }, { appid: 4241608999, collections: false }, { appid: 1255560, primary: false, favourite: true, inCollection: true }];
     for (const desktop of [false, true]) {
       for (const layout of layouts) {
@@ -463,7 +463,7 @@ describe("installGameMenuEntries", () => {
     }
   });
 
-  it("U3 keeps one block before Properties through forced updates of the game menu, alone and in one render with its body", () => {
+  it("keeps one block before Properties through forced updates of the game menu, alone and in one render with its body", () => {
     for (const check of [true, false]) {
       const { steam, inputs, handle } = setup({}, { check });
       const game = steam.open(steam.game({ installed: true }));
@@ -481,7 +481,7 @@ describe("installGameMenuEntries", () => {
     }
   });
 
-  it("U4 keeps one block with the same keys while the body renders the same list again", () => {
+  it("keeps one block with the same keys while the body renders the same list again", () => {
     const { steam, inputs } = setup();
     const game = steam.open(steam.game({ installed: true }));
     const list = steam.listOf(game);
@@ -496,7 +496,7 @@ describe("installGameMenuEntries", () => {
     expectBlock(list, inputs.last(), steam.built(list).properties);
   });
 
-  it("U5 leaves submenu lists unchanged and keeps one block while submenus open and hide", () => {
+  it("leaves submenu lists unchanged and keeps one block while submenus open and hide", () => {
     const { steam, inputs } = setup();
     const game = steam.open(steam.game({ installed: true, inCollection: true }));
     const groups = steam.listOf(game).filter((entry): entry is El => isEl(entry) && entry.type === MenuGroup);
@@ -519,7 +519,7 @@ describe("installGameMenuEntries", () => {
     expect(types(passes(inputs.events))).toEqual(["placed"]);
   });
 
-  it("U6 replaces the entries of an earlier pass with the provider's new ones", () => {
+  it("replaces the entries of an earlier pass with the provider's new ones", () => {
     const { steam, inputs } = setup();
     const game = steam.open(steam.game({ installed: true }));
     expect(steam.renderedOf(game).map(keyOf)).toContain(`${PREFIX}a-item`);
@@ -529,7 +529,7 @@ describe("installGameMenuEntries", () => {
     expect(steam.renderedOf(game).map(keyOf).filter((key) => key?.startsWith(`${PREFIX}a-`))).toEqual([]);
   });
 
-  it("U7 removes an earlier block when the provider returns nothing to add", () => {
+  it("removes an earlier block when the provider returns nothing to add", () => {
     const { steam, inputs } = setup();
     const game = steam.open(steam.game({ installed: true }));
     const list = steam.listOf(game);
@@ -546,7 +546,7 @@ describe("installGameMenuEntries", () => {
     expectSteamKept(list, steam, list);
   });
 
-  it("U8 puts the block last when the list has no Properties slot", () => {
+  it("puts the block last when the list has no Properties slot", () => {
     const { steam, inputs } = setup();
     const game = steam.open(steam.game({ kiosk: true }));
     expect(steam.built(steam.listOf(game)).properties).toBe(false);
@@ -554,7 +554,7 @@ describe("installGameMenuEntries", () => {
     expectSteamKept(steam.renderedOf(game), steam, steam.listOf(game));
   });
 
-  it("U9 puts the block after other parties' entries that sit before Properties", () => {
+  it("puts the block after other parties' entries that sit before Properties", () => {
     const { steam, inputs } = setup();
     const others = [item("other-a"), otherFragment("other-b")];
     const game = steam.open(steam.game({ installed: true, before: () => others }));
@@ -566,7 +566,7 @@ describe("installGameMenuEntries", () => {
     expectSteamKept(rendered, steam, steam.listOf(game));
   });
 
-  it("U10 keeps the block directly before Steam's Properties when other parties' elements follow it", () => {
+  it("keeps the block directly before Steam's Properties when other parties' elements follow it", () => {
     const { steam, inputs } = setup();
     const others = [item("other-c"), otherFragment("other-d")];
     const game = steam.open(steam.game({ installed: true, after: () => others }));
@@ -576,7 +576,7 @@ describe("installGameMenuEntries", () => {
     expectSteamKept(rendered, steam, steam.listOf(game));
   });
 
-  it("U11 leaves submenus, collection menus, the plugin's own menu and menus for several apps unchanged", () => {
+  it("leaves submenus, collection menus, the plugin's own menu and menus for several apps unchanged", () => {
     const { steam, inputs } = setup();
     const warm = steam.open(steam.game({ installed: true }));
     const submenu = firstGroup(steam.listOf(warm)).props.children as unknown[];
@@ -605,7 +605,7 @@ describe("installGameMenuEntries", () => {
     expect(types(passes(inputs.events.slice(start)))).toEqual(["rejected"]);
   });
 
-  it("U12 contains a throwing check, provider, remover or separator maker", () => {
+  it("contains a throwing check, provider, remover or separator maker", () => {
     for (const failing of ["check", "provider", "remover", "separator"] as Callback[]) {
       const result = failingRun(failing);
       expect(result.threw).toBe(false);
@@ -614,7 +614,7 @@ describe("installGameMenuEntries", () => {
     }
   });
 
-  it("U13 gives the same outcomes under either host patch helper, and reads no host helper", () => {
+  it("gives the same outcomes under either host patch helper, and reads no host helper", () => {
     const results: unknown[] = [];
     for (const catches of [false, true]) {
       host.afterPatch = patchModel(catches);
@@ -624,7 +624,7 @@ describe("installGameMenuEntries", () => {
     expect([...host.read]).toEqual([]);
   });
 
-  it("U14 completes every step as without a sink when the event sink throws", () => {
+  it("completes every step as without a sink when the event sink throws", () => {
     const run = (sink: "throw" | "none") => {
       const steam = makeSteam();
       const inputs = makeInputs(steam, { sink });
@@ -640,7 +640,7 @@ describe("installGameMenuEntries", () => {
     expect(run("throw")).toEqual(run("none"));
   });
 
-  it("U15 changes only the accepted list of a deep-frozen render output", () => {
+  it("changes only the accepted list of a deep-frozen render output", () => {
     const { steam, inputs } = setup();
     const game = steam.open(steam.game({ installed: true, freeze: "output" }));
     for (let i = 0; i < 2; i++) {
@@ -654,7 +654,7 @@ describe("installGameMenuEntries", () => {
     expect(types(passes(inputs.events))).toEqual(["placed", "placed"]);
   });
 
-  it("U16 reports failed and leaves a frozen accepted list unchanged", () => {
+  it("reports failed and leaves a frozen accepted list unchanged", () => {
     const { steam, inputs } = setup();
     const game = steam.open(steam.game({ installed: true, freeze: "list" }));
     expect(sameItems(steam.listOf(game), steam.built(steam.listOf(game)).steam)).toBe(true);
@@ -663,7 +663,7 @@ describe("installGameMenuEntries", () => {
     expect(types(passes(inputs.events))).toEqual(["failed", "failed"]);
   });
 
-  it("U17 places the block the same way in two languages without reading function source", () => {
+  it("places the block the same way in two languages without reading function source", () => {
     const watched = new Set<unknown>();
     const original = Function.prototype.toString;
     let sourceReads = 0;
@@ -689,7 +689,7 @@ describe("installGameMenuEntries", () => {
     expect(sourceReads).toBe(0);
   });
 
-  it("U18 bounds each pass: check calls, callback calls and read depth", () => {
+  it("bounds each pass: check calls, callback calls and read depth", () => {
     const steam = makeSteam();
     const inputs = makeInputs(steam);
     const perPass: (Calls & { type: string })[] = [];
@@ -735,7 +735,7 @@ describe("installGameMenuEntries", () => {
     expect([...inputs.receivers]).toEqual([undefined]);
   });
 
-  it("U19 schedules no timers, adds no listeners or globals and logs nothing", () => {
+  it("schedules no timers, adds no listeners or globals and logs nothing", () => {
     vi.useFakeTimers();
     const listeners = vi.spyOn(EventTarget.prototype, "addEventListener");
     const frames = vi.fn();
@@ -759,7 +759,7 @@ describe("installGameMenuEntries", () => {
     for (const log of logs) expect(log).not.toHaveBeenCalled();
   });
 
-  it("U20 returns the same handle for the same class, never calls the second inputs, and attaches another class on its own", () => {
+  it("returns the same handle for the same class, never calls the second inputs, and attaches another class on its own", () => {
     const scenario = (steam: Steam, inputs: Inputs) => {
       const game = steam.open(steam.game({ installed: true }));
       steam.forceUpdate(game);
@@ -783,7 +783,7 @@ describe("installGameMenuEntries", () => {
     expectRendered(steam, first, steam.open(steam.game({ installed: true })));
   });
 
-  it("U21 refuses unusable inputs without changing anything or throwing", () => {
+  it("refuses unusable inputs without changing anything or throwing", () => {
     const steam = makeSteam();
     const before = protoSnapshot(steam);
     class NoRender {}
@@ -816,7 +816,7 @@ describe("installGameMenuEntries", () => {
     expect(descriptors()).toEqual(lockedBefore);
   });
 
-  it("U22 calls, constructs and renders nothing while attaching", () => {
+  it("calls, constructs and renders nothing while attaching", () => {
     const steam = makeSteam();
     const inputs = makeInputs(steam);
     leafCalls.count = 0;
@@ -828,7 +828,7 @@ describe("installGameMenuEntries", () => {
     expect(types(inputs.events)).toEqual(["installed"]);
   });
 
-  it("U23 puts every changed slot back and places nothing after detaching", () => {
+  it("puts every changed slot back and places nothing after detaching", () => {
     for (const options of [{}, { didMount: false, check: false }, { newer: "getDerivedStateFromProps" }, { newer: "getSnapshotBeforeUpdate" }] as SteamOptions[]) {
       const steam = makeSteam(options);
       const before = protoSnapshot(steam);
@@ -860,7 +860,7 @@ describe("installGameMenuEntries", () => {
     expect(protoSnapshot(steam)).toEqual(before);
   });
 
-  it("U24 leaves third-party wrappers in place and working when detaching", () => {
+  it("leaves third-party wrappers in place and working when detaching", () => {
     const { steam, handle } = setup();
     steam.close(steam.open(steam.game({ installed: true })));
     const slots = slotsOf(steam);
@@ -881,7 +881,7 @@ describe("installGameMenuEntries", () => {
     expect(steam.counters.gameMounted).toBe(mounted + 1);
   });
 
-  it("U25 ignores a second detach and attaches again like the first time", () => {
+  it("ignores a second detach and attaches again like the first time", () => {
     const { steam, inputs, handle } = setup();
     handle.uninstall();
     expect(() => handle.uninstall()).not.toThrow();
@@ -899,7 +899,7 @@ describe("installGameMenuEntries", () => {
     expect(types(inputs.events).slice(-2)).toEqual(["uninstalled", "failed"]);
   });
 
-  it("U26 keeps one block with two independent copies attached to the same class", async () => {
+  it("keeps one block with two independent copies attached to the same class", async () => {
     vi.resetModules();
     const one = await import("../../../core/menu/gameMenuEntries");
     vi.resetModules();
@@ -919,7 +919,7 @@ describe("installGameMenuEntries", () => {
     }
   });
 
-  it("U27 leaves a menu rendered before attaching with at most one block and gives the next menu one", () => {
+  it("leaves a menu rendered before attaching with at most one block and gives the next menu one", () => {
     const steam = makeSteam();
     const inputs = makeInputs(steam);
     const old = steam.open(steam.game({ installed: true }));
@@ -936,7 +936,7 @@ describe("installGameMenuEntries", () => {
     atMostOne();
   });
 
-  it("U28 replaces plugin elements left at the end and from an earlier pass with one block", () => {
+  it("replaces plugin elements left at the end and from an earlier pass with one block", () => {
     const { steam, inputs } = setup();
     const stale = () => [item(`${PREFIX}stale-1`), group([], `${PREFIX}stale-2`)];
     const game = steam.open(steam.game({ installed: true, after: stale }));
@@ -949,7 +949,7 @@ describe("installGameMenuEntries", () => {
     expectRendered(steam, inputs, game);
   });
 
-  it("U29 places the provider's very elements as direct elements, in its order", () => {
+  it("places the provider's very elements as direct elements, in its order", () => {
     for (const variant of ["separator", "none", "not functions"]) {
       const steam = makeSteam();
       const inputs = makeInputs(steam, { separator: variant === "separator" });
@@ -965,7 +965,7 @@ describe("installGameMenuEntries", () => {
     }
   });
 
-  it("U30 reports attach, one outcome per pass and detach, in order", () => {
+  it("reports attach, one outcome per pass and detach, in order", () => {
     const { steam, inputs, handle } = setup();
     vi.spyOn(performance, "now").mockReturnValueOnce(10).mockReturnValueOnce(12.5);
     allOutcomes(steam, inputs);
@@ -975,7 +975,7 @@ describe("installGameMenuEntries", () => {
     for (const event of passes(inputs.events)) expect((event as { ms: number }).ms).toBeGreaterThanOrEqual(0);
   });
 
-  it("U31 causes no render, forced update or remount of its own", () => {
+  it("causes no render, forced update or remount of its own", () => {
     const run = (attached: boolean) => {
       const steam = makeSteam();
       if (attached) attach(makeInputs(steam).options);
@@ -989,7 +989,7 @@ describe("installGameMenuEntries", () => {
     expect(run(true)).toEqual(run(false));
   });
 
-  it("U32 keeps nothing of closed menus alive, attached or detached", async () => {
+  it("keeps nothing of closed menus alive, attached or detached", async () => {
     const steam = makeSteam();
     const seen: string[] = [];
     const handle = attach({
@@ -1010,7 +1010,7 @@ describe("installGameMenuEntries", () => {
     expect(seen.filter((type) => PASS_TYPES.has(type))).toHaveLength(20);
   });
 
-  it("U33 keeps one block when the menu body mounts again inside an open menu with a fresh list", () => {
+  it("keeps one block when the menu body mounts again inside an open menu with a fresh list", () => {
     const others = [item("other-a"), otherFragment("other-b")];
     const { steam, inputs } = setup({}, { others });
     let renders = 0;

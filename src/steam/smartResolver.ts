@@ -7,7 +7,7 @@ import { evaluateFilterGroup } from "./filterEval";
 import { getAllAppOverviews } from "./library";
 import { hasExternalSmartSource, resolveExternalSmartSource } from "../core/pluginApi";
 import { logInfo, logWarn } from "../runtime/logger";
-import { collectFilterGroupItemsFlat, mergeCompositeResults, prefetchCatalogFilterData } from "./resolveShared";
+import { collectFilterGroupItemsFlat, enrichForSort, mergeCompositeResults, prefetchCatalogFilterData } from "./resolveShared";
 
 /* The smart source: one or more smart modes resolved and merged, then the smart shelf's own filter group. */
 
@@ -76,7 +76,7 @@ async function applySmartFilterGroup(ids: number[], filterGroup: FilterGroup | n
 export async function _resolveSmart(ctx: ResolverContext): Promise<number[]> {
   const { source, sort, shelfId, sortReverse, finish, overShootLimit, limit } = ctx;
   try {
-    const { resolveSmartShelf, INTERNAL_SMART_MODES } = await import("./smartShelves");
+    const { resolveSmartShelf, INTERNAL_SMART_MODES, prepareSmartModes } = await import("./smartShelves");
     const apps = await getAllAppOverviews();
     const smartFilterGroup = source.filterGroup;
     const smartParams = source.smartParams as Record<string, number> | undefined;
@@ -93,11 +93,15 @@ export async function _resolveSmart(ctx: ResolverContext): Promise<number[]> {
       resolveExternal: resolveExternalSmartSource,
     };
     const compositeModes = Array.isArray(source.compositeModes) ? source.compositeModes as string[] : [];
+    await prepareSmartModes([source.mode, ...compositeModes], apps);
     const rawIds = compositeModes.length > 0
       ? await resolveSmartCompositeIds(source, smartFetchLimit, smartParams, ttlMs, shelfId, deps)
       : await resolveSmartModeIds(source.mode, smartFetchLimit, smartParams, ttlMs, shelfId, deps);
     let ids = await applySmartFilterGroup(rawIds, smartFilterGroup, apps);
-    if (sort && sort !== "manual") ids = applySortToIds(ids, sort, apps, shelfId, sortReverse);
+    if (sort && sort !== "manual") {
+      await enrichForSort(sort, ids, apps);
+      ids = applySortToIds(ids, sort, apps, shelfId, sortReverse);
+    }
     logInfo("STEAM", "resolveShelfAppIds(smart) resolved", { mode: source.mode, count: ids.length, hasFilter: !!smartFilterGroup, sort });
     return finish(ids.slice(0, overShootLimit));
   } catch {

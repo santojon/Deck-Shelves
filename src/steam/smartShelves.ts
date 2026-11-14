@@ -10,8 +10,9 @@ import { evalSessionRule, isSessionRuleKind } from "../runtime/sessionState";
 import { evalPerfRule, isPerfRuleKind, perfRuleHasData } from "../runtime/perfState";
 import { evalPeripheralRule, isPeripheralRuleKind, peripheralRuleHasData } from "../runtime/peripheralsState";
 import { getFriendsPlayingAppIds, getFriendsRecentlyPlayedAppIds } from "../runtime/friendsState";
-import { appHasAnyCategory, getAppAchievementPct, preloadAppDetailsSummaries } from "./appDetailsCache";
 import { getCurrentSettings } from "../store/settingsStore";
+import { achievementPercent, loadAchievements } from "./achievements";
+import { STORE_CATEGORY, hasStoreCategory } from "./v3Extensions";
 
 const resolverCache = new Map<string, { ts: number; ids: number[] }>();
 const DEFAULT_SMART_TTL_MS = 60 * 60 * 1000;
@@ -419,6 +420,24 @@ function resolveForgottenGems(apps: AppOverview[], limit: number, params?: Smart
   return ranked.slice(0, limit).map((a) => (a as any).appid);
 }
 
+// Never-played games by review alone, best first.
+function resolveHiddenGems(apps: AppOverview[], limit: number, params?: SmartParams): number[] {
+  const minReview = getParam("hidden_gems", params, "minReviewScore");
+  const minDeck = getParam("hidden_gems", params, "minDeckLevel");
+  return apps
+    .filter((a) =>
+      !a.is_non_steam &&
+      (a.app_type === undefined || a.app_type === 1) &&
+      playtimeMinutes(a) === 0 &&
+      lastPlayedSec(a) === 0 &&
+      ((a as any).review_percentage ?? 0) >= minReview &&
+      deckCompat(a) >= minDeck,
+    )
+    .sort((a, b) => (((b as any).review_percentage ?? 0) - ((a as any).review_percentage ?? 0)))
+    .slice(0, limit)
+    .map((a) => a.appid);
+}
+
 function resolveWeeklyRotation(apps: AppOverview[], limit: number, params?: SmartParams, shelfId?: string): number[] {
   const rotateDays = getParam("weekly_rotation", params, "rotateEveryDays");
   const minDeck = getParam("weekly_rotation", params, "minDeckLevel");
@@ -458,22 +477,6 @@ function resolveShortBattery(apps: AppOverview[], limit: number, params?: SmartP
     .map((a) => a.appid);
 }
 
-function resolveLongSessionNight(apps: AppOverview[], limit: number, params?: SmartParams): number[] {
-  const minPt = getParam("long_session_night", params, "minPlaytimeMinutes");
-  const minDeck = getParam("long_session_night", params, "minDeckLevel");
-  return apps
-    .filter((a) =>
-      !a.is_non_steam &&
-      (a.app_type === undefined || a.app_type === 1) &&
-      a.installed &&
-      playtimeMinutes(a) > minPt &&
-      deckCompat(a) >= minDeck,
-    )
-    .sort((a, b) => playtimeMinutes(b) - playtimeMinutes(a))
-    .slice(0, limit)
-    .map((a) => a.appid);
-}
-
 function resolveTravelMode(apps: AppOverview[], limit: number, params?: SmartParams): number[] {
   const maxSizeMb = getParam("travel_mode", params, "maxSizeMb");
   const minDeck = getParam("travel_mode", params, "minDeckLevel");
@@ -487,42 +490,6 @@ function resolveTravelMode(apps: AppOverview[], limit: number, params?: SmartPar
       deckCompat(a) >= minDeck,
     )
     .sort((a, b) => sizeOnDiskBytes(a) - sizeOnDiskBytes(b))
-    .slice(0, limit)
-    .map((a) => a.appid);
-}
-
-function resolveHiddenGems(apps: AppOverview[], limit: number, params?: SmartParams): number[] {
-  const minReview = getParam("hidden_gems", params, "minReviewScore");
-  const minDeck = getParam("hidden_gems", params, "minDeckLevel");
-  return apps
-    .filter((a) =>
-      !a.is_non_steam &&
-      (a.app_type === undefined || a.app_type === 1) &&
-      playtimeMinutes(a) === 0 &&
-      lastPlayedSec(a) === 0 &&
-      ((a as any).review_percentage ?? 0) >= minReview &&
-      deckCompat(a) >= minDeck,
-    )
-    .sort((a, b) => (((b as any).review_percentage ?? 0) - ((a as any).review_percentage ?? 0)))
-    .slice(0, limit)
-    .map((a) => a.appid);
-}
-
-function resolveNeverTouchedClassics(apps: AppOverview[], limit: number, params?: SmartParams): number[] {
-  const years = getParam("never_touched_classics", params, "yearsAgo");
-  const minDeck = getParam("never_touched_classics", params, "minDeckLevel");
-  const cutoff = Math.floor(Date.now() / 1000) - years * 365 * 24 * 3600;
-  return apps
-    .filter((a) =>
-      !a.is_non_steam &&
-      (a.app_type === undefined || a.app_type === 1) &&
-      playtimeMinutes(a) === 0 &&
-      lastPlayedSec(a) === 0 &&
-      rtAcquired(a) > 0 &&
-      rtAcquired(a) < cutoff &&
-      deckCompat(a) >= minDeck,
-    )
-    .sort((a, b) => rtAcquired(a) - rtAcquired(b))
     .slice(0, limit)
     .map((a) => a.appid);
 }
@@ -546,35 +513,7 @@ function resolveRecentHiddenInstalls(apps: AppOverview[], limit: number, params?
     .map((a) => a.appid);
 }
 
-function resolveMonthlySpotlight(apps: AppOverview[], limit: number, params?: SmartParams, shelfId?: string): number[] {
-  const rotateDays = getParam("monthly_spotlight", params, "rotateEveryDays");
-  const minDeck = getParam("monthly_spotlight", params, "minDeckLevel");
-  const pool = apps.filter((a) =>
-    !a.is_non_steam &&
-    (a.app_type === undefined || a.app_type === 1) &&
-    a.installed &&
-    deckCompat(a) >= minDeck,
-  );
-  return rotateWindow(pool, `monthly_spotlight:${shelfId ?? "_"}`, rotateDays, limit).map((a) => (a as any).appid);
-}
-
-function resolveSeasonalRotation(apps: AppOverview[], limit: number, params?: SmartParams, shelfId?: string): number[] {
-  const rotateDays = getParam("seasonal_rotation", params, "rotateEveryDays");
-  const minDeck = getParam("seasonal_rotation", params, "minDeckLevel");
-  const pool = apps.filter((a) =>
-    !a.is_non_steam &&
-    (a.app_type === undefined || a.app_type === 1) &&
-    a.installed &&
-    deckCompat(a) >= minDeck,
-  );
-  return rotateWindow(pool, `seasonal_rotation:${shelfId ?? "_"}`, rotateDays, limit).map((a) => (a as any).appid);
-}
-
-/* Runtime-aware templates: consult battery state / appDetails cache. Each
-   falls back to a deterministic empty / heuristic result when the runtime
-   data isn't available, so the shelf never crashes — it just renders empty
-   (consistent with other empty-source semantics across the plugin). */
-
+// The battery state comes from runtime/batteryState.ts; unknown or charging keeps the short_battery pool.
 function resolveLowBatteryMode(apps: AppOverview[], limit: number, params?: SmartParams): number[] {
   const threshold = getParam("low_battery_mode", params, "batteryThresholdPct") / 100;
   const maxPt = getParam("low_battery_mode", params, "maxPlaytimeMinutes");
@@ -608,63 +547,6 @@ function resolveLowBatteryMode(apps: AppOverview[], limit: number, params?: Smar
     .sort((a, b) => deckCompat(b) - deckCompat(a) || lastPlayedSec(b) - lastPlayedSec(a))
     .slice(0, limit)
     .map((a) => a.appid);
-}
-
-function resolveAlmostFinished(apps: AppOverview[], limit: number, params?: SmartParams): number[] {
-  const minPct = getParam("almost_finished", params, "minAchievementPct");
-  const minDeck = getParam("almost_finished", params, "minDeckLevel");
-  // Pre-filter to a tractable pool (installed Steam games with playtime > 0)
-  // then schedule a batch preload so subsequent refreshes have full data.
-  const pool = apps.filter((a) =>
-    !a.is_non_steam &&
-    (a.app_type === undefined || a.app_type === 1) &&
-    a.installed &&
-    playtimeMinutes(a) > 0 &&
-    deckCompat(a) >= minDeck,
-  );
-  preloadAppDetailsSummaries(pool.map((a) => a.appid));
-  return pool
-    .map((a) => ({ app: a, pct: getAppAchievementPct(a.appid) }))
-    .filter((x) => Number.isFinite(x.pct) && x.pct >= minPct && x.pct < 100)
-    .sort((a, b) => b.pct - a.pct)
-    .slice(0, limit)
-    .map((x) => x.app.appid);
-}
-
-/* store_categories-aware templates. Substring-match (case-insensitive)
-   against Steam's category names — built-in keywords cover the canonical
-   English names; localized installs may not match, in which case the shelf
-   is empty. Fix is to extend the keyword list per locale (i18n). */
-
-const COUCH_GAMING_KEYWORDS = ["shared/split screen", "shared screen", "split screen", "couch"];
-const COOP_KEYWORDS = ["co-op", "coop", "online co-op", "online coop"];
-const PARTY_KEYWORDS = ["local multi-player", "local multiplayer", "local pvp", "party"];
-
-function resolveByCategoryKeywords(apps: AppOverview[], limit: number, params: SmartParams | undefined, paramKey: any, keywords: string[]): number[] {
-  const minDeck = getParam(paramKey, params, "minDeckLevel");
-  const pool = apps.filter((a) =>
-    !a.is_non_steam &&
-    (a.app_type === undefined || a.app_type === 1) &&
-    deckCompat(a) >= minDeck,
-  );
-  preloadAppDetailsSummaries(pool.map((a) => a.appid));
-  return pool
-    .filter((a) => appHasAnyCategory(a.appid, keywords))
-    .sort((a, b) => lastPlayedSec(b) - lastPlayedSec(a))
-    .slice(0, limit)
-    .map((a) => a.appid);
-}
-
-function resolveCouchGaming(apps: AppOverview[], limit: number, params?: SmartParams): number[] {
-  return resolveByCategoryKeywords(apps, limit, params, "couch_gaming", COUCH_GAMING_KEYWORDS);
-}
-
-function resolveCoopReady(apps: AppOverview[], limit: number, params?: SmartParams): number[] {
-  return resolveByCategoryKeywords(apps, limit, params, "coop_ready", COOP_KEYWORDS);
-}
-
-function resolvePartyGames(apps: AppOverview[], limit: number, params?: SmartParams): number[] {
-  return resolveByCategoryKeywords(apps, limit, params, "party_games", PARTY_KEYWORDS);
 }
 
 /* Online gate: reuse the same master toggle as wishlist / store. When the
@@ -728,6 +610,41 @@ function resolveFriendsPlaying(apps: AppOverview[], limit: number, params?: Smar
   return [...ownedMatches, ...nonOwnedIds].slice(0, limit);
 }
 
+// Played Steam games whose achievement progress reached the threshold but not 100%, most advanced first.
+function resolveAlmostFinished(apps: AppOverview[], limit: number, params?: SmartParams): number[] {
+  const minPct = getParam("almost_finished", params, "minAchievementPct");
+  const minDeck = getParam("almost_finished", params, "minDeckLevel");
+  return apps
+    .filter((a) => !a.is_non_steam && (a.app_type === undefined || a.app_type === 1) && playtimeMinutes(a) > 0 && deckCompat(a) >= minDeck)
+    .map((a) => ({ a, pct: achievementPercent(a.appid) ?? -1 }))
+    .filter((x) => x.pct >= minPct && x.pct < 100)
+    .sort((x, y) => y.pct - x.pct)
+    .slice(0, limit)
+    .map((x) => x.a.appid);
+}
+
+// Steam games with one of the mode's store categories, last played first.
+const CATEGORY_MODES: Partial<Record<SmartShelfMode, readonly number[]>> = {
+  couch_gaming: [STORE_CATEGORY.sharedScreen, STORE_CATEGORY.sharedScreenPvp, STORE_CATEGORY.sharedScreenCoop],
+  coop_ready: [STORE_CATEGORY.coop, STORE_CATEGORY.onlineCoop, STORE_CATEGORY.sharedScreenCoop, STORE_CATEGORY.lanCoop],
+  party_games: [STORE_CATEGORY.sharedScreen, STORE_CATEGORY.sharedScreenPvp],
+};
+
+function resolveByCategory(mode: SmartShelfMode, apps: AppOverview[], limit: number, params?: SmartParams): number[] {
+  const minDeck = getParam(mode, params, "minDeckLevel");
+  const ids = CATEGORY_MODES[mode] ?? [];
+  return apps
+    .filter((a) => !a.is_non_steam && (a.app_type === undefined || a.app_type === 1) && deckCompat(a) >= minDeck && hasStoreCategory(a.appid, ids) === true)
+    .sort((a, b) => lastPlayedSec(b) - lastPlayedSec(a))
+    .slice(0, limit)
+    .map((a) => a.appid);
+}
+
+/** Loads the data the modes read before they resolve: the achievement counts of the played games. */
+export async function prepareSmartModes(modes: string[], apps: AppOverview[]): Promise<void> {
+  if (modes.includes("almost_finished")) await loadAchievements(apps);
+}
+
 type ModeResolver = (apps: AppOverview[], limit: number, params?: SmartParams, shelfId?: string) => number[];
 
 const resolveNone: ModeResolver = () => [];
@@ -757,23 +674,25 @@ const MODE_RESOLVERS: Partial<Record<SmartShelfMode, ModeResolver>> = {
   cloud_games: (apps, limit) => resolveCloudGames(apps, limit),
   backlog_rescue: (apps, limit, params, shelfId) => resolveBacklogRescue(apps, limit, params, shelfId),
   forgotten_gems: (apps, limit, params) => resolveForgottenGems(apps, limit, params),
+  hidden_gems: (apps, limit, params) => resolveHiddenGems(apps, limit, params),
   weekly_rotation: (apps, limit, params, shelfId) => resolveWeeklyRotation(apps, limit, params, shelfId),
   short_battery: (apps, limit, params) => resolveShortBattery(apps, limit, params),
-  long_session_night: (apps, limit, params) => resolveLongSessionNight(apps, limit, params),
   travel_mode: (apps, limit, params) => resolveTravelMode(apps, limit, params),
-  hidden_gems: (apps, limit, params) => resolveHiddenGems(apps, limit, params),
-  never_touched_classics: (apps, limit, params) => resolveNeverTouchedClassics(apps, limit, params),
   recent_hidden_installs: (apps, limit, params) => resolveRecentHiddenInstalls(apps, limit, params),
-  monthly_spotlight: (apps, limit, params, shelfId) => resolveMonthlySpotlight(apps, limit, params, shelfId),
-  seasonal_rotation: (apps, limit, params, shelfId) => resolveSeasonalRotation(apps, limit, params, shelfId),
   low_battery_mode: (apps, limit, params) => resolveLowBatteryMode(apps, limit, params),
-  almost_finished: (apps, limit, params) => resolveAlmostFinished(apps, limit, params),
-  couch_gaming: (apps, limit, params) => resolveCouchGaming(apps, limit, params),
-  coop_ready: (apps, limit, params) => resolveCoopReady(apps, limit, params),
-  party_games: (apps, limit, params) => resolvePartyGames(apps, limit, params),
   friends_playing: (apps, limit, params) => resolveFriendsPlaying(apps, limit, params),
+  almost_finished: (apps, limit, params) => resolveAlmostFinished(apps, limit, params),
+  couch_gaming: (apps, limit, params) => resolveByCategory("couch_gaming", apps, limit, params),
+  coop_ready: (apps, limit, params) => resolveByCategory("coop_ready", apps, limit, params),
+  party_games: (apps, limit, params) => resolveByCategory("party_games", apps, limit, params),
   custom: resolveNone,
 };
+
+/* Modes that duplicated another one: still accepted, rewritten to the mode they
+   duplicated when the settings load (domain/retired.ts), never offered. */
+export const RETIRED_SMART_MODES: ReadonlySet<string> = new Set([
+  "long_session_night", "never_touched_classics", "monthly_spotlight", "seasonal_rotation",
+]);
 
 export function resolveSmartShelf(
   mode: SmartShelfMode,
@@ -1026,7 +945,7 @@ export function nextProfileTriggerFlip(
   return earliest;
 }
 
-export const INTERNAL_SMART_MODES = new Set<string>(SmartShelfModeSchema.options);
+export const INTERNAL_SMART_MODES = new Set<string>(SmartShelfModeSchema.options.filter((m) => !RETIRED_SMART_MODES.has(m)));
 
 export function invalidateSmartShelfCache(shelfId?: string): void {
   if (!shelfId) { resolverCache.clear(); persistCache(); return; }

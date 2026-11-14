@@ -14,7 +14,7 @@ import { ConditionTypePicker } from './ConditionTypePicker'
 import { getTypeLabel, startingOptions, isConditionComplete } from './utils'
 
 // Where the grouping types keep the conditions inside them.
-const INNER_LIST: Partial<Record<FilterItemType, 'items' | 'children'>> = {
+const INNER_LIST: Partial<Record<string, 'items' | 'children'>> = {
   merge: 'items',
   weightedFilter: 'children',
   priorityFilter: 'children',
@@ -23,19 +23,17 @@ const INNER_LIST: Partial<Record<FilterItemType, 'items' | 'children'>> = {
 const GROUPING_TYPES = Object.keys(INNER_LIST) as FilterItemType[]
 
 // The options worth showing beside the type while the condition is closed.
-const SHOWN_VALUE: Partial<Record<FilterItemType, (p: Record<string, any>) => unknown>> = {
+const SHOWN_VALUE: Partial<Record<string, (p: Record<string, any>) => unknown>> = {
   nameIncludes: (p) => p.text,
   nameRegex: (p) => p.pattern,
   franchise: (p) => p.franchise,
-  executableType: (p) => p.ext,
   developer: (p) => p.developers,
   publisher: (p) => p.publishers,
-  storeTag: (p) => p.tags,
   genres: (p) => p.genres,
   categories: (p) => p.categories,
-  launchOptionTags: (p) => p.tags,
   customTags: (p) => p.tags,
   parserCategories: (p) => p.tags,
+  storeTag: (p) => p.tags,
   appIdList: (p) => p.appIds,
 }
 

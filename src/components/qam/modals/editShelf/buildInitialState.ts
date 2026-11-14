@@ -3,7 +3,7 @@
 // the shape inspectable independently of React.
 import type { Shelf, FilterGroup } from '../../../../types';
 import { normalizeFilter, getEffectiveFilterGroup } from '../../../../domain/settings';
-import type { EditableShelfState } from './types';
+import type { EditableShelfState, SourceOrder } from './types';
 import { V3_SOURCE_OPTIONS, type SourceType } from './constants';
 
 type Ctx = {
@@ -97,10 +97,21 @@ function readHideFlags(shelf: Shelf): Record<typeof HIDE_FLAG_KEYS[number], bool
   return out;
 }
 
+// A built-in source with no saved sort already keeps the order the list gives.
+function keepsSourceOrder(shelf: Shelf): boolean {
+  return shelf.source.type === 'builtin';
+}
+
+function readPrimaryOrder(shelf: Shelf, primarySource: any): SourceOrder | undefined {
+  if (shelf.source.type !== 'composite') return undefined;
+  const { sort, sortReverse } = primarySource ?? {};
+  return sort === undefined && sortReverse === undefined ? undefined : { sort, sortReverse };
+}
+
 function readSortFields(shelf: Shelf) {
   const s = shelf as any;
   return {
-    sort: s.sort ?? 'alphabetical',
+    sort: s.sort ?? (keepsSourceOrder(shelf) ? 'source_order' : 'alphabetical'),
     sortReverse: s.sortReverse ?? false,
     manualBaseSort: s.manualBaseSort ?? 'alphabetical',
     manualBaseSortReverse: s.manualBaseSortReverse ?? false,
@@ -209,6 +220,7 @@ export function buildInitialShelfState(ctx: Ctx): EditableShelfState {
     filter: initialFilter,
     filterGroup: getEffectiveFilterGroup(initialFilter),
     ...readSortFields(shelf),
+    primaryOrder: readPrimaryOrder(shelf, primarySource),
     limit: shelf.limit,
     ...readVisualFlags(shelf),
     ...readHideFlags(shelf),

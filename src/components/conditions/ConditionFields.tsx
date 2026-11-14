@@ -9,6 +9,7 @@ import NestedConditionEditor from "./NestedConditionEditor";
 import CompositeFields from "./CompositeFields";
 import LibraryLocationFields from "./LibraryLocationFields";
 import { COMPAT_LEVELS, VR_LEVELS } from "./utils";
+import { STORE_CATEGORY_TOKENS, steamLabel } from "../../steam/steamText";
 import { APP_STATUS_GROUP_KEYS } from "../../steam/appDisplayStatus";
 import { DSSliderField } from '../ui'
 
@@ -104,8 +105,7 @@ function daysSlider(label: string, days: number, min: number, max: number, commi
 // Comma-separated text → trimmed, de-blanked string list (genres / tags / …).
 const splitList = (raw: string): string[] => raw.split(",").map((s) => s.trim()).filter(Boolean);
 
-// A min/max numeric slider pair. The max slider at 0 means "no upper bound" and
-// commits `undefined` so the evaluator's `?? Infinity` fallback applies.
+// A min/max pair; a max of 0 means no upper bound.
 function rangeRows(t: Tfn, min: number, max: any, lo: number, hi: number, step: number, unit: string, commit: (min: number, max: number | undefined) => void): ReactNode {
   const maxVal = typeof max === "number" && max > 0 ? max : 0;
   return (
@@ -115,6 +115,36 @@ function rangeRows(t: Tfn, min: number, max: any, lo: number, hi: number, step: 
     </>
   );
 }
+
+// Any or all of the listed values (store tags, store categories).
+function matchModeRow(t: Tfn, p: Record<string, any>, patchParams: (patch: Record<string, any>) => void): ReactNode {
+  return dropdownRow(t("filter_match_label"), undefined,
+    [{ data: "any", label: t("filter_group_mode_or") }, { data: "all", label: t("filter_group_mode_and") }],
+    String(p.mode ?? "any"), (v) => patchParams({ mode: v }));
+}
+
+// A date in seconds, edited as YYYY-MM-DD, on or after / on or before it, or unknown.
+function dateRows(t: Tfn, p: Record<string, any>, patchParams: (patch: Record<string, any>) => void): ReactNode {
+  const toStr = (ts: any) => { const n = Number(ts ?? 0); if (!n) return ""; try { return new Date(n * 1000).toISOString().slice(0, 10); } catch { return ""; } };
+  const toTs = (raw: string) => { const ms = Date.parse((raw || "").trim()); return Number.isFinite(ms) ? Math.floor(ms / 1000) : 0; };
+  const op = String(p.op ?? "after");
+  return (
+    <>
+      {dropdownRow(t("filter_compare"), undefined,
+        [
+          { data: "after", label: t("filter_date_after") },
+          { data: "before", label: t("filter_date_before") },
+          { data: "unknown", label: t("filter_date_unknown") },
+        ],
+        op, (v) => patchParams({ op: v }))}
+      {op !== "unknown" && textRow(t("filter_release_date_label"), t("filter_release_date_hint"), toStr(p.ts), (raw) => patchParams({ ts: toTs(raw) }))}
+    </>
+  );
+}
+
+const compositeFields = ({ item, onChange, controller, allowOnlineFilters, onlineFeaturesOn }: OptCtx) => (
+  <CompositeFields item={item} onChange={onChange} controller={controller} allowOnlineFilters={allowOnlineFilters} onlineFeaturesOn={onlineFeaturesOn} />
+);
 
 function collectionOptions(ctx: OptCtx): ReactNode {
   const { t, p, patchParams, controller } = ctx;
@@ -226,13 +256,9 @@ const RENDERERS: Record<string, (c: OptCtx) => ReactNode> = {
   playtimeRange,
   nameIncludes: ({ t, p, patchParams }) => textRow(t("filter_type_name_includes"), undefined, String(p.text ?? ""), (text) => patchParams({ text })),
   nameRegex: ({ t, p, patchParams }) => textRow(t("filter_type_name_regex"), undefined, String(p.pattern ?? ""), (pattern) => patchParams({ pattern })),
-  storeTag: ({ t, p, patchParams }) => textRow(t("filter_type_store_tag"), t("filter_tags_hint"), (Array.isArray(p.tags) ? p.tags : []).join(", "), (raw) => patchParams({ tags: raw.split(",").map((s: string) => s.trim()).filter(Boolean) })),
   appIdList: ({ t, p, patchParams }) => textRow(t("filter_type_app_id_list"), t("filter_app_id_list_hint"), (Array.isArray(p.appIds) ? p.appIds : []).join(", "), (raw) => patchParams({ appIds: raw.split(",").map((s: string) => Number(s.trim())).filter((n: number) => Number.isFinite(n) && n > 0) })),
   developer: ({ p, patchParams }) => <DeveloperFields selected={Array.isArray(p.developers) ? p.developers : []} onChange={(devs) => patchParams({ developers: devs })} />,
   publisher: ({ p, patchParams }) => <PublisherFields selected={Array.isArray(p.publishers) ? p.publishers : []} onChange={(pubs) => patchParams({ publishers: pubs })} />,
-  friends: ({ t }) => <div>{dimHint(t("filter_friends_info"))}</div>,
-  achievements: ({ t }) => <div>{dimHint(t("filter_achievements_info"))}</div>,
-  familySharing: ({ t }) => <div>{dimHint(t("filter_family_sharing_info"))}</div>,
   friendsPlayingNow: ({ t }) => <div>{dimHint(t("filter_friends_playing_now_info"))}</div>,
   friendsPlayedRecently: ({ t, p, patchParams }) => (
     <>
@@ -259,22 +285,8 @@ const RENDERERS: Record<string, (c: OptCtx) => ReactNode> = {
       <DSSliderField label={t("filter_review_value")} value={Number(p.value ?? 75)} unit="" min={0} max={100} step={5} bottomSeparator="none" onChange={(v: number) => patchParams({ value: v })} />
     </>
   ),
-  releaseDate: ({ t, p, patchParams }) => {
-    // Store `ts` in seconds; the field edits a YYYY-MM-DD string.
-    const toStr = (ts: any) => { const n = Number(ts ?? 0); if (!n) return ""; try { return new Date(n * 1000).toISOString().slice(0, 10); } catch { return ""; } };
-    const toTs = (raw: string) => { const ms = Date.parse((raw || "").trim()); return Number.isFinite(ms) ? Math.floor(ms / 1000) : 0; };
-    return (
-      <>
-        {dropdownRow(t("filter_compare"), undefined,
-          [
-            { data: "after", label: t("filter_date_after") },
-            { data: "before", label: t("filter_date_before") },
-          ],
-          String(p.op ?? "after"), (v) => patchParams({ op: v }))}
-        {textRow(t("filter_release_date_label"), t("filter_release_date_hint"), toStr(p.ts), (raw) => patchParams({ ts: toTs(raw) }))}
-      </>
-    );
-  },
+  releaseDate: ({ t, p, patchParams }) => dateRows(t, p, patchParams),
+  purchaseDate: ({ t, p, patchParams }) => dateRows(t, p, patchParams),
   // ---- Filter v3 parameterized editors ------------------------------------
   genres: ({ t, p, patchParams }) => textRow(t("filter_type_genres"), t("filter_comma_hint"), (Array.isArray(p.genres) ? p.genres : []).join(", "), (raw) => patchParams({ genres: splitList(raw) })),
   categories: ({ t, p, patchParams }) => textRow(t("filter_type_categories"), t("filter_comma_hint"), (Array.isArray(p.categories) ? p.categories : []).join(", "), (raw) => patchParams({ categories: splitList(raw) })),
@@ -289,33 +301,9 @@ const RENDERERS: Record<string, (c: OptCtx) => ReactNode> = {
       { data: "online", label: t("filter_mp_online") },
     ],
     String(p.kind ?? "any"), (v) => patchParams({ kind: v })),
-  dlcOwned: ({ t, p, patchParams }) => (
-    <DSSliderField label={t("filter_dlc_min_count")} value={Number(p.minCount ?? 1)} min={1} max={20} step={1} bottomSeparator="none" onChange={(v: number) => patchParams({ minCount: v })} />
-  ),
-  launchCount: ({ t, p, patchParams }) => rangeRows(t, Number(p.min ?? 0), p.max, 0, 500, 5, "", (min, max) => patchParams({ min, max })),
-  avgSessionMinutes: ({ t, p, patchParams }) => rangeRows(t, Number(p.min ?? 0), p.max, 0, 240, 5, "min", (min, max) => patchParams({ min, max })),
-  achievementPercentRange: ({ t, p, patchParams }) => (
-    <>
-      <DSSliderField label={t("filter_min")} value={Number(p.min ?? 0)} unit="%" min={0} max={100} step={5} bottomSeparator="none" onChange={(v: number) => patchParams({ min: v, max: Math.max(v, Number(p.max ?? 100)) })} />
-      <DSSliderField label={t("filter_max")} value={Number(p.max ?? 100)} unit="%" min={0} max={100} step={5} bottomSeparator="none" onChange={(v: number) => patchParams({ max: v, min: Math.min(v, Number(p.min ?? 0)) })} />
-    </>
-  ),
-  recentlyAbandoned: ({ t, p, patchParams }) => (
-    <>
-      {daysSlider(t("filter_abandoned_min_days"), Number(p.minDaysAgo ?? 7), 1, 365, (v) => patchParams({ minDaysAgo: v }))}
-      {daysSlider(t("filter_abandoned_max_days"), Number(p.maxDaysAgo ?? 60), 1, 365, (v) => patchParams({ maxDaysAgo: v }))}
-    </>
-  ),
   playedOnce: ({ t, p, patchParams }) => (
     <DSSliderField label={t("filter_played_once_max")} value={Number(p.maxMinutes ?? 60)} unit="min" min={1} max={300} step={1} bottomSeparator="none" onChange={(v: number) => patchParams({ maxMinutes: v })} />
   ),
-  storageDevice: ({ t, p, patchParams }) => dropdownRow(
-    t("filter_type_storage_device"), undefined,
-    [
-      { data: "ssd", label: t("filter_storage_internal") },
-      { data: "sd", label: t("filter_storage_sd") },
-    ],
-    String(p.device ?? "ssd"), (v) => patchParams({ device: v })),
   installedSizeRange: ({ t, p, patchParams }) => {
     const toGb = (mb: any) => (typeof mb === "number" && mb > 0 ? Math.round(mb / 1024) : 0);
     const fromGb = (gb: number) => (gb > 0 ? gb * 1024 : undefined);
@@ -326,14 +314,43 @@ const RENDERERS: Record<string, (c: OptCtx) => ReactNode> = {
       </>
     );
   },
-  executableType: ({ t, p, patchParams }) => textRow(t("filter_type_executable_type"), t("filter_executable_hint"), String(p.ext ?? ""), (raw) => patchParams({ ext: raw.trim() })),
-  launchOptionTags: ({ t, p, patchParams }) => textRow(t("filter_type_launch_option_tags"), t("filter_comma_hint"), (Array.isArray(p.tags) ? p.tags : []).join(", "), (raw) => patchParams({ tags: splitList(raw) })),
   customTags: ({ t, p, patchParams }) => textRow(t("filter_type_custom_tags"), t("filter_comma_hint"), (Array.isArray(p.tags) ? p.tags : []).join(", "), (raw) => patchParams({ tags: splitList(raw) })),
   parserCategories: ({ t, p, patchParams }) => textRow(t("filter_type_parser_categories"), t("filter_comma_hint"), (Array.isArray(p.tags) ? p.tags : []).join(", "), (raw) => patchParams({ tags: splitList(raw) })),
+  storeTag: ({ t, p, patchParams }) => (
+    <>
+      {textRow(t("filter_type_store_tag"), t("filter_tags_hint"), (Array.isArray(p.tags) ? p.tags : []).join(", "), (raw) => patchParams({ tags: splitList(raw) }))}
+      {matchModeRow(t, p, patchParams)}
+    </>
+  ),
+  storeCategory: ({ t, p, patchParams }) => (
+    <>
+      {toggleSet(Object.keys(STORE_CATEGORY_TOKENS), (Array.isArray(p.ids) ? p.ids : []).map(String), (k) => steamLabel(STORE_CATEGORY_TOKENS[Number(k)]) ?? k, (next) => patchParams({ ids: next.map(Number) }))}
+      {matchModeRow(t, p, patchParams)}
+    </>
+  ),
+  friends: ({ t, p, patchParams }) => (
+    <>
+      <DSSliderField label={t("filter_min")} value={Number(p.min ?? 1)} min={1} max={20} step={1} bottomSeparator="none" onChange={(v: number) => patchParams({ min: v })} />
+      {dimHint(t("filter_friends_info"))}
+    </>
+  ),
+  achievements: ({ t, p, patchParams }) => (
+    <>
+      {rangeRows(t, Number(p.min ?? 1), p.max, 0, 200, 1, "", (min, max) => patchParams({ min, max }))}
+      {dimHint(t("filter_achievements_info"))}
+    </>
+  ),
+  achievementPercentRange: ({ t, p, patchParams }) => (
+    <>
+      <DSSliderField label={t("filter_min")} value={Number(p.min ?? 0)} unit="%" min={0} max={100} step={5} bottomSeparator="none" onChange={(v: number) => patchParams({ min: v })} />
+      <DSSliderField label={t("filter_max")} value={Number(p.max ?? 100)} unit="%" min={0} max={100} step={5} bottomSeparator="none" onChange={(v: number) => patchParams({ max: v })} />
+    </>
+  ),
+  familySharing: ({ t }) => <div>{dimHint(t("filter_family_sharing_info"))}</div>,
+  weightedFilter: compositeFields,
+  priorityFilter: compositeFields,
+  exclusionGroup: compositeFields,
   merge: ({ item, onChange, controller, allowOnlineFilters, onlineFeaturesOn }) => <NestedConditionEditor item={item} onChange={onChange} controller={controller} allowOnlineFilters={allowOnlineFilters} onlineFeaturesOn={onlineFeaturesOn} />,
-  weightedFilter: ({ item, onChange, controller, allowOnlineFilters, onlineFeaturesOn }) => <CompositeFields item={item} onChange={onChange} controller={controller} allowOnlineFilters={allowOnlineFilters} onlineFeaturesOn={onlineFeaturesOn} />,
-  priorityFilter: ({ item, onChange, controller, allowOnlineFilters, onlineFeaturesOn }) => <CompositeFields item={item} onChange={onChange} controller={controller} allowOnlineFilters={allowOnlineFilters} onlineFeaturesOn={onlineFeaturesOn} />,
-  exclusionGroup: ({ item, onChange, controller, allowOnlineFilters, onlineFeaturesOn }) => <CompositeFields item={item} onChange={onChange} controller={controller} allowOnlineFilters={allowOnlineFilters} onlineFeaturesOn={onlineFeaturesOn} />,
 };
 
 export default function ConditionFields({ item, onChange, controller, allowOnlineFilters = false, onlineFeaturesOn = false }: { item: FilterItem; onChange: (patch: Partial<FilterItem>) => void; controller?: SettingsController; allowOnlineFilters?: boolean; onlineFeaturesOn?: boolean }) {

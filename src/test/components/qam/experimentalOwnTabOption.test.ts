@@ -209,21 +209,21 @@ function prompt(index: number) {
 
 for (const panel of [PANEL, SIDE_PANEL]) {
   describe(`own Quick Access tab option, ${panel.name}`, () => {
-    it('U43 — shows in the Experimental section, with its label, when no neutral host is present', () => {
+    it('shows in the Experimental section, with its label, when no neutral host is present', () => {
       renderOpen(panel, makeController())
       expect(toggle()?.textContent).toBe(LABEL)
       expect(toggle()?.getAttribute('aria-pressed')).toBe('false')
     })
 
     for (const { signal, name, value } of NEUTRAL_HOST_SIGNALS) {
-      it(`U43 — hidden while the neutral host's ${signal} is present`, () => {
+      it(`hidden while the neutral host's ${signal} is present`, () => {
         vi.stubGlobal(name, value)
         renderOpen(panel, makeController())
         expect(toggle(SHOWCASE_LABEL)).not.toBeNull()
         expect(toggle()).toBeNull()
       })
 
-      it(`U43 — hidden from the next render once the neutral host's ${signal} appears`, () => {
+      it(`hidden from the next render once the neutral host's ${signal} appears`, () => {
         const controller = makeController()
         renderOpen(panel, controller)
         expect(toggle()).not.toBeNull()
@@ -235,7 +235,7 @@ for (const panel of [PANEL, SIDE_PANEL]) {
       })
     }
 
-    it('U43 — hidden in a copy that does not own the renderer', () => {
+    it('hidden in a copy that does not own the renderer', () => {
       const scope = window as any
       scope.__DECK_SHELVES_OWNER__ = 'shelveshub'
       try {
@@ -250,7 +250,7 @@ for (const panel of [PANEL, SIDE_PANEL]) {
       }
     })
 
-    it('U43 — the Experimental count includes the option while it is on', () => {
+    it('the Experimental count includes the option while it is on', () => {
       const controller = makeController()
       render(panel, controller)
       setSectionOpen('experimental', false)
@@ -266,7 +266,7 @@ for (const panel of [PANEL, SIDE_PANEL]) {
       expect(badge('experimental')).toBe('1')
     })
 
-    it('U44 — on, then off: each change saves the new value and asks for the restart with the body for it', async () => {
+    it('on, then off: each change saves the new value and asks for the restart with the body for it', async () => {
       const controller = makeController()
       renderOpen(panel, controller)
 
@@ -295,7 +295,7 @@ for (const panel of [PANEL, SIDE_PANEL]) {
       expect(controller.spies.setOwnQamTabEnabled.mock.calls).toEqual([[true], [false]])
     })
 
-    it('U44 — "Later" only closes the prompt, and "Restart now" restarts once, for either new value', async () => {
+    it('"Later" only closes the prompt, and "Restart now" restarts once, for either new value', async () => {
       const controller = makeController()
       renderOpen(panel, controller)
 
@@ -316,7 +316,7 @@ for (const panel of [PANEL, SIDE_PANEL]) {
       expect(controller.spies.setOwnQamTabEnabled.mock.calls).toEqual([[true], [false]])
     })
 
-    it('U44 — "Restart now" waits until the new value is saved: a restart before that would drop it', async () => {
+    it('"Restart now" waits until the new value is saved: a restart before that would drop it', async () => {
       const controller = makeController()
       let finishSave: () => void = () => {}
       controller.spies.setOwnQamTabEnabled = vi.fn(() => new Promise<void>((resolve) => { finishSave = resolve }))
@@ -330,7 +330,7 @@ for (const panel of [PANEL, SIDE_PANEL]) {
       expect(edge.restartSteam).toHaveBeenCalledTimes(1)
     })
 
-    it('U44 — through the settings controller, the store receives each new value whatever the answer', async () => {
+    it('through the settings controller, the store receives each new value whatever the answer', async () => {
       edge.stored = { ...defaultSettings(), enabled: true, showcaseSeen: true }
       const Component = panel.component
       function WithController() { return h(Component, { controller: useSettingsController() }) }
@@ -358,7 +358,7 @@ for (const panel of [PANEL, SIDE_PANEL]) {
 }
 
 describe('own Quick Access tab option, hiding it like the other options', () => {
-  it('U43 — the panel leaves it out when it is hidden, as it does for another hidden option', () => {
+  it('the panel leaves it out when it is hidden, as it does for another hidden option', () => {
     renderOpen(PANEL, makeController({ qamHiddenToggles: ['ownQamTabEnabled'] }))
     expect(toggle()).toBeNull()
     expect(toggle(SHOWCASE_LABEL)).not.toBeNull()
@@ -368,7 +368,7 @@ describe('own Quick Access tab option, hiding it like the other options', () => 
     expect(toggle(SHOWCASE_LABEL)).toBeNull()
   })
 
-  it('U43 — the side panel gives it the same hide control as the other options', () => {
+  it('the side panel gives it the same hide control as the other options', () => {
     const eye = (key: string) =>
       withAttr(box('experimental')?.querySelectorAll<HTMLElement>('[data-ds-eye-toggle]'), 'data-ds-eye-toggle', key)
     const shown = makeController()

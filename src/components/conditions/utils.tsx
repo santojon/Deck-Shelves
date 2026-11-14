@@ -1,5 +1,5 @@
 import i18n from "../../i18n";
-import type { FilterItemType, FilterItem } from "../../types";
+import { type FilterItemType, type FilterItem, isKnownFilterType } from "../../types";
 
 export const ALL_FILTER_TYPES: FilterItemType[] = [
   "installed",
@@ -27,52 +27,36 @@ export const ALL_FILTER_TYPES: FilterItemType[] = [
   "frameCompatibility",
   "remotePlayLocation",
   "libraryLocation",
-  "friends",
   "friendsPlayingNow",
   "friendsPlayedRecently",
-  "storeTag",
-  "achievements",
+  "friends",
   "collection",
   "merge",
+  "weightedFilter",
+  "priorityFilter",
+  "exclusionGroup",
   "appStatus",
   "discount",
   "priceRange",
   "reviewScore",
   "releaseDate",
+  "purchaseDate",
   "comingSoon",
-  "demo",
-  "familySharing",
   "vrSupport",
-  "soundtrackOwned",
-  "neverCompleted",
-  "installedNeverPlayed",
-  "compatDataQuality",
-  "emuDeckSystem",
-  "retroDeckSystem",
-  "heroicLauncher",
-  "lutrisApp",
-  "chiakiApp",
-  "moonlightApp",
-  "hiddenLauncherShortcuts",
   "genres",
   "categories",
   "franchise",
   "multiplayerType",
-  "dlcOwned",
-  "launchCount",
-  "avgSessionMinutes",
-  "recentlyAbandoned",
   "playedOnce",
-  "achievementPercentRange",
-  "storageDevice",
   "installedSizeRange",
-  "executableType",
-  "launchOptionTags",
   "customTags",
   "parserCategories",
-  "weightedFilter",
-  "priorityFilter",
-  "exclusionGroup",
+  "storeTag",
+  "storeCategory",
+  "familySharing",
+  "achievements",
+  "achievementPercentRange",
+  "neverCompleted",
 ];
 
 export const COMPAT_LEVELS = ["verified", "playable", "unsupported", "unknown"] as const;
@@ -90,17 +74,16 @@ const STARTING_OPTIONS: Partial<Record<FilterItemType, () => Record<string, any>
   vrSupport: () => ({ levels: ["only", "supported"] }),
   reviewScore: () => ({ op: ">=", value: 75, source: "metacritic" }),
   releaseDate: () => ({ op: "after", ts: 0 }),
+  purchaseDate: () => ({ op: "after", ts: 0 }),
+  storeCategory: () => ({ ids: [], mode: "any" }),
   playedWithinDays: () => ({ days: 30 }),
   playtimeRange: () => ({ minHours: undefined, maxHours: undefined }),
   recentlyActive: () => ({ minMinutes: 1 }),
   neglected: () => ({ days: 30 }),
   nameIncludes: () => ({ text: "" }),
   nameRegex: () => ({ pattern: "" }),
-  friends: () => ({ friends: [] }),
   friendsPlayingNow: () => ({}),
   friendsPlayedRecently: () => ({ days: 14 }),
-  storeTag: () => ({ tags: [] }),
-  achievements: () => ({}),
   collection: () => ({ collectionId: "" }),
   developer: () => ({ developers: [] }),
   publisher: () => ({ publishers: [] }),
@@ -118,18 +101,14 @@ const STARTING_OPTIONS: Partial<Record<FilterItemType, () => Record<string, any>
   categories: () => ({ categories: [] }),
   franchise: () => ({ franchise: "" }),
   multiplayerType: () => ({ kind: "any" }),
-  dlcOwned: () => ({ minCount: 1 }),
-  launchCount: () => ({ min: 0, max: undefined }),
-  avgSessionMinutes: () => ({ min: 0, max: undefined }),
-  recentlyAbandoned: () => ({ minDaysAgo: 7, maxDaysAgo: 60 }),
   playedOnce: () => ({ maxMinutes: 60 }),
-  achievementPercentRange: () => ({ min: 0, max: 100 }),
-  storageDevice: () => ({ device: "ssd" }),
   installedSizeRange: () => ({ minMB: 0, maxMB: undefined }),
-  executableType: () => ({ ext: "" }),
-  launchOptionTags: () => ({ tags: [] }),
   customTags: () => ({ tags: [] }),
   parserCategories: () => ({ tags: [] }),
+  storeTag: () => ({ tags: [], mode: "any" }),
+  friends: () => ({ min: 1 }),
+  achievements: () => ({ min: 1, max: undefined }),
+  achievementPercentRange: () => ({ min: 0, max: 100 }),
   weightedFilter: () => ({ children: [], threshold: 1 }),
   priorityFilter: () => ({ children: [] }),
   exclusionGroup: () => ({ children: [] }),
@@ -149,22 +128,23 @@ function isValidRegex(pattern: any): boolean {
 
 // Whether a type's options are enough to test anything. Types with no entry
 // (installed / favorites / nonSteam / updatePending / isNew / cloudAvailable /
-// controllerSupport / playtimeRange / friendsPlayingNow / achievements) always are.
-const COMPLETE_WHEN: Partial<Record<FilterItem["type"], (p: any) => boolean>> = {
+// controllerSupport / playtimeRange / friendsPlayingNow) always are.
+const COMPLETE_WHEN: Partial<Record<FilterItemType, (p: any) => boolean>> = {
   hidden: (p) => !!p.mode,
   deckCompatibility: (p) => nonEmptyArray(p.levels),
   deviceCompatibility: (p) => nonEmptyArray(p.levels),
   steamosCompatibility: (p) => nonEmptyArray(p.levels),
   machineCompatibility: (p) => nonEmptyArray(p.levels),
   frameCompatibility: (p) => nonEmptyArray(p.levels),
+  vrSupport: (p) => nonEmptyArray(p.levels),
   reviewScore: (p) => Number(p.value ?? -1) >= 0 && Number(p.value ?? 101) <= 100,
-  releaseDate: (p) => Number(p.ts ?? 0) > 0,
+  releaseDate: (p) => p.op === "unknown" || Number(p.ts ?? 0) > 0,
+  purchaseDate: (p) => p.op === "unknown" || Number(p.ts ?? 0) > 0,
+  storeCategory: (p) => nonEmptyArray(p.ids),
   playedWithinDays: (p) => Number(p.days ?? 0) > 0,
   nameIncludes: (p) => String(p.text ?? "").length > 0,
   nameRegex: (p) => isValidRegex(p.pattern),
-  friends: (p) => nonEmptyArray(p.friends),
   friendsPlayedRecently: (p) => Number(p.days ?? 0) > 0,
-  storeTag: (p) => nonEmptyArray(p.tags),
   collection: (p) => Boolean(p.collectionId),
   developer: (p) => nonEmptyArray(p.developers),
   publisher: (p) => nonEmptyArray(p.publishers),
@@ -173,14 +153,26 @@ const COMPLETE_WHEN: Partial<Record<FilterItem["type"], (p: any) => boolean>> = 
   shortcutType: (p) => nonEmptyArray(p.kinds),
   appStatus: (p) => nonEmptyArray(p.groups),
   discount: (p) => Number(p.minDiscount ?? 0) >= 0 && Number(p.minDiscount ?? 0) <= 100,
+  genres: (p) => nonEmptyArray(p.genres),
+  categories: (p) => nonEmptyArray(p.categories),
+  franchise: (p) => String(p.franchise ?? "").trim().length > 0,
+  customTags: (p) => nonEmptyArray(p.tags),
+  parserCategories: (p) => nonEmptyArray(p.tags),
+  storeTag: (p) => nonEmptyArray(p.tags),
+  friends: (p) => Number(p.min ?? 0) >= 1,
+  weightedFilter: (p) => nonEmptyArray(p.children),
+  priorityFilter: (p) => nonEmptyArray(p.children),
+  exclusionGroup: (p) => nonEmptyArray(p.children),
 };
 
+// A type nothing evaluates is never complete: the shelf stays unavailable until it is changed.
 export function isConditionComplete(item: FilterItem): boolean {
+  if (!isKnownFilterType(item.type)) return false;
   const check = COMPLETE_WHEN[item.type];
   return check ? check(item.params ?? {}) : true;
 }
 
-export function getTypeLabel(type: FilterItemType): string {
+export function getTypeLabel(type: string): string {
   const t = i18n.t.bind(i18n);
   const map: Record<FilterItemType, string> = {
     installed: t("filter_type_installed"),
@@ -197,11 +189,8 @@ export function getTypeLabel(type: FilterItemType): string {
     neglected: t("filter_type_neglected"),
     nameIncludes: t("filter_type_name_includes"),
     nameRegex: t("filter_type_name_regex"),
-    friends: t("filter_type_friends"),
     friendsPlayingNow: t("filter_type_friends_playing_now"),
     friendsPlayedRecently: t("filter_type_friends_played_recently"),
-    storeTag: t("filter_type_store_tag"),
-    achievements: t("filter_type_achievements"),
     collection: t("filter_type_collection"),
     developer: t("filter_type_developer"),
     publisher: t("filter_type_publisher"),
@@ -222,41 +211,28 @@ export function getTypeLabel(type: FilterItemType): string {
     reviewScore: t("filter_type_review_score"),
     releaseDate: t("filter_type_release_date"),
     comingSoon: t("filter_type_coming_soon"),
-    demo: t("filter_type_demo"),
-    familySharing: t("filter_type_family_sharing"),
     vrSupport: t("filter_type_vr_support"),
-    soundtrackOwned: t("filter_type_soundtrack_owned"),
-    neverCompleted: t("filter_type_never_completed"),
-    installedNeverPlayed: t("filter_type_installed_never_played"),
-    compatDataQuality: t("filter_type_compat_data_quality"),
-    emuDeckSystem: "EmuDeck",
-    retroDeckSystem: "RetroDECK",
-    heroicLauncher: "Heroic",
-    lutrisApp: "Lutris",
-    chiakiApp: "Chiaki",
-    moonlightApp: "Moonlight",
-    hiddenLauncherShortcuts: t("filter_type_hidden_launcher_shortcuts"),
     genres: t("filter_type_genres"),
     categories: t("filter_type_categories"),
     franchise: t("filter_type_franchise"),
     multiplayerType: t("filter_type_multiplayer_type"),
-    dlcOwned: t("filter_type_dlc_owned"),
-    launchCount: t("filter_type_launch_count"),
-    avgSessionMinutes: t("filter_type_avg_session"),
-    recentlyAbandoned: t("filter_type_recently_abandoned"),
     playedOnce: t("filter_type_played_once"),
-    achievementPercentRange: t("filter_type_achievement_percent"),
-    storageDevice: t("filter_type_storage_device"),
     installedSizeRange: t("filter_type_installed_size"),
-    executableType: t("filter_type_executable_type"),
-    launchOptionTags: t("filter_type_launch_option_tags"),
     customTags: t("filter_type_custom_tags"),
     parserCategories: t("filter_type_parser_categories"),
+    storeTag: t("filter_type_store_tag"),
+    storeCategory: t("filter_type_store_category"),
+    purchaseDate: t("filter_type_purchase_date"),
+    friends: t("filter_type_friends"),
+    achievements: t("filter_type_achievements"),
+    achievementPercentRange: t("filter_type_achievement_percent"),
+    neverCompleted: t("filter_type_never_completed"),
+    familySharing: t("filter_type_family_sharing"),
     weightedFilter: t("filter_type_weighted"),
     priorityFilter: t("filter_type_priority"),
     exclusionGroup: t("filter_type_exclusion"),
   };
-  return map[type] ?? type;
+  return isKnownFilterType(type) ? map[type] : t("filter_type_unavailable", { type });
 }
 
 /* Only true store/wishlist-data filters — price and discount need the
@@ -264,7 +240,7 @@ export function getTypeLabel(type: FilterItemType): string {
    recently) read Steam's local friend list instead, so they're always
    offered rather than gated here. Gated by `allowOnlineFilters` (is the
    current source itself online), not by the Online Features toggle. */
-export function isOnlineFilterType(type: FilterItemType): boolean {
+export function isOnlineFilterType(type: string): boolean {
   return type === "discount" || type === "priceRange";
 }
 
@@ -272,8 +248,9 @@ export function isOnlineFilterType(type: FilterItemType): boolean {
    shelf they need Online Features on to fetch and cache Store/client
    details. Gated by the toggle itself, not source type: unlike discount/
    priceRange these are meaningful on any source (v3Extensions.ts). */
-export function isOnlineFeatureFilterType(type: FilterItemType): boolean {
-  return type === "genres" || type === "categories" || type === "franchise"
+export function isOnlineFeatureFilterType(type: string): boolean {
+  // The friends' libraries are fetched from Steam, so that one follows the toggle too.
+  return type === "genres" || type === "categories" || type === "franchise" || type === "friends"
     // Review score / release date / coming soon read online-enriched fields
     // (onlineMetadata.ts), absent locally on desktop — unlike demo/steamosCompatibility.
     || type === "reviewScore" || type === "releaseDate" || type === "comingSoon";

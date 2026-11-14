@@ -5,6 +5,8 @@ import { subscribeFocusedCard, getFocusedCard } from '../../runtime/focusedCardT
 import { subscribeOverlayActive } from './overlayState';
 import { subscribeSessionState, getSessionState } from '../../runtime/sessionState';
 import i18n from '../../i18n';
+import { getCurrentSettings } from '../../store/settingsStore';
+import { discountBadgeModeOf, discountBadgeText } from './discountBadge';
 
 function findHomeRootDoc(): { doc: Document; root: HTMLElement } | null {
   /* Plugin runs in SharedJSContext; the home root lives in the BP doc.
@@ -32,14 +34,15 @@ type OverlayState = {
   width: number;
   isNew: boolean;
   discount: number;
+  priceText?: string;
 };
 
 const READ_TARGET_DELAY_MS = 0;
 
-function readBadgeData(card: HTMLElement): { isNew: boolean; discount: number } {
+function readBadgeData(card: HTMLElement): { isNew: boolean; discount: number; priceText?: string } {
   const isNew = card.getAttribute('data-isnew') === 'true';
   const discount = Number(card.getAttribute('data-discount') || '0');
-  return { isNew, discount };
+  return { isNew, discount, priceText: card.getAttribute('data-price') || undefined };
 }
 
 export function BadgeFocusOverlay() {
@@ -99,7 +102,7 @@ export function BadgeFocusOverlay() {
       attrObserver.disconnect();
       try { resizeObserver?.disconnect(); } catch {}
       if (card) {
-        attrObserver.observe(card, { attributes: true, attributeFilter: ['data-isnew', 'data-discount', 'class'] });
+        attrObserver.observe(card, { attributes: true, attributeFilter: ['data-isnew', 'data-discount', 'data-price', 'class'] });
         try { resizeObserver?.observe(card); } catch {}
       }
     };
@@ -178,7 +181,7 @@ export function BadgeFocusOverlay() {
       {state.discount > 0 && (
         <div className="ds-new-badge-band">
           <div className="ds-new-badge" style={{ background: '#2a7f2a' }}>
-            {i18n.t('badge_discount', { count: state.discount }) ?? `${state.discount}% off`}
+            {discountBadgeText(discountBadgeModeOf((getCurrentSettings() as any)?.discountBadgeMode), state.priceText, i18n.t('badge_discount', { count: state.discount }) ?? `${state.discount}% off`)}
           </div>
         </div>
       )}

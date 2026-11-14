@@ -27,6 +27,7 @@ vi.mock('../../../runtime/host/decky', async () => {
       className: props.className,
       style: props.style,
       'data-ok-text': props.onOKActionDescription,
+      'data-secondary-text': props.onSecondaryActionDescription,
       'data-cancel-text': props.onCancelActionDescription,
       ...dataAttrs(props),
     }, props.children)
@@ -37,7 +38,7 @@ vi.mock('../../../runtime/host/decky', async () => {
       el('div', { className: 'test-field-label' }, props.label),
       el('div', { className: 'test-field-children' }, props.children))
   }
-  return { Focusable, Field, GamepadButton: { OK: 1, CANCEL: 2, DIR_UP: 9, DIR_DOWN: 10, DIR_LEFT: 11, DIR_RIGHT: 12 } }
+  return { Focusable, Field, GamepadButton: { OK: 1, CANCEL: 2, SECONDARY: 3, DIR_UP: 9, DIR_DOWN: 10, DIR_LEFT: 11, DIR_RIGHT: 12 } }
 })
 vi.mock('../../../runtime/navFocus', () => ({ takeNavTreeFocus: (el: HTMLElement) => host.takeFocus(el) }))
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key }) }))
@@ -52,6 +53,7 @@ const ShelfList = ReorderableShelfList<Shelfish>
 
 const OK = 1
 const CANCEL = 2
+const SECONDARY = 3
 const UP = 9
 const DOWN = 10
 const LEFT = 11
@@ -147,6 +149,17 @@ function pressA(id: string, isRepeat?: boolean) {
   return evt
 }
 
+// X on a name area: the grab.
+function pressX(id: string, isRepeat?: boolean) {
+  const evt = pad(SECONDARY, isRepeat)
+  act(() => { propsOf(id).onSecondaryButton(evt) })
+  return evt
+}
+
+// A row whose actions hold the menu control the panel's lists use.
+const menuActions = (opened: (id: string) => void) => (item: Item): ReactNode =>
+  h('button', { className: 'test-action', 'data-ds-row-menu': '1', onClick: () => opened(item.id) }, `act-${item.id}`)
+
 // Through the name area's generic callback; `handled` stays undefined when the list set none there.
 function buttonDown(id: string, button: number, isRepeat?: boolean) {
   const evt = pad(button, isRepeat)
@@ -210,10 +223,28 @@ describe('GrabReorderList — rendering and idle state', () => {
     expect(frameRequests()).toBe(0)
   })
 
-  it('shows the idle footer on a name area: A reads reorder_label and there is no B text', () => {
+  it('shows the idle footer on a name area: A reads actions, X reads reorder_label and there is no B text', () => {
     renderList({ items: items('a', 'b') })
-    expect(targetOf('a').getAttribute('data-ok-text')).toBe('reorder_label')
+    expect(targetOf('a').getAttribute('data-ok-text')).toBe('actions')
+    expect(targetOf('a').getAttribute('data-secondary-text')).toBe('reorder_label')
     expect(targetOf('a').hasAttribute('data-cancel-text')).toBe(false)
+  })
+
+  it('opens the row\'s menu control on A when idle, once, and grabs nothing', () => {
+    const opened = vi.fn()
+    renderList({ items: items('a', 'b'), renderActions: menuActions(opened) })
+    const evt = pressA('a')
+    expect(opened).toHaveBeenCalledTimes(1)
+    expect(opened).toHaveBeenCalledWith('a')
+    expect(grabbedIds()).toEqual([])
+    expect(evt.detail.event.preventDefault).not.toHaveBeenCalled()
+  })
+
+  it('does nothing on A when the row has no menu control', () => {
+    renderList({ items: items('a', 'b') })
+    pressA('a')
+    expect(grabbedIds()).toEqual([])
+    expect(orders()).toEqual(['', ''])
   })
 
   it('leaves B and the D-pad to Steam when idle, and a tap never grabs: nothing absorbed, nothing handled, nothing scheduled', () => {
@@ -229,6 +260,7 @@ describe('GrabReorderList — rendering and idle state', () => {
     }
     expect(typeof propsOf('a').onActivate).toBe('function')
     act(() => { propsOf('a').onActivate(); targetOf('a').click() })
+    pressA('a')
     expect(propsOf('a').onCancelButton).toBeUndefined()
     expect(grabbedIds()).toEqual([])
     expect(orders()).toEqual(['', ''])
@@ -238,22 +270,24 @@ describe('GrabReorderList — rendering and idle state', () => {
 })
 
 describe('GrabReorderList — grab, move, drop', () => {
-  it('grabs the row on A: marks it, puts the D-pad texts in the footer, switches the A and B texts and saves nothing', () => {
+  it('grabs the row on X: marks it, puts the D-pad texts in the footer, switches the A, B and X texts and saves nothing', () => {
     const { onReorder } = renderList({ items: items('a', 'b', 'c') })
-    pressA('a')
+    pressX('a')
     expect(rowOf('a').getAttribute('data-ds-grabbed')).toBe('1')
     expect(propsOf('a').actionDescriptionMap).toEqual({ [UP]: 'move_up', [DOWN]: 'move_down' })
     expect(propsOf('b').actionDescriptionMap).toBeUndefined()
     expect(mount.textContent).not.toContain('move_')
     expect(targetOf('a').getAttribute('data-ok-text')).toBe('reorder_save_order')
     expect(targetOf('a').getAttribute('data-cancel-text')).toBe('cancel')
+    expect(targetOf('a').hasAttribute('data-secondary-text')).toBe(false)
+    expect(targetOf('b').getAttribute('data-secondary-text')).toBe('reorder_label')
     expect(orders()).toEqual(['0', '1', '2'])
     expect(onReorder).not.toHaveBeenCalled()
   })
 
   it('moves with CSS order only and saves the full order once on drop', () => {
     const { onReorder } = renderList({ items: items('a', 'b', 'c', 'd') })
-    pressA('a')
+    pressX('a')
     expect(buttonDown('a', DOWN).handled).toBe(true)
     buttonDown('a', DOWN)
     expect(visualOrder()).toEqual(['b', 'c', 'a', 'd'])
@@ -266,12 +300,13 @@ describe('GrabReorderList — grab, move, drop', () => {
     expect(grabbedIds()).toEqual([])
     expect(propsOf('a').actionDescriptionMap).toBeUndefined()
     expect(orders()).toEqual(['', '', '', ''])
-    expect(targetOf('a').getAttribute('data-ok-text')).toBe('reorder_label')
+    expect(targetOf('a').getAttribute('data-ok-text')).toBe('actions')
+    expect(targetOf('a').getAttribute('data-secondary-text')).toBe('reorder_label')
   })
 
   it('acts on the latest state when presses arrive before React re-renders', () => {
     const { onReorder } = renderList({ items: items('a', 'b', 'c', 'd') })
-    pressA('a')
+    pressX('a')
     act(() => {
       const handlers = propsOf('a')
       handlers.onButtonDown(pad(DOWN))
@@ -285,10 +320,10 @@ describe('GrabReorderList — grab, move, drop', () => {
 
   it('does not save when the row never moved or came back to its place', () => {
     const { onReorder } = renderList({ items: items('a', 'b', 'c') })
-    pressA('b')
+    pressX('b')
     pressA('b')
     expect(grabbedIds()).toEqual([])
-    pressA('b')
+    pressX('b')
     buttonDown('b', DOWN)
     buttonDown('b', UP)
     pressA('b')
@@ -298,7 +333,7 @@ describe('GrabReorderList — grab, move, drop', () => {
 
   it('stops at the ends without wrapping and still asks for focus on the row', () => {
     const { onReorder } = renderList({ items: items('a', 'b', 'c') })
-    pressA('a')
+    pressX('a')
     expect(buttonDown('a', UP).handled).toBe(true)
     expect(orders()).toEqual(['0', '1', '2'])
     flushFrames()
@@ -307,7 +342,7 @@ describe('GrabReorderList — grab, move, drop', () => {
     pressA('a')
     flushFrames()
     host.takeFocus.mockClear()
-    pressA('c')
+    pressX('c')
     expect(buttonDown('c', DOWN).handled).toBe(true)
     expect(orders()).toEqual(['0', '1', '2'])
     flushFrames()
@@ -319,7 +354,7 @@ describe('GrabReorderList — grab, move, drop', () => {
 
   it('handles a single item: grab and drop work, the D-pad moves nothing, nothing is saved', () => {
     const { onReorder } = renderList({ items: items('only') })
-    pressA('only')
+    pressX('only')
     expect(grabbedIds()).toEqual(['only'])
     buttonDown('only', DOWN)
     buttonDown('only', UP)
@@ -332,7 +367,7 @@ describe('GrabReorderList — grab, move, drop', () => {
   it('ends the grab before calling onReorder, so a throwing save leaves no row grabbed', () => {
     const onReorder = vi.fn(() => { throw new Error('save failed') })
     renderList({ items: items('a', 'b'), onReorder })
-    pressA('a')
+    pressX('a')
     buttonDown('a', DOWN)
     let error: unknown
     act(() => {
@@ -348,7 +383,7 @@ describe('GrabReorderList — grab, move, drop', () => {
 describe('GrabReorderList — cancel and other buttons', () => {
   it('cancels on B: the row goes back, nothing is saved, the press is absorbed and reported handled', () => {
     const { onReorder } = renderList({ items: items('a', 'b', 'c') })
-    pressA('a')
+    pressX('a')
     buttonDown('a', DOWN)
     const mirror = propsOf('a').onCancelButton
     expect(typeof mirror).toBe('function')
@@ -371,7 +406,7 @@ describe('GrabReorderList — cancel and other buttons', () => {
 
   it('also cancels through the onCancelButton mirror while the row is grabbed', () => {
     const { onReorder } = renderList({ items: items('a', 'b', 'c') })
-    pressA('b')
+    pressX('b')
     buttonDown('b', UP)
     act(() => { propsOf('b').onCancelButton(pad(CANCEL)) })
     expect(grabbedIds()).toEqual([])
@@ -381,7 +416,7 @@ describe('GrabReorderList — cancel and other buttons', () => {
 
   it('absorbs left and right while grabbed and moves nothing', () => {
     renderList({ items: items('a', 'b', 'c') })
-    pressA('b')
+    pressX('b')
     for (const button of [LEFT, RIGHT]) {
       const down = buttonDown('b', button)
       expect(down.handled).toBe(true)
@@ -399,21 +434,27 @@ describe('GrabReorderList — cancel and other buttons', () => {
 
   it('leaves every other button to Steam while grabbed', () => {
     renderList({ items: items('a', 'b') })
-    pressA('a')
-    for (const button of [OK, 3, 4, 5, 6, 7, 8, 13, 14]) {
+    pressX('a')
+    for (const button of [OK, 4, 5, 6, 7, 8, 13, 14]) {
       const { evt, handled } = buttonDown('a', button)
       expect(handled).toBe(false)
       expect(untouched(evt)).toBe(true)
     }
+    const again = buttonDown('a', SECONDARY)
+    expect(again.handled).toBe(true)
+    expect(absorbed(again.evt)).toBe(true)
+    pressX('a')
     expect(grabbedIds()).toEqual(['a'])
+    expect(orders()).toEqual(['0', '1'])
   })
 
-  it('ignores A and B repeats, but a repeated D-pad press moves the row', () => {
+  it('ignores X, A and B repeats, but a repeated D-pad press moves the row', () => {
     const { onReorder } = renderList({ items: items('a', 'b', 'c') })
-    pressA('a', true)
+    pressX('a', true)
     expect(grabbedIds()).toEqual([])
-    pressA('a')
+    pressX('a')
     pressA('a', true)
+    pressX('a', true)
     expect(grabbedIds()).toEqual(['a'])
     const repeatB = buttonDown('a', CANCEL, true)
     expect(repeatB.handled).toBeFalsy()
@@ -449,7 +490,7 @@ describe('GrabReorderList — focus after a press', () => {
 
   it('puts focus back on the name area one frame after each D-pad press, then scrolls the row to the nearest edge', () => {
     renderList({ items: items('a', 'b', 'c') })
-    pressA('a')
+    pressX('a')
     expect(frameRequests()).toBe(0)
     buttonDown('a', DOWN)
     expect(host.takeFocus).not.toHaveBeenCalled()
@@ -460,7 +501,7 @@ describe('GrabReorderList — focus after a press', () => {
 
   it("falls back to the element's own focus when the nav tree refuses", () => {
     renderList({ items: items('a', 'b') })
-    pressA('a')
+    pressX('a')
     host.takeFocus.mockReturnValue(false)
     const focus = vi.spyOn(targetOf('a'), 'focus')
     buttonDown('a', DOWN)
@@ -472,7 +513,7 @@ describe('GrabReorderList — focus after a press', () => {
 
   it('also asks for focus after a drop and after a cancel with B, once each', () => {
     renderList({ items: items('a', 'b', 'c') })
-    pressA('a')
+    pressX('a')
     buttonDown('a', DOWN)
     flushFrames()
     host.takeFocus.mockClear()
@@ -480,7 +521,7 @@ describe('GrabReorderList — focus after a press', () => {
     pressA('a')
     flushFrames()
     expectFocusOn('a', scrolls)
-    pressA('c')
+    pressX('c')
     buttonDown('c', UP)
     flushFrames()
     host.takeFocus.mockClear()
@@ -501,7 +542,7 @@ describe('GrabReorderList — focus after a press', () => {
       return h(ItemList, listProps({ items: list, onReorder }))
     }
     act(() => root.render(h(Controlled)))
-    pressA('a')
+    pressX('a')
     buttonDown('a', DOWN)
     flushFrames()
     host.takeFocus.mockClear()
@@ -516,7 +557,7 @@ describe('GrabReorderList — focus after a press', () => {
     expect(host.takeFocus).toHaveBeenCalledTimes(1)
     expect(host.takeFocus.mock.calls[0][0]).toBe(el)
     expect(targetOf('a')).toBe(el)
-    pressA('a')
+    pressX('a')
     buttonDown('a', UP)
     pressA('a')
     expect(saved).toHaveBeenCalledTimes(2)
@@ -534,7 +575,7 @@ describe('GrabReorderList — focus after a press', () => {
       return h(ItemList, listProps({ items: list, onReorder }))
     }
     act(() => root.render(h(Deferred)))
-    pressA('a')
+    pressX('a')
     buttonDown('a', DOWN)
     pressA('a')
     flushFrames()
@@ -556,7 +597,7 @@ describe('GrabReorderList — focus after a press', () => {
       return h(ItemList, listProps({ items: list, onReorder: () => undefined }))
     }
     act(() => root.render(h(Other)))
-    pressA('a')
+    pressX('a')
     buttonDown('a', DOWN)
     pressA('a')
     flushFrames()
@@ -569,7 +610,7 @@ describe('GrabReorderList — focus after a press', () => {
 
   it('keeps at most one frame pending: a newer press replaces it', () => {
     renderList({ items: items('a', 'b', 'c') })
-    pressA('c')
+    pressX('c')
     buttonDown('c', UP)
     buttonDown('c', UP)
     expect(frames.size).toBe(1)
@@ -581,7 +622,7 @@ describe('GrabReorderList — focus after a press', () => {
   it('does not throw without scrollIntoView', () => {
     delete (HTMLElement.prototype as any).scrollIntoView
     renderList({ items: items('a', 'b') })
-    pressA('a')
+    pressX('a')
     buttonDown('a', DOWN)
     expect(() => flushFrames()).not.toThrow()
     expect(host.takeFocus).toHaveBeenCalledTimes(1)
@@ -594,7 +635,7 @@ describe('GrabReorderList — other endings', () => {
     const remove = vi.spyOn(document, 'removeEventListener')
     const { onReorder } = renderList({ items: items('a', 'b', 'c') })
     expect(pointerListeners(add)).toHaveLength(0)
-    pressA('a')
+    pressX('a')
     expect(pointerListeners(add)).toHaveLength(1)
     const [, listener, capture] = pointerListeners(add)[0]
     expect(capture).toBe(true)
@@ -608,10 +649,10 @@ describe('GrabReorderList — other endings', () => {
     flushFrames()
     expect(host.takeFocus).not.toHaveBeenCalled()
     expect(pointerListeners(remove)).toEqual([['pointerdown', listener, true]])
-    pressA('a')
+    pressX('a')
     pressA('a')
     expect(pointerListeners(remove)).toEqual(pointerListeners(add))
-    pressA('a')
+    pressX('a')
     buttonDown('a', CANCEL)
     expect(grabbedIds()).toEqual([])
     expect(pointerListeners(remove)).toEqual(pointerListeners(add))
@@ -620,7 +661,7 @@ describe('GrabReorderList — other endings', () => {
 
   it('still ends the grab when another handler stops the press', () => {
     renderList({ items: items('a', 'b') })
-    pressA('a')
+    pressX('a')
     rowOf('b').addEventListener('pointerdown', (e) => e.stopPropagation())
     act(() => { rowOf('b').dispatchEvent(new Event('pointerdown', { bubbles: true })) })
     expect(grabbedIds()).toEqual([])
@@ -628,7 +669,7 @@ describe('GrabReorderList — other endings', () => {
 
   it('keeps the grab when items keep the same ids in the same order, and shows the new labels', () => {
     const props = renderList({ items: items('a', 'b', 'c') })
-    pressA('a')
+    pressX('a')
     buttonDown('a', DOWN)
     const renamed = [{ id: 'a', label: 'A2' }, { id: 'b', label: 'B2' }, { id: 'c', label: 'C2' }]
     act(() => root.render(h(ItemList, { ...props, items: renamed })))
@@ -644,7 +685,7 @@ describe('GrabReorderList — other endings', () => {
   it('cancels the grab when another path changes the order, without saving or asking for focus', () => {
     const list = items('a', 'b', 'c')
     const props = renderList({ items: list })
-    pressA('a')
+    pressX('a')
     buttonDown('a', DOWN)
     expect(frames.size).toBe(1)
     act(() => root.render(h(ItemList, { ...props, items: [list[1], list[0], list[2]] })))
@@ -662,11 +703,11 @@ describe('GrabReorderList — other endings', () => {
   it('cancels the grab when an id is removed, or the grabbed item itself', () => {
     const list = items('a', 'b', 'c')
     const props = renderList({ items: list })
-    pressA('a')
+    pressX('a')
     act(() => root.render(h(ItemList, { ...props, items: [list[0], list[1]] })))
     expect(grabbedIds()).toEqual([])
     expect(domOrder()).toEqual(['a', 'b'])
-    pressA('b')
+    pressX('b')
     act(() => root.render(h(ItemList, { ...props, items: [list[0]] })))
     expect(grabbedIds()).toEqual([])
     expect(domOrder()).toEqual(['a'])
@@ -675,11 +716,11 @@ describe('GrabReorderList — other endings', () => {
     expect(frameRequests()).toBe(0)
   })
 
-  it('treats a stale grab like idle on other rows, and A on another name moves the grab there', () => {
+  it('treats a stale grab like idle on other rows; X on another name moves the grab there and A there opens its menu', () => {
     const { onReorder } = renderList({ items: items('a', 'b', 'c') })
-    pressA('a')
+    pressX('a')
     buttonDown('a', DOWN)
-    expect(targetOf('c').getAttribute('data-ok-text')).toBe('reorder_label')
+    expect(targetOf('c').getAttribute('data-ok-text')).toBe('actions')
     expect(targetOf('c').hasAttribute('data-cancel-text')).toBe(false)
     expect(propsOf('c').onCancelButton).toBeUndefined()
     for (const button of [CANCEL, UP, DOWN, LEFT, RIGHT]) {
@@ -691,17 +732,33 @@ describe('GrabReorderList — other endings', () => {
       expect(untouched(dir.evt)).toBe(true)
     }
     expect(visualOrder()).toEqual(['b', 'a', 'c'])
-    pressA('c')
+    expect(targetOf('c').getAttribute('data-secondary-text')).toBe('reorder_label')
+    pressX('c')
     expect(grabbedIds()).toEqual(['c'])
     expect(orders()).toEqual(['0', '1', '2'])
     expect(frames.size).toBe(0)
     expect(onReorder).not.toHaveBeenCalled()
   })
 
+  it("A on another row during a grab ends the grab without saving and opens that row's menu", () => {
+    const opened = vi.fn()
+    const { onReorder } = renderList({ items: items('a', 'b', 'c'), renderActions: menuActions(opened) })
+    pressX('a')
+    buttonDown('a', DOWN)
+    expect(frames.size).toBe(1)
+    pressA('b')
+    expect(grabbedIds()).toEqual([])
+    expect(orders()).toEqual(['', '', ''])
+    expect(frames.size).toBe(0)
+    expect(opened).toHaveBeenCalledTimes(1)
+    expect(opened).toHaveBeenCalledWith('b')
+    expect(onReorder).not.toHaveBeenCalled()
+  })
+
   it('unmounts during a grab with a frame pending: no save, no throw, frame cancelled, listener removed', () => {
     const remove = vi.spyOn(document, 'removeEventListener')
     const { onReorder } = renderList({ items: items('a', 'b') })
-    pressA('a')
+    pressX('a')
     buttonDown('a', DOWN)
     const [pending] = Array.from(frames.keys())
     const staleOk = propsOf('a').onOKButton
@@ -720,7 +777,7 @@ describe('GrabReorderList — cost, robustness and independence', () => {
     const renderLabel = vi.fn((item: Item): ReactNode => h('span', null, item.label))
     const renderActions = vi.fn((item: Item): ReactNode => h('button', null, `act-${item.id}`))
     renderList({ items: items('a', 'b', 'c', 'd'), renderLabel, renderActions })
-    pressA('a')
+    pressX('a')
     renderLabel.mockClear()
     renderActions.mockClear()
     buttonDown('a', DOWN)
@@ -746,7 +803,7 @@ describe('GrabReorderList — cost, robustness and independence', () => {
     expect(rows()).toHaveLength(3)
     const handlersAt = (index: number) => host.props.get(rows()[index].querySelector('.ds-grab-target') as Element)
     expect(() => {
-      act(() => { handlersAt(0).onOKButton(pad(OK)) })
+      act(() => { handlersAt(0).onSecondaryButton(pad(SECONDARY)) })
       const grabbed = rows().findIndex((row) => row.getAttribute('data-ds-grabbed') === '1')
       act(() => { handlersAt(grabbed).onButtonDown(pad(DOWN)) })
       act(() => { handlersAt(grabbed).onOKButton(pad(OK)) })
@@ -757,11 +814,11 @@ describe('GrabReorderList — cost, robustness and independence', () => {
     const first = listProps({ items: items('a1', 'a2') })
     const second = listProps({ items: items('b1', 'b2') })
     act(() => root.render(h(Fragment, null, h(ItemList, first), h(ItemList, second))))
-    pressA('a1')
+    pressX('a1')
     expect(grabbedIds()).toEqual(['a1'])
     expect(rowOf('b1').hasAttribute('data-ds-grabbed')).toBe(false)
     expect(rowOf('b2').hasAttribute('data-ds-grabbed')).toBe(false)
-    pressA('b2')
+    pressX('b2')
     expect(grabbedIds()).toEqual(['a1', 'b2'])
     buttonDown('b2', CANCEL)
     expect(grabbedIds()).toEqual(['a1'])
@@ -784,7 +841,7 @@ describe('GrabReorderList — cost, robustness and independence', () => {
     const box = idoc.body.appendChild(idoc.createElement('div'))
     const r = createRoot(box)
     act(() => r.render(h(ItemList, listProps({ items: items('a', 'b') }))))
-    act(() => { propsOf('a', box).onOKButton(pad(OK)) })
+    act(() => { propsOf('a', box).onSecondaryButton(pad(SECONDARY)) })
     expect(grabbedIds(box)).toEqual(['a'])
     expect(pointerListeners(iadd)).toHaveLength(1)
     expect(pointerListeners(iadd)[0][2]).toBe(true)
@@ -822,7 +879,7 @@ describe('ReorderableShelfList on the grab list', () => {
       expect(marked?.textContent).toContain(shelf.title)
       expect(rowOf(shelf.id).textContent).toContain(`menu-${shelf.id}`)
     }
-    pressA('s1')
+    pressX('s1')
     buttonDown('s1', DOWN)
     pressA('s1')
     expect(onReorder).toHaveBeenCalledTimes(1)

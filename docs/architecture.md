@@ -28,7 +28,6 @@ flowchart TB
     end
 
     subgraph external["External data sources"]
-        launchers["Game launchers<br/>Heroic / EmuDeck / non-Steam"]
         online["Online metadata<br/>store, wishlist, artwork"]
         gh["GitHub Releases<br/>update check + download"]
     end
@@ -42,7 +41,6 @@ flowchart TB
     steam -->|"Home screen"| plugin
     decky -->|"loads, sandboxes"| plugin
     plugin -->|"reads library, collections, artwork"| steam
-    plugin -->|"shortcuts + installed games"| launchers
     plugin -->|"fetches metadata / prices"| online
     plugin -->|"checks + downloads updates"| gh
     plugin -.->|"adapts layout to"| css
@@ -55,7 +53,7 @@ flowchart TB
     classDef actor fill:#e0f2fe,stroke:#0284c7,color:#0c4a6e
     class plugin ds
     class decky,steam platform
-    class launchers,online,gh ext
+    class online,gh ext
     class css,tabmaster opt
     class user actor
 ```
@@ -252,11 +250,14 @@ src/
 │ │ Dispatches first-party v3 ids through `v3Extensions`
 │ │ BEFORE the external-plugin fallback so collisions
 │ │ resolve to built-in implementations.
-│ ├── v3Extensions.ts First-party Filter v3 (32 evaluators), Sort v3 (27
-│ │ comparators), Shelf Source Ecosystem v3 (19
-│ │ resolvers) + descriptive registry entries used
-│ │ by `internalRegistry.ts` to surface them via
-│ │ the public Plugin API.
+│ ├── v3Extensions.ts The conditions, sorts and sources beyond the base
+│ │ set (catalog data, store tags, achievements, the
+│ │ friends' libraries, Family Sharing, the game lists,
+│ │ dynamic collections) + descriptive registry entries
+│ │ used by `internalRegistry.ts` for the Plugin API.
+│ ├── achievements.ts Achievement counts per app from the client's own
+│ │ list, loaded before a query that reads them.
+│ ├── friendsOwned.ts Which friends own each app, one fetch per friend.
 │ └── smartShelves.ts Smart-shelf candidate resolution per mode
 │
 ├── store/
@@ -335,7 +336,7 @@ src/
 main.py Python entry: DEFAULT_SETTINGS, _SSL_CTX, Plugin class
  (lifecycle + RPC). Re-exports helpers from below.
 src/backend/ Every sibling module main.py imports (paths, storage,
- sanitizer, launchers, css_themes, display_state,
+ sanitizer, shortcuts, css_themes, display_state,
  hardware_info, host_os, library_location,
  peripherals, perf_probe, plugin_host). Kept out of the plugin root — which
  Decky requires main.py itself to stay at — via a
@@ -346,12 +347,9 @@ src/backend/storage.py _settings_dir, _primary_file, _safe_read_json
  (settings.json read helpers, env-var aware)
 src/backend/sanitizer.py _sanitize_settings (settings-shape normaliser,
  mirrors the Zod schemas in src/types.ts)
-src/backend/launchers.py External launcher discovery probe :
- EmuDeck / RetroDECK / Heroic / Lutris / Moonlight /
- Chiaki. stdlib-only (configparser, sqlite3, json),
- every helper degrades to [] on missing dir / parse
- error. Exposed via Plugin RPCs
- list_available_launchers + list_launcher_games.
+src/backend/shortcuts.py The tags other tools wrote on non-Steam
+ shortcuts, read from Steam's shortcuts file for the
+ Parser categories condition (Plugin RPC get_shortcut_tags).
 plugin.json Plugin manifest
 ```
 

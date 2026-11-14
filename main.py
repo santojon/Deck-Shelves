@@ -61,7 +61,6 @@ from host_os import get_host_os as _host_os
 from hardware_info import get_hardware_info as _hardware_info, get_device_identity as _device_identity
 from library_location import get_library_locations as _library_locations
 from peripherals import get_bluetooth_state as _bt_state, get_audio_state as _audio_state
-from launchers import list_launcher_games as _list_launcher_games, list_available_launchers as _list_available_launchers
 from shortcuts import shortcut_tags as _shortcut_tags
 from ttl_cache import TtlCache, wants_force
 
@@ -654,15 +653,6 @@ class Plugin:
                 pass
             return {"ok": False, "error": msg}
 
-    async def list_launcher_games(self, launcher_id: str = "", *args, **kwargs) -> List[Dict[str, Any]]:
-        _ = (args, kwargs)
-        if not isinstance(launcher_id, str) or not launcher_id:
-            return []
-        try:
-            return await asyncio.to_thread(_list_launcher_games, launcher_id)
-        except Exception:
-            return []
-
     async def get_shortcut_tags(self, *args, **kwargs) -> Dict[str, Any]:
         """Tags on the logged-in account's non-Steam shortcuts, `{appid: [tag]}`."""
         return await asyncio.to_thread(self._get_shortcut_tags_sync)
@@ -682,13 +672,6 @@ class Plugin:
                 logger.info(f"get_shortcut_tags: unreadable shortcuts file ({type(e).__name__})")
                 return {"ok": False, "error": "unreadable shortcuts file"}
         return {"ok": True, "tags": {}}
-
-    async def list_available_launchers(self, *args, **kwargs) -> List[str]:
-        _ = (args, kwargs)
-        try:
-            return await asyncio.to_thread(_list_available_launchers)
-        except Exception:
-            return []
 
     async def export_settings(self, *args, **kwargs):
         # File work runs on a worker thread so other calls keep flowing.

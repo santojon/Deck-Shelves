@@ -18,6 +18,8 @@ export type DeckRowItem = {
   isSteam?: boolean;
   isNew?: boolean;
   discountPercent?: number;
+  // The sale price as the store formats it, shown on the discount badge when the setting asks for it.
+  priceText?: string;
   // Editor-only overlays: when the user is in the highlight or hidden
   /* picker, the preview shifts the click target from "open game" to
      "toggle selection" and paints a tinted layer over each card so the

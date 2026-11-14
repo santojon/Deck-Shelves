@@ -56,7 +56,7 @@ export function OnlinePage() {
       <Field focusable={true} bottomSeparator="none" description={<span style={labelStyle}>{t('docs_online_exclude_body')}</span>} />
 
       <Field focusable={true} bottomSeparator="none" label={<span style={subheadingStyle}>{t('docs_online_discount_badge_title')}</span>} />
-      <Field focusable={true} bottomSeparator="none" description={<span style={labelStyle}>{t('docs_online_discount_badge_body')}</span>} />
+      <Field focusable={true} bottomSeparator="none" description={<span style={labelStyle}>{t('docs_online_discount_badge_body')} {t('docs_online_discount_badge_mode')}</span>} />
 
       <Field focusable={true} bottomSeparator="none" label={<span style={subheadingStyle}>{t('docs_online_refresh_title')}</span>} />
       <DocCallout variant="tip">{t('docs_online_refresh_tip')}</DocCallout>

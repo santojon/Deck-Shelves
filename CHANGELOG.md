@@ -43,7 +43,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Filter editor modules renamed, for contributors:** from `src/components/filter/` to `src/components/conditions/`, from `FilterPanel` to `ConditionEditor`, from `FilterItemOptions` to `ConditionFields`, from `MergeFilterOptions` to `NestedConditionEditor`, from `CompositeFilterOptions` to `CompositeFields`, from `DeveloperFilterOptions` to `DeveloperFields`, from `PublisherFilterOptions` to `PublisherFields`, from `LibraryLocationOptions` to `LibraryLocationFields`, from `isValidParams` to `isConditionComplete`, and from `defaultParams` to `startingOptions`.
 
+- **Collection shelves read the collection by its id from the client's own collection store** and show the games it holds at that moment, dynamic collections included. Nothing is matched by name, by a part of the id or by walking the store, and the client calls that no current client answers are gone. A collection the client does not know leaves the shelf empty and is logged as not found.
+
+- **A shelf whose configuration names a condition, sort key, built-in source or smart mode that nothing evaluates is unavailable**: it stays empty and is logged once, instead of running without that part. An unknown condition used to match every game (or, since the built-in catalogue, none), an unknown sort key used to fall back to alphabetical. The editor shows such a condition as "Unavailable" with an X, and keeps a sort key or built-in source it no longer offers selectable under the same label.
+
+- **Conditions, sort keys, built-in sources and smart modes of older versions with an exact equivalent are rewritten when the settings load**: `demo`, `installedNeverPlayed`, `recentlyAbandoned`, `compatDataQuality`, `hiddenLauncherShortcuts`; the sort keys `newest_purchased`, `largest_install`, `smallest_install`, `rediscovered_recently`, `most_ignored`; the sources `dlc_source`, `soundtrack_source`, `controller_specific_source`; the smart modes `long_session_night`, `never_touched_classics`, `monthly_spotlight`, `seasonal_rotation`. Profile snapshots and saved filters are rewritten too.
+
+- **The store tag, friends and achievements conditions of the base set evaluate now**, from the client's own records: `storeTag` matches a tag by its name in the client's language or by tag id, `friends` counts the friends who own the game (their libraries are fetched with Online features on; a list of account ids narrows the count), and `achievements` reads the unlocked count. The three were stored but never evaluated before.
+
+- **The achievement and category smart templates read real data**: Almost finished reads the client's achievement list for the games you have played; Couch gaming, Co-op ready and Party games read the store categories the client keeps for each game, by category id. They used to read fields the client never exposes and showed nothing.
+
+- **The achievement progress, Family Sharing and friends sorts and conditions work**: `achievementPercentRange`, `neverCompleted`, `completion_percent` and `closest_to_completion` read the client's achievement list; `familySharing` and `family_shared_games` read the client's borrowed mark; `most_friends_owning` and `trending_among_friends` count the friends who own the game. A shelf sorted by one of these loads that data first, on every source type; smart shelves also enrich their score and date sorts now, as other sources do.
+
+- **Two conditions from the client's own records**: `storeCategory`, the Steam features of a game (single-player, co-op, cloud saves, controller support and more) by category id, named in the editor with Steam's own words; and `purchaseDate`, on or after / on or before a date or with no purchase date. `releaseDate` gains the "date unknown" choice, and `storeTag` a match mode, any or all of the tags.
+
+- **TabMaster 3.1 tabs import whole**: a tab keeps its own any/all mode, and every filter type of that release maps to a condition here, including the day/month/year and days-ago dates, "last played" (since / not since), achievements by count or percentage, friends and tags with their any/all mode, Steam features, family sharing, the SD card and the install folder; the flags that mean "not" (installed off, platform Steam, not streamable, not family-shared) import as negated conditions.
+
+- **The discount badge can show the sale price (#125)**: a Visual setting chooses the percentage, the price as the store formats it in your currency ("$4.99", "R$ 4,99"), or both, on the cards and on the focus badge.
+
+- **A "Source order" sort, and a sort for each source of a multi-source shelf**: under Source order the sources follow each other in the order they are listed, each with its own sort (`sort` and `sortReverse` on the source), so a shelf can show pinned games first and then recently played ones, or a collection by last session, a filter at random and the wishlist by discount. On a single source it keeps the order the source gives.
+
+- **Built-in lists and smart modes can be stacked on a multi-source shelf**, beside collections, tabs, filters, the wishlist, the store and plugin sources.
+
+- **Pinned games are listed last pinned first**, and the session and temporary queues in queue order; any other sort still applies, and reversing the sort lists the first pinned first.
+
+- **The Hidden gems smart shelf is back**: never-played games with a review score of at least 85%, best first. It no longer turns into Forgotten gems when the settings load, since that one also takes games by metacritic alone.
+
+- **"Alphabetical" is saved as such on built-in and multi-source shelves**, where it used to keep the source's own order; a built-in shelf with no saved sort shows Source order in the editor, which is what it does. The multi-source union is described as it works: the sources take turns, one game each, unless the shelf uses Source order.
+
+- **The smart shelf editor no longer offers the modes that turn into another one when the settings load** (Long session at night, Never touched classics, Monthly spotlight, Seasonal rotation).
+
+- **Dynamic collections carry a bolt in the collection picker**, and the Dynamic collections built-in source reads them from the collection store by their stored flag.
+
+- **The favorites tab reads the client's favorites collection only**; the list of translated collection names and the client calls it fell back to are gone.
+
+- **A TabMaster filter with no equivalent here imports under its own name as an unavailable condition** instead of a blank "name contains" that matched every game.
+
+- **The backend accepts the sort keys the editor offers** (`app_status`, `deck_compat`, `controller_support`, `friends_playing_now`, `owned_games`), which it used to drop from smart shelves on save.
+
+### Removed
+
+- **Conditions that read fields the Steam client never had**: `dlcOwned`, `soundtrackOwned`, `launchCount`, `avgSessionMinutes`, `storageDevice`, `executableType`, `launchOptionTags`, `emuDeckSystem`, `retroDeckSystem`, `heroicLauncher`, `lutrisApp`, `chiakiApp`, `moonlightApp`. A saved condition of these kinds stays in the configuration and makes its shelf unavailable until it is changed.
+
+- **Sort keys without data behind them**: `most_launched`, `least_launched`, `longest_session`, `shortest_session`, `rarest_achievements`, `newest_installed`, `oldest_installed`, `oldest_unplayed`, `ssd_priority`, `sd_priority`, and the five random placeholders.
+
+- **Built-in sources without data behind them or matched by name**: `followed_games`, `ignored_games`, `recently_updated`, `with_events`, `with_workshop_updates`, and the six launcher libraries with the backend probe (`list_available_launchers`, `list_launcher_games`) and the 15-minute poll that fed them.
+
 ### Fixed
+
+- **The size, release date, metacritic and review sorts order the library on the Deck**: the library pool now carries `size_on_disk`, the release date, `metacritic_score` and `review_percentage` from the client's overview, which it never copied, so these sorts did nothing without the online enrichment and the smart templates that read size or reviews (`short_battery`, `travel_mode`, `low_battery_mode`, `forgotten_gems`) resolved empty.
 
 - **Move up and Move down in the unified shelf list move the shelf within that list**, as dragging does.
 

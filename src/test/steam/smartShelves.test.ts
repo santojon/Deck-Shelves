@@ -156,6 +156,17 @@ describe('resolveSmartShelf — v2 heuristic templates (round 1)', () => {
     expect(ids).not.toContain(4)
   })
 
+  it('hidden_gems lists never-played games by review alone, best first, without the metacritic-only ones', () => {
+    const apps: AppOverview[] = [
+      app({ appid: 1, playtime_forever: 0, last_played: 0, ...({ review_percentage: 88 } as any) }),
+      app({ appid: 2, playtime_forever: 0, last_played: 0, ...({ metacritic_score: 90 } as any) }),
+      app({ appid: 3, playtime_forever: 0, last_played: 0, ...({ review_percentage: 50 } as any) }),
+      app({ appid: 4, playtime_forever: 60, last_played: 1, ...({ review_percentage: 95 } as any) }),
+      app({ appid: 5, playtime_forever: 0, last_played: 0, ...({ review_percentage: 97 } as any) }),
+    ]
+    expect(resolveSmartShelf('hidden_gems', apps, 10)).toEqual([5, 1])
+  })
+
   it('weekly_rotation returns a slice from the installed Deck-friendly pool', () => {
     const apps: AppOverview[] = Array.from({ length: 12 }, (_, i) =>
       app({ appid: i + 1, installed: true, deck_compatibility_category: 2 }),
@@ -189,17 +200,6 @@ describe('resolveSmartShelf — second-wave heuristic templates', () => {
     expect(ids).not.toContain(4)
   })
 
-  it('long_session_night surfaces installed games with playtime > 3h (mirrors long_session pool)', () => {
-    const apps: AppOverview[] = [
-      app({ appid: 1, installed: true, playtime_forever: 240 }),       // 4h ✓
-      app({ appid: 2, installed: true, playtime_forever: 60 }),        // 1h ✗ (below 180min default)
-      app({ appid: 3, installed: false, playtime_forever: 300 }),      // not installed ✗
-      app({ appid: 4, is_non_steam: true, installed: true, playtime_forever: 300 }), // non-Steam ✗
-    ]
-    const ids = resolveSmartShelf('long_session_night', apps, 10)
-    expect(ids).toEqual([1])
-  })
-
   it('travel_mode surfaces installed games small enough for travel + sorts smallest-first', () => {
     const apps: AppOverview[] = [
       app({ appid: 1, installed: true, deck_compatibility_category: 3, ...({ size_on_disk: 4 * 1024 * 1024 * 1024 } as any) }),
@@ -210,29 +210,6 @@ describe('resolveSmartShelf — second-wave heuristic templates', () => {
     const ids = resolveSmartShelf('travel_mode', apps, 10)
     // Smallest first (1GB before 4GB), 3 excluded
     expect(ids).toEqual([2, 1])
-  })
-
-  it('hidden_gems surfaces never-played games with review_percentage ≥ 85', () => {
-    const apps: AppOverview[] = [
-      app({ appid: 1, playtime_forever: 0, last_played: 0, ...({ review_percentage: 90 } as any) }),
-      app({ appid: 2, playtime_forever: 0, last_played: 0, ...({ review_percentage: 50 } as any) }),
-      app({ appid: 3, playtime_forever: 60, last_played: 1, ...({ review_percentage: 95 } as any) }),
-    ]
-    const ids = resolveSmartShelf('hidden_gems', apps, 10)
-    expect(ids).toEqual([1])
-  })
-
-  it('never_touched_classics surfaces games acquired 3+ years ago with no playtime', () => {
-    const now = Math.floor(Date.now() / 1000)
-    const fourYearsAgo = now - 4 * 365 * 24 * 3600
-    const oneYearAgo = now - 1 * 365 * 24 * 3600
-    const apps: AppOverview[] = [
-      app({ appid: 1, playtime_forever: 0, last_played: 0, ...({ rt_purchased_time: fourYearsAgo } as any) }),
-      app({ appid: 2, playtime_forever: 0, last_played: 0, ...({ rt_purchased_time: oneYearAgo } as any) }),     // too recent
-      app({ appid: 3, playtime_forever: 60, last_played: 1, ...({ rt_purchased_time: fourYearsAgo } as any) }), // played → excluded
-    ]
-    const ids = resolveSmartShelf('never_touched_classics', apps, 10)
-    expect(ids).toEqual([1])
   })
 
   it('recent_hidden_installs surfaces installed games acquired in last 30d with no playtime', () => {
@@ -249,20 +226,12 @@ describe('resolveSmartShelf — second-wave heuristic templates', () => {
     expect(ids).toEqual([1])
   })
 
-  it('monthly_spotlight returns a rotated slice over installed Deck-friendly games', () => {
+  it('weekly_rotation takes its length from rotateEveryDays, which the retired monthly and seasonal modes map to', () => {
     const apps: AppOverview[] = Array.from({ length: 8 }, (_, i) =>
       app({ appid: i + 1, installed: true, deck_compatibility_category: 2 }),
     )
-    const ids = resolveSmartShelf('monthly_spotlight', apps, 4, undefined, undefined, 'ms1')
-    expect(ids).toHaveLength(4)
-  })
-
-  it('seasonal_rotation returns a rotated slice over installed Deck-friendly games', () => {
-    const apps: AppOverview[] = Array.from({ length: 6 }, (_, i) =>
-      app({ appid: i + 1, installed: true, deck_compatibility_category: 2 }),
-    )
-    const ids = resolveSmartShelf('seasonal_rotation', apps, 3, undefined, undefined, 'sr1')
-    expect(ids).toHaveLength(3)
+    expect(resolveSmartShelf('weekly_rotation', apps, 4, { rotateEveryDays: 30 }, undefined, 'ms1')).toHaveLength(4)
+    expect(resolveSmartShelf('weekly_rotation', apps, 3, { rotateEveryDays: 90 }, undefined, 'sr1')).toHaveLength(3)
   })
 })
 

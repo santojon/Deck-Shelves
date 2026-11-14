@@ -1,4 +1,5 @@
 import { memo } from "react";
+import type { DiscountBadgeMode } from './discountBadge';
 import { GameCard } from "./GameCard";
 import { MoreCard } from "./MoreCard";
 import { RefreshCard } from "./RefreshCard";
@@ -31,6 +32,7 @@ export interface ShelfRowProps {
   hideStatusLine?: boolean;
   hideNewBadge?: boolean;
   hideDiscountBadge?: boolean;
+  discountBadgeMode?: DiscountBadgeMode;
   hideCompatIcons?: boolean;
   hideNonSteamBadge?: boolean;
   hideGameName?: boolean;
@@ -120,6 +122,7 @@ function gameCardFlags(p: RowProps) {
     hideStatusLine: p.hideStatusLine,
     hideNewBadge: p.hideNewBadge,
     hideDiscountBadge: p.hideDiscountBadge,
+    discountBadgeMode: p.discountBadgeMode,
     hideCompatIcons: p.hideCompatIcons,
     hideNonSteamBadge: p.hideNonSteamBadge,
     hideGameName: p.hideGameName,

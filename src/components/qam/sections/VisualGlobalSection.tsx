@@ -1,4 +1,4 @@
-import { ToggleField, Field, Dropdown } from '../../../runtime/host/decky';
+import { ToggleField, Field, Dropdown, DropdownItem } from '../../../runtime/host/decky';
 import { CollapsibleSection, DSSliderField, PositionField, type HorizontalPosition } from '../../ui';
 import { WandIcon } from '../../icons';
 import { applyGameInfoAboveToggle, applyHideTitleToggle } from '../common/gameInfoCoupling';
@@ -119,6 +119,7 @@ export function VisualGlobalSection({ controller, hidden, isHid, lightMode, moun
         {!isHid('globalHideInstallIndicator') && <ToggleField label={t('hide_install_indicators')} checked={settings.globalHideInstallIndicator === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalHideInstallIndicator(value)} />}
         {!isHid('globalHideNewBadge') && <ToggleField label={t('hide_new_badge')} checked={settings.globalHideNewBadge === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalHideNewBadge(value)} />}
         {!isHid('globalHideDiscountBadge') && <ToggleField label={t('hide_discount_badge')} checked={(settings as any).globalHideDiscountBadge === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalHideDiscountBadge(value)} />}
+        {!isHid('globalHideDiscountBadge') && (settings as any).globalHideDiscountBadge !== true && <DropdownItem label={t('discount_badge_mode')} rgOptions={[{ data: 'percent', label: t('discount_badge_percent') }, { data: 'price', label: t('discount_badge_price') }, { data: 'both', label: t('discount_badge_both') }]} selectedOption={(settings as any).discountBadgeMode ?? 'percent'} disabled={mountCrashed} onChange={(opt: any) => (actions as any).setGlobalDiscountBadgeMode(opt?.data ?? opt)} />}
         </>))()}
         {(() => (<>
         {!isHid('globalHideCompatIcons') && <ToggleField label={t('hide_compat_icons')} checked={settings.globalHideCompatIcons === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalHideCompatIcons(value)} />}

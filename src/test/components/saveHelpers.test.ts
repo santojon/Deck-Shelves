@@ -147,6 +147,17 @@ describe('saveHelpers.assembleFinalSource', () => {
     expect(out.sources[0]).toMatchObject({ type: 'filter' });
     expect(out.sources[1]).toMatchObject({ type: 'wishlist' });
   });
+
+  it('saves the first source with its own sort, and without empty sort fields', () => {
+    const state = baseState({
+      sourceType: 'builtin',
+      additionalSources: [{ type: 'smart', mode: 'recently_played', sort: 'playtime' } as any],
+      primaryOrder: { sort: 'alphabetical', sortReverse: false },
+    });
+    const out = assembleFinalSource({ type: 'builtin', sourceId: 'pinned_games' }, state);
+    expect(out.sources[0]).toEqual({ type: 'builtin', sourceId: 'pinned_games', sort: 'alphabetical' });
+    expect(out.sources[1]).toEqual({ type: 'smart', mode: 'recently_played', sort: 'playtime' });
+  });
 });
 
 describe('saveHelpers.dropEmptyChildFilter', () => {
@@ -211,6 +222,12 @@ describe('saveHelpers.shelfSortForPatch', () => {
 
   it('returns the user-chosen sort string', () => {
     expect(shelfSortForPatch(baseState({ sourceType: 'collection', sort: 'recent' as any }))).toBe('recent');
+  });
+
+  it('keeps alphabetical where the source has an order of its own', () => {
+    expect(shelfSortForPatch(baseState({ sourceType: 'builtin', sort: 'alphabetical' }))).toBe('alphabetical');
+    expect(shelfSortForPatch(baseState({ sourceType: 'collection', sort: 'alphabetical', additionalSources: [{ type: 'wishlist' } as any] }))).toBe('alphabetical');
+    expect(shelfSortForPatch(baseState({ sourceType: 'builtin', sort: 'source_order' }))).toBe('source_order');
   });
 
   it('returns the multi-key sort array when populated', () => {

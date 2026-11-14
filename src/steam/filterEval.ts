@@ -1,10 +1,11 @@
 import { APP_STATUS_GROUPS, EAppDisplayStatus } from "./appDisplayStatus";
-import type { FilterGroup, FilterItem } from "../types";
+import { type FilterGroup, type FilterItem, isKnownFilterType } from "../types";
 import { compatCategoryForFamily } from "../domain/deviceProfile";
-import { evaluateExternalFilter, hasExternalFilterType, toPublicAppMeta } from "../core/pluginApi";
+import { evaluateExternalFilter, hasExternalFilterType, isInternalFilterType, toPublicAppMeta } from "../core/pluginApi";
 import { getDeviceProfile, getLibraryCategoryOf, getLibraryIdOf } from "../runtime/deviceState";
 import { type AppOverview, appIdOf, appNameOf, isFavoriteOf, isHiddenOf, isInstalledOf, isNonSteamOf, lastPlayedOf } from "./appOverview";
 import { getAppDeveloperCached, getAppPublisherCached } from "./publisherDeveloper";
+import { FILTER_V3_EVALUATORS } from "./v3Extensions";
 
 /* Filter evaluation: one evaluator per filter type, the price-cache reads the price filters need, and the group evaluation (and/or, inverted items). */
 
@@ -154,6 +155,22 @@ function evalCollection(item: FilterItem, app: AppOverview, ctx?: FilterEvalCont
      collectionStore returned empty). */
   const appSet = ctx?.collectionAppIds.get(colId);
   return appSet ? appSet.has(app.appid) : false;
+}
+
+function childrenOf(item: FilterItem): FilterItem[] {
+  return Array.isArray(item.params?.children) ? (item.params.children as FilterItem[]) : [];
+}
+
+// At least `threshold` of the conditions inside match, each counting its weight (1 unless saved otherwise).
+function evalWeighted(item: FilterItem, app: AppOverview, ctx?: FilterEvalContext): boolean {
+  const threshold = Number(item.params?.threshold ?? 1);
+  let sum = 0;
+  for (const child of childrenOf(item)) if (evaluateFilterItem(child, app, ctx)) sum += Number((child as any).weight ?? 1);
+  return sum >= threshold;
+}
+
+function evalAnyChild(item: FilterItem, app: AppOverview, ctx?: FilterEvalContext): boolean {
+  return childrenOf(item).some((child) => evaluateFilterItem(child, app, ctx));
 }
 
 function evalMerge(item: FilterItem, app: AppOverview, ctx?: FilterEvalContext): boolean {
@@ -329,6 +346,9 @@ const FILTER_EVALUATORS: Record<string, FilterEvaluator> = {
   nameRegex:              evalNameRegex,
   collection:             evalCollection,
   merge:                  evalMerge,
+  weightedFilter:         evalWeighted,
+  priorityFilter:         evalAnyChild,
+  exclusionGroup:         (item, app, ctx) => !evalAnyChild(item, app, ctx),
   developer:              evalDeveloper,
   publisher:              evalPublisher,
   appIdList:              evalAppIdList,
@@ -351,31 +371,45 @@ const FILTER_EVALUATORS: Record<string, FilterEvaluator> = {
   friendsPlayedRecently:  evalFriendsPlayedRecently,
 };
 
-function evalDefault(item: FilterItem, app: AppOverview): boolean {
-  /* first-party Filter v3 evaluators live in a
-     sibling module to keep `evaluateFilterItem` lean. Lookup hits
-     before falling through to external plugin filters; v3 ids are
-     first-party so their handler must take precedence. */
+// A filter another plugin registered. A type nobody evaluates matches nothing:
+// the resolvers refuse the query first (unsupportedFilterType), so this never widens a shelf.
+function evalExternal(item: FilterItem, app: AppOverview): boolean {
   try {
-    const { FILTER_V3_EVALUATORS } = require("./v3Extensions") as typeof import("./v3Extensions");
-    const v3 = FILTER_V3_EVALUATORS[item.type as string];
-    // Pass the full evaluator so composite v3 filters can evaluate children of
-    // ANY type (base + v3) without importing this module back.
-    if (v3) return v3(item, app, (child, childApp) => evaluateFilterItem(child, childApp));
-  } catch { /* fall through */ }
-  // External plugin filter or unknown type. Unknown + unregistered →
-  // pass-through (true) so an unregistered plugin filter doesn't hide
-  // the user's entire library.
-  try {
-    if (hasExternalFilterType(item.type as string)) {
-      return evaluateExternalFilter(item.type as string, toPublicAppMeta(app), item.params ?? {});
+    if (hasExternalFilterType(item.type)) {
+      return evaluateExternalFilter(item.type, toPublicAppMeta(app), item.params ?? {});
     }
-  } catch { /* fall through */ }
-  return true;
+  } catch { /* a plugin's evaluator threw */ }
+  return false;
+}
+
+function isEvaluable(type: string): boolean {
+  if (isKnownFilterType(type)) return true;
+  return hasExternalFilterType(type) && !isInternalFilterType(type);
+}
+
+/** Every condition of a group, the ones inside merge and composite items included, in document order. */
+export function flattenItems(items: unknown, out: FilterItem[] = []): FilterItem[] {
+  if (!Array.isArray(items)) return out;
+  for (const item of items) {
+    if (!item || typeof item !== "object") continue;
+    out.push(item as FilterItem);
+    flattenItems((item as FilterItem).params?.items, out);
+    flattenItems((item as FilterItem).params?.children, out);
+  }
+  return out;
+}
+
+/* The first condition type, at any depth, that neither the plugin nor a loaded
+   plugin evaluates: a retired type, or one from a plugin that is not running.
+   One such condition makes the whole query unavailable, whatever the group mode. */
+export function unsupportedFilterType(group: FilterGroup | null | undefined): string | null {
+  const bad = flattenItems(group?.items).find((item) => !isEvaluable(String(item.type ?? "")));
+  return bad ? String(bad.type ?? "") || "(empty)" : null;
 }
 
 export function evaluateFilterItem(item: FilterItem, app: AppOverview, ctx?: FilterEvalContext): boolean {
-  const evaluator = FILTER_EVALUATORS[item.type] ?? evalDefault;
+  // Looked up per call: the catalog module sits in an import cycle with this one.
+  const evaluator = FILTER_EVALUATORS[item.type] ?? FILTER_V3_EVALUATORS[item.type] ?? evalExternal;
   const result = evaluator(item, app, ctx);
   return item.inverted ? !result : result;
 }

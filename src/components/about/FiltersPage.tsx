@@ -28,12 +28,14 @@ const filterRows: [string, string][] = [
   ['filter_type_app_status',       'docs_filter_app_status_desc'],
   ['filter_type_cloud_available',  'docs_filter_cloud_available_desc'],
   ['filter_type_controller_support','docs_filter_controller_support_desc'],
-  ['filter_type_store_tag',        'docs_filter_store_tag_desc'],
-  ['filter_type_friends',         'docs_filter_friends_desc'],
   ['filter_type_friends_playing_now', 'docs_filter_friends_playing_now_desc'],
   ['filter_type_friends_played_recently', 'docs_filter_friends_played_recently_desc'],
-  ['filter_type_discount',        'docs_filter_discount_desc'],
+  ['filter_type_friends',         'docs_filter_friends_desc'],
+  ['filter_type_store_tag',        'docs_filter_store_tag_desc'],
   ['filter_type_achievements',    'docs_filter_achievements_desc'],
+  ['filter_type_store_category',   'docs_filter_store_category_desc'],
+  ['filter_type_purchase_date',    'docs_filter_purchase_date_desc'],
+  ['filter_type_discount',        'docs_filter_discount_desc'],
   ['filter_type_merge',           'docs_filter_merge_desc'],
 ]
 

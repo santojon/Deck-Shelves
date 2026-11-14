@@ -13,13 +13,6 @@ vi.mock('../../runtime/friendsState', () => ({
   installFriendsState: vi.fn(() => () => {}),
 }))
 
-vi.mock('../../steam/appDetailsCache', () => ({
-  preloadAppDetailsSummary: vi.fn(),
-  preloadAppDetailsSummaries: vi.fn(),
-  appHasAnyCategory: vi.fn(() => false),
-  getAppAchievementPct: vi.fn(() => NaN),
-}))
-
 vi.mock('../../store/settingsStore', () => ({
   getCurrentSettings: vi.fn(() => ({ onlineFeaturesEnabled: true })),
 }))
@@ -27,7 +20,6 @@ vi.mock('../../store/settingsStore', () => ({
 import { resolveSmartShelf, invalidateSmartShelfCache, getSmartShelfCacheStats } from '../../steam/smartShelves'
 import * as batteryState from '../../runtime/batteryState'
 import * as friendsState from '../../runtime/friendsState'
-import * as appDetailsCache from '../../steam/appDetailsCache'
 import * as settingsStore from '../../store/settingsStore'
 import type { AppOverview } from '../../steam'
 
@@ -42,8 +34,6 @@ beforeEach(() => {
   vi.mocked(batteryState.getBatteryState).mockReturnValue(null)
   vi.mocked(friendsState.getFriendsPlayingAppIds).mockReturnValue(new Set())
   vi.mocked(friendsState.getFriendsRecentlyPlayedAppIds).mockReturnValue(new Set())
-  vi.mocked(appDetailsCache.appHasAnyCategory).mockReturnValue(false)
-  vi.mocked(appDetailsCache.getAppAchievementPct).mockReturnValue(NaN)
   vi.mocked(settingsStore.getCurrentSettings).mockReturnValue({ onlineFeaturesEnabled: true } as any)
 })
 
@@ -93,88 +83,12 @@ describe('low_battery_mode', () => {
   })
 })
 
-describe('almost_finished', () => {
-  it('returns empty when achievement cache is cold (NaN for every app)', () => {
-    vi.mocked(appDetailsCache.getAppAchievementPct).mockReturnValue(NaN)
-    const apps: AppOverview[] = [
-      app({ appid: 1, installed: true, playtime_forever: 60, deck_compatibility_category: 3 }),
-    ]
-    const ids = resolveSmartShelf('almost_finished', apps, 10)
-    expect(ids).toEqual([])
-    // Should still preload — first paint partial, second populates.
-    expect(vi.mocked(appDetailsCache.preloadAppDetailsSummaries)).toHaveBeenCalled()
-  })
-
-  it('surfaces apps whose achievement % is >= min threshold and < 100', () => {
-    vi.mocked(appDetailsCache.getAppAchievementPct).mockImplementation((id) => {
-      if (id === 1) return 85
-      if (id === 2) return 50
-      if (id === 3) return 100 // already completed — excluded
-      return NaN
-    })
-    const apps: AppOverview[] = [
-      app({ appid: 1, installed: true, playtime_forever: 60, deck_compatibility_category: 3 }),
-      app({ appid: 2, installed: true, playtime_forever: 60, deck_compatibility_category: 3 }),
-      app({ appid: 3, installed: true, playtime_forever: 60, deck_compatibility_category: 3 }),
-    ]
-    const ids = resolveSmartShelf('almost_finished', apps, 10)
-    expect(ids).toEqual([1])
-  })
-
-  it('excludes apps with no playtime (must have started)', () => {
-    vi.mocked(appDetailsCache.getAppAchievementPct).mockReturnValue(80)
-    const apps: AppOverview[] = [
-      app({ appid: 1, installed: true, playtime_forever: 0, deck_compatibility_category: 3 }),
-    ]
-    const ids = resolveSmartShelf('almost_finished', apps, 10)
-    expect(ids).toEqual([])
-  })
-})
-
-describe('couch_gaming / coop_ready / party_games', () => {
-  it('returns empty when no app has the matching category in cache', () => {
-    vi.mocked(appDetailsCache.appHasAnyCategory).mockReturnValue(false)
-    const apps: AppOverview[] = [
-      app({ appid: 1, deck_compatibility_category: 2 }),
-    ]
-    expect(resolveSmartShelf('couch_gaming', apps, 10)).toEqual([])
-    expect(resolveSmartShelf('coop_ready', apps, 10)).toEqual([])
-    expect(resolveSmartShelf('party_games', apps, 10)).toEqual([])
-    expect(vi.mocked(appDetailsCache.preloadAppDetailsSummaries)).toHaveBeenCalled()
-  })
-
-  it('couch_gaming matches when category cache returns true for the app', () => {
-    invalidateSmartShelfCache()
-    vi.mocked(appDetailsCache.appHasAnyCategory).mockImplementation((id) => id === 1)
-    const apps: AppOverview[] = [
-      app({ appid: 1, deck_compatibility_category: 2, last_played: 200 }),
-      app({ appid: 2, deck_compatibility_category: 2, last_played: 100 }),
-    ]
-    const ids = resolveSmartShelf('couch_gaming', apps, 10)
-    expect(ids).toEqual([1])
-  })
-
-  it('coop_ready and party_games use different keyword sets but same shape', () => {
-    invalidateSmartShelfCache()
-    let lastQueries: string[] = []
-    vi.mocked(appDetailsCache.appHasAnyCategory).mockImplementation((_id, queries) => {
-      lastQueries = queries
-      return true
-    })
-    const apps: AppOverview[] = [app({ appid: 1, deck_compatibility_category: 2 })]
-    resolveSmartShelf('coop_ready', apps, 10)
-    expect(lastQueries.some((q) => q.includes('co-op'))).toBe(true)
-    invalidateSmartShelfCache()
-    resolveSmartShelf('party_games', apps, 10)
-    expect(lastQueries.some((q) => q.includes('local'))).toBe(true)
-  })
-
-  it('non-Steam shortcuts excluded from category-based templates', () => {
-    vi.mocked(appDetailsCache.appHasAnyCategory).mockReturnValue(true)
-    const apps: AppOverview[] = [
-      app({ appid: 1, is_non_steam: true, deck_compatibility_category: 2 }),
-    ]
-    expect(resolveSmartShelf('couch_gaming', apps, 10)).toEqual([])
+describe('retired modes', () => {
+  it('resolve to nothing instead of throwing or widening to the library', () => {
+    const apps: AppOverview[] = [app({ appid: 1, installed: true, playtime_forever: 60, deck_compatibility_category: 3 })]
+    for (const mode of ['long_session_night', 'never_touched_classics', 'monthly_spotlight', 'seasonal_rotation'] as const) {
+      expect(resolveSmartShelf(mode, apps, 10)).toEqual([])
+    }
   })
 })
 

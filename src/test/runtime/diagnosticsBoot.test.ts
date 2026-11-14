@@ -7,7 +7,6 @@ vi.mock("../../store/settingsStore", () => ({
 }));
 vi.mock("../../runtime/deviceHistoryTracker", () => ({ installDeviceHistoryTracker: () => () => {} }));
 vi.mock("../../runtime/friendsState", () => ({ installFriendsState: () => () => {} }));
-vi.mock("../../runtime/launcherCache", () => ({ installLauncherCachePoll: () => () => {} }));
 vi.mock("../../runtime/shortcutTags", () => ({ installShortcutTagsPoll: () => () => {} }));
 vi.mock("../../runtime/gameLists", () => ({ installGameLists: () => () => {} }));
 vi.mock("../../core/updateNotifier", () => ({ checkForUpdate: async () => ({ hasUpdate: false }), __resetUpdateCheckCache: () => {} }));

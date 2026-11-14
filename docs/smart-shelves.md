@@ -385,18 +385,28 @@ since it needs the filter group and sort keys.
 | `rediscover` | no compat game with >1 h untouched for 6 months | Low–Medium |
 | `forgotten` | no 3+ year old unplayed game in library | Low |
 | `backlog_rescue` | no installed-but-stale games (cooldown 14d) | Low–Medium |
-| `forgotten_gems` | no owned-but-never-played with review ≥ 85% | Low |
+| `forgotten_gems` | no owned-but-never-played with review ≥ 85% or metacritic ≥ 80 | Low |
 | `hidden_gems` | no never-played with review ≥ 85% | Low |
 | `short_battery` | no Deck-friendly games ≤ 4 GB + ≤ 2h | Low |
-| `long_session_night` | no installed games with >3 h playtime | Low |
 | `travel_mode` | no Deck-friendly games ≤ 5 GB | Low |
-| `never_touched_classics` | no Steam games acquired 3+ years ago + never played | Low |
 | `recent_hidden_installs` | no Steam games installed in last 30 days + never played | Low |
-| `weekly_rotation` / `monthly_spotlight` / `seasonal_rotation` | no installed games | Low (rotation slice may be empty between cycles) |
+| `weekly_rotation` | no installed games | Low (rotation slice may be empty between cycles) |
 | `low_battery_mode` | falls back to `short_battery` candidates when battery OK / unknown | Low |
-| `almost_finished` | Steam achievements cache empty OR no game ≥ threshold | High first paint; resolves once cache warms |
-| `couch_gaming` / `coop_ready` / `party_games` | Steam category cache empty OR no game with matching category | High first paint; resolves once cache warms |
 | `friends_playing` | `onlineFeaturesEnabled` is off OR no friend in-game (+ recent if enabled) OR no overlap with your library | Medium — depends on friend activity at the moment |
+| `almost_finished` | no played Steam game with achievement progress between the threshold (70%) and 100% | Low–Medium |
+| `couch_gaming` / `party_games` | no game with a shared-screen category | Low |
+| `coop_ready` | no game with a co-op category (local, online or LAN) | Low |
+
+The size, review and metacritic data these read come from the Steam client's
+own library records, so `forgotten_gems`, `hidden_gems`, `short_battery`, `travel_mode` and
+`low_battery_mode` work offline. `weekly_rotation` takes its length from the
+`rotateEveryDays` parameter (7 by default); the `monthly_spotlight` and
+`seasonal_rotation` templates of older versions become this one with 30 and 90
+days when the settings load, as `long_session_night` becomes `long_session`
+and `never_touched_classics` becomes `forgotten`. `almost_finished` reads the client's own achievement list for the
+Steam games you have played, and `couch_gaming`, `coop_ready` and `party_games`
+read the store categories the client keeps for each game, so all four work
+offline too.
 
 > `daily_pick`, `deck_picks`, `on_deck`, `recently_played`, and `random_pick` are the most likely to always be visible. The template picker lists templates from highest to lowest probability.
 
@@ -418,14 +428,12 @@ A smart shelf can combine multiple modes into a single result via the **Combine 
 
 ## Runtime-aware templates
 
-Three families consult runtime state outside `AppOverview`:
+Two templates consult runtime state outside `AppOverview`:
 
 - **`low_battery_mode`** — reads battery state from `SteamClient.System.RegisterForBatteryStateChanges` (via `src/runtime/batteryState.ts`). When the device is actually on battery below the threshold (default 30%), hoists smallest + shortest-playtime games first. On AC / unknown battery, falls back to the short_battery candidates so the shelf isn't empty in any state.
-- **`almost_finished`** — reads achievement progress from `SteamClient.Apps.RegisterForAppDetails` via the lazy `src/steam/appDetailsCache.ts`. First paint may be partial (cache is empty for unread apps); subsequent refresh ticks populate the shelf.
-- **`couch_gaming` / `coop_ready` / `party_games`** — read Steam store categories from the same `appDetailsCache`. Substring-matched against canonical English category names; localized installs may need keyword expansion (filed for follow-up).
 - **`friends_playing`** — reads friend presence from `friendStore.allFriends` via `src/runtime/friendsState.ts` (polls every 90 s on the home, no network calls). Surfaces apps any friend is in-game RIGHT NOW; when `includeRecentlyPlayed` = 1 (default), also includes apps any friend played in the last 14 days. **Online-gated**: hidden from the template picker AND returns empty from the resolver when `onlineFeaturesEnabled` is off. Reuses the existing master toggle — no new toggle needed since friend presence is conceptually network-sourced.
 
-All families return an **empty shelf** gracefully when the runtime data isn't reachable (older SteamOS, desktop dev environment, offline, or no matching activity). They follow the natural null-render path — the shelf simply doesn't appear until data is available.
+Both return an **empty shelf** gracefully when the runtime data isn't reachable (older SteamOS, desktop dev environment, offline, or no matching activity). They follow the natural null-render path — the shelf simply doesn't appear until data is available.
 
 ---
 

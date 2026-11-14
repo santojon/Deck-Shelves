@@ -1,4 +1,5 @@
 import { useRef, useMemo, memo } from "react";
+import { discountBadgeText, type DiscountBadgeMode } from './discountBadge';
 import { Focusable } from "../../runtime/host/decky";
 import { getAppAssetCacheKey } from "../../core/steamAssets";
 import i18n from "../../i18n";
@@ -61,14 +62,15 @@ function fillActionDescriptions(args: ActionDescriptionArgs, b: ReturnType<typeo
   return out;
 }
 
-function computeCardDataAttrs(params: { appid: number; shelfId: string | undefined; name: string; showNewBadge: boolean; showDiscountBadge: boolean; discount: number | undefined; cardIndex: number | undefined }) {
-  const { appid, shelfId, name, showNewBadge, showDiscountBadge, discount, cardIndex } = params;
+function computeCardDataAttrs(params: { appid: number; shelfId: string | undefined; name: string; showNewBadge: boolean; showDiscountBadge: boolean; discount: number | undefined; priceText: string | undefined; cardIndex: number | undefined }) {
+  const { appid, shelfId, name, showNewBadge, showDiscountBadge, discount, priceText, cardIndex } = params;
   return {
     appid: appid || undefined,
     shelfId: shelfId || undefined,
     name: name || undefined,
     isNew: showNewBadge ? 'true' : undefined,
     discount: showDiscountBadge ? String(discount) : undefined,
+    price: showDiscountBadge ? priceText : undefined,
     cardIndex: cardIndex !== undefined ? String(cardIndex) : undefined,
   };
 }
@@ -474,7 +476,7 @@ function CardSelectionMarkOverlay({ mark, cssArtH }: { mark: DeckRowItem['select
   );
 }
 
-export function CardBadgeHost({ hasBadge, showDiscountBadge, showNewBadge, discount, t }: { hasBadge: boolean; showDiscountBadge: boolean; showNewBadge: boolean; discount: number | undefined; t: (...args: any[]) => any }) {
+export function CardBadgeHost({ hasBadge, showDiscountBadge, showNewBadge, discount, priceText, mode = 'percent', t }: { hasBadge: boolean; showDiscountBadge: boolean; showNewBadge: boolean; discount: number | undefined; priceText?: string; mode?: DiscountBadgeMode; t: (...args: any[]) => any }) {
   if (!hasBadge) return null;
   return (
     <div
@@ -485,7 +487,7 @@ export function CardBadgeHost({ hasBadge, showDiscountBadge, showNewBadge, disco
       {showDiscountBadge && (
         <div className="ds-new-badge-band">
           <div className="ds-new-badge" style={{ background: '#2a7f2a' }}>
-            {t('badge_discount', { count: discount }) ?? `${discount}% off`}
+            {discountBadgeText(mode, priceText, t('badge_discount', { count: discount }) ?? `${discount}% off`)}
           </div>
         </div>
       )}
@@ -562,7 +564,7 @@ function CardStatusLine(props: CardStatusLineProps) {
 type GameCardProps = {
   item: DeckRowItem; cardW?: number; cardH?: number; artH?: number; featured?: boolean; cardIndex?: number;
   hideStatusLine?: boolean; hideNewBadge?: boolean; hideDiscountBadge?: boolean; hideCompatIcons?: boolean;
-  hideNonSteamBadge?: boolean; hideGameName?: boolean; hideInstallIndicator?: boolean; friendsOverlay?: boolean;
+  discountBadgeMode?: DiscountBadgeMode; hideNonSteamBadge?: boolean; hideGameName?: boolean; hideInstallIndicator?: boolean; friendsOverlay?: boolean;
   friendsOverlayRecent?: boolean; enableLogo?: boolean; enableIcon?: boolean; enableDescription?: boolean;
   descriptionBelowLogo?: boolean; logoPosition?: 'left' | 'center' | 'right'; descriptionPosition?: 'left' | 'center' | 'right';
   iconVerticalAlign?: 'top' | 'center' | 'bottom'; gameNamePosition?: 'left' | 'center' | 'right';
@@ -573,6 +575,7 @@ type GameCardProps = {
 const CARD_DEFAULTS = {
   cardW: CARD_W, cardH: CARD_ART_H, featured: false,
   hideStatusLine: false, hideNewBadge: false, hideDiscountBadge: false, hideCompatIcons: false, hideNonSteamBadge: false,
+  discountBadgeMode: 'percent' as DiscountBadgeMode,
   hideGameName: false, hideInstallIndicator: false, friendsOverlay: false, friendsOverlayRecent: false,
   enableLogo: false, enableIcon: false, enableDescription: false, descriptionBelowLogo: false,
   descriptionPosition: 'left', iconVerticalAlign: 'top', gameNamePosition: 'left', playtimePosition: 'left', previewMode: false,
@@ -607,7 +610,7 @@ const iconShown = (a: IconShownArgs): boolean => a.enableIcon && !!a.iconSrc && 
 
 function GameCardImpl(props: GameCardProps) {
   const {
-    item, cardW, cardH, artH: artHProp, featured, cardIndex, hideStatusLine, hideNewBadge, hideDiscountBadge, hideCompatIcons,
+    item, cardW, cardH, artH: artHProp, featured, cardIndex, hideStatusLine, hideNewBadge, hideDiscountBadge, discountBadgeMode, hideCompatIcons,
     hideNonSteamBadge, hideGameName, hideInstallIndicator, friendsOverlay, friendsOverlayRecent, enableLogo, enableIcon,
     enableDescription, descriptionBelowLogo, descriptionPosition, iconVerticalAlign, gameNamePosition, playtimePosition,
     previewMode, removableSet, onRemoveCard, hiddenSet, onHideCard,
@@ -682,6 +685,7 @@ function GameCardImpl(props: GameCardProps) {
   if (artUnavailable(imgFailed, firstUrl)) {
     return <PlaceholderCard
       item={item}
+      discountBadgeMode={discountBadgeMode}
       cardW={cardW}
       cardH={cardH}
       artH={artH}
@@ -698,7 +702,7 @@ function GameCardImpl(props: GameCardProps) {
   const { friendsLabel, friendAvatarAttr } = computeFriendsDisplay(overlayFriends, t);
   const logoOwnsDescription = enableLogo && descriptionBelowLogo;
   const showIcon = iconShown({ enableIcon, iconSrc, hideGameName, hideStatusLine, isLibraryGame, enableDescription, description, logoOwnsDescription });
-  const dataAttrs = computeCardDataAttrs({ appid, shelfId: item.shelfId, name: item.name, showNewBadge, showDiscountBadge, discount, cardIndex });
+  const dataAttrs = computeCardDataAttrs({ appid, shelfId: item.shelfId, name: item.name, showNewBadge, showDiscountBadge, discount, priceText: item.priceText, cardIndex });
   const cardHWRatio = cardHWRatioOf(cardH, featuredW);
 
   return (
@@ -727,6 +731,7 @@ function GameCardImpl(props: GameCardProps) {
       data-name={dataAttrs.name}
       data-isnew={dataAttrs.isNew}
       data-discount={dataAttrs.discount}
+      data-price={dataAttrs.price}
       data-ds-card-index={dataAttrs.cardIndex}
       style={{
         position: "relative",
@@ -745,7 +750,7 @@ function GameCardImpl(props: GameCardProps) {
         ["--ds-card-h-w-ratio" as string]: cardHWRatio,
       }}
     >
-      <CardBadgeHost hasBadge={hasBadge} showDiscountBadge={showDiscountBadge} showNewBadge={showNewBadge} discount={discount} t={t} />
+      <CardBadgeHost hasBadge={hasBadge} showDiscountBadge={showDiscountBadge} showNewBadge={showNewBadge} discount={discount} priceText={item.priceText} mode={discountBadgeMode} t={t} />
       <CardArtImage
         cssArtH={cssArtH}
         imgRef={imgRef}

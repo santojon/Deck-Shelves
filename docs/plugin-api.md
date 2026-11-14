@@ -101,7 +101,7 @@ surface in Settings → Backup. Enumerate them with
 `getRegisteredExportHandlers()` / `getRegisteredImportHandlers()`. Additive —
 does not bump the API `version`.
 
-## First-party Filter / Sort / Source IDs (v3)
+## First-party Filter / Sort / Source IDs
 
 These ids are registered through the same public registries and are
 **reserved**: a third-party registration that uses a built-in id, or any id
@@ -111,41 +111,26 @@ Pick a `my-plugin.` prefix for your own ids. Unregistering only removes the
 entry while it is still yours, so an older unsubscribe never removes a newer
 registration under the same id.
 
-### Filter v3
+Beyond the base conditions and sort keys of [`filters.md`](./filters.md), the
+plugin registers:
 
-| Group | Ids |
+| Kind | Ids |
 | --- | --- |
-| Steam metadata | `genres` · `categories` · `franchise` · `vrSupport` · `multiplayerType` · `familySharing` · `dlcOwned` · `soundtrackOwned` |
-| User behaviour | `launchCount` · `avgSessionMinutes` · `neverCompleted` · `recentlyAbandoned` · `installedNeverPlayed` · `playedOnce` · `achievementPercentRange` |
-| Storage / device | `storageDevice` · `installedSizeRange` · `compatDataQuality` |
-| External ecosystem | `emuDeckSystem` · `retroDeckSystem` · `heroicLauncher` · `lutrisApp` · `chiakiApp` · `moonlightApp` |
-| Advanced non-Steam | `executableType` · `launchOptionTags` · `customTags` · `parserCategories` · `hiddenLauncherShortcuts` |
-| Composite | `weightedFilter` · `priorityFilter` · `exclusionGroup` |
+| Filters, store metadata | `genres` · `categories` · `franchise` · `vrSupport` · `multiplayerType` · `reviewScore` · `releaseDate` · `purchaseDate` · `comingSoon` · `familySharing` · `storeCategory` |
+| Filters, play and storage | `playedOnce` · `installedSizeRange` · `achievementPercentRange` · `neverCompleted` |
+| Filters, tags | `customTags` · `parserCategories` |
+| Filters, composite | `weightedFilter` · `priorityFilter` · `exclusionGroup` |
+| Sorts | `friends_playing_now` · `owned_games` · `completion_percent` · `closest_to_completion` · `most_friends_owning` · `trending_among_friends` · `family_shared_games` |
+| Sources | `dynamic_collections` · `pinned_games` · `history_source` · `session_queue_source` · `temporary_queue_source` |
 
-### Sort v3
+Ids that versions before 3.4.2 registered for data the Steam client does not
+expose are gone from the registries; a shelf that still names one is
+unavailable until it is edited (see `filters.md`), and a plugin may not reuse
+those ids either, since a user's older configuration could still carry them.
 
-| Group | Ids |
-| --- | --- |
-| Usage | `most_launched` · `least_launched` · `longest_session` · `shortest_session` · `most_ignored` · `rediscovered_recently` |
-| Achievement | `completion_percent` · `closest_to_completion` · `rarest_achievements` |
-| Temporal | `newest_installed` · `oldest_installed` · `oldest_unplayed` · `newest_purchased` |
-| Storage | `largest_install` · `smallest_install` · `ssd_priority` · `sd_priority` |
-| Social | `friends_playing_now` · `most_friends_owning` · `trending_among_friends` |
-| Randomisation _(reserved)_ | `weighted_random` · `smart_random` · `seeded_random` · `rotating_daily_random` · `avoid_recently_shown` |
-
-The **Randomisation** ids are reserved placeholders: their comparators are
-no-ops, so they are not offered in the shelf editor. Use `random` for a stable
-shuffle. Every other id above is selectable in the UI — see
-[`filters.md`](./filters.md) for what each one does and its parameters.
-
-### Shelf Source Ecosystem v3
-
-| Group | Ids |
-| --- | --- |
-| Steam | `dynamic_collections` · `followed_games` · `ignored_games` · `dlc_source` · `soundtrack_source` |
-| Manual | `pinned_games` · `history_source` · `session_queue_source` · `temporary_queue_source` |
-| Contextual | `recently_updated` · `with_events` · `with_workshop_updates` · `controller_specific_source` |
-| External launchers (registered; data populated by the backend probe in `main.py`) | `emudeck_collections` · `retrodeck_collections` · `heroic_library` · `lutris_library` · `moonlight_sessions` · `chiaki_sessions` |
+A condition from a plugin that is not running also makes its shelf unavailable:
+the plugin never evaluates a query with a part it cannot run, so an unregistered
+filter never widens a shelf to the whole library.
 
 ---
 

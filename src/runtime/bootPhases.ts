@@ -2,8 +2,7 @@ import i18next from "i18next";
 import { getCurrentSettings, subscribeSettings, wasSettingsRecovered } from "../store/settingsStore";
 import { installDeviceHistoryTracker } from "./deviceHistoryTracker";
 import { installFriendsState } from "./friendsState";
-import { installLauncherCachePoll } from "./launcherCache";
-import { settingsNeedFriends, settingsNeedLaunchers, settingsNeedShortcutTags } from "./featureDemand";
+import { settingsNeedFriends, settingsNeedShortcutTags } from "./featureDemand";
 import { installShortcutTagsPoll } from "./shortcutTags";
 import { installGameLists } from "./gameLists";
 import { checkForUpdate, __resetUpdateCheckCache } from "../core/updateNotifier";
@@ -66,7 +65,7 @@ export function installStartupWatchdog(patch: Patch, recentsReplacePatch: Patch)
    synchronously — deferred to idle so they don't compete with the critical path
    (Home injection, routes, state subscriptions). `disposed` + cancel guard the
    case where dismount happens before idle ever fires. */
-/* Phase C (feature demand): the friends poller and the launcher-cache poll run
+/* Phase C (feature demand): the friends poller and the shortcut-tags poll run
    only while the configuration can actually use their data — started the moment
    a settings change introduces such a use, stopped when the last one goes. The
    settings subscription is the only trigger. */
@@ -79,7 +78,6 @@ function followDemand(current: Uninstall | null, needed: boolean, install: () =>
 export function startLazyPhases(): Uninstall {
   let uninstallDeviceHistoryTracker: Uninstall | null = null;
   let uninstallFriendsState: Uninstall | null = null;
-  let uninstallLauncherCache: Uninstall | null = null;
   let uninstallShortcutTags: Uninstall | null = null;
   let uninstallGameLists: Uninstall | null = null;
   let unsubFeatureDemand: Uninstall | null = null;
@@ -92,7 +90,6 @@ export function startLazyPhases(): Uninstall {
     if (disposed) return;
     if (!s) return;
     uninstallFriendsState = followDemand(uninstallFriendsState, settingsNeedFriends(s), installFriendsState);
-    uninstallLauncherCache = followDemand(uninstallLauncherCache, settingsNeedLaunchers(s), installLauncherCachePoll);
     uninstallShortcutTags = followDemand(uninstallShortcutTags, settingsNeedShortcutTags(s), installShortcutTagsPoll);
   };
   const handle = schedule(() => {
@@ -110,7 +107,6 @@ export function startLazyPhases(): Uninstall {
     unsubFeatureDemand?.();
     uninstallDeviceHistoryTracker?.();
     uninstallFriendsState?.();
-    uninstallLauncherCache?.();
     uninstallShortcutTags?.();
     uninstallGameLists?.();
   };

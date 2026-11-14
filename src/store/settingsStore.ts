@@ -1,6 +1,7 @@
 import { call } from "../runtime/host/decky";
 import { isHomeOwner } from "../runtime/host/ownerGuard";
 import { SettingsSchema, type FilterGroup, type FilterItem, type Settings, type SmartShelf } from "../types";
+import { migrateRetiredIds } from "../domain/retired";
 import { createHiddenGamesExcludeItem, defaultSettings } from "../domain/defaults";
 import { logError, logInfo, logWarn, setVerboseLogging } from "../runtime/logger";
 import { applyQASettingsOverride, qaOverrideActive, qaSeedActive } from "../qa/harness";
@@ -332,6 +333,7 @@ export function migrate(s: Settings): Settings {
   if (stored > SCHEMA_VERSION) return s;
   s = dedupeShelves(s);
   s = backfillSyncStamps(s);
+  s = migrateRetiredIds(s);
   let mutated = false;
   let smartShelves = s.smartShelves;
   if (stored < HIDDEN_FILTER_SCHEMA_VERSION) {

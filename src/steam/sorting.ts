@@ -1,7 +1,8 @@
 import type { SteamHostWindow } from "./internals";
-import { applyExternalSort, hasExternalSortOption, toPublicAppMeta } from "../core/pluginApi";
+import { applyExternalSort, hasExternalSortOption, isInternalSortOption, toPublicAppMeta } from "../core/pluginApi";
 import { getSteamWindows } from "./steamAccess";
 import { type AppOverview, appIdOf, appNameOf, compareByAdded, lastPlayedOf } from "./appOverview";
+import { SORT_V3_COMPARATORS } from "./v3Extensions";
 
 /* Shelf ordering: the per-key comparators, multi-key and price sorts, the stable random shuffle, and the manual order. */
 
@@ -91,6 +92,22 @@ const KEY_COMPARATOR_BUILDERS: Record<string, () => Cmp> = {
   controller_support: () => (a, b) => (b.controller_support ?? 0) - (a.controller_support ?? 0),
 };
 
+// Looked up per call: the catalog module sits in an import cycle with this one.
+function v3Comparator(key: string): Cmp | undefined {
+  return SORT_V3_COMPARATORS[key];
+}
+
+const PRICE_KEYS: ReadonlySet<string> = new Set(["price_low", "discount_high", "original_price_high"]);
+
+// `source_order` keeps the order the source gives (pin order, history, a composite's sources).
+const ORDER_ONLY_KEYS: ReadonlySet<string> = new Set(["alphabetical", "manual", "random", "source_order"]);
+
+// Whether a sort key orders anything: a built-in key or a sort a loaded plugin registered.
+export function isSupportedSortKey(key: string): boolean {
+  if (ORDER_ONLY_KEYS.has(key) || PRICE_KEYS.has(key) || key in KEY_COMPARATOR_BUILDERS || v3Comparator(key)) return true;
+  return hasExternalSortOption(key) && !isInternalSortOption(key);
+}
+
 function priceComparator(key: string, priceMap: PriceMap): Cmp {
   if (key === "price_low") return (a, b) => {
     const pa = priceMap.get(appIdOf(a)); const pb = priceMap.get(appIdOf(b));
@@ -113,23 +130,15 @@ const alphaCmp: Cmp = (a, b) =>
 function buildBaseComparator(key: string, priceMap?: PriceMap): Cmp {
   const builder = KEY_COMPARATOR_BUILDERS[key];
   if (builder) return builder();
-  if (key === "price_low" || key === "discount_high" || key === "original_price_high") {
-    return priceMap ? priceComparator(key, priceMap) : alphaCmp;
-  }
-  /* first-party Sort v3 comparators (v3Extensions.ts) aren't in
-     KEY_COMPARATOR_BUILDERS above — without this, any multi-key chain using a
-     v3-only id (most_friends_owning, owned_games, ...) silently degrades to alphabetical. */
-  try {
-    const { SORT_V3_COMPARATORS } = require("./v3Extensions") as typeof import("./v3Extensions");
-    const v3 = SORT_V3_COMPARATORS[key];
-    if (v3) return v3;
-  } catch { /* fall through */ }
-  // alphabetical OR unknown external key — degrade to alphabetical.
+  const v3 = v3Comparator(key);
+  if (v3) return v3;
+  if (PRICE_KEYS.has(key)) return priceMap ? priceComparator(key, priceMap) : alphaCmp;
+  // alphabetical, or a plugin's key inside a chain (the single-key path runs those).
   return alphaCmp;
 }
 
 function buildKeyComparator(key: string, isReversed: boolean, priceMap?: PriceMap): Cmp | null {
-  if (key === "manual" || key === "random") return null;
+  if (key === "manual" || key === "random" || key === "source_order") return null;
   const base = buildBaseComparator(key, priceMap);
   if (!isReversed) return base;
   return (a, b) => -base(a, b);
@@ -214,6 +223,8 @@ const SINGLE_SORT_COMPARATORS: Record<string, AppComparator> = {
   deck_compat: (a, b) => (b.deck_compatibility_category ?? 0) - (a.deck_compatibility_category ?? 0),
   controller_support: (a, b) => (b.controller_support ?? 0) - (a.controller_support ?? 0),
   alphabetical: alphaCompare,
+  // A stable sort with no preference keeps the source's order.
+  source_order: () => 0,
   price_low: alphaCompare,
   discount_high: alphaCompare,
   original_price_high: alphaCompare,
@@ -260,15 +271,7 @@ export function applySortToIds(
   const reverseBool: boolean = Array.isArray(reverse) ? !!reverse[0] : !!reverse;
   const byId = buildSortByIdMap(all);
   const baseApps = hydrateAppsForSort(ids, byId);
-  // first-party Sort v3 comparators live in a
-  // sibling module; lookup runs before the external-or-random
-  // fallback so v3 ids take precedence over registered externals.
-  let v3Cmp: ((a: AppOverview, b: AppOverview) => number) | undefined;
-  try {
-    const { SORT_V3_COMPARATORS } = require("./v3Extensions") as typeof import("./v3Extensions");
-    v3Cmp = SORT_V3_COMPARATORS[sort];
-  } catch {}
-  const cmp = SINGLE_SORT_COMPARATORS[sort] ?? v3Cmp;
+  const cmp = SINGLE_SORT_COMPARATORS[sort] ?? v3Comparator(sort);
   let apps = cmp ? baseApps.slice().sort(cmp) : sortByExternalOrRandom(sort, ids, baseApps, byId, shelfId);
   // Skip reverse for `manual` and `random`.
   if (reverseBool && sort !== "manual" && sort !== "random") apps = apps.reverse();

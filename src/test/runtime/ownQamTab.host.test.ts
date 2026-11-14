@@ -291,7 +291,7 @@ afterEach(() => {
 });
 
 describe("ownQamTab — the role options and the host role", () => {
-  // The plugin role's scenarios of U1, U13 and U25, with their outcomes.
+  // The plugin role's placement, yielding and crash-guard scenarios, with their outcomes.
   async function pluginScenarios(): Promise<void> {
     await newSession(); fx.installLoader(); cycle(1);
     const before = fx.lastList.slice();
@@ -344,7 +344,7 @@ describe("ownQamTab — the role options and the host role", () => {
     return steamReads() === 0;
   }
 
-  it("U48 — no role option gives the plugin role, one guard key, and no writes of the host's signals", async () => {
+  it("no role option gives the plugin role, one guard key, and no writes of the host's signals", async () => {
     const keys: string[] = [];
     const setItem = store.setItem;
     store.setItem = (k: string, v: string) => { keys.push(k); setItem(k, v); };
@@ -354,7 +354,7 @@ describe("ownQamTab — the role options and the host role", () => {
     expectOneMarker();
   });
 
-  it("U49 — host role: start-up counts from install and the tab stays through the start", async () => {
+  it("host role: start-up counts from install and the tab stays through the start", async () => {
     await newSession();
     cycle(1);
     vi.advanceTimersByTime(10 * 60 * 1000);
@@ -383,7 +383,7 @@ describe("ownQamTab — the role options and the host role", () => {
     expect([host.activation.listeners.size, vi.getTimerCount(), host.calls.length]).toEqual([1, 0, 1]);
   });
 
-  it("U50 — host role: the host's key and marker, clashing fields left out; a plugin-role copy yields", async () => {
+  it("host role: the host's key and marker, clashing fields left out; a plugin-role copy yields", async () => {
     await newSession();
     hostStandIn().start(mod, { markerFields: { __shelvesTab: true, strTitle: "marker", className: "marker" } });
     runDeferred();
@@ -408,7 +408,7 @@ describe("ownQamTab — the role options and the host role", () => {
     expect([yieldReports(), win.__SHELVES_QAM_OWNER__]).toEqual([1, undefined]);
   });
 
-  it("U51 — host role: no yielding to the stamp, the bridge, the runtime or a plugin's entry", async () => {
+  it("host role: no yielding to the stamp, the bridge, the runtime or a plugin's entry", async () => {
     for (const signal of ["stamp", "bridge", "plugin"] as const) {
       await newSession();
       if (signal === "stamp") win.__SHELVES_QAM_OWNER__ = "someone";
@@ -436,7 +436,7 @@ describe("ownQamTab — the role options and the host role", () => {
     }
   });
 
-  it("U52 — host role: the first-draw report, once per installation and only after a completed draw", async () => {
+  it("host role: the first-draw report, once per installation and only after a completed draw", async () => {
     windowWrites = [];
     await newSession();
     let host = hostStandIn();
@@ -539,7 +539,7 @@ describe("ownQamTab — the role options and the host role", () => {
     return clean.map;
   }
 
-  it("U53 — one guard per role: a pause in one role leaves the other's guard and tab", async () => {
+  it("one guard per role: a pause in one role leaves the other's guard and tab", async () => {
     windowWrites = [];
     const pluginStart = (m: Mod = mod) => { install(on(), pluginPanel(), {}, m); };
     const hostStart = (m: Mod = mod) => { hostStandIn().start(m); };
@@ -569,7 +569,7 @@ describe("ownQamTab — the role options and the host role", () => {
     }
   });
 
-  it("U54 — host role: a panel and an icon that change what they draw keep one entry and one mount", async () => {
+  it("host role: a panel and an icon that change what they draw keep one entry and one mount", async () => {
     await newSession();
     const registry = { state: "own", listeners: new Set<() => void>() };
     const register = (state: string) => act(() => { registry.state = state; for (const l of [...registry.listeners]) l(); });
@@ -612,7 +612,7 @@ describe("ownQamTab — the role options and the host role", () => {
     for (const e of all) expect(e).toBe(all[0]);
   });
 
-  it("U55 — U8 in the host role, with the host's key taken by the host's own code", async () => {
+  it("host role: a key already taken by the host's own code gives no entry and leaves that entry as it was", async () => {
     await newSession();
     const other = { key: HOST_KEY, tab: createElement("b"), title: createElement(Fragment), strTitle: "Deck Shelves", panel: createElement("div"), vrLocation: "quick-access-menu", __shelvesTab: true };
     const snapshot = { ...other };
@@ -628,7 +628,7 @@ describe("ownQamTab — the role options and the host role", () => {
     expect({ ...other }).toEqual(snapshot);
   });
 
-  it("U55 — U8 in the host role, with Steam's key table naming the host's key before install", async () => {
+  it("host role: Steam's key table naming the host's key before install gives no entry and leaves the table as it was", async () => {
     await newSession();
     Object.assign(fx.table, { [HOST_KEY]: "HostTab", HostTab: HOST_KEY });
     const table = { ...fx.table };
@@ -643,7 +643,7 @@ describe("ownQamTab — the role options and the host role", () => {
   });
 
   // With the owner stamp set after the first draw, the remembered tab stays the host role's.
-  it("U55 — U38 in the host role: uninstalled while Steam remembers its tab, Steam's first tab is shown", async () => {
+  it("host role: uninstalled while Steam remembers its tab, Steam's first tab is shown", async () => {
     await newSession();
     const host = hostStandIn({ stamp: true }); host.start(); runDeferred(); fx.openPanel();
     const key = hostEntries(fx.lastDraw().entries)[0].key;
@@ -655,7 +655,7 @@ describe("ownQamTab — the role options and the host role", () => {
     expect([fx.remembered, ownEntries(fx.lastDraw().entries).length, fx.panelDoc.getElementById("quickaccess_tab_0").getAttribute("aria-selected")]).toEqual([key, 0, "true"]);
   });
 
-  it("U56 — both roles in one fixture: one Deck Shelves tab, handed over both ways", async () => {
+  it("both roles in one fixture: one Deck Shelves tab, handed over both ways", async () => {
     const atMostOneEach = () => {
       for (const d of fx.draws as Draw[]) expect([pluginEntries(d.entries).length <= 1, hostEntries(d.entries).length <= 1]).toEqual([true, true]);
     };
@@ -697,7 +697,7 @@ describe("ownQamTab — the role options and the host role", () => {
 });
 
 describe("ownQamTab — the restart action", () => {
-  it("U34 — the restart action asks the client, never the device", async () => {
+  it("the restart action asks the client, never the device", async () => {
     await newSession();
     const [restart, device] = [vi.fn(), vi.fn()];
     vi.stubGlobal("SteamClient", { User: { StartRestart: restart }, System: { RestartPC: device } });

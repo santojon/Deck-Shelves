@@ -20,7 +20,7 @@ import { FieldContainer, DSSliderField} from '../../ui'
 import { resolveShelfAppIds, invalidateRandomSortCache } from '../../../steam'
 import { isNonSteamBadgesAvailable } from '../../../integrations'
 import { usePlatform } from '../../../runtime/platformContext'
-import { SORT_OPTIONS } from './editShelf/constants'
+import { SMART_MODE_OPTIONS, SORT_OPTIONS } from './editShelf/constants'
 import { optionData } from './editShelf/utils'
 import { VisualTabContent } from './editShelf/VisualTabContent'
 import { DisplayTabContent } from './editShelf/DisplayTabContent'
@@ -42,22 +42,6 @@ import { persistSmartShelf } from './editShelf/buildSmartSavePatch'
 import { visualFlagsOf, applyVisualPatch, previewHideFlags, removableTail } from './editShelf/sharedEditProps'
 
 
-/* Ordered list of every internal smart-shelf mode, used by the Source-tab
-   mode dropdown + the composite-mixing picker. Order mirrors the catalogue
-   in `smartTemplates.ts` (highest-result-probability first); `custom`
-   is excluded — it's a special-purpose mode for filter-only shelves and
-   switching INTO it would silently strip the user's smart-mode tuning. */
-const SMART_MODE_OPTIONS: SmartShelfMode[] = [
-  'daily_pick', 'deck_picks', 'on_deck', 'recently_played',
-  'long_session', 'long_session_night', 'random_pick', 'not_started',
-  'best_unplayed', 'quick_play', 'short_battery', 'low_battery_mode',
-  'interrupted', 'non_steam', 'spare_time', 'time_of_day',
-  'rediscover', 'forgotten',
-  'backlog_rescue', 'forgotten_gems', 'hidden_gems', 'almost_finished',
-  'couch_gaming', 'coop_ready', 'party_games', 'friends_playing',
-  'travel_mode', 'never_touched_classics', 'recent_hidden_installs',
-  'weekly_rotation', 'monthly_spotlight', 'seasonal_rotation',
-]
 
 type Tab = 'source' | 'smart_filters' | 'overrides' | 'filters' | 'visual' | 'display'
 

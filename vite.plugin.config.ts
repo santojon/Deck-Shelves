@@ -73,6 +73,8 @@ export default defineConfig(({ mode }) => {
             // ES: what a plugin loader `import()`s. Real code-split chunks
             // (see manualChunks below) — a loader loads them as needed.
             format: "es",
+            // Library builds keep whitespace by default; the plugin is the final consumer.
+            minify: isProd ? true : undefined,
             entryFileNames: "index.js",
             chunkFileNames: "chunks/[name]-[hash].js",
             assetFileNames: "assets/[name]-[hash][extname]",

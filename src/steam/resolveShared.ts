@@ -4,6 +4,9 @@ import type { ResolverContext } from "./resolverContext";
 import { type SteamCollectionLike, steamCollectionStore } from "./internals";
 import { isLibraryLocationsWarm, refreshLibraryLocations } from "../runtime/deviceState";
 import { normalizeText } from "./collections";
+import { flattenItems } from "./filterEval";
+import { loadAchievements } from "./achievements";
+import { loadFriendsOwned } from "./friendsOwned";
 
 /* Helpers several source resolvers share: the online-feature gate, catalog-data prefetch for catalog filters, meta enrichment for meta sorts, non-Steam duplicate removal, composite merging and the resolved-total report. */
 
@@ -27,21 +30,9 @@ export function isOnlineEnabledForSettings(s: Settings | null | undefined): bool
   return s?.onlineFeaturesEnabled ?? isOnlineFeaturesEnabledRaw();
 }
 
-// Flattens a filter group's items (walking `merge` nesting, same as the
-// dev/pub preload above) — used to pre-warm genre/category/franchise data
-// before evaluation, the same reason dev/pub caches are warmed here.
+// Every condition of the group at any depth, to pre-warm the data they read before evaluation.
 export function collectFilterGroupItemsFlat(group: FilterGroup): FilterItem[] {
-  const out: FilterItem[] = [];
-  const walk = (g: FilterGroup) => {
-    for (const item of g.items ?? []) {
-      out.push(item);
-      if (item.type === "merge" && Array.isArray(item.params?.items)) {
-        walk({ mode: (item.params?.mode ?? "and") as "and" | "or", items: item.params?.items as FilterItem[] });
-      }
-    }
-  };
-  walk(group);
-  return out;
+  return flattenItems(group?.items);
 }
 
 function readUnifideckPlatformLabel(c: SteamCollectionLike): string | null {
@@ -144,17 +135,31 @@ export function emitResolvedTotal(ctx: ResolverContext, total: number): void {
    from the local overview — non-Steam and uninstalled titles. When selected we
    optionally fetch it online first (gated + bounded + cached in enrichApps). */
 const META_SORT_KEYS: ReadonlySet<string> = new Set(["metacritic", "review_score", "release_date"]);
+const ACHIEVEMENT_SORT_KEYS: ReadonlySet<string> = new Set(["completion_percent", "closest_to_completion"]);
+const FRIENDS_OWNED_SORT_KEYS: ReadonlySet<string> = new Set(["most_friends_owning", "trending_among_friends"]);
 
-function sortNeedsMeta(sort: unknown): boolean {
+function sortKeysOf(sort: unknown): string[] {
   const keys = Array.isArray(sort) ? sort : [sort];
-  return keys.some((k) => typeof k === "string" && META_SORT_KEYS.has(k));
+  return keys.filter((k): k is string => typeof k === "string");
 }
 
-// Enrich (in place, best-effort) the given app overviews so a metacritic /
-// review / release sort has values to work with. No-op unless the sub-toggle
-// is on (checked inside enrichApps) and the sort actually needs the metadata.
+function sortNeedsMeta(sort: unknown): boolean {
+  return sortKeysOf(sort).some((k) => META_SORT_KEYS.has(k));
+}
+
+function sortNeedsData(sort: unknown): boolean {
+  return sortKeysOf(sort).some((k) => META_SORT_KEYS.has(k) || ACHIEVEMENT_SORT_KEYS.has(k) || FRIENDS_OWNED_SORT_KEYS.has(k));
+}
+
+/* Loads what the sort keys read before the sort runs: online metadata for the
+   score and date keys (gated inside enrichApps), the achievement counts and the
+   friends' libraries. Each is a no-op when its key is absent. */
 export async function enrichAppsForMetaSort(sort: unknown, apps: AppOverview[]): Promise<void> {
-  if (!sortNeedsMeta(sort) || !apps.length) return;
+  if (!sortNeedsData(sort) || !apps.length) return;
+  const keys = sortKeysOf(sort);
+  if (keys.some((k) => ACHIEVEMENT_SORT_KEYS.has(k))) await loadAchievements(apps);
+  if (keys.some((k) => FRIENDS_OWNED_SORT_KEYS.has(k)) && isOnlineFeaturesEnabledRaw()) await loadFriendsOwned();
+  if (!sortNeedsMeta(sort)) return;
   try {
     const { enrichApps } = require("../core/onlineMetadata") as typeof import("../core/onlineMetadata");
     await enrichApps(apps);
@@ -162,7 +167,7 @@ export async function enrichAppsForMetaSort(sort: unknown, apps: AppOverview[]):
 }
 
 export async function enrichForSort(sort: unknown, ids: number[], all: AppOverview[]): Promise<void> {
-  if (!sortNeedsMeta(sort) || !ids.length) return;
+  if (!sortNeedsData(sort) || !ids.length) return;
   const byId = new Map<number, AppOverview>();
   for (const a of all) { const aid = appIdOf(a); if (Number.isFinite(aid)) byId.set(aid, a); }
   await enrichAppsForMetaSort(sort, ids.map((id) => byId.get(id)).filter(Boolean) as AppOverview[]);
@@ -175,6 +180,16 @@ export async function enrichForSort(sort: unknown, ids: number[], all: AppOvervi
 const WEB_CATALOG_FILTER_TYPES = new Set(["genres", "categories"]);
 
 const LOCAL_FIRST_CATALOG_FILTER_TYPES = new Set(["vrSupport", "multiplayerType"]);
+
+const ACHIEVEMENT_FILTER_TYPES = new Set(["achievements", "achievementPercentRange", "neverCompleted"]);
+
+// The client's own records some conditions read: achievement counts, the friends' libraries.
+async function prefetchClientData(items: FilterItem[], ids: number[], byId: Map<number, AppOverview>): Promise<void> {
+  if (items.some((item) => ACHIEVEMENT_FILTER_TYPES.has(item.type))) {
+    await loadAchievements(ids.map((id) => byId.get(id)).filter(Boolean) as AppOverview[]);
+  }
+  if (items.some((item) => item.type === "friends") && isOnlineFeaturesEnabledRaw()) await loadFriendsOwned();
+}
 
 export async function prefetchCatalogFilterData(items: FilterItem[], ids: number[], byId: Map<number, AppOverview>): Promise<void> {
   const needsWebCatalog = items.some((item) => WEB_CATALOG_FILTER_TYPES.has(item.type));
@@ -193,6 +208,7 @@ export async function prefetchCatalogFilterData(items: FilterItem[], ids: number
     const { prefetchFranchise } = await import("./v3Extensions");
     await prefetchFranchise(ids);
   }
+  await prefetchClientData(items, ids, byId);
   // libraryLocation reads a cache kept warm by deviceState.ts's own event-driven
   // refresh; only force a fetch here for the very first resolve, before that
   // refresh has landed — later resolves reuse the already-warm cache.
