@@ -15,8 +15,7 @@ import { VersionFooter } from './ui/VersionFooter'
 import { DeckQAMStyles } from './styles/DeckQAMStyles'
 import { flowChildrenProps } from '../core/steamOSVersion'
 
-// `Tab.title` is typed as `string` but renders any ReactNode at
-// runtime; the cast inlines a leading icon next to the label.
+// Tab.title is typed as string but renders any ReactNode.
 function tabLabel(icon: React.ReactNode, text: string): string {
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
@@ -30,7 +29,7 @@ export function AboutPage() {
   const { t } = useTranslation()
   const [activeTab, setActiveTab] = useState('overview')
   const goBack = useCallback(() => {
-    try { Navigation.NavigateBack() } catch { /* navigation may not be available in test envs */ }
+    try { Navigation.NavigateBack() } catch {}
   }, [])
   return (
     <Focusable

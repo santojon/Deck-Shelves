@@ -27,9 +27,6 @@ export function setRuntimeClassMap(doc: Document, map: Record<string, string>) {
   } catch {}
 }
 
-/** Traverse from an img element upward to find native card tokens.
- *  Returns { nativeCard, nativeCardArt, nativeCardArtOuter, nativeCardArtPortrait, nativeCardImg, nativeCardImgFade }
- */
 function obfuscatedClasses(el: Element | null | undefined): string[] {
   if (!el) return [];
   return Array.from(el.classList).filter(c => c.startsWith('_') && c.length > 5);
@@ -109,11 +106,6 @@ function _discoverNativeCardTokens(doc: Document): Record<string, string> | null
   return null;
 }
 
-/** Diff a focused vs unfocused card into class buckets: `nativeCardCommon`
- *  (always present), `nativeCardStateFocus` (focus-only), `nativeCardStateDefault`
- *  (unfocused-only). Captures both `_xxx` webpack-hashed and non-underscore
- *  obfuscated tokens (space-joined per bucket) so themes can mirror Steam's
- *  focus visuals on DS cards. */
 const KNOWN_NATIVE_CLASSES = new Set(['Panel', 'Focusable', 'gpfocus', 'gpfocuswithin', 'gpfocus-within', 'Action', 'ButtonBase']);
 
 function isObfuscatedToken(c: string): boolean {
@@ -161,10 +153,6 @@ function _discoverNativeCardStateTokens(doc: Document): Record<string, string> {
   } catch { return {}; }
 }
 
-/** Walk inside the first rendered shelf row to label internal wrapper layers.
- *  The row itself usually has no class tokens — Steam wraps content in 2-3
- *  inner divs that themes commonly target for spacing / padding / overflow.
- */
 function reachedCardRoot(el: HTMLElement): boolean {
   return el.classList.contains('Focusable') && el.classList.contains('Panel');
 }
@@ -195,10 +183,6 @@ function _discoverNativeShelfRowLayers(doc: Document): Record<string, string> {
   } catch { return {}; }
 }
 
-/** Walk the ancestor chain from the scrollGrid to documentElement, labelling
- *  each layer. Steam stacks 6-10 wrappers above the grid (section → page → app
- *  shell → root) that themes target for positioning / background / scroll.
- *  Skips layers already named elsewhere (scrollGrid, shelfSection, viewport). */
 function _discoverNativeContainerChain(doc: Document, alreadyNamed: Set<string>): Record<string, string> {
   const out: Record<string, string> = {};
   try {
@@ -219,11 +203,6 @@ function _discoverNativeContainerChain(doc: Document, alreadyNamed: Set<string>)
   return out;
 }
 
-/** Discover hero background and shelf section tokens in the native recents
- *  area. The hero is an ancestor div whose direct child has a mask-image
- *  (linear gradient fading to transparent at bottom). The shelf section is
- *  a sibling of the hero inside the same recents root.
- */
 function firstHashedClass(el: Element | null | undefined): string | undefined {
   if (!el) return undefined;
   return Array.from(el.classList).find((c) => c.startsWith("_") && c.length > 5);
@@ -277,11 +256,6 @@ function _discoverNativeHomeSectionTokens(doc: Document): Record<string, string>
   return out;
 }
 
-/** Traverse shelf elements to discover nativeShelf / nativeShelfTitle /
- *  nativeShelfRow tokens. Primary anchor: the ReactVirtualized inner scroll
- *  container, whose direct children are the rendered (vertically-virtualized)
- *  rows. Falls back to the old horizontal-scroll heuristic when the grid isn't
- *  found (older builds / non-home routes). */
 function findHeadingTokenIn(root: Element): string | undefined {
   for (const el of Array.from(root.querySelectorAll<HTMLElement>('*'))) {
     try {
@@ -362,10 +336,6 @@ export type NativeCardDims = {
   featuredImgHeight?: number;
 };
 
-/** Measure native Recent Games card dimensions from portrait card images + the
- *  focusable card root. Also detects the wider "featured" first card when a
- *  theme shows a landscape highlight before the portrait row. Returns
- *  { width, height, gap, featuredWidth?, featuredHeight? } or null. */
 function buildMeasurementHost(doc: Document, rowToken: string): HTMLElement {
   const host = doc.createElement('div');
   if (rowToken) {
@@ -377,11 +347,6 @@ function buildMeasurementHost(doc: Document, rowToken: string): HTMLElement {
   return host;
 }
 
-/** Wraps the measurement host in the real container ancestor chain
- *  (homeLayer0..N, grid → outward) so ancestor-scoped theme CSS (e.g. a
- *  `.gamepadhome_RecentSection_*` selector) applies during measurement too
- *  — otherwise the probe reads the theme-unaffected native size. Only the
- *  outermost wrapper needs off-screen positioning. */
 function wrapHostInContainerChain(doc: Document, host: HTMLElement, map: Record<string, string>): HTMLElement {
   const layers: string[] = [];
   for (let i = 0; i < 10; i++) {

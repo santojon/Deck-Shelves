@@ -2,10 +2,7 @@ import { useEffect, useRef } from 'react'
 import { Focusable } from '../../../runtime/host/decky'
 import { getActiveFocusedElement } from '../../../core/focusRestore'
 
-/* Beta-safe "what's gamepad-focused". This beta never applies the `.gpfocus`
-   class, so a bare `.gpfocus` query is null and the whole dpad open/close gate
-   fails — resolve it from the active nav context instead, with `.gpfocus` as the
-   stable-client fallback. */
+// Some clients never apply .gpfocus, so read the active nav context first.
 function focusedInDoc(doc: Document): HTMLElement | null {
   return (doc.querySelector('.gpfocus') as HTMLElement | null) ?? getActiveFocusedElement();
 }
@@ -28,25 +25,31 @@ function rectEdges(rect: DOMRect | undefined, win: Window): { right: number; bot
   return { right: rect?.right ?? win.innerWidth, bottom: rect?.bottom ?? win.innerHeight };
 }
 
-/* The sidecar's viewport frame. It is fixed-position and anchored to the tab's
-   content panel — a box that stays put when its content scrolls — so it keeps its
-   place while the gamepad focus scrolls the main column under it, and it starts at
-   that panel's top (like the host's own sidecar). 280×320 is the floor whenever
-   measurements aren't available yet. */
 function sidecarFrame(
   main: HTMLElement | null, anchor: HTMLElement | null, panel: HTMLElement | null, win: Window,
 ): { left: number; top: number; width: number; height: number } {
   const mainRect = main ? main.getBoundingClientRect() : undefined;
   const anchorRect = anchor ? anchor.getBoundingClientRect() : undefined;
-  /* Guard against a transient 0 width (a mid-layout/tab-switch measurement, more
-     likely with a host's native tab sharing the QAM): a 0 stuck the sidecar on
-     the main panel. */
+  // A transient 0 width (mid-layout or tab switch) would stick the sidecar on the main panel.
   const mainWidth = mainRect && mainRect.width > 0 ? mainRect.width : 300;
   const base = anchorRect ?? { left: 0, top: 0 };
   const left = Math.round(base.left + mainWidth);
   const top = Math.round(base.top);
   const { right, bottom } = rectEdges(panel ? panel.getBoundingClientRect() : undefined, win);
   return { left, top, width: Math.max(280, Math.round(right - left)), height: Math.max(320, Math.round(bottom - top)) };
+}
+
+// Inside a menu the containing block is the menu's panel, not the window, so the offset is measured back out.
+export function placeSidecar(el: HTMLElement, f: { left: number; top: number; width: number; height: number }): void {
+  el.style.left = `${f.left}px`;
+  el.style.top = `${f.top}px`;
+  el.style.width = `${f.width}px`;
+  el.style.height = `${f.height}px`;
+  const r = el.getBoundingClientRect();
+  const dx = Math.round(r.left - f.left);
+  const dy = Math.round(r.top - f.top);
+  if (dx) el.style.left = `${f.left - dx}px`;
+  if (dy) el.style.top = `${f.top - dy}px`;
 }
 
 type NavNode = {
@@ -82,10 +85,6 @@ function takeNavTreeFocus(el: HTMLElement): boolean {
   } catch { return false; }
 }
 
-/* Eye-column vertical nav: when Steam moves focus off an eye button to a
-   non-eye element on a DIFFERENT visual row, redirect to the adjacent eye so
-   up/down keeps traversing the eye column. Extracted from the sidecar
-   MutationObserver to keep that callback flat. */
 function redirectEyeNav(doc: Document, prev: HTMLElement | null, f: HTMLElement | null): void {
   if (!prev || !f || prev === f) return;
   const prevIsEye = prev.classList.contains('ds-eye-btn');
@@ -95,7 +94,6 @@ function redirectEyeNav(doc: Document, prev: HTMLElement | null, f: HTMLElement 
 }
 
 function focusAdjacentEye(doc: Document, prev: HTMLElement, f: HTMLElement): void {
-  // Only redirect on a row change (vertical nav); horizontal nav stays put.
   const prevRow = prev.closest('.ds-hide-row, .ds-collapsible-row') as HTMLElement | null;
   const curRow = f.closest('.ds-hide-row, .ds-collapsible-row') as HTMLElement | null;
   const movedRow = !!prevRow && !!curRow && prevRow !== curRow;
@@ -113,38 +111,62 @@ function focusAdjacentEye(doc: Document, prev: HTMLElement, f: HTMLElement): voi
   }
 }
 
-export function SidecarPanel({ controller, onCollapse }: { controller: SettingsController; onCollapse: () => void }) {
-  // If the controller isn't fully ready (settings unhydrated), the inner
-  // GeneralTab `if (!settings) return null` short-circuits and the sidecar
-  // would render as an empty body — which is what users see after the
-  /* Steam-menu-over-QAM cycle when Decky re-mounts the plugin tab before
-     refreshSettings has populated state. Bail at this layer so the
-     sidecar simply doesn't appear at all in that state; the caller's
-     qamExpanded flag stays in sync and the user gets either "closed" or
-     "open with content" — never the bug-state of "open with no content". */
-  // Hooks below must run unconditionally (Rules of Hooks), so the bail-out
-  // above moves after them; `ready` in the deps re-arms both effects once
-  // settings land, instead of each firing its one run too early.
+// Where the focus was when a list opened from inside the sidecar covered it; the next mount resumes there.
+type Resume = { index: number; scrollTop: number };
+let resumeAt: Resume | null = null;
+
+export function rememberSidecarFocus(body: HTMLElement | null, focused: HTMLElement | null): void {
+  resumeAt = body && focused && body.contains(focused)
+    ? { index: Array.prototype.indexOf.call(body.querySelectorAll('*'), focused), scrollTop: body.scrollTop }
+    : null;
+}
+
+// Steam marks the focused control with gpfocus; the document's active element is the fallback.
+export function focusedInSidecar(body: HTMLElement | null): HTMLElement | null {
+  if (!body) return null;
+  const marked = body.querySelector('.gpfocus') as HTMLElement | null;
+  if (marked) return marked;
+  const active = body.ownerDocument.activeElement as HTMLElement | null;
+  return active && body.contains(active) ? active : null;
+}
+
+export function takeSidecarResume(): Resume | null {
+  const resume = resumeAt;
+  resumeAt = null;
+  return resume;
+}
+
+// The same element by position: the body mounts again with the same sections open.
+export function resumeTarget(body: HTMLElement, resume: Resume | null): HTMLElement | null {
+  if (!resume || resume.index < 0) return null;
+  return (body.querySelectorAll('*')[resume.index] as HTMLElement | undefined) ?? null;
+}
+
+function focusSidecarStart(body: HTMLElement, resume: Resume | null): void {
+  const target = resumeTarget(body, resume);
+  const focused = focusedInDoc(body.ownerDocument);
+  if (target && focused && (focused === target || target.contains(focused))) return;
+  if (resume) body.scrollTop = resume.scrollTop;
+  const first = target ?? (body.querySelector('.Focusable') as HTMLElement | null);
+  if (first) takeNavTreeFocus(first);
+}
+
+export function SidecarPanel({ controller, onCollapse, scope }: { controller: SettingsController; onCollapse: () => void; scope?: HTMLElement | null }) {
+  // Bail while settings aren't hydrated so the sidecar never opens empty.
+  // Hooks run before the bail-out; `ready` in the deps re-arms the effects once settings land.
   const ready = !!controller?.settings;
   const innerRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!ready) return;
-    /* Take focus on the first focusable INSIDE the sidecar. We avoid
-       giving the wrapper itself an `onActivate` so the wrapper is a
-       pure container (layout-only) and Steam's nav can move between
-       inner focusables instead of stopping at the wrapper. */
-    const id = window.setTimeout(() => {
+    // No onActivate on the wrapper so nav moves between the inner focusables.
+    const resume = takeSidecarResume();
+    // Steam's menu focuses its first row once its tree is ready, so a resume tries again after it.
+    const ids = (resume ? [90, 260, 520] : [90]).map((ms) => window.setTimeout(() => {
       const el = innerRef.current;
-      if (!el) return;
-      const first = el.querySelector('.Focusable') as HTMLElement | null;
-      if (first) takeNavTreeFocus(first);
-    }, 90);
-    return () => window.clearTimeout(id);
+      if (el) focusSidecarStart(el, resume);
+    }, ms));
+    return () => ids.forEach((id) => window.clearTimeout(id));
   }, [ready]);
-  /* Size the sidecar from the live QAM panel + plugin tab dimensions so the
-     panel fits whatever screen size Steam is rendering at (handheld,
-     docked TV, Big Picture on 4K, custom window sizes). Fallbacks keep the
-     legacy 503×440 values whenever measurements aren't available yet. */
   useEffect(() => {
     if (!ready) return;
     const innerEl = innerRef.current;
@@ -152,30 +174,20 @@ export function SidecarPanel({ controller, onCollapse }: { controller: SettingsC
     const doc = innerEl.ownerDocument;
     const win = doc.defaultView ?? window;
     const measure = () => {
-      /* Walk up from this sidecar, never the first match in the document: with a
-         host's own QAM tab present, a hidden copy of the plugin panel (0×0) comes
-         first, and measuring against it put the sidecar over the main column. */
+      // Walk up from here: a hidden 0×0 copy of the panel can come first in the document.
       const sideEl = innerEl.closest('.deck-shelves-qam-sidecar') as HTMLElement | null;
       if (!sideEl) return;
-      const scope = sideEl.closest('.deck-shelves-qam-panel') as HTMLElement | null;
-      const main = (scope?.querySelector('.deck-shelves-qam-main') ?? null) as HTMLElement | null;
-      // The QAM tab's dark panel that hosts every plugin tab content area.
-      // The class is obfuscated but consistently present; if Steam ever
-      // renames it we fall back to the viewport.
-      const content = (scope?.closest('[id^="quickaccess_content_"]') ?? null) as HTMLElement | null;
+      const area = scope ?? (sideEl.closest('.deck-shelves-qam-panel') as HTMLElement | null);
+      const main = (area?.querySelector('.deck-shelves-qam-main') ?? null) as HTMLElement | null;
+      // Obfuscated class; falls back to the viewport if Steam renames it.
+      const content = (area?.closest('[id^="quickaccess_content_"]') ?? null) as HTMLElement | null;
       const panel = (doc.querySelector('._2BB6uf--jFaAmdnwLOqMU7') as HTMLElement | null) ?? content;
-      const f = sidecarFrame(main, content ?? scope, panel, win);
-      sideEl.style.left = `${f.left}px`;
-      sideEl.style.top = `${f.top}px`;
-      sideEl.style.width = `${f.width}px`;
-      sideEl.style.height = `${f.height}px`;
+      placeSidecar(sideEl, sidecarFrame(main, content ?? area, panel, win));
     };
     measure();
-    // Re-measure on viewport resize and on Steam Deck dock/undock events.
     const ro = new ResizeObserver(measure);
     ro.observe(doc.documentElement);
     win.addEventListener('resize', measure);
-    // Re-measure shortly after mount to catch QAM layout settling.
     const t1 = win.setTimeout(measure, 60);
     const t2 = win.setTimeout(measure, 240);
     return () => {
@@ -184,7 +196,7 @@ export function SidecarPanel({ controller, onCollapse }: { controller: SettingsC
       win.clearTimeout(t1);
       win.clearTimeout(t2);
     };
-  }, [ready]);
+  }, [ready, scope]);
   if (!ready) return null;
   return (
     <Focusable
@@ -265,8 +277,7 @@ function installDpadListener(
   if (!Input?.RegisterForControllerInputMessages) return () => undefined;
   let reg: { unregister?: () => void } | undefined;
   try {
-    // Call as a method so `this` is bound to Input (Steam's bridge throws
-    // "Unknown method" if the function reference is detached).
+    // Call as a method: Steam's bridge throws "Unknown method" on a detached reference.
     reg = Input.RegisterForControllerInputMessages((_slot, button, pressed) => {
       const liveScope = scopeRef.current;
       setAttr(liveScope, 'data-ds-last-input', `${button}/${pressed}@${Date.now()}`);
@@ -286,9 +297,6 @@ export function useDpadExpandBridge(
   enabled = true,
 ): void {
   useEffect(() => { if (!enabled) return; return installDpadListener(scopeRef, setQamExpanded); }, [scopeRef, setQamExpanded, enabled]);
-  // Track `.gpfocus` movements so we know "focus was just in the sidecar"
-  // even when Steam's nav moves it back to main before our controller-input
-  // listener has a chance to run.
   useEffect(() => {
     if (!enabled) return;
     const scope = scopeRef.current;
@@ -311,31 +319,16 @@ export function useDpadExpandBridge(
   }, [scopeRef, enabled]);
 }
 
-/* Tracks whether the previous focus we saw from this handler was inside the
-   sidecar. Needed because Steam processes dpad-left and moves the gamepad
-   focus from sidecar back to main *before* our SteamClient.Input listener
-   runs — by the time we look at `.gpfocus`, the user has already "left"
-   the sidecar visually. */
+// Steam moves focus out of the sidecar before this listener runs, so remember where it was.
 let lastFocusWasInSidecar = false;
 let lastRightTarget: HTMLElement | null = null;
-
-export function traceSidecarCollapse(now: number, menuChanged: boolean, noFocus: boolean, refValue: number | null, menuState: number | null, gap: number): void {
-  try {
-    const g = globalThis as any;
-    if (!Array.isArray(g.__ds_sidecar_signals)) g.__ds_sidecar_signals = [];
-    g.__ds_sidecar_signals.push({ t: now, label: "poll-collapse", reason: menuChanged ? `menu:${refValue}->${menuState}` : noFocus ? "noFocus" : `gap:${gap}` });
-    if (g.__ds_sidecar_signals.length > 40) g.__ds_sidecar_signals.shift();
-  } catch {}
-}
 
 function isDpadButton(button: number): boolean {
   return button === DPAD_RIGHT || button === DPAD_LEFT || button === DPAD_UP || button === DPAD_DOWN;
 }
 
 function currentPositionalBindings(): { open: boolean; close: boolean } {
-  // Positional open/close only runs while its binding is the default dpad
-  // combo (and enabled). Remapped away → the global raw-combo listener owns
-  // it and dpad nav stays untouched here.
+  // Only while the binding is the default d-pad combo; a remap hands it to the global listener.
   const b = resolveBindings(getCurrentSettings()?.buttonBindings as any, (getCurrentSettings() as any)?.buttonBindingsDisabled);
   return {
     open: b.navSidecarOpen === DEFAULT_BINDINGS.navSidecarOpen,
@@ -343,25 +336,27 @@ function currentPositionalBindings(): { open: boolean; close: boolean } {
   };
 }
 
-// Nav-aware positional CLOSE (dpad-left at the sidecar's left edge). Returns
-// true when the press was consumed so the caller stops processing.
-function handleDpadClose(doc: Document, win: Window | null, button: number, positionalClose: boolean, insideSidecar: boolean, setQamExpanded: (v: boolean) => void): boolean {
+const isSliderControl = (el: HTMLElement): boolean => !!el.closest('[class*="slider" i], [role="slider"], .gpfocus[class*="slider" i]');
+
+// A left press inside the sidecar closes it once the focus left it, or stayed put off a slider: inside a
+// menu the focus cannot leave, so the left edge is where the press moves nothing.
+export function leftPressCloses(before: HTMLElement, after: HTMLElement | null): boolean {
+  if (!after?.closest('.deck-shelves-qam-sidecar')) return true;
+  return after === before && !isSliderControl(before);
+}
+
+function handleDpadClose(doc: Document, win: Window | null, button: number, positionalClose: boolean, focused: HTMLElement, insideSidecar: boolean, setQamExpanded: (v: boolean) => void): boolean {
   if (button !== DPAD_LEFT || !positionalClose) return false;
   if (insideSidecar) {
-    // Only collapse if Steam's nav couldn't move focus left within the
-    // sidecar — detected by checking 80ms later if focus left the sidecar.
+    // Read 80 ms later, once the nav has moved or not.
     setTimeout(() => {
-      const f = focusedInDoc(doc);
-      const stillInSidecar = !!(f && f.closest('.deck-shelves-qam-sidecar'));
-      if (!stillInSidecar) {
-        lastFocusWasInSidecar = false;
-        fireQamExpand(win, false, setQamExpanded);
-      }
+      if (!leftPressCloses(focused, focusedInDoc(doc))) return;
+      lastFocusWasInSidecar = false;
+      fireQamExpand(win, false, setQamExpanded);
     }, 80);
     return true;
   }
   if (lastFocusWasInSidecar) {
-    // Steam already moved focus back to QAM main before our handler ran.
     lastFocusWasInSidecar = false;
     fireQamExpand(win, false, setQamExpanded);
     return true;
@@ -369,23 +364,17 @@ function handleDpadClose(doc: Document, win: Window | null, button: number, posi
   return false;
 }
 
-/* Sliders consume horizontal dpad to change their value, and the expand
-   gesture only applies at the main panel's right edge — otherwise a
-   mid-row dpad-right where Steam can't move horizontally would falsely
-   trigger it. */
+// Sliders use the horizontal d-pad, and the gesture only applies at the main panel's right edge.
 function isRightEdgePress(focused: HTMLElement, main: Element): boolean {
-  if (focused.closest('[class*="slider" i], [role="slider"], .gpfocus[class*="slider" i]')) return false;
+  if (isSliderControl(focused)) return false;
   const fRect = focused.getBoundingClientRect();
   const mRect = main.getBoundingClientRect();
   return mRect.right - fRect.right <= 40;
 }
 
-// Nav-aware positional OPEN (two dpad-rights on the rightmost focusable of the
-// main column). Called only when button === DPAD_RIGHT.
 function handleDpadOpen(doc: Document, win: Window | null, positionalOpen: boolean, insideMain: boolean, main: Element | null, focused: HTMLElement, setQamExpanded: (v: boolean) => void): void {
   if (!(positionalOpen && insideMain && main) || !isRightEdgePress(focused, main)) { lastRightTarget = null; return; }
-  // Require two dpad-rights on the *same* rightmost focusable: the first just
-  // navigates onto it, the second confirms the intent to expand.
+  // Two presses on the same rightmost focusable: the first lands on it, the second expands.
   if (lastRightTarget !== focused) {
     lastRightTarget = focused;
     return;
@@ -411,16 +400,11 @@ function handleDpadInput(
   const focused = focusedInDoc(doc);
   if (!focused) return;
   const insideSidecar = !!focused.closest('.deck-shelves-qam-sidecar');
-  /* Eye-column vertical nav is handled in the MutationObserver in
-     `useDpadExpandBridge` — once Steam moves focus off the eye, the observer
-     redirects to the adjacent eye. That's more reliable than racing here
-     because Steam's nav has already updated `.gpfocus` by the time this
-     callback fires. */
   if (button === DPAD_UP || button === DPAD_DOWN) return;
   const main = scope.querySelector('.deck-shelves-qam-main');
   const insideMain = !!(main && main.contains(focused));
   const { open: positionalOpen, close: positionalClose } = currentPositionalBindings();
-  if (handleDpadClose(doc, win, button, positionalClose, insideSidecar, setQamExpanded)) return;
+  if (handleDpadClose(doc, win, button, positionalClose, focused, insideSidecar, setQamExpanded)) return;
   if (button === DPAD_RIGHT) handleDpadOpen(doc, win, positionalOpen, insideMain, main, focused, setQamExpanded);
   lastFocusWasInSidecar = insideSidecar;
 }

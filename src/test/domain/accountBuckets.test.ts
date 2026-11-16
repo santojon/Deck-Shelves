@@ -43,7 +43,6 @@ describe("moving settings between accounts", () => {
     expect(next.accountSettings.owner).toBe(B);
     expect(next.accountSettings.buckets[A].shelves.map((x: any) => x.id)).toEqual(["a1"]);
     expect(next.accountSettings.buckets[B]).toBeUndefined();
-    // And back again, nothing lost.
     const back: any = restoreAccount(next, A);
     expect(back.shelves.map((x: any) => x.id)).toEqual(["a1"]);
     expect(back.accountSettings.buckets[B].shelves.map((x: any) => x.id)).toEqual(["b1"]);
@@ -76,7 +75,7 @@ describe("moving settings between accounts", () => {
     expect(back.accountSettings.mode).toBeUndefined();
     expect(back.accountSettings.owner).toBe(A);
     expect(otherAccountCount(back)).toBe(1);
-    expect(otherAccountCount(setPerAccount(shared, true, B))).toBe(0); // the owner is not "another" account
+    expect(otherAccountCount(setPerAccount(shared, true, B))).toBe(0);
     expect(assignOwner(doc(), A)).toMatchObject({ accountSettings: { owner: A } });
   });
 });

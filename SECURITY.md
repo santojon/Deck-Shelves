@@ -1,130 +1,83 @@
 # Security Policy
 
-## Supported Versions
-
-The following versions of Deck Shelves currently receive security updates and vulnerability fixes.
+## Supported versions
 
 | Version                 | Supported |
 | ----------------------- | --------- |
-| Latest main branch      | ✅         |
+| Latest `main` branch    | ✅         |
 | Previous tagged release | ✅         |
 | Older releases          | ❌         |
 
-> Because Deck Shelves is under active development, users are encouraged to always stay on the latest release.
+Fixes ship in a new release, so the safest place to be is the latest one.
 
----
+## Reporting a vulnerability
 
-## Reporting a Vulnerability
+Report it privately through GitHub Security Advisories:
+[github.com/santojon/Deck-Shelves/security/advisories](https://github.com/santojon/Deck-Shelves/security/advisories).
+If that isn't available to you, contact me directly before saying anything in
+public. Please don't open a public issue for a vulnerability.
 
-If you discover a security vulnerability in Deck Shelves, please report it responsibly.
+Include what you can of:
 
-### Preferred Contact
+- the kind of vulnerability and its impact
+- steps to reproduce, ideally a minimal case
+- expected vs actual behaviour
+- logs or screenshots
+- a suggested fix (optional)
 
-Open a private security report through GitHub Security Advisories:
-
-* GitHub: [https://github.com/santojon/Deck-Shelves/security/advisories](https://github.com/santojon/Deck-Shelves/security/advisories)
-
-If private advisories are unavailable, contact the maintainer directly before publicly disclosing the issue.
-
----
-
-## What to Include
-
-Please include as much information as possible:
-
-* Vulnerability type
-* Steps to reproduce
-* Expected vs actual behavior
-* Impact assessment
-* Screenshots or logs (if applicable)
-* Suggested mitigation or patch (optional)
-
-Providing a minimal reproduction case is highly appreciated.
-
----
-
-## Disclosure Policy
-
-To help protect users:
-
-* Do not publicly disclose vulnerabilities before a fix is available.
-* Security issues will be investigated as quickly as possible.
-* Once resolved, fixes may be documented in release notes or advisories.
-
-Depending on severity, temporary mitigations may be recommended before a full patch is released.
-
----
+I look into reports as soon as I can, and may suggest a temporary mitigation
+before a full fix ships. Please keep the details private until the fix is
+released. Once it is, the fix is noted in the release notes or an advisory,
+and I credit the reporter unless they prefer to stay anonymous.
 
 ## Scope
 
-The following areas are considered in scope:
+In scope:
 
-* Plugin configuration handling
-* File parsing and metadata processing
-* Network requests and external integrations
-* Local filesystem access
-* Update and loading mechanisms
-* UI injection or webview-related vulnerabilities
-* Dependency vulnerabilities affecting shipped functionality
+- handling of plugin settings, imports and exports
+- file parsing and metadata processing
+- network requests and integrations with other plugins
+- local filesystem access by the Python backend
+- the update check and update download
+- UI injection into Steam
+- vulnerabilities in dependencies that affect what ships
 
-The following are generally considered out of scope unless they lead to a practical exploit:
+Usually out of scope, unless they lead to a practical exploit:
 
-* Denial of service caused by unsupported modifications
-* Vulnerabilities caused exclusively by outdated third-party environments
-* Issues requiring physical access to the device
-* Theoretical-only attacks without realistic exploitation paths
+- denial of service caused by unsupported modifications
+- problems that only exist in outdated third-party environments
+- attacks that need physical access to the device
+- theoretical attacks without a realistic path
 
----
+## How the plugin handles data
 
-## Security Goals
+- **Local first.** Everything works offline. Online features (wishlist,
+  store, prices, friends) are off by default and only talk to Steam's own
+  endpoints. The update check only talks to GitHub's releases API, and an
+  update download is accepted only from this repository's release assets.
+- **TLS is always verified** for outbound requests, and no secret appears in a
+  URL or in a log line.
+- **Filesystem access is confined.** The backend writes only to its own
+  settings folder and the user folders it needs (such as Downloads for exports
+  and updates). Beyond those it reads only the Steam and plugin files it
+  integrates with (non-Steam shortcuts, library folders, TabMaster and CSS
+  Loader data). Paths are checked against an allowlist, and imports and
+  exports reject symlinks.
+- **Your Steam account ID is never stored or sent.** To keep settings per
+  account, only a salted 16-character key of it is kept. The salt stays on the
+  device (in a file beside the settings file, never inside it, and in the Steam
+  client's local storage), so no file that carries settings (the settings file,
+  snapshots, exports, the cloud copy, reports) can lead back to the account.
+- **No analytics, and no external code is executed.** Other plugins interact
+  only through the public plugin API, inside the same Steam process.
+- **Few dependencies.** The frontend ships React, i18next and Zod; the backend
+  uses the Python standard library, plus `psutil` for performance readings when
+  the system already has it. Dependencies are reviewed for known CVEs,
+  supply-chain risk and maintenance status when they are updated.
 
-Deck Shelves aims to:
+## Limits
 
-* Avoid unnecessary data collection
-* Never store or send your Steam account ID: to keep settings per account, only a salted
-  16-character key of it is kept; the salt stays on the device (in a file beside the
-  settings file, never in it, and in the Steam client's local storage), so no file that
-  carries settings (the settings file, snapshots, exports, the cloud copy, reports) can lead
-  back to the account
-* Operate fully locally whenever possible
-* Minimize filesystem permissions and access scope
-* Avoid executing arbitrary external code
-* Keep third-party dependencies minimal and auditable
-* Maintain compatibility with Steam Deck security expectations
-
----
-
-## Dependency Management
-
-Dependencies are reviewed periodically for:
-
-* Known CVEs
-* Supply-chain risks
-* Unmaintained packages
-* Excessive permissions or unsafe behaviors
-
-Automated dependency updates may be used when appropriate.
-
----
-
-## Hardening Recommendations for Users
-
-Users are encouraged to:
-
-* Keep Deck Shelves updated
-* Install plugins only from trusted sources
-* Avoid modified or unofficial builds unless they trust the maintainer
-* Review permissions granted to external integrations
-* Keep SteamOS and Decky Loader updated
-
----
-
-## Compatibility Notice
-
-Deck Shelves integrates with third-party environments such as Decky Loader and SteamOS. Security guarantees are limited by the security posture of those platforms and any installed plugins.
-
----
-
-## Acknowledgements
-
-Responsible disclosures may be acknowledged in release notes or a dedicated credits section, unless anonymity is requested.
+Deck Shelves runs inside Steam with the permissions Decky Loader gives every
+plugin. Its security can't exceed that of SteamOS, Decky Loader and the other
+plugins you install. Keep them updated, install plugins from sources you
+trust, and avoid modified builds of this one.

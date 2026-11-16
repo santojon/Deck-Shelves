@@ -60,7 +60,43 @@ def test_rpc_reads_the_logged_in_accounts_file(tmp_path, monkeypatch):
     (cfg / "shortcuts.vdf").write_bytes(_shortcuts(_i("appid", 9) + _map("tags", _s("0", "GOG"))))
     monkeypatch.setattr(main, "_steam_install_candidates", lambda: [str(tmp_path)])
     plugin = main.Plugin()
-    monkeypatch.setattr(plugin, "_get_steam_id64", lambda: str(76561197960265728 + int(account)))
+    monkeypatch.setattr(plugin, "_get_steam_id64", lambda requested=None: str(76561197960265728 + int(account)))
     assert plugin._get_shortcut_tags_sync() == {"ok": True, "tags": {"9": ["GOG"]}}
-    monkeypatch.setattr(plugin, "_get_steam_id64", lambda: None)
+    monkeypatch.setattr(plugin, "_get_steam_id64", lambda requested=None: None)
     assert plugin._get_shortcut_tags_sync()["ok"] is False
+
+
+def test_rpc_takes_the_account_the_client_reports_over_the_newest_folder(tmp_path, monkeypatch):
+    import main
+    for account, appid in (("151436628", 9), ("222", 7)):
+        cfg = tmp_path / "userdata" / account / "config"
+        cfg.mkdir(parents=True)
+        (cfg / "shortcuts.vdf").write_bytes(_shortcuts(_i("appid", appid) + _map("tags", _s("0", account))))
+    monkeypatch.setattr(main, "_steam_install_candidates", lambda: [str(tmp_path)])
+    plugin = main.Plugin()
+    requested = main._requested_steam_id64({"steamid": str(76561197960265728 + 151436628)})
+    assert plugin._get_shortcut_tags_sync(requested) == {"ok": True, "tags": {"9": ["151436628"]}}
+
+
+def test_only_an_individual_account_id_is_taken_from_the_frontend():
+    import main
+    assert main._requested_steam_id64({"steamid": "76561198000000042"}) == "76561198000000042"
+    for bad in ("76561197960265728", "76561190000000000", "7656119800000004", "765611980000000420",
+                "76561198000000042/../x", " 76561198000000042", 76561198000000042, None):
+        assert main._requested_steam_id64({"steamid": bad}) is None
+    assert main._requested_steam_id64("76561198000000042") is None
+    assert main._requested_steam_id64(None) is None
+
+
+def test_wishlist_asks_for_the_account_the_client_reports(monkeypatch):
+    import asyncio
+    import main
+    seen = []
+    monkeypatch.setattr(main, "_fetch_json_page", lambda req: (seen.append(req.full_url), (200, {"response": {"items": [{"appid": 10}]}}))[1])
+    plugin = main.Plugin()
+    monkeypatch.setattr(plugin, "_get_steam_id64", lambda requested=None: requested or "76561198000000001")
+    result = asyncio.run(plugin.get_wishlist({"community_url": "", "steamid": "76561198000000042"}))
+    assert result["ok"] is True and result["ids"] == [10]
+    assert "steamid=76561198000000042" in seen[0]
+    asyncio.run(plugin.get_wishlist({"community_url": "", "steamid": "x"}))
+    assert "steamid=76561198000000001" in seen[1]

@@ -1,17 +1,10 @@
-/* Registry of the plugin's runtime caches for the Advanced → Cache management
-   panel: per-group size + one-click invalidation, plus a clear-all. Only the
-   data caches are listed (not UI class names). Advanced-mode only. */
-
 export interface CacheGroup {
   id: string;
-  labelKey: string;           // i18n key
-  keys: string[];             // exact localStorage keys backing this group
+  labelKey: string;
+  keys: string[];
 }
 
-/* Only persisted (localStorage-backed) caches are listed, so every row shows a
-   real byte size. Deliberately NOT listed: the user's game lists
-   (`ds-pinned-games-v1`, `ds-history-v1`, `ds-temp-queue-v1`, `ds-custom-tags-v1`)
-   and `ds_device_history_v1` (backs the Statistics counters). */
+// The user's game lists and device history are deliberately not listed.
 export const CACHE_GROUPS: CacheGroup[] = [
   { id: "images", labelKey: "cache_group_images", keys: ["ds-images-v1"] },
   { id: "store", labelKey: "cache_group_store", keys: ["ds-store-cache-v1", "ds-store-cache-v3"] },
@@ -26,26 +19,21 @@ export const CACHE_GROUPS: CacheGroup[] = [
   { id: "adaptive_timeout", labelKey: "cache_group_adaptive_timeout", keys: ["ds-adaptive-timeout-v1"] },
 ];
 
-/** Bytes held in localStorage for a group. */
 export function groupSizeBytes(g: CacheGroup): number {
   let n = 0;
   for (const k of g.keys) {
-    try { const v = localStorage.getItem(k); if (v) n += v.length; } catch { /* private mode */ }
+    try { const v = localStorage.getItem(k); if (v) n += v.length; } catch {}
   }
   return n;
 }
 
-/** Drop a group's persisted keys. */
 export function clearGroup(g: CacheGroup): void {
   for (const k of g.keys) {
-    try { localStorage.removeItem(k); } catch { /* best effort */ }
+    try { localStorage.removeItem(k); } catch {}
   }
-  /* The smart-shelf group's localStorage key is a mirror of an in-memory
-     Map (`resolverCache`) — removing just the key leaves that Map live, so
-     the next unrelated cache write would silently resurrect it. Clearing
-     the in-memory side here keeps the two in sync. */
+  // The key mirrors an in-memory map; clear both or the next cache write brings it back.
   if (g.id === "smart_shelves") {
-    try { (require("../steam/smartShelves") as typeof import("../steam/smartShelves")).invalidateSmartShelfCache(); } catch { /* not loaded */ }
+    try { (require("../steam/smartShelves") as typeof import("../steam/smartShelves")).invalidateSmartShelfCache(); } catch {}
   }
 }
 

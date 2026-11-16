@@ -1,7 +1,3 @@
-/* Shelf stylesheet template. Pure CSS string builder.
-   Outer ctx values are computed by the caller in shelfStyles.ts
-   from cachedNativeDims + cachedCardRadius (dim-detector state).
-   Theme-specific rules live in src/themes/adapters and are appended last. */
 import { themeStylesheet } from "../../themes/registry";
 
 export type ShelfStylesheetCtx = {
@@ -15,6 +11,8 @@ export type ShelfStylesheetCtx = {
   featuredArtH: number;
 };
 
+// Focus styles stay card-local: a document-level selector tied to card focus restyles the whole page
+// on every controller move. No perspective on the row and no focus zoom past 1.02; both cost presses.
 export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
   return `
     :root {
@@ -39,40 +37,11 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
     .ds-row-scroll { scrollbar-width: none; -ms-overflow-style: none; }
     .ds-row-scroll::-webkit-scrollbar { display: none; width: 0; height: 0; }
 
-    /* The Opção B promotion adds the native wrapper class to our shelves
-       so theme rules (Obsidian backgrounds, Delly fades, ArtHero
-       hero/mask, etc.) reach our shelf naturally. But that wrapper class
-       also drags in the native rule ._39tNvaLedsTrVh0fFsP4Jm { height:
-       105vh }, which would inflate the shelf to 5% past the viewport.
-       Reset every DS shelf to auto unconditionally so it stays compact
-       (just title + row) by default — forceCssLoaderThemes adds the
-       wrapper class to ALL shelves, so the reset must cover all of them,
-       not only the promoted one. The ArtHero-specific layout below has
-       higher specificity and still opts the promoted shelf back into the
-       tall flex container when needed. */
     .Panel.ds-shelf {
       height: auto !important;
     }
 
-    /* "Show game info above the cards" (data-ds-info-above) ONLY shows the
-       focused game's info clone above the row — it does NOT make the shelf
-       full-page (that's the fullPageShelf toggle / hero-fullscreen theme,
-       below). The band above the cards is reserved inline in DeckRow's
-       paddingTop, so it stacks UNDER the logo/description instead of fighting
-       the inline logo reservation, and is skipped on full-page shelves where
-       flex-end already leaves room above the cards. */
 
-    /* Hero-label overlay (ArtHero etc.): when the active theme requires the
-       focused card's info to be shown above the row, PerShelfHero clones
-       the .ds-card-label DOM into a wrapper here. The cloned label keeps
-       its own classes (so all formatting matches the in-card label exactly)
-       but its inline position:absolute / top:artH was meaningful only
-       inside the card — reset it to static here so it lays out naturally
-       in the wrapper. The original IN-CARD label is hidden so the focused
-       card doesn't render the same label twice — scoped to the
-       ".ds-card .ds-card-label" descendant so it does NOT also hide the
-       cloned overlay label, which lives in .ds-promoted-hero-label and
-       not inside a card. */
     .ds-shelf[data-ds-info-above="true"] .ds-card .ds-card-label {
       display: none !important;
     }
@@ -85,12 +54,6 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
       opacity: 1 !important;
       display: block !important;
     }
-    /* Match the native ArtHero recents game-info overlay exactly (values
-       read via CDP from the native recents shelf):
-         name   — 22px / weight 800 / rgb(255,255,255)
-         status — 14.67px / weight 700 / rgba(255,255,255,0.5) /
-                  uppercase / letter-spacing 0.5px
-       Status icons are dropped — the native overlay shows just text. */
     .ds-promoted-hero-label .ds-card-label-name {
       font-size: 22px !important;
       font-weight: 800 !important;
@@ -111,34 +74,19 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
       margin-top: 2px !important;
       text-shadow: 0 1px 8px rgba(0, 0, 0, 0.85);
     }
-    /* Hide only the play icon (installed + no pending update). The download
-       icon (not installed) and the update icon (installed + update pending)
-       stay visible — they convey actionable state the user needs to see. */
     .ds-promoted-hero-label .ds-card-status-icon.ds-card-status-play {
       display: none !important;
     }
     .ds-card {
       border-radius: var(--ds-card-radius, ${ctx.cardRadius}) !important;
-      /* overflow:visible so the badge band can extend above the card. */
       overflow: visible;
       scroll-margin-top: 90px;
       scroll-margin-bottom: 52px;
       scroll-margin-inline-end: 2.8vw;
     }
-    /* Native-recents baseline shadow, scoped to the art box (.ds-card-art)
-       — .ds-card's own box is taller than the artwork (room for the label
-       below), so a shadow on .ds-card looked mismatched under the art. */
     .ds-card-art {
       box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
     }
-    /* Card transitions: mirror native cards (CDP-measured: filter +
-       box-shadow + transform at 0.4s cubic-bezier(0, 0.73, 0.48, 1)).
-       The shorter 160ms transition we used previously was visibly
-       snappier than native and was the perceived "different animation"
-       complaint. Steam's nav controller debounce is NOT tied to CSS
-       transition duration — verified by side-by-side timing — so the
-       longer native-matching curve does not re-introduce the press
-       swallowing that the earlier transform transition caused. */
     #deck-shelves-home-root .ds-card.Focusable,
     #deck-shelves-home-root .ds-card {
       transition:
@@ -146,23 +94,11 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
         box-shadow 0.4s cubic-bezier(0, 0.73, 0.48, 1),
         transform 0.4s cubic-bezier(0, 0.73, 0.48, 1) !important;
     }
-    /* Focus pop: native wraps each card in its own perspective:300px
-       container so translateZ(7px) foreshortens into a ~2.4 % zoom.
-       DS has no per-card wrapper; perspective on the row tanked nav
-       latency (17 s spikes). 1.025 bumped the swallow rate from 0 % to
-       33 %; 1.015 kept 0 % but read as too subtle. 1.02 is the middle
-       ground — more visible zoom while staying within the hit-test
-       tolerance Steam's nav controller allows. */
     #deck-shelves-home-root .ds-card:focus,
     #deck-shelves-home-root .ds-card.gpfocus,
     #deck-shelves-home-root .ds-card:hover {
       transform: scale(1.025);
     }
-    /* Inline badge stays visible on focused cards too — the focus ring
-       can visually overlap but the badge must never disappear. */
-    /* Cancel native brightness on .ds-card so it does not create a stacking
-       context that traps the badge host's z-index. Brightness is applied to
-       .ds-card-art below instead. */
     #deck-shelves-home-root .ds-card { filter: none !important; }
     #deck-shelves-home-root .deck-shelves-root:focus,
     #deck-shelves-home-root .deck-shelves-root.gpfocus,
@@ -187,11 +123,6 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
       box-shadow: rgba(0, 0, 0, 0.5) 0px 16px 24px 0px !important;
       z-index: 12;
     }
-    /* Synthetic decoration cards (placeholder=false, the default) render no
-       background fill, so the baseline drop shadow paints against nothing —
-       suppress it in every state; placeholder=true keeps it so the grey
-       panel reads as a real card. Covers both .ds-card (focus-state shadow)
-       and .ds-card-art (idle-state shadow, scoped to the art box above). */
     #deck-shelves-home-root .ds-card--synthetic-noshadow,
     #deck-shelves-home-root .ds-card--synthetic-noshadow:focus,
     #deck-shelves-home-root .ds-card--synthetic-noshadow.gpfocus,
@@ -199,9 +130,6 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
     #deck-shelves-home-root .ds-card--synthetic-noshadow .ds-card-art {
       box-shadow: none !important;
     }
-    /* Shadow-only-on-focus mode: suppress drop shadow at idle, restore it
-       on focus/hover. Mirrors the native focus shadow so the framed look
-       only kicks in when the user actually navigates to the card. */
     #deck-shelves-home-root .ds-card--synthetic-shadow-focus-only,
     #deck-shelves-home-root .ds-card--synthetic-shadow-focus-only .ds-card-art {
       box-shadow: none !important;
@@ -211,8 +139,6 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
     #deck-shelves-home-root .ds-card--synthetic-shadow-focus-only:hover {
       box-shadow: 0 8px 16px rgba(0,0,0,0.5) !important;
     }
-    /* Same suppression for the native shine ::after layer — paints
-       over a transparent card it can't visually anchor against. */
     #deck-shelves-home-root .ds-card--synthetic-noshadow::after,
     #deck-shelves-home-root .ds-card--synthetic-noshadow:focus::after,
     #deck-shelves-home-root .ds-card--synthetic-noshadow.gpfocus::after,
@@ -221,16 +147,6 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
       animation: none !important;
     }
     #deck-shelves-home-root { z-index: 10 !important; }
-    /* Let Steam style its external FocusRing. A document-root relational
-       selector tied to card focus invalidates the whole page during controller
-       navigation. Keep card-local styling here; the Round Compatibility
-       adapter retains its separate, settings-driven ring suppression. */
-    /* Layout-only ::after: matches the card's art height/radius so any
-       theme overlay (e.g. Game Cover Shine focus animation) targets the
-       right region. Opacity is NOT forced here — the cover-shine theme
-       relies on opacity 0 by default + opacity 0.8 on :focus to run its
-       shine animation. Forcing opacity 1 made the shine gradient static-
-       visible on every card (purple stripe at bottom-right). */
     #deck-shelves-home-root .ds-card::after {
       content: '' !important;
       position: absolute !important;
@@ -255,32 +171,14 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
       inset: 0;
       background: linear-gradient(90deg, rgba(90,90,90,0.18) 0%, rgba(160,160,160,0.32) 50%, rgba(90,90,90,0.18) 100%);
       background-size: 200% 100%;
-      /* Bounded: lazily-loaded off-screen cards never flip to --loaded, and an infinite shimmer on each kept the renderer at ~1 core all session. */
       animation: ds-shelf-shimmer 2s ease-in-out 4 forwards;
       pointer-events: none;
       z-index: 1;
       border-radius: var(--ds-card-radius, 4px);
     }
     #deck-shelves-home-root .ds-card .ds-card-shimmer--loaded { display: none; }
-    /* Hero img opacity gate — hides the browser's broken-image glyph between
-       src assignment and first decoded byte (slot swaps included); 60 ms so
-       cached/cold loads feel instant; PerShelfHero flips is-loaded synchronously
-       for already-decoded images. ID-scoped to beat the no-hero-gradient rule. */
-    /* Hero img opacity gating — the transition runs ONLY on the up-leg
-       (going from 0 → 1 when the image actually decodes). Going back to
-       0 (fallback chain advancing to the next URL after an error, src
-       reassigned to a different game on focus change, etc.) is instant.
-       A symmetric transition let a frame of the BROWSER'S broken-img
-       placeholder peek through during the fade-out — visible as a quick
-       broken-hero flash when the first shelf is in the recents slot
-       (there's no native hero behind to mask it). */
     #deck-shelves-home-root .ds-per-shelf-hero-img { opacity: 0 !important; transition: none !important; }
     #deck-shelves-home-root .ds-per-shelf-hero-img.is-loaded { opacity: 1 !important; transition: opacity 0.06s ease !important; }
-    /* Refresh icon spin — driven by class added on click via DOM (not React
-       state) so the animation survives the upstream setAppIds() that may
-       reconcile the row while playing. The class is re-added each click via
-       a remove + reflow + add sequence so consecutive clicks restart the
-       spin from 0deg instead of stuttering. */
     @keyframes ds-refresh-spin {
       from { transform: rotate(0deg); }
       to   { transform: rotate(360deg); }
@@ -319,118 +217,17 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
       filter: brightness(1) !important;
     }
 
-    /* =================================================================
-       TiltedHome theme integration — single, native-equivalent
-       =================================================================
-       Activated only when isTiltedHomeActive() returns true (HomeInject
-       sets data-ds-theme-tilted-home="true" on .deck-shelves-root). The
-       prior implementation applied a 2-D skew using --ren-tilt-angle
-       blindly whenever the variable was defined, but native TiltedHome
-       uses perspective + rotateY (3-D fan), so DS cards were rendered
-       skewed while native cards rotated — visual conflict the user
-       reported as "duas implementações sobrepondo".
 
-       Approach (mirrors native TiltedHome exactly):
-       - Default (cards LEFT of focus + the focused card before override):
-         perspective(600px) rotateY(2*angle) — leans toward the right
-       - Cards AFTER focused (sibling combinator ~): rotateY(-2*angle)
-         — leans toward the left, completing the fan around the focused
-         card
-       - Focused card: scale(1.05) only, no rotation — pivot of the fan
-         (matches native's .gpfocuswithin > div:first-child treatment)
-       - Trailing tiles (.ds-refresh-card / .ds-more-card): tilted +
-         scaled like native's GoToLibrary tile
-       - Row: overflow-y visible + perspective parent so tilted edges
-         aren't clipped
 
-       Reads the user's --ren-tilt-angle and --ren-view-more-focus-scale
-       directly from :root so the tilt intensity matches whatever the
-       user configured in the TiltedHome theme module. Honors gpfocus
-       AND gpfocuswithin (Steam toggles both during d-pad nav). */
-
-    /* DS-side overrides target .ds-card > .ds-card-art (the same
-       element TiltedHome's native selector targets via > div:first-child
-       on the wrapper class we add via resolveNativeCardClass). That
-       way TiltedHome's DEFAULT rule (the left-tilt rotation) reaches
-       DS cards naturally via the shared wrapper class — no need to
-       duplicate it here. We only ADD the cases TiltedHome's native
-       selectors can't reach because they rely on the ReactVirtualized
-       grid structure DS doesn't replicate:
-
-       - Right-side override: cards AFTER the focused one need the
-         opposite-sign rotation. TiltedHome's rule wraps this in a
-         ReactVirtualized__Grid__innerScrollContainer + gpfocuswithin
-         sibling selector chain that DS doesn't have, so we mirror it
-         with our own sibling combinator (.ds-card.gpfocuswithin ~
-         .ds-card).
-       - Focused override: native applies scale(1.02) to the focused
-         tile's first child; we apply slightly larger scale(1.05).
-
-       All overrides target .ds-card-art so they cascade together
-       with TiltedHome's rule on the same element (no double transform
-       on the wrapper). */
-    /* =================================================================
-       DS-side TiltedHome implementation — full mode-aware support.
-       =================================================================
-       Why DS-side and not class-adoption: Decky's Focusable puts a
-       tabindex on the same wrapper that would adopt nativeCardWrapper,
-       and some TiltedHome modules' focused-state selectors use the
-       tabindex attribute to match the focused tile — which would then
-       match EVERY DS card and replace the tilt with a flat scale on
-       all of them. Until we rebuild on a custom focus primitive
-       (NativeFocusable) that puts tabindex on a deeper element
-       matching native's hierarchy, DS implements its own tilt CSS
-       that mirrors each TiltedHome variant exactly.
-
-       Mode detection lives in cssLoaderDetect.ts:getTiltedHomeMode()
-       and is published as data attrs on .deck-shelves-root by
-       HomeInject:
-         data-ds-theme-tilt-method = "skew" | "3d"
-         data-ds-theme-tilt-direction = "one-way" | "opposites"
-
-       Variants supported:
-       - SKEW one-way: every tile gets skew(angle) — most common
-         TiltedHome install (one CSS Loader module, no opposite override)
-       - SKEW opposites: cards before focus skew(+angle), after skew(-angle)
-       - 3D one-way: every tile gets perspective + rotateY(angle)
-       - 3D opposites: same with sibling override
-
-       Tilt is applied to .ds-card ITSELF (not the wrapping div) so the
-       Focusable's box-shadow focus indicator (computed from the card's
-       bounding rect) follows the tilt — fixes the "foco aparentemente
-       alinhado por dentro do card" issue where the focus ring stayed
-       rectangular inside a tilted parallelogram visual.
-
-       The wrapping div added in GameCard / MoreCard / RefreshCard
-       intentionally stays — it lets the card art keep its existing
-       layout while the parent tilts as a single unit. PlaceholderCard
-       and SyntheticCard don't have the wrapping div but render the
-       art element directly as the card's child, which also tilts
-       because the transform is on the .ds-card parent. */
-
-    /* Row needs perspective context for 3D tilts to compose around a
-       fixed eye-point, plus overflow-y: visible so tilted edges
-       aren't clipped at the row boundary. */
     .deck-shelves-root[data-ds-theme-tilted-home="true"] .ds-row-scroll {
       overflow-y: visible !important;
       perspective: 600px !important;
     }
-    /* Tilt applied to .ds-card ITSELF (the wrapper) — NOT the inner
-       first-child div — so the Focusable's box-shadow focus indicator
-       (computed from the wrapper's bounding rect) follows the tilt
-       visually. All rules use !important to beat Steam's native
-       higher-specificity :focus rule
-       (.BasicUI .WYgDg9NyCcMIVuMyZ_NBC.Focusable:focus._3VOR2AeYATx3qSE0I-Pm-5
-       { transform: translateZ(7px) }) which would otherwise zero out
-       our tilt on the focused card. We compose translateZ(7px) into
-       the focused rule so the native depth-lift effect is preserved. */
 
-    /* SKEW one-way: every card tilts same direction. */
     .deck-shelves-root[data-ds-theme-tilt-method="skew"][data-ds-theme-tilt-direction="one-way"] .ds-card {
       transform: skew(var(--ren-tilt-angle, -5deg)) !important;
       transition: transform 0.4s !important;
     }
-    /* SKEW opposites: default lean one way, sibling-after-focused flips. */
     .deck-shelves-root[data-ds-theme-tilt-method="skew"][data-ds-theme-tilt-direction="opposites"] .ds-card {
       transform: skew(var(--ren-tilt-angle, -5deg)) !important;
       transition: transform 0.4s !important;
@@ -438,13 +235,6 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
     .deck-shelves-root[data-ds-theme-tilt-method="skew"][data-ds-theme-tilt-direction="opposites"] .ds-card.gpfocus ~ .ds-card {
       transform: skew(calc(-1 * var(--ren-tilt-angle, -5deg))) !important;
     }
-    /* SKEW focused — one-way mode: KEEP the directional tilt + scale +
-       Steam's translateZ. The whole row leans the same direction so
-       the selected card stays integrated by keeping its tilt.
-       Opposites mode: focused goes FLAT (no skew, just scale +
-       translateZ) — the surrounding cards form a fan converging on
-       the focused tile, so the pivot of the fan reads correctly
-       only when it itself has no tilt (matches native behaviour). */
     .deck-shelves-root[data-ds-theme-tilt-method="skew"][data-ds-theme-tilt-direction="one-way"] .ds-card.gpfocus,
     .deck-shelves-root[data-ds-theme-tilt-method="skew"][data-ds-theme-tilt-direction="one-way"] .ds-card:focus {
       transform: skew(var(--ren-tilt-angle, -5deg)) scale(1.05) translateZ(7px) !important;
@@ -456,15 +246,11 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
       z-index: 3 !important;
     }
 
-    /* 3D one-way: every card gets perspective + rotateY same direction. */
     .deck-shelves-root[data-ds-theme-tilt-method="3d"][data-ds-theme-tilt-direction="one-way"] .ds-card {
       transform: perspective(600px) rotateY(calc(2 * var(--ren-tilt-angle, -5deg))) !important;
       transform-style: preserve-3d !important;
       transition: transform 0.4s !important;
     }
-    /* 3D opposites: default lean left (+2*angle), sibling-after-focused
-       flips to right (-2*angle). Together these form the fan
-       composition converging on the focused card. */
     .deck-shelves-root[data-ds-theme-tilt-method="3d"][data-ds-theme-tilt-direction="opposites"] .ds-card {
       transform: perspective(600px) rotateY(calc(2 * var(--ren-tilt-angle, -5deg))) !important;
       transform-style: preserve-3d !important;
@@ -473,8 +259,6 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
     .deck-shelves-root[data-ds-theme-tilt-method="3d"][data-ds-theme-tilt-direction="opposites"] .ds-card.gpfocus ~ .ds-card {
       transform: perspective(600px) rotateY(calc(-2 * var(--ren-tilt-angle, -5deg))) !important;
     }
-    /* 3D focused — same direction rule as SKEW. One-way keeps the
-       rotation; opposites flattens the focused pivot. */
     .deck-shelves-root[data-ds-theme-tilt-method="3d"][data-ds-theme-tilt-direction="one-way"] .ds-card.gpfocus,
     .deck-shelves-root[data-ds-theme-tilt-method="3d"][data-ds-theme-tilt-direction="one-way"] .ds-card:focus {
       transform: perspective(600px) rotateY(calc(2 * var(--ren-tilt-angle, -5deg))) scale(1.05) translateZ(7px) !important;
@@ -486,8 +270,6 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
       z-index: 3 !important;
     }
 
-    /* Trailing tiles (Refresh / More) — view-more / GoToLibrary
-       treatment. */
     .deck-shelves-root[data-ds-theme-tilt-method="skew"] .ds-refresh-card,
     .deck-shelves-root[data-ds-theme-tilt-method="skew"] .ds-more-card {
       transform: skew(var(--ren-tilt-angle, -5deg)) scale(var(--ren-view-more-focus-scale, 0.88)) !important;
@@ -498,8 +280,6 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
       transform: perspective(600px) rotateY(calc(-2 * var(--ren-tilt-angle, -5deg))) scale(var(--ren-view-more-focus-scale, 0.88)) !important;
       transition: transform 0.4s !important;
     }
-    /* Trailing tiles focused — same one-way-keeps-tilt /
-       opposites-flattens rule as game tiles. */
     .deck-shelves-root[data-ds-theme-tilt-method="skew"][data-ds-theme-tilt-direction="one-way"] .ds-refresh-card.gpfocus,
     .deck-shelves-root[data-ds-theme-tilt-method="skew"][data-ds-theme-tilt-direction="one-way"] .ds-more-card.gpfocus {
       transform: skew(var(--ren-tilt-angle, -5deg)) scale(1.05) translateZ(7px) !important;
@@ -517,14 +297,10 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
       transform: scale(1.05) translateZ(7px) !important;
     }
 
-    /* Most-recent / first tile offset — mirrors native's
-       --ren-most-recent-offset shift. */
     .deck-shelves-root[data-ds-theme-tilted-home="true"] .ds-row-scroll > .ds-card:first-child {
       margin-left: var(--ren-most-recent-offset, 2%);
     }
 
-    /* Counter-tilt the verified / playable badge so it reads
-       horizontally even though the card is tilted. */
     .deck-shelves-root[data-ds-theme-tilt-method="skew"] .ds-card .ds-compat {
       transform: skew(calc(-1 * var(--ren-tilt-angle, -5deg)));
     }
@@ -534,7 +310,6 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
       transition: opacity .15s ease;
     }
 
-    /* Compact label variant: hide the status line but keep title positioning */
     .ds-card-label--compact .ds-card-status { display: none !important; }
     .ds-card.gpfocus .ds-card-label,
     .ds-card:focus .ds-card-label,
@@ -563,9 +338,6 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
     .ds-compat-playable .ds-compat-verdict-icon { color: var(--custom-compat-icons-playable, rgb(255, 200, 44)); }
     .ds-compat-unsupported .ds-compat-verdict-icon { color: var(--custom-compat-icons-unsupported, rgb(220, 222, 223)); }
     .ds-compat-unknown .ds-compat-verdict-icon { color: var(--custom-compat-icons-unknown, rgba(255,255,255,0.4)); }
-    /* Input-glyph variant (desktop clients): a single native controller /
-       keyboard+mouse glyph, so narrow the pill to one icon and tint it neutral
-       like the native library (not the Deck verdict colours). */
     .ds-compat--controller { width: 24px; justify-content: center; background: var(--custom-compat-icons-bg, rgb(14, 20, 27)); border-radius: 10px; }
     .ds-compat--controller svg { color: var(--custom-compat-icons-deck, rgba(255,255,255,0.84)); }
     body.ds-hide-non-steam-badges .nonsteam-badge,
@@ -581,32 +353,12 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
       top: -2px;
       height: calc(100% + 2px);
     }
-    /* Home-only: BadgeFocusOverlay portals a replacement badge above the
-       focused card there, so the inline one can hide. Scoped to the home
-       root — modals (ShelfPreview, ManualSortRow, …) have no such overlay,
-       so leaving this unscoped made their badges vanish for good the moment
-       a card was focused/hovered/selected, with nothing to bring them back. */
-    /* Not on :hover: the overlay follows focus, and a touch leaves a sticky
-       hover on the card under the finger, which then lost its tag. */
     #deck-shelves-home-root .ds-card.gpfocus .ds-card-badge-host--inline,
     #deck-shelves-home-root .ds-card:focus .ds-card-badge-host--inline,
     #deck-shelves-home-root .ds-card.is-selected .ds-card-badge-host--inline {
       visibility: hidden;
     }
     .ds-new-badge {
-      /* Mirrors the native SteamOS "New" badge color resolution:
-         themes may override --ds-new-badge-bg directly; otherwise the
-         badge falls back to --colored-toggles-main-color (the same var
-         the native badge uses, set by themes like Colored Toggles), and
-         finally to the Steam-default blue when no theme is active.
-         Text mirrors the same chain — Colored Toggles' own contrasting
-         text var (e.g. #333 for its White option), not a hardcoded white,
-         so a light main color doesn't wash the label out (reported live:
-         white-on-white under Colored Toggles / White).
-         Round / More Round themes set --round-radius-size on :root —
-         badges (new + discount, both share this class) inherit it
-         unconditionally so the round always applies regardless of
-         force / promoted-slot state. */
       background: var(--ds-new-badge-bg, var(--colored-toggles-main-color, rgb(26, 159, 255)));
       color: var(--ds-new-badge-color, var(--colored-toggles-friends-text-color, #fff));
       font: 700 10px/20px "Motiva Sans", Helvetica, Arial, sans-serif;
@@ -617,6 +369,9 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
       pointer-events: none;
       z-index: 21;
     }
+    .ds-new-badge.ds-new-badge--split { display: flex; padding: 0; letter-spacing: 0; overflow: hidden; }
+    .ds-new-badge--split > span { padding: 2px 6px; }
+    .ds-new-badge--split > .ds-new-badge__price { background: rgba(0, 0, 0, 0.3); }
     .ds-shelf-title {
       color: var(--ds-native-heading-color, inherit);
       font-size: 22px;
@@ -653,11 +408,6 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
     }
     [data-ds-playtime-position="center"] .ds-card-status { justify-content: center; }
     [data-ds-playtime-position="right"]  .ds-card-status { justify-content: flex-end; }
-    /* Enrichment renderers — logo overlay over the art, prepended icon,
-       description snippet. Logo: max 80 % of the card width, anchored
-       to the bottom of the art so it composes the same way the native
-       game-view layout does. Icon: square ~14 px before the name span.
-       Description: clamped to 2 lines, ~3 cards wide, ellipsis. */
     .ds-card-logo-overlay {
       display: flex;
       flex-direction: column;
@@ -668,8 +418,6 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
     }
     .ds-card-logo-overlay[data-ds-position="left"] { align-items: flex-start; }
     .ds-card-logo-overlay[data-ds-position="right"] { align-items: flex-end; }
-    /* Description below the install row inherits the same horizontal
-       alignment when the logo is shown, for visual consistency. */
     .ds-card-description[data-ds-position="left"] { text-align: left; margin-left: 0; margin-right: auto; }
     .ds-card-description[data-ds-position="center"] { text-align: center; margin-left: auto; margin-right: auto; }
     .ds-card-description[data-ds-position="right"] { text-align: right; margin-left: auto; margin-right: 0; }
@@ -687,12 +435,6 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
       border-radius: 2px;
     }
     .ds-card-description {
-      /* Anchored to the text column (which is set to position:relative
-         in GameCard) so the snippet starts at the same x as the game
-         name / playtime row — even when the icon is shown to its left.
-         Width is 4 cards + 3 inter-card gaps so it visually spans the
-         next 4 cards' worth of space; only the focused card's snippet
-         is visible (others stay opacity:0). */
       position: absolute;
       top: 100%;
       margin-top: 2px;
@@ -700,9 +442,6 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
       line-height: 1.2;
       opacity: 0;
       transition: opacity 0.18s ease;
-      /* min() clamps against the viewport so the snippet never overflows
-         the screen on a card focused near the right edge — without this
-         the absolute element walks straight off the side. */
       width: min(calc(var(--ds-eff-card-w, 188px) * 4 + var(--ds-eff-card-gap, 16px) * 3), 72vw);
       max-width: min(calc(var(--ds-eff-card-w, 188px) * 4 + var(--ds-eff-card-gap, 16px) * 3), 72vw);
       display: -webkit-box;
@@ -781,9 +520,6 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
     }
     .ds-card.ds-card--featured .ds-card-art img { object-position: center top; }
 
-    /* ── Per-shelf hero art ─────────────────────────────────────────────────
-       Hero images rendered by PerShelfHero (in DeckRow when heroEnabled=true).
-       Subtle zoom mirrors the 25s native hero zoom; stepped (5 fps) timing avoids the ~0.5 core a smooth 60 fps scale cost idle (--ds-hero-zoom-ease overrides). */
     @keyframes ds-per-shelf-hero-zoom {
       from { transform: scale(1); }
       to   { transform: scale(var(--ds-hero-zoom-scale, 1.06)); }
@@ -794,7 +530,6 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
       animation: ds-per-shelf-hero-zoom var(--ds-hero-zoom-duration, 25s) var(--ds-hero-zoom-ease, steps(125, end)) infinite alternate;
       transition: opacity 0.5s cubic-bezier(0.17,0.45,0.14,0.83),
                   filter 0.35s ease;
-      /* Respect theme overrides via CSS variables for fit/position/filter */
       object-fit: var(--ds-hero-fit, cover);
       object-position: var(--ds-hero-position, 50% 18%);
       filter: var(--ds-hero-appearance-filter, none);
@@ -802,22 +537,12 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
       -webkit-mask-image: var(--ds-hero-mask, none);
     }
 
-    /* Global promoted hero background container — themes can override the
-       mask via --ds-hero-mask on :root. Fallback mirrors the native linear
-       bottom fade when no theme provides a mask. */
     .ds-hero-background {
       mask-image: var(--ds-hero-mask, linear-gradient(rgb(0,0,0) 90%, rgba(0,0,0,0) calc(100% - 5px)));
       -webkit-mask-image: var(--ds-hero-mask, linear-gradient(rgb(0,0,0) 90%, rgba(0,0,0,0) calc(100% - 5px)));
     }
 
-    /* Theme inheritance for promoted (recents-slot) shelves. The slot
-       attribute scopes these rules to the first shelf (hideRecents) or to
-       every shelf (force on). */
 
-    /* Carousel transparency: only the portrait artwork dims. Label keeps
-       its own opacity:0 default (visible on focus); badge band stays at 1
-       because it's not in the selector. Specificity bump (#deck-shelves-
-       home-root) outranks the carousel theme's gpfocuswithin rule. */
     #deck-shelves-home-root .ds-card:not(.gpfocus):not(.is-selected):not(:hover):not(:focus) .ds-card-art {
       opacity: var(--carousel-opacity, 1) !important;
       transition: opacity 0.2s ease-in-out;
@@ -830,49 +555,26 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
     }
     .ds-card { opacity: 1 !important; }
 
-    /* First DS shelf below native (hideRecents off): 150px upward bleed
-       with a 6-stop top fade that lands opaque at the shelf top. Bottom
-       fade is extended to 132px / 5 stops for a smoother blend into the
-       next shelf. */
-    /* First-shelf hero override removed — JS's per-shelf mask (subtle
-     * fade for !isFirstShelf, opaque-top for isFirstShelf) plus the
-     * native recents' built-in bottom fade handle the composition
-     * correctly without our intervention. Adding a CSS override here
-     * was conflicting with full-page mode (caused a visible black band
-     * at the fade-in boundary). */
 
-    /* Second DS shelf top bleed — tuned based on what the first is.
-       Default inline -140 stays for force/other cases. */
 
-    /* No force + native visible: larger bleed for the second (170). */
     .deck-shelves-root > .ds-shelf:first-child:not([data-ds-recents-slot="true"]) + .ds-shelf [data-ds-per-shelf-hero="true"] {
       --ds-hero-top: -170px;
       --ds-hero-h: calc(100% + 170px);
     }
 
-    /* No force + recents hidden: smaller bleed for the second (110). */
     .deck-shelves-root > .ds-shelf[data-ds-recents-slot="true"]:first-child + .ds-shelf:not([data-ds-recents-slot="true"]) [data-ds-per-shelf-hero="true"] {
       --ds-hero-top: -110px;
       --ds-hero-h: calc(100% + 110px);
     }
 
-    /* DS hero-background (compact promoted first shelf, recents hidden): bleed
-       only the ART up under the header (like the non-slot rule below) instead of
-       margin-top-ing the whole shelf — a whole-box pull glued the cards/title to
-       the very top; the cards/title now keep the native recents top spacing. */
     .deck-shelves-root[data-ds-hero-background="true"][data-ds-recents-hidden="true"]:not([data-ds-theme-hero-fullscreen="true"]) > .ds-shelf[data-ds-recents-slot="true"]:first-child [data-ds-per-shelf-hero="true"] {
       --ds-hero-top: -56px;
       --ds-hero-h: calc(100% + 56px);
     }
-    /* Decoupled first shelf (recents hidden, DS hero art on, NOT the themed
-       recents-slot, i.e. no CSS Loader): bleed only the ART up 56px under the
-       transparent Steam header, and give the box a hero band above the title
-       like native recents (without it the title sat glued to the header). */
     .deck-shelves-root[data-ds-recents-hidden="true"] > .ds-shelf[data-ds-hero-enabled="true"]:first-child:not([data-ds-recents-slot="true"]) {
       padding-top: var(--ds-hero-band, 128px);
     }
     .deck-shelves-root[data-ds-recents-hidden="true"] > .ds-shelf[data-ds-hero-enabled="true"]:first-child:not([data-ds-recents-slot="true"]) [data-ds-per-shelf-hero="true"] { --ds-hero-top: -56px; --ds-hero-h: calc(100% + 56px); }
-    /* ── Theme adapters (src/themes/adapters), in registry order ── */
     ${themeStylesheet(ctx)}
   `;
 }

@@ -39,7 +39,6 @@ function shelfSourceType(sh: any, kind: "regular" | "smart"): string {
 
 type SyntheticCardLike = { text?: unknown; image?: unknown; link?: unknown };
 
-// A synthetic card with no text/image/link is a pure gap/spacer.
 function isGapCard(c: SyntheticCardLike | null | undefined): boolean {
   return !c?.text && !c?.image && !c?.link;
 }

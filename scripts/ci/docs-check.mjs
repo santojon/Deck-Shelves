@@ -10,8 +10,7 @@ const read = (p) => readFileSync(path.join(root, p), "utf8");
 const failures = [];
 const ok = [];
 
-/* Slice out an `export const NAME … = [ … ]` literal by bracket matching, so a
-   file holding several arrays (SORT_OPTIONS + V3_SOURCE_OPTIONS) is unambiguous. */
+// Bracket matching keeps a file with several exported arrays unambiguous.
 function arrayBlock(src, name) {
   const re = new RegExp(`(export\\s+)?const\\s+${name}\\b[^=]*=\\s*\\[`);
   const m = re.exec(src);

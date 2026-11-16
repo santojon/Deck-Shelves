@@ -22,9 +22,6 @@ export interface ShelvesDeps {
   t: (key: string) => string;
 }
 
-/* Extract the shelves array from an imported settings/export JSON (raw
-   `{shelves}` or wrapped `{state:{shelves}}`); null on parse error or a
-   non-array payload. */
 function parseImportedShelves(raw: string): any[] | null {
   try {
     const parsed = JSON.parse(raw);
@@ -90,8 +87,6 @@ export function createShelfActions(deps: ShelvesDeps) {
         return true;
       } catch { return false; }
     },
-    /* Portable multi-concept snapshot (shelves + smart shelves + saved
-       filters + saved smart filters). `include` narrows the bundle. */
     async exportSnapshot(destPath: string, include?: readonly SnapshotConcept[]): Promise<boolean> {
       const s = liveSettings();
       if (!s) return false;
@@ -112,11 +107,6 @@ export function createShelfActions(deps: ShelvesDeps) {
         return true;
       } catch { return false; }
     },
-    /* Plugin-to-plugin bridge: run a registered export/import handler
-       against the snapshot. Export builds the snapshot JSON, hands it to the
-       handler to serialize into its format, and writes the result. Import
-       reads the file, lets the handler parse it back into a snapshot JSON,
-       then applies it. */
     async exportViaHandler(handlerId: string, destPath: string): Promise<boolean> {
       const s = liveSettings();
       if (!s) return false;
@@ -165,8 +155,6 @@ export function createShelfActions(deps: ShelvesDeps) {
       await persist(next);
       setSelectedId(next.shelves[0]?.id ?? null);
     },
-    /* Setup wizard: apply a pack non-destructively (existing shelves kept,
-       covered templates skipped) and remember the apply so it can be undone. */
     async applySetupPack(packId: string): Promise<boolean> {
       const s = liveSettings();
       const pack = setupPackById(packId);
@@ -225,15 +213,9 @@ export function createShelfActions(deps: ShelvesDeps) {
       await persist(next);
       try { trackFeature("shelf_delete"); } catch {}
       notify("delete", { body: t("toast_shelf_deleted"), area: "shelves" });
-      // selectedId is captured per-render so the caller passes the
-      // current value through `deps`. Snapshot semantics preserved.
       if (deps.selectedId === id) setSelectedId(next.shelves[0]?.id ?? null);
     },
-    /* Folds `sourceId`'s games into `targetId` via a composite (union) source
-       and deletes `sourceId` — `targetId` keeps its own id/title/decoration,
-       just gains the source's games too. A backup snapshot is taken first
-       since the source shelf's own settings (filters, decorations, etc.)
-       are lost once it's deleted. */
+    // Back up first, since the source shelf's own settings go with it.
     async composeShelfWith(sourceId: string, targetId: string) {
       const s = liveSettings();
       if (!s) return;

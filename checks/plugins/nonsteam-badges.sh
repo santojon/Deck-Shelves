@@ -7,7 +7,6 @@ run_checks() {
   local fail=0
   local src="$root/src"
 
-  # 1) Ensure optional chaining when accessing possible globals
   if grep -rn "\.NonSteamBadge[^S]\|\.NonSteamBadges[^S]" "$src" 2>/dev/null | grep -v '//' | grep -qv '\?\.' ; then
     echo "  ❌ NonSteamBadge(s) global accessed without optional chaining"
     ((fail++))
@@ -16,11 +15,7 @@ run_checks() {
     ((pass++))
   fi
 
-  # 2) No hard external nonsteam import. Match real ES/CJS import statements
-  # only (anchored at line start with optional whitespace) — identifier names
-  # like `includeNonSteam` or `gatherLibraryFromStore` would otherwise trip
-  # the loose `from.*nonsteam` regex. Allow integrations/ (registry +
-  # nonsteambadges live there).
+  # Match real import statements only; identifiers like includeNonSteam would trip a loose regex.
   if grep -rniE "^\s*(import\b[^;]*from\s+['\"][^'\"]*nonsteam|import\s+['\"][^'\"]*nonsteam|(const|let|var)\s+[^=]+=\s*require\(\s*['\"][^'\"]*nonsteam)" "$src" 2>/dev/null \
       | grep -v "integrations/" \
       | grep -vE "['\"][^'\"]*integrations['\"]" \
@@ -32,7 +27,6 @@ run_checks() {
     ((pass++))
   fi
 
-  # 3) Ensure we don't overwrite global namespace accidentally
   if grep -rq "window\.NonSteamBadges\s*=\|globalThis\.NonSteamBadges\s*=" "$src" 2>/dev/null; then
     echo "  ❌ Overwriting NonSteamBadges global namespace"
     ((fail++))
@@ -41,8 +35,6 @@ run_checks() {
     ((pass++))
   fi
 
-  # 4) Guarded shortcuts/shortcutsStore access (optional-chain / try-catch).
-  # Match actual runtime symbols — bare `shortcuts` tripped on doc comments.
   local sc_files
   sc_files=$(grep -rln "shortcutsStore\|\.shortcuts\.vdf\|shortcutCache\|m_mapShortcuts" "$src" 2>/dev/null | grep -v '\.d\.ts$') || true
   local all_guarded=true
@@ -60,7 +52,6 @@ run_checks() {
     ((fail++))
   fi
 
-  # 5) Check dynamic probing includes shortcuts-like stores
   if grep -rq "shortcutsStore\|ShortcutsStore\|shortcuts" "$src" 2>/dev/null; then
     echo "  ✅ Dynamic probing includes shortcuts/shortcutsStore"
     ((pass++))

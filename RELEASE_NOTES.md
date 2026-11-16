@@ -1,9 +1,12 @@
 # Release Notes
 
-User-facing highlights for each Deck Shelves release. For the full technical
-changelog, see [CHANGELOG.md](CHANGELOG.md).
+What changed in each Deck Shelves release. This is the text used for the GitHub
+release, the Decky store update and the announcements. Technical detail is in
+[CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
+
+- **Simpler text**: tips, descriptions and help pages are shorter and plainer in every language, and the Filters help no longer says that Store tag, Friends and Achievements filters don't work yet.
 
 - **A new filter editor**: each condition is a section that opens to edit it. Closed, its header shows the type, the value, whether it is negated, and a check mark or an X beside the arrow for complete or not. Negate, remove and add are icon buttons, choosing whether all or any of the conditions must match takes one press, and the focus stays in the list as you add or remove conditions.
 
@@ -31,9 +34,25 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 - **Pinned games first, then recently played**: a new "Source order" sort lists the sources of a shelf one after the other, each with its own sort, and built-in lists (pinned games, play history, the queues) and smart shelves can now be added as sources. Pinned games come last pinned first; reverse the sort to start from the first one.
 
+- **A sort and a game limit for each source**: each source of a multi-source shelf can pick its own games with its own sort and limit, under any shelf sort, for example the three most played installed games and the two latest pinned ones; the shelf's sort and game limit then order and cut them all.
+
+- **Arrange each source by hand**: set a source of a multi-source shelf to Manual, choose Arrange games and move its games in the preview, for example four chosen launchers first and then a collection by last played. The source's game limit keeps the first ones.
+
+- **The Quick Access side panel opens again**: on the current Steam client the extra settings column next to Quick Access shows up again. Its dropdowns show their options over the Home, and the side panel comes back on that setting once you pick one or go back.
+
 - **Hidden gems is back**: never-played games with a high review score, best first.
 
-- **The discount badge can show the sale price (#125)**: pick the percentage, the price as the store writes it in your currency, or both, in the Visual settings.
+- **The discount badge can show the sale price**: choose the percentage, the price as the store writes it in your currency, price and discount, or discount and price, and choose separately what the selected card shows, for example the discount on every card and the price too on the one you select. Set it in the Visual settings for every shelf, or choose "Per shelf" there and set it in each shelf's Display tab. With both values the badge is a compact two-part tag instead of a long line of text.
+
+- **The Home opens on the recent games row**: with "Use shelf as Recents" on, or with Steam's own recent games shown, the focus stays on that row when the Home opens, after a restart or back from a game, instead of jumping to the first shelf below it a moment later.
+
+- **Back on the game you opened**: after opening a game from one of the plugin's shelves, the focus returns to that game's card when you come back within ten minutes, instead of landing on the recent games row or the first shelf.
+
+- **"Use shelf as Recents" works when the first shelf is empty**: if your first shelf has no games at the moment, for example one that lists downloads and updates, the row shows the next shelf that has games, and goes back to the first one as soon as it fills.
+
+- **A manual order keeps your top games when you lower the game limit**: the games you placed first stay first and the limit cuts the end of the list. Before, they could move to the end of the editor preview with a "+" mark and disappear from the Home.
+
+- **The side navigation looks like Steam's own Settings list**: the row under the cursor gets Steam's highlight, and themes that restyle Steam's list apply to it too, while the shelf on screen reads in bold. The recent games row is listed again whenever it shows on the Home, also when a shelf fills it. The tab at the top of the Quick Access side panel looks like Steam's page tabs.
 
 - **Smaller fixes**: Move up and Move down in the unified shelf list keep the shelf within that list, as dragging does, and the profile row's button hint reads Actions instead of Apply.
 

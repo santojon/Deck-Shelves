@@ -70,9 +70,7 @@ interface IntegrationEntry {
   meta?: string;
 }
 
-// Per-group legacy key prefixes — existing translations for smart
-// templates / filter types / sort options ship under these across 19
-// locales, so falling through avoids duplicate keys.
+// Existing translations live under these legacy prefixes.
 const LEGACY_PREFIX: Record<string, string> = {
   smart: "smart_template_",
   filters: "filter_type_",
@@ -83,8 +81,6 @@ function descriptorFallbackName(d: any, id: string): string {
   return d?.displayName || d?.label || id;
 }
 
-// Single lookup convention (`integration_<id>`) → legacy prefix → the
-// descriptor's own displayName (how third-party plugins localise).
 function resolveIntegrationName(t: (k: string) => string, d: any, group?: string): string {
   const id = String(d?.id || "");
   const candidates = [`integration_${id}`];
@@ -218,7 +214,6 @@ export function IntegrationsDetail({ controller, t }: IntegrationsDetailProps) {
     return <div style={{ opacity: 0.55, padding: 12, fontStyle: "italic" }}>{t("settings_empty_integrations")}</div>;
   }
 
-  // Group by section, preserving in-section insertion order.
   const grouped = new Map<string, IntegrationEntry[]>();
   for (const e of entries) {
     if (!grouped.has(e.group)) grouped.set(e.group, []);

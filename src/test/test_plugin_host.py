@@ -38,7 +38,7 @@ def _fresh(loader):
 def test_neutral_host_uses_a_stderr_logger(isolated):
     ph = _fresh(None)
     assert isinstance(ph.logger, logging.Logger)
-    ph.logger.info("does not raise")  # the backend logs freely on the neutral host
+    ph.logger.info("does not raise")
 
 
 def test_loader_logger_is_reused_when_present(isolated):
@@ -66,5 +66,4 @@ def test_settings_dir_falls_back_to_loader_env_then_attr(isolated, monkeypatch):
 
 
 def test_settings_dir_bare_dev_fallback(isolated):
-    # No env, no loader → the conventional local-dev path.
     assert _fresh(None).settings_dir().endswith("decky-loader/settings/deck-shelves")

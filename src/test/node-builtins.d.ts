@@ -1,7 +1,4 @@
-/* `@types/node` isn't a project dependency (browser-targeted tsconfig) —
-   these ambient declarations cover only the handful of Node builtins a few
-   test-only scripts call directly (spawning Python for cross-language
-   checks), rather than adding a new dependency for the full Node types. */
+/* The browser tsconfig has no @types/node; these cover the few builtins the test scripts call. */
 declare module "node:child_process" {
   export function execFileSync(file: string, args: string[], options: { encoding: string }): string;
 }

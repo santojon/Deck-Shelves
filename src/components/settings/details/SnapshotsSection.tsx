@@ -22,16 +22,12 @@ const ORIGIN_ICONS = {
   manual: PlusCircleIcon, import: DownloadIcon, auto: GearIcon,
 } as const;
 
-/** Origin marker: what made the snapshot (derived from the name), with its label. */
 function OriginIcon({ name }: { name: string }) {
   const Icon = ORIGIN_ICONS[snapshotOrigin(name)];
   const label = snapshotOriginLabel(name);
   return <span aria-label={label} title={label}><Icon size={12} /></span>;
 }
 
-/** Advanced → Snapshots: the rolling versioned settings history. Create a
-    snapshot on demand, restore/export/delete any entry, or import an external
-    settings file. Distinct from the file-based Backup (export/import). */
 export function SnapshotsSection({ t }: { t: (k: string) => string }) {
   const [items, setItems] = useState<BackupEntry[]>([]);
   const [loading, setLoading] = useState(true);

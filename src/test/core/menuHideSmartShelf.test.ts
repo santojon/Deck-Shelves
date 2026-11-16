@@ -22,7 +22,6 @@ const freshSettings = () => ({
   smartShelves: [{ id: "smart", title: "Roulette", mode: "random_pick", enabled: true, limit: 10, hiddenAppIds: [] }],
 });
 
-// The hide entry of the game menu, built for the given shelf and focused game.
 function hideEntry(shelfId: string, appid: number): { label: string; select: () => void } {
   const item = buildDeckShelvesMenuItems(shelfId, dfl, R, appid).find((i: any) => i.key === "ds-card-hide");
   expect(item, "ds-card-hide entry missing").toBeTruthy();
@@ -48,7 +47,6 @@ describe("game menu hide / show on a shelf card", () => {
     expect(savedAt(0).smartShelves[0].hiddenAppIds).toEqual([8]);
     expect(savedAt(0).shelves).toBe(before.shelves);
 
-    // Rebuilt from the saved settings the entry flips to "show" and removes the id.
     const show = hideEntry("smart", 8);
     expect(show.label).not.toBe(hide.label);
     show.select();

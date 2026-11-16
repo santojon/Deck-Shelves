@@ -13,7 +13,6 @@ function looksLikeTabManager(v: any): boolean {
   return !!v && (Array.isArray(v?.visibleTabsList) || v?.tabsMap instanceof Map)
 }
 
-// Strategy 1: TabMaster tabs read straight from its settings file.
 async function tabsFromSettingsFile(): Promise<ImportTab[] | null> {
   try {
     const entries = await getTabMasterTabsFromSettingsFile()
@@ -33,7 +32,6 @@ async function tabsFromSettingsFile(): Promise<ImportTab[] | null> {
   } catch { return null }
 }
 
-// Strategy 2: the live TabMaster manager, via its React context or a global.
 function findTabMasterManager(): any {
   try {
     const ctx = findTabMasterContextValue()

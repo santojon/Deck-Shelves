@@ -62,7 +62,6 @@ describe("setup packs — preview, apply, revert", () => {
     expect(reverted.smartShelves ?? []).toEqual([]);
     expect(reverted.shelfHeroBackground).toBe(false);
     expect(reverted.globalHighlightFirst).toBe(false);
-    // Optional keys come back as they were — unset — not as an explicit false.
     expect(reverted.globalHeroEnabled).toBeFalsy();
     expect(reverted.globalFullPageShelf).toBeFalsy();
     expect(reverted.smartShelvesEnabled).toBe(false);

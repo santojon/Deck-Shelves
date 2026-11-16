@@ -1,11 +1,4 @@
-/* Showcase / Dynamic Idle Mode (opt-in, off by default). During
-   Home inactivity, cycles attention through the user's own shelves; any
-   real interaction stops it instantly. MVP scope only — see
-   the internal showcase-mode spec for the full design and what's deferred. */
-
-/* Never fakes input (no synthetic key/button dispatch) — reuses the exact
-   focus-a-shelf's-first-card mechanism Side Nav's own "jump to shelf"
-   already ships (`ShelfSideNav.tsx`'s `jumpToShelf`), just timer-driven. */
+// Never fakes input; it reuses the jump-to-shelf focus path on a timer.
 
 import { getCurrentSettings, subscribeSettings } from "../store/settingsStore";
 import { getPreferredSteamDocument } from "./steamHost";
@@ -39,16 +32,11 @@ function cssEscapeLocal(value: string): string {
   return value.replace(/["\\]/g, "\\$&");
 }
 
-// How many cards to visit on the current shelf before advancing — 1 when
-// within-shelf panning is off, else the configured cap bounded by the
-// shelf's real card count (never linger on non-existent indices).
 function resolveMaxCards(pan: boolean, cardsPerShelf: number | undefined, cardCount: number): number {
   if (!pan) return 1;
   return Math.min(clamp(cardsPerShelf ?? 5, MIN_CARDS_PER_SHELF, MAX_CARDS_PER_SHELF), Math.max(1, cardCount));
 }
 
-// The first card of each shelf uses the longer shelf dwell as an arrival
-// pause; subsequent cards (within-shelf panning) use the shorter per-card dwell.
 function resolveDwellMs(cardIdx: number, shelfDwellSeconds: number | undefined, cardDwellSeconds: number | undefined): number {
   if (cardIdx === 0) return clamp(shelfDwellSeconds ?? 10, MIN_DWELL_S, MAX_DWELL_S) * 1000;
   return clamp(cardDwellSeconds ?? 4, MIN_CARD_DWELL_S, MAX_CARD_DWELL_S) * 1000;
@@ -61,17 +49,11 @@ function eligibleShelfIds(settings: Settings): string[] {
     : [];
   const all = [...regulars, ...smart].map((s: any) => s.id as string);
   const participants = (settings as any).showcaseShelfIds as string[] | undefined;
-  // Empty (or unset) participant list = every currently-visible shelf
-  // participates — there's no per-shelf opt-in picker yet (MVP scope).
   if (!participants || participants.length === 0) return all;
   return all.filter((id) => participants.includes(id));
 }
 
-/* The 2026-09-09 Steam Beta added its own native idle screensaver — a
-   separate GamepadNavigationTree ("ScreensaverPopup") that pops full-screen
-   on its own independent idle timer. `BIsActive()` reads that tree's state
-   the same way `focusRestore.ts` already reads Steam's own trees elsewhere;
-   absent entirely (and reads `false`) on a client without this feature. */
+// Steam's own idle screensaver is a separate nav tree; on clients without it this reads false.
 export function isNativeScreensaverActive(): boolean {
   try {
     const ctrl = (globalThis as any).FocusNavController;
@@ -82,20 +64,14 @@ export function isNativeScreensaverActive(): boolean {
   } catch { return false; }
 }
 
-/* Window blur/focus DOM events are unreliable in GamepadUI (confirmed live —
-   `blur` never fires switching away to another app; `focus` on return arrives
-   late, with `document.hidden` still stale) — the same unreliability that made
-   the QAM sidecar drop `hasFocus()`. Querying `hidden`/`hasFocus()` directly
-   on the existing step()/idle cadence is reliable and needs no extra timer. */
+// Blur and focus events are unreliable in GamepadUI, so query hidden/hasFocus directly.
 function isWindowUnfocused(): boolean {
   const doc = getPreferredSteamDocument();
   if (!doc) return false;
   try { return doc.hidden || !doc.hasFocus(); } catch { return false; }
 }
 
-// Nobody's watching right now — pause rather than stop for good; either
-// condition can clear on its own (screensaver dismissed, window refocused)
-// without the user interacting, so the caller re-arms instead of waiting.
+// Pause rather than stop: either condition can clear without user input.
 function shouldYieldToInattention(): boolean {
   return isNativeScreensaverActive() || isWindowUnfocused();
 }
@@ -104,10 +80,8 @@ export function installShowcaseMode(): () => void {
   let disposed = false;
   let running = false;
   let idx = 0;
-  let visitCardIdx = 0; // offset within the CURRENT visit's pan sequence (0-based)
+  let visitCardIdx = 0; // 0-based offset within the current visit
   let lastShelfId: string | null = null;
-  // Absolute last-shown card index per shelf, so a revisit continues panning
-  // from where it left off instead of restarting at card 0 every time.
   const cardCursor = new Map<string, number>();
   let dwellTimer: ReturnType<typeof setTimeout> | null = null;
   let idleTimer: ReturnType<typeof setTimeout> | null = null;
@@ -115,9 +89,7 @@ export function installShowcaseMode(): () => void {
   const clearDwell = () => { if (dwellTimer !== null) { clearTimeout(dwellTimer); dwellTimer = null; } };
   const clearIdle = () => { if (idleTimer !== null) { clearTimeout(idleTimer); idleTimer = null; } };
 
-  /* Input only reaches the document the Home is drawn in, not the plugin's own context, and that
-     document is found after start (a desktop client can also close and reopen it), so the showcase
-     listens where it acts. False when it just moved there: the wait so far did not watch it. */
+  // Input only reaches the document the Home is drawn in, and that document can be replaced.
   let listenedDoc: Document | null = null;
   let listenedTarget: EventTarget | null = null;
   function listenWhereItActs(): boolean {
@@ -155,8 +127,6 @@ export function installShowcaseMode(): () => void {
     try { return focusElement(target); } catch { return false; }
   }
 
-  // How many cards a shelf currently renders (used to bound within-shelf panning
-  // so we don't linger on non-existent indices).
   function shelfCardCount(shelfId: string): number {
     const doc = getPreferredSteamDocument();
     if (!doc) return 0;
@@ -165,9 +135,6 @@ export function installShowcaseMode(): () => void {
     ).length;
   }
 
-  // Advance within the current shelf's pan sequence, or leave it — saving the
-  // cursor one past the last card shown so the next visit continues instead
-  // of repeating the same cards.
   function advanceCursor(pick: number, shelfId: string, cardIndex: number, cardCount: number, pan: boolean, focused: boolean, maxCards: number): void {
     if (pan && focused && visitCardIdx + 1 < maxCards) {
       visitCardIdx += 1;
@@ -183,9 +150,6 @@ export function installShowcaseMode(): () => void {
     const s = getCurrentSettings();
     if (!s?.showcaseModeEnabled) { stopShowcase(); return; }
     listenWhereItActs();
-    // Yield the instant Steam's own screensaver takes the screen, or the
-    // window loses focus (switched to another app) — either can engage/clear
-    // mid-cycle on its own, so re-arm instead of waiting for interaction.
     if (shouldYieldToInattention()) { stopShowcase(); armIdle(); return; }
     const ids = eligibleShelfIds(s);
     if (ids.length === 0) { stopShowcase(); return; }
@@ -193,9 +157,6 @@ export function installShowcaseMode(): () => void {
     const shelfId = ids[pick];
     if (shelfId !== lastShelfId) { lastShelfId = shelfId; visitCardIdx = 0; }
 
-    // Within-shelf panning (opt-in): walk cards from this shelf's saved cursor
-    // (wrapping around its real card count), up to the cap or the card count,
-    // then advance to the next shelf. Off = land on the saved card only.
     const pan = (s as any).showcasePanCards === true;
     const cardCount = shelfCardCount(shelfId);
     const maxCards = resolveMaxCards(pan, (s as any).showcaseCardsPerShelf, cardCount);
@@ -212,9 +173,9 @@ export function installShowcaseMode(): () => void {
     if (running || disposed) return;
     const s = getCurrentSettings();
     if (!s?.showcaseModeEnabled) return;
-    if (shouldYieldToInattention()) { armIdle(); return; } // not visible / screensaver up; retry later
-    if (eligibleShelfIds(s).length === 0) { armIdle(); return; } // nothing to show yet; retry later
-    if (!listenWhereItActs()) { armIdle(); return; } // the wait did not watch this document
+    if (shouldYieldToInattention()) { armIdle(); return; }
+    if (eligibleShelfIds(s).length === 0) { armIdle(); return; }
+    if (!listenWhereItActs()) { armIdle(); return; }
     running = true;
     idx = 0;
     visitCardIdx = 0;

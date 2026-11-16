@@ -28,14 +28,11 @@ describe("adaptiveTimeout", () => {
 
   it("tightens toward observed latency once enough samples exist, within the floor", () => {
     for (let i = 0; i < 10; i++) recordDuration("k", 50);
-    // p90 of a flat 50ms series * 2x safety = 100ms, but floor keeps it from
-    // going lower than a sane minimum.
     expect(getAdaptiveTimeout("k", { floor: 500, ceiling: 4000, fallback: 2500 })).toBe(500);
   });
 
   it("derives a timeout above the floor when observed latency warrants it", () => {
     for (let i = 0; i < 10; i++) recordDuration("k", 800);
-    // p90 ~800ms * 2x = 1600ms, within [100, 4000].
     expect(getAdaptiveTimeout("k", { floor: 100, ceiling: 4000, fallback: 2500 })).toBe(1600);
   });
 
@@ -54,7 +51,6 @@ describe("adaptiveTimeout", () => {
   it("bounds the rolling window so very old samples age out", () => {
     for (let i = 0; i < 20; i++) recordDuration("k", 9000);
     for (let i = 0; i < 20; i++) recordDuration("k", 100);
-    // Only the most recent 20 (all 100ms) should remain.
     expect(getAdaptiveTimeout("k", { floor: 50, ceiling: 10000, fallback: 2500 })).toBe(200);
   });
 

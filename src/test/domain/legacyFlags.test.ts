@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { ShelfSchema, SmartShelfSchema, SettingsSchema, FilterSchema, FilterItemSchema, SavedSmartFilterSchema } from '../../types'
 
-// Documents that went through an older cloud copy carry 0/1 in place of booleans.
 const discount = (min: number, inverted: unknown) => ({
   mode: 'and', items: [{ type: 'discount', inverted, params: { minDiscount: min, maxDiscount: 100 } }],
 })

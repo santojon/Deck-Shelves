@@ -1,7 +1,5 @@
 import { SavedFilterRowMenuButton } from './SavedFilterRowMenu'
 
-/* One list row for a saved preset (filter or smart filter): the name and an
-   actions button whose menu offers rename and delete. */
 export function SavedPresetRow({ t, name, renameLabel, deleteLabel, onRename, onDelete }: {
   t: (k: any) => string
   name: string

@@ -20,8 +20,7 @@ function decodeEntity(whole: string, body: string): string {
   return code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : whole;
 }
 
-// Steam's store search sends names HTML-encoded ("Popcorn &amp; Premieren"); one pass, so
-// "&amp;lt;" becomes "&lt;". React escapes on display, so the decoded text is shown as is.
+// Store search sends HTML-encoded names; decode a single pass.
 export function decodeHtmlEntities(text: string): string {
   if (!text.includes("&")) return text;
   return text.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, decodeEntity);

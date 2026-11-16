@@ -1,13 +1,8 @@
-// Initial editor state for the smart-shelf modal, extracted from
-// EditSmartShelfModal to keep that file under the code-line cap and its
-// component function readable. Pure derivation from the persisted shelf.
 import type { FilterGroup, SmartShelf, SmartShelfMode } from '../../../../types'
 import { SMART_PARAM_DEFAULTS, DEFAULT_SORT_FOR_MODE } from '../../../../steam/smartParams'
 import { SPARE_TIME_WINDOWS } from '../../../../steam/smartShelves'
 
-// Effective TTL when `refreshIntervalMinutes` is unset on a shelf — must
-// match `DEFAULT_SMART_TTL_MS` in `src/steam/smartShelves.ts`. Used to
-// pre-fill the edit field so users see the actual current cadence.
+// Must match DEFAULT_SMART_TTL_MS in the smart-shelf resolver.
 export const DEFAULT_REFRESH_MINUTES = 60
 
 export type EditState = {

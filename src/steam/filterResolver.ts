@@ -8,8 +8,6 @@ import { logInfo, logWarn } from "../runtime/logger";
 import { preloadDeveloperData, preloadPublisherData } from "./publisherDeveloper";
 import { collectFilterGroupItemsFlat, deduplicateNonSteam, emitResolvedTotal, enrichAppsForMetaSort, prefetchCatalogFilterData } from "./resolveShared";
 
-/* The filter source: a filter group (or the legacy flat filter) evaluated over the library, then sorted. */
-
 export type CustomFilter = {
   favorites?: boolean;
   hidden?: boolean | "only";
@@ -45,8 +43,6 @@ function collectCollectionIdsFromGroup(group: FilterGroup): string[] {
   return ids;
 }
 
-// Pre-warm developer/publisher caches before evaluation — without
-// this, dev/pub filters return zero matches on the home.
 function filterGroupNeedsDevPubPreload(group: FilterGroup): { needsDev: boolean; needsPub: boolean } {
   let needsDev = false;
   let needsPub = false;
@@ -63,7 +59,6 @@ function filterGroupNeedsDevPubPreload(group: FilterGroup): { needsDev: boolean;
   return { needsDev, needsPub };
 }
 
-// Dispatch table for `f.sort`; fallthrough sorts alphabetically.
 const FILTER_SORT_DISPATCH: Record<string, (apps: AppOverview[], shelfId?: string) => AppOverview[]> = {
   recent: (apps) => apps.slice().sort((a, b) => lastPlayedOf(b) - lastPlayedOf(a)),
   playtime: (apps) => apps.slice().sort((a, b) => (b.playtime_forever ?? 0) - (a.playtime_forever ?? 0)),
@@ -179,19 +174,13 @@ function applyFilterGroupSort(
   sortReverse: boolean | boolean[] | undefined,
 ): AppOverview[] {
   if (Array.isArray(fSort)) {
-    /* Multi-key chain — sortAppsByFilterKey only understands a single string id
-       (an array would silently miss FILTER_SORT_DISPATCH and fall back to
-       alphabetical for every key). applySortToIds already handles per-key
-       reverse via applyMultiKeySort, so no separate reverse pass is needed. */
     const preIds = filtered.map((a) => appIdOf(a)).filter(Number.isFinite);
     const sortedIds = applySortToIds(preIds, fSort, all, shelfId, (f as any).sortReverse ?? sortReverse);
     const byId = new Map(filtered.map((a) => [appIdOf(a), a] as const));
     return sortedIds.map((id) => byId.get(id)).filter((a): a is AppOverview => !!a);
   }
   let sorted = sortAppsByFilterKey(filtered, fSort, shelfId);
-  /* Asc/desc inversion. Prefer the filter's own `sortReverse` (the editor writes
-     there on filter shelves; shelf-level `sortReverse` is never populated for
-     filter sources). Skipped for `manual` / `random`. */
+  // Filter shelves keep `sortReverse` inside the filter.
   if (resolveFilterReverse(f, sortReverse) && fSort !== "manual" && fSort !== "random") {
     sorted = sorted.slice().reverse();
   }
@@ -213,9 +202,7 @@ async function _resolveFilterGroupPath(
       evalCtx.collectionAppIds.set(colId, new Set(ids ?? []));
     } catch {}
   }));
-  // Warm developer / publisher caches before evaluation — cold caches
-  // make those filter items match zero apps on the home (the editor
-  // warms via its filter pickers; the home doesn't go through them).
+  // The Home never goes through the editor's pickers, so warm the developer and publisher caches here.
   const needs = filterGroupNeedsDevPubPreload(filterGroup);
   const allAppIds = all.map((a) => appIdOf(a)).filter(Number.isFinite);
   if (needs.needsDev || needs.needsPub) {
@@ -224,15 +211,11 @@ async function _resolveFilterGroupPath(
       needs.needsPub ? preloadPublisherData(allAppIds).catch(() => {}) : Promise.resolve(),
     ]);
   }
-  // Same reasoning as dev/pub above: genres/categories/franchise have no
-  // usable local data even for games you own, so a genre/category/franchise
-  // filter on a plain library shelf needs this warmed first too.
+  // Genres, categories and franchise have no local data either.
   const flatItems = collectFilterGroupItemsFlat(filterGroup);
   const byIdAll = new Map(all.map((a) => [appIdOf(a), a] as const));
   await prefetchCatalogFilterData(flatItems, allAppIds, byIdAll).catch(() => {});
-  // Hosts whose local Steam client omits per-platform availability leave
-  // `available_on_current_platform` undefined (the system-compatibility filter
-  // would then pass everything) — fill it from the store first when present.
+  // Some clients leave `available_on_current_platform` undefined; fill it from the store first.
   if (flatItems.some((it) => it?.type === "systemCompatibility")) {
     const om = await import("../core/onlineMetadata");
     if (om.onlineStoreFallbackOn()) await om.enrichPlatformAvailability(all).catch(() => {});
@@ -277,8 +260,6 @@ function _resolveFilterLegacyPath(
   if (Array.isArray(f.sort)) return _resolveFilterLegacyPathMultiKey(ctx, f, filtered);
   const fSort = pickLegacySortKey(f);
   filtered = sortAppsByFilterKey(filtered, fSort, shelfId);
-  // Legacy `f.sort` enum doesn't include "manual" or "random", so the
-  // reverse is unconditional.
   if (resolveFilterReverse(f, sortReverse)) filtered = filtered.slice().reverse();
   const ids = deduplicateNonSteam(filtered.map((a) => appIdOf(a)).filter(Number.isFinite), all);
   if (!ids.length) {

@@ -1,13 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ShelfSchema } from "../../types";
 
-// synthetic card schema rules. The Zod superRefine on
-// `ShelfSchema.syntheticCards` encodes the user-facing rules:
-//   - text and image are mutually exclusive
-//   - link requires text OR image (no link on pure-gap cards)
-//   - both unset is fine (renders as a non-focusable gap)
-//   - placeholder + alpha + size are all independent
-
 const base = {
   id: "shelf_a",
   title: "Demo",
@@ -51,8 +44,6 @@ describe("ShelfSchema.syntheticCards", () => {
   });
 
   it("sanitises text AND image together (image wins, text dropped)", () => {
-    // The schema used to reject; now it sanitises silently so old
-    // persisted state can boot the plugin. Image wins (last write).
     const parsed = ShelfSchema.safeParse({
       ...base,
       syntheticCards: [{ position: 0, text: "X", image: "/y.png", size: "normal" }],
@@ -100,10 +91,6 @@ describe("ShelfSchema.syntheticCards", () => {
     });
     expect(parsed.success).toBe(true);
     const card = parsed.success ? (parsed.data.syntheticCards ?? [])[0] : null;
-    // Schema preserves the raw value (so the editor shows what the user
-    // typed); the URL coercion + validation only gates whether the link
-    // is kept. A bare hostname is treated as https://example.com for
-    // validation purposes — link kept.
     expect(card?.link?.value).toBe("example.com");
   });
 

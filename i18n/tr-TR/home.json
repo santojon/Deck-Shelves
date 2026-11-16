@@ -24,7 +24,7 @@
   "update_installing": "{{version}} güncellemesi yükleniyor…",
   "update_installed": "{{version}} sürümüne güncellendi.",
   "update_install_failed": "Yükleme başarısız — indirmeye geri dönülüyor.",
-  "update_install_busy": "Ana makine hâlâ güncellemeleri denetliyor — birazdan yeniden deneyin.",
+  "update_install_busy": "Güncellemeler hâlâ denetleniyor — birazdan yeniden deneyin.",
   "update_downloading": "{{version}} güncellemesi indiriliyor…",
   "update_downloaded": "{{path}} konumuna kaydedildi — elle yükleyin.",
   "update_download_failed": "İndirme başarısız — sürüm sayfası açılıyor.",

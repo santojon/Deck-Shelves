@@ -1,15 +1,8 @@
-/* Fallback context menu for synthetic (decoration) cards.
-
-   Synthetic cards open a DS-built DFL menu (no native overview).
-   Reuses buildShelfContextMenu with appid=0 to skip per-card actions. */
 import { getCurrentSettings } from "../store/settingsStore";
 import { buildShelfContextMenu } from "./steamGameMenu";
 import { getFrontendLib } from "../runtime/host/decky";
 import i18n from "i18next";
 
-// The host-parametric UI lib comes from the one central resolver — without it
-// (loader global only) this menu never opened in sole mode. `dfl` is kept as a
-// local alias so the call sites below read the same as before.
 const dfl = getFrontendLib;
 function react(): any {
   return (globalThis as any).SP_REACT;
@@ -37,16 +30,10 @@ export function showSyntheticCardMenu(shelfId: string, anchor: HTMLElement | nul
   const shelf = shelves.find((sh) => sh.id === shelfId);
   if (!shelf) return;
 
-  /* appid=0 → buildDeckShelvesMenuItems skips its per-card branch (no
-     highlight-this / hide-from-shelf / add-to-shelf), keeping only the
-     shelf-scoped submenus. Decoration submenu is already INSIDE the
-     "Shelf" group at the same rank as Display / Visual. */
+  // appid 0 skips the per-card actions and keeps only the shelf submenus.
   const shelfItems = buildShelfContextMenu(shelfId, 0, d, R);
   if (!shelfItems.length) return;
-  /* Menu title: the synthetic card's own text when set (e.g. a labeled
-     decoration card), otherwise the generic "Options" — matches the
-     on-card menu-button hint, since neither the shelf name nor "Shelf"
-     is the natural identity for a focused decoration card. */
+  // The card's own text when set, otherwise the generic "Options".
   const titleText = synthCardMenuTitle(cardText);
   const menu = R.createElement(
     d.Menu,

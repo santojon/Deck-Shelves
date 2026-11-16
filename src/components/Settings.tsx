@@ -9,9 +9,6 @@ const QAMSettings = wrapQAMSettings(DeckQAMSettings);
 
 export function SettingsView() {
   const controller = useSettingsController();
-  // Bridge the non-React shelf-card menu (Deck Shelves > Shelf > Edit / Delete)
-  // to the existing managed-modal flow via a registry handler. Cleanup is
-  // mandatory — the controller is per-mount.
   useEffect(() => {
     registerShelfModalHandler((kind, shelfId) => {
       const shelf = controller.shelves.find((sh) => sh.id === shelfId);

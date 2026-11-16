@@ -8,8 +8,6 @@ import {
 import * as focusRestore from "../../core/focusRestore";
 import * as sessionState from "../../runtime/sessionState";
 
-// Captures the callbacks the tracker registers with the session state so a test
-// can fire a game start/stop without Steam's app-lifetime notifications.
 const captured = new Set<() => void>();
 function sessionListeners(): (() => void)[] { return Array.from(captured); }
 function mockSessionSubscribe(): void {
@@ -18,7 +16,6 @@ function mockSessionSubscribe(): void {
     captured.add(cb);
     return () => { captured.delete(cb); };
   });
-  // A game counts as running only when the lifetime event was seen AND the store agrees.
   vi.spyOn(sessionState, "isGameRunningByEvent").mockImplementation(() => ((globalThis as any).__testGameEvent === true));
 }
 
@@ -28,7 +25,7 @@ function cardEl(): HTMLElement {
   const child = document.createElement("span");
   card.appendChild(child);
   document.body.appendChild(card);
-  return child; // the "focused" element is a descendant, like a real card's inner focus target
+  return child;
 }
 
 describe("focusedCardTracker", () => {

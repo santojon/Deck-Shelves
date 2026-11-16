@@ -4,7 +4,7 @@ vi.mock("../../i18n", () => ({ default: { t: (key: string) => key } }));
 
 const { remoteCardState } = await import("../../components/shelf/gameCardHooks");
 
-// Steam's own values: 20 UpdateRequired, 19 UpdateQueued, 18 UpdatePaused, 6 Updating, 11 ReadyToLaunch.
+// Steam's values: 20 UpdateRequired, 19 UpdateQueued, 18 UpdatePaused, 6 Updating, 11 ReadyToLaunch.
 describe("the card hint for a copy installed only on another device", () => {
   it("follows that copy's update, as Steam's first menu item does", () => {
     expect(remoteCardState({ installed: true, display_status: 20 }).label).toBe("menu_update");

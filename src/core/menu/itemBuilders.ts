@@ -1,7 +1,3 @@
-/* Menu-item builders extracted from steamGameMenu.ts to keep the
-   orchestration file under the 1k-line cap. Pure construction — no
-   module-global reads. `focusedAppId` / `cardIndex` flow in from
-   the caller so the builder stays a function of its inputs. */
 import { MenuGroup as DeckyMenuGroup, MenuItem as DeckyMenuItem } from "../../runtime/host/decky";
 import i18n from "../../i18n";
 import { getCurrentSettings, saveSettings } from "../../store/settingsStore";
@@ -158,7 +154,6 @@ function runRefreshAction(ctx: Ctx): void {
   try {
     if (isSmart || shelf?.source?.type === "smart") invalidateSmartShelfCache(shelfId);
     else if (isOnline) clearOnlineShelfCache();
-    // The shelf's own random order is cleared for every kind, like the refresh card.
     invalidateRandomSortCache(shelfId);
     triggerShelfRefresh({ manual: true, shelfId });
   } catch {}
@@ -213,8 +208,7 @@ function buildVisual(ctx: Ctx, mk: Mk): any[] {
     makeFlagItem(mk, shelf, isSmart, shelfId, "enableDescription", "ds-v-desc", "enable_description", "Show description"),
     makeFlagItem(mk, shelf, isSmart, shelfId, "fullPageShelf", "ds-v-fullpage", "full_page_shelf_label", "Full-page shelf"),
   ];
-  // Only surface "description below logo" when both prereqs are on for
-  // this shelf — otherwise the toggle is a no-op and clutters the menu.
+  // Only shown when both prerequisites are on; otherwise the toggle does nothing.
   if (shelf?.enableLogo && shelf?.enableDescription) {
     items.push(makeFlagItem(mk, shelf, isSmart, shelfId, "descriptionBelowLogo", "ds-v-descBelow", "description_below_logo", "Description below logo"));
   }
@@ -278,8 +272,7 @@ function buildAddRemoveGroups(ctx: Ctx, mk: Mk): any[] {
   return out;
 }
 
-/* The game's place in the per-device lists, each shown only while some shelf,
-   smart shelf, saved filter or profile uses that list, so the menu stays short. */
+// Each list is shown only while something uses it, so the menu stays short.
 const GAME_LISTS: ReadonlyArray<{ id: string; key: string; labelKey: string; fallback: string; has: (appid: number) => boolean; toggle: (appid: number) => void }> = [
   { id: "pinned_games", key: "ds-list-pinned", labelKey: "source_v3_pinned", fallback: "Pinned games", has: (a) => pinnedIds().includes(a), toggle: togglePinned },
   { id: "session_queue_source", key: "ds-list-session", labelKey: "source_v3_session_queue", fallback: "Session queue", has: (a) => sessionQueueIds().includes(a), toggle: toggleSessionQueue },

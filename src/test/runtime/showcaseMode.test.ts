@@ -20,7 +20,6 @@ import { installShowcaseMode } from "../../runtime/showcaseMode";
 
 const START_AFTER_S = 60;
 
-// A Home window of its own (as Big Picture's), visible and focused, with one shelf of two cards.
 function homeDocument(): Document {
   const frame = document.createElement("iframe");
   document.body.appendChild(frame);
@@ -57,11 +56,10 @@ describe("showcase mode: what counts as interaction", () => {
   });
 
   it("input on the Home's document stops it, also when that document was found after install", async () => {
-    edge.preferred = document; // the plugin's own context: the Home is not found yet
+    edge.preferred = document;
     dispose = installShowcaseMode();
     const home = homeDocument();
     edge.preferred = home;
-    // The first wait watched another document, so it does not count: a full wait on the Home's follows.
     await vi.advanceTimersByTimeAsync(START_AFTER_S * 1000);
     expect(edge.focus).not.toHaveBeenCalled();
     await vi.advanceTimersByTimeAsync(START_AFTER_S * 1000);
@@ -73,7 +71,6 @@ describe("showcase mode: what counts as interaction", () => {
 
   it("keys stop it although Big Picture handles them on its window and stops them there", async () => {
     const home = homeDocument();
-    // Like Big Picture's own key handling: on the window, capture phase, the key goes no further.
     home.defaultView!.addEventListener("keydown", (e) => { e.preventDefault(); e.stopPropagation(); }, true);
     edge.preferred = home;
     dispose = installShowcaseMode();
@@ -106,7 +103,7 @@ describe("showcase mode: what counts as interaction", () => {
     expect(edge.focus).toHaveBeenCalledTimes(1);
     const second = homeDocument();
     edge.preferred = second;
-    await vi.advanceTimersByTimeAsync(5_000); // the next card, now in the new document
+    await vi.advanceTimersByTimeAsync(5_000);
     expect(edge.focus).toHaveBeenCalledTimes(2);
     press(second);
     await vi.advanceTimersByTimeAsync(30_000);
@@ -117,7 +114,7 @@ describe("showcase mode: what counts as interaction", () => {
     const first = homeDocument();
     edge.preferred = first;
     dispose = installShowcaseMode();
-    const second = homeDocument(); // the Home drawn again in a new window
+    const second = homeDocument();
     edge.preferred = second;
     await vi.advanceTimersByTimeAsync(2 * START_AFTER_S * 1000);
     expect(edge.focus).toHaveBeenCalled();

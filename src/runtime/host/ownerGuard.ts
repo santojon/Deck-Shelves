@@ -1,15 +1,9 @@
 import pkg from "../../../package.json";
 import { OWNER_METADATA_GLOBAL, type HostOwnerMetadata } from "./contract";
 
-/* Single-owner guard for a dual-host install (two hosts both delivering the
-   bundle into ONE renderer): the first instance claims it via
-   `window.__DECK_SHELVES_OWNER__`; the other stands down — no home patch, no
-   settings writes (single-writer). `__SHELVES_FORCE_OWNER__` hands the claim
-   to the non-Decky host. A single install always owns (fail-open). */
-
 export type HostKind = "decky" | "shelveshub";
 
-let _isOwner = true; // fail-open: until a claim decides otherwise, we own
+let _isOwner = true;
 let _kind: HostKind = "decky";
 
 function ownerScope(): any {
@@ -17,16 +11,14 @@ function ownerScope(): any {
   return g.window ?? g;
 }
 
-/** Claim the renderer for this instance. Returns true when THIS instance owns it
-    (proceed to patch the home + write settings), false to stand down. */
 export function claimHomeOwnership(kind: HostKind): boolean {
   _kind = kind;
   try {
     const w = ownerScope();
     if (w.__SHELVES_FORCE_OWNER__ === "shelveshub") {
-      w.__DECK_SHELVES_OWNER__ = "shelveshub"; // cooperative hand-over
+      w.__DECK_SHELVES_OWNER__ = "shelveshub";
     } else if (w.__DECK_SHELVES_OWNER__ == null) {
-      w.__DECK_SHELVES_OWNER__ = kind; // first mount claims
+      w.__DECK_SHELVES_OWNER__ = kind;
     }
     _isOwner = w.__DECK_SHELVES_OWNER__ === kind;
     const owner = w.__DECK_SHELVES_OWNER__;
@@ -39,8 +31,6 @@ export function claimHomeOwnership(kind: HostKind): boolean {
   return _isOwner;
 }
 
-/** Whether this instance owns the renderer. Gates the home patch and every
-    `set_settings` write so a stood-down instance stays completely passive. */
 export function isHomeOwner(): boolean {
   return _isOwner;
 }

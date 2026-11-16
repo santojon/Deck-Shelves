@@ -1,5 +1,3 @@
-// Pure data transformations for EditShelfModal's save path. Extracted
-// to keep the modal under the 1000-line cap. No React, no host APIs.
 import type { Shelf, ShelfFilter, FilterGroup } from '../../../../types';
 import type { EditableShelfState } from './types';
 import { filterGroupToFilter } from '../../../../domain/settings';
@@ -85,8 +83,7 @@ const SOURCE_BUILDERS: Record<string, SourceBuilder> = {
   store: ({ state, childFilter }) => buildOnlineSource('store', state, childFilter),
 };
 
-// Collapses `[manual, …]` → `'manual'` — secondaries are meaningless
-// once primary is manual and would leak into the UI on reopen.
+// Secondary keys mean nothing under manual and would leak into the UI on reopen.
 function normalizeManualSort(sort: ShelfFilter['sort']): ShelfFilter['sort'] {
   if (Array.isArray(sort) && sort[0] === 'manual') return 'manual' as ShelfFilter['sort'];
   return sort;
@@ -120,32 +117,51 @@ export function dropEmptyChildFilter(s: any): any {
   return rest;
 }
 
-// A source's own sort, without empty fields.
-export function withSourceOrder(source: any, order: { sort?: unknown; sortReverse?: unknown } | undefined): any {
-  const { sort: _s, sortReverse: _r, ...rest } = source ?? {};
+type SourceOrderFields = { sort?: unknown; sortReverse?: unknown; limit?: unknown; manualOrder?: number[] };
+
+const placedOf = (order: SourceOrderFields | undefined) => (order?.manualOrder?.length ? { manualOrder: order.manualOrder } : {});
+
+export function withSourceOrder(source: any, order: SourceOrderFields | undefined): any {
+  const { sort: _s, sortReverse: _r, limit: _l, manualOrder: _m, ...rest } = source ?? {};
   return {
     ...rest,
     ...(order?.sort !== undefined ? { sort: order.sort } : {}),
     ...(order?.sortReverse ? { sortReverse: order.sortReverse } : {}),
+    ...(order?.limit ? { limit: order.limit } : {}),
+    ...placedOf(order),
   };
 }
 
+// The placed games stay in the editor while the sort changes, and are saved only under a manual sort.
+function dropUnusedManualOrder(s: any): any {
+  if (!s?.manualOrder || primarySortKey(s.sort) === 'manual') return s;
+  const { manualOrder: _drop, ...rest } = s;
+  return rest;
+}
+
+// The percentage is the default and stays out; an unset selected-card mode follows the normal one.
+export function discountBadgePatch(state: Pick<EditableShelfState, 'discountBadgeMode' | 'discountBadgeFocusMode'>): Partial<Shelf> {
+  return {
+    discountBadgeMode: state.discountBadgeMode !== 'percent' ? state.discountBadgeMode : undefined,
+    discountBadgeFocusMode: state.discountBadgeFocusMode ?? undefined,
+  } as Partial<Shelf>;
+}
+
+// One field at a time: a sort and its direction sent back to back must not undo each other.
+export function patchSourceOrder(source: any, patch: SourceOrderFields): any {
+  return withSourceOrder(source, { sort: source?.sort, sortReverse: source?.sortReverse, limit: source?.limit, manualOrder: source?.manualOrder, ...patch });
+}
+
 export function assembleFinalSource(primary: any, state: EditableShelfState): any {
-  // A filter primary now composes with additional sources like any other
-  // primary; only a truly single-source shelf returns the bare primary.
   if (state.additionalSources.length === 0) return primary;
-  const allChildren = [withSourceOrder(primary, state.primaryOrder), ...state.additionalSources].map(dropEmptyChildFilter);
+  const allChildren = [withSourceOrder(primary, state.primaryOrder), ...state.additionalSources].map(dropEmptyChildFilter).map(dropUnusedManualOrder);
   return { type: 'composite', combine: state.compositeCombine, sources: allChildren };
 }
 
 export function shelfSortForPatch(state: EditableShelfState): Partial<Shelf>['sort'] {
-  /* A single filter source carries its sort on the source itself, so the
-     shelf-level sort is omitted. Once it's part of a composite, the merged
-     result is re-sorted by the shelf-level sort — so surface the filter's
-     chosen sort there too (state.filter.sort), otherwise the order is lost. */
+  // In a composite the filter's sort moves to the shelf level, or the order is lost.
   if (state.sourceType === 'filter' && state.additionalSources.length === 0) return undefined;
   const eff = state.sourceType === 'filter' ? state.filter.sort : state.sort;
-  // A built-in or composite source has its own order, so "alphabetical" is saved explicitly there.
   const ownOrder = state.sourceType === 'builtin' || state.additionalSources.length > 0;
   const hasUserSort = Array.isArray(eff) ? eff.length > 0 : (eff != null && (eff !== 'alphabetical' || ownOrder));
   if (!hasUserSort) return undefined;

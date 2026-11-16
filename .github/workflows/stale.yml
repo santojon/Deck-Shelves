@@ -2,8 +2,7 @@ name: "Triage · Stale issues"
 
 # Three disjoint buckets over one `stale` label: needs-info warns at 21d and closes at 35d;
 # untriaged warns at 30d and closes at 60d; labelled issues only get `stale` at 60d.
-# keep-open, critical/high priority, assigned and milestoned issues and all PRs are exempt;
-# a manual run is a dry run by default.
+# A manual run is a dry run by default.
 
 on:
   workflow_dispatch:
@@ -35,7 +34,7 @@ jobs:
             any_of_labels: ''
             exempt_labels: 'keep-open,priority::critical,priority::high'
             days_before_stale: 21
-            days_before_close: 14   # → closes at 35d
+            days_before_close: 14
             stale_message: "👋 This issue has been waiting on the requested information for a while. If it's still relevant, please reply with those details — otherwise it will be closed automatically in 14 days. Maintainers: add the `keep-open` label to exempt it."
             close_message: "Closing because we didn't hear back — no judgment on the report. If you can still reproduce it, just comment and we'll reopen. 🙂"
           - bucket: untriaged-idle
@@ -43,7 +42,7 @@ jobs:
             any_of_labels: ''
             exempt_labels: 'keep-open,priority::critical,priority::high,needs-info,type::bug,type::feature,type::enhancement,type::duplicated,type::invalid,type::wontfix,priority::medium,priority::low'
             days_before_stale: 30
-            days_before_close: 30   # → closes at 60d
+            days_before_close: 30
             stale_message: "👋 This issue hasn't had any activity for a while and isn't triaged yet. If it's still relevant, a quick comment keeps it open — otherwise it will be closed automatically in 30 days. Maintainers: add a `type::*` / `priority::*` label or `keep-open` to exempt it."
             close_message: "Closing due to inactivity. If this still happens on a current version, please comment with details and we'll take another look. 🙂"
           - bucket: confirmed-accepted
@@ -52,7 +51,7 @@ jobs:
             exempt_labels: 'keep-open,priority::critical,priority::high,needs-info'
             days_before_stale: 60
             days_before_close: -1   # label only — never auto-closed
-            stale_message: ''       # pure label, no comment
+            stale_message: ''
             close_message: ''
     steps:
       - name: Stale (${{ matrix.bucket }})

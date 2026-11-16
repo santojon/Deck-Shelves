@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Load .env from project root if present
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 if [[ -f "${PROJECT_ROOT}/.env" ]]; then
@@ -22,8 +21,7 @@ fi
 REMOTE_PLUGIN_DIR="/home/${USER_NAME}/homebrew/plugins/${PLUGIN_SLUG}"
 SSH_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR"
 
-# Fix ownership of only our plugin directory using sudo -S (non-interactive).
-# Pipe the password via stdin to avoid TTY requirement.
+# The password goes to sudo -S on stdin, so no TTY is needed.
 if [[ -n "$SUDO_PASS" ]]; then
   ssh ${SSH_OPTS} "${USER_NAME}@${HOST}" \
     "printf '%s\n' '${SUDO_PASS}' | sudo -S bash -c \"mkdir -p '${REMOTE_PLUGIN_DIR}' && chown -R ${USER_NAME}:${USER_NAME} '${REMOTE_PLUGIN_DIR}' && chmod -R u+rwX '${REMOTE_PLUGIN_DIR}'\" 2>/dev/null || true"

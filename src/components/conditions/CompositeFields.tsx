@@ -10,11 +10,6 @@ function compositeHint(type: FilterItem["type"], t: (k: any) => string): string 
   return t("filter_exclusion_hint");
 }
 
-/* Editor for the composite filter types (weighted / priority / exclusion). Each
-   holds child filter items in `params.children` — any filter type, evaluated
-   through the host's full evaluator. `weightedFilter` adds a `threshold`: match
-   when at least that many children match (children default to weight 1). Reuses
-   ConditionEditor, with its AND/OR mode hidden — the composite defines the rule. */
 export default function CompositeFields({
   item,
   onChange,

@@ -3,7 +3,6 @@ import { act, Component, createElement, forwardRef, memo } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-// The adapter's afterPatch, shaped like the hosts' helper: wraps the slot, returns { unpatch }.
 const host = vi.hoisted(() => ({
   mode: "patch" as "patch" | "none" | "throw",
   refuse: new Set<object>(),
@@ -31,7 +30,6 @@ const HOME = "/library/home";
 const SHARED_KEY = "__ds_recentsRow";
 const STEAM_GAMES = [4514790, 1627720, 1332010];
 
-// Steam's output as the production build makes it: plain mutable objects.
 function el(type: unknown, props: Record<string, unknown> = {}, key: string | null = null): any {
   return { $$typeof: ELEMENT, type, key, ref: null, props };
 }
@@ -42,7 +40,6 @@ function memoOf(inner: (...args: any[]) => unknown): any {
 
 const noop = () => {};
 
-// The Home and its recent-games row, in the shape both tested clients draw them.
 function steamFixture() {
   const Focusable = function Focusable() { return null; };
   const Art = function Art() { return null; };
@@ -98,7 +95,6 @@ function content(over: Partial<RecentsRowContent> = {}): RecentsRowContent {
 function makeHooks(value: RecentsRowContent | null = content()) {
   return {
     getContent: vi.fn((): RecentsRowContent | null => value),
-    // Like the kept half: the first text-only element of the scope gets the title, in place.
     writeTitle: vi.fn((scope: any, title: string) => {
       const node = firstTextElement(scope);
       if (node && title) node.props.children = title;
@@ -110,7 +106,6 @@ function makeHooks(value: RecentsRowContent | null = content()) {
 
 type Hooks = ReturnType<typeof makeHooks>;
 
-// The kept half's lookup: depth first, each object before what it holds, through props/children/child/sibling.
 function firstTextElement(node: any): any {
   if (!node || typeof node !== "object") return null;
   if (typeof node.props?.children === "string" && node.props.children.trim()) return node;
@@ -139,7 +134,6 @@ function runRoute(router: Router, children: unknown): any {
   return router.patches[0].patch({ path: HOME, children });
 }
 
-// What React does with the wrapped slots: call the Home, call the row, draw the row's shell.
 function renderHome(f: Fixture): any {
   return f.Home.type({});
 }
@@ -166,7 +160,6 @@ function install(router: unknown, hooks: unknown): RecentsRowPatch | null {
   return handle;
 }
 
-// Installs, lets the route patch find the Home and lets one Home render find the row.
 function ready(value: RecentsRowContent | null = content()) {
   const f = steamFixture();
   const router = makeRouter();
@@ -343,7 +336,6 @@ describe("installRecentsRowPatch: renders", () => {
     expect(target.props.children).toBe("Backlog");
     expect(hooks.onReport.mock.calls).toEqual([[{ kind: "applied" }]]);
 
-    // Steam's own objects are never written to.
     expect(f.title.props.children).toBe("Heading");
     expect(f.list.props.games).toEqual(STEAM_GAMES);
     expect(f.list.props.showFeaturedItem).toBe(true);
@@ -627,7 +619,6 @@ describe("installRecentsRowPatch: runtime cost", () => {
   });
 });
 
-// The row drawn by React, so the re-render path runs through React's own update queue.
 function reactFixture() {
   const listProps: any[] = [];
   const onItemFocus = vi.fn();

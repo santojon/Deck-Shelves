@@ -8,6 +8,9 @@ import {
   sanitizeSyntheticCard,
   primarySortKey,
   isStateManualSort,
+  withSourceOrder,
+  patchSourceOrder,
+  discountBadgePatch,
 } from '../../components/qam/modals/editShelf/saveHelpers';
 import type { EditableShelfState } from '../../components/qam/modals/editShelf/types';
 
@@ -157,6 +160,53 @@ describe('saveHelpers.assembleFinalSource', () => {
     const out = assembleFinalSource({ type: 'builtin', sourceId: 'pinned_games' }, state);
     expect(out.sources[0]).toEqual({ type: 'builtin', sourceId: 'pinned_games', sort: 'alphabetical' });
     expect(out.sources[1]).toEqual({ type: 'smart', mode: 'recently_played', sort: 'playtime' });
+  });
+
+  it("saves each source's own game limit, and drops it once cleared", () => {
+    const state = baseState({
+      sourceType: 'builtin',
+      additionalSources: [withSourceOrder({ type: 'tab', tab: 'installed', limit: 8 }, { limit: undefined })],
+      primaryOrder: { sort: 'recent', limit: 5 },
+    });
+    const out = assembleFinalSource({ type: 'builtin', sourceId: 'pinned_games' }, state);
+    expect(out.sources[0]).toEqual({ type: 'builtin', sourceId: 'pinned_games', sort: 'recent', limit: 5 });
+    expect(out.sources[1]).toEqual({ type: 'tab', tab: 'installed' });
+  });
+
+  it('keeps a sort chosen with its direction right after it, and the limit, on a source', () => {
+    let source: any = { type: 'tab', tab: 'installed', sort: 'recent', sortReverse: true, limit: 4 };
+    source = patchSourceOrder(source, { sort: undefined });
+    source = patchSourceOrder(source, { sortReverse: false });
+    expect(source).toEqual({ type: 'tab', tab: 'installed', limit: 4 });
+    source = patchSourceOrder(source, { sort: 'random' });
+    source = patchSourceOrder(source, { sortReverse: false });
+    expect(source).toEqual({ type: 'tab', tab: 'installed', sort: 'random', limit: 4 });
+  });
+
+  it('keeps the games placed on a source across other changes, and saves them only under a manual sort', () => {
+    let source: any = patchSourceOrder({ type: 'collection', collectionId: 'c', sort: 'manual' }, { manualOrder: [7, 3] });
+    source = patchSourceOrder(source, { limit: 2 });
+    expect(source).toEqual({ type: 'collection', collectionId: 'c', sort: 'manual', limit: 2, manualOrder: [7, 3] });
+    const manual = assembleFinalSource({ type: 'builtin', sourceId: 'pinned_games' }, baseState({ sourceType: 'builtin', additionalSources: [source] }));
+    expect(manual.sources[1].manualOrder).toEqual([7, 3]);
+    source = patchSourceOrder(source, { sort: 'recent' });
+    expect(source.manualOrder).toEqual([7, 3]);
+    const sorted = assembleFinalSource({ type: 'builtin', sourceId: 'pinned_games' }, baseState({ sourceType: 'builtin', additionalSources: [source] }));
+    expect(sorted.sources[1]).toEqual({ type: 'collection', collectionId: 'c', sort: 'recent', limit: 2 });
+  });
+
+  it('saves the games placed on the first source, and none once they are all back in place', () => {
+    const state = baseState({ sourceType: 'builtin', additionalSources: [{ type: 'tab', tab: 'installed' } as any], primaryOrder: { sort: 'manual', manualOrder: [4, 1] } });
+    expect(assembleFinalSource({ type: 'builtin', sourceId: 'pinned_games' }, state).sources[0]).toEqual({ type: 'builtin', sourceId: 'pinned_games', sort: 'manual', manualOrder: [4, 1] });
+    const cleared = baseState({ sourceType: 'builtin', additionalSources: [{ type: 'tab', tab: 'installed' } as any], primaryOrder: { sort: 'manual', manualOrder: [] } });
+    expect(assembleFinalSource({ type: 'builtin', sourceId: 'pinned_games' }, cleared).sources[0]).toEqual({ type: 'builtin', sourceId: 'pinned_games', sort: 'manual' });
+  });
+});
+
+describe('saveHelpers.discountBadgePatch', () => {
+  it('leaves the default percentage and an unset selected-card mode out, and keeps the rest', () => {
+    expect(discountBadgePatch({ discountBadgeMode: 'percent', discountBadgeFocusMode: null })).toEqual({ discountBadgeMode: undefined, discountBadgeFocusMode: undefined });
+    expect(discountBadgePatch({ discountBadgeMode: 'percent_price', discountBadgeFocusMode: 'both' })).toEqual({ discountBadgeMode: 'percent_price', discountBadgeFocusMode: 'both' });
   });
 });
 

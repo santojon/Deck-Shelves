@@ -19,7 +19,7 @@ describe("settings schemaVersion migration (§4B)", () => {
     const newer = { ...base(), schemaVersion: SCHEMA_VERSION + 5 } as any;
     const out = migrate(newer);
     expect(out.schemaVersion).toBe(SCHEMA_VERSION + 5);
-    expect(out).toBe(newer); // returned untouched, no migration applied
+    expect(out).toBe(newer);
   });
 
   it("still applies forward migrations for an older document", () => {

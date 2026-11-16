@@ -1,10 +1,5 @@
 import type { DeckRowItem } from "./types";
 
-/* Keeps row item identity stable across re-resolves: a rebuilt item whose
-   data fields equal the previous build's reuses the previous object (closures
-   only capture shelf id / platform / appid, all unchanged); a row whose every
-   item is reused returns the previous ARRAY, so memoised cards and rows skip
-   the re-render a refresh emit forced on every card (~400–800 per round). */
 function bothPlainObjects(a: any, b: any): boolean {
   return !!a && !!b && typeof a === "object" && typeof b === "object" && Array.isArray(a) === Array.isArray(b);
 }

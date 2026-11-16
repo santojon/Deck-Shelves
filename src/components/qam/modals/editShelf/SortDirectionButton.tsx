@@ -1,6 +1,7 @@
 import { DialogButton, Focusable } from '../../../../runtime/host/decky'
 import i18n from '../../../../i18n'
 import { icons } from '../../icons'
+import { FOLLOW_SHELF_SORT } from './constants'
 
 const iconButtonStyle = {
   height: 40,
@@ -22,7 +23,7 @@ export function SortDirectionButton({
   reverse: boolean
   onChange: (next: boolean) => void
 }) {
-  if (sort === 'manual' || sort === 'random') return null
+  if (sort === 'manual' || sort === 'random' || sort === FOLLOW_SHELF_SORT) return null
   const t = i18n.t.bind(i18n)
   const aria = t(reverse ? 'sort_direction_asc' : 'sort_direction_desc')
   return (

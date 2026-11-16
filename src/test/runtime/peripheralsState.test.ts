@@ -14,15 +14,15 @@ describe('evalPeripheralRule', () => {
     rpc.bt = { paired: [{ mac: 'AA:BB', name: 'WH-1000XM4' }], connected: ['AA:BB'], supported: true }
     rpc.audio = { headphones: true, supported: true }
     requestPeripheralsRefresh()
-    await new Promise((r) => setTimeout(r, 0)) // let the on-demand refresh resolve
+    await new Promise((r) => setTimeout(r, 0))
 
     expect(isPeripheralRuleKind('bluetoothConnected')).toBe(true)
     expect(isPeripheralRuleKind('headphonesConnected')).toBe(true)
     expect(isPeripheralRuleKind('battery')).toBe(false)
 
-    expect(evalPeripheralRule({ kind: 'bluetoothConnected', mac: 'aa:bb' })).toBe(true)  // case-insensitive
+    expect(evalPeripheralRule({ kind: 'bluetoothConnected', mac: 'aa:bb' })).toBe(true)
     expect(evalPeripheralRule({ kind: 'bluetoothConnected', mac: 'CC:DD' })).toBe(false)
-    expect(evalPeripheralRule({ kind: 'bluetoothConnected' })).toBe(true)               // unconfigured → fail open
+    expect(evalPeripheralRule({ kind: 'bluetoothConnected' })).toBe(true)
     expect(evalPeripheralRule({ kind: 'headphonesConnected' })).toBe(true)
 
     expect(getBluetoothPaired().map((d) => d.mac)).toEqual(['AA:BB'])

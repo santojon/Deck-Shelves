@@ -1,11 +1,3 @@
-// Native classmap discovery via the host plugin runtime global (DFL).
-// Extracted from webpackCompat.ts to keep that file under 1000 lines.
-
-/** DFL exposes `classMap` (webpack modules, each `{semanticKey: obfuscatedClass}`)
- *  on its global. Semantic names are stable across Steam builds; obfuscated
- *  values rebuild each release. Prefer this over heuristic DOM probing when DFL
- *  is available. Returns a flat semantic-name → obfuscated-class map (empty when
- *  DFL is unreachable or the keys don't exist). */
 function isObfuscatedClassValue(v: any): v is string {
   return typeof v === 'string'
     && v.length >= 6 && v.length <= 60
@@ -36,13 +28,7 @@ export function _discoverViaDFL(doc: Document): Record<string, string> {
     if (!DFL || !Array.isArray(DFL.classMap)) return {};
     const flat = flattenDflClassMap(DFL.classMap);
 
-    /* Map DFL semantic names → DS-internal class-map keys. Curated set
-       covering every surface a third-party theme commonly targets for shelf /
-       card / focus / status / footer styling. Names below mirror Steam's
-       internal webpack module keys (562 surveyed via CDP; ~150 selected as
-       shelf-relevant). */
     const KEY_MAP: Record<string, string> = {
-      // ─ Recents shelf ───────────────────────────────────────────────────
       RecentGames: 'nativeRecentGames',
       RecentGame: 'nativeRecentGame',
       RecentGameFooter: 'nativeRecentGameFooter',
@@ -61,7 +47,6 @@ export function _discoverViaDFL(doc: Document): Record<string, string> {
       RecentlyCompletedCarousel: 'nativeRecentlyCompletedCarousel',
       RecentlyCompletedItem: 'nativeRecentlyCompletedItem',
 
-      // ─ Hero background ─────────────────────────────────────────────────
       RecentGamesBackgroundContainer: 'nativeHeroContainer',
       RecentGamesBackgroundImages: 'nativeHeroImages',
       RecentGamesBackgroundImage: 'nativeHeroImage',
@@ -76,7 +61,6 @@ export function _discoverViaDFL(doc: Document): Record<string, string> {
       HeroImageContainer: 'nativeSemanticHeroImageContainer',
       HeroCapsuleImageContainer: 'nativeHeroCapsule',
 
-      // ─ Card structure ──────────────────────────────────────────────────
       Card: 'nativeSemanticCard',
       CardContainer: 'nativeSemanticCardContainer',
       CardImage: 'nativeSemanticCardImage',
@@ -97,7 +81,6 @@ export function _discoverViaDFL(doc: Document): Record<string, string> {
       LibraryItemOverlayOuterArea: 'nativeLibraryItemOverlayOuter',
       LibraryItemOverlayInnerArea: 'nativeLibraryItemOverlayInner',
 
-      // ─ Capsule (generic card art container) ────────────────────────────
       Capsule: 'nativeCapsule',
       CapsuleImage: 'nativeCapsuleImage',
       CapsuleImageCtn: 'nativeCapsuleImageCtn',
@@ -114,7 +97,6 @@ export function _discoverViaDFL(doc: Document): Record<string, string> {
       CapsuleImageAnchorPoint: 'nativeCapsuleImageAnchor',
       GameCapsule: 'nativeGameCapsule',
 
-      // ─ Featured / focused-state styling ────────────────────────────────
       Featured: 'nativeSemanticFeatured',
       FeaturedCapsule: 'nativeSemanticFeaturedCapsule',
       FeaturedSeparator: 'nativeFeaturedSeparator',
@@ -131,7 +113,6 @@ export function _discoverViaDFL(doc: Document): Record<string, string> {
       featuredTitle: 'nativeFeaturedTitle',
       featuredSubTitle: 'nativeFeaturedSubtitle',
 
-      // ─ Focus / highlight ───────────────────────────────────────────────
       Focus: 'nativeFocus',
       Focused: 'nativeFocused',
       FocusedContainer: 'nativeFocusedContainer',
@@ -152,7 +133,6 @@ export function _discoverViaDFL(doc: Document): Record<string, string> {
       Highlights: 'nativeHighlights',
       HighlightEdge: 'nativeHighlightEdge',
 
-      // ─ Title / labels ──────────────────────────────────────────────────
       Title: 'nativeTitle',
       TitleBar: 'nativeTitleBar',
       TitleSection: 'nativeTitleSection',
@@ -170,7 +150,6 @@ export function _discoverViaDFL(doc: Document): Record<string, string> {
       gameLogo: 'nativeGameLogoLower',
       GameArt: 'nativeGameArt',
 
-      // ─ Hidden state ────────────────────────────────────────────────────
       Hide: 'nativeHide',
       Hidden: 'nativeHidden',
       HideButton: 'nativeHideButton',
@@ -179,7 +158,6 @@ export function _discoverViaDFL(doc: Document): Record<string, string> {
       HiddenGameLabel: 'nativeHiddenGameLabel',
       HiddenLabel: 'nativeHiddenLabel',
 
-      // ─ Status (playing / installing / etc) ─────────────────────────────
       Status: 'nativeStatus',
       StatusIcon: 'nativeStatusIcon',
       StatusItem: 'nativeStatusItem',
@@ -196,7 +174,6 @@ export function _discoverViaDFL(doc: Document): Record<string, string> {
       StatusCaution: 'nativeStatusCaution',
       gameState: 'nativeGameState',
 
-      // ─ Playtime ────────────────────────────────────────────────────────
       Playtime: 'nativePlaytime',
       PlaytimeStatus: 'nativePlaytimeStatus',
       PlaytimeContent: 'nativePlaytimeContent',
@@ -206,7 +183,6 @@ export function _discoverViaDFL(doc: Document): Record<string, string> {
       PlaytimeCurrentSession: 'nativePlaytimeCurrentSession',
       PlayTimeRow: 'nativePlayTimeRow',
 
-      // ─ Deck Compat icons / badges ──────────────────────────────────────
       DeckCompat: 'nativeDeckCompat',
       DeckCompatIcon: 'nativeDeckCompatIcon',
       CompatIcon: 'nativeCompatIcon',
@@ -215,7 +191,6 @@ export function _discoverViaDFL(doc: Document): Record<string, string> {
       CompatFooterIcons: 'nativeCompatFooterIcons',
       CompatFooterDescription: 'nativeCompatFooterDesc',
 
-      // ─ Footer / status line ────────────────────────────────────────────
       Footer: 'nativeFooter',
       FooterControls: 'nativeFooterControls',
       FooterLegend: 'nativeFooterLegend',
@@ -224,7 +199,6 @@ export function _discoverViaDFL(doc: Document): Record<string, string> {
       FooterBlurImage: 'nativeFooterBlur',
       FooterBlurImageContainer: 'nativeFooterBlurCtn',
 
-      // ─ Section / shelf-row equivalents ─────────────────────────────────
       Section: 'nativeSection',
       SectionHeader: 'nativeSectionHeader',
       SectionHeaderContent: 'nativeSectionHeaderContent',
@@ -237,7 +211,6 @@ export function _discoverViaDFL(doc: Document): Record<string, string> {
       GameRow: 'nativeSemanticGameRow',
       GameList: 'nativeGameList',
 
-      // ─ Library home / outer shell ──────────────────────────────────────
       Library: 'nativeLibrary',
       LibraryHome: 'nativeLibraryHome',
       LibraryHomeSection: 'nativeLibraryHomeSection',
@@ -257,7 +230,6 @@ export function _discoverViaDFL(doc: Document): Record<string, string> {
       HomeBox: 'nativeHomeBox',
       GameListHomeAndSearch: 'nativeGameListHomeAndSearch',
 
-      // ─ Carousel (Frontpage/Spotlight surface) ──────────────────────────
       CarouselBody: 'nativeSemanticCarouselBody',
       CarouselHeader: 'nativeSemanticCarouselHeader',
       CarouselItem: 'nativeSemanticCarouselItem',
@@ -277,7 +249,6 @@ export function _discoverViaDFL(doc: Document): Record<string, string> {
       CarouselCapsuleBackgroundGlow: 'nativeCarouselCapsuleGlow',
       CarouselControlsPadding: 'nativeCarouselControlsPadding',
 
-      // ─ Spotlights / Banner ─────────────────────────────────────────────
       Spotlights: 'nativeSpotlights',
       Banner: 'nativeBanner',
       BannerContainer: 'nativeBannerContainer',
@@ -287,7 +258,6 @@ export function _discoverViaDFL(doc: Document): Record<string, string> {
       BannerVideoOverlay: 'nativeBannerVideo',
       BannerSecondHalf: 'nativeBannerSecondHalf',
 
-      // ─ Collection shelf (when home shows a collection bar) ─────────────
       Collection: 'nativeCollection',
       CollectionShelfBanner: 'nativeCollectionShelfBanner',
       CollectionShelfBannerCtn: 'nativeCollectionShelfBannerCtn',
@@ -302,7 +272,6 @@ export function _discoverViaDFL(doc: Document): Record<string, string> {
       CollectionContents: 'nativeCollectionContents',
       CollectionHeader: 'nativeCollectionHeader',
 
-      // ─ Context menu (used by DS shelf-card action menu) ────────────────
       LibraryContextMenu: 'nativeLibraryContextMenu',
     };
 

@@ -54,7 +54,7 @@ def test_force_skips_a_fresh_entry():
     cache = TtlCache(30.0, probe, clock)
     cache.get()
     assert cache.get(force=True) == {"n": 2}
-    assert cache.get() == {"n": 2}  # the forced answer is the cached one now
+    assert cache.get() == {"n": 2}
     assert probe.calls == 2
 
 
@@ -77,7 +77,7 @@ def test_error_clears_the_previous_entry():
     with pytest.raises(RuntimeError):
         cache.get(force=True)
     probe.fail = False
-    assert cache.get() == {"n": 3}  # nothing stale is served after a failure
+    assert cache.get() == {"n": 3}
 
 
 def test_clock_stepped_backwards_expires_the_entry():
@@ -91,14 +91,12 @@ def test_clock_stepped_backwards_expires_the_entry():
 
 def test_wants_force_reads_both_argument_shapes():
     assert wants_force() is False
-    assert wants_force({}) is False               # loader: empty payload
-    assert wants_force({"force": True}) is True   # loader: positional dict
+    assert wants_force({}) is False
+    assert wants_force({"force": True}) is True
     assert wants_force({"force": False}) is False
-    assert wants_force(force=True) is True        # neutral runner: keyword
+    assert wants_force(force=True) is True
     assert wants_force(True) is True
 
-
-# ── The RPC methods in main.py ────────────────────────────────────────────────
 
 def _plugin_and_probe(monkeypatch, cache_name, ttl):
     import main
@@ -122,8 +120,8 @@ def test_rpc_caches_are_wired_to_the_probes():
 def test_rpc_serves_the_cache_and_probes_off_the_event_loop(monkeypatch, method, cache_name, ttl):
     plugin, probe, clock = _plugin_and_probe(monkeypatch, cache_name, ttl)
     rpc = getattr(plugin, method)
-    assert asyncio.run(rpc({})) == {"n": 1}  # loader shape: empty payload
-    assert asyncio.run(rpc()) == {"n": 1}    # runner shape: no arguments
+    assert asyncio.run(rpc({})) == {"n": 1}
+    assert asyncio.run(rpc()) == {"n": 1}
     assert probe.calls == 1
     clock.now += ttl
     assert asyncio.run(rpc()) == {"n": 2}
@@ -133,15 +131,13 @@ def test_rpc_serves_the_cache_and_probes_off_the_event_loop(monkeypatch, method,
 def test_rpc_force_flag_reprobes_in_both_shapes(monkeypatch):
     plugin, probe, _ = _plugin_and_probe(monkeypatch, "_BLUETOOTH_CACHE", 10.0)
     asyncio.run(plugin.get_bluetooth_state())
-    assert asyncio.run(plugin.get_bluetooth_state({"force": True})) == {"n": 2}  # loader
-    assert asyncio.run(plugin.get_bluetooth_state(force=True)) == {"n": 3}       # neutral runner
+    assert asyncio.run(plugin.get_bluetooth_state({"force": True})) == {"n": 2}
+    assert asyncio.run(plugin.get_bluetooth_state(force=True)) == {"n": 3}
     assert asyncio.run(plugin.get_bluetooth_state()) == {"n": 3}
     assert probe.calls == 3
 
 
 def test_hardware_info_is_not_cached(monkeypatch):
-    # System information's Refresh re-reads the probe (a disk plugged in just
-    # now must show), and no visibility rule calls it, so there is no cache.
     import main
     probe = Probe()
     monkeypatch.setattr(main, "_hardware_info", probe)

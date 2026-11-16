@@ -38,7 +38,6 @@ describe('public API built-in catalogues', () => {
     expect(shortcuts.length).toBe(Object.keys(DEFAULT_BINDINGS).length)
     const search = shortcuts.find((s) => s.action === 'navSearch')
     expect(search?.defaultCombo).toBe('L1+R1')
-    // combo falls back to the default when the user hasn't customised it
     expect(search?.combo).toBe('L1+R1')
   })
 })

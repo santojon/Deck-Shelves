@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
-# Python parity for ESLint's `max-lines` rule (cap 1000 code lines).
-# Counts non-blank, non-comment lines per .py and errors on overruns.
-# Scope mirrors `pnpm run lint:py`: main.py + src/backend/ + scripts/ (recurses).
+# Python parity for ESLint max-lines: fails on any .py over 1000 code lines.
 from __future__ import annotations
 
 import sys

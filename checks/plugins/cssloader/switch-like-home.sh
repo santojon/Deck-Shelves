@@ -7,8 +7,7 @@ run_checks() {
   local fail=0
   local src="$root/src"
 
-  # The theme's own adapter (src/themes/adapters) and its tests are the one
-  # sanctioned place for the name; anywhere else means coupling.
+  # The theme's own adapter and its tests are the only sanctioned place for the name.
   if grep -Riq "switch[-_ ]like\s*home\|switchlikehome" "$src" --exclude-dir=__pycache__ --exclude-dir=adapters --exclude-dir=test 2>/dev/null; then
     echo "  ❌ Source references 'switch-like home' (may indicate theme-specific coupling)"
     ((fail++))

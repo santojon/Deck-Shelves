@@ -6,9 +6,13 @@ import {
   withChildValue,
   childSourceValue,
   normalizeChildSourceType,
+  orderingChildOf,
+  placedPrefix,
 } from "../../../components/qam/modals/editShelf/compositeSourceUtils";
 import { buildInitialShelfState } from "../../../components/qam/modals/editShelf/buildInitialState";
-import { SMART_MODE_OPTIONS } from "../../../components/qam/modals/editShelf/constants";
+import { FOLLOW_SHELF_SORT, SMART_MODE_OPTIONS } from "../../../components/qam/modals/editShelf/constants";
+import { isManualSourceOrder, nextSourceSort, sourceSortOptions } from "../../../components/qam/modals/editShelf/SourceSortField";
+import { applySourceManualOrder } from "../../../steam/sorting";
 import { RETIRED_SMART_MODES } from "../../../steam/smartShelves";
 import { ShelfSourceSchema } from "../../../types";
 
@@ -60,5 +64,54 @@ describe("composite source rows", () => {
     ] }) as any;
     expect(parsed.sources[0]).toMatchObject({ sort: "alphabetical", sortReverse: true });
     expect(parsed.sources[1]).toMatchObject({ sort: "discount_high" });
+  });
+
+  it("load and keep each source's own game limit", () => {
+    const ctx = { mode: "edit" as const, collections: [], platformTabs: [], externalSources: [] };
+    const source = { type: "composite", combine: "union", sources: [
+      { type: "builtin", sourceId: "pinned_games", limit: 5 },
+      { type: "smart", mode: "recently_played", sort: "recent", limit: 3 },
+    ] };
+    const state = buildInitialShelfState({ ...ctx, shelf: { id: "c", title: "C", enabled: true, limit: 10, sort: "alphabetical", source } as any });
+    expect(state.primaryOrder).toEqual({ limit: 5 });
+    expect(state.additionalSources).toEqual([{ type: "smart", mode: "recently_played", sort: "recent", limit: 3 }]);
+    const parsed = ShelfSourceSchema.parse(source) as any;
+    expect(parsed.sources.map((s: any) => s.limit)).toEqual([5, 3]);
+  });
+
+  it("save no sort for the choice an unset source already makes: its own order under Source order, the shelf's under any other", () => {
+    expect(nextSourceSort("source_order", false)).toBeUndefined();
+    expect(nextSourceSort(FOLLOW_SHELF_SORT, true)).toBeUndefined();
+    expect(nextSourceSort("source_order", true)).toBe("source_order");
+    expect(nextSourceSort(["recent", "alphabetical"], true)).toEqual(["recent", "alphabetical"]);
+  });
+});
+
+describe("a source ordered by hand in the editor", () => {
+  it("offers Manual as a source's sort", () => {
+    expect(sourceSortOptions("collection", false).map((o) => o.data)).toContain("manual");
+    expect(isManualSourceOrder({ sort: "manual" })).toBe(true);
+    expect(isManualSourceOrder({ sort: ["manual"] })).toBe(true);
+    expect(isManualSourceOrder({ sort: "recent" })).toBe(false);
+    expect(isManualSourceOrder(undefined)).toBe(false);
+  });
+
+  it("shows the row's source only while it is sorted by hand; -1 is the first source", () => {
+    const composite = { type: "composite", combine: "union", sources: [{ type: "tab", tab: "installed", sort: "manual" }, { type: "collection", collectionId: "c", sort: "recent" }] };
+    expect(orderingChildOf(composite, -1)).toBe(composite.sources[0]);
+    expect(orderingChildOf(composite, 0)).toBeUndefined();
+    expect(orderingChildOf(composite, null)).toBeUndefined();
+    expect(orderingChildOf({ type: "tab", tab: "installed", sort: "manual" }, -1)).toBeUndefined();
+  });
+
+  it("stores only the run up to the last moved game, and that run rebuilds the same order", () => {
+    const base = [10, 20, 30, 40, 50];
+    expect(placedPrefix(base.slice(), base)).toEqual([]);
+    const moves = [[40, 10, 20, 30, 50], [20, 10, 30, 40, 50], [10, 20, 30, 50, 40], [50, 40, 30, 20, 10]];
+    for (const next of moves) {
+      const placed = placedPrefix(next, base);
+      expect(applySourceManualOrder(base, placed)).toEqual(next);
+    }
+    expect(placedPrefix([40, 10, 20, 30, 50], base)).toEqual([40, 10, 20, 30]);
   });
 });

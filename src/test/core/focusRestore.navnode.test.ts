@@ -2,8 +2,6 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { focusElement, saveFocusTarget, tryRestoreFocus, clearFocusTarget, hasPendingFocus } from "../../core/focusRestore";
 
-/* Builds a DS card element whose React fiber carries Steam's nav node the way
-   a mounted Focusable does: a ref hook whose `current` has `m_Tree`. */
 function cardWithNavNode(opts: { activeCtx: any; homeInActive?: boolean }) {
   const card = document.createElement("div");
   card.className = "ds-card";

@@ -9,13 +9,12 @@ type Stoppable = {
   stopImmediatePropagation?: () => void
 }
 
-// Steam's gamepad event, as the Focusable callbacks receive it.
 type PadEvent = (Stoppable & { detail?: { button?: unknown; is_repeat?: boolean; event?: Stoppable } }) | null | undefined
 
 type Grab = {
-  from: number // index in items of the grabbed row
-  perm: number[] // would-be order, as item indexes
-  base: string[] // ids of items when the row was grabbed
+  from: number
+  perm: number[]
+  base: string[]
 }
 
 type GrabRowNodes = {
@@ -54,7 +53,7 @@ function directionDelta(button: unknown): number | null {
 }
 
 function invoke(target: Stoppable | null | undefined, method: keyof Stoppable): void {
-  try { target?.[method]?.() } catch { /* a host event may refuse the call */ }
+  try { target?.[method]?.() } catch {}
 }
 
 // Keeps Steam's navigation and the QAM router from also acting on the press.
@@ -68,31 +67,27 @@ function absorb(evt: PadEvent): void {
 
 function focusTarget(target: HTMLElement | null): void {
   if (!target || takeNavTreeFocus(target)) return
-  try { target.focus() } catch { /* detached element */ }
+  try { target.focus() } catch {}
 }
 
 function scrollIntoNearest(row: HTMLElement | null): void {
   if (!row || typeof row.scrollIntoView !== 'function') return
-  try { row.scrollIntoView({ block: 'nearest' }) } catch { /* detached element */ }
+  try { row.scrollIntoView({ block: 'nearest' }) } catch {}
 }
 
-// The row's own menu control, when the caller's actions include one (RowMenuButton).
 function openRowMenu(row: HTMLElement | null): boolean {
   const control = row?.querySelector<HTMLElement>('[data-ds-row-menu]')
   if (!control) return false
-  try { control.click() } catch { /* detached element */ }
+  try { control.click() } catch {}
   return true
 }
 
-/* Grab state for one list. Handlers read and write it here at once, so rapid
-   presses act on the latest state; React state mirrors it for rendering. */
 function createGrabControl(setGrab: (next: Grab | null) => void) {
   let grab: Grab | null = null
   let ids: string[] = []
   let onReorder: (ids: string[]) => void = noop
   let frame: { win: Window; id: number } | null = null
   let alive = true
-  // A saved order the caller has not applied yet, and the row to refocus then.
   let landing: { base: string[]; order: string[]; refs: GrabRowNodes } | null = null
 
   const commit = (next: Grab | null) => { grab = next; setGrab(next) }
@@ -102,10 +97,9 @@ function createGrabControl(setGrab: (next: Grab | null) => void) {
     if (!frame) return
     const { win, id } = frame
     frame = null
-    try { win.cancelAnimationFrame(id) } catch { /* window already gone */ }
+    try { win.cancelAnimationFrame(id) } catch {}
   }
 
-  // One frame after the press: focus back on the row, then scroll it into view.
   function schedule(refs: GrabRowNodes): void {
     cancelFrame()
     const win = refs.row.current?.ownerDocument?.defaultView
@@ -129,8 +123,7 @@ function createGrabControl(setGrab: (next: Grab | null) => void) {
     onReorder(order)
   }
 
-  // The caller may apply the saved order a render later; moving the row's node
-  // drops its focus, so take it back when that order arrives.
+  // Moving the row's node drops its focus, so take it back when the new order arrives.
   function land(nextIds: string[]): void {
     if (!landing) return
     const { base, order, refs } = landing
@@ -170,14 +163,12 @@ function createGrabControl(setGrab: (next: Grab | null) => void) {
       alive = true
       return () => { alive = false; landing = null; cancelFrame() }
     },
-    // A: drops the held row; on any other row it opens that row's menu, ending a grab elsewhere first.
     ok(index: number, evt: PadEvent, refs: GrabRowNodes): boolean {
       if (!alive || isRepeat(evt)) return false
       if (holds(index)) { drop(refs); return true }
       if (grab) { cancelFrame(); landing = null; commit(null) }
       return openRowMenu(refs.row.current)
     },
-    // X: grabs the row; a grab elsewhere in the list ends first.
     grab(index: number, evt: PadEvent): void {
       if (!alive || isRepeat(evt) || holds(index) || index >= ids.length) return
       cancelFrame()
@@ -214,7 +205,6 @@ function createGrabControl(setGrab: (next: Grab | null) => void) {
 
 type GrabControl = ReturnType<typeof createGrabControl>
 
-// While a row is grabbed, a touch or mouse press anywhere in the list's document ends the grab.
 function useEndOnPointer(rootRef: RefObject<HTMLDivElement | null>, active: boolean, control: GrabControl): void {
   useEffect(() => {
     const doc = active ? rootRef.current?.ownerDocument : undefined
@@ -229,7 +219,6 @@ function createGrabRowNodes(): GrabRowNodes {
   return { target: createRef<HTMLDivElement>(), row: createRef<HTMLDivElement>() }
 }
 
-// The descriptions show in Steam's footer while the row is held.
 function grabbedProps(control: GrabControl, index: number, refs: GrabRowNodes, texts: RowTexts) {
   return {
     onButtonDown: (evt: PadEvent) => control.buttonDown(index, evt, refs),
@@ -283,13 +272,8 @@ function GrabRowView<T>({ item, id, index, order, grabbed, texts, control, rende
   )
 }
 
-// Rows re-render only when their own props change, so a move costs two rows.
 const GrabRow = memo(GrabRowView) as typeof GrabRowView
 
-/* A list the controller reorders one row at a time: X on a name grabs the row,
-   the D-pad moves it, A drops it (saving once if its place changed) and B puts
-   it back; A on an idle name opens the row's menu. The DOM order stays fixed
-   during a grab; CSS order shows the move. */
 export function GrabReorderList<T>({ items, getId, renderLabel, renderActions, onReorder }: {
   items: T[]
   getId: (item: T) => string
@@ -302,7 +286,6 @@ export function GrabReorderList<T>({ items, getId, renderLabel, renderActions, o
   const [control] = useState(() => createGrabControl(setGrab))
   const rootRef = useRef<HTMLDivElement>(null)
   const ids = items.map((item) => getId(item))
-  // Another path changed the ids or their order: that ends the grab.
   const stale = grab !== null && !sameIds(grab.base, ids)
   if (stale) setGrab(null)
   const live = stale ? null : grab

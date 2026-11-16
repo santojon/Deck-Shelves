@@ -62,8 +62,7 @@ function ShelfModalRouteImpl({ kind, shelfId: shelfIdProp }: { kind: "edit" | "d
       return;
     }
     openShelfModal(kind, shelf, smartShelf, controller);
-    // Pop back immediately — showModal renders in a portal independent of
-    // the route, so the modal stays visible over the previous page.
+    // showModal renders in its own portal, so the modal stays up after the route pops.
     try {
       setTimeout(() => { try { (Navigation as any).NavigateBack?.(); } catch {} }, 50);
     } catch {}

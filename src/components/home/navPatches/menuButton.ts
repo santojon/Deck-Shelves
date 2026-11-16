@@ -15,7 +15,6 @@ const patchedMenuControllers = new WeakSet<object>();
 const HOME_MOUNT_ID = "deck-shelves-home-root";
 const PLUGIN_AREA = ".ds-card, .deck-shelves-root, #" + HOME_MOUNT_ID;
 
-// `focus` is the element holding gamepad focus, when known.
 function findFocusedDsCard(focus: HTMLElement | null): HTMLElement | null {
   for (const d of getAllSteamDocuments()) {
     const el = (
@@ -24,7 +23,6 @@ function findFocusedDsCard(focus: HTMLElement | null): HTMLElement | null {
     ) as HTMLElement | null;
     if (el) return el;
   }
-  // Focus on a native element: the last focused card is no longer the one in focus.
   if (focus && !focus.closest?.(PLUGIN_AREA)) return null;
   try {
     const el = (globalThis as any).__ds_last_focused_card as HTMLElement | null;
@@ -44,22 +42,17 @@ function cardFromEventTarget(evt: Event): HTMLElement | null {
   return (target?.closest?.(".ds-card") as HTMLElement | null) ?? null;
 }
 
-/* The plugin's mount sits right after Steam's Recents row, so the row is
-   the mount's previous sibling. */
 function isOnReplacedRow(focus: HTMLElement | null): boolean {
   if (!focus) return false;
   const row = focus.ownerDocument?.getElementById(HOME_MOUNT_ID)?.previousElementSibling;
   return !!row && row.contains(focus);
 }
 
-/* With the shelf shown as Recents and focus on a tile of that row: the game
-   of the last tile focus, else the row's first game. 0 leaves it to Steam. */
 function replacedRowMenuAppId(focus: HTMLElement | null): number {
   if (!isRecentsReplaceInjecting() || !isOnReplacedRow(focus)) return 0;
   return getOverlayFocusedAppId() || getOverlayFirstCachedAppId();
 }
 
-// The event target when it is a real element, else the gamepad focus.
 function eventFocus(evt: Event): HTMLElement | null {
   const target = evt.target as HTMLElement | null;
   const doc = target?.ownerDocument;
@@ -82,10 +75,6 @@ function interceptMenuBtn(button: number): boolean {
   return false;
 }
 
-/* Wrap `DispatchVirtualButtonClick` on `target` (an instance or a prototype)
-   so the Options button reaches the shelf menu first. `bindTo` pins the
-   original to an instance (the instance-method case); otherwise the call-site
-   `this` is forwarded (prototype / nested-controller cases). */
 function patchDispatch(target: any, bindTo?: object): boolean {
   if (!target || patchedMenuControllers.has(target) || typeof target.DispatchVirtualButtonClick !== "function") return false;
   const fn = target.DispatchVirtualButtonClick;
@@ -98,9 +87,7 @@ function patchDispatch(target: any, bindTo?: object): boolean {
   return true;
 }
 
-// Register on every Steam document we can see: ds-cards may live in the
-// popup (GamepadUI) while the plugin bundle itself runs in SharedJSContext.
-// Event listeners must live on the document that actually hosts the card.
+// Cards can live in another document than the one this bundle runs in.
 function installDocumentMenuListeners(handleMenu: (evt: Event) => void): void {
   const DS_DOC_MENU = "__ds_doc_menu__";
   for (const d of getAllSteamDocuments()) {
@@ -108,7 +95,6 @@ function installDocumentMenuListeners(handleMenu: (evt: Event) => void): void {
     (d as any)[DS_DOC_MENU] = true;
     d.addEventListener("vgp_onmenubutton", handleMenu, true);
     d.addEventListener("contextmenu", handleMenu, true);
-    // Removed with this instance (a hot-swap's next instance attaches its own).
     registerDisposer(() => {
       try {
         d.removeEventListener("vgp_onmenubutton", handleMenu, true);
@@ -122,12 +108,6 @@ function installDocumentMenuListeners(handleMenu: (evt: Event) => void): void {
 export function patchMenuButton(): void {
   const handleMenu = (evt: Event) => {
     try {
-      // vgp_onmenubutton / contextmenu fire on the focused element — read the
-      /* target directly before falling back to the focus-based queries. This
-         handles cases where __ds_last_focused_card is briefly stale (e.g.
-         DispatchVirtualButtonClick intercepted for the wrong card) because the
-         document-level capture listener fires once the event IS dispatched on
-         the correct element. */
       const focus = eventFocus(evt);
       const focused = cardFromEventTarget(evt) ?? findFocusedDsCard(focus);
       if (focused) {
@@ -151,8 +131,6 @@ export function patchMenuButton(): void {
 
   const ctrl = resolveFocusNavController();
   if (!ctrl) return;
-  // Instance method first, then the prototype, then the nested controller of
-  // the active context — the first one that takes the wrapper wins.
   if (patchDispatch(ctrl, ctrl)) return;
   if (!patchedMenuControllers.has(ctrl) && patchDispatch(Object.getPrototypeOf(ctrl))) {
     patchedMenuControllers.add(ctrl);

@@ -5,9 +5,7 @@ import { steamAppStore, steamClient, steamReact } from "../../steam/internals";
 import { localQuickLaunchAction } from "../../steam/appDisplayStatus";
 import { buildDeckShelvesMenuItems, findCardAnchor } from "./menuContext";
 
-/* The last-resort game menu: when neither the native capture nor the legacy
-   flow can show Steam's own menu, build one from the client API (Play,
-   Properties, Verify, Uninstall, Screenshots, Details) plus the shelf items. */
+// Last-resort game menu built from the client API when Steam's own menu can't be shown.
 
 function fallbackMenuLabel(key: string, fallback: string): string {
   try { const v = i18n.t(key as any); return (typeof v === "string" && v && v !== key) ? v : fallback; } catch { return fallback; }
@@ -83,9 +81,7 @@ function appendShelfItems(items: any[], shelfId: string, appid: number, fl: any,
   for (const it of dsItems) items.push(it);
 }
 
-/* Steam's own menu starts with the app's main action: Update while an update is pending, Pause
-   while it downloads. The View button's quick launch clicks the first item, so this menu starts
-   the same way instead of always with Play (which updates and then runs the game). */
+// Starts with the app's main action like Steam's own menu, since the quick launch clicks the first item.
 function primaryUpdateItem(sc: any, appid: number, overview: any): { key: string; label: string; action: () => void } | null {
   const { action, clientId } = localQuickLaunchAction(overview);
   if (action === "update" && typeof sc?.Downloads?.ResumeAppUpdate === "function") {
@@ -117,10 +113,7 @@ function buildFallbackItems(appid: number, shelfId: string | undefined, fl: any,
 }
 
 function labelFromDataName(card: HTMLElement): string | null {
-  /* `data-name` carries the resolved title on the card root even when the
-     visible label is hidden (logo mode / hide-game-names) — and it is the ONLY
-     reliable source for online (wishlist/store) items, which have no local
-     AppOverview to read `display_name` from. */
+  // `data-name` is the only title source for online items, which have no local overview.
   return card?.getAttribute?.('data-name')?.trim() || null;
 }
 

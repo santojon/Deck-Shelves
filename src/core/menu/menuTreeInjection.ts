@@ -2,13 +2,7 @@ import { fakeRenderComponent, getFrontendLib } from "../../runtime/host/decky";
 import { steamReact } from "../../steam/internals";
 import { DS_ROOT_KEYS, buildDeckShelvesMenuItems, devInfo, devWarn, resolveShelfIdFromProps } from "./menuContext";
 
-/* Injecting the Deck Shelves items into a rendered game menu: find the Menu
-   node in the React tree (or fall back to the root), and patch whatever shape
-   the captured menu component has (memo, forwardRef, class, plain function) so
-   every later render carries the items. */
-
-// Cache of patched/wrapped captured components so we patch each component
-// at most once and can dedupe across showGameMenu calls.
+// Each captured component is patched at most once.
 const patchedComponents = new WeakSet<any>();
 const wrappedComponents = new WeakMap<any, any>();
 
@@ -90,8 +84,6 @@ function injectItemsOrFallback(rendered: any, shelfId: string, fl: any, R: any):
   return rendered;
 }
 
-// React internal type tags (stable Symbol.for handles that survive
-// bundling) for detecting memo/forwardRef wrappers.
 const REACT_MEMO_TYPE = typeof Symbol === "function" ? Symbol.for("react.memo") : 0xead3;
 const REACT_FORWARD_REF_TYPE = typeof Symbol === "function" ? Symbol.for("react.forward_ref") : 0xead0;
 

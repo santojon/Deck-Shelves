@@ -18,11 +18,7 @@ const TIMEOUT_MS = 5000;
 const POLL_MS = 100;
 
 
-/* Descriptions come from Steam's store in the *current* Steam/device language,
-   so scope the persistent cache by language: when the user switches the device
-   language (which restarts Steam and reloads this module), the new language tag
-   yields a fresh key → empty cache → descriptions re-fetch in the new language
-   instead of serving stale text. */
+// Keyed by language so a language switch starts a fresh cache.
 function descriptionLangTag(): string {
   try {
     const l = (typeof navigator !== 'undefined' && (navigator as any)?.language)
@@ -31,17 +27,11 @@ function descriptionLangTag(): string {
   } catch { return 'en'; }
 }
 
-// Persistent cache (localStorage) survives plugin reloads — descriptions
-// rarely change for an appid, so caching them across sessions saves the
-// store round-trip on every plugin boot.
 const STORAGE_KEY = `ds_app_descriptions_v1_${descriptionLangTag()}`;
-const STORAGE_MAX = 1500;          // cap entries to keep the JSON blob small
+const STORAGE_MAX = 1500;
 const STORAGE_SAVE_DEBOUNCE = 1500;
 let saveScheduled = false;
 
-// Hydrate one persisted entry into the in-memory cache if the key is a valid
-// appid and the value carries a snippet or full HTML. Snippets saved from the
-// store fallback before it decoded them can still hold "&amp;"-style entities.
 function hydrateEntry(k: string, v: unknown): void {
   const appid = Number(k);
   const desc = v as Partial<AppDescriptions>;
@@ -60,7 +50,7 @@ function loadFromStorage(): void {
     if (data && typeof data === 'object') {
       for (const [k, v] of Object.entries(data)) hydrateEntry(k, v);
     }
-  } catch { /* swallow — bad JSON / quota / privacy mode */ }
+  } catch {}
 }
 
 function saveToStorageDebounced(): void {
@@ -71,16 +61,14 @@ function saveToStorageDebounced(): void {
     try {
       const ls = (globalThis as { localStorage?: Storage }).localStorage;
       if (!ls) return;
-      // Cap to STORAGE_MAX most-recently-set entries (Map preserves insertion order).
       const entries = Array.from(cache.entries());
       const trimmed = entries.length > STORAGE_MAX ? entries.slice(-STORAGE_MAX) : entries;
       const obj = Object.fromEntries(trimmed);
       ls.setItem(STORAGE_KEY, JSON.stringify(obj));
-    } catch { /* swallow — quota / privacy mode */ }
+    } catch {}
   }, STORAGE_SAVE_DEBOUNCE);
 }
 
-// Eagerly hydrate the in-memory cache on module load.
 loadFromStorage();
 
 function getStore(): StoreShape | undefined {
@@ -120,9 +108,6 @@ function pollUntilReady(store: StoreShape, appid: number): void {
       return;
     }
     if (Date.now() - startedAt > TIMEOUT_MS) {
-      // Local store gave nothing within the window — try the online fallback for
-      // this app (no-op unless the master online toggle is on). Per-app only, so a
-      // Deck where the local store works keeps serving the full local descriptions.
       pending.delete(appid);
       preloadFromOnlineStore(appid);
       return;
@@ -132,10 +117,7 @@ function pollUntilReady(store: StoreShape, appid: number): void {
   setTimeout(tick, POLL_MS);
 }
 
-/* Online fallback for hosts whose local Steam client has no descriptions store
-   (e.g. macOS — `appDetailsStore.GetDescriptions` is absent): fetch the store
-   `short_description` (cached + master-online-toggle gated). Covers Steam appids;
-   non-Steam (matched by name) isn't reachable from this appid-only API. */
+// Some clients (macOS) have no local descriptions store.
 function preloadFromOnlineStore(appid: number): void {
   if (cache.has(appid) || pending.has(appid)) return;
   if (!(Number.isFinite(appid) && appid > 0)) return;

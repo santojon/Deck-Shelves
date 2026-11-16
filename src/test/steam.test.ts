@@ -7,23 +7,17 @@ describe('steam helpers', () => {
     const raw = { appid: 9001, display_name: 'UD Shortcut', executable: '/home/deck/games/game.exe' };
     const norm = normalizeAppOverview(raw);
     expect(norm).not.toBeNull();
-    // exe_path alone is not proof of installation — all shortcuts have one
     expect((norm as AppOverview).installed).toBeUndefined();
   });
 
   it('normalizeAppOverview unpacks steam_hw_compat_category_packed correctly when the named getters are absent', () => {
-    // Real value from a live Deck (appid 242820, "140"): deck=3, os=2 (confirmed
-    // via the named getters), packed=227. Bits: 0-1 deck, 2-3 unused, 4-5 os,
-    // 6-7 machine, 8-9 frame. The OLD fallback (`>> 4 & 0xF`) read machine's bits
-    // too and computed os=14 instead of 2 — this pins the corrected math.
+    // Packed bits: 0-1 deck, 4-5 os, 6-7 machine, 8-9 frame.
     const norm = normalizeAppOverview({ appid: 242820, display_name: '140', steam_hw_compat_category_packed: 227 }) as AppOverview;
     expect(norm.deck_compatibility_category).toBe(3);
     expect(norm.steamos_compatibility_category).toBe(2);
   });
 
   it('normalizeAppOverview reads controller support from xbox_controller_support (desktop clients)', () => {
-    // Desktop clients (macOS / Windows / desktop Linux) expose controller support
-    // as `xbox_controller_support` (0/1/2) rather than the older `controller_support`.
     const full = normalizeAppOverview({ appid: 100, display_name: 'Full', xbox_controller_support: 2 });
     const partial = normalizeAppOverview({ appid: 101, display_name: 'Partial', xbox_controller_support: 1 });
     const none = normalizeAppOverview({ appid: 102, display_name: 'None', xbox_controller_support: 0 });
@@ -38,7 +32,6 @@ describe('steam helpers', () => {
   });
 
   it('normalizeAppOverview marks installed when per_client_data has explicit installed:true', () => {
-    // Real Steam data: ds=11 games have an explicit `installed` field in pcd
     const raw = { appid: 9003, display_name: 'Installed Game', per_client_data: [{ display_status: 11, installed: true }] };
     const norm = normalizeAppOverview(raw);
     expect(norm).not.toBeNull();
@@ -46,11 +39,9 @@ describe('steam helpers', () => {
   });
 
   it('normalizeAppOverview leaves installed undefined when per_client_data has no installed field (ds=9)', () => {
-    // Real Steam data: ds=9 = available on remote device, no explicit installed in pcd
     const raw = { appid: 9004, display_name: 'Remote Game', per_client_data: [{ display_status: 9 }] };
     const norm = normalizeAppOverview(raw);
     expect(norm).not.toBeNull();
-    // undefined → DeckRow treats as not installed (conservative, shows download icon)
     expect((norm as AppOverview).installed).toBeUndefined();
   });
 
@@ -69,9 +60,6 @@ describe('steam helpers', () => {
   });
 
   it('normalizeAppOverview reports installed_local:false for a Remote Play source with no local client entry', () => {
-    // Real Steam data: top-level `installed` can be true from a remote
-    // client alone, with no clientid "0" entry at all — installed_local must
-    // not be fooled by that, even though the top-level flag stays true.
     const raw = {
       appid: 1222680, display_name: 'Need for Speed Heat', installed: true,
       per_client_data: [{ clientid: '4528256343885615079', client_name: 'steamdeck', display_status: 11, installed: true }],
@@ -89,7 +77,6 @@ describe('steam helpers', () => {
     const mockWin: any = {
       appStore: {
         GetAppOverviewByAppID: (_id: number) => {
-          // Return raw overview with no install evidence
           return { appid: 789 };
         }
       }
@@ -109,7 +96,6 @@ describe('steam helpers', () => {
   });
 
   it('enrichAppStateFlags marks installed via appStore per_client_data explicit installed field', async () => {
-    // Real Steam data: installed games have explicit installed:true in pcd
     const items: AppOverview[] = [{ appid: 123, display_name: 'Shortcut 123', is_non_steam: true }];
     const mockWin: any = {
       appStore: {
@@ -134,7 +120,6 @@ describe('steam helpers', () => {
   });
 
   it('enrichAppStateFlags leaves installed undefined when per_client_data has no installed field (ds=9)', async () => {
-    // Real Steam data: ds=9 = available on remote, no explicit installed in pcd
     const items: AppOverview[] = [{ appid: 456, display_name: 'Remote Game', is_non_steam: false }];
     const mockWin: any = {
       appStore: {
@@ -151,7 +136,6 @@ describe('steam helpers', () => {
       const enriched = await enrichAppStateFlags(items);
       const found = enriched.find((a) => a.appid === 456);
       expect(found).toBeDefined();
-      // No explicit installed field → undefined → DeckRow shows download icon (conservative)
       expect((found as any).installed).toBeUndefined();
     } finally {
       setPreferredSteamWindow(null as any);

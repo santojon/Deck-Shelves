@@ -1,9 +1,3 @@
-/* Writes Steam's own client settings via the same internal path its
-   Settings UI uses (SetSetting, protobuf-encoded) — only for the two
-   idle-screensaver timeouts, never trusted until a no-op write
-   round-trips first. Located at runtime by a stable call-site string,
-   not a hardcoded (build-churning) module id. */
-
 type Setter = (key: string, value: unknown) => unknown;
 type IdleTimeoutKey = "system_idle_screensaver_ac_sec" | "system_idle_screensaver_battery_sec";
 
@@ -72,9 +66,7 @@ function waitForValue(key: IdleTimeoutKey, expected: number, timeoutMs: number):
   });
 }
 
-// One harmless no-op write (same value back) before ever trusting the
-// located function with a REAL value change. Cached for the session once
-// it passes — Steam's settings-write path doesn't change mid-session.
+// A no-op write has to round-trip before the located function gets a real value.
 async function verifySetterOnce(setter: Setter): Promise<boolean> {
   if (verifiedThisSession) return true;
   const probeKey: IdleTimeoutKey = "system_idle_screensaver_ac_sec";

@@ -31,8 +31,6 @@ export function VisualTabContent({
   const GroupDivider = () => (
     <div style={{ height: 1, background: 'rgba(255,255,255,0.07)', margin: '8px 12px' }} aria-hidden="true" />
   )
-  // Reusable position-only dropdown — every left/center/right field reuses
-  // the same option set + handler shape.
   const PositionDropdown = (props: { labelKey: string; value: 'left' | 'center' | 'right'; onChange: (v: 'left' | 'center' | 'right') => void }) => (
     <Field label={t(props.labelKey as any)} childrenContainerWidth='min'>
       <Dropdown
@@ -61,7 +59,6 @@ export function VisualTabContent({
         </div>
       )}
       <GroupDivider />
-      {/* Group: Logo + dependent options (position, size, offset) */}
       <ToggleField label={t('enable_logo')} checked={flags.enableLogo} onChange={(v: boolean) => setFlags({ enableLogo: v })} />
       {flags.enableLogo && (
         <>
@@ -72,7 +69,6 @@ export function VisualTabContent({
       )}
 
       <GroupDivider />
-      {/* Group: Icon + vertical align */}
       <ToggleField label={t('enable_icon')} checked={flags.enableIcon} onChange={(v: boolean) => setFlags({ enableIcon: v })} />
       {flags.enableIcon && (
         <Field label={t('icon_vertical_align_label' as any)} childrenContainerWidth='min'>
@@ -89,7 +85,6 @@ export function VisualTabContent({
       )}
 
       <GroupDivider />
-      {/* Group: Description + position + (when paired with logo) below-logo + height */}
       <ToggleField label={t('enable_description')} checked={flags.enableDescription} onChange={(v: boolean) => setFlags({ enableDescription: v })} />
       <DSSliderField label={t('description_size_label')} value={flags.descriptionScale} min={100} max={200} step={10} unit='%' onChange={(v: number) => setFlags({ descriptionScale: v })} />
       {flags.enableDescription && (
@@ -106,17 +101,13 @@ export function VisualTabContent({
       )}
 
       <GroupDivider />
-      {/* Group: Shelf title position */}
       <PositionDropdown labelKey='shelf_title_position_label' value={flags.shelfTitlePosition} onChange={(v) => setFlags({ shelfTitlePosition: v })} />
 
-      {/* Group: Game name position */}
       <PositionDropdown labelKey='game_name_position_label' value={flags.gameNamePosition} onChange={(v) => setFlags({ gameNamePosition: v })} />
 
-      {/* Group: Playtime row position */}
       <PositionDropdown labelKey='playtime_position_label' value={flags.playtimePosition} onChange={(v) => setFlags({ playtimePosition: v })} />
 
       <GroupDivider />
-      {/* Penultimate before card-specific highlights */}
       <ToggleField label={t('full_page_shelf_label' as any)} checked={flags.fullPageShelf} onChange={(v: boolean) => setFlags({ fullPageShelf: v })} />
       <ToggleField
         label={t('highlight_specific_games')}

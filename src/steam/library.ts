@@ -4,13 +4,10 @@ import { appIdOfRow, getSteamClients, getSteamWindows, uniqNumbers } from "./ste
 import { logInfo, logWarn } from "../runtime/logger";
 import { extractAppIdsDeep, extractCollectionAppIds, isMapLike, isSetLike } from "./steamGraph";
 
-/* The library catalog: every app overview, gathered from Steam's stores and collections, enriched with state flags and cached briefly. */
-
 let lastNoAppsWarnAt = 0;
 
 let appOverviewCache: { ts: number; items: AppOverview[] } | null = null;
 
-// In-flight de-dup: concurrent callers await the first promise.
 let appOverviewPending: Promise<AppOverview[]> | null = null;
 
 export function invalidateAppOverviewCache(): void {
@@ -61,7 +58,6 @@ async function callMethodSafe(source: Record<string, any> | null | undefined, na
 }
 
 async function harvestFlagsFromSource(source: Record<string, any> | null | undefined, applyFlag: (ids: number[], field: StateFlagField) => void): Promise<void> {
-  // Parallel: each (method-name, field) call independently — no cross-deps.
   const tasks: Array<Promise<void>> = [];
   for (const entry of STATE_ASYNC_METHODS) {
     for (const name of entry.names) {
@@ -127,7 +123,7 @@ function deriveInstalledFromRawOverview(raw: SteamAppOverviewRaw): boolean | und
   if (direct !== null) return direct;
   const clientData = pickFirstClientData(raw);
   if (clientData) {
-    // Only use explicit installed field in pcd — do NOT infer from display_status.
+    // Don't infer from display_status.
     return readOptionalBoolean(clientData, ["installed", "is_installed"]);
   }
   if (pickFirstPositiveNumber(raw, RAW_SIZE_KEYS) > 0) return true;
@@ -143,9 +139,7 @@ function pickFirstAppStore(): any {
   return null;
 }
 
-// Backfill `installed` from the raw per-id overview for entries the bulk
-// pass left ambiguous. Yields to the main thread every BACKFILL_BATCH
-// items so a large library (2k+ apps) does not freeze the UI at boot.
+// Yields every few hundred items so a large library doesn't freeze the UI at boot.
 const BACKFILL_BATCH = 200;
 
 async function backfillInstalledFromAppStore(byId: Map<number, AppOverview>): Promise<void> {
@@ -174,8 +168,6 @@ export async function enrichAppStateFlags(items: AppOverview[]): Promise<AppOver
     ...getSteamClients().flatMap((sc) => [sc?.Apps, sc?.LibraryStore, sc?.AppStore]),
     ...getSteamWindows().flatMap((win) => [win?.appStore, win?.AppStore, win?.LibraryStore, win?.appsStore]),
   ].filter(Boolean);
-  // Parallelize source harvests — previously each was awaited sequentially,
-  // serialising ~70 async calls at cold boot.
   await Promise.all(sources.map((source) => harvestFlagsFromSource(source, applyFlag)));
   harvestFavoritesFromCollectionStore(applyFlag);
   await backfillInstalledFromAppStore(byId);
@@ -285,7 +277,6 @@ export async function getAllAppOverviews(): Promise<AppOverview[]> {
   if (appOverviewCache && now - appOverviewCache.ts < 10000) {
     return appOverviewCache.items;
   }
-  // De-dupe in-flight calls so concurrent resolvers share one promise.
   if (appOverviewPending) return appOverviewPending;
   appOverviewPending = (async () => {
     try {
@@ -423,8 +414,6 @@ function fetchFromIndividualLookups(out: AppOverview[]): void {
 }
 
 function dropPhantomApps(apps: AppOverview[]): AppOverview[] {
-  // Drop internal Steam tools / DLCs that have no meaningful name (fallback
-  // "App <id>") or blank names.
   return apps.filter((app) => {
     const name = app.display_name ?? "";
     if (name === `App ${app.appid}`) return false;
@@ -441,8 +430,7 @@ function finalizeOverviews(filtered: AppOverview[], now: number): AppOverview[] 
     }
     return appOverviewCache ? appOverviewCache.items : filtered;
   }
-  // Cache-regression guard: if the new result is <50% of the cache, prefer
-  // the cache (Steam stores may be restructuring during initialization).
+  // Steam stores may restructure during startup; prefer the cache over a much smaller result.
   if (appOverviewCache && filtered.length < appOverviewCache.items.length * 0.5) {
     appOverviewCache.ts = now;
     return appOverviewCache.items;

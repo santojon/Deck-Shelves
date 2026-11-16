@@ -1,9 +1,5 @@
 name: "Release · Announce (Discord + Reddit)"
 
-# On every published release (or by hand): posts the release to the Discord
-# webhook (DISCORD_WEBHOOK_URL; skipped when unset) and writes a ready-to-post
-# Reddit link to the run summary (REDDIT_SUBREDDIT, default DeckShelves).
-
 on:
   release:
     types: [published]

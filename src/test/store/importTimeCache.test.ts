@@ -6,9 +6,6 @@ vi.mock("../../runtime/host/decky", () => ({ call: vi.fn(async () => null) }));
 const CACHE_KEY = "deck-shelves-settings-cache-v3";
 const STORE_SOURCE = import.meta.glob<string>("../../store/settingsStore.ts", { query: "?raw", import: "default", eager: true });
 
-/* The store reads its local copy once, when the module loads. The shipped bundle turns the module's
-   constants into plain assignments in source order, so whatever that read uses must be set above it:
-   below it a value is still undefined in the bundle (and throws in source, which hides the read). */
 describe("the local copy the store reads when it loads", () => {
   afterEach(() => { vi.unstubAllGlobals(); });
 

@@ -1,11 +1,4 @@
-// Backend-resolved user paths via `get_user_desktop` in `main.py`
-// (picks ~/Downloads → ~/Desktop → ~). Portable across distros and
-// account names — avoids the old `/home/deck/Downloads` hardcode.
-/*
-   The pre-warm is fired once at plugin boot so the cached value is ready
-   by the time the user clicks Import / Export. Until the first response
-   lands, callers fall back to `~/Downloads` (which the backend's
-   `_normalize_path` expands via `os.path.expanduser`). */
+// Prewarmed at boot; callers fall back to ~/Downloads until the backend answers.
 
 import { call } from "../shims/host-api";
 
@@ -18,7 +11,7 @@ export async function prewarmUserPaths(): Promise<void> {
       const dir = await call<[], string>("get_user_desktop");
       if (typeof dir === "string" && dir) cachedDownloadsDir = dir;
     } catch {
-      // Backend not ready yet — keep falling back to ~/Downloads.
+      // Backend not ready yet.
     }
   }
   if (!cachedPicturesDir) {
@@ -26,7 +19,7 @@ export async function prewarmUserPaths(): Promise<void> {
       const dir = await call<[], string>("get_user_pictures");
       if (typeof dir === "string" && dir) cachedPicturesDir = dir;
     } catch {
-      // Backend not ready yet — keep falling back to ~/Pictures.
+      // Backend not ready yet.
     }
   }
 }

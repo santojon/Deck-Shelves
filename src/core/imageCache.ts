@@ -1,10 +1,9 @@
 
 const STORAGE_NAME = "ds-images-v1";
-// 320 entries fits ~150-200 visible cards (portrait + hero each) with
-// headroom; eviction below this caused mid-tick broken-image flashes.
+// Sized for ~150-200 visible cards (portrait + hero each) with headroom.
 const HOT_CACHE_LIMIT = 320;
-const STALE_AFTER_MS = 7 * 24 * 60 * 60 * 1000;   // 7 days  → revalidate
-const EVICT_AFTER_MS = 30 * 24 * 60 * 60 * 1000;  // 30 days → drop
+const STALE_AFTER_MS = 7 * 24 * 60 * 60 * 1000;
+const EVICT_AFTER_MS = 30 * 24 * 60 * 60 * 1000;
 const TIMESTAMP_HEADER = "x-ds-cached-at";
 
 type HotEntry = { blobUrl: string; storedAt: number };
@@ -19,11 +18,7 @@ function touchHot(url: string, entry: HotEntry): void {
     if (oldestKey === undefined) break;
     const oldest = hot.get(oldestKey);
     if (oldest) {
-      /* Defer revoke by 30 s — gives any card still rendering with
-         this blob URL time to detect via onError (or re-render with a
-         fresh resolution) before the URL becomes invalid. Immediate
-         revocation was visible as a broken-image flash on cards whose
-         resolved src happened to be the entry that just evicted. */
+      // Delayed so a card still showing this blob URL can re-resolve before it goes invalid.
       const dead = oldest.blobUrl;
       setTimeout(() => { try { URL.revokeObjectURL(dead); } catch {} }, 30_000);
     }
@@ -52,10 +47,8 @@ export function getHotCachedImageSrc(url: string): string | null {
   if (!cacheable(url)) return null;
   const hit = hot.get(url);
   if (!hit) return null;
-  // LRU touch
   hot.delete(url);
   hot.set(url, hit);
-  // Background revalidate when stale
   if (Date.now() - hit.storedAt > STALE_AFTER_MS) {
     revalidate(url);
   }
@@ -82,7 +75,6 @@ export function warmCacheBackground(url: string): void {
           return;
         }
       }
-      // Cold — fetch from network and persist
       await fetchAndStore(url, cache);
     } catch { /* swallow — caller falls back to direct URL */ }
     finally { inflight.delete(url); }

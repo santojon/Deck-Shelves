@@ -2,10 +2,6 @@ import { ConfirmModal, Spinner } from '../../runtime/host/decky'
 import { ModalShell } from '../ui'
 import i18n from '../../i18n'
 
-/* Blocking progress modal shown while a self-install host (a neutral host)
-   downloads and swaps the update. The caller closes it once applyUpdate
-   settles; "Close" lets the user dismiss it early (the install keeps running
-   regardless). */
 export function UpdateInstallingModal({ version, closeModal }: { version?: string; closeModal?: () => void }) {
   return (
     <ModalShell>

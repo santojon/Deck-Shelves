@@ -12,7 +12,7 @@ describe("deviceHistory", () => {
     const h0 = emptyDeviceHistory();
     const h1 = bumpSignal(h0, "externalDisplay", 1000);
     const h2 = bumpSignal(h1, "externalDisplay", 2000);
-    expect(h0.signals).toEqual({}); // original untouched
+    expect(h0.signals).toEqual({});
     expect(h1.signals.externalDisplay).toEqual({ count: 1, lastSeenMs: 1000 });
     expect(h2.signals.externalDisplay).toEqual({ count: 2, lastSeenMs: 2000 });
   });

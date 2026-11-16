@@ -1,8 +1,3 @@
-/* Vertical shelf virtualization support: one IntersectionObserver per scroll
-   root tells a placeholder shelf when it comes within reach of the viewport
-   (so its real row mounts before the controller can get there), and the last
-   measured height of each shelf keeps placeholders the right size on a
-   rebuild (no scroll jump when the row swaps in). */
 import { observerCreated, observerDisposed } from "../../core/perfMetrics";
 
 const NEAR_MARGIN = "75% 0px";
@@ -10,8 +5,7 @@ const observers = new Map<Element | null, IntersectionObserver>();
 const callbacks = new WeakMap<Element, () => void>();
 const heights = new Map<string, number>();
 
-// A rebuilt Home brings a new scroll root; an observer keyed on the old one
-// would keep that detached tree alive for the session.
+// An observer keyed on an old scroll root would keep that detached tree alive.
 function dropDetachedRoots(): void {
   for (const [root, io] of observers) {
     if (!root || root.isConnected) continue;
@@ -52,11 +46,6 @@ function observerFor(root: Element | null, doc: Document): IntersectionObserver 
   return io;
 }
 
-/* Two observers per placeholder: the one rooted on its scroll container gives
-   the 75 % look-ahead; the viewport one is the safety net. In a Home mounted by
-   a hot-swapped bundle the rooted observer reports "not intersecting" once and
-   never updates (measured on a device; the root stays connected and a fresh
-   observer on the same node works), while the viewport one keeps firing. */
 export function observeShelfNear(el: Element | null, cb: () => void): () => void {
   if (!el) { cb(); return () => {}; }
   const doc = el.ownerDocument;

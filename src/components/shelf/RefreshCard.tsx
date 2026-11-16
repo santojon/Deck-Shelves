@@ -25,11 +25,7 @@ const refreshIconSvg = (
 
 export function RefreshCard({ item, cardW = CARD_W, cardH = CARD_ART_H, interactive = true }: { item: DeckRowItem; cardW?: number; cardH?: number; interactive?: boolean }) {
   const iconRef = useRef<HTMLSpanElement>(null);
-  /* Trigger the spin via DOM class toggle rather than React state — the
-     refresh callback usually causes setAppIds() upstream which can shift
-     focus and unmount the row briefly. State-driven animation gets cancelled
-     mid-flight; a CSS keyframes animation owned by the icon DOM element
-     keeps spinning regardless of React reconciliation. */
+  // A DOM class, not state: the refresh can briefly unmount the row.
   const handleActivate = () => {
     const icon = iconRef.current;
     if (icon) {

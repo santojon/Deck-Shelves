@@ -16,7 +16,7 @@ describe("usageStats", () => {
     const u0 = emptyUsage();
     const u1 = bumpShelfView(u0, "2026-06-01", "s_a");
     const u2 = bumpShelfView(u1, "2026-06-01", "s_a", 2);
-    expect(u0.days).toEqual({}); // original untouched
+    expect(u0.days).toEqual({});
     expect(u2.days["2026-06-01"].shelfViews.s_a).toBe(3);
   });
 
@@ -66,11 +66,11 @@ describe("usageStats", () => {
   });
 
   it("builds a continuous daily series with gaps zero-filled", () => {
-    const now = new Date(2026, 5, 15, 12).getTime(); // 2026-06-15
+    const now = new Date(2026, 5, 15, 12).getTime();
     let u = emptyUsage();
     u = bumpCardLaunch(u, "2026-06-15", "game", 4);
     u = bumpShelfView(u, "2026-06-13", "s_a", 2);
-    const series = dailyTotals(u, now, 3); // 06-13, 06-14, 06-15
+    const series = dailyTotals(u, now, 3);
     expect(series.map((p) => p.date)).toEqual(["2026-06-13", "2026-06-14", "2026-06-15"]);
     expect(series.map((p) => p.launches)).toEqual([0, 0, 4]);
     expect(series.map((p) => p.views)).toEqual([2, 0, 0]);
@@ -78,7 +78,7 @@ describe("usageStats", () => {
   });
 
   it("date keys are local ISO and day math is stable", () => {
-    const ms = new Date(2026, 5, 15, 10, 30).getTime(); // local 2026-06-15
+    const ms = new Date(2026, 5, 15, 10, 30).getTime();
     expect(usageDateKey(ms)).toBe("2026-06-15");
     expect(usageDateKeyDaysAgo(ms, 7)).toBe("2026-06-08");
   });

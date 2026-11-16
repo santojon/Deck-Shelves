@@ -1,8 +1,4 @@
-/* Cross-device settings sync via `SteamClient.RoamingStorage` — the same
-   per-account cloud mechanism Steam's own UI uses, NOT real Steam Cloud
-   (`ISteamRemoteStorage` is per-appid; a plugin has no appid of its own).
-   Local storage stays the source of truth; this is a third mirror, same
-   LWW-by-timestamp idea the dual-host canonical/loader mirror uses. */
+// Syncs through RoamingStorage because Steam Cloud is per-appid; local storage stays the source of truth.
 
 import { getCurrentSettings, saveSettings, subscribeSettings } from "../store/settingsStore";
 import { mergeSettings, LOCAL_ONLY_FIELDS } from "../domain/settingsMerge";
@@ -14,27 +10,14 @@ import { accountReady, isCloudSyncHeldForAccount, markCloudSyncedAccount, onClou
 import i18n from "../i18n";
 import type { Settings } from "../types";
 
-/* v2 stores the snapshot as an OPAQUE JSON STRING via SetString/GetString. The
-   old SetObject/GetJSON path (v1) round-trips through Steam's object serializer,
-   which PascalCases `enabled`→`Enabled` and `hidden`→`Hidden` — so an adopted
-   shelf lost its lowercase `enabled` and rendered invisible, and the master
-   toggle silently read as disabled. A string is stored verbatim. */
+// Stored as a string: Steam's object serializer PascalCases keys like `enabled`.
 const CLOUD_KEY = "deck-shelves-settings-sync-v2";
 const PUSH_DEBOUNCE_MS = 4000;
-// Best-effort in-session refresh: RoamingStorage may only surface the other
-// device's snapshot on a Steam lifecycle event, so a running device polls the
-// cloud periodically and merges anything new in without waiting for a restart.
+// RoamingStorage may only surface another device's snapshot on a Steam lifecycle event, so poll.
 const PULL_INTERVAL_MS = 3 * 60 * 1000;
 
-// Fields describing THIS machine's own state never leave it: the merge's own
-// list (sync bookkeeping, the idle-timeout backup, the active profile, the tour
-// flag and the device-local developer fields).
-
 type CloudPayload = { updatedAt: number; settings: Record<string, unknown> };
-/* The pusher's active profile rides along as information only (never adopted as
-   the local active name): each device activates its own profile, so a receiver
-   needs it to tell whether the scalar settings on the wire describe the profile
-   it runs itself. */
+// Sent as information only; each device activates its own profile.
 const ACTIVE_PROFILE_KEY = "syncActiveProfile";
 type Remote = { settings: Settings; active: string | null } | null;
 
@@ -54,9 +37,6 @@ export function hasCloudSyncSupport(): boolean {
   } catch { return false; }
 }
 
-/* Drop null/undefined fields before serializing. Harmless with SetString (JSON
-   handles null), but it keeps the payload minimal and matches what round-trips —
-   a null-valued field carries no cross-device meaning. */
 function stripNullish(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(stripNullish);
   if (value && typeof value === "object") {
@@ -84,7 +64,7 @@ function payloadJson(settings: Settings, active: string | null): string {
 }
 
 function remoteOf(cloud: CloudPayload | null): Remote {
-  // A copy an older QA build pushed holds fixture data: never merged, and the next push replaces it.
+  // A copy pushed by a QA build holds fixture data, so it is never merged.
   if (!cloud || (cloud.settings as any).__dsQaOverride === true) return null;
   const settings = { ...cloud.settings } as any;
   const active = typeof settings[ACTIVE_PROFILE_KEY] === "string" ? settings[ACTIVE_PROFILE_KEY] as string : null;
@@ -102,8 +82,6 @@ async function readCloud(): Promise<CloudPayload | null> {
   } catch { return null; }
 }
 
-// Store the snapshot as an opaque JSON string (SetString) so Steam's object
-// serializer never rewrites the keys; verify with a round-trip read.
 async function writeCloud(settings: Settings, active: string | null): Promise<number | null> {
   const updatedAt = Date.now();
   try {
@@ -118,11 +96,7 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/* A bare fire-and-forget saveSettings() here can silently lose the patch
-   to a concurrent save built from a slightly older snapshot (the exact
-   race screensaverInject.ts's own patchSettingsVerified already avoids
-   for the same reason) — rebuild against the latest snapshot and verify
-   on every retry rather than trusting a single save call. */
+// A plain save can lose the patch to a concurrent save, so rebuild and verify on every retry.
 async function patchSettingsVerified(
   patch: Record<string, unknown>, verify: (s: Settings) => boolean, attempts = 5,
 ): Promise<boolean> {
@@ -137,10 +111,8 @@ async function patchSettingsVerified(
   return false;
 }
 
-// Bookkeeping every save rewrites; never a value worth folding into a profile.
 const SYNC_CLOCKS = new Set(["preferencesUpdatedAt", "syncTombstones"]);
 
-// Top-level keys of `after` whose value differs from `before`, clocks aside.
 function changedFields(before: Record<string, unknown>, after: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const k of Object.keys(after)) {
@@ -149,11 +121,7 @@ function changedFields(before: Record<string, unknown>, after: Record<string, un
   return out;
 }
 
-/* While a profile is active the device keeps syncing. What a sync pass adopts
-   is also written into that profile's saved snapshot, so the trigger's next
-   re-apply keeps the adopted values instead of rolling them back; the active
-   name itself stays device-local (LOCAL_ONLY_FIELDS). The synthetic Default
-   profile has no saved snapshot, so nothing is folded for it. */
+// Adopted values go into the active profile too, so its next re-apply doesn't roll them back.
 function foldIntoActiveProfile(local: Settings, merged: Settings): Settings {
   const m = merged as any;
   const profiles: any[] = Array.isArray(m.profiles) ? m.profiles : [];
@@ -166,11 +134,7 @@ function foldIntoActiveProfile(local: Settings, merged: Settings): Settings {
   return { ...m, profiles: next } as Settings;
 }
 
-/* Profiles (settings + triggers) sync as entities and each device activates its
-   own, so the scalar settings on the wire are the pusher's live look: adopt them
-   (and fold them into the active profile) only between devices running the same
-   profile, or none. Otherwise keep this device's look, merge the lists, and hand
-   the other device's look back under its own profile name. */
+// Scalar settings are adopted only between devices running the same profile, or none.
 type Plan = { merged: Settings; toPublish: Settings; publishActive: string | null; localActive: string | null };
 function planSync(local: Settings, remote: Remote): Plan {
   const localActive = activeNameOf(local);
@@ -185,7 +149,7 @@ function planSync(local: Settings, remote: Remote): Plan {
 }
 
 export function installCloudSync(): () => void {
-  // A QA build runs on fixture data: it never reads or writes the account's cloud copy.
+  // QA builds never touch the account's cloud copy.
   if (qaOverrideActive) return () => {};
   let disposed = false;
   let debounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -193,26 +157,16 @@ export function installCloudSync(): () => void {
   let wasEnabled = false;
   let unsub: (() => void) | null = null;
 
-  /* One sync pass: merge the local snapshot with the cloud copy per-entity
-     (settingsMerge), adopt the result locally if it changed, and push the merge
-     back so the cloud converges too. Runs at boot, on every debounced local
-     change, and on the periodic pull. Never a whole-doc overwrite — a device's
-     unique shelves survive and deletions propagate via tombstones. */
-  /* A snapshot with no shelves AND no smart shelves is almost always the
-     transient cold-boot default, not a real "user deleted everything" state.
-     Never push it (it would poison the cloud) and never adopt a merge that came
-     out empty (it would wipe a healthy device). An empty device still READS the
-     cloud: that is how a fresh or wiped machine adopts the other devices' shelves. */
+  // Merges per entity, never a whole-document overwrite.
+  // An empty snapshot is usually the cold-boot default: never push it or adopt an empty merge.
   function isReal(s: Settings): boolean {
     return ((s as any).shelves?.length ?? 0) > 0 || ((s as any).smartShelves?.length ?? 0) > 0;
   }
 
-  // The cloud copy belongs to the signed-in account: after an account switch it waits for the user.
   function canSync(): boolean {
     return !disposed && isHomeOwner() && hasCloudSyncSupport() && !isCloudSyncHeldForAccount();
   }
 
-  // The cloud's own stamp when it already holds what we would publish, else the stamp of our write.
   async function publish(toPublish: Settings, active: string | null, cloud: CloudPayload | null, remote: Remote): Promise<number | null> {
     if (cloud && remote && payloadJson(toPublish, active) === payloadJson(remote.settings, remote.active)) return cloud.updatedAt;
     return writeCloud(toPublish, active);
@@ -236,7 +190,6 @@ export function installCloudSync(): () => void {
     if (!at) return;
     lastKnownJson = mergedPayload;
     markCloudSyncedAccount();
-    // "Last synced" moves on a write and on an adoption; a pull that changed nothing leaves it.
     if (adopted || at !== cloud?.updatedAt) {
       await patchSettingsVerified({ cloudSyncLastSyncedAt: at }, (s) => (s as any).cloudSyncLastSyncedAt === at);
     }

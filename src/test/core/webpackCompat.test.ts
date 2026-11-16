@@ -10,7 +10,6 @@ describe('webpackCompat discovery', () => {
     el.className = '_vpToken Panel';
     el.style.overflowY = 'auto';
     doc.body.appendChild(el);
-    // simulate sizes
     Object.defineProperty(el, 'scrollHeight', { value: 200, configurable: true });
     Object.defineProperty(el, 'clientHeight', { value: 120, configurable: true });
 
@@ -29,7 +28,6 @@ describe('webpackCompat discovery', () => {
     const row = doc.createElement('div');
     row.className = '_rowToken Panel Focusable';
     viewport.appendChild(row);
-    // create multiple card-like children
     for (let i=0;i<6;i++){
       const c = doc.createElement('div');
       c.className = '_cardToken Panel';
@@ -86,7 +84,6 @@ describe('discoverNativeCardDimensions', () => {
     parent.style.cursor = 'pointer';
     parent.appendChild(img);
     document.body.appendChild(parent);
-    // jsdom returns 0 for getBoundingClientRect, so this won't match the size filter
     const result = discoverNativeCardDimensions(document);
     expect(result).toBeNull();
   });

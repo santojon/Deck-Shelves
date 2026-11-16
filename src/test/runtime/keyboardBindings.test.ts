@@ -90,10 +90,10 @@ describe("matchKeyEvent", () => {
     const combo = parseKeyCombo("ControlLeft+ShiftLeft+KeyS");
     expect(matchKeyEvent("ControlLeft", combo, state, 1000, { ctrl: true })).toBe(false);
     expect(matchKeyEvent("ShiftLeft", combo, state, 1300, { ctrl: true, shift: true })).toBe(false);
-    expect(matchKeyEvent("KeyS", combo, state, 2400, { ctrl: true, shift: true })).toBe(true); // 1.4 s after Ctrl
-    expect(matchKeyEvent("KeyS", combo, state, 5000, { ctrl: true, shift: true })).toBe(true); // right-side modifiers count the same
-    expect(matchKeyEvent("KeyS", combo, state, 6000, { ctrl: true })).toBe(false); // Shift released
-    expect(matchKeyEvent("KeyS", combo, state, 7000)).toBe(false); // no flags: back to the timing rule
+    expect(matchKeyEvent("KeyS", combo, state, 2400, { ctrl: true, shift: true })).toBe(true);
+    expect(matchKeyEvent("KeyS", combo, state, 5000, { ctrl: true, shift: true })).toBe(true);
+    expect(matchKeyEvent("KeyS", combo, state, 6000, { ctrl: true })).toBe(false);
+    expect(matchKeyEvent("KeyS", combo, state, 7000)).toBe(false);
   });
   it("keeps the timing rule for chord members that are not modifiers", () => {
     const state = createKeyMatcherState();
@@ -115,9 +115,9 @@ describe("resolveKeyboardBindings", () => {
     expect(resolveKeyboardBindings(undefined)).toEqual(DEFAULT_KEYBOARD_BINDINGS);
     expect(DEFAULT_KEYBOARD_BINDINGS.navSidecarOpen).toBe("ControlLeft+ShiftLeft+KeyS");
     expect(parseKeyCombo(DEFAULT_KEYBOARD_BINDINGS.navSidecarOpen)).toEqual({ kind: "chord", codes: ["ControlLeft", "ShiftLeft", "KeyS"] });
-    expect(resolveKeyboardBindings({}).navSidecarOpen).toBe("ControlLeft+ShiftLeft+KeyS"); // absent field → default
-    expect(resolveKeyboardBindings({ navSidecarOpen: null }).navSidecarOpen).toBeNull(); // cleared by the user → stays unset
-    expect(resolveKeyboardBindings({}, ["navSidecarOpen"]).navSidecarOpen).toBeNull(); // disabled → unset
+    expect(resolveKeyboardBindings({}).navSidecarOpen).toBe("ControlLeft+ShiftLeft+KeyS");
+    expect(resolveKeyboardBindings({ navSidecarOpen: null }).navSidecarOpen).toBeNull();
+    expect(resolveKeyboardBindings({}, ["navSidecarOpen"]).navSidecarOpen).toBeNull();
   });
   it("carries through a set value", () => {
     expect(resolveKeyboardBindings({ cardQuickLaunch: "KeyF" }).cardQuickLaunch).toBe("KeyF");

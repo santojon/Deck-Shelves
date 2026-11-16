@@ -1,10 +1,7 @@
 check_name="SteamOS 3.8"
 check_version="Preview/Beta"
 
-# A literal system-path prefix is safe when every occurrence sits within a
-# few lines of its own os.path.exists() guard (e.g. a CA-bundle candidate
-# probed before use, never assumed present) — only flag genuinely
-# unguarded hardcoded access.
+# A system-path literal is fine when each use sits next to its own os.path.exists() guard.
 _unsafe_path_hit() {
   local file="$1" pattern="$2" total ln start end
   [[ -f "$file" ]] || return 1

@@ -1,10 +1,4 @@
-// @host/ui stub for the vitest Node environment.
-// The real package's webpack init expects `window.webpackChunksteamui`
-// which doesn't exist outside the browser. Tests that transitively
-// import @host/ui (via runtime/host/decky → re-exports) crash the
-// whole file at module-load. This stub exposes the same shape with
-// no-op implementations so the tests can load without touching the
-// host's webpack machinery.
+// The real package needs Steam's webpack runtime, which a test process does not have.
 import { createElement, type ComponentType } from 'react';
 
 const passthrough: ComponentType<any> = (props: any) => props?.children ?? null;

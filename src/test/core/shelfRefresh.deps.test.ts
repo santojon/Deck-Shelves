@@ -9,7 +9,6 @@ import { subscribeShelfRefresh, triggerShelfRefresh, installShelfRefreshEmitter 
 describe("shelfRefresh — tagged signals, staggered fan-out, battery pacing", () => {
   let uninstall: (() => void) | null = null;
   let clock = 1_000_000;
-  // Each test starts well past the previous emit so its first signal lands at once.
   beforeEach(() => { vi.useFakeTimers(); clock += 60_000; vi.setSystemTime(clock); battery = null; });
   afterEach(() => { uninstall?.(); uninstall = null; vi.useRealTimers(); });
 
@@ -35,9 +34,9 @@ describe("shelfRefresh — tagged signals, staggered fan-out, battery pacing", (
   it("signals inside the burst window fold their deps; an untagged one widens to everything", () => {
     const seen: any[] = [];
     const unsub = subscribeShelfRefresh((opts) => seen.push(opts?.deps ?? "all"));
-    triggerShelfRefresh({ deps: ["overviews"] });   // lands at once (first emit)
-    triggerShelfRefresh({ deps: ["collections"] }); // coalesced
-    triggerShelfRefresh({ deps: ["friends"] });     // folded into the pending emit
+    triggerShelfRefresh({ deps: ["overviews"] });
+    triggerShelfRefresh({ deps: ["collections"] });
+    triggerShelfRefresh({ deps: ["friends"] });
     vi.advanceTimersByTime(800);
     expect(seen[0]).toEqual(["overviews"]);
     expect(new Set(seen[1])).toEqual(new Set(["collections", "friends"]));

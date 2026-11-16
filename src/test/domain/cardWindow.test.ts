@@ -38,7 +38,6 @@ describe("computeCardWindow — visible span plus overscan", () => {
   it("keeps the on-screen cards mounted after several highlighted (wide) cards", () => {
     const slotW = 146, wideSlotW = 430 + 12, overscan = 9;
     const isWide = (i: number) => i < 6;
-    // Scrolled to the 6th highlighted card (index 5); a flat slot width unmounts it.
     const scrollLeft = 5 * wideSlotW;
     const flat = computeCardWindow({ scrollLeft, viewportW: 1280, slotW, count: 40, overscan });
     expect(flat.start).toBeGreaterThan(5);

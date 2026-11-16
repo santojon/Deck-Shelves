@@ -1,49 +1,31 @@
 import type { Settings } from "../types";
 
-/* Cross-device settings merge. The transport (SteamClient.RoamingStorage) only
-   moves whole snapshots; convergence lives here. Every syncable list entity
-   carries an `updatedAt` clock (stamped centrally in settingsStore.saveSettings),
-   so lists merge per-id last-writer-wins with deletion tombstones, and the scalar
-   toggle bag merges whole by `preferencesUpdatedAt`. */
-
 type Entity = { id: string; updatedAt?: number };
 type Tombstones = Record<string, number>;
 
-// Lists merged per-id. Everything else (toggles, allShelvesOrder, …) is the
-// scalar bag, chosen whole by preferencesUpdatedAt.
 export const SYNC_LISTS = ["shelves", "smartShelves", "savedFilters", "savedSmartFilters", "profiles"] as const;
 
-// Dev/debug tooling + the per-device Quick Access tab option: never part of a
-// profile switch or a cross-device sync, only ever local to this install. Shared
-// with the profile controller (controller/profiles.ts, runtime/profileTriggers.ts).
+// Local to this install: never part of a profile switch or a sync.
 export const DEVICE_LOCAL_FIELDS = [
   "devModeEnabled", "verboseLoggingEnabled", "ownQamTabEnabled",
-  // This device's backup of Steam's own idle timeout: a factory reset or a
-  // profile switch must keep it, or turning the screensaver off can't restore it.
+  // Kept across resets, or turning the screensaver off can't restore Steam's idle timeout.
   "screensaverIdleBackupAcSec", "screensaverIdleBackupBatterySec",
   "debugOverlayEnabled", "debugOverlayCorner", "debugOverlayVertical",
   "debugOverlayFps", "debugOverlayStats", "debugOverlayPerShelf",
   "debugOverlayOutlines", "debugOverlayFocus", "debugOverlayTransparent",
-  // Settings per Steam account: the other accounts' fields live here (domain/accountBuckets.ts).
   "accountSettings",
 ] as const;
 
-// Per-device, never synced — always kept from the local (first) argument.
 export const LOCAL_ONLY_FIELDS = [
   "cloudSyncEnabled", "cloudSyncLastSyncedAt",
-  // The active profile is a device-local presentation — a merge must keep the
-  // local one, never adopt the other device's (cloudSync strips this list before a push).
   "activeProfileName",
-  // The first-run tour flag: per-device, same reasoning as above (profiles
-  // already keep it sticky via stickyShowcaseSeen; a sync merge must too).
   "showcaseSeen",
   ...DEVICE_LOCAL_FIELDS,
 ] as const;
 
 function clk(e: Entity): number { return typeof e.updatedAt === "number" ? e.updatedAt : 0; }
 
-// Deterministic, order-independent tiebreak so merge(a,b) === merge(b,a): newer
-// clock wins; equal clocks fall back to the lexicographically greater JSON.
+// Order-independent tiebreak so merge(a, b) === merge(b, a).
 function pickNewer<T extends Entity>(a: T, b: T): T {
   const ca = clk(a), cb = clk(b);
   if (ca !== cb) return ca > cb ? a : b;
@@ -56,9 +38,6 @@ function mergeTombstones(a: Tombstones, b: Tombstones): Tombstones {
   return out;
 }
 
-/* Order the merged set by the scalar-winner's own list order (deterministic on
-   both devices), appending any ids it doesn't list in stable id order — so the
-   array order converges too, not just the membership. */
 function orderMerged<T extends Entity>(merged: T[], orderIds: string[]): T[] {
   const pos = new Map(orderIds.map((id, i) => [id, i] as const));
   const rank = (e: T): number => (pos.has(e.id) ? (pos.get(e.id) as number) : Number.MAX_SAFE_INTEGER);
@@ -73,8 +52,7 @@ function mergeList<T extends Entity>(a: readonly T[], b: readonly T[], tombstone
   const byId = new Map<string, T>();
   for (const e of a) byId.set(e.id, e);
   for (const e of b) { const p = byId.get(e.id); byId.set(e.id, p ? pickNewer(p, e) : e); }
-  // Drop an entity whose deletion tombstone is at least as new as its last edit;
-  // an edit newer than the delete revives it (edit-wins-over-older-delete).
+  // An edit newer than the delete revives the entity.
   const alive: T[] = [];
   for (const e of byId.values()) if ((tombstones[e.id] ?? 0) < clk(e)) alive.push(e);
   return orderMerged(alive, orderIds);
@@ -82,32 +60,17 @@ function mergeList<T extends Entity>(a: readonly T[], b: readonly T[], tombstone
 
 function prefClock(s: any): number { return typeof s.preferencesUpdatedAt === "number" ? s.preferencesUpdatedAt : 0; }
 
-/* The scalar bag is adopted from the remote ONLY when the remote's clock is
-   strictly newer; on a tie (very common — both 0 before anyone edits) KEEP LOCAL.
-   Keeping local on ties is deliberately non-symmetric for scalars: it stops an
-   un-edited or stale remote bag from flipping a device's own toggles (e.g. the
-   master `enabled`), so a bad snapshot can never poison every device. */
+// Ties keep local so a stale remote can't flip this device's own toggles.
 function pickScalarBase(la: any, rb: any, lp: number, rp: number): any {
   return rp > lp ? rb : la;
 }
 
-/* The whole scalar bag + its clock. `keepLocal` pins both to `local` (profile
-   override active); otherwise the newer-clock bag wins, clock = the max. */
 function scalarBag(la: any, rb: any, lp: number, rp: number, keepLocal: boolean): { base: any; clock: number } {
   if (keepLocal) return { base: la, clock: lp };
   return { base: pickScalarBase(la, rb, lp, rp), clock: Math.max(lp, rp) };
 }
 
-/* Merge two full settings snapshots. Symmetric, idempotent and order-independent
-   on SYNCED fields (so both devices converge from the same pair); the device-local
-   fields in LOCAL_ONLY_FIELDS always come from `local` (the first argument). */
-/* `scalars: "keepLocal"` pins the whole scalar bag (and its clock) to `local`
-   while the per-entity lists still merge — for a caller that wants the scalar
-   settings a profile applies to stay device-local; the cloud sync itself merges
-   them and folds the result into the active profile. NOT symmetric. */
-/* A neutral host's own config entity rides the sync as per-key LWW (its
-   `updatedAt` map), independent of the scalar bag: a device that never had it
-   adopts it, ties keep local, and an empty remote never erases local keys. */
+// Symmetric on synced fields; LOCAL_ONLY_FIELDS always come from `local`.
 type HubConfig = { values: Record<string, unknown>; updatedAt: Record<string, number> };
 type Clocks = Record<string, number>;
 
@@ -128,7 +91,6 @@ export function mergeHubConfig(local: HubConfig | null | undefined, remote: HubC
   return { values, updatedAt };
 }
 
-// The schema version only climbs: an older document from the other device must not pull a migrated one back.
 function keepHigherSchemaVersion(out: any, la: any, rb: any): void {
   const schema = Math.max(la.schemaVersion ?? 0, rb.schemaVersion ?? 0);
   if (schema > 0) out.schemaVersion = schema;

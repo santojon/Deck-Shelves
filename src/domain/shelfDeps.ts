@@ -1,8 +1,3 @@
-/* Which data a shelf's result depends on. A refresh signal names the data
-   that changed (see shelfRefresh) and a shelf only re-resolves when the two
-   intersect — a friends poll no longer re-runs every local shelf. Unknown
-   shapes (plugin sources) depend on everything, and the periodic untagged
-   poll still reaches all shelves, so the worst case is today's behaviour. */
 export type DepKind = "overviews" | "collections" | "friends" | "online" | "time" | "session";
 export type ShelfDeps = Set<DepKind> | "all";
 
@@ -60,7 +55,6 @@ const SOURCE_DEPS: Record<string, (source: any, out: Set<DepKind>) => boolean> =
   },
 };
 
-// Returns false when the source shape is unknown (→ depend on everything).
 function collectSourceDeps(source: any, out: Set<DepKind>): boolean {
   if (!source || typeof source !== "object") return false;
   const handler = SOURCE_DEPS[String(source.type)];

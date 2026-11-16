@@ -1,8 +1,4 @@
-/* One place for everything periodic in the renderer: the refresh emitter, the
-   fallback mount poll, the focused-card poll and the Home's focus effect
-   register here and run only in the states they name. Event-driven, no timer
-   of its own: it listens to the signals below and re-reads them on every read,
-   so a change without an event (a store updating late) is caught on the next. */
+// Signals are re-read on every read, so a change that fires no event is caught on the next one.
 import { getSessionState, isGameRunningByEvent, subscribeSessionState } from "./sessionState";
 import { getPreferredSteamWindow } from "./steamHost";
 import { steamUIStore } from "../steam/internals";
@@ -30,16 +26,12 @@ let hostHidden = false;
 let installed = false;
 let syncing = false;
 
-// Both signals, as the focused-card poll does: the store alone can list a
-// failed launch that never stops, the event set alone can miss a stop.
+// Both signals: the store alone can list a failed launch, the event set alone can miss a stop.
 function gameRunning(): boolean {
   try { return isGameRunningByEvent() && getSessionState().gameRunning; } catch { return false; }
 }
 
-/* A game window in the foreground session, from the compositor's focus
-   events: a shortcut or a third-party launcher can run a game that never
-   reaches the running-apps store or the lifetime notifications. Steam's own
-   window reports appid 769; any other window with an appid is a game's. */
+// Some launchers run games the running-apps store never sees; Steam's own window reports appid 769.
 const STEAM_CLIENT_APPID = 769;
 let focusedGame = false;
 // The focusable list still holds the game window while a menu is open over it.
@@ -71,9 +63,7 @@ function mainWindow(): any {
   try { return steamUIStore()?.WindowStore?.GamepadUIMainWindowInstance ?? null; } catch { return null; }
 }
 
-/* Another page covers the Home, read from Steam's own router: the window URL
-   cannot tell (the desktop Big Picture stays on /index.html). A client that
-   does not expose the router counts as not covered. */
+// The window URL can't tell (desktop Big Picture stays on /index.html), so ask the router.
 export function homeRouteCovered(): boolean {
   try {
     const path = mainWindow()?.m_history?.location?.pathname;
@@ -81,7 +71,6 @@ export function homeRouteCovered(): boolean {
   } catch { return false; }
 }
 
-// The Home is mounted behind a running game: no upkeep is worth doing there.
 export function isHomeBehindGame(): boolean {
   return inGame() && homeRouteCovered();
 }
@@ -122,7 +111,6 @@ function applyTransition(prev: PowerState, next: PowerState): void {
   for (const l of Array.from(listeners)) { try { l(next); } catch {} }
 }
 
-// Re-reads the signals; a change moves the tasks and notifies subscribers.
 export function getPowerState(): PowerState {
   if (syncing) return current;
   syncing = true;
@@ -159,7 +147,6 @@ export type PowerGateStats = {
   since: number;
   transitions: number;
   tasks: Record<string, { running: boolean; starts: number; stops: number }>;
-  // Why the state is what it is, for the device probe.
   signals: PowerGateSignals;
 };
 
@@ -172,7 +159,6 @@ function readSignals(): PowerGateSignals {
   };
 }
 
-// For diagnostics and the device energy probe.
 export function getPowerGateStats(): PowerGateStats {
   const out: PowerGateStats['tasks'] = {};
   for (const t of tasks) {
@@ -183,8 +169,6 @@ export function getPowerGateStats(): PowerGateStats {
   }
   return { state: current, since, transitions, tasks: out, signals: readSignals() };
 }
-
-// ---- signals ----
 
 const signalUnsubs: Array<() => void> = [];
 const hostUnsubs: Array<() => void> = [];
@@ -206,7 +190,6 @@ function register(call: () => any): void {
   } catch {}
 }
 
-// The same three registrations systemEvents / recentsReplace already rely on.
 function wireSuspend(): void {
   const sys = steamClient()?.System;
   register(() => sys?.RegisterForOnSuspendRequest?.(() => { suspended = true; onSignal(); }));
@@ -218,7 +201,6 @@ function wireSuspend(): void {
   }));
 }
 
-// The compositor's focus events: which window has the focus, and which exist.
 function wireGameWindows(): void {
   const ui = steamClient()?.System?.UI;
   register(() => ui?.RegisterForFocusChangeEvents?.(noteFocusChange));
@@ -233,9 +215,7 @@ function listen(bag: Array<() => void>, target: { addEventListener: Function; re
   } catch {}
 }
 
-/* The plugin realm's own document (the shared context on the Deck) reports
-   the display going dark through visibilitychange, as the suspend fallback
-   next to it already relies on. Events only: its initial value is not trusted. */
+// Events only: the initial visibility value isn't trusted.
 function wireScreen(): void {
   const doc = (globalThis as any).document as Document | undefined;
   listen(signalUnsubs, doc, "visibilitychange", () => { screenOff = !!doc?.hidden; onSignal(); });
@@ -256,7 +236,6 @@ function hostTargets(): { win: Window | null; doc: Document | null; history: any
   return { win, doc, history: inst?.m_history ?? null };
 }
 
-// The router's own `listen` (a history object), when the client exposes one.
 function listenHistory(history: any): void {
   if (typeof history?.listen !== "function") return;
   try {
@@ -265,11 +244,7 @@ function listenHistory(history: any): void {
   } catch {}
 }
 
-/* The Big Picture window carries the route (`popstate` / `hashchange`, the
-   router's `listen`) and the Home's visibility on a desktop host. Re-attached
-   whenever that window, its document or its router is a new object (renderer
-   reload, window appearing after install). `hidden` is taken from the events
-   only: a document reporting hidden from the start would hold every task. */
+// `hidden` comes from events only: a document hidden from the start would hold every task.
 function wireHost(): void {
   const { win, doc, history } = hostTargets();
   if (win === wiredWin && doc === wiredDoc && history === wiredHistory) return;
@@ -277,8 +252,7 @@ function wireHost(): void {
   wiredWin = win; wiredDoc = doc; wiredHistory = history;
   listen(hostUnsubs, win, "popstate", onSignal);
   listen(hostUnsubs, win, "hashchange", onSignal);
-  // A document on its way out (renderer reload) reports hidden as it unloads;
-  // that is not the Home hiding. The document replacing it is wired on the next read.
+  // An unloading document reports hidden, which is not the Home hiding.
   listen(hostUnsubs, win, "pagehide", () => { unloading = true; hostHidden = false; onSignal(); });
   listen(hostUnsubs, doc, "visibilitychange", () => { if (unloading) return; hostHidden = !!doc?.hidden; onSignal(); });
   listenHistory(history);
@@ -291,11 +265,9 @@ function disposePowerGate(): void {
   unwireHost();
   suspended = false; screenOff = false;
   focusedGame = false; gameWindowListed = false; overlayGameFocused = false;
-  // Owners unregister on their own teardown; anything left behind stops here.
   for (const t of Array.from(tasks)) { stopTask(t); tasks.delete(t); }
 }
 
-// Wires the signals once; idempotent. Returns the dispose.
 export function installPowerGate(): () => void {
   if (installed) return disposePowerGate;
   installed = true;
@@ -305,8 +277,6 @@ export function installPowerGate(): () => void {
   wireScreen();
   wireHost();
   getPowerState();
-  // Dev builds: the live stats for an on-device probe over the debugger.
-  if (__DEV__) { try { (globalThis as any).__ds_power_gate = getPowerGateStats; } catch {} }
   return disposePowerGate;
 }
 

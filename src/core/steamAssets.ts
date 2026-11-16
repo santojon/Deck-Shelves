@@ -7,8 +7,6 @@ const STEAMSTATIC_ORIGIN = STEAM_CDN_CLOUDFLARE;
 const AKAMAI_ORIGIN = STEAM_CDN_AKAMAI;
 const STEAMCOMMUNITY_ORIGIN = `${STEAM_CDN_AKAMAI}/steamcommunity/public/images`;
 
-// App overview helpers
-
 type SteamAppOverview = {
   appid?: number;
   local_cache_version?: string | number;
@@ -25,21 +23,11 @@ function getOverview(appid: number): SteamAppOverview | null {
   } catch { return null; }
 }
 
-// Drives memo deps so URL lists re-derive when the user changes art and
-// returns to home. Steam-native URLs already carry `?c=<local_cache_version>`
-/* for their own cache busting; this revision is the *only* signal that
-   flips for `/customimages/...` paths (those don't have any Steam-provided
-   cache buster). Returning the bare revision keeps the dep array cheap —
-   no per-render appStore reads — and matches the simpler URL behaviour the
-   plugin had before the per-field overview snapshot. */
+// Steam URLs carry their own `?c=` buster; this revision is the only signal for `/customimages/` paths.
 export function getAppAssetCacheKey(_appid: number): string {
   return getAssetRevision();
 }
 
-/* Customimages/ URLs are user-uploaded artwork served straight off disk;
-   the file path is stable across replacements so the browser keeps showing
-   the old bitmap until the page reloads. Append the global revision (which
-   HomeInject bumps on returns to home) so the URL flips on the next render. */
 function customBust(_appid: number): string {
   return `?c=${getAssetRevision()}`;
 }
@@ -52,12 +40,8 @@ function getCacheVersion(appid: number, overview?: SteamAppOverview | null): str
   return null;
 }
 
-/* URL builders. The revision buster rides only the LOCAL paths whose file
-   can change in place: `/customimages/` has no Steam buster, and loopback's
-   `local_cache_version` sometimes lags a "Customize Artwork" write. */
-/* Remote CDN art (steamstatic/akamai) is content-immutable per appid+file,
-   like the SHA1-pinned community icon, so it omits the buster — re-busting
-   it on every return to home only re-downloads identical bytes. */
+// Only local paths whose file can change in place get the revision buster.
+// Remote CDN art is immutable per appid and file, so it skips the buster.
 
 function rev(): string {
   return getAssetRevision();
@@ -78,8 +62,6 @@ export function buildAkamaiUrl(appid: number, file: string): string {
   return `${AKAMAI_ORIGIN}/steam/apps/${appid}/${file}`;
 }
 
-// Asset-type getters
-
 function getLibraryAssets(appid: number): Record<string, string | null> | null {
   try {
     const ads = (globalThis as any).appDetailsStore;
@@ -92,15 +74,10 @@ export function getHeroUrls(appid: number): string[] {
   const version = getCacheVersion(appid, ov);
   const bust = customBust(appid);
   const la = getLibraryAssets(appid);
-  // libraryAssets.strHeroImage may carry a hash-dir prefix (e.g.
-  // "abc123def.../library_hero.jpg") for community-sourced art.
+  // strHeroImage may carry a hash-dir prefix for community art.
   const heroFile = la?.strHeroImage ?? (version ? "library_hero.jpg" : null);
   const urls: string[] = [];
-  /* The user's manually-set custom artwork (Steam "Set Custom Artwork") lives
-     at /customimages/<appid>_hero.* and MUST win over the default hero. It used
-     to be listed after the loopback default, so once a game's overview loaded
-     (giving `version`) the default loaded first and the custom art was never
-     reached. Try custom first; a missing file 404s instantly and falls back. */
+  // Custom artwork must win over the default hero; a missing file 404s fast and falls back.
   urls.push(`/customimages/${appid}_hero.png${bust}`);
   urls.push(`/customimages/${appid}_hero.jpg${bust}`);
   if (heroFile && version) urls.push(buildLoopbackUrl(appid, heroFile, version));
@@ -217,8 +194,7 @@ export function getIconUrls(appid: number): string[] {
     urls.push(buildLoopbackUrl(appid, "icon.jpg", version));
   }
   if (iconHash) {
-    // Steam Community public images host — the canonical icon URL native
-    // friends/profile UI uses. Pinned by SHA1 so it never goes stale.
+    // Pinned by SHA1, so it never goes stale.
     urls.push(`${STEAMCOMMUNITY_ORIGIN}/apps/${appid}/${iconHash}.jpg`);
     urls.push(`${STEAMCOMMUNITY_ORIGIN}/apps/${appid}/${iconHash}.png`);
   }

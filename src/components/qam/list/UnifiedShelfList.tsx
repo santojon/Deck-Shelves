@@ -23,7 +23,6 @@ export function UnifiedShelfList({ controller }: { controller: SettingsControlle
   const handleReorder = (ids: string[]) => {
     void (controller.actions as any).setAllShelvesOrder?.(ids)
   }
-  // Up and down walk this list's own order, the one a drag saves.
   const moveInList = (id: string, dir: -1 | 1) => {
     const from = listIds.indexOf(id)
     const to = from + dir

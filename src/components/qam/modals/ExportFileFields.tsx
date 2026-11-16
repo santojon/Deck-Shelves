@@ -11,9 +11,6 @@ export async function pickExportFolder(startPath: string): Promise<string> {
   ])
 }
 
-/* File name + "Browse…" (folder picker) — the body shared by the export
-   dialogs. The folder lives in the caller's state so the dialog can show it
-   as its description. */
 export function ExportFileFields({ t, name, setName, folder, setFolder }: {
   t: (k: any) => string
   name: string

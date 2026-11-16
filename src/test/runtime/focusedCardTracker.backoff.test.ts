@@ -70,10 +70,8 @@ describe("focusedCardTracker — cadence backoff and the power gate", () => {
     expect(readsBetween(2000, 4200)).toBe(5);
     document.dispatchEvent(new Event("vgp_ondirection"));
     expect(readsBetween(4200, 5200)).toBe(6);
-    // A press inside the fast window keeps it open: the read pending at 5250 plus six more.
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight" }));
     expect(readsBetween(5200, 6200)).toBe(7);
-    // 2 s after that press the cadence settles back to 500 ms.
     vi.advanceTimersByTime(1500);
     expect(readsBetween(7700, 9700)).toBe(4);
   });

@@ -23,9 +23,6 @@ function cardActionsEnabled(): boolean {
   return getCurrentSettings()?.cardActionShortcutsEnabled !== false;
 }
 
-// Classify a launched card by the most specific type available — store /
-// wishlist (from its shelf's source), else non-Steam / game (from the app
-// overview). Lets the stats break launches down beyond just game/non-Steam.
 function classifyCard(appid: number, shelfId?: string): string {
   const shelfSourceType = shelfId ? findShelfSourceType(shelfId) : undefined;
   if (shelfSourceType === "store") return "store";
@@ -40,21 +37,14 @@ function findShelfSourceType(shelfId: string): string | undefined {
   return (sh as any)?.source?.type;
 }
 
-// Usage tracking for a real game launch (skips the editor preview + the
-// highlight/hidden picker's toggle-selection click). Best-effort.
 function trackCardActivation(ref: { previewMode: boolean; appid: number; shelfId?: string; isToggle: boolean }): void {
   if (ref.previewMode || !ref.appid || ref.isToggle) return;
   try {
     trackCardLaunch(classifyCard(ref.appid, ref.shelfId));
     if (ref.shelfId) trackShelfView(ref.shelfId);
-  } catch { /* best-effort */ }
+  } catch {}
 }
 
-/* Owns "launching the game": the dedupe-guarded activate callback, the
-   View-button quick-launch (replicated via the native context menu's first
-   item), and the DOM listeners that forward Steam's own vgp_onmenubutton /
-   vgp_onok events into them. Split out of GameCardImpl so that component
-   doesn't also carry this subtree's branches. */
 export function useCardActivation(params: {
   cardRef: RefObject<HTMLDivElement | null>;
   item: DeckRowItem;
@@ -63,14 +53,9 @@ export function useCardActivation(params: {
 }): { activate: () => void; quickLaunch: () => void } {
   const { cardRef, item, previewMode, appid } = params;
   const lastActivateRef = useRef(0);
-  /* When the editor sets `item.onToggleSelection`, the click target switches
-     from "open game" to "toggle selection" — keeps the preview unified
-     across highlight / hidden picker tabs (same real-card render, just a
-     different click handler + an overlay marker). */
   const onActivateRef = useRef(item.onToggleSelection ?? item.onActivate);
   onActivateRef.current = item.onToggleSelection ?? item.onActivate;
-  // Updated each render so `activate` can stay a stable ([]-dep) callback
-  // while still reading fresh values for usage tracking (no extra re-renders).
+  // Updated every render so activate can stay stable.
   const trackRef = useRef({ previewMode, appid, shelfId: item.shelfId, isToggle: !!item.onToggleSelection });
   trackRef.current = { previewMode, appid, shelfId: item.shelfId, isToggle: !!item.onToggleSelection };
 
@@ -82,9 +67,6 @@ export function useCardActivation(params: {
     trackCardActivation(trackRef.current);
   }, []);
 
-  /* Select-button action mirrors the native menu's first item by opening it
-     and dispatching click on its first .contextMenuItem — the exact action
-     a manual open+pick would, without reverse-engineering Steam's resolver. */
   const quickLaunch = useCallback(() => {
     if (previewMode || !appid) return;
     if (typeof item.onMenuButton !== 'function') return;
@@ -124,8 +106,7 @@ export function useCardActivation(params: {
       el.removeEventListener("contextmenu", menuHandler);
       el.removeEventListener("vgp_onok", activateHandler);
     };
-    // item.onActivate is read via closure (activateHandler), intentionally
-    // not in deps — matches the pre-refactor effect exactly.
+    // item.onActivate is read through the closure on purpose and stays out of the deps.
   }, [item.onMenuButton, activate]);
 
   return { activate, quickLaunch };
@@ -144,8 +125,6 @@ function runCardAction(
   try { ctx.toggleCardHighlight(ctx.shelfId, ctx.appid); } catch {}
 }
 
-// `matchEvent` is the matcher for both Decky-forwarded and raw-controller
-// events; only the combo parser differs (chord tokens vs raw button ids).
 function matchedCardAction(b: ReturnType<typeof resolveBindings>, evtLike: any, state: ReturnType<typeof createMatcherState>, raw: boolean): 'quickLaunch' | 'hideRemove' | 'highlight' | null {
   const parse = raw ? parseRawCombo : parseCombo;
   if (matchEvent(evtLike, parse(b.cardQuickLaunch), state)) return 'quickLaunch';
@@ -160,8 +139,7 @@ function usesRawOnlyCombo(combo: string | null | undefined): boolean {
   return tokens.some((t) => t === "L4" || t === "L5" || t === "R4" || t === "R5");
 }
 
-/* Only the combos that use a back grip go through the raw stream; the rest stay
-   on buttonDownHandler, so a loader-known button never fires twice. */
+// Only back-grip combos use the raw stream, so a loader-known button never fires twice.
 type CardBindings = ReturnType<typeof resolveBindings>;
 function rawOnlyBindings(b: CardBindings): CardBindings | null {
   const pick = (c: string | null | undefined) => (usesRawOnlyCombo(c) ? c : null);
@@ -169,7 +147,6 @@ function rawOnlyBindings(b: CardBindings): CardBindings | null {
   return out.cardQuickLaunch || out.cardHideRemove || out.cardHighlightToggle ? out : null;
 }
 
-/* Dispatches a captured keydown code against a card's keyboard bindings. */
 function handleCardKeyEvent(
   code: string | null,
   state: KeyMatcherState,
@@ -185,10 +162,6 @@ function handleCardKeyEvent(
   } catch {}
 }
 
-/* Owns how gamepad/raw-controller/keyboard input routes to a card's three
-   quick actions. Three independent sources feed them — Decky's onButtonDown,
-   a raw controllerInput subscription (tokens Decky doesn't forward, e.g.
-   L4/L5/R4/R5), and a keyboard subscription — all gated on `.gpfocus`. */
 export function useCardInputBindings(params: {
   cardRef: RefObject<HTMLDivElement | null>;
   appid: number;
@@ -216,11 +189,6 @@ export function useCardInputBindings(params: {
     } catch {}
   }, [appid, previewMode, quickLaunch, removableSet, onRemoveCard, onHideCard, shelfId, toggleCardHighlight]);
 
-  /* Raw stream (back-grip L4/L5/R4/R5 — tokens the Decky home-button bus
-     doesn't forward; Decky-known tokens stay on buttonDownHandler above so a
-     press never fires twice) and keyboard, both through the one-per-Home
-     registry: it dispatches only to the focused card, so no per-card
-     subscription and no per-card `.gpfocus` check on every press. */
   useEffect(() => {
     if (previewMode || !appid) return;
     const el = cardRef.current;
@@ -252,10 +220,6 @@ export function useCardInputBindings(params: {
 type CardState = { label: string | undefined; action: 'run' | 'resume_update' | 'raise' };
 
 function resolveNotInstalledCardState(overview: any, localEntry: any, pcdRaw: any[]): CardState {
-  /* "Install" only for the clean not-installed state Steam reports on the
-     LOCAL client (no platform flag against it) — what the native menu's
-     first item also checks. Installed elsewhere alone isn't reason to skip
-     it: same platform, not installed here, still Install. */
   const platformIncompatible = localEntry?.is_invalid_os_type === true
     || localEntry?.is_available_on_current_platform === false;
   const cleanlyInstallable = localEntry?.display_status === EAppDisplayStatus.ReadyToInstall && !platformIncompatible;
@@ -265,16 +229,10 @@ function resolveNotInstalledCardState(overview: any, localEntry: any, pcdRaw: an
     : pcdRaw.filter((c: any) => String(c?.clientid) !== "0");
   const remote = remotePcd.find((c: any) => !!c?.installed || Number(c?.display_status) === EAppDisplayStatus.ReadyToLaunch);
   if (remote) return remoteCardState(remote);
-  /* No local per-client entry at all — Steam hasn't given us anything to
-     judge compatibility from, so keep the old default rather than guess
-     it's unsupported. A local entry that DID resolve, just not to a clean
-     not-installed state, means neither action applies. */
   if (!localEntry) return { label: i18n.t('menu_install'), action: 'run' };
   return { label: undefined, action: 'run' };
 }
 
-/* Another device's copy: Steam's first item is that copy's update (run on that device) while one
-   is pending or under way, else Stream. */
 export function remoteCardState(remote: any): CardState {
   const next = resolveQuickLaunchAction({ installed: true, displayStatus: Number(remote?.display_status ?? 0), statusPercentage: remote?.status_percentage });
   if (next === 'update') return { label: i18n.t('menu_update'), action: 'resume_update' };
@@ -300,8 +258,6 @@ function readStatusPercentage(overview: any): number | undefined {
 function resolveInstalledCardState(overview: any): CardState {
   const ds = readDisplayStatus(overview);
   const statusPct = readStatusPercentage(overview);
-  /* Mapping lives in `steam/appDisplayStatus.ts > resolveQuickLaunchAction` so
-     the test suite can pin every transition. */
   const next = resolveQuickLaunchAction({ installed: true, displayStatus: ds, statusPercentage: statusPct });
   switch (next) {
     case 'running': return { label: i18n.t('menu_resume'), action: 'raise' };
@@ -315,9 +271,7 @@ function resolveInstalledCardState(overview: any): CardState {
 function computeCardState(appid: number): CardState {
   const overview = (globalThis as any).appStore?.GetAppOverviewByAppID?.(appid);
   if (!overview) return { label: undefined, action: 'run' };
-  /* `overview.installed` alone can't tell "installed HERE" — Steam sets it
-     true for a Remote-Play-only title too. Clientid "0" is the local client;
-     missing that but another client installed is "Stream". */
+  // overview.installed is also true for Remote Play titles; client id 0 is the local one.
   const pcdRaw: any[] = Array.isArray(overview.per_client_data)
     ? overview.per_client_data
     : (Array.isArray(overview.local_per_client_data) ? overview.local_per_client_data : []);
@@ -331,11 +285,6 @@ const IDLE_CARD_STATE: CardState = { label: undefined, action: 'run' };
 function computeCardStateSafe(appid: number): CardState {
   try { return computeCardState(appid); } catch { return IDLE_CARD_STATE; }
 }
-/* Re-read display_status on every app-overview/game-action signal (a
-   long-lived card would otherwise keep a stale "Update" hint) — but through
-   ONE refresh subscription for all cards: the store recomputes every mounted
-   card's state per signal and re-renders only the cards whose label/action
-   actually changed, instead of forcing every card to render on each emit. */
 const cardStateStore = createSelectedStore<CardState>({
   compute: computeCardStateSafe,
   equal: (a, b) => a.label === b.label && a.action === b.action,
@@ -343,8 +292,6 @@ const cardStateStore = createSelectedStore<CardState>({
 });
 const noopUnsub = () => {};
 
-/* Select-button action mirrors the native menu's first item per state:
-   running → RaiseWindow; update-pending → ResumeAppUpdate; else → RunGame. */
 export function useCardQuickLaunchState(appid: number, previewMode: boolean): CardState {
   const active = !previewMode && !!appid;
   const subscribe = useCallback((cb: () => void) => active ? cardStateStore.subscribe(appid, cb) : noopUnsub, [appid, active]);
@@ -352,8 +299,6 @@ export function useCardQuickLaunchState(appid: number, previewMode: boolean): Ca
   return useSyncExternalStore(subscribe, getSnapshot);
 }
 
-/* Same pattern for the friends-playing decoration: the key only changes when
-   THIS card's friend set changes, so a friends poll re-renders just those. */
 const friendsKeyStore = createSelectedStore<string>({
   compute: (appid) => `${friendIds(getFriendsInApp(appid, false))}|${friendIds(getFriendsInApp(appid, true))}`,
   equal: (a, b) => a === b,
@@ -415,10 +360,7 @@ function applyFallbackAnimation(doc: Document, cardRef: RefObject<HTMLDivElement
   }
 }
 
-/* The sampled native card's ::after animation is the same for every DS card
-   mounting in the same pass, but each card used to force its own computed-
-   style read (~165 per Home rebuild). Memoised per sample element for a
-   short window — a theme switch produces a different sample element. */
+// Sampled once per pass instead of one computed-style read per card.
 let animVarsCache: { el: HTMLElement; vars: ReturnType<typeof readNativeAnimationVars>; at: number } | null = null;
 const ANIM_VARS_TTL_MS = 2000;
 function readNativeAnimationVarsCached(nativeSample: HTMLElement): ReturnType<typeof readNativeAnimationVars> {
@@ -464,10 +406,6 @@ function injectNativeClasses(
 
 const NATIVE_CLASS_RETRY_INTERVALS_MS = [250, 500, 800, 1200, 2000];
 
-/* Steam's own native card classes (and the ::after focus-glow animation a
-   theme defines on them) aren't known until a real native card exists
-   somewhere in the DOM to sample — retries on a backoff schedule until one
-   shows up or the budget runs out. */
 export function useNativeCardClassInjection(
   cardRef: RefObject<HTMLDivElement | null>,
   imgRef: RefObject<HTMLImageElement | null>,
@@ -522,10 +460,6 @@ function pickInitialCached(allUrls: string[]): { initialSrc: string; initialOrig
   return { initialSrc: allUrls[0], initialOriginal: allUrls[0], startIdx: 0 };
 }
 
-/* Owns the card-art fallback chain: candidate URL list (CDN / custom-image /
-   hero, in priority order), which one to start from (hot-cache-first so a
-   remount skips the 404 → next-URL cycle), and advancing through the chain
-   on load failure. */
 export function useCardImageFallback(params: {
   imgRef: RefObject<HTMLImageElement | null>;
   appid: number;
@@ -538,9 +472,7 @@ export function useCardImageFallback(params: {
   const [imgFailed, setImgFailed] = useState(false);
   const [imgLoaded, setImgLoaded] = useState(false);
   const fallbackIdx = useRef(0);
-  // Tracks the *original* (non-blob) URL for each fallback step, so
-  // onImgError always advances through the original chain even when the
-  // current src is a cached blob URL.
+  // Tracks the original URLs so errors advance the chain even when src is a blob.
   const currentOriginalUrl = useRef<string>("");
 
   const allUrls = useMemo(
@@ -554,9 +486,7 @@ export function useCardImageFallback(params: {
     setImgFailed(false);
     setImgLoaded(false);
     currentOriginalUrl.current = initialOriginal;
-    // Cache miss path — warm the FIRST CACHEABLE URL (typically the CDN
-    // one); `initialOriginal` is usually the local /customimages/ entry,
-    // which cacheable() rejects, so warming it alone was a no-op.
+    // Warm the first cacheable URL; the local /customimages/ entry isn't cacheable.
     if (isNearViewport && initialSrc === initialOriginal) {
       const warmTarget = firstCacheableUrl(allUrls);
       if (warmTarget) { try { warmCacheBackground(warmTarget); } catch {} }
@@ -582,18 +512,12 @@ export function useCardImageFallback(params: {
 
   const onImgLoad = useCallback(() => {
     setImgLoaded(true);
-    // Persist successfully-loaded URL so the next visit is a hot hit.
-    // warmCacheBackground dedupes if already cached / in-flight.
     if (currentOriginalUrl.current) warmCacheBackground(currentOriginalUrl.current);
   }, []);
 
   return { firstUrl: initialSrc, imgFailed, imgLoaded, setImgLoaded, onImgError, onImgLoad };
 }
 
-/* Owns the card's optional logo/icon/description decoration: candidate URL
-   lists, cache-warming gated to near-viewport cards, and the description
-   snippet — which lands asynchronously after `preloadAppDescriptions`, so
-   it's polled briefly rather than read once via useMemo. */
 export function useCardAssetDecoration(params: {
   appid: number;
   assetKey: string;

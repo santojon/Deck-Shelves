@@ -11,8 +11,6 @@ function findNativeCardSample(doc: Document | null): HTMLElement | null {
   return sel ? (doc?.querySelector(`${sel}:not(.ds-card)`) as HTMLElement | null) : null;
 }
 
-// Read the native card's ::after animation name onto the card so the theme's
-// focus-glow pseudo-element styling matches. Best-effort — swallows failures.
 function applyNativeAfterAnimation(doc: Document | null, target: HTMLElement | null): void {
   if (!target) return;
   try {

@@ -3,9 +3,6 @@ import { ConfirmModal, Focusable } from '../../../../runtime/host/decky'
 import { ModalShell } from '../../../ui'
 import { ModalHeader } from './ModalHeader'
 
-/* The frame both shelf editors share: the confirm modal saving on OK and on the
-   Menu button, the title field with the live count, and a fixed-height body with
-   the tab strip above the preview panel. */
 export function EditShelfFrame({ t, heading, title, onTitleChange, previewCount, onSave, onClose, tabsOverflow, tabs, preview }: {
   t: (...args: any[]) => any
   heading: string

@@ -12,14 +12,11 @@ import { DIR_LEFT, DIR_RIGHT, HOLD_MS } from './constants'
 import { findCardIndexAtX, reorderIds, readPriceCache } from './dragReorder'
 
 const NEW_GAME_WINDOW_MS = 14 * 24 * 60 * 60 * 1000
-// Portrait card. Featured cards are 3.21× wider — same ratio the home shelf
-// uses to keep landscape hero art at the right ~2.14:1 aspect.
+// Featured cards are 3.21× wider, the ratio the home shelf uses for hero art.
 const PREVIEW_CARD_W = 78
 const PREVIEW_ART_H = 110
 const FEATURED_CARD_W = Math.round(PREVIEW_CARD_W * 3.21)
 
-// Manual-sort grab: decode a gamepad button / arrow key into a shift
-// direction so the grab effect's handlers stay flat.
 function grabbedDir(button: number): number {
   if (button === DIR_LEFT) return -1
   if (button === DIR_RIGHT) return 1
@@ -32,8 +29,7 @@ function grabbedKeyAction(key: string): 'left' | 'right' | 'refocus' | null {
   return null
 }
 
-// Patch the gamepad dispatch so directional presses shift the grabbed
-// card instead of moving row focus. Returns a restore fn (or null).
+// Directional presses shift the grabbed card instead of moving focus.
 function patchGrabbedDispatch(
   ctrl: any,
   shiftGrabbed: (d: number) => void,
@@ -52,8 +48,6 @@ function patchGrabbedDispatch(
   } catch { return null }
 }
 
-// Owned-name lookup for wishlist dedup: read a display name for an appid
-// from whichever appStore is reachable (this window or the opener).
 function nameFromStore(as: any, id: number): string | null {
   try {
     const ov = as?.GetAppOverviewByAppID?.(id)
@@ -71,9 +65,6 @@ function lookupOwnedName(id: number): string | null {
   return null
 }
 
-// Owned-hide (excludeOwned) reads its toggles off whichever source actually
-// carries them: the shelf itself when it's a direct wishlist/store, or the
-// first online child when it's a composite. Null means no toggle applies.
 function findOnlineToggleSource(s: any): any {
   if (s.type === 'wishlist' || s.type === 'store') return s
   if (s.type === 'composite' && Array.isArray(s.sources)) {
@@ -90,15 +81,11 @@ function readGlobalHideFlags(cur: any): { hideOwned: boolean; hideOwnedNonSteam:
   }
 }
 
-// A non-Steam hide can come from either the global setting or this shelf's
-// own toggle (per-shelf ON always applies regardless of the global flag).
 function resolveEffectiveNonSteamHide(excludeOwned: boolean, tgls: any, global: ReturnType<typeof readGlobalHideFlags>): boolean {
   const shelfNonSteam = excludeOwned && tgls?.excludeOwnedNonSteam === true
   return (global.hideOwned && global.hideOwnedNonSteam) || shelfNonSteam
 }
 
-// Cloud-save hiding only makes sense once non-Steam hiding is already on;
-// the per-shelf flag wins when set, otherwise it falls back to the global.
 function resolveEffectiveCloudHide(effectiveNonSteam: boolean, tgls: any, globalHideOwnedCloud: boolean): boolean {
   if (!effectiveNonSteam) return false
   const perShelf = tgls?.hideOwnedNonSteamCloud
@@ -122,9 +109,6 @@ function appOverviewIdAndName(a: unknown): { id: number; name: string } {
   return { id: Number(rec?.appid), name: typeof n === 'string' ? n : '' }
 }
 
-// Backstop: still merge whatever `getAllAppOverviews()` returns for the
-// rare case where the raw per-id appStore lookup missed an entry (mutates
-// `names` in place so the caller can keep using the same Set instance).
 async function mergeAppOverviewNames(names: Set<string>, ownedSet: Set<number>): Promise<void> {
   try {
     const apps = await getAllAppOverviews()
@@ -139,10 +123,6 @@ async function mergeAppOverviewNames(names: Set<string>, ownedSet: Set<number>):
 
 type OwnedHideState = { isCompositeShelf: boolean; effectiveNonSteam: boolean; effectiveCloud: boolean } | null
 
-/* Mirror Shelf.tsx render-time owned-hide: when an online source has the
-   "exclude owned" toggle on (per-shelf or global), drop ids that match the
-   local library by appid or by normalized name — see the two resolvers
-   above for the non-Steam / cloud-save nuance. */
 function computeOwnedHideState(shelfSource: unknown): OwnedHideState {
   const s: any = shelfSource
   if (!s || typeof s !== 'object') return null
@@ -157,16 +137,10 @@ function computeOwnedHideState(shelfSource: unknown): OwnedHideState {
   return { isCompositeShelf: s.type === 'composite', effectiveNonSteam, effectiveCloud }
 }
 
-// ── rowItems builder helpers ────────────────────────────────────────────────
-
 function buildHiddenSet(hiddenAppIds: number[] | undefined): Set<number> | null {
   return hiddenAppIds && hiddenAppIds.length ? new Set(hiddenAppIds) : null
 }
 
-/* Owned-hide gate: skip ids matching the local library by appid or by
-   normalized name. Composite shelves restrict the gate to online-origin
-   cards (no local overview); direct online shelves apply it to every card
-   (they're all online by definition). */
 function shouldHideOwnedCard(
   id: number,
   ctx: {
@@ -185,8 +159,6 @@ function shouldHideOwnedCard(
   return matchesOwnedName(meta, id, ownedNames)
 }
 
-// A real (non-fallback) display name for `id` that normalizes to a key
-// already present in `ownedNames` — the wishlist/store dedup path.
 function matchesOwnedName(meta: Map<number, PlatformAppMeta>, id: number, ownedNames: Set<string> | null): boolean {
   if (!ownedNames) return false
   const name = meta.get(id)?.name
@@ -196,10 +168,7 @@ function matchesOwnedName(meta: Map<number, PlatformAppMeta>, id: number, ownedN
   return !!key && ownedNames.has(key)
 }
 
-/* Always-on intrinsic marks. Precedence (top → bottom): grabbed beats
-   everything (active interaction); hidden beats highlight/added (the dark
-   overlay signals "off"); highlight beats added (the user explicitly
-   featured this card); added is the baseline marker for menu-added games. */
+// Mark precedence: grabbed, hidden, highlight, added.
 function resolveCardFlags(ctx: {
   m: PlatformAppMeta
   id: number
@@ -229,10 +198,6 @@ function resolveSelectionMark(flags: { isGrabbed: boolean; isHidden: boolean; is
   return undefined
 }
 
-/* Picker mode: paint the overlay when this id is currently selected. The
-   toggle handler always fires (lets the user both ADD and REMOVE selection
-   by clicking the same card). In manualSortMode, clicking toggles grab
-   instead. */
 function makeToggleHandler(
   id: number,
   manualSortMode: boolean,
@@ -244,11 +209,6 @@ function makeToggleHandler(
   return selectionMode ? () => onToggleSelection?.(id) : undefined
 }
 
-/* Splice synthetic decoration cards at their persisted `position` slots,
-   sorted asc so earlier slots splice before later ones (later positions
-   stay valid as the array grows) — mutates `out` in place. Synth `id` is
-   the sentinel `-(origIdx + 1)` so the manual-sort drag flow can reorder
-   them as first-class citizens. */
 type SyntheticCardInput = {
   position: number
   image?: string
@@ -284,11 +244,6 @@ function spliceSyntheticCards(out: DeckRowItem[], syntheticCards: SyntheticCardI
   }
 }
 
-/* Scoped overrides — keep the modal preview visually flat (no native scale,
-   no theme accent ring, no animated glow) while preserving the focus drop
-   shadow + label fade behaviour the home shelf uses. Padding is gated to the
-   text-only cards (More/Refresh share the `ds-more-card-text` child); game
-   cards stay at zero padding so the image fills the focus area edge-to-edge. */
 const PREVIEW_STYLE_TAG = `
 [data-ds-preview-row="1"] .ds-card-art:has(> .ds-more-card-text) { padding: 6px !important; }
 [data-ds-preview-row="1"] .ds-more-card-text { font-size: 10px !important; line-height: 1.2 !important; }
@@ -296,10 +251,6 @@ const PREVIEW_STYLE_TAG = `
 [data-ds-preview-row="1"] .ds-card-status-icon svg { width: 11px !important; height: 11px !important; }
 [data-ds-preview-row="1"] .ds-card-status { font-size: 11px !important; }
 [data-ds-preview-row="1"] .ds-card-label-name { font-size: 12px !important; line-height: 1.2 !important; }
-/* Strip every native/theme border + outline + scale on every state, on the
-   card itself AND any nested element (the native landscape class draws its
-   accent border on a child of the focused card, so the parent-only selector
-   wasn't reaching it). */
 [data-ds-preview-row="1"] .ds-card,
 [data-ds-preview-row="1"] .ds-card *,
 [data-ds-preview-row="1"] .ds-card.ds-card--featured,
@@ -321,47 +272,26 @@ const PREVIEW_STYLE_TAG = `
 [data-ds-preview-row="1"] .ds-card:hover::after,
 [data-ds-preview-row="1"] .ds-card:focus::after,
 [data-ds-preview-row="1"] .ds-card.gpfocus::after { animation: none !important; opacity: 0 !important; }
-/* Synthetic cards with placeholder=false: kill the drop-shadow in every
-   state so transparent decoration images don't have a phantom card-shape
-   shadow around them in the preview. Home shelf does the same via the
-   .ds-card--synthetic-noshadow rule in shelfStyles.ts. */
 [data-ds-preview-row="1"] .ds-card.ds-card--synthetic-noshadow,
 [data-ds-preview-row="1"] .ds-card.ds-card--synthetic-noshadow:hover,
 [data-ds-preview-row="1"] .ds-card.ds-card--synthetic-noshadow:focus,
 [data-ds-preview-row="1"] .ds-card.ds-card--synthetic-noshadow.gpfocus { box-shadow: none !important; }
-/* "Shadow only on focus" mode in preview: suppress at idle, keep the
-   preview focus shadow on focus/hover. */
 [data-ds-preview-row="1"] .ds-card.ds-card--synthetic-shadow-focus-only { box-shadow: none !important; }
 [data-ds-preview-row="1"] .ds-card.ds-card--synthetic-shadow-focus-only:hover,
 [data-ds-preview-row="1"] .ds-card.ds-card--synthetic-shadow-focus-only:focus,
 [data-ds-preview-row="1"] .ds-card.ds-card--synthetic-shadow-focus-only.gpfocus { box-shadow: rgba(0, 0, 0, 0.5) 0px 8px 16px 0px !important; }
-/* Badge sizing — the home defaults to 10 px / 24 px band assuming
-   200+ px cards; the preview cards are 78 px wide, so the same
-   band looks chunky and eats roughly 1/3 of the card height.
-   Scale font + padding + band height down proportionally. */
 [data-ds-preview-row="1"] .ds-new-badge { font: 700 8px/13px "Motiva Sans", Helvetica, Arial, sans-serif !important; padding: 1px 6px !important; letter-spacing: 0.3px !important; }
 [data-ds-preview-row="1"] .ds-new-badge-band { height: 16px !important; }
-/* Preview badge — kept inside the card top edge (top:0) so the modal
-   stays bounded (the earlier overflow:visible cascade let the focus
-   scale leak past the modal). z:9999 on the host AND on every descendant
-   so it wins inside the focused card's z:12 stacking context against
-   the position:absolute .ds-card-art fill that otherwise covers it. */
 [data-ds-preview-row="1"] .ds-card-badge-host--inline { top: 0 !important; height: 16px !important; z-index: 9999 !important; }
 [data-ds-preview-row="1"] .ds-card-badge-host--inline .ds-new-badge-band,
 [data-ds-preview-row="1"] .ds-card-badge-host--inline .ds-new-badge { z-index: 9999 !important; position: relative !important; }
-/* The band absolutely-positions itself at top:0 of the host. With the
-   host at top:0 (no overhang), the band sits at the card's top edge
-   and the bottom-of-card art is fully visible. */`
+`
 
 export interface ShelfPreviewProps {
   t: (...args: any[]) => any
   ids: number[]
   meta: Map<number, PlatformAppMeta>
-  // Cap shown cards to the configured shelf limit. Without it the preview
-  // outpaces the resolver on `state.limit` changes between tabs.
   limit?: number
-  // Source + sort drive whether the trailing MoreCard / RefreshCard render
-  // (refreshable smart, random non-smart, etc.) — same rules as Shelf.tsx.
   shelfSource?: any
   shelfSort?: string | string[]
   hideStatusLine: boolean
@@ -375,23 +305,9 @@ export interface ShelfPreviewProps {
   highlightFirst: boolean
   highlightAll: boolean
   highlightedAppIds: number[]
-  /* Hidden ids drive the always-on 'hidden' overlay (red ring + dark
-     tint + ✕). Even when the hidden picker is CLOSED, hidden cards
-     appear in the preview with this overlay so the user can see which
-     games are hidden across every tab. Home shelf still filters them
-     out (Shelf.tsx applies the filter at the resolver level). */
   hiddenAppIds?: number[]
-  // When provided, the trailing RefreshCard is focusable + clickable and
-  // invokes this callback to re-resolve the preview's app ids (matches the
-  // behaviour the home shelf gives the user).
   onRefresh?: () => void
-  // Emitted whenever focus moves between cards in the preview row.
-  // Drives the Decoration tab's "insert at currently focused slot"
-  // behaviour without coupling that tab to the preview's DOM.
   onFocusedIndexChange?: (idx: number) => void
-  // Synthetic decoration cards to interleave at their `position` slots.
-  // Same shape Shelf.tsx splices on the home — kept identical here so the
-  // preview matches the real shelf 1:1.
   syntheticCards?: Array<{
     position: number;
     image?: string;
@@ -403,25 +319,11 @@ export interface ShelfPreviewProps {
     heroImage?: string;
     shadowMode?: 'never' | 'onFocus' | 'always';
   }>
-  // Editor picker mode: when set, every card carries an overlay marker
-  /* (`highlight` blue tint + ★ / `hidden` dark tint + ✕) and its
-     activate handler toggles membership in the selection set instead of
-     opening the game. Lets the highlight + hidden picker tabs render
-     through the same ShelfPreview as everywhere else, only adding the
-     overlay + click rebinding for their specific affordance. */
   selectionMode?: 'highlight' | 'hidden'
   selectionSet?: Set<number>
   onToggleSelection?: (appid: number) => void
-  // X-button "Remove from shelf": appids in this set are the menu-added
-  /* games (manualOrder entries NOT in the resolved source). They get
-     the remove action AND are always kept by the limit cap below so
-     they appear in every preview tab — not just the Source tab whose
-     ManualSortRow renders with no cap. Modal owns the callback so the
-     removal updates local state (Save/Cancel semantics preserved). */
   removableSet?: Set<number>
   onRemoveCard?: (appid: number) => void
-  // Manual-sort drag mode (additive): hold-to-grab + chevron shift,
-  // emits sentinel-bearing order via onReorder.
   manualSortMode?: boolean
   onReorder?: (next: number[]) => void
 }
@@ -437,24 +339,12 @@ export function ShelfPreview({
 }: ShelfPreviewProps) {
   const rowRef = useRef<HTMLDivElement>(null)
   const highlightedSet = useMemo(() => new Set(highlightedAppIds), [highlightedAppIds.join(',')])
-  /* Manual-sort drag state — used only when `manualSortMode` is true.
-     Lifted here so the rowItems builder can paint the 'grabbed' mark on
-     the right card. `cappedOrderRef` is filled AFTER rowItems so drag
-     operations have the visible sentinel-bearing order to work with. */
   const [grabbedAppid, setGrabbedAppid] = useState<number | null>(null)
   const grabbedRef = useRef<number | null>(null)
   const cappedOrderRef = useRef<number[]>([])
   useEffect(() => { grabbedRef.current = grabbedAppid }, [grabbedAppid])
-  /* Filter out synthetic sentinels (negative ids) the modal injects into
-     `effectiveManualOrder` for the manual-sort drag grid. The preview
-     splices its own synthetic items below from `syntheticCards[].position`
-     so they appear regardless of the sort mode. */
   const gameOnlyIds = useMemo(() => ids.filter((id) => id >= 0), [ids])
-  /* Limit cap — always keep `removableSet` entries (menu-added games at
-     the manualOrder tail) so they appear in every tab, matching the
-     Source tab's ManualSortRow which renders without a cap. Without
-     this carve-out, limit would slice them off and the user's added
-     games would only be visible while editing the source tab. */
+  // Menu-added games are never cut by the limit.
   const cappedIds = useMemo(() => {
     if (typeof limit !== 'number' || limit < 0) return gameOnlyIds
     if (!removableSet?.size) return gameOnlyIds.slice(0, limit)
@@ -470,16 +360,7 @@ export function ShelfPreview({
   const showRefresh = shelfSource ? shouldShowRefreshCard(trailingInput) : !hideRefreshCard
   const showMore = shelfSource ? shouldShowMoreCard(trailingInput) : !hideSeeMore
 
-  /* Build the items list (game cards + trailing refresh/more) for the shared
-     <ShelfRow>. Featured sizing comes from the per-card branch (preview uses
-     3.21× cardW for highlighted items). `discountPercent` is pulled from the
-     same localStorage price cache the home consults, so the green discount
-     badge can render when `inlineBadges` is on. */
-  /* Discount badges only make sense on online (wishlist/store) shelves
-     — they advertise "this game is on sale, buy it". On non-online
-     shelves (collection / tab / filter / installed) the user already
-     owns the game so the badge is noise. Mirrors what Shelf.tsx does
-     on the home (it only sets `discountPercent` for online sources). */
+  // Discount badges only on online shelves; elsewhere the game is already owned.
   const isOnlineShelfSource = (() => {
     const s: any = shelfSource
     if (!s || typeof s !== 'object') return false
@@ -497,15 +378,7 @@ export function ShelfPreview({
     const { effectiveNonSteam, effectiveCloud } = ownedHideState
     const ownedSet = getLocalLibraryAppIds(effectiveNonSteam, effectiveCloud)
     setOwnedAppIds(ownedSet)
-    /* Build ownedNames via PER-ID raw `appStore.GetAppOverviewByAppID`
-       lookup across every Steam window — `getAllAppOverviews()` falls
-       through `normalizeAppOverview` for many users which strips entries
-       whose display_name ends up as the "App {id}" fallback, so the */
-    /* resulting `apps` array doesn't include every non-Steam shortcut
-       (Epic / Amazon / GOG titles the user owns there). Without those,
-       the wishlist row's name-dedup misses items like "Kingdom Come:
-       Deliverance II". Iterating `ownedSet` directly + a raw per-id
-       lookup guarantees every owned entry contributes its name. */
+    // Per-id lookup: getAllAppOverviews() can drop non-Steam shortcuts, which breaks the name dedup.
     let cancelled = false
     void (async () => {
       const names = namesFromOwnedSet(ownedSet)
@@ -525,20 +398,13 @@ export function ShelfPreview({
     const hiddenSet = buildHiddenSet(hiddenAppIds)
     const out: DeckRowItem[] = []
     let cardIdx = -1
-    /* Per-id owned-overview lookup used to mirror Shelf.tsx's
-       `isStoreFallback` proxy: cards from offline children have a local
-       overview; cards from online children don't. For composite shelves,
-       hide-owned only applies to online-origin cards so collection items
-       the user owns aren't filtered out by their own ownership. */
     const hasLocalOverview = (id: number): boolean => {
       try { return !!(globalThis as any).appStore?.GetAppOverviewByAppID?.(id) }
       catch { return false }
     }
     for (const id of cappedIds) {
       if (shouldHideOwnedCard(id, { ownedHideState, ownedAppIds, ownedNames, meta, hasLocalOverview })) continue
-      // Don't skip on missing meta — render a placeholder so menu-added
-      // games appear immediately, even before their meta fetch lands
-      // (the home shelf does this too via the `App {id}` fallback).
+      // Render a placeholder while meta loads so menu-added games show at once.
       const m = meta.get(id) ?? { appid: id, name: `#${id}` } as PlatformAppMeta
       cardIdx++
       const { isNew, mark } = resolveCardFlags({ m, id, cardIdx, manualSortMode, grabbedAppid, hiddenSet, removableSet, highlightAll, highlightFirst, highlightedSet })
@@ -562,16 +428,11 @@ export function ShelfPreview({
     }
     if (showRefresh) out.push({ id: '__refresh', name: t('refresh'), isRefresh: true, onActivate: onRefresh })
     if (showMore) out.push({ id: '__more', name: t('view_more'), isMoreLink: true })
-    // Same logic as Shelf.tsx's home rowItems builder — keeps the preview
-    // 1:1 with the home shelf.
     spliceSyntheticCards(out, syntheticCards)
     return out
   }, [cappedIds.join(','), meta, showRefresh, showMore, onRefresh, t, JSON.stringify(syntheticCards ?? null), selectionMode, selectionSet, onToggleSelection, isOnlineShelfSource, manualSortMode, grabbedAppid, hiddenAppIds?.join(','), removableSet, highlightedSet, highlightAll, highlightFirst, ownedHideState, ownedAppIds, ownedNames])
 
-  /* Keep the focused card in view as the user navigates horizontally — same
-     pattern HighlightRow uses on the home shelf. Without this, fast L/R input
-     scrolls focus past the visible window and Steam's nav loses the card.
-     Instant scroll keeps focus and view in sync at every direction press. */
+  // Instant scroll keeps the focused card in view; fast L/R input loses it otherwise.
   useEffect(() => {
     const row = rowRef.current
     if (!row) return
@@ -580,9 +441,6 @@ export function ShelfPreview({
       const target = e.target as HTMLElement | null
       const card = target?.closest('.ds-card') as HTMLElement | null
       if (!card || !row.contains(card)) return
-      // Emit the focused card's index (sibling position among .ds-card
-      // children of the row). Used by EditShelfModal's Decoration tab
-      // to decide where to insert the next synthetic card.
       try {
         const cards = Array.from(row.querySelectorAll('.ds-card'))
         const idx = cards.indexOf(card)
@@ -605,8 +463,6 @@ export function ShelfPreview({
     }
   }, [onFocusedIndexChange])
 
-  // Orderable id list (positive appids + negative synth sentinels, no
-  // trailing). Drag operates on this; reorder emits the new sequence.
   const orderableIds = useMemo(() => {
     const out: number[] = []
     for (const it of rowItems) {
@@ -617,11 +473,6 @@ export function ShelfPreview({
   }, [rowItems])
   useEffect(() => { cappedOrderRef.current = orderableIds }, [orderableIds])
 
-  /* Drag interaction — only wires when manualSortMode is true. Mirrors
-     the old ManualSortRow logic (long-press hold-to-grab, d-pad / arrow
-     shift, pointer-drag for desktop). The reorder emit format is the
-     same sentinel-bearing array the modal's `reorderManual` already
-     accepts, so the modal needs zero changes. */
   const findCardEl = (appid: number) => {
     const rowEl = rowRef.current
     if (!rowEl || !appid) return null
@@ -657,9 +508,7 @@ export function ShelfPreview({
     base.splice(to, 0, picked)
     cappedOrderRef.current = base
     onReorder(base)
-    // Two rAFs — first to let React commit, second so layout is settled
-    // before focus + scroll follow the moved card. Without this, the
-    // focus stays on the previous DOM index and the row over-scrolls.
+    // Two frames: one for React to commit, one for layout to settle before focus follows.
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         refocusGrabbed()
@@ -673,10 +522,6 @@ export function ShelfPreview({
     const rowEl = rowRef.current
     if (!rowEl) return
     const doc = rowEl.ownerDocument ?? document
-    /* Capture directional input while grabbed: native gamepad nav would
-       move focus to a sibling row; we want it to shift the grabbed
-       card instead. Patches DispatchVirtualButtonClick (gamepad) and
-       listens for keyboard arrows as a desktop fallback. */
     const ctrl: any = (globalThis as any).FocusNavController
       ?? (globalThis as any).GamepadNavTree?.m_context?.m_controller
     const restoreDispatch = patchGrabbedDispatch(ctrl, shiftGrabbed, refocusGrabbed)
@@ -711,10 +556,6 @@ export function ShelfPreview({
     }
   }, [manualSortMode, grabbedAppid])
 
-  /* Delegated pointerdown — hits whichever .ds-card the user pressed
-     and starts the hold-to-grab + drag-to-reorder flow. Lives on the
-     row wrapper so we don't have to wrap each card individually (which
-     would fork ShelfRow). Only active in manualSortMode. */
   const holdTimerRef = useRef<any>(null)
   const pointerHeldRef = useRef(false)
   const onRowPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -775,8 +616,6 @@ export function ShelfPreview({
         noFocusRing
         onPointerDown={onRowPointerDown}
         onFocus={(e: any) => {
-          // When Steam's nav lands on the wrapper, delegate to the first card —
-          // same pattern as DeckRow on the home screen.
           if (e.target === e.currentTarget) {
             requestAnimationFrame(() => {
               const first = rowRef.current?.querySelector<HTMLElement>('.ds-card')
@@ -791,11 +630,7 @@ export function ShelfPreview({
           overflowX: 'auto',
           overflowY: 'visible',
           scrollbarWidth: 'none',
-          /* Extra padding-bottom so labels (which sit absolutely below each
-             110px-tall wrapper at top:100%) aren't clipped by the modal.
-             Left/right padding matches the selection-mark ring's widest
-             outset (grabbed: 5px, GameCard.tsx) so the first/last card's
-             ring isn't clipped by this row's own overflow-x: auto. */
+          // Bottom padding keeps the labels from clipping; side padding fits the widest selection ring.
           padding: '8px 6px 56px',
           alignItems: 'flex-start',
         }}

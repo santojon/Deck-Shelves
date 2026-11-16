@@ -14,7 +14,6 @@ vi.mock('../../store/settingsStore', () => ({
   saveSettings: (next: any) => shared.saveSettings(next),
 }))
 vi.mock('../../steam/usageTracking', () => ({ trackFeature: () => {} }))
-// The row hands `hiddenSet` / `onHideCard` to its cards; capture them there.
 vi.mock('../../components/shelf/ShelfRow', () => ({
   ShelfRow: (props: any) => { shared.captured = props; return null },
   isWideItem: () => false,
@@ -75,7 +74,6 @@ describe('DeckRow X button hide / show', () => {
     row.onHideCard(7)
     expect(savedAt(1).smartShelves[0].hiddenAppIds).toEqual([8])
 
-    // A new items array is what re-reads settings for the Hide/Show label.
     const next = await render('smart', [{ appid: 7 }, { appid: 8 }])
     expect(next.hiddenSet).toEqual(new Set([8]))
   })
@@ -112,7 +110,6 @@ describe('DeckRow X button remove (menu-added game)', () => {
     expect(savedAt(0).smartShelves[0].manualOrder).toEqual([8])
     expect(savedAt(0).shelves).toBe(before.shelves)
 
-    // A game the manual order never held is not a removal.
     row.onRemoveCard(123)
     expect(shared.saveSettings).toHaveBeenCalledTimes(1)
   })

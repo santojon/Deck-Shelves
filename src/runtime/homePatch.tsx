@@ -6,7 +6,6 @@ const HomeShelves = wrapHomeShelves(HomeShelvesRaw);
 import { SearchOverlay } from "../features/search/SearchOverlay";
 import { ShelfSideNav } from "../features/sidenav/ShelfSideNav";
 import { DeckScreensaverOverlay } from "../components/screensaver/DeckScreensaverOverlay";
-try { (globalThis as any).__ds_homepatch_loaded = Date.now(); } catch {}
 import { logDiagnostic } from "./diagnostics";
 import { logError, logInfo, logWarn } from "./logger";
 import { setPreferredSteamWindow, getAllSteamDocuments } from "./steamHost";
@@ -31,7 +30,6 @@ let removeGlobalComponent: (() => void) | null = null;
 const uninstallHooks: Array<() => void> = [];
 let lastHostSource = "";
 
-// --- Crash protection ---
 let mountFailed = false;
 let mountError: string | null = null;
 const MAX_BOUNDARY_FAILURES = 3;
@@ -55,26 +53,17 @@ function notifyMountFailedChange(): void {
   for (const cb of mountFailedListeners) { try { cb(); } catch {} }
 }
 
-// --- Recents hiding ---
 let cachedRecentsEl: HTMLElement | null = null;
 let pendingHideRecents: boolean = false;
 let pendingHideHomeTabs: boolean = false;
 
-/** Override the DS mount margin-top while the replace-recents toggle is
- *  injecting. The default CSS pulls the DS area up 32px to overlap the recents
- *  bottom (fine when recents is collapsed); with replace active the recents row
- *  stays visible, so that overlap would push the next DS shelf's title into it
- *  (esp. under CSS Loader themes like SLH that extend recents visually). */
+// With replace active the recents row stays visible, so the default overlap would cover the next shelf's title.
 const MARGIN_RETRY_MAX = 5;
 let marginRetryTimer: ReturnType<typeof setTimeout> | null = null;
-/* Replace not active: restore the hide-recents margin (this runs right after
-   applyHideRecents in the same effect — a bare remove clobbered its 56px: the
-   first shelf then sat 88px too high and SLH's block ended mid-screen). */
+// Runs right after applyHideRecents, so restore its margin instead of removing it.
 const replaceMarginValue = (active: boolean): string => (active ? "0px" : pendingHideRecents ? "56px" : "");
 function mountsInEveryDoc(): HTMLElement[] {
-  /* Every known doc rather than getHostContext()'s single guessed window —
-     HomeInject creates the mount via its own, separately-scored resolver, so the
-     two can disagree about which doc is "current". */
+  // Every known doc: the mount's resolver and the host context can disagree about which doc is current.
   const docs = new Set<Document>([getHostContext().doc, ...getAllSteamDocuments()]);
   return [...docs].map((doc) => doc?.getElementById?.(ROOT_ID) as HTMLElement | null).filter((m): m is HTMLElement => !!m);
 }
@@ -83,15 +72,13 @@ export function applyReplaceActiveMargin(active: boolean, attempt = 0): void {
   try {
     const mounts = mountsInEveryDoc();
     for (const mount of mounts) mount.style.setProperty("margin-top", replaceMarginValue(active), "important");
-    // The mount can be mid-(re)creation when settings finish loading — retry a
-    // few times (bounded, one pending timer at most).
+    // The mount can be mid-recreation when settings finish loading.
     if (!mounts.length && attempt < MARGIN_RETRY_MAX) marginRetryTimer = setTimeout(() => applyReplaceActiveMargin(active, attempt + 1), 400);
   } catch (e) { logInfo("HOME", "applyReplaceActiveMargin failed", String(e)); }
 }
 
 
-// Under Big Art the structural previous-sibling is ground truth (see
-// bigArtStructuralRecents) — a cache pointing elsewhere is stale too.
+// Under Big Art the structural previous sibling is ground truth, so a cache pointing elsewhere is stale.
 function cacheStaleUnderBigArt(mount: HTMLElement | null): boolean {
   return !!mount && isBigArtModeActive() && cachedRecentsEl !== mount.previousElementSibling;
 }
@@ -100,11 +87,7 @@ function reseedCachedRecentsEl(): void {
   const { doc } = getHostContext();
   const mount = doc.getElementById(ROOT_ID) as HTMLElement | null;
   if (cachedRecentsEl && cachedRecentsEl.isConnected) {
-    /* A later ensureMount() reparent (anchor drift — confirmed live on a
-       Steam beta's redesigned home layout) can leave a still-connected,
-       previously-valid cache now wrapping the mount itself. Collapsing an
-       ancestor of our own mount hides every shelf, not real native recents
-       — never trust the cache once that happens. */
+    // A later reparent can leave the cache wrapping our own mount; collapsing it would hide every shelf.
     if (!(mount != null && cachedRecentsEl.contains(mount)) && !cacheStaleUnderBigArt(mount)) return;
     releaseWronglyCollapsedRecentsEl(cachedRecentsEl);
   }
@@ -121,8 +104,6 @@ function elMatchesRecentsLabel(el: HTMLElement, labels: string[]): boolean {
   } catch { return false; }
 }
 
-// Scoped to the home area (mount's parent), not the whole document — recents
-// is always a sibling of our mount. Falls back to the document if not found yet.
 function restoreRecentsByLabelSearch(): void {
   try {
     const doc = getHostContext().doc, scope: ParentNode = (doc.getElementById(ROOT_ID) as HTMLElement | null)?.parentElement ?? doc, labels = steamText("recentGames");
@@ -133,27 +114,15 @@ function restoreRecentsByLabelSearch(): void {
   } catch (e) { logInfo("HOME", "applyHideRecents: fallback restore failed", String(e)); }
 }
 
-/* Collapsed recents keeps its DOM (visibility:hidden + height:0, not
-   display:none) so recents-replace can repurpose it and the hero-bleed math
-   stays intact — but GamepadUI's nav tree ignores CSS visibility, so dpad-up
-   from the first DS shelf still lands on the hidden 0-height row (reads as a
-   black screen). Drop its focusables from the nav tree like the home-tabs hide. */
+// GamepadUI's nav tree ignores CSS visibility, so drop the hidden row's focusables too.
 function applyRecentsFocusSuppression(hidden: boolean): void {
   if (!cachedRecentsEl) return;
   const focusables = cachedRecentsEl.querySelectorAll<HTMLElement>('[tabindex], button, a, input, [role="button"], .Focusable');
   for (const f of Array.from(focusables)) setFocusableTabindex(f, hidden);
 }
 
-/* Collapse styles set with `!important`: some CSS Loader themes force the
-   recents Panel's height (e.g. height/min-height with their own !important),
-   which beats a plain inline `height:0` — leaving a full-viewport invisible
-   block that reads as a black screen when dpad-up scrolls into it. Inline
-   !important wins the cascade; clear every prop on restore. */
-/* display:none also stops Steam from fully mounting the row's cards (not
-   just measuring them at zero size), so the one-time native-menu capture
-   (prewarmMenuExtraction) has nothing real to work with. Grace window on
-   visibility:hidden alone (the pre-a2143ba collapse) first, so capture gets
-   a real card at least once per session before locking to display:none. */
+// `!important` because some themes force the recents panel's height with their own.
+// display:none stops Steam mounting the row's cards, so the menu capture gets a real card first.
 const RECENTS_HARD_COLLAPSE_GRACE_MS = 2500;
 let recentsHardCollapseArmed = false;
 let recentsHardCollapseTimer: ReturnType<typeof setTimeout> | null = null;
@@ -170,11 +139,7 @@ function armRecentsHardCollapse(): void {
 function setRecentsCollapsedStyle(el: HTMLElement, hidden: boolean): void {
   const s = el.style;
   if (hidden) {
-    /* display:none is the only collapse GamepadUI's nav tree honours (it ignores
-       visibility/height/tabindex) — required so dpad-up can't get trapped on the
-       invisible recents row. Skip it only while recents-replace repurposes the
-       element (DS content injected there), keeping the visibility collapse, or
-       during the grace window above. */
+    // display:none is the only collapse GamepadUI's nav tree honours.
     const repurposed = !!el.querySelector('.ds-shelf, .deck-shelves-root, #' + ROOT_ID);
     if (!repurposed && recentsHardCollapseArmed) {
       s.setProperty("display", "none", "important");
@@ -194,10 +159,7 @@ function setRecentsCollapsedStyle(el: HTMLElement, hidden: boolean): void {
   }
 }
 
-/** Undo a collapse applied to an element the cache later turns out to wrap
- *  our own mount — nothing else ever reverts it once it stops being
- *  `cachedRecentsEl`, so without this it stays hidden (and unfocusable)
- *  forever even after the cache is corrected. */
+// Nothing else reverts a collapse once the element stops being the cached recents row.
 function releaseWronglyCollapsedRecentsEl(el: HTMLElement): void {
   setRecentsCollapsedStyle(el, false);
   const focusables = el.querySelectorAll<HTMLElement>('[tabindex], button, a, input, [role="button"], .Focusable');
@@ -233,12 +195,7 @@ export function applyHideRecents(hidden: boolean): void {
   applyMountTopMargin(hidden);
 }
 
-// --- Home tabs (the native home area: recents + friends + novidades, etc.) ---
-/* Scope: hide every sibling of our mount inside the same parent. Steam's home
-   viewport places all native "tabs" as siblings of our mount; removing all of
-   them leaves our shelves as the only visible area, which is the contract.
-   Each candidate must carry at least one webpack-hashed token so decorative
-   spacers/stray nodes aren't touched — no hardcoded classes. */
+// Each candidate needs a hashed class token so spacers and stray nodes are left alone.
 function hideSiblingDisplay(el: HTMLElement): void {
   if (el.dataset.dsHtHidden !== "1") {
     el.dataset.dsHtPrevDisplay = el.style.getPropertyValue("display") || "";
@@ -278,10 +235,7 @@ function setSiblingHidden(el: HTMLElement, hidden: boolean) {
 
 const hiddenHomeTabs = new Set<HTMLElement>();
 
-/* Identify the "home tabs" siblings (Novidades/Amigos/Recomendados). These are
-   distinguished by containing a [role=tablist] descendant — a semantic marker
-   that survives Steam bundle renames and doesn't overlap with recents (which
-   has no tablist). */
+// Home tabs contain a [role=tablist], which recents never has.
 function collectHomeTabSiblings(mountEl: HTMLElement): HTMLElement[] {
   const parent = mountEl.parentElement;
   if (!parent) return [];
@@ -334,11 +288,7 @@ export function reapplyHomeHides(): void {
   applyHideHomeTabs(pendingHideHomeTabs);
 }
 
-/* Re-assert ONLY the tabindex suppression for hidden home areas (cheap,
-   idempotent, poll-safe). Steam re-renders native recents / home tabs on route
-   round-trips (e.g. B / popstate) without our strip, leaving a `tabindex=0`
-   focusable in a still-hidden row that traps gamepad focus (the nav tree honours
-   tabindex, ignores visibility). A REPURPOSED recents row is left focusable. */
+// Steam re-renders hidden rows on route round-trips with `tabindex=0`, which traps gamepad focus.
 export function enforceHomeFocusSuppression(): void {
   try {
     if (pendingHideRecents) {
@@ -357,8 +307,6 @@ export function enforceHomeFocusSuppression(): void {
   } catch (e) { logInfo("HOME", "enforceHomeFocusSuppression failed", String(e)); }
 }
 
-/* The currently-desired hide state — lets HomeInject.tsx's poll tell
-   "should be hidden but isn't" apart from "should be visible but isn't". */
 export function getPendingHideRecents(): boolean { return pendingHideRecents; }
 export function getPendingHideHomeTabs(): boolean { return pendingHideHomeTabs; }
 
@@ -397,11 +345,7 @@ function recentsFromAriaScan(doc: Document, mountEl: HTMLElement, mountParent: H
   return null;
 }
 
-/* Native Big Art's single-hero "Jogo atual" state can render with no
-   aria-label/ReactVirtualized signal — the label checks above then find
-   nothing, leaving the native hero showing over everything uncollapsed.
-   Trust our own mount's direct previous sibling under Big Art specifically
-   (confirmed live: always exactly where it anchors there). */
+// Big Art's single-hero state can render with no label signal, so trust our mount's previous sibling.
 function bigArtStructuralRecents(prev: HTMLElement | null, mountEl: HTMLElement): HTMLElement | null {
   if (!prev || !isBigArtModeActive() || isDsOwn(prev, mountEl)) return null;
   return prev;
@@ -442,9 +386,7 @@ function getWindowCandidates(): Array<{ win: Window; source: string }> {
   return out;
 }
 
-/* Hardcoded fallback for the native shelf-section token. Used only when the
-   class map holds no entry for it (the bundled seed lacks the key). Anywhere
-   else, prefer the mapped token via `shelfSectionSelector(doc)`. */
+// Only used when the class map has no entry for this token.
 const FALLBACK_SHELF_SECTION = "_282X0J4BtrSF1IXctmOe-X";
 
 function shelfSectionSelector(doc: Document): string {
@@ -532,10 +474,7 @@ function hrefIsHomeLike(href: string): boolean {
   return href.includes("/library") && !href.includes("/library/app/") && !href.includes("/library/collections");
 }
 
-/* The desktop client and GamepadUI/Big Picture now share the same
-   `/routes/library/home` URL and DOM shape (confirmed live, 2026-09-28) — only
-   this body class tells them apart. Without this, the fallback happily anchors
-   into the desktop client's Home too, since nothing else about it looks different. */
+// The desktop client shares the Home URL and DOM shape; only this body class tells them apart.
 function isDesktopUiActive(doc: Document): boolean {
   try { return !!doc.body?.classList?.contains("DesktopUI"); } catch { return false; }
 }
@@ -564,8 +503,7 @@ type Anchor = { parent: HTMLElement; before: ChildNode | null };
 const ANCHOR_CONTAINERS_QS = '[class*="gamepadlibrary"], [class*="libraryhome"], [class*="LibraryHome"], [class*="BasicHomeView"], [class*="AppGridFilterContainer"], [class*="AllPagesContainer"], main, [role="main"]';
 const ANCHOR_CANDIDATES_QS = '[role="list"],[aria-label],[class*="ReactVirtualized__Grid"],[class*="ReactVirtualized__Grid__innerScrollContainer"]';
 
-// `lenient`: an overflow-y auto/scroll panel that doesn't overflow YET (early
-// Home holds only native recents) — else the anchor falls inside the recents block.
+// `lenient` accepts a scroll panel that doesn't overflow yet, or the anchor lands inside recents.
 function isScrollableViewport(p: HTMLElement, lenient = false): boolean {
   try {
     const cs = getComputedStyle(p);
@@ -687,7 +625,6 @@ function applyPendingRecentsToFoundEl(mount: HTMLElement): void {
 
 function refreshCachedRecentsEl(doc: Document, mount: HTMLElement): void {
   if (cachedRecentsEl && cachedRecentsEl.isConnected) {
-    // Same anchor-drift + Big Art staleness guards as reseedCachedRecentsEl.
     if (!cachedRecentsEl.contains(mount) && !cacheStaleUnderBigArt(mount)) return;
     releaseWronglyCollapsedRecentsEl(cachedRecentsEl);
   }
@@ -741,11 +678,7 @@ class HomeBoundary extends React.Component<{ children: React.ReactNode }, { cras
 }
 
 function HomeDomBridge() {
-  /* Sole host: the home lives in the Big Picture window while this component
-     runs in the plugin's own window, so its cross-window portal into ROOT_ID is
-     unreliable — the same-window fallback owns the home there and sets this flag.
-     Stand down so the two never both mount HomeShelves into ROOT_ID (the double
-     shelves the user saw). On a loader (same window) the flag stays unset. */
+  // On a sole host the cross-window portal is unreliable and the same-window fallback owns the Home.
   if ((globalThis as any).__ds_sole_home_owned) return null;
   getHostContext();
   return React.createElement(
@@ -907,9 +840,8 @@ export function installHomePatch(_routerHook?: any) {
     routerHookKeys: Object.keys(routerHook ?? {}).slice(0, 20),
   });
 
-  // Hides a predecessor left behind (a hot-swap from an older build) would misplace our mount.
+  // Hides left behind by a predecessor would misplace our mount.
   restoreAllHomeTabs(); applyRecentsCollapse(false);
-  // Fallback-vs-bridge grace bookkeeping (pure rules in homePatchFallbackGate.ts).
   const gate = createBridgeGateState(Date.now());
 
   try {
@@ -920,40 +852,26 @@ export function installHomePatch(_routerHook?: any) {
   }
 
   let fallbackRoot: { unmount(): void } | null = null;
-  /* The actual mount ELEMENT, not just its id string — a Home implementation
-     that tears down and recreates the anchor DOM (same id, a different node)
-     still string-matches the old id; identity is what actually detects
-     "this is a fresh, unrendered node." */
+  // The element, not its id: the Home can recreate the anchor with the same id.
   let fallbackMountEl: HTMLElement | null = null;
-  /* The fallback's React root lives in its own child of the mount, never on the
-     mount itself: a new root clears its container on first commit, which wiped
-     the bridge's portaled shelves whenever both ended up live (blank Home). */
+  // A new root clears its container on first commit, so it never lives on the mount itself.
   let fallbackHostEl: HTMLElement | null = null;
   let fallbackRetries = 0;
   const MAX_FALLBACK_RETRIES = 6;
 
-  /* A slow cold boot (Steam still hydrating home right after a restart) can
-     burn through MAX_FALLBACK_RETRIES in as little as 3s of fast-polling,
-     well before the real anchor appears. Back off instead of stopping
-     outright — a hard stop left a user with no shelves until they manually
-     toggled the plugin, since nothing else was left to retry it. */
+  // A slow cold boot can exhaust the fast retries before the anchor appears, so back off instead of stopping.
   const giveUpFallback = () => {
     logWarn("HOME", "fallback: anchor not found after repeated attempts — backing off", { retries: fallbackRetries });
     fallbackRetries = 0;
     fallbackPoll?.backoff();
-    // Leave the mutation observer attached: a later DOM change (Steam
-    // finishing home hydration) still reaches tryFallbackRender via
-    // scheduleFallback instead of the fallback staying fully silent.
+    // The observer stays attached so later hydration still reaches the fallback.
   };
 
   const resolveReactDOM = (win: Window): any => {
     return (globalThis as any).ReactDOM ?? (globalThis as any).SP_REACTDOM ?? (win as any).ReactDOM ?? (win as any).SP_REACTDOM;
   };
 
-  /* React DOM 19 dropped createRoot/render from the base react-dom package
-     (moved to react-dom/client). Confirmed on the 2026-09-09 Steam Beta: no
-     known global has it anymore — it's in its own webpack module, findable
-     by export name. Cached: the module graph doesn't change mid-session. */
+  // React DOM 19 moved createRoot out of react-dom; it lives in its own webpack module.
   let cachedWebpackCreateRoot: ((container: Element) => { render(node: unknown): void; unmount(): void }) | null | undefined;
   const findCreateRootViaWebpack = (): typeof cachedWebpackCreateRoot => {
     if (cachedWebpackCreateRoot !== undefined) return cachedWebpackCreateRoot;
@@ -964,17 +882,7 @@ export function installHomePatch(_routerHook?: any) {
     return cachedWebpackCreateRoot;
   };
 
-  /* Attempt 1 (2026-09-11, reverted): wrapped this tree in a HAND-BUILT
-     nav-tree node (CreateNode + RegisterNavigationItem). Real Focusables
-     did register, but the whole subtree hung off one synthetic, flat node
-     with no real row/card geometry — directional navigation was erratic
-     (recorded in the internal Steam-beta compat notes). */
-
-  /* Attempt 3 (2026-09-12): reuse a REAL, already-registered nav node as the
-     parent Context value instead of fabricating one, so nested Focusables
-     register normally with real geometry. Confirmed live via CDP; NOT yet
-     physically verified — CDP can't confirm dpad feel, only tree shape.
-     Full rationale lives in the internal Steam-beta compat notes. */
+  // Reuse a real registered nav node as the parent context; a synthetic one makes navigation erratic.
   const looksLikeNavNode = (v: any): boolean =>
     !!v && typeof v === "object" && typeof v.BTakeFocus === "function" && !!(v.m_Tree || v.Tree);
 
@@ -1086,50 +994,30 @@ export function installHomePatch(_routerHook?: any) {
     const rendered = renderWithReactDOM(ReactDOM, mount);
     if (rendered) {
       fallbackRoot = rendered; fallbackMountEl = mount;
-      // Cross-window fallback = sole host: tell the router-hook bridge to stand
-      // down so it never double-mounts HomeShelves into the same root.
+      // Sole host: tell the bridge to stand down so it never double-mounts into the same root.
       try { if (win !== window && !bridgeHasFilledHome()) (globalThis as any).__ds_sole_home_owned = true; } catch {}
     } else logWarn("HOME", "fallback: no working render path found (global or webpack)");
   };
 
-  /* The bridge OWNS the home only once real shelf DOM is in the root. Counter and
-     marker both flip when its component merely runs — but on a sole host it renders
-     in one window and portals cross-realm into the Big Picture root, which never
-     attaches (marked-but-empty). Gate on content so that empty state doesn't block
-     the fallback; on a loader the bridge fills the root same-realm (no regression). */
-  /* "Owns" = a real shelf panel (`.deck-shelves-root`) is mounted in the root,
-     not just the bridge overlays' lone empty span. The panel appears as soon as
-     shelves render (before card images load), so this yields the instant the
-     bridge fills the root on a loader (no double render), yet stays false for the
-     empty span so the sole-host fallback can still step in. */
+  // The bridge owns the Home only once real shelf DOM is in the root; on a sole host it can stay empty.
+  // A real shelf panel, not the bridge overlays' lone empty span.
   const bridgeOwnsHome = (doc: Document): boolean => doc.getElementById(ROOT_ID)?.querySelector(".deck-shelves-root") != null;
 
-  /* Unambiguous signal both the bridge and our own fallback ended up live at
-     once (a slow bridge can still win the race after the fallback's grace
-     window gave up first) — TWO copies of `.deck-shelves-root`. A single copy
-     is ambiguous (could be ours alone) and must never tear down our only content. */
+  // Two copies mean both rendered; a single copy may be ours alone and must never be torn down.
   const homeHasDuplicateContent = (doc: Document): boolean => (doc.getElementById(ROOT_ID)?.querySelectorAll(".deck-shelves-root").length ?? 0) > 1;
 
-  // Feeds the per-entry gate, then: the bridge stamps `data-ds-claimed-at` on the root synchronously
-  // before its first commit — a fresh claim counts as ownership so we never double-mount mid-commit.
+  // A fresh `data-ds-claimed-at` counts as ownership, since the bridge stamps it before its first commit.
   const tickAndCheckClaim = (doc: Document): boolean => {
     const root = doc.getElementById(ROOT_ID);
     const href = hrefOf(doc.defaultView);
     const rootFilled = !!root?.querySelector(".deck-shelves-root");
-    if (__DEV__) { gate.lastHref = href; gate.lastRootFilled = rootFilled; }
     // Host window: Home is the bare document URL; every other screen is /routes/<…>.
     noteFallbackTick(gate, !href.includes("/routes/") || hrefIsHomeLike(href), rootFilled, Date.now(), bridgeHasFilledHome());
     return !fallbackRoot && Date.now() - Number(root?.dataset?.dsClaimedAt || 0) < 3000;
   };
 
-  /* True when the DOM fallback must NOT render. Never mount both into a root that
-     already has shelf content (that duplicates every shelf); a freshly-registered
-     bridge also gets a grace window to fill the root before we step in. */
   const fallbackShouldYield = (doc: Document): boolean => {
-    /* Unlike a normal navigate-away-from-home (Steam tears down that DOM
-       region itself, so the old root self-heals away), switching to the
-       desktop client keeps the same DOM alive under a different skin — our
-       mount survives untouched, so it needs an explicit teardown here. */
+    // Switching to the desktop client keeps our mount alive under another skin, so tear it down here.
     if (isDesktopUiActive(doc)) {
       if (fallbackRoot) teardownPreviousFallbackRoot();
       fallbackRetries = 0;
@@ -1146,10 +1034,7 @@ export function installHomePatch(_routerHook?: any) {
     return bridgeGraceActive(gate, Date.now());
   };
 
-  /* rAF-throttle: a body+subtree observer fires hundreds of times per
-     second at boot while Steam's UI hydrates. Coalescing to one call per
-     frame keeps the early-mount path responsive without losing coverage
-     of structural DOM changes the mount detection needs to react to. */
+  // The body observer fires hundreds of times per second at boot, so coalesce to one call per frame.
   let fallbackPending: number | null = null;
   const scheduleFallback = () => {
     if (fallbackPending != null) return;
@@ -1158,11 +1043,7 @@ export function installHomePatch(_routerHook?: any) {
       tryFallbackRender();
     });
   };
-  /* Keep the observer attached to the CURRENT host window's body. The right
-     window (the Big Picture home) can appear after install or change on a
-     renderer reload; re-attaching here means the mount reacts to that window's
-     DOM on its own, instead of only when a route signal (e.g. opening the QAM)
-     happens to fire — the sole-host "no shelves until I open the QAM" bug. */
+  // The Big Picture window can appear or change after install, so follow its body.
   let observedDoc: Document | null = null;
   let unlistenPageHide: (() => void) | null = null;
   const attachObserver = (doc: Document): void => {
@@ -1187,9 +1068,7 @@ export function installHomePatch(_routerHook?: any) {
       if (fallbackShouldYield(doc)) return;
       const mount = ensureFallbackMount();
       if (!mount) return;
-      // The "react" marker is set by ANY HomeShelves that claims the mount —
-      // including the empty cross-realm bridge — so it cannot gate us. Our own
-      // idempotency comes from the fallbackRoot bookkeeping below.
+      // Any HomeShelves sets the "react" marker, even the empty bridge, so it can't gate us.
       if (fallbackRoot && fallbackMountEl === mount && mount.isConnected && fallbackHostEl?.isConnected) return;
       mountFallbackTo(win, mount); recordRemountTry();
     } catch (err) {
@@ -1201,10 +1080,6 @@ export function installHomePatch(_routerHook?: any) {
   observer?.disconnect();
   observedDoc = null; attachObserver(hostDoc); observerCreated();
 
-  /* The mount poll is a power-gate task (homePatchFallback.ts): fast for the
-     first ~15 s (renderer reload / cold boot), then 2 s, stopped once this
-     fallback is mounted and whenever the Home is not active. It runs one
-     render attempt at registration and on each return to the active Home. */
   fallbackPoll?.dispose();
   fallbackPoll = installFallbackPoll(tryFallbackRender, () => !!fallbackRoot && !!fallbackHostEl?.isConnected);
 
@@ -1250,8 +1125,7 @@ export function installHomePatch(_routerHook?: any) {
   return {
     uninstall() {
       logInfo("HOME", "uninstalling home patch");
-      // Give Steam its Home back as it was: a successor (a hot-swap) anchors next
-      // to the native rows, and must not find them hidden by this instance.
+      // Give Steam its Home back as it was: a successor anchors next to the native rows.
       applyHideHomeTabs(false); applyHideRecents(false); runUninstallHooks();
       tearDownObserversAndListeners(); tearDownFallbackRoot();
     },

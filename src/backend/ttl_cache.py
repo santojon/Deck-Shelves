@@ -21,20 +21,17 @@ class TtlCache:
         self._at: Optional[float] = None
 
     def get(self, force: bool = False) -> Any:
-        # The lock stays held across the probe, so a second caller waits for
-        # the answer in flight instead of probing too. Callers run on worker
-        # threads (asyncio.to_thread), never on the event loop.
+        # The lock is held across the probe so concurrent callers share one answer.
         with self._lock:
             if not force and self._fresh():
                 return self._value
-            self._value, self._at = None, None  # a failing probe leaves it empty
+            self._value, self._at = None, None
             self._value = self.probe()
             self._at = self._clock()
             return self._value
 
     def _fresh(self) -> bool:
-        # Wall clock, so a suspend ages the entry; a clock stepped backwards
-        # counts as expired instead of keeping the entry alive for hours.
+        # Wall clock so a suspend ages the entry; a clock stepped backwards counts as expired.
         if self._at is None:
             return False
         age = self._clock() - self._at

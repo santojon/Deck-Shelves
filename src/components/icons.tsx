@@ -186,9 +186,6 @@ export function WandIcon({ size = 14, style }: IconProps) {
   );
 }
 
-// Generic utility icons — accept optional color overrides because they
-// were previously hardcoded to specific accents (green check, red x).
-// Defaults preserve those colors so existing call sites keep their look.
 type ColoredIconProps = IconProps & { color?: string };
 
 export function CheckIcon({ size = 14, style, color = "#4caf50" }: ColoredIconProps) {
@@ -216,8 +213,6 @@ export function XIcon({ size = 14, style, color = "#f44336" }: ColoredIconProps)
   );
 }
 
-// Animated chevron used by collapsible accordions: rotates between -90deg
-// (closed → pointing right) and 0deg (open → pointing down).
 export function ChevronIcon({ open, size = 12, style }: IconProps & { open: boolean }) {
   return (
     <svg
@@ -245,7 +240,6 @@ export function TrashIcon({ size = 16, style }: IconProps) {
   );
 }
 
-// Steam logo — used to mark Steam-native entries in import lists.
 export function OnlineIcon({ size = 12, style }: IconProps) {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24"
@@ -258,9 +252,6 @@ export function OnlineIcon({ size = 12, style }: IconProps) {
   );
 }
 
-// Left-pointing chevron — back / dismiss control on dedicated page
-// routes (PageHeader, detail panels). Bigger default size since the
-// header button it sits inside is much larger than a row indicator.
 export function ChevronRightIcon({ size = 22, style }: IconProps) {
   return (
     <svg {...baseProps(size, style)} strokeWidth={2.5}>
@@ -312,9 +303,6 @@ export function ToolsIcon({ size = 14, style }: IconProps) {
   );
 }
 
-// Filled style breaks the Feather aesthetic of the rest of the set, but
-// the brand mark is a standard recognition cue and a stroke version
-// would be unrecognizable.
 export function DocsIcon({ size = 14, style }: IconProps) {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0, ...style }}>
@@ -453,8 +441,6 @@ export function RefreshIcon({ size = 14, style }: IconProps) {
   );
 }
 
-// Restore/revert: a single counter-clockwise arrow (distinct from RefreshIcon's
-// two-arrow sync). Used to roll settings back to a snapshot.
 export function RestoreIcon({ size = 14, style }: IconProps) {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0, ...style }}>
@@ -538,11 +524,6 @@ export function CloudIcon({ size = 14, style }: IconProps) {
   );
 }
 
-/* Branded logo for notifications / showcase. This is the same mark shipped as
-   `assets/icon.svg` (the packaged plugin icon + site favicon), kept in sync by
-   hand: the geometry is inlined as JSX rather than importing the .svg so it
-   renders as real React elements (no raw-HTML injection). Transparent,
-   like the logo; every parameter mirrors the logo's shelves (see icon.svg). */
 export function DeckShelvesLogo({ size = 40 }: { size?: number }) {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 512 512" aria-hidden="true" style={{ flexShrink: 0 }}>
@@ -567,9 +548,6 @@ export function DeckShelvesLogo({ size = 40 }: { size?: number }) {
   );
 }
 
-/** Full brand wordmark (the Deck "D" symbol + the shelf of books), matching
-    assets/logo.svg. Width-based (aspect ~854:378); used where the whole logo is
-    wanted rather than the square shelf-icon glyph (e.g. the feature tour). */
 export function DeckShelvesWordmark({ width = 240 }: { width?: number }) {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" width={width} height={Math.round((width * 378) / 854)} viewBox="217 444 854 378" aria-hidden="true" style={{ flexShrink: 0 }}>

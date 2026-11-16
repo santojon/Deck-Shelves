@@ -25,7 +25,6 @@ describe('domain/snapshot', () => {
       savedSmartFilters: [{ id: 's1', name: 'S1' } as any],
     })
     const bundle = buildSnapshot(source)
-    // survives JSON serialization (the real export/import path)
     const parsed = JSON.parse(JSON.stringify(bundle))
     const restored = applySnapshot(makeSettings(), parsed, 'replace')
     for (const concept of SNAPSHOT_CONCEPTS) {
@@ -45,7 +44,6 @@ describe('domain/snapshot', () => {
     const bundle = buildSnapshot(makeSettings({ shelves: [makeShelf('b'), makeShelf('c')] }), ['shelves'])
     const merged = applySnapshot(target, bundle, 'merge')
     expect(merged.shelves.map((s) => s.id)).toEqual(['a', 'b', 'c'])
-    // concept not present in the bundle is left as-is
     expect(merged.smartShelves).toEqual(target.smartShelves)
   })
 

@@ -6,14 +6,11 @@ import { subscribeOverlayActive } from './overlayState';
 import { subscribeSessionState, getSessionState } from '../../runtime/sessionState';
 import i18n from '../../i18n';
 import { getCurrentSettings } from '../../store/settingsStore';
-import { discountBadgeModeOf, discountBadgeText } from './discountBadge';
+import { resolveDiscountBadgeModes, type DiscountBadgeMode } from './discountBadge';
+import { DiscountBadgePill } from './DiscountBadgePill';
 
 function findHomeRootDoc(): { doc: Document; root: HTMLElement } | null {
-  /* Plugin runs in SharedJSContext; the home root lives in the BP doc.
-     getPreferredSteamDocument() returns the right one once homePatch has
-     run setPreferredSteamWindow, but the effect below mounts before the
-     patch finishes — so we walk every known Steam document and pick the
-     one that actually contains the home root. */
+  // The effect can mount before the preferred window is set, so search every Steam document.
   for (const d of [getPreferredSteamDocument(), ...getAllSteamDocuments()]) {
     try {
       const root = d?.getElementById?.('deck-shelves-home-root');
@@ -23,11 +20,6 @@ function findHomeRootDoc(): { doc: Document; root: HTMLElement } | null {
   return null;
 }
 
-/* Single global badge overlay. One delegated focusin listener at the
-   home root tracks the focused card and renders one fixed-position
-   badge above the focus ring. Replaces per-card portals (N observers,
-   N listeners, N React renders per focus change). */
-
 type OverlayState = {
   left: number;
   top: number;
@@ -35,39 +27,37 @@ type OverlayState = {
   isNew: boolean;
   discount: number;
   priceText?: string;
+  mode: DiscountBadgeMode;
 };
 
 const READ_TARGET_DELAY_MS = 0;
 
-function readBadgeData(card: HTMLElement): { isNew: boolean; discount: number; priceText?: string } {
+// The selected card's mode comes from its shelf (a global value first); a card of no saved shelf takes the global one.
+function readBadgeData(card: HTMLElement): { isNew: boolean; discount: number; priceText?: string; mode: DiscountBadgeMode } {
   const isNew = card.getAttribute('data-isnew') === 'true';
   const discount = Number(card.getAttribute('data-discount') || '0');
-  return { isNew, discount, priceText: card.getAttribute('data-price') || undefined };
+  const settings = getCurrentSettings() as any;
+  const shelfId = card.getAttribute('data-shelfid');
+  const shelf = settings?.shelves?.find?.((s: any) => s?.id === shelfId);
+  return { isNew, discount, priceText: card.getAttribute('data-price') || undefined, mode: resolveDiscountBadgeModes(settings, shelf).focused };
+}
+
+export function overlayStateFor(card: HTMLElement, rect: { left: number; top: number; width: number }): OverlayState | null {
+  const badge = readBadgeData(card);
+  if (!badge.isNew && badge.discount <= 0) return null;
+  return { left: rect.left, top: rect.top, width: rect.width, ...badge };
 }
 
 export function BadgeFocusOverlay() {
   const [state, setState] = useState<OverlayState | null>(null);
-  // Hide the band while an ambient overlay (search / Side Nav) covers the home —
-  // focus moves into the search input (inside the home root), so the focusout
-  // gate below keeps the last card and the band would float over the keyboard.
   const [obscured, setObscured] = useState(false);
-  /* Re-runs every render so a late-arriving preferred window doesn't strand
-     the listeners on the wrong document. The cleanup tears down the prior
-     listeners before the new ones attach, so duplicate handlers can't
-     accumulate. */
   const [hostKey, setHostKey] = useState(0);
-  // Home stays mounted while a game runs (no route change) — suspend the
-  // overlay's observers/listeners entirely during that window instead of
-  // tracking a focus nobody can see, same signal the reconcile path uses.
   const [gameRunning, setGameRunning] = useState(() => getSessionState().gameRunning);
   useEffect(() => subscribeSessionState(() => setGameRunning(getSessionState().gameRunning)), []);
   useEffect(() => {
     if (gameRunning) { setState(null); return; }
     const located = findHomeRootDoc();
     if (!located) {
-      // Home root not yet in any known doc — retry on next animation
-      // frame until it appears. Once mounted, the effect re-runs via the
-      // bumped hostKey.
       const t = setTimeout(() => setHostKey((k) => k + 1), 150);
       return () => clearTimeout(t);
     }
@@ -81,21 +71,12 @@ export function BadgeFocusOverlay() {
       if (!current || !root.contains(current)) { setState(null); return; }
       const r = current.getBoundingClientRect();
       if (r.width === 0 || r.height === 0) { setState(null); return; }
-      const { isNew, discount } = readBadgeData(current);
-      if (!isNew && discount <= 0) { setState(null); return; }
-      setState({ left: r.left, top: r.top, width: r.width, isNew, discount });
+      setState(overlayStateFor(current, r));
     };
     const schedule = () => {
       if (raf !== null) return;
       raf = win.requestAnimationFrame(sync);
     };
-    // Re-sync when the focused card's badge attrs land late — happens with
-    // async name resolution / store metadata where `data-isnew` /
-    /* `data-discount` flip after the focus event already fired. Also
-       watch `class` so Y-button highlight toggles (which add/remove
-       `ds-card--featured` and change the card's width) re-measure the
-       band, otherwise the badge keeps the pre-resize width and floats
-       offset from the new card edge. */
     const attrObserver = new MutationObserver(schedule);
     const resizeObserver = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(schedule) : null;
     const attachAttrObserver = (card: HTMLElement | null) => {
@@ -106,9 +87,7 @@ export function BadgeFocusOverlay() {
         try { resizeObserver?.observe(card); } catch {}
       }
     };
-    /* Point the overlay at a card. The 200ms re-sync captures the rect
-       after the 160ms focus-lift transition settles (an immediate read
-       lands mid-animation, stranding the band 1-2 px high). */
+    // Re-measure after the 160ms focus lift; an immediate read lands mid-animation.
     const setCurrent = (card: HTMLElement | null) => {
       if (card === current) return;
       current = card;
@@ -116,11 +95,7 @@ export function BadgeFocusOverlay() {
       setTimeout(schedule, READ_TARGET_DELAY_MS);
       setTimeout(schedule, 200);
     };
-    /* The reliable focused-card source. BTakeFocus gamepad nav on the beta
-       never fires focusin/gpfocus, so the shared focusedCardTracker (same
-       poll DeckRow subscribes to, not a separate one) is the primary
-       signal; the `.gpfocus` class DeckRow keeps in sync is the fallback
-       for mouse/hover focus. */
+    // BTakeFocus navigation fires neither focusin nor gpfocus, so follow the shared tracker.
     const resolveFocusedCard = (): HTMLElement | null => {
       try {
         const shared = getFocusedCard();
@@ -165,12 +140,6 @@ export function BadgeFocusOverlay() {
       style={{
         position: 'fixed',
         left: state.left,
-        // 8 px above the focused card's (post-transform) top — 2 px
-        /* higher than the unfocused inline badge (which sits at -6 from
-           the card edge) so the on-focus lift visibly raises the badge
-           a touch more than the unfocused state. The delayed re-sync on
-           focusIn captures the rect after the 160ms lift transition
-           settles so the overlay never strands mid-animation. */
         top: state.top - 8,
         width: state.width,
         height: 24,
@@ -180,9 +149,7 @@ export function BadgeFocusOverlay() {
     >
       {state.discount > 0 && (
         <div className="ds-new-badge-band">
-          <div className="ds-new-badge" style={{ background: '#2a7f2a' }}>
-            {discountBadgeText(discountBadgeModeOf((getCurrentSettings() as any)?.discountBadgeMode), state.priceText, i18n.t('badge_discount', { count: state.discount }) ?? `${state.discount}% off`)}
-          </div>
+          <DiscountBadgePill mode={state.mode} discount={state.discount} priceText={state.priceText} percentText={i18n.t('badge_discount', { count: state.discount }) ?? `${state.discount}% off`} />
         </div>
       )}
       {state.isNew && state.discount <= 0 && (

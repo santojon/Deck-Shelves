@@ -1,11 +1,6 @@
 import { useTranslation } from "react-i18next";
 import pkg from "../../../package.json";
 
-/* Standardized, unobtrusive footer that surfaces the running plugin version.
-   Rendered at the bottom of the QAM panel and every full page (About /
-   Settings) so the version is always discoverable — e.g. when filling in a
-   bug report. Purely informational: no focusable/interactive elements, so it
-   is safe to drop into the gamepad-navigated QAM without altering focus flow. */
 export function VersionFooter() {
   const { t } = useTranslation();
   return (

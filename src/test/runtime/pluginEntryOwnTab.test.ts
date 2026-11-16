@@ -34,7 +34,6 @@ const edge = vi.hoisted(() => {
   }
 })
 
-// The component itself, and the settings store it reads.
 vi.mock('../../runtime/ownQamTab', () => ({ installOwnQamTab: edge.installOwnQamTab, restartSteam: () => {} }))
 vi.mock('../../store/settingsStore', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
@@ -44,7 +43,6 @@ vi.mock('../../store/settingsStore', async (importOriginal) => ({
   onSettingsFileRead: edge.onSettingsFileRead,
   requestSettingsFileRead: edge.requestSettingsFileRead,
 }))
-// Everything else the start installs into Steam: inert here.
 vi.mock('../../runtime/deckyPlatform', async (importOriginal) => ({ ...(await importOriginal<object>()), createDeckyPlatform: () => ({}) }))
 vi.mock('../../runtime/homePatch', async (importOriginal) => ({ ...(await importOriginal<object>()), installHomePatch: () => null }))
 vi.mock('../../runtime/recentsReplace', async (importOriginal) => ({ ...(await importOriginal<object>()), installRecentsReplace: () => null }))
@@ -61,7 +59,6 @@ vi.mock('../../runtime/cloudSync', async (importOriginal) => ({ ...(await import
 vi.mock('../../core/pluginApi', async (importOriginal) => ({ ...(await importOriginal<object>()), installPluginApi: edge.off }))
 vi.mock('../../core/steamOSVersion', async (importOriginal) => ({ ...(await importOriginal<object>()), prefetchSteamOSVersion: async () => null }))
 vi.mock('../../core/userPaths', async (importOriginal) => ({ ...(await importOriginal<object>()), prewarmUserPaths: async () => {} }))
-vi.mock('../../runtime/devNavHooks', async (importOriginal) => ({ ...(await importOriginal<object>()), installDevNavHooks: edge.off }))
 vi.mock('../../runtime/safeMode', async (importOriginal) => ({ ...(await importOriginal<object>()), evaluateBootOutcome: () => false }))
 vi.mock('../../runtime/bootPhases', async (importOriginal) => ({
   ...(await importOriginal<object>()),
@@ -71,7 +68,6 @@ vi.mock('../../runtime/bootPhases', async (importOriginal) => ({
   scheduleBootToasts: edge.off,
   logSystemEnvironment: () => {},
 }))
-// The settings editor is a marker here: the entry and the tab are what is checked.
 vi.mock('../../components/Settings', async (importOriginal) => {
   const { createElement } = await import('react')
   return { ...(await importOriginal<object>()), SettingsView: () => createElement('div', { className: 'test-settings-view' }) }
@@ -115,8 +111,6 @@ function disposeEveryInstance() {
   for (const entry of Object.values<any>(instances)) { try { entry?.dispose?.() } catch {} }
 }
 
-// The first load transforms the whole plugin, which takes seconds on a busy machine: done once,
-// outside each test's time limit (the tests then load it again, fresh).
 beforeAll(async () => { await import('../../index') }, 60_000)
 
 beforeEach(() => {
@@ -146,7 +140,6 @@ describe('own Quick Access tab, installed by the plugin entry', () => {
     expect(Object.keys(options).sort()).toEqual(['icon', 'isEnabled', 'renderPanel', 'subscribe', 'title'])
     expect(options.title).toBe(i18next.t('menu_deck_shelves'))
     expect(options.title).toBe('Deck Shelves')
-    // Same glyph as the loader's entry, without the fixed size: the strip sizes its icons.
     expect(markup(entry.icon)).toContain(' style="width:18px;height:18px"')
     expect(markup(options.icon)).toBe(markup(entry.icon).replace(' style="width:18px;height:18px"', ''))
     expect(ownerAtInstall).toBe('decky')
@@ -159,7 +152,6 @@ describe('own Quick Access tab, installed by the plugin entry', () => {
     const report = (settings: unknown) => edge.storeListeners.forEach((l) => l(settings))
     report(defaultSettings())
     expect(listener).not.toHaveBeenCalled()
-    // The local copy shown at start can be older than the file: the tab decides once, so it waits.
     report({ ...defaultSettings(), schemaVersion: 2, ownQamTabEnabled: false })
     expect(listener).not.toHaveBeenCalled()
     edge.fileRead = true
@@ -326,7 +318,6 @@ describe('own Quick Access tab, installed by the plugin entry', () => {
 })
 
 describe('own Quick Access tab, where the start installs it', () => {
-  // The full entry, not the stand-in a copy shows while it waits: the start ran to the end.
   const expectBooted = (entry: LoaderEntry) => expect(entry.titleView).toBeDefined()
   const withNeutralHost = () => {
     const bridge = { registerPanel: vi.fn() }

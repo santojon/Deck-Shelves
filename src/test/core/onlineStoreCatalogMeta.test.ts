@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 
 vi.mock('../../shims/host-api', () => ({ call: async () => null }))
 vi.mock('../../runtime/logger', () => ({ logInfo: () => {}, logWarn: () => {} }))
+vi.mock('../../runtime/steamAccount', () => ({ readSteamId: () => null }))
 
 function installLocalStorageStub(): void {
   const store = new Map<string, string>()
@@ -36,7 +37,7 @@ describe('getCatalogMetaMap', () => {
     expect(urls.length).toBe(3)
     for (const url of urls) {
       const appids = new URL(url).searchParams.get('appids')!
-      expect(appids.includes(',')).toBe(false) // never more than one id per request
+      expect(appids.includes(',')).toBe(false)
     }
     expect(result.get(111)?.categories).toEqual(['Multi-player'])
     expect(result.get(111)?.genres).toEqual(['Action'])
@@ -56,7 +57,7 @@ describe('getCatalogMetaMap', () => {
     await getCatalogMetaMap([555])
     expect(calls).toBe(1)
     await getCatalogMetaMap([555])
-    expect(calls).toBe(1) // served from cache, no re-fetch
+    expect(calls).toBe(1)
   })
 
   it('a 429 response stops further fetching for this batch (backoff)', async () => {
@@ -67,10 +68,7 @@ describe('getCatalogMetaMap', () => {
     })
     const { getCatalogMetaMap } = await import('../../core/onlineStore')
     const result = await getCatalogMetaMap([1, 2, 3])
-    expect(result.size).toBe(0) // nothing resolved
-    // Backoff is set on the very first 429 — later concurrent workers should
-    // bail without necessarily hitting every id, so just confirm no crash
-    // and no false-positive cache entries were written.
+    expect(result.size).toBe(0)
     expect(urls.length).toBeGreaterThan(0)
   })
 
@@ -85,6 +83,6 @@ describe('getCatalogMetaMap', () => {
     const { getCatalogMetaMap, getCachedCatalogMeta } = await import('../../core/onlineStore')
     await getCatalogMetaMap([777])
     expect(getCachedCatalogMeta(777)?.genres).toEqual(['RPG'])
-    expect(getCachedCatalogMeta(888)).toBeNull() // never fetched
+    expect(getCachedCatalogMeta(888)).toBeNull()
   })
 })

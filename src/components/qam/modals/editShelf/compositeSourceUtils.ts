@@ -1,7 +1,3 @@
-/* Composite-source exhaustion + "+ Add source" picker helpers for
-   EditShelfModal. Each single-instance type (filter/wishlist/store) is
-   capped at one across primary + additional rows; tab/collection are
-   capped at the total catalog size. */
 import type { SingleDropdownOption } from '../../../../runtime/host/decky';
 import type { EditableShelfState } from './types';
 import { SMART_MODE_OPTIONS, V3_SOURCE_OPTIONS } from './constants';
@@ -33,7 +29,6 @@ function collectAdditionalKeys(state: EditableShelfState, type: string, key: str
   return out;
 }
 
-// The values in use for one source type, the primary's included unless it is the excluded row.
 function usedValues(state: EditableShelfState, type: string, key: string, primaryValue: string, excludeRow?: number | 'primary'): Set<string> {
   const used = new Set<string>(collectAdditionalKeys(state, type, key, excludeRow));
   if (state.sourceType === type && excludeRow !== 'primary' && primaryValue) used.add(primaryValue);
@@ -78,7 +73,6 @@ type Opts = {
   labels: LabelFns;
 };
 
-// Built-in lists and smart modes, offered until each one is in use.
 function listSourceOptions(u: SourceUsage, labels: LabelFns): SingleDropdownOption[] {
   const out: SingleDropdownOption[] = [];
   if (u.usedBuiltin.size < V3_SOURCE_OPTIONS.length) out.push({ data: 'builtin', label: labels.builtin });
@@ -100,14 +94,10 @@ export function buildChildTypeOptions(opts: Opts, excludeRow: number): SingleDro
     if (u.wishlistCount < 1) out.push({ data: 'wishlist', label: labels.wishlistLabel });
     if (u.storeCount < 1) out.push({ data: 'store', label: labels.storeLabel });
   }
-  // External (plugin-registered) sources — offer until the catalog is
-  // exhausted (each external source can be stacked once).
   if (externalOptions.length > 0 && u.usedExternal.size < externalOptions.length) {
     out.push({ data: 'external', label: labels.external });
   }
   out.push(...listSourceOptions(u, labels));
-  // Filter has no cap: it's the one source that's fully composable internally
-  // (AND/OR + many criteria), and the user can stack as many as they want.
   out.push({ data: 'filter', label: labels.filter });
   return out;
 }
@@ -166,8 +156,6 @@ export function pickNextAvailableSource(opts: Opts): any {
   return factory ? factory(opts) : null;
 }
 
-// ── Additional-source row helpers (composite "source 2+" rows) ─────────────
-
 export type ChildSourceType = 'collection' | 'tab' | 'wishlist' | 'store' | 'filter' | 'external' | 'builtin' | 'smart';
 
 const CHILD_SOURCE_TYPES: ReadonlySet<string> = new Set(['collection', 'wishlist', 'store', 'filter', 'external', 'builtin', 'smart']);
@@ -187,7 +175,6 @@ export function childSourceValue(child: any, childType: ChildSourceType): string
   return String(child?.[key] ?? (childType === 'tab' ? 'all' : ''));
 }
 
-// The row with a new value: same type, its own sort kept.
 export function withChildValue(child: any, childType: ChildSourceType, value: string): any {
   const key = VALUE_KEY[childType];
   return key ? { ...child, [key]: value } : child;
@@ -208,17 +195,12 @@ export function childSourceTypeLabel(childType: ChildSourceType, t: (key: any) =
   return t(CHILD_SOURCE_LABEL_KEYS[childType] as any);
 }
 
-// Primary/additional-row label for the two online-only source types — used
-// by both the "exclude owned" toggle blocks and the online-filters tab,
-// which each need to tell a wishlist row from a store row.
 export function onlineSourceLabel(type: unknown, t: (key: any) => string): string {
   return t(type === 'wishlist' ? 'source_wishlist' : 'source_store');
 }
 
 export type ExclusionFlags = { excludeOwned: boolean; excludeOwnedNonSteam: boolean; hideOwnedNonSteamCloud: boolean };
 
-// An inner flag can only be true when its parent is: hiding non-Steam-cloud
-// entries implies hiding non-Steam entries implies excluding owned at all.
 export function deriveExclusionFlags(src: any): ExclusionFlags {
   const excludeOwned = src?.excludeOwned === true;
   const excludeOwnedNonSteam = excludeOwned && src?.excludeOwnedNonSteam === true;
@@ -231,10 +213,6 @@ export function onlineAdditionalIndexes(state: EditableShelfState): number[] {
     .map((s: any, i: number) => ((s?.type === 'wishlist' || s?.type === 'store') ? i : -1))
     .filter((i) => i >= 0);
 }
-
-// Filters-tab (childFilters) visibility/plan: shows for a direct online or
-// offline (collection/tab) source, or a composite with an online child —
-// bundled once since each case edits a different `childFilter` slot set.
 
 export type FilterTabPlan = {
   showTab: boolean;
@@ -259,4 +237,19 @@ export function resolveFilterTabPlan(state: EditableShelfState): FilterTabPlan {
     tabLabelKey: allowOnline ? 'edit_tab_online_filters' : 'edit_tab_additional_filters',
     onlineAdditionalIdx,
   };
+}
+
+// The source on a row of the editor (-1 is the first one), while it is sorted by hand.
+export function orderingChildOf(previewSource: any, row: number | null): any {
+  if (row === null || previewSource?.type !== 'composite') return undefined;
+  const child = previewSource.sources?.[row + 1];
+  const sort = Array.isArray(child?.sort) ? child.sort[0] : child?.sort;
+  return sort === 'manual' ? child : undefined;
+}
+
+// Only the run that differs from the base order is kept; the games after it follow that order anyway.
+export function placedPrefix(next: number[], base: number[]): number[] {
+  let last = -1;
+  for (let i = 0; i < next.length; i++) if (next[i] !== base[i]) last = i;
+  return next.slice(0, last + 1);
 }

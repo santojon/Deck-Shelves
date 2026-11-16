@@ -1,15 +1,11 @@
-/* Which Steam account is signed in, to notice a switch: settings belong to the device,
-   while collections, libraries and the cloud copy belong to the account. Kept only as a
-   salted hash in local storage; the backend keeps the salt beside the settings file (never
-   in it) with a mirror here, one restoring the other, and it never reaches a snapshot, an
-   export, a profile, the cloud copy or a report. An unknown or unsteady reading is never a switch. */
+// Stored only as a salted hash, and never written to snapshots, exports, profiles, the cloud copy or reports.
 import { createSafetySnapshot } from "../store/settingsStore";
 import { call } from "./host/decky";
 import { logInfo } from "./logger";
 
 const STORE_KEY = "deck-shelves-account-v1";
 const STEAM_ID = /^7656119\d{10}$/;
-// Account 0: what Steam reports while no one is signed in yet, early at start.
+// Steam reports this id while no one is signed in yet.
 const NO_ACCOUNT_ID = "76561197960265728";
 const CHECK_GAP_MS = 5000;
 const MAX_CHECKS = 4;
@@ -21,7 +17,6 @@ type AccountState = { salt: string; last?: string; synced?: string; switched?: b
 let currentKey: string | null = null;
 let syncHeld = false;
 let ready: Promise<void> = Promise.resolve();
-// A salt the backend could not keep at start, written back once the start has settled.
 let unkeptSalt: string | null = null;
 const resumeListeners = new Set<() => void>();
 
@@ -30,7 +25,7 @@ export function readSteamId(): string | null {
     const app = (globalThis as any).App;
     const user = app?.GetCurrentUser?.() ?? app?.m_CurrentUser;
     const id = user?.strSteamID;
-    // Same length, so a text comparison orders them: only ids above account 0 are accounts.
+    // Same length, so a text comparison orders them.
     return typeof id === "string" && STEAM_ID.test(id) && id > NO_ACCOUNT_ID ? id : null;
   } catch { return null; }
 }
@@ -41,7 +36,7 @@ function randomSalt(): string {
   return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-// The local record: null when it holds no salt, undefined when this device's storage cannot be used.
+// null: no salt stored; undefined: storage unusable.
 function loadState(): AccountState | null | undefined {
   let raw: string | null;
   try {
@@ -59,7 +54,6 @@ function saveState(state: AccountState): void {
   try { globalThis.localStorage?.setItem(STORE_KEY, JSON.stringify(state)); } catch {}
 }
 
-// The salt the backend keeps (the first one it kept stays); null when it cannot answer.
 async function keepSaltInBackend(candidate: string): Promise<string | null> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<null>((resolve) => { timer = setTimeout(() => resolve(null), BACKEND_WAIT_MS); });
@@ -78,16 +72,13 @@ async function askBackend(candidate: string, retry: boolean, wait: (ms: number) 
   return keepSaltInBackend(candidate);
 }
 
-/* The salt for this start. The backend's copy wins and restores a missing or different
-   local one; while the backend cannot answer the local one stands in (written back later);
-   a new one is made only when neither has it. */
+// The backend's salt wins; a new one is made only when neither side has one.
 async function resolveSalt(local: AccountState | null, wait: (ms: number) => Promise<void>): Promise<AccountState> {
   const candidate = local?.salt ?? randomSalt();
   const kept = await askBackend(candidate, !local, wait);
   unkeptSalt = kept ? null : candidate;
   const salt = kept ?? candidate;
   if (local?.salt === salt) return local;
-  // Keys taken with another salt (the last account, the synced one) cannot match any more.
   const next: AccountState = local?.switched ? { salt, switched: true } : { salt };
   saveState(next);
   return next;
@@ -98,7 +89,6 @@ async function writeBackSalt(): Promise<void> {
   if (salt && (await keepSaltInBackend(salt))) unkeptSalt = null;
 }
 
-// 16 hex characters of SHA-256(salt + id); null when the platform cannot hash.
 export async function accountKey(id: string, salt: string): Promise<string | null> {
   try {
     const digest = await globalThis.crypto.subtle.digest("SHA-256", new TextEncoder().encode(salt + id));
@@ -106,7 +96,7 @@ export async function accountKey(id: string, salt: string): Promise<string | nul
   } catch { return null; }
 }
 
-// Two equal readings in a row, a few seconds apart, or null.
+// An unsteady reading is never treated as an account switch.
 async function steadyAccountId(read: () => string | null, wait: (ms: number) => Promise<void>): Promise<string | null> {
   let previous = read();
   for (let i = 1; i < MAX_CHECKS; i++) {
@@ -118,12 +108,10 @@ async function steadyAccountId(read: () => string | null, wait: (ms: number) => 
   return null;
 }
 
-// The signed-in account, and the one this device saw last before this start (if any).
 export interface KnownAccount { key: string; previous: string | undefined }
 
 export interface AccountWatchOptions {
   onSwitch: () => void;
-  // Runs once the account is known; the cloud sync waits for it (settings per account decide here).
   onKnown?: (account: KnownAccount) => Promise<void> | void;
   read?: () => string | null;
   wait?: (ms: number) => Promise<void>;
@@ -142,7 +130,6 @@ async function settle(local: AccountState | null, opts: AccountWatchOptions, isD
 
 async function recordAccount(state: AccountState, key: string, opts: AccountWatchOptions): Promise<void> {
   currentKey = key;
-  // The cloud copy belongs to the account: a copy last synced under another one waits for the user.
   syncHeld = !!state.synced && state.synced !== key;
   if (state.last && state.last !== key) {
     logInfo("RUNTIME", "Steam account changed on this device");
@@ -163,7 +150,6 @@ export function installSteamAccountWatch(opts: AccountWatchOptions): () => void 
   return () => { disposed = true; };
 }
 
-// Resolves once the signed-in account is known (or found unknown); at once when nothing watches it.
 export function accountReady(): Promise<void> {
   return ready;
 }
@@ -176,12 +162,10 @@ export function currentAccountKey(): string | null {
   return currentKey;
 }
 
-// While the settings shown may belong to another account (a choice is pending), the sync waits.
 export function holdCloudSyncForAccount(): void {
   syncHeld = true;
 }
 
-// The user chose to sync this device's settings with this account's cloud copy.
 export function resumeCloudSyncForAccount(): void {
   if (!syncHeld) return;
   syncHeld = false;
@@ -194,14 +178,13 @@ export function onCloudSyncResumed(listener: () => void): () => void {
   return () => { resumeListeners.delete(listener); };
 }
 
-// After a sync: the cloud copy now matches this account.
 export function markCloudSyncedAccount(): void {
   if (!currentKey || syncHeld) return;
   const state = loadState();
   if (state && state.synced !== currentKey) saveState({ ...state, synced: currentKey });
 }
 
-// For diagnostics: whether this device has ever seen a different account sign in (yes/no, never which).
+// Yes or no only, never which account.
 export function accountSwitchSeen(): boolean {
   try { return JSON.parse(globalThis.localStorage?.getItem(STORE_KEY) ?? "null")?.switched === true; } catch { return false; }
 }

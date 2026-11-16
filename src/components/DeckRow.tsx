@@ -11,7 +11,6 @@ import { focusElement, getPendingFocusTarget } from "../core/focusRestore";
 import { subscribeFocusedCard, getFocusedCard } from "../runtime/focusedCardTracker";
 import { flowChildrenProps } from "../core/steamOSVersion";
 
-// Re-export types and components from shelf/ for backwards compatibility
 export { type DeckRowItem } from "./shelf/types";
 export { GameCard } from "./shelf/GameCard";
 
@@ -66,7 +65,6 @@ function writeCollapsed(shelfId: string, collapsed: boolean): void {
   }
 }
 
-// The row's shelf can be a regular or a smart one; both keep `hiddenAppIds` and `manualOrder`.
 function findShelfRow(s: Settings | null, shelfId: string): { shelf: any; isSmart: boolean } | null {
   const regular = s?.shelves?.find((row) => row.id === shelfId);
   if (regular) return { shelf: regular, isSmart: false };
@@ -74,15 +72,11 @@ function findShelfRow(s: Settings | null, shelfId: string): { shelf: any; isSmar
   return smart ? { shelf: smart, isSmart: true } : null;
 }
 
-// Same rule the game menu uses: regular shelves go through
-// patchShelfInSettings, smart ones are mapped in place.
 function patchShelfRow(s: Settings, shelfId: string, isSmart: boolean, patch: Record<string, any>): Settings {
   if (!isSmart) return patchShelfInSettings(s, shelfId, patch);
   return { ...s, smartShelves: (s.smartShelves ?? []).map((sh) => sh.id === shelfId ? { ...sh, ...patch } : sh) };
 }
 
-// Row paddingBottom budget: scales with what renders below the card art
-// so the label / status row / per-card description never get clipped.
 export function _labelOverhangPx(args: {
   hideStatusLine?: boolean;
   hideGameNames?: boolean;
@@ -129,17 +123,15 @@ const ROW_DEFAULTS = {
   forceCollapsed: false, autoCollapseWhenEmpty: false,
 } as const satisfies Partial<DeckRowProps>;
 
-// Perf mark for this row's render; the matching measure lands in the mount effect.
 function markRenderStart(shelfId: string | undefined): void {
   try { mark?.(`deckRow.render:${shelfId ?? 'unknown'}:start`); } catch (e) { logInfo("HOME", "mark failed", String(e)); }
 }
 
-// Overscan grows when a row has featured (wider) cards, since the index estimate uses the regular width.
 function rowHasWideCards(highlightAll: boolean, highlightFirst: boolean, highlightedSet: Set<number> | undefined): boolean {
   return highlightAll || highlightFirst || !!highlightedSet?.size;
 }
 
-// Carry the ReactVirtualized class so CSS Loader theme rules (TiltedHome/ArtHero) sibling-target DS cards.
+// The ReactVirtualized class lets theme rules that target native rows reach these cards.
 function rowClassName(nativeRowClass: string): string {
   return `ds-row-scroll ReactVirtualized__Grid__innerScrollContainer${nativeRowClass ? ` ${nativeRowClass}` : ''}`;
 }
@@ -151,7 +143,6 @@ type ShelfTitleProps = {
   locked: ReturnType<typeof computeLockedTitleProps>; onToggle: () => void;
 };
 
-// The shelf title: a focusable "+ Title" toggle while collapsed, a plain (or locked) header otherwise.
 function ShelfTitle({ title, collapsed, position, titleRef, locked, onToggle }: ShelfTitleProps) {
   if (collapsed) {
     return (
@@ -191,20 +182,11 @@ function DeckRowImpl(props: DeckRowProps) {
     friendsOverlay, friendsOverlayRecent, forceCollapsed, autoCollapseWhenEmpty,
   } = withDefaults(props, ROW_DEFAULTS);
   const visuallyForced = computeVisuallyForced(forceExpanded, forceLayoutAsRecents);
-  /* 100vh layout fires for BOTH real recents-replacement (`forceExpanded`)
-     and per-shelf full-page intent (`fullPageLayoutOnly`). Only the real
-     one drives `isFirstShelf` for the hero — full-page with native
-     recents above must still keep its subtle fade-in. */
   const fullPageLayoutActive = computeFullPageLayoutActive(forceExpanded, fullPageLayoutOnly, pinScrollTop);
   const highlightedSet = useMemo(() => {
     if (!highlightedAppIds?.length) return undefined;
     return new Set(highlightedAppIds);
   }, [highlightedAppIds]);
-  /* X-button binding. `removableSet` is fed in by Shelf.tsx (which has
-     access to the pre-applyManualOrder resolved source ids — DeckRow
-     only sees the post-merge `items`, so it can't compute the set
-     itself). `hiddenSet` is read from settings each render for the
-     Hide/Show label toggle; both callbacks below persist directly. */
   const hiddenSet = useMemo(() => {
     if (!shelfId) return undefined;
     const h: number[] | undefined = findShelfRow(getCurrentSettings(), shelfId)?.shelf.hiddenAppIds;
@@ -234,9 +216,6 @@ function DeckRowImpl(props: DeckRowProps) {
   const outerRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLDivElement>(null);
   const [collapsedState, setCollapsed] = useState(() => shelfId ? readCollapsed(shelfId) : false);
-  // Sync local collapse state when the game-capsule menu (Collapse action)
-  // mutates ds-collapsed-{shelfId} from outside the React tree. Cleanup is
-  // mandatory — DeckRow remounts per shelf.
   useEffect(() => {
     if (!shelfId) return;
     const onCollapsed = (e: Event) => {
@@ -247,41 +226,17 @@ function DeckRowImpl(props: DeckRowProps) {
     window.addEventListener('ds-shelf-collapsed', onCollapsed as EventListener);
     return () => window.removeEventListener('ds-shelf-collapsed', onCollapsed as EventListener);
   }, [shelfId]);
-  // When our shelf takes the native-recents slot (`forceExpanded=true`),
-  /* render it expanded but preserve the user's original collapsed status
-     untouched — if it later loses the slot (becomes second/third/etc.),
-     it should return to whatever state the user had chosen. We intentionally
-     do NOT overwrite `collapsedState` or the persisted `ds-collapsed-{id}`
-     key while `forceExpanded` is active. */
-  // Auto-collapse forces the collapsed render (off-context predicate matched, or
-  // the shelf is empty) on top of the manual `collapsedState`; a promoted/recents
-  // shelf (visuallyForced) is never auto-collapsed.
   const autoCollapsed = computeAutoCollapsed(forceCollapsed, autoCollapseWhenEmpty, items.length);
   const collapsed = computeCollapsed(visuallyForced, collapsedState, autoCollapsed);
   const [nativeRowClass, setNativeRowClass] = useState('');
-  /* Bumped by the onNativeDimsChange subscription below so `dims` recomputes
-     with a fresh getCachedNativeDims() read once a measurement lands after
-     this row's own mount — GameCard reads these JS values directly (e.g. its
-     artFillsCard check), so a stale post-mount snapshot left them out of
-     sync with the real dims even though the CSS vars stayed live. */
   const [dimsVersion, setDimsVersion] = useState(0);
 
-  // Effective dimensions, recomputed from the freshest cached native dims
-  /* whenever a new measurement lands (dimsVersion). These also feed the
-     cards as the *fallback* of their --ds-eff-* CSS variables — the live
-     value normally comes from those vars (set on the shelf div, resolved
-     from the root --ds-native-* vars that ensureStyles keeps current). */
   const dims = useMemo(
     () => computeEffectiveDims(matchNativeSize, getCachedNativeDims()),
     [matchNativeSize, dimsVersion],
   );
   const { w: effectiveW, h: effectiveH, gap: effectiveGap, featW: effectiveFeaturedW, featH: effectiveFeaturedH, artH: effectiveArtH, featArtH: effectiveFeaturedArtH } = dims;
 
-  /* Per-shelf effective-dimension vars. When matchNativeSize is on, the cards
-     size off the live native dims (root --ds-native-* vars); when off, the
-     vars are absent and cards fall back to their CARD_W/CARD_ART_H props —
-     exactly the prior behaviour. Memoized on matchNativeSize alone so a dims
-     change never recomputes (and thus never re-renders) this object. */
   const effShelfVars = useMemo<React.CSSProperties>(() => {
     if (!matchNativeSize) return {};
     return {
@@ -289,27 +244,16 @@ function DeckRowImpl(props: DeckRowProps) {
       ["--ds-eff-card-h" as string]: `var(--ds-native-card-h, ${CARD_ART_H}px)`,
       ["--ds-eff-card-art-h" as string]: `var(--ds-native-card-art-h, ${CARD_ART_H}px)`,
       ["--ds-eff-feat-w" as string]: `var(--ds-native-feat-w, ${Math.round(CARD_W * 3.21)}px)`,
-      /* A featured card must be the SAME height as the regular cards in its
-         row — only its WIDTH differs. So feat height/art-height intentionally
-         reuse the regular card's native vars (not the separately-measured
-         --ds-native-feat-* ones, which track Steam's landscape native card
-         and would make the featured card taller/shorter than its neighbours). */
+      // A featured card only differs in width; its height matches the rest of the row.
       ["--ds-eff-feat-h" as string]: `var(--ds-native-card-h, ${CARD_ART_H}px)`,
       ["--ds-eff-feat-art-h" as string]: `var(--ds-native-card-art-h, ${CARD_ART_H}px)`,
       ["--ds-eff-card-gap" as string]: `max(var(--ds-native-card-gap, ${CARD_GAP}px), 8px)`,
     };
   }, [matchNativeSize]);
-  // When native dims are unavailable but highlightFirst is on, the featured
-  // card must stay the same HEIGHT as neighboring portrait cards — only width
-  // differs (landscape hero shape). Scaling height broke row alignment.
   const finalFeaturedW = effectiveFeaturedW;
   const finalFeaturedH = effectiveFeaturedH;
   const finalFeaturedArtH = effectiveFeaturedArtH;
 
-  /* Horizontal card virtualization: only the visible span (+ overscan) mounts
-     real cards; the rest are same-sized slots (ShelfRow). Recomputed per
-     frame on scroll; a pending focus-restore target anchors the window so the
-     card the user returns to is always mounted. */
   const hasWideCards = rowHasWideCards(highlightAll, highlightFirst, highlightedSet);
   const windowFor = useCallback((scrollLeft: number, viewportW: number): CardWindow => {
     const target = getPendingFocusTarget();
@@ -332,7 +276,6 @@ function DeckRowImpl(props: DeckRowProps) {
     rowEl.addEventListener("scroll", onScroll, { passive: true });
     return () => { rowEl.removeEventListener("scroll", onScroll); if (raf !== null) cancelAnimationFrame(raf); };
   }, [windowFor]);
-  // Last rendered height per shelf → sizes the placeholder a rebuild starts with.
   useEffect(() => { rememberShelfHeight(shelfId, outerRef.current?.offsetHeight ?? 0); });
 
   useEffect(() => {
@@ -340,12 +283,7 @@ function DeckRowImpl(props: DeckRowProps) {
     try { requestAnimationFrame(() => { try { measure?.(`deckRow.render:${shelfId ?? 'unknown'}`, `deckRow.render:${shelfId ?? 'unknown'}:start`); } catch (e) { logInfo("HOME", "measure failed", String(e)); } }); } catch (e) { logInfo("HOME", "rAF measure failed", String(e)); }
     const unsub = onNativeDimsChange(() => {
       setDimsVersion((v) => v + 1);
-      // The cards resize through CSS (--ds-eff-* vars) too, ahead of this
-      /* row's own re-render. After that reflow the focused card's offsetLeft shifts because
-         preceding cards resized — the row's scrollLeft (set for the old
-         layout) leaves the focused card off-center, making the focus look
-         misplaced. Re-center on the next frame, only if a card in THIS row
-         currently holds the tracker. */
+      // Resized cards shift the focused card's offsetLeft, so re-center it on the next frame.
       try {
         const focused = (globalThis as any).__ds_last_focused_card as HTMLElement | null;
         const row = rowRef.current;
@@ -362,8 +300,6 @@ function DeckRowImpl(props: DeckRowProps) {
         }
       } catch {}
     });
-    // No race-condition guard needed: a shelf that mounts before dims are
-    // cached still sizes correctly once they arrive, via the dimsVersion bump.
     return () => {
       globalStylesStop();
       unsub();
@@ -393,22 +329,12 @@ function DeckRowImpl(props: DeckRowProps) {
       addMapClasses(outerRef.current, 'nativeShelf', map);
       addMapClasses(titleRef.current, 'nativeShelfTitle', map);
       if (map.nativeShelfRow) setNativeRowClass(map.nativeShelfRow);
-      // Curated safe set (always applied): recents container / header tokens.
       addMapClasses(outerRef.current, 'nativeRecentsContainer', map);
       addMapClasses(outerRef.current, 'nativeRecentsInner', map);
       addMapClasses(outerRef.current, 'nativeRecentsSection', map);
       addMapClasses(titleRef.current, 'nativeRecentsHeader', map);
       addMapClasses(titleRef.current, 'nativeRecentsHeaderLabel', map);
-      /* Native shelf-container ancestor — required for descendant-selector
-         theme rules (TiltedHome targets
-         `_39tNvaLedsTrVh0fFsP4Jm ... _1HIFNGSxh4-jOhPiDynR4C > div:first-child`
-         and would otherwise never reach DS cards because our shelf root
-         lacks that ancestor class). */
       addMapClasses(outerRef.current, 'nativeShelfContainer', map);
-      /* Experimental: when `forceCssLoaderThemes` is on, apply the full set
-         of DFL semantic tokens so themes targeting Title/Section/Collection/
-         GameRow/Library variants also reach DS shelves. Focus/hover state
-         classes stay excluded to avoid conflicts with DS focus handling. */
       if (readForceThemes()) {
         const outerExtras = [
           'nativeSemanticGameRow', 'nativeSection', 'nativeSectionContainer',
@@ -426,9 +352,7 @@ function DeckRowImpl(props: DeckRowProps) {
       }
     }
     injectShelfNativeClasses();
-    // Multiple retry points: classmap discovery (homePatch) and settings load
-    // from backend both happen async after mount. On cold boot the 500ms slot
-    // misses both — 1 s, 2 s, and 5 s cover the tail without staying active.
+    // The class map and settings both load async after mount; these retries cover a cold boot.
     const timers = [500, 1000, 2000, 5000].map(d => setTimeout(injectShelfNativeClasses, d));
     const onSettings = () => injectShelfNativeClasses();
     globalThis.addEventListener('deck-shelves-settings-changed', onSettings);
@@ -440,17 +364,13 @@ function DeckRowImpl(props: DeckRowProps) {
 
   
 
-  /* Scroll-pin-to-top only fires when this shelf is genuinely replacing
-     the native recents slot (`pinScrollTop`) — NOT when the user opts
-     into `fullPageShelf` for visual reasons. Otherwise the shelf traps
-     the viewport at top 0 and the user can't scroll to siblings. */
   const pinScrollTopRef = useRef(pinScrollTop);
   useEffect(() => { pinScrollTopRef.current = pinScrollTop; }, [pinScrollTop]);
 
   useEffect(() => {
     const el = outerRef.current;
     if (!el) return;
-    const CENTER_TOLERANCE_PX = 32; // don't fight Steam when it's already close
+    const CENTER_TOLERANCE_PX = 32;
     let scheduled: number | null = null;
     let lastScrollable: HTMLElement | null = null;
     let lastTarget = -1;
@@ -462,16 +382,8 @@ function DeckRowImpl(props: DeckRowProps) {
       }
       return null;
     };
-    /* Center `el` in its scrollable ancestor — one smooth scroll per focus, only
-       when needed (skip if Steam's native scroll already centered it, to avoid
-       competing scrolls that stutter). Exception: when promoted to the recents
-       slot (`forceExpanded`), pin scrollTop=0 so the header isn't clipped by
-       prior content (hero / hidden-recents spacer). */
     const maybeCenter = () => {
       try {
-        // The 300ms verify pass below can outlive the focus that scheduled it
-        // — `onCardFocus` further down already guards the same
-        // way; this handler was missing it. See isFocusStillWithin.
         if (!isFocusStillWithin(el)) return;
         const scr = findScrollableAncestor(el);
         if (!scr) { el.scrollIntoView({ block: "center", behavior: "smooth" }); return; }
@@ -489,13 +401,12 @@ function DeckRowImpl(props: DeckRowProps) {
         const delta = elRect.top - scrRect.top;
         const target = Math.round(scr.scrollTop + delta - (scr.clientHeight - elRect.height) / 2);
         const clamped = Math.max(0, Math.min(scr.scrollHeight - scr.clientHeight, target));
-        // Coalesce: ignore redundant scroll commands to the same target on the
-        // same scrollable — Steam may re-fire focusin during smooth scroll.
+        // Steam can re-fire focusin during a smooth scroll.
         if (scr === lastScrollable && Math.abs(clamped - lastTarget) < 2) return;
         lastScrollable = scr;
         lastTarget = clamped;
         smoothScrollTo(scr, clamped);
-      } catch { /* ignore */ }
+      } catch {}
     };
     let verifyTimer: number | null = null;
     const onFocusIn = () => {
@@ -505,25 +416,15 @@ function DeckRowImpl(props: DeckRowProps) {
           maybeCenter();
         });
       }
-      /* Verification pass after 300ms: covers the recently-expanded-shelf
-         case where the first scroll reads mid-animation layout or Steam's
-         native scroll competes with ours. Self-skips via the tolerance
-         check inside maybeCenter when the shelf is already centered. */
       if (verifyTimer) clearTimeout(verifyTimer);
       verifyTimer = window.setTimeout(() => {
         verifyTimer = null;
-        // Reset the dedup target so the verification pass can re-issue the
-        // same scroll if it's genuinely needed again.
         lastTarget = -1;
         maybeCenter();
       }, 300);
     };
     el.addEventListener("focusin", onFocusIn);
-    /* `focusin` alone misses Steam's native BTakeFocus-driven navigation,
-       which moves GamepadUI's own tracked focus (and the `gpfocus` class)
-       without ever touching document.activeElement — confirmed live on the
-       2026-09-09 beta once shelves became real nav-tree members. Mirror the
-       gpfocus-class watch the row-level effect below already uses. */
+    // BTakeFocus navigation moves Steam's focus without firing focusin or touching activeElement.
     const gpfocusObserver = new MutationObserver((mutations) => {
       for (const m of mutations) {
         const t = m.target as HTMLElement;
@@ -539,10 +440,6 @@ function DeckRowImpl(props: DeckRowProps) {
     };
   }, []);
 
-  /* Confirmed live (2026-09-12): BTakeFocus nav on this beta never fires
-     focusin/gpfocus; activeElement and m_FocusWithin subscriptions both
-     proved unreliable. `focusedCardTracker` polls the reliable signal ONCE
-     for every mounted row (was: one independent 150ms poll per row). */
   useEffect(() => {
     const rowEl = rowRef.current;
     if (!rowEl) return;
@@ -572,11 +469,6 @@ function DeckRowImpl(props: DeckRowProps) {
     let rafPending: number | null = null;
     let throttleTimer: any = null;
 
-    /* Coalesce to one scrollTo per rendered FRAME, not a fixed 150ms window
-       — the old value predates real dpad-driven nav reaching shelves at
-       all and suppressed every intermediate card under genuine hardware
-       repeat, landing only once on release. A frame still coalesces
-       same-paint mutations without dropping in-between positions. */
     const doHorizontalScroll = (card: HTMLElement) => {
       const final = computeCenteredScrollLeft(
         { width: rowEl.clientWidth, scrollWidth: rowEl.scrollWidth },
@@ -600,11 +492,6 @@ function DeckRowImpl(props: DeckRowProps) {
       lastFocusedCard = card;
       if (throttleRows.has(rowEl)) return;
       syncCardSelectionClasses(rowEl, card);
-      /* Lateral card-to-card move within the same shelf → skip the vertical
-         re-centering below (the shelf is already positioned). Only re-center
-         when focus ENTERS this shelf from another row. Re-centering on every
-         lateral focus (this block has no tolerance, unlike maybeCenter) made
-         the whole shelf — hero art included — bob ~6px per card. */
       const prevCard: HTMLElement | null = (globalThis as any).__ds_prev_centered_card ?? null;
       (globalThis as any).__ds_prev_centered_card = card;
       if (isLateralMoveWithinShelf(prevCard, card, rowEl)) {
@@ -616,7 +503,6 @@ function DeckRowImpl(props: DeckRowProps) {
       } catch (e) {
         logInfo("HOME", "scrollIntoView failed", String(e));
       }
-      // Vertical fallback A: walk DOM for scrollable ancestor and scroll manually.
       try {
         function getScrollableAncestor(node: HTMLElement | null): HTMLElement | null {
           let cur = node?.parentElement ?? null;
@@ -630,7 +516,6 @@ function DeckRowImpl(props: DeckRowProps) {
       } catch (e) {
         logInfo("HOME", "vertical scroll fallback A failed", String(e));
       }
-      // Vertical fallback B: Steam's home uses a separate BrowserWindow document.
       try {
         const spDoc = getPreferredSteamDocument();
         if (spDoc && spDoc !== document) {
@@ -650,11 +535,7 @@ function DeckRowImpl(props: DeckRowProps) {
       if (rafPending !== null) return;
       rafPending = requestAnimationFrame(() => {
         rafPending = null;
-        /* Skip the scroll-to-center when the gpfocus was transient. On a Steam
-           restart the nav tree is rebuilt and gpfocus flickers across cards
-           (including late-resolving online shelves) before settling — without
-           this guard a brief gpfocus on an online card scrolls the viewport to
-           center that shelf even though real focus ends up elsewhere. */
+        // gpfocus flickers across cards while Steam rebuilds the nav tree after a restart.
         if (!c.classList.contains('gpfocus') && c !== c.ownerDocument?.activeElement) return;
         handleFocusedCard(c);
       });
@@ -707,13 +588,7 @@ function DeckRowImpl(props: DeckRowProps) {
   };
 
   if (!items.length) return null;
-  // Space the logo + (below-logo) description banner needs — reserved either
-  // above (default) or below (logoBelowShelf) the cards.
   const logoBandPx = computeLogoBandPx({ enableLogo, logoSize, logoTopOffset, enableDescription, descriptionBelowLogo });
-  /* Per-shelf fullPageShelf anchors cards at the bottom of a full-viewport
-     box so it looks like the first shelf when hideRecents is on; top/bottom
-     padding reserve room for the logo/description banner or gameInfoAbove
-     clone. See computeShelfRootStyle. */
   const shelfRootStyle = computeShelfRootStyle({ heroEnabled, enableLogo, enableDescription, hideStatusLine, fullPageLayoutActive, infoAbove, logoBelowShelf, logoBandPx });
   const lockedTitleProps = computeLockedTitleProps(visuallyForced, toggleCollapse);
   return (
@@ -749,19 +624,10 @@ function DeckRowImpl(props: DeckRowProps) {
             overflowX: "auto",
             overflowY: "visible",
             scrollbarWidth: "none",
-            // Smooth scroll: instant (auto) tested at 74ms avg latency but
-            /* half the presses got swallowed — Steam's nav controller
-               seems to need the brief scroll animation window to register
-               subsequent presses. Smooth keeps the press throughput while
-               still feeling snappy enough with the matched 0.4s card
-               transition. */
+            // Steam's nav drops presses with instant scrolling, so keep it smooth.
             scrollBehavior: "smooth",
             padding: `16px 0 ${_labelOverhangPx({ hideStatusLine, hideGameNames, enableIcon, enableDescription, descriptionBelowLogo })}px 2.8vw`,
-            /* Full-page shelves anchor this row to the shelf bottom (flex-end),
-               which put the card's below-art label under Steam's ~40px bottom
-               hint bar. Lift the row clear of it; margin (not padding) keeps the
-               hero full-height, and the row still drops back as the label band
-               (padding-bottom above) shrinks when those items are hidden. */
+            // Lift the row clear of Steam's bottom hint bar; margin keeps the hero full height.
             marginBottom: fullPageLayoutActive ? 48 : undefined,
           }}
           {...flowChildrenProps("horizontal")}
@@ -809,8 +675,4 @@ function DeckRowImpl(props: DeckRowProps) {
   );
 }
 
-/* Shallow-prop memo: `items` is already memoized in ShelfView via useMemo,
-   so re-renders triggered by unrelated parent state (e.g. settings panel
-   updates) don't force a full shelf re-render when only non-visual props
-   have been recomputed identically. */
 export const DeckRow = memo(DeckRowImpl);

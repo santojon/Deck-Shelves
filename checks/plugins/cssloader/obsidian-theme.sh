@@ -15,18 +15,14 @@ run_checks() {
     ((fail++))
   fi
 
-  # Collect files that contain scoping tokens (ROOT_ID, STYLE_ID, ds-, deck-shelves)
-  # and exclude all font-size matches from those files
   local scoped_files
   scoped_files=$(grep -rlE 'ROOT_ID|STYLE_ID|deck-shelves|\.ds-' "$src" 2>/dev/null | sort -u)
   local absolute_fonts
   absolute_fonts=$(grep -rn 'font-size:\s*[0-9]*px' "$src" 2>/dev/null | head -20)
-  # Filter out lines from scoped files
   for sf in $scoped_files; do
     absolute_fonts=$(echo "$absolute_fonts" | grep -v "^${sf}:" 2>/dev/null || true)
   done
   absolute_fonts=$(echo "$absolute_fonts" | head -3)
-  # Trim whitespace
   absolute_fonts=$(echo "$absolute_fonts" | sed '/^\s*$/d')
   if [[ -z "$absolute_fonts" ]]; then
     echo "  ✅ Font sizes inside scoped selectors or using relative units"
@@ -66,9 +62,7 @@ run_checks() {
     ((pass++))
   fi
 
-  # The badge portal (ds-card-badge-host--portal) is rendered into <body>
-  # via createPortal so it sits outside any theme overlay scope. Filter out
-  # that legitimate use before flagging.
+  # The badge portal renders into <body> outside any theme overlay, so that use is exempt.
   local high_z
   high_z=$(grep -roB4 'zIndex\s*[:=]\s*"?[0-9]\+' "$src" 2>/dev/null \
     | grep -B4 -E 'zIndex\s*[:=]\s*"?[0-9]+' \

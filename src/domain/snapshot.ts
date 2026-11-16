@@ -1,11 +1,5 @@
 import type { Settings } from "../types";
 
-/* Portable snapshot of the shareable Deck Shelves concepts. Pure, no side
-   effects — the controller (and, later, external plugins) build a bundle
-   from the live settings and apply a parsed bundle back. Kept format-
-   compatible with the existing per-concept export shape (`{ state: {...} }`)
-   so older exports still import. */
-
 const SNAPSHOT_VERSION = 1;
 
 export type SnapshotConcept =
@@ -26,9 +20,6 @@ export interface Snapshot {
   state: Partial<Pick<Settings, SnapshotConcept>>;
 }
 
-/* Build a snapshot from settings. `include` narrows it to a subset of
-   concepts (defaults to all). Arrays are shallow-copied so the caller can't
-   mutate live settings through the bundle. */
 export function buildSnapshot(
   settings: Settings,
   include?: readonly SnapshotConcept[],
@@ -42,8 +33,6 @@ export function buildSnapshot(
   return { deckShelvesSnapshot: SNAPSHOT_VERSION, state };
 }
 
-/* Read one concept's array from a parsed bundle, tolerant of both the
-   `{ state: { shelves: [] } }` and the bare `{ shelves: [] }` shapes. */
 export function readSnapshotConcept<T = unknown>(
   raw: any,
   concept: SnapshotConcept,
@@ -73,10 +62,6 @@ function mergeById(current: any[], incoming: any[]): any[] {
   return merged;
 }
 
-/* Apply a parsed bundle to settings, returning a new Settings object.
-   `replace` overwrites each present concept; `merge` appends, de-duplicating
-   by id (falling back to name, then a structural key). Concepts absent from
-   the bundle are left untouched. */
 export function applySnapshot(
   settings: Settings,
   raw: any,

@@ -4,9 +4,7 @@ import { getSteamWindows } from "./steamAccess";
 import { type AppOverview, appIdOf, appNameOf, compareByAdded, lastPlayedOf } from "./appOverview";
 import { SORT_V3_COMPARATORS } from "./v3Extensions";
 
-/* Shelf ordering: the per-key comparators, multi-key and price sorts, the stable random shuffle, and the manual order. */
-
-// Random sort is stable for 24h per unique game set to avoid constant reshuffling.
+// Stable for 24h per game set to avoid constant reshuffling.
 const RANDOM_SORT_TTL = 24 * 60 * 60 * 1000;
 
 export function hashIdSet(ids: number[]): string {
@@ -17,8 +15,6 @@ export function hashIdSet(ids: number[]): string {
 }
 
 export function stableShuffleIds(ids: number[], cacheKey: string, shelfId?: string): number[] {
-  // Per-shelf namespacing so two shelves with the same id set get
-  // independent shuffles; legacy global key when shelfId is omitted.
   const lsKey = shelfId ? `ds-random-${shelfId}-${cacheKey}` : `ds-random-${cacheKey}`;
   try {
     const raw = localStorage.getItem(lsKey);
@@ -53,9 +49,7 @@ export function invalidateRandomSortCache(shelfId?: string): void {
 
 export function applyManualOrder(ids: number[], manualOrder?: number[], hiddenAppIds?: number[]): number[] {
   if (!manualOrder?.length) return ids;
-  // In-source entries lead (drag-order); source items not drag-ordered
-  // follow; entries the source doesn't cover (e.g. via "Add to shelf"
-  // menu) go at the end. Hidden entries dropped from both branches.
+  // Drag-ordered entries first, then the rest of the source, then entries the source doesn't cover.
   const hidden = hiddenAppIds?.length ? new Set(hiddenAppIds) : null;
   const idSet = new Set(ids);
   const inSource: number[] = [];
@@ -72,9 +66,19 @@ export function applyManualOrder(ids: number[], manualOrder?: number[], hiddenAp
   return [...inSource, ...rest, ...notInSource];
 }
 
-// Comparator for a single sort key. Returns null for `manual`/`random`
-// so the multi-key path drops them. Price keys use the pre-warmed
-// priceMap passed in by the caller.
+// Games placed by hand can sit past the limit in the base order, so the source is read that far before the cut.
+export function manualResolveLimit(limit: number, manualOrder?: number[]): number {
+  return limit + (manualOrder?.length ?? 0);
+}
+
+// One source of a multi-source shelf, ordered by hand: its placed games first, then the rest in the
+// order given. A placed game the source no longer has drops out.
+export function applySourceManualOrder(ids: number[], placed?: number[]): number[] {
+  if (!placed?.length) return ids;
+  const present = new Set(ids);
+  return applyManualOrder(ids, placed.filter((id) => present.has(id)));
+}
+
 type PriceMap = ReadonlyMap<number, { price: number; originalPrice: number; discount: number }>;
 
 type Cmp = (a: AppOverview, b: AppOverview) => number;
@@ -99,10 +103,8 @@ function v3Comparator(key: string): Cmp | undefined {
 
 const PRICE_KEYS: ReadonlySet<string> = new Set(["price_low", "discount_high", "original_price_high"]);
 
-// `source_order` keeps the order the source gives (pin order, history, a composite's sources).
 const ORDER_ONLY_KEYS: ReadonlySet<string> = new Set(["alphabetical", "manual", "random", "source_order"]);
 
-// Whether a sort key orders anything: a built-in key or a sort a loaded plugin registered.
 export function isSupportedSortKey(key: string): boolean {
   if (ORDER_ONLY_KEYS.has(key) || PRICE_KEYS.has(key) || key in KEY_COMPARATOR_BUILDERS || v3Comparator(key)) return true;
   return hasExternalSortOption(key) && !isInternalSortOption(key);
@@ -133,7 +135,6 @@ function buildBaseComparator(key: string, priceMap?: PriceMap): Cmp {
   const v3 = v3Comparator(key);
   if (v3) return v3;
   if (PRICE_KEYS.has(key)) return priceMap ? priceComparator(key, priceMap) : alphaCmp;
-  // alphabetical, or a plugin's key inside a chain (the single-key path runs those).
   return alphaCmp;
 }
 
@@ -169,8 +170,7 @@ function buildSortByIdMap(all: AppOverview[]): Map<number, AppOverview> {
   return byId;
 }
 
-// Per-id raw lookup for ids missing from `all` — without this, owned
-// ids that fell out of the lean `all` would silently disappear.
+// Owned ids missing from the lean catalog would otherwise disappear.
 function hydrateAppsForSort(ids: number[], byId: Map<number, AppOverview>): AppOverview[] {
   return ids.map((id) => byId.get(id) ?? sortPoolLookup(id) ?? ({ appid: id } as unknown as AppOverview)) as AppOverview[];
 }
@@ -223,7 +223,6 @@ const SINGLE_SORT_COMPARATORS: Record<string, AppComparator> = {
   deck_compat: (a, b) => (b.deck_compatibility_category ?? 0) - (a.deck_compatibility_category ?? 0),
   controller_support: (a, b) => (b.controller_support ?? 0) - (a.controller_support ?? 0),
   alphabetical: alphaCompare,
-  // A stable sort with no preference keeps the source's order.
   source_order: () => 0,
   price_low: alphaCompare,
   discount_high: alphaCompare,
@@ -267,13 +266,12 @@ export function applySortToIds(
     if (keys.length === 0) return ids.slice();
     return applyMultiKeySort(ids, keys, all, shelfId, reverse, priceMap);
   }
-  // Normalise to a strict boolean — a `[false]` 1-element array is truthy.
+  // A `[false]` array is truthy.
   const reverseBool: boolean = Array.isArray(reverse) ? !!reverse[0] : !!reverse;
   const byId = buildSortByIdMap(all);
   const baseApps = hydrateAppsForSort(ids, byId);
   const cmp = SINGLE_SORT_COMPARATORS[sort] ?? v3Comparator(sort);
   let apps = cmp ? baseApps.slice().sort(cmp) : sortByExternalOrRandom(sort, ids, baseApps, byId, shelfId);
-  // Skip reverse for `manual` and `random`.
   if (reverseBool && sort !== "manual" && sort !== "random") apps = apps.reverse();
   return apps.map((a) => appIdOf(a)).filter(Number.isFinite);
 }

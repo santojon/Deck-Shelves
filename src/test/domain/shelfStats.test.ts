@@ -7,7 +7,6 @@ import {
   cardComposition,
 } from "../../domain/shelfStats";
 
-// A deeply-nested composite, used for the depth-cap / no-stack-overflow checks.
 function deepComposite(depth: number): any {
   let src: any = { type: "wishlist" };
   for (let i = 0; i < depth; i++) src = { type: "composite", combine: "union", sources: [src] };
@@ -42,7 +41,7 @@ describe("shelfStats — onlineSourceTypes", () => {
   });
   it("stops at the depth cap without throwing", () => {
     expect(() => onlineSourceTypes(deepComposite(50))).not.toThrow();
-    expect(onlineSourceTypes(deepComposite(50))).toEqual([]); // wishlist sits below the cap
+    expect(onlineSourceTypes(deepComposite(50))).toEqual([]);
   });
 });
 
@@ -84,7 +83,7 @@ describe("shelfStats — cardTypeComposition", () => {
   });
   it("splits a composite's resolved cards across its online types", () => {
     const s = { shelves: [{ id: "c", source: { type: "composite", sources: [{ type: "wishlist" }, { type: "store" }] } }] };
-    const ids = () => [1, 2, 3, 4]; // 4 cards → 2 wishlist + 2 store
+    const ids = () => [1, 2, 3, 4];
     expect(cardTypeComposition(s, ids, allSteam)).toEqual({ game: 0, nonsteam: 0, store: 2, wishlist: 2 });
   });
   it("skips shelves with no resolver cache or empty ids", () => {
@@ -104,7 +103,7 @@ describe("shelfStats — cardComposition", () => {
         syntheticCards: [{}, {}, {}],
       }],
     };
-    const count = () => 10; // 10 resolved → 2 featured, 8 normal
+    const count = () => 10;
     const out = Object.fromEntries(cardComposition(s, count).map((r) => [r.key, r.value]));
     expect(out).toEqual({ normal: 8, featured: 2, decorative: 3, hidden: 1 });
   });

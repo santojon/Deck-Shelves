@@ -2,10 +2,6 @@ import type { PlatformAppMeta } from "../../runtime/platform";
 import { logInfo } from "../../runtime/logger";
 import { SHELF_CACHE_TTL_MS } from "./shelfViewHelpers";
 
-/* Per-shelf card meta persisted next to the id cache (same key prefix, so the
-   same sweeper expires it). A cold boot can then paint real cards from disk
-   before Steam's library store is hydrated, and revalidate in place — the
-   same shape a warm return gets from shelfWarmState, minus the descriptions. */
 const META_SUFFIX = "-meta";
 const MAX_ENTRIES = 60;
 const FIELDS: ReadonlyArray<keyof PlatformAppMeta> = [

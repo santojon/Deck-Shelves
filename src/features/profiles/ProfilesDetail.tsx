@@ -18,7 +18,6 @@ export interface ProfilesDetailProps {
   t: (key: string) => string;
 }
 
-// What applying this profile changes: the shelves too only when it is linked to them.
 function applyConfirmMessage(profile: any, t: (key: string) => string): string {
   if (profile.id === FACTORY_PROFILE_ID) return t("settings_profiles_factory_confirm_message");
   return profile.linkShelves
@@ -26,7 +25,6 @@ function applyConfirmMessage(profile: any, t: (key: string) => string): string {
     : t("settings_profiles_apply_confirm_message_keep_shelves");
 }
 
-// Turns "include shelves" on or off for a saved profile (green while on).
 function LinkShelvesButton({ profile, controller, t }: { profile: any; controller: ProfilesDetailProps["controller"]; t: (key: string) => string }) {
   const linked = profile.linkShelves === true;
   const toggle = () => (controller.actions as any).setProfileLinkShelves?.(profile.id, !linked);
@@ -42,7 +40,6 @@ function LinkShelvesButton({ profile, controller, t }: { profile: any; controlle
   );
 }
 
-// "Includes shelves" pill next to a shelf-linked profile's name.
 function IncludesShelvesBadge({ profile, t }: { profile: any; t: (key: string) => string }) {
   if (!profile.linkShelves) return null;
   return <IncludesShelvesPill t={t} />;
@@ -61,29 +58,23 @@ function IncludesShelvesPill({ t }: { t: (key: string) => string }) {
 export function ProfilesDetail({ controller, t }: ProfilesDetailProps) {
   const settings = controller.settings;
   const [newName, setNewName] = useState("");
-  // New profiles include the shelves by default (saved profiles keep their own choice).
   const [linkShelves, setLinkShelves] = useState(true);
   const [renameId, setRenameId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
 
   if (!settings) return null;
   const savedProfiles = (settings as any).profiles ?? [];
-  // Factory-defaults read-only entry sits at the top of the list.
-  // Apply resets every setting to defaults; saved profiles are
-  // preserved. Cannot be renamed, deleted, updated, or duplicated.
   const factoryEntry = {
     id: FACTORY_PROFILE_ID,
     name: FACTORY_PROFILE_NAME,
     createdAt: "",
     snapshot: {},
     readOnly: true as const,
-    // The Default profile's trigger lives in its own settings field (it has no
-    // entry in `profiles`); surface it here so the trigger button reads/writes it.
+    // The Default profile's trigger has its own settings field, not an entry in `profiles`.
     trigger: (settings as any).factoryProfileTrigger,
   };
   const profiles = [factoryEntry, ...savedProfiles];
   const activeName = (settings as any).activeProfileName as string | null;
-  // Trigger UI only exists while the master profile-triggers toggle is on.
   const triggersOn = (settings as any).profileTriggersEnabled === true;
 
   const exportAll = async () => {
@@ -102,9 +93,6 @@ export function ProfilesDetail({ controller, t }: ProfilesDetailProps) {
     if (created) setNewName("");
   };
 
-  // Standard Decky confirm modal (focus-correct, matches the QAM + Snapshots)
-  // instead of a hand-rolled overlay — the destructive factory reset must not be
-  // triggerable without a properly focused Cancel / Confirm.
   const askApply = (profile: any) => confirmAction({
     title: t("settings_profiles_apply_confirm_title"),
     body: applyConfirmMessage(profile, t),
@@ -140,8 +128,6 @@ export function ProfilesDetail({ controller, t }: ProfilesDetailProps) {
     <Focusable {...flowChildrenProps("vertical")} style={{ display: "flex", flexDirection: "column" }}>
       <CollapsibleSection id="profiles-list" title={t("settings_profiles_list_title")} count={savedProfiles.length} icon={<PersonIcon size={14} />} initialOpen>
         <div style={{ fontSize: 12, opacity: 0.6, margin: "2px 0 8px" }}>{t("settings_profiles_list_desc")}</div>
-        {/* Standalone toggle before a list gets a bottom margin so it isn't
-           cramped against the first row (settings-page spacing pattern). */}
         <div style={{ marginBottom: 12 }}>
           <ToggleField
             label={t("settings_profile_triggers_label")}

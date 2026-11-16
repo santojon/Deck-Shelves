@@ -4,10 +4,6 @@ import type { SettingsController } from '../../../features/settings/controller'
 import { ModalShell } from '../../ui'
 import { VisibilityRulesEditor } from './editShelf/VisibilityRulesEditor'
 
-/* Edits a profile's Visibility Rules v2 `trigger` predicate — the condition that
-   auto-applies the profile (when the master toggle is on). Reuses the same
-   VisibilityRulesEditor as shelf visibility. Opened from the settings Profiles
-   list and the QAM profile actions menu. Clearing all rules removes the trigger. */
 export function SetProfileTriggerModal({ closeModal, controller, profileId, currentTrigger }: {
   closeModal?: () => void
   controller: SettingsController

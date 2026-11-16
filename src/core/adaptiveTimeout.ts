@@ -1,7 +1,4 @@
-/* Learns a per-call-site timeout from observed durations instead of a fixed
-   guess — fast devices get a tighter timeout, slow ones a looser one, no
-   manual retuning. Samples persist across restarts. Always clamped to the
-   caller's own [floor, ceiling] — only interpolates within a safe range. */
+// Learns a per-call-site timeout from observed durations, always clamped to the caller's [floor, ceiling].
 
 const PERSIST_KEY = "ds-adaptive-timeout-v1";
 const SAMPLES_PER_KEY = 20;
@@ -28,7 +25,6 @@ function persistSamples(): void {
   } catch { /* best effort */ }
 }
 
-/** Record how long a successful (not timed-out) call actually took. */
 export function recordDuration(key: string, ms: number): void {
   if (!Number.isFinite(ms) || ms < 0) return;
   const list = samples[key] ?? (samples[key] = []);
@@ -43,9 +39,7 @@ function percentile(sorted: number[], p: number): number {
   return sorted[idx];
 }
 
-/** Derive a timeout from what's actually been observed for this key, with a
-    safety multiplier, clamped to [floor, ceiling]. `fallback` (normally the
-    caller's own current hardcoded value) is used until enough samples exist. */
+// `fallback` is used until enough samples exist.
 export function getAdaptiveTimeout(
   key: string,
   opts: { floor: number; ceiling: number; fallback: number; minSamples?: number },
@@ -59,8 +53,6 @@ export function getAdaptiveTimeout(
   return Math.min(opts.ceiling, Math.max(opts.floor, target));
 }
 
-/** Read-only snapshot for the Performance panel — what's been learned so
-    far, per key, sorted for stable display. */
 export function getLearnedTimeoutsSummary(): Array<{ key: string; sampleCount: number; p90Ms: number }> {
   return Object.entries(samples)
     .map(([key, list]) => {
@@ -70,7 +62,6 @@ export function getLearnedTimeoutsSummary(): Array<{ key: string; sampleCount: n
     .sort((a, b) => a.key.localeCompare(b.key));
 }
 
-// Test-only reset — keeps vitest cases isolated from module-level state.
 export function __resetAdaptiveTimeoutForTest(): void {
   samples = {};
 }

@@ -20,10 +20,7 @@ export function clearOnlineShelfCache(): void {
   try {
     for (const k of keys) (globalThis as any).localStorage?.removeItem?.(k);
   } catch {}
-  /* No `triggerShelfRefresh()` here: callers know which shelf the user
-     clicked, so they fire the trigger with a `shelfId` scope so only that
-     shelf shows the visual indicator. Triggering from inside this helper
-     would force every online shelf to flash on a single-shelf click. */
+  // Callers trigger the refresh scoped to the clicked shelf, so only that shelf flashes.
 }
 
 export async function toggleShelfHiddenById(id: string): Promise<void> {
@@ -100,14 +97,11 @@ export function registerShelfModalHandler(h: ShelfModalHandler | null): void {
   if (h && pendingModal) {
     const p = pendingModal;
     pendingModal = null;
-    // Defer one tick so SettingsView finishes mounting before opening the modal.
+    // One tick so settings finish mounting before the modal opens.
     try { setTimeout(() => { try { h(p.kind, p.shelfId); } catch {} }, 0); } catch {}
   }
 }
 
-// Pending edit-modal tab. Module-private — replaces the prior
-// `window.__DECK_SHELVES_PENDING_TAB__` global. EditShelfModal reads it
-// via `consumePendingShelfModalTab()` so the value drains itself.
 let _pendingShelfModalTab: string | null = null;
 export function consumePendingShelfModalTab(): string | null {
   const v = _pendingShelfModalTab;
@@ -116,15 +110,12 @@ export function consumePendingShelfModalTab(): string | null {
 }
 
 function resolveNavigationApi(): any {
-  // The host UI surface (loader OR neutral host) comes from the one central
-  // resolver; `Navigation` may also be a standalone global on some hosts.
+  // `Navigation` may also be a standalone global on some hosts.
   const g = globalThis as any;
   return getFrontendLib()?.Navigation ?? g.Navigation ?? g.window?.Navigation;
 }
 
-// Primary path: navigate to a dedicated route that mounts a standalone
-// SettingsController and opens the modal via DFL.showModal — no QAM
-// dependency. Route handlers are registered in src/index.tsx at boot.
+// A dedicated route opens the modal without depending on the QAM.
 function tryNavigateToShelfModal(kind: ShelfModalKind, shelfId: string): boolean {
   try {
     const nav = resolveNavigationApi();
@@ -138,8 +129,6 @@ function tryNavigateToShelfModal(kind: ShelfModalKind, shelfId: string): boolean
 export function dispatchShelfModal(kind: ShelfModalKind, shelfId: string, opts?: { initialTab?: string }): void {
   if (opts?.initialTab) _pendingShelfModalTab = String(opts.initialTab);
   if (tryNavigateToShelfModal(kind, shelfId)) return;
-  // Fallback: if Navigation.Navigate isn't available (very old build),
-  // queue the action and try the QAM modalHandler when it registers.
   if (modalHandler) {
     try { modalHandler(kind, shelfId); } catch {}
     return;
@@ -147,7 +136,6 @@ export function dispatchShelfModal(kind: ShelfModalKind, shelfId: string, opts?:
   pendingModal = { kind, shelfId };
 }
 
-// Same standalone-route trick, for the per-game tag editor (game menu → Lists).
 export function dispatchTagsModal(appid: number): void {
   try {
     const nav = resolveNavigationApi();
@@ -157,9 +145,7 @@ export function dispatchTagsModal(appid: number): void {
   } catch {}
 }
 
-// Same standalone-route trick as `dispatchShelfModal`, for the one action
-// that takes a shelf pair instead of a single id — the native game-menu
-// context has no QAM controller to open `showComposeConfirm` directly in.
+// The native game menu has no QAM controller, so this also goes through a route.
 export function dispatchComposeModal(sourceId: string, targetId: string): void {
   try {
     const nav = resolveNavigationApi();

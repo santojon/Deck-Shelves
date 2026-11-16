@@ -1,14 +1,12 @@
 #!/usr/bin/env bash
 # On-device perf + sleep test — samples battery, CPU, sleep inhibitors over SSH every 30 s.
 # Usage: `pnpm run deck:perf [-- minutes]` (default 5). Needs .env DECK_HOST/USER/SUDO_PASS + SSH auth.
-# Outputs tabular report + pass/fail summary to stdout.
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
-# Load .env
 if [[ -f "${PROJECT_ROOT}/.env" ]]; then
   set -a; source "${PROJECT_ROOT}/.env"; set +a
 fi
@@ -41,21 +39,16 @@ TOTAL_SAMPLES=$(( (DURATION * 60) / INTERVAL ))
 SSH_CMD="ssh -o ConnectTimeout=10 -o BatchMode=yes ${USER_NAME}@${HOST}"
 
 
-# Run a remote command, return stdout (never abort on non-zero)
 remote() { $SSH_CMD "$@" 2>/dev/null || true; }
 
-# Portable replacement for `grep -oP 'KEY=\K...'` (BSD/macOS grep has no -P/\K):
-# pull the value of a `KEY=value` token from a space-separated string.
+# BSD/macOS grep has no -P/\K, so KEY=value tokens are pulled out by hand.
 field() { printf '%s\n' $1 | sed -n "s/^$2=//p" | head -1; }
-# Same, defaulting to 0 when the key is absent (numeric summary fields).
 fieldn() { local v; v=$(field "$1" "$2"); echo "${v:-0}"; }
 
-# Collect a snapshot: battery%, drain rate, cpu%, sleep inhibitors
 collect_sample() {
   $SSH_CMD bash -s <<'EOF' 2>/dev/null
 set -euo pipefail
 
-# --- Battery ---
 BAT_DIR=$(ls -d /sys/class/power_supply/BAT* 2>/dev/null | head -1)
 if [[ -n "$BAT_DIR" ]]; then
   capacity=$(cat "$BAT_DIR/capacity" 2>/dev/null || echo "N/A")
@@ -74,7 +67,6 @@ else
   capacity="N/A"; status="N/A"; power_mw="N/A"
 fi
 
-# --- CPU (1-second window) ---
 read -r c1 u1 n1 s1 i1 _ < /proc/stat
 sleep 1
 read -r c2 u2 n2 s2 i2 _ < /proc/stat
@@ -86,13 +78,10 @@ else
   cpu_pct=0
 fi
 
-# --- Sleep inhibitors (systemd-inhibit) ---
 inhibitors=$(systemd-inhibit --list --no-legend 2>/dev/null | grep -i "idle\|sleep\|handle-lid" || true)
 inhibitor_count=$(echo "$inhibitors" | grep -c . || echo 0)
-# Flag any inhibitor from our plugin specifically
 ds_inhibit=$(echo "$inhibitors" | grep -i "deck.shelves\|deck-shelves" || true)
 
-# --- Decky/plugin process (CPU by pid) ---
 decky_cpu=$(ps aux 2>/dev/null | grep -i "decky\|plugin_loader" | grep -v grep | awk '{sum+=$3} END {printf "%.1f", sum}')
 decky_cpu="${decky_cpu:-0}"
 
@@ -100,7 +89,6 @@ echo "capacity=$capacity status=$status power_mw=$power_mw cpu_pct=$cpu_pct inhi
 EOF
 }
 
-# Run a full sampling pass and emit a concise summary line with drain_per_hr
 run_sampling() {
   TOTAL_SAMPLES=$(( (DURATION * 60) / INTERVAL ))
   DS_INHIBIT_DETECTED=0
@@ -133,7 +121,6 @@ run_sampling() {
     [[ $i -lt $((TOTAL_SAMPLES - 1)) ]] && sleep "$INTERVAL"
   done
 
-  # summary calculations (prints to stdout and sets globals)
   if [[ ${#BAT_SAMPLES[@]} -ge 2 ]]; then
     first_bat="${BAT_SAMPLES[0]}"
     last_idx=$(( ${#BAT_SAMPLES[@]} - 1 ))
@@ -144,7 +131,6 @@ run_sampling() {
     drain_per_hr=0
   fi
 
-  # avg cpu/power
   if [[ ${#CPU_SAMPLES[@]} -gt 0 ]]; then
     total_cpu=0
     for v in "${CPU_SAMPLES[@]}"; do total_cpu=$(( total_cpu + v )); done
@@ -161,7 +147,6 @@ run_sampling() {
     avg_pwr=0
   fi
 
-  # Emit a compact summary line for parsing/comparison
   echo "__SUMMARY__ drain_per_hr=${drain_per_hr} ds_inhibit=${DS_INHIBIT_DETECTED} avg_cpu=${avg_cpu} avg_power_mw=${avg_pwr}"
 }
 
@@ -174,14 +159,12 @@ echo "  Duration: ${DURATION} min  (${TOTAL_SAMPLES} samples @ ${INTERVAL}s)"
 echo "═══════════════════════════════════════════════════════════════════"
 echo ""
 
-# Verify connection
 if ! remote "echo ping" | grep -q ping; then
   echo "ERROR: Cannot connect to ${HOST}. Check DECK_HOST / SSH keys." >&2
   exit 1
 fi
 echo "✔ SSH connection OK"
 
-# Check plugin is loaded
 plugin_loaded=$(remote "ls ~/homebrew/plugins/deck-shelves/ 2>/dev/null | head -1")
 if [[ -n "$plugin_loaded" ]]; then
   echo "✔ Plugin directory found"
@@ -212,7 +195,6 @@ if [[ $COMPARE_MODE -eq 1 ]]; then
     echo "  ❌ FAIL  Sleep/idle inhibitor detected in one of the runs"
     exit 1
   fi
-  # Acceptance: plugin run drain <= 10%/hr
   if [[ ${drain2:-0} -le 10 ]]; then
     echo "  ✅ PASS  Plugin run drain ${drain2}%/hr <= 10%/hr"
     exit 0
@@ -221,7 +203,6 @@ if [[ $COMPARE_MODE -eq 1 ]]; then
     exit 1
   fi
 else
-  # Single run mode
   printf "%-6s %-8s %-12s %-10s %-8s %-12s %-10s %-10s\n" \
     "T(s)" "Bat%" "Bat.Status" "Power(mW)" "CPU%" "Decky.CPU%" "Inhibitors" "DS.Inhibit"
   run_summary=$(run_sampling)
@@ -239,7 +220,6 @@ else
     exit 1
   fi
 
-  # Acceptance threshold: drain_per_hr <= 10
   if [[ ${drain_per_hr:-0} -le 10 ]]; then
     echo "  ✅ PASS  Battery drain ${drain_per_hr}%/hr is within the 10%/hr threshold"
     exit 0

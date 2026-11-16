@@ -1,8 +1,4 @@
-/* Pre-filled bug report: gathers the same diagnostics as Settings → Advanced →
-   Diagnostics, aggregates the dev log buffer, and opens the repo's bug-report
-   Issue Form in the system browser with everything filled in — no server, the
-   payload rides in the URL. Labels are fixed English so the maintainer always
-   gets a consistent, machine-diffable readout regardless of the user's locale. */
+// Opens the bug-report form with diagnostics in the URL; labels stay English so every report reads the same.
 import {
   collectRuntimeInfo,
   collectSystemInfo,
@@ -32,9 +28,7 @@ import { GITHUB_ISSUES_NEW } from "../constants";
 
 const ISSUE_URL = GITHUB_ISSUES_NEW;
 const DASH = "—";
-// Steam's embedded overlay browser (OpenInSystemBrowser) silently no-ops on
-// long URLs instead of erroring. Only the short diagnostics summary rides
-// in the URL; the full log buffer goes to the clipboard instead.
+// OpenInSystemBrowser silently does nothing on long URLs, so the full log goes to the clipboard.
 const MAX_CONTEXT_URL_CHARS = 1800;
 const CLIPBOARD_LOG_BUDGET = 6000;
 // A SteamID64 anywhere in what leaves the device (an error text, a log line) is replaced.
@@ -66,7 +60,6 @@ function osLine(sys: SystemInfo | null, steamOS: string | null): string {
   return sys?.machine ? `${base} (${sys.machine})` : base;
 }
 
-// Hardware block — English labels, only when the user opted in. Text-only.
 function hardwareText(hw: HardwareInfo): string[] {
   const lines = [
     "Hardware:",
@@ -81,9 +74,6 @@ function hardwareText(hw: HardwareInfo): string[] {
   return lines;
 }
 
-/* Hardware report kit: the device family / architecture / capabilities the
-   plugin resolved, so a tester on a Frame or Machine can show exactly what
-   was detected (and what fell to "unknown") in one paste. */
 function deviceProfileText(): string[] {
   try {
     const p = getDeviceProfile();
@@ -95,8 +85,7 @@ function deviceProfileText(): string[] {
   } catch { return []; }
 }
 
-// Performance block — always included (plugin-internal counters, not
-// personally identifying), unlike the opt-in hardware block above.
+// Always included: plugin counters only, nothing personal.
 function perfText(): string[] {
   const snap = getPerfSnapshot();
   const cache = getSmartShelfCacheStats();
@@ -116,7 +105,6 @@ function perfText(): string[] {
   return lines;
 }
 
-// Boot block — the same readout as the diagnostics page, with fixed English labels.
 function bootText(): string[] {
   const boot = collectBootInfo();
   return [
@@ -185,8 +173,6 @@ function isSteamOs(runtime: RuntimeInfo, sys: SystemInfo | null): boolean {
   return !!(runtime.steamOS || /steamos/i.test(sys?.osName ?? ""));
 }
 
-// Distro id (os-release ID) -> bug-report OS dropdown option, for the
-// SteamOS-like Linuxes that have their own option.
 const OS_BY_DISTRO: Record<string, string> = {
   bazzite: "Bazzite", holoiso: "HoloISO", chimeraos: "ChimeraOS",
 };
@@ -198,8 +184,6 @@ function osFromName(name: string, hasDistro: boolean): string | null {
   return null;
 }
 
-/* Map the detected host to a bug-report OS dropdown option (must match the
-   template verbatim). Distro id distinguishes the SteamOS-like Linuxes. */
 function osDropdown(runtime: RuntimeInfo, sys: SystemInfo | null): string | null {
   if (isSteamOs(runtime, sys)) return "SteamOS (Steam Deck)";
   const distro = (sys?.distroId ?? "").toLowerCase();
@@ -208,8 +192,7 @@ function osDropdown(runtime: RuntimeInfo, sys: SystemInfo | null): string | null
   return named ?? (sys?.osName ? "Other / Unknown" : null);
 }
 
-/* Best-effort prefill of the bug form's dropdown/input fields. Dropdown values
-   MUST match a template option verbatim, else GitHub silently drops them. */
+// GitHub silently drops dropdown values that don't match a template option exactly.
 function fillEnvironment(p: URLSearchParams, runtime: RuntimeInfo, sys: SystemInfo | null): void {
   const beta = (getCurrentSettings() as any)?.betaChannelEnabled === true;
   const osv = osLine(sys, runtime.steamOS);

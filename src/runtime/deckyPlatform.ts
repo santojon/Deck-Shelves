@@ -12,7 +12,6 @@ function navigate(appid: number) {
   }
 }
 
-// Resolve Steam's Navigation object (BP global first, imported fallback).
 function resolveNav(): any {
   const steamClient = (globalThis as any).SteamClient ?? (globalThis as any).window?.SteamClient;
   return steamClient?.Navigation ?? Navigation;
@@ -23,8 +22,6 @@ function getDeckySettings(): any {
   return g.SteamUIStore?.DeckySettings ?? g.window?.SteamUIStore?.DeckySettings;
 }
 
-// Last-resort OS-version source: Decky publishes this onto SteamUIStore, so it
-// naturally resolves to nothing under a host that isn't Decky (fail-soft).
 function getOSVersion(): string | undefined {
   try {
     const ds = getDeckySettings();
@@ -36,14 +33,7 @@ function getOSVersion(): string | undefined {
 }
 
 function navigateToShelfSource(source: ShelfSource, _title?: string) {
-  // Original navigation behavior — proven over many releases:
-  //   - collection → /library/collection/<id> (specific collection page)
-  //   - tab        → /library  (Steam BP opens the library on the user's
-  /*                  last-active library tab; nothing extra to do here)
-       - filter     → /library
-       - default    → /library
-     Bare /library is the canonical "open the library" route. Steam's BP
-     resolves it to whichever library view the user was last on. */
+  // Bare /library opens whichever library view the user was last on.
   const nav = resolveNav();
   const safeNavigate = (path: string) => {
     try { nav?.Navigate?.(path); return true; } catch {}
@@ -109,8 +99,7 @@ export function createDeckyPlatform(): PlatformApi {
     getAppMetaBatch,
     navigateToApp: navigate,
     navigateToShelfSource,
-    // Genuinely optional at runtime (undefined when Decky isn't present);
-    // the contract types it non-nullable since callers only reach it via `?.()`.
+    // Optional at runtime even though the contract types it as non-nullable.
     getOSVersion: getOSVersion as PlatformApi["getOSVersion"],
   };
 }

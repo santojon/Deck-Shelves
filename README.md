@@ -23,211 +23,249 @@
 
 </div>
 
-**Deck Shelves** is a plugin that makes the Steam Deck Home screen yours. Build custom shelves from your collections, library tabs, or filters; let **smart shelves** surface games automatically when they're relevant; add hero artwork, decoration cards, and online wishlist/store rows — all configured right on the Deck through a built-in Quick Access Menu editor. No desktop mode, no config files.
+Deck Shelves is a [Decky Loader](https://decky.xyz) plugin that adds your own
+shelves to the Steam Deck Home screen, below (or instead of) Recently Played.
+A shelf can show a collection, a library tab, the result of a filter, your
+wishlist or a store list. Everything is set up from the Quick Access menu in
+Gaming Mode; you never need Desktop Mode or a config file.
 
-**New here?** Read the [getting-started guide](https://github.com/santojon/Deck-Shelves/discussions/48), then install through the Decky Store (see [Installation](#installation)). Questions or ideas? Join the [Discord](https://discord.gg/EChuVEDakk) or [r/DeckShelves](https://www.reddit.com/r/DeckShelves/).
+New to it? The [getting-started guide](https://github.com/santojon/Deck-Shelves/discussions/48)
+walks through the first shelves. Questions and ideas go to the
+[Discord](https://discord.gg/EChuVEDakk) or [r/DeckShelves](https://www.reddit.com/r/DeckShelves/).
+
+<p align="center">
+  <img src="assets/screenshots/home.png" alt="Deck Shelves on the Home screen" width="768">
+</p>
 
 ## Contents
 
-- [Deck Shelves](#deck-shelves)
-  - [Contents](#contents)
-  - [Features](#features)
-  - [Screenshots](#screenshots)
-  - [Installation](#installation)
-    - [From Decky Store](#from-decky-store)
-    - [Manual Installation](#manual-installation)
-    - [Install from URL](#install-from-url)
-  - [Documentation](#documentation)
-  - [Development](#development)
-  - [Architecture](#architecture)
-  - [Compatibility](#compatibility)
-    - [Operating systems](#operating-systems)
-    - [Validated environments](#validated-environments)
-  - [Contributing](#contributing)
-  - [License](#license)
-  - [About](#about)
+- [Features](#features)
+- [Installation](#installation)
+- [Limitations](#limitations)
+- [Privacy](#privacy)
+- [Documentation](#documentation)
+- [Compatibility](#compatibility)
+- [Contributing](#contributing)
+- [License](#license)
+- [About](#about)
 
 ## Features
 
-- Inject custom shelves into `library/home`
-- Shelves backed by **collections**, **library tabs**, or **custom filters**
-- **Multiple sources per shelf** — stack collections + tabs + wishlist + store into one shelf via Union (games in any source) or Intersection (games in every source). Filter source stays exclusive; use the filter `merge` for multi-criteria predicates instead. When any child is wishlist or store, an **Online filters** tab in the editor applies online-only predicates (discount, friend activity) across the merged result.
-- **Decoration cards** — pin fixed-slot cards at any position in a shelf: text label, image banner, focusable URL shortcut, or a transparent gap. New cards land at the slot focused in the preview and inherit the row's current order via manual sort. Image cards support optional **hero art** (acts as the per-shelf hero background on focus) and a **shadow mode** (Never / On focus / Always) for clean transparent PNG framing.
-- **Quick add to shelf** — every game's context menu (in DS shelves AND the native library) exposes "Add to shelf" with the eligible shelves only (skips shelves at their limit, the 50-entry cap, or already containing the game).
-- **Y-button highlight toggle** — focus a game, press Y to toggle the per-card highlight without opening the context menu.
-- **Advanced filter groups** with AND/OR logic for complex game queries
-- Filter games by:
-  - Favorites, installed, hidden, non-Steam
-  - **Shortcut type** — 15 kinds covering Games, Software, Tools, Demos, DLC, Music / Soundtracks, Videos, Comics, Guides, Drivers, Configs, Hardware, Betas, Applications, and Non-Steam links
-  - **App status** — 14 options for Running, Launching, Installing, Validating, Downloading (compound + fine-grained), Queued, Paused, Reconfiguring, Staging, Committing, Not installed, Installed (idle)
-  - Name (substring or regex)
-  - Deck compatibility level
-  - Playtime range (min / max minutes)
-  - Played within N days
-  - Update pending
-  - Store tags, achievement count, friends who own
-  - **Friends playing now** — matches games at least one Steam friend is in-game on right now (online features required)
-  - **Friends played recently** — matches games any Steam friend played within the last N days (1–30, default 14; online features required)
-  - **Discount range** — matches games whose Steam store discount sits in a chosen min/max % range (online features required)
-  - **Price range** — matches games whose Steam store price falls in a chosen min/max range, in your own store currency (online features required)
-  - **Remote Play location** — matches by where a game is installed: locally, on another device, remote-only, or both — powers a "play from another Deck / PC" shelf
-  - **System compatibility** — keeps only the games available on the platform you're currently running
-  - **Recently active** — games you've played in the last two weeks (your current rotation)
-  - **Neglected** — games you played before but haven't launched in the last N days
-- Sort shelves alphabetically, by recent play, total playtime, release date, size on disk, Metacritic score, review score, discount %, price, original price — each direction (asc / desc) togglable per shelf via an icon button next to the sort dropdown
-- **Multi-key sort** — chain a primary sort with one or more tiebreakers (e.g. *biggest discount → metacritic score* breaks ties between games at the same discount). Each row has its own asc/desc toggle. Stable chain — secondary keys only kick in when the primary genuinely ties.
-- Library tab selection shows your actual runtime tabs, including those created by other plugins
-- **Dynamic card sizing** — shelves match native card dimensions and from themes
-- **Highlight first game** — first card renders as a landscape featured card
-- **Highlight all games** — toggle per-shelf or globally to render every card as a landscape featured card
-- **Hide status line** — toggle to hide the the play/install status of a game
-- **Hide trailing cards** — separate per-shelf and global toggles to hide the "See more" tile and / or the "Refresh" tile on shelves that emit them (random-sorted regular shelves and refreshable smart shelves). The "See more" tile also hides on its own when a shelf already shows every game that matches, so it only appears when there's actually more to see
-- **Per-shelf size** — limit slider goes up to 50 cards in the shelf and smart-shelf editors
-- **Sub-filters for collection and tab sources** — when a shelf's source is a collection or library tab, an Additional Filters tab in the editor lets you add further filter criteria on top of the source
-- **Manually hide games per shelf** — "Hide specific games" toggle in the Display tab opens a mini-card picker; the shelf automatically fetches extra candidates to keep the configured number of visible cards filled
-- **Deduplicate by name** — per-shelf and global toggle that collapses entries sharing an exact name (Steam wins over non-Steam)
-- **Hide recent games** — toggle to hide the native "Recently Played" section
-- **Use first shelf as recents (experimental)** — when "Hide recent games" is on, injects the first shelf's games into the native recents component instead of hiding it; reuses native DOM/CSS/animations for full CSS Loader theme compatibility; auto-disables with a banner on failure
-- **Hide home tabs** — toggle to hide the native home tab bar on te bottom of shelves
-- **Hero background art** — enable it per shelf (regular or smart) in the editor's Visual tab, or globally for every shelf at once; the focused game's background art appears behind that shelf, following it wherever it sits — works with or without hiding the native recents row
-- **Force CSS Loader themes** — promotes every shelf into the native-like-recents selector space so themes like ArtHero apply consistently across all shelves (only shown when CSS Loader is installed)
-- **Developer / Publisher filter** — filter games by developer or publisher with automatic batch discovery
-- **App ID list filter** — whitelist an explicit set of app IDs to pin specific games to a shelf
-- **Mouse hover support** — cards show labels and brightness on hover, same as gamepad focus
-- **Per-day time-window overrides for smart shelves** — a Smart Filters toggle opens a dedicated Overrides tab where each weekday can have its own hour ranges, on top of the shelf-level default hours and day filter
-- **Advanced visibility rules** — show a shelf (regular, smart, or saved filter) only when custom conditions match, combined with **match any** or **match all** (Evenings / Weekends presets):
-  - **Time** — hour-of-day and day-of-week windows, weekend vs weekday, part of the day (morning / afternoon / evening / night), season (hemisphere-aware), and your own holiday date ranges
-  - **Device** — low battery, charging, offline, docked / external display, minimum screen resolution, ultrawide
-  - **Session** — whether the last game you played was Steam or non-Steam, or whether a game is currently running
-  - **Performance** — high CPU, low memory, or low frame rate — read on demand only when a shelf actually uses them (no background polling)
+### Shelves
 
-  Fully backwards-compatible with the existing hour / day windows; conditions re-evaluate on hardware / session events (no polling) and degrade gracefully off SteamOS
-- **Auto-pin & auto-collapse shelves** — give any shelf (regular or smart, from the editor's Display tab) the same kind of condition tree to **auto-pin** it to the top of the home while the condition holds (reverts when it clears), or **auto-collapse** it to just its header when a condition matches or the shelf is empty. Both opt-in; a home with neither configured is unchanged
-- **Live shelf preview in the editor** — the preview area shows real cards as they appear on the home (title, name, status line, compat / new / non-Steam badges, See more / Refresh tiles) and reflects every Display-tab toggle in real time
-- **Smart Shelves** — 30+ heuristic-driven shelf types that appear automatically when conditions are met and disappear when no games match. Game-focused: Daily Pick, Deck Picks, On Deck, Recently Played, Long Sessions, Roulette, Not Started, Best Unplayed, Quick Play, Interrupted, Non-Steam, Spare Time, Time of Day, Rediscover, Forgotten. Heuristic templates: Backlog Rescue, Forgotten Gems, Hidden Gems, Travel Mode, Never Touched Classics, Recent Hidden Installs, Weekly Rotation, Monthly Spotlight, Seasonal Rotation (each with tunable cooldown / staleness / review-floor / rotation knobs). Media-focused: Soundtracks, Videos, Demos, Cloud games. Runtime-aware (best-effort against Steam runtime data): Low Battery Mode, Almost Finished, Couch Gaming, Co-op Ready, Party Games. Online-gated: Friends Playing. Ordered by probability of results in the picker
-- **Saved smart shelf templates** — persist a fully-tuned smart shelf config and reuse it from the template picker; exposed to plugins via the public API
-- **Surprise Me** — sub-toggle that hides the manual smart shelf list and lets the system pick 1–5 templates each day automatically; configurable count slider (0 = system decides)
-- **Shelf templates** — 11 presets (Favorites, Recently Played, Installed, Most Played, Recently Added, Awaiting Update, Non-Steam, Long Sessions, Steam Cloud, Deck Verified, Top Reviewed) in a 2-column grid picker. Picking any template — Blank, regular preset, smart preset, or Custom — opens the edit modal first; **nothing is persisted until you press Save**, so cancelling discards the draft cleanly.
-- **Quick Search overlay** — L1+R1 on a card pops a centered translucent search pill that fuzzy-matches against every game in your visible shelves (covers cards below the fold and items still loading metadata). NFD normalisation handles diacritics (e.g. café ⇄ cafe). After a brief pause the top hit scrolls into view and gets focused. Two toggles: "Open virtual keyboard" (default on, controls the auto-popup) and "Search only on Enter" (default off, swaps the debounce for an explicit-trigger flow). L1, R1, or B closes the overlay regardless of whether a physical or virtual keyboard has focus.
-- **Side Nav overlay** — L1 twice on any card slides in a left panel listing every visible shelf in the order they render on the home (uses CSS `order` for accurate visual order). Steam-themed left edge bar marks the focused row; the panel auto-focuses the shelf you came from, not the first one. R1+L1 / B / dpad-right close it; selecting a row jumps focus to that shelf's first card. Plugins can contribute extra rows via the public API.
-- **Dedicated Settings page** — opened from the gear icon in the QAM title bar: a full-page route with seven tabs (Quick settings, Shelves, Profiles, Integrations, Shortcuts, Backup, Advanced tools) backed by the same actions as the QAM and sidecar
-- **Version everywhere + richer System information** — the exact plugin version shows in a standard footer on every settings page and the QAM (handy for bug reports); Advanced → System information lists your real active CSS Loader theme names and installed count instead of a heuristic
-- **Usage profiles** — save the setup (every toggle, saved filter, and — if you tick **Link shelves to profile** — your shelves; on by default for new profiles, and marked **Includes shelves**) as a named profile, switch in one tap, import / export to JSON. A **Default** profile restores factory settings while keeping the plugin on; it only clears your shelves if you opt in. Every switch, import and Steam account change first saves a snapshot you can restore from Settings → Backup
-- **Settings per Steam account** — on a shared device each Steam account keeps its own shelves, smart shelves, saved filters and profiles, swapped automatically when accounts switch (a new account chooses between a copy and a fresh start; nothing is ever deleted). Turn it off in Settings → Backup to share one set. The account ID is never stored or sent
-- **Profile auto-switch triggers** — give a saved profile a trigger (the same visibility conditions above) and turn on **auto-switch** so it applies itself when the trigger matches — a *Docked* profile when you dock, a *Battery saver* profile when the battery runs low. Each profile sets its own triggers; the master toggle sits in the QAM, the sidecar and Settings → Profiles, and triggers round-trip through export / import and the System information summary
-- **Customizable button shortcuts** — remap or disable the gamepad triggers for hide / highlight / quick-launch, and remap the chords for Quick Search and Side Navigation. Single, chord, and double-tap inputs are supported, including back-grip and stick-click buttons (`L3` / `R3` / `L4` / `R4` / `L5` / `R5`); reserved system buttons are rejected
-- **Independent keyboard shortcuts** — every button shortcut above also has its own keyboard key, bindable alongside the gamepad combo — either input fires the same action, neither replaces the other. Same single / chord / double-tap grammar, plus modifier chords (e.g. `Ctrl+F`); ignored while a text field has focus
-- **Unified shelf list + drag-and-drop reorder** — opt in to merge regular and smart shelves into a single ordered list and drag rows directly in the Shelves panel (gamepad `↑` / `↓` buttons stay as a fallback)
-- **Integrations panel** — every registered descriptor (built-in or third-party) gets a per-row enable / disable; first-party entries carry a green BUILT-IN chip
-- **Display modes — Normal / Light / Advanced** — *Light* gives a minimal experience: the home drops per-shelf logo / icon / description / hero and disables context search + side navigation, and their now-dead controls are hidden from the QAM / sidecar; *Advanced* unlocks the Advanced-tools tab (verbose logging, on-device diagnostic logs, reset shortcuts) and always-on Integrations; *Normal* is the default. Light and Advanced are mutually exclusive and stored per profile. Full matrix in [docs/display-modes.md](docs/display-modes.md)
-- **Custom artwork refreshes on home return** — replace a capsule / logo / hero / icon elsewhere, press B back, and the new bitmap appears in the row with no plugin reload
-- Reorder and toggle shelf visibility from the QAM
-- **Online shelf sources (opt-in)** — wishlist and Steam Store shelves with `price_low`, `discount_high`, `original_price_high` sorts; four ready-made templates (Wishlist, Wishlist on sale, Free wishlist, Free now); cached locally so the home keeps working offline
-- **Exclude owned games** — per-shelf toggle on wishlist / store sources that hides any game whose appid or exact name matches a title in your local library; sub-toggle for non-Steam shortcuts (from other storefronts), and a further sub-toggle for cloud-play catalogue stubs (cloud-gaming services surfaced via Unifideck) so promotions on the cloud catalogue still surface
-- **Discount badges** — cards on online shelves show a green "% off" badge (mirrors the NEW badge slot, shown even on placeholder cards while artwork is still loading)
-- **Refresh action everywhere** — context-aware "Refresh cache" / "Refresh" available from the QAM action menu, the shelf-card context menu, and the trailing refresh tile
-- **Own Quick Access tab (experimental, opt-in)** — puts Deck Shelves in the Quick Access tab strip itself, right after Performance, instead of only inside Decky's plugin list. Off by default; restart Steam after enabling. If another host already shows a Deck Shelves tab, the option is hidden
-- **Showcase mode (opt-in)** — while idle on the Home, slowly cycles through your shelves like a screensaver; any input stops it instantly. Configurable delay, time per shelf, and randomize order
-- **Screensaver (opt-in, experimental)** — a full-screen slideshow of everything your home screen shows, optionally mixing in your local screenshots too, in place of the built-in one. Your own start delay and time per image, plus an optional game-logo overlay you can resize and reposition to any corner
-- **Cross-device settings sync (opt-in, experimental)** — keep shelves, filters, profiles and every other preference in sync across every device on the same Steam account, using that account's own cloud storage — no extra sign-in, no cost. The **currently-active profile is device-local** (manual or trigger): a *Showcase* profile that docks one machine never flips a handheld device on the same account into it — each device keeps its own current profile and its look, while the profile list (each profile's settings and triggers), your shelves and filters still sync, and the plain settings follow only between devices running the same profile
-- Import / export all shelves and smart shelf configuration as JSON
-- Persistent settings across plugin reinstalls
-- Crash protection with automatic retry
-- Multi-language support (EN, EN-GB, PT-BR, PT-PT, FR, FR-CA, DE, ES, ES-419, IT, RU, PL, NL, TR, UK, JA, KO, ZH-CN, ZH-TW)
+- **Sources**: a collection, a library tab (including tabs other plugins
+  create), a filter, built-in lists (pinned games, play history, queues,
+  dynamic collections), or, with online features on, your wishlist or a Steam
+  store list.
+- **Several sources in one shelf**, combined as union (games in any source),
+  intersection (games in every source) or source order (one source after the
+  other, each with its own sort).
+- **Templates**: 15 standard and 4 online presets, plus setup packs that add a
+  whole starting set at once and can be undone. Nothing is saved until you
+  press Save. See [shelf templates](docs/shelf-templates.md).
+- **Decoration cards** at fixed positions in a row: a text label, an image
+  (optionally used as the shelf's hero art), a link, or an empty gap.
+- **Per-shelf control**: up to 50 cards, hide specific games (the shelf fetches
+  more to keep the count), collapse duplicates by exact name, sub-filters on
+  top of a collection or tab.
+- **"Add to shelf"** in every game's menu, on the plugin's shelves and in the
+  Steam library.
 
-## Screenshots
+### Filters and sorting
 
-<p align="center">
-  <img src="assets/screenshots/home.png" alt="Deck Shelves — Home Screen" width="768">
-</p>
+- Filter groups with AND / OR logic, nestable, and any condition can be
+  negated. Conditions cover install and favorite state, name (text or regex),
+  app type, download state, Deck / SteamOS compatibility, playtime and last
+  played, store tags, Steam features, genres, review score, release and
+  purchase date, achievements, friends who own or play a game, Family Sharing,
+  Remote Play, discount and price. Full list in [filters](docs/filters.md).
+- Sorts by name, recent play, playtime, release date, size, Metacritic, review
+  score, discount, price and more, each reversible, with tiebreaker keys.
+- Saved filters you can apply to any shelf.
+- TabMaster tabs import as shelves, each filter mapped to the matching condition.
+
+### Smart shelves
+
+Shelves that fill themselves from your library and only appear when they have
+something to show: Daily Pick, Not Started, Quick Play, Interrupted,
+Rediscover, Backlog Rescue, Hidden Gems, Travel Mode, Almost Finished, Co-op
+Ready, Friends Playing and about 20 more. Each has tunable parameters, a
+refresh interval and an optional time window. **Surprise Me** picks one to
+five of them each day for you. See [smart shelves](docs/smart-shelves.md).
+
+### When a shelf shows
+
+- **Visibility rules**: show a shelf only at certain hours, days, parts of
+  the day or seasons; on low battery, while charging, offline or docked; when
+  a game is running; or under high CPU, low memory or low frame rate. Rules
+  combine with *match all* or *match any*, and re-evaluate on events, not by
+  polling.
+- **Auto-pin** a shelf to the top, or **auto-collapse** it to its header,
+  while a rule holds.
+
+### Look
+
+- Cards match Steam's native size, including sizes set by themes.
+- Featured (landscape) first card or every card, per shelf or globally.
+- Hero background art per shelf or for all shelves.
+- Toggles for the status line, game names, badges, compatibility icons, shelf
+  titles and the trailing "See more" / "Refresh" cards, per shelf or globally.
+- Hide Steam's Recently Played row and the Home tab bar, or let your first
+  shelf take over the Recents row with Steam's own tiles (experimental).
+- [CSS Loader](https://github.com/DeckThemes/SDH-CssLoader) themes such as
+  ArtHero, TiltedHome, Switch Like Home and Obsidian apply to the shelves too.
+- **Light mode** strips the Home and the panels down to the essentials;
+  **Advanced mode** adds diagnostics, snapshots and logs.
+
+### Navigation and input
+
+- **Quick Search** (L1+R1 on a card): fuzzy search across every game on your
+  shelves, diacritics ignored (café ⇄ cafe).
+- **Side Nav** (L1 twice): a list of your shelves; pick one to jump to it.
+- **Y on a card** toggles its highlight.
+- Every shortcut can be remapped or turned off, on the gamepad (single
+  buttons, chords, double taps, back grips) and on the keyboard, separately.
+- Mouse and touch work: hover, drag to reorder.
+
+### Profiles and backup
+
+- **Profiles** save your settings (and, if you choose, your shelves) under a
+  name. Switch in one tap, or let a profile switch itself on a trigger (dock
+  the device, battery runs low).
+- **Per Steam account**: on a shared device each account keeps its own
+  shelves and profiles.
+- **Snapshots** before every profile switch, import and account change,
+  restorable from Settings → Backup. Import and export as JSON.
+- **Sync across devices** on the same Steam account through Steam's own
+  storage (experimental, opt-in).
+
+### Online (opt-in)
+
+- Wishlist and store shelves with price and discount sorts, a discount badge
+  (percentage, price or both), and a filter that hides games you already own.
+  Cached, so the Home still works offline.
+- Friends playing now or recently, as a condition, a sort and a smart shelf.
+
+### Extras
+
+- **Settings page** (gear icon in the Quick Access title bar) with tabs for
+  shelves, profiles, integrations, shortcuts, backup, suggestions and
+  statistics.
+- **Showcase mode**: cycles through your shelves while the Home is idle; any
+  input stops it.
+- **Screensaver** (experimental): a slideshow of your shelves, optionally with
+  your screenshots, in place of Steam's.
+- **Own Quick Access tab** (experimental): a Deck Shelves tab next to
+  Performance instead of only inside Decky's list.
+- A [plugin API](docs/plugin-api.md) for other plugins to add sources,
+  filters, sorts, search providers and more.
+- 19 languages.
 
 ## Installation
 
-### From Decky Store
+### From the Decky Store
 
-1. Install [Decky Loader](https://decky.xyz) on your system
-2. Open the Decky Store and search for **Deck Shelves**
-3. Install and restart Steam if prompted
+1. Install [Decky Loader](https://decky.xyz).
+2. Open the Decky Store and search for **Deck Shelves**.
+3. Install, and restart Steam if asked.
 
-### Manual Installation
+### From a zip
 
-1. Download the latest `deck-shelves-v*.zip` from the [Releases page](https://github.com/santojon/Deck-Shelves/releases/latest)
-2. In game mode, go to Decky config page -> Developer -> Install from zip file
-3. Select the downloaded zip file and confirm
-4. Restart Steam if prompted
+1. Download the latest `deck-shelves-v*.zip` from the
+   [Releases page](https://github.com/santojon/Deck-Shelves/releases/latest).
+2. In Gaming Mode, open Decky's settings → Developer → Install from zip file.
+3. Pick the zip and confirm. Restart Steam if asked.
 
-### Install from URL
+### From a URL
 
-A Decky developer-mode option — works, but is less reliable than the zip above, since Decky derives the plugin name from the URL itself rather than the file. Prefer Manual Installation unless you specifically need this.
+Decky's developer mode can also install from a link, but it derives the
+plugin name from the URL rather than the file, so it is less reliable than the
+zip. Use it only if you need it:
 
-1. In game mode, go to Decky config page -> General -> enable Developer mode
-2. Go to the new Developer tab -> Install from URL
-3. Paste the `deck-shelves-v*.zip` link from the [Releases page](https://github.com/santojon/Deck-Shelves/releases/latest) and confirm
+1. Decky's settings → General → enable Developer mode.
+2. Developer → Install from URL.
+3. Paste the `deck-shelves-v*.zip` link from the
+   [Releases page](https://github.com/santojon/Deck-Shelves/releases/latest).
+
+Settings survive reinstalls and updates.
+
+## Limitations
+
+- **Steam updates can break things.** The plugin works inside Steam's own UI
+  and depends on internals Valve can change at any time. After a Steam update,
+  theme matching or navigation may misbehave until a plugin update follows.
+- **Experimental features** (first shelf as Recents, screensaver, own Quick
+  Access tab, cross-device sync) are off by default. Expect rough edges; the
+  first two back off on their own when they fail.
+- **Steam only reports what it has.** Conditions read the data the Steam
+  client holds. Genres, categories and franchise need online features, and on
+  a large library the first run covers part of the games.
+- **Windows and desktop Linux** run through community Decky builds and are not
+  tested as thoroughly as SteamOS. macOS is not supported.
+
+## Privacy
+
+Online features are off by default. With them on, the plugin reads Steam's own
+store and community endpoints. Artwork the Steam client has not cached loads
+from Steam's image servers, as it does in Steam itself. The update check (on by
+default, can be turned off) asks GitHub's releases API. There is no analytics,
+and your Steam account ID is never stored or sent; see [SECURITY.md](SECURITY.md).
 
 ## Documentation
 
-- [Architecture](docs/architecture.md) — system overview, project structure, data flow, key systems, Home internals
-- [Plugin API](docs/plugin-api.md) — register custom shelf sources from other plugins
-- [Filter System](docs/filters.md) — filter types, groups, sort keys, built-in sources
-- [Shelf Templates](docs/shelf-templates.md) — standard and online shelf template presets, and the setup packs
-- [Smart Shelves](docs/smart-shelves.md) — smart shelf templates, criteria, and reliability
-- [Development Guide](docs/development.md) — setup, build commands, testing, conventions
-- [Webpack Classmap](docs/webpack-classmap.md) — runtime CSS class discovery
-- [Performance audit](docs/performance.md) — measurement methodology, hot paths, applied wins
-- [QA manual](docs/qa-manual.md) — manual regression checklist + QA harness flag reference
-- [Device inspection](docs/cdp.md) — inspecting the running plugin on a device
-
-## Development
-
-Setup, environment variables, build / deploy / package commands, testing,
-screenshot capture, the local UI test suite, validation flows, the performance
-bench, and CDP diagnostics are all in the **[Development Guide](docs/development.md)**.
-
-## Architecture
-
-Directory structure, data flow, key systems, and the Home-injection internals
-(recents replacement, focus nav-tree reparent, first-shelf promotion) are
-documented in **[docs/architecture.md](docs/architecture.md)**.
+- [Architecture](docs/architecture.md): how the plugin is put together, data
+  flow, Home internals
+- [Filter system](docs/filters.md): conditions, groups, sorts, sources
+- [Shelf templates](docs/shelf-templates.md): presets and setup packs
+- [Smart shelves](docs/smart-shelves.md): every smart shelf and when it
+  appears
+- [Plugin API](docs/plugin-api.md): runtime notes for plugin authors
+- [Development guide](docs/development.md): setup, commands, checks
+- [Device inspection](docs/cdp.md): DevTools on a running device
+- [Performance](docs/performance.md): rules and measuring tools
+- [QA manual](docs/qa-manual.md): release checklist and QA flags
+- [Webpack class map](docs/webpack-classmap.md): Steam's hashed classes and
+  refreshing them
 
 ## Compatibility
 
-All checks can be run cross-platform (Linux / macOS / Windows) via the Node wrapper, which locates `bash` automatically (Git Bash / WSL on Windows):
+Deck Shelves runs under Decky Loader, which is Linux-first and officially
+supports SteamOS only.
+
+| OS | Status |
+|---|---|
+| SteamOS / Steam Deck | ✅ Primary target |
+| SteamOS-like Linux (Bazzite, ChimeraOS, HoloISO, Nobara) and desktop Linux | ✅ Works where Decky's install works; not official |
+| Windows | ⚠️ Through a community Decky installer; unstable |
+| macOS | ❌ Not supported (Decky does not run there) |
+
+The compatibility suite checks the build toolchain, Decky Loader 3.x and the
+store rules, SteamOS 3.5–3.10 (including Gaming Mode), CSS Loader themes,
+coexisting plugins, translations and the Python backend:
 
 ```bash
-pnpm run validate:compat        # node wrapper — works everywhere
-# or directly on Unix shells:
-bash scripts/build/validate-compat.sh
+pnpm run validate:compat
 ```
 
-### Operating systems
-
-Deck Shelves runs as a plugin under **Decky Loader**, which installs as a systemd service and is Linux-only at the OS level. Path discovery ([`paths.py`](src/backend/paths.py)) and packaging ([`scripts/build/package.py`](scripts/build/package.py)) are OS-agnostic (stdlib only, no bash/`zip` CLI).
-
-| OS | Via Decky Loader |
-|---|---|
-| SteamOS / Steam Deck | ✅ official (primary target) |
-| Linux — SteamOS-like (Bazzite, ChimeraOS, HoloISO, Nobara) + desktop (native / Flatpak) | ✅ unofficial — Decky's systemd install works |
-| Windows | ⚠️ unofficial — via a community Windows installer; unstable |
-| macOS | ❌ not supported — no systemd / no remote debug port |
-
-> Decky Loader officially supports **SteamOS / Steam Deck only**; its Linux-desktop and Windows support is community-driven and may break, and it doesn't reach macOS at all.
-
-### Validated environments
-
-The compatibility suite green-lights the build toolchain (Vite/ESM, TypeScript/Node), Decky Loader 3.x (API v1) + Decky Store publishing, SteamOS 3.5–3.10 (incl. GamepadUI), i18n, and the Python backend — see the [`checks 40/40`](scripts/build/validate-compat.mjs) badge and run `pnpm run validate:compat` to reproduce.
+It needs bash; on Windows, use Git Bash or WSL.
 
 ## Contributing
 
 [![Issues](https://img.shields.io/github/issues/santojon/Deck-Shelves?color=%2344cc11)](https://github.com/santojon/Deck-Shelves/issues)
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines, code style, and how to submit changes.
+Bug reports and pull requests are welcome. [CONTRIBUTING.md](CONTRIBUTING.md)
+covers setup, code style and how changes get released. Security problems go
+through [SECURITY.md](SECURITY.md), not public issues.
 
 ## License
 
-This project is licensed under the BSD 3-Clause License. See [LICENSE](LICENSE) for details.
+BSD 3-Clause. See [LICENSE](LICENSE). Credits to the projects this one builds
+on are in [NOTICE.md](NOTICE.md), and how the project is made is described in
+[AI_USAGE.md](AI_USAGE.md).
 
 ## About
 
-Deck Shelves is developed by [Jonathan Santos](https://github.com/santojon).
+Deck Shelves is developed and maintained by me, [Jonathan Santos](https://github.com/santojon).
+If it's useful to you, you can support it here:
 
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/santojon)

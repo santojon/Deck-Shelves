@@ -3,8 +3,6 @@ import type { PlatformTab } from '../runtime/platform';
 import { containerToShelfSource } from '../domain/customfilters';
 import { logInfo, logError } from '../runtime/logger';
 
-// ─── Backend API — reads TabMaster's settings file via our own backend ───
-
 export interface TabMasterTabEntry {
   id: string;
   title: string;
@@ -14,12 +12,10 @@ export interface TabMasterTabEntry {
 }
 
 export async function getTabsFromSettingsFile(): Promise<TabMasterTabEntry[]> {
-  // Unconditional call: the backend returns {"tabs":[]} when the file
-  // is absent; works on both SteamOS 3.7 and 3.9.
+  // The backend returns {"tabs":[]} when the file is missing.
   try {
     const response = await call<[], { tabs: TabMasterTabEntry[]; error?: string }>('get_tabmaster_tabs');
-    // Diagnostic (dev only): TabMaster is optional, so a missing file is normal —
-    // don't log it on every poll in production.
+    // TabMaster is optional, so a missing file is normal and only logged in dev.
     if (__DEV__) logInfo('STEAM', 'getTabsFromSettingsFile response', {
       hasResponse: !!response,
       tabsCount: response?.tabs?.length ?? 0,
@@ -45,13 +41,9 @@ export async function getVisibleTabsFromSettingsFile(): Promise<PlatformTab[]> {
     });
 }
 
-// ─── Tab container → shelf source ────────────────────────────────────────
-
 export function tabContainerToShelfSource(container: any): { type: string; tab?: string; filter?: any } {
   return containerToShelfSource(container);
 }
-
-// ─── Tabs for import modal ────────────────────────────────────────────────
 
 export interface ImportableTab {
   id: string;
@@ -62,7 +54,6 @@ export interface ImportableTab {
 export function extractTabsForImport(managerOrCtx: any): ImportableTab[] {
   if (!managerOrCtx) return [];
   try {
-    // From the running plugin: its visible tabs, in the order it shows them.
     const list = managerOrCtx.visibleTabsList
       ?? (typeof managerOrCtx.getTabs === 'function' ? managerOrCtx.getTabs()?.visibleTabsList : undefined);
     if (Array.isArray(list)) {
@@ -72,7 +63,6 @@ export function extractTabsForImport(managerOrCtx: any): ImportableTab[] {
         source: tabContainerToShelfSource(t),
       })).filter((t) => t.id);
     }
-    // Shape 2: plain object of { tabId: tabSettings } (backend result)
     if (typeof managerOrCtx === 'object') {
       return Object.entries(managerOrCtx)
         .map(([id, tab]: [string, any]) => ({

@@ -3,10 +3,6 @@ import { logDiagnostic, type DiagnosticLevel } from "./diagnostics";
 export type DeckLogLevel = "INFO" | "WARN" | "ERROR";
 export type DeckLogScope = "HOME" | "STORAGE" | "SETTINGS" | "STEAM" | "RUNTIME" | "UPDATE" | "ONLINE";
 
-/* Warnings and errors always land in the on-device diagnostics buffer (the only
-   log surface reachable without a console), so a diagnostics dump carries them.
-   Verbose mode (Developer tab → "Show all logs") also mirrors the dev-only INFO
-   ones. Toggled from the settings store as the setting loads/changes. */
 let verbose = false;
 export function setVerboseLogging(on: boolean): void {
   verbose = on;
@@ -25,8 +21,6 @@ function mirrorToDiagnostics(scope: DeckLogScope, level: DeckLogLevel, message: 
   try { logDiagnostic(DIAG_LEVEL[level], message, ctxString(context), scope); } catch {}
 }
 
-// Shared palette — the console styling AND the on-device diagnostics list
-// (Advanced → Logs) both read these so the two surfaces match.
 export const SCOPE_COLOR: Record<string, string> = {
   HOME: "#22c55e",
   STORAGE: "#3b82f6",

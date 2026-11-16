@@ -12,9 +12,7 @@ def test_snapshot_shape():
 
 
 def test_cpu_percent_calc():
-    # idle delta 50, total delta 100 → 50% idle → 50% busy
     assert perf_probe._cpu_percent((100, 200), (150, 300)) == 50.0
-    # no time elapsed → None (avoids divide-by-zero)
     assert perf_probe._cpu_percent((100, 200), (100, 200)) is None
 
 

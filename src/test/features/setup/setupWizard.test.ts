@@ -12,7 +12,6 @@ vi.mock("../../../runtime/host/decky", () => ({
       h("button", { "data-testid": "ok", disabled: !!bOKDisabled, onClick: onOK }, strOKButtonText),
       h("button", { "data-testid": "cancel", onClick: onCancel }, strCancelButtonText)),
   DialogButton: ({ children, onClick }: any) => h("button", { onClick }, children),
-  // Tiles are Focusables with onActivate — render those as buttons so the test can click them.
   Focusable: ({ children, onActivate, className }: any) => onActivate ? h("button", { className, onClick: onActivate }, children) : h("div", { className }, children),
 }));
 vi.mock("../../../components/ui", () => ({ ModalShell: ({ children }: any) => h("div", null, children) }));
@@ -48,7 +47,6 @@ describe("SetupWizardModal — tiles → review → done, with undo", () => {
     expect(titles.some((s) => s.includes("setup_pack_essential_title") && s.includes("setup_recommended_short"))).toBe(true);
     expect(titles.some((s) => s.includes("setup_pack_backlog_rescue_title") && s.includes("setup_recommended_short"))).toBe(true);
     expect(buttons(host).some((b) => text(b) === "setup_revert_last")).toBe(false);
-    // Step indicator on the first screen.
     expect(host.textContent).toContain("setup_step_choose");
 
     const backlog = tiles.find((b) => text(b).includes("setup_pack_backlog_rescue_title"))!;
@@ -67,7 +65,6 @@ describe("SetupWizardModal — tiles → review → done, with undo", () => {
     await flush();
     expect(actions.applySetupPack).toHaveBeenCalledWith("backlog_rescue");
     expect(actions.setSetupWizardSeen).toHaveBeenCalledWith(true);
-    // Done screen: stays open with the undo offer; OK closes.
     expect(closeModal).not.toHaveBeenCalled();
     expect(host.textContent).toContain("setup_done_title");
     expect(buttons(host).some((b) => text(b) === "setup_undo")).toBe(true);
@@ -77,7 +74,6 @@ describe("SetupWizardModal — tiles → review → done, with undo", () => {
 
   it("disables Apply when the pack adds nothing the install does not already have", async () => {
     const s: any = defaultSettings();
-    // Essential = the default trio, which a default install already has.
     const { controller } = controllerStub({ ...s, shelves: s.shelves?.length ? s.shelves : [] });
     await act(async () => { root.render(h(SetupWizardModal, { controller })); });
     await flush();
@@ -85,7 +81,6 @@ describe("SetupWizardModal — tiles → review → done, with undo", () => {
     await act(async () => { essential.click(); });
     const ok = host.querySelector('[data-testid="ok"]') as HTMLButtonElement;
     const nothing = (host.textContent ?? "").includes("setup_nothing_to_add");
-    // Either the default install already covers the trio (Apply disabled) or it does not (Apply enabled) — the two must agree.
     expect(ok.disabled).toBe(nothing);
   });
 

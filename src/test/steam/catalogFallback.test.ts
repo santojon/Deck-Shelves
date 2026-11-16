@@ -1,8 +1,6 @@
 import { describe, it, expect, afterEach, vi } from 'vitest'
 import type { AppOverview } from '../../steam'
 
-// getCachedCatalogMeta is what v3Extensions' catalogFallbackOverview() reaches
-// for via a lazy require() — mock it so these tests never hit the network.
 const { catalogMeta } = vi.hoisted(() => ({ catalogMeta: new Map<number, any>() }))
 vi.mock('../../core/onlineStore', () => ({
   getCachedCatalogMeta: (id: number) => catalogMeta.get(id) ?? null,
@@ -19,7 +17,7 @@ afterEach(() => {
 
 describe('catalog fallback — unowned Store items get genre/category/VR data', () => {
   it('multiplayerType matches a fetched (not locally owned) item using cached Store categories', () => {
-    ;(globalThis as any).appStore = { GetAppOverviewByAppID: () => null } // not in the local library
+    ;(globalThis as any).appStore = { GetAppOverviewByAppID: () => null }
     catalogMeta.set(42, { genres: [], categories: ['Multi-player', 'PvP'], vrSupported: false })
     const item = { type: 'multiplayerType', params: { kind: 'multi' } } as any
     expect(FILTER_V3_EVALUATORS.multiplayerType(item, app(42))).toBe(true)
@@ -37,7 +35,6 @@ describe('catalog fallback — unowned Store items get genre/category/VR data', 
       GetAppOverviewByAppID: (id: number) => (id === 42 ? { appid: 42, categories: [{ name: 'single-player' }] } : null),
     }
     catalogMeta.set(42, { genres: [], categories: ['Multi-player'], vrSupported: false })
-    // Local data says single-player only — the fetched "Multi-player" must not leak through.
     expect(FILTER_V3_EVALUATORS.multiplayerType({ type: 'multiplayerType', params: { kind: 'multi' } } as any, app(42))).toBe(false)
   })
 
@@ -49,15 +46,10 @@ describe('catalog fallback — unowned Store items get genre/category/VR data', 
   it('"Games I own" sort never treats a catalog-fallback-only item as owned', () => {
     ;(globalThis as any).appStore = { GetAppOverviewByAppID: () => null }
     catalogMeta.set(42, { genres: [], categories: ['Multi-player'], vrSupported: false })
-    // Fetched catalog data exists, but the game isn't in the local library —
-    // owned_games must rank it the same as a genuinely unowned app (0, not 1).
     expect(SORT_V3_COMPARATORS.owned_games(app(42), app(99))).toBe(0)
   })
 
   it('genres/categories fall through to fetched data for a game that IS locally owned — the real bug', () => {
-    // A real local AppOverview: has BHasStoreCategory (so isOwnedLocally is
-    // true) but, like the actual Steam client, carries none of the fields
-    // these filters read (no "genres", no "categories" name-string array).
     ;(globalThis as any).appStore = {
       GetAppOverviewByAppID: (id: number) => (id === 42 ? { appid: 42, BHasStoreCategory: () => false } : null),
     }

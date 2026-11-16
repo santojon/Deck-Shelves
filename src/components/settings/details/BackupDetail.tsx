@@ -38,7 +38,6 @@ export function BackupDetail({ controller, t }: BackupDetailProps) {
   const importCustom = () => openManagedModal((close) => (
     <ImportAllModal closeModal={close} controller={controller} initialPath={joinDownloads("deck-shelves.json")} />
   ));
-  // Third-party export / import formats registered through the Plugin API.
   const exportHandlers = getExternalExportHandlers();
   const importHandlers = getExternalImportHandlers();
   const exportViaHandler = (id: string, label: string, ext?: string) => () => openManagedModal((close) => (
@@ -50,7 +49,6 @@ export function BackupDetail({ controller, t }: BackupDetailProps) {
 
   return (
     <Focusable {...flowChildrenProps("vertical")} style={{ display: "flex", flexDirection: "column" }}>
-      {/* Backup (a file you export) vs snapshot (a restore point kept for you), and the way to the snapshots. */}
       <SettingsSection
         title={t("settings_backup_snapshots_title")}
         description={t("settings_backup_vs_snapshot")}

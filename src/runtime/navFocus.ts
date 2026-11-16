@@ -1,10 +1,4 @@
-// Forcibly move Steam's NavTree focus to a given DOM element. The
-// pattern is lifted from the QAM sidecar's known-working sequence:
-/* walk the active nav tree (via opener.SteamUIStore.NavigationManager),
-   find the NavNode whose `m_element` matches our target, and call
-   `BTakeFocus(0)` on it. Returns `true` when BTakeFocus reports it was
-   honored; the caller should still retry on a short loop to win the
-   race with Steam's post-mount tree rebuild. */
+// Callers should retry briefly: Steam rebuilds the nav tree after mount.
 
 type NavNode = {
   m_element?: HTMLElement;
@@ -22,8 +16,6 @@ function findNavNodeFor(node: NavNode | undefined, target: HTMLElement): NavNode
   return null;
 }
 
-// The active nav-tree root reachable from a SteamUIStore (undefined if any hop
-// is missing).
 function navRootFrom(store: any): any {
   return store?.NavigationManager?.m_ActiveContext?.m_LastActiveNavTree?.m_Root;
 }

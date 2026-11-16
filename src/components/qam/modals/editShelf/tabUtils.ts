@@ -1,7 +1,3 @@
-// Pure tab-label + tab-detection helpers for EditShelfModal. Native
-// tab IDs/names get an i18n key + Steam icon prefix; unsupported tabs
-// (like Collections) are filtered out of the source dropdown.
-
 function slugifyForTab(s: string): string {
   return String(s ?? '')
     .toLowerCase()
@@ -12,9 +8,7 @@ function slugifyForTab(s: string): string {
     .replace(/\s+/g, '_');
 }
 
-// Per-native-id allowlist of display-name slugs across the locales we
-// ship. English form always included (TabMaster's stock tabs ship in
-// English even on non-English systems).
+// English is always included: stock tabs from other plugins stay in English on every system.
 const NATIVE_TAB_NAME_SLUGS: Record<string, ReadonlySet<string>> = {
   all: new Set(['all', 'all_games', 'todos_os_jogos', 'todos_los_juegos', 'tous_les_jeux', 'alle_spiele', 'tutti_i_giochi', 'alle_games', 'wszystkie_gry', 'vse_igry', 'usi_igri', 'tum_oyunlar', 'subete_no_geemu', 'modeun_geim', 'suoyou_youxi']),
   favorites: new Set(['favorites', 'favoritos', 'favoris', 'favoriten', 'preferiti', 'favorieten', 'ulubione', 'izbrannoe', 'obrane', 'favoriler', 'okiniiri', 'jeulgyeochajgi', 'shoucangjia']),
@@ -42,9 +36,7 @@ export function detectNativeTabKey(item: { id: string; name: string }): string |
   return null;
 }
 
-// "Collections" is a native library tab that exposes collection groups
-// — not a renderable card set, so we hide it from the source dropdown
-// until the Stacks render mode lands.
+// Collections is a native tab of groups, not a card set.
 const UNSUPPORTED_TAB_SLUGS: ReadonlySet<string> = new Set([
   'collections', 'collection', 'colecoes', 'colecao', 'colecciones', 'coleccion',
   'collezioni', 'sammlungen', 'kolekcje', 'kollektsii', 'kolektsiyi', 'koleksiyonlar',

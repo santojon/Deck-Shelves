@@ -64,12 +64,7 @@ export function SettingsPage() {
   const lightMode = useLightMode();
   const advancedMode = useAdvancedMode();
   const devMode = advancedMode && (controller.settings as any)?.devModeEnabled === true;
-  // Integrations tab: always in advanced mode; otherwise only when a
-  // third-party plugin is present (and never in light mode). Shortcuts +
-  // Statistics hide in light mode; Advanced tools show only in advanced.
   const showIntegrations = advancedMode || (hasExternalIntegrations() && !lightMode);
-  // Deep-link target (e.g. the "new suggestions" toast → Suggestions tab). The
-  // suggestions tab is hidden in light mode; fall back to the default there.
   const [activeTab, setActiveTab] = useState(() => {
     const pending = consumePendingSettingsTab();
     if (pending === "suggestions" && lightMode) return "shelves";

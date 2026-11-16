@@ -10,12 +10,9 @@ import { BTN_ICON_STYLE } from "../../ui/buttonStyles";
 import { flowChildrenProps } from "../../../core/steamOSVersion";
 
 const DASH = "—";
-const NOOP = () => { /* leaf — focus only */ };
+const NOOP = () => {};
 type Tr = (key: string) => string;
 
-// Mirrors the debug overlay's weightColor ramp (blue/green = good, orange =
-// watch, red = investigate). `invert` is for metrics where higher is better
-// (e.g. a cache hit rate).
 const COLOR_GOOD = "#3ddc84";
 const COLOR_WARN = "#ffa23a";
 const COLOR_BAD = "#ff5a5a";
@@ -69,9 +66,6 @@ function DonutStat({ title, usedLabel, used, freeLabel, free, color }: {
   );
 }
 
-/** Developer tab → Performance: a read-only snapshot of the Home mount/patch
-    layer's churn. Pull-based like DiagnosticsSection — no auto-refresh
-    timer, Refresh re-reads the live counters on click. */
 export function PerformanceSection({ t }: { t: Tr }) {
   const [snapshot, setSnapshot] = useState<PerfSnapshot>(() => getPerfSnapshot());
   const [learned, setLearned] = useState(() => getLearnedTimeoutsSummary());
@@ -84,8 +78,6 @@ export function PerformanceSection({ t }: { t: Tr }) {
 
   const cacheTotal = cacheStats.hits + cacheStats.misses;
   const cacheHitPct = cacheTotal > 0 ? (cacheStats.hits / cacheTotal) * 100 : null;
-  // Mount reuses perf:bench's own mount_ms_warn/fail budget; the other
-  // bands are heuristic (no established budget), kept wide on the green side.
   const activityRows: Array<[string, number, string]> = [
     [t("perf_reconciles_min"), snapshot.reconcilesPerMin, qualityColor(snapshot.reconcilesPerMin, 20, 60)],
     [t("perf_dom_callbacks_min"), snapshot.domCallbacksPerMin, qualityColor(snapshot.domCallbacksPerMin, 20, 60)],

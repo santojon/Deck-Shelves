@@ -1,87 +1,98 @@
-# CDP CLI
+# Device inspection
 
-`deckprobe/cdp.py` is a small wrapper around Chrome DevTools Protocol that covers the day-to-day debugging loop against a live Steam client: pick a target, run a probe, inspect the result. It replaces the ad-hoc `cdp_eval.py` / `cdp_probe.py` pair under `tools/` for the common cases, and works the same way whether the target is a Steam Deck, a desktop Big Picture session, or a local dev client — on SteamOS, Linux, macOS, or Windows.
+The plugin's frontend runs inside the Steam client's embedded browser (CEF), so
+the usual way to look at it on a running device is Chrome DevTools over CEF
+remote debugging. This page covers how to reach it, which page to attach to,
+and the in-plugin tools that save you from opening DevTools at all.
 
-## Prerequisites
+## Enable remote debugging
 
-- CEF remote debugging enabled on the target Steam client (default port `8081`), and Big Picture / Game Mode open. How to enable it depends on the target's OS:
-  - **SteamOS / Steam Deck** — enabled automatically once Decky Loader is installed; no manual step needed.
-  - **Linux (desktop)** — `touch ~/.steam/steam/.cef-enable-remote-debugging`, then restart Steam.
-  - **macOS** — `open -a Steam --args -cef-enable-remote-debugging`.
-  - **Windows** — launch Steam with `steam.exe -cef-enable-remote-debugging`.
-- `.env` at the repo root with `DECK_HOST` and `DECK_CDP_PORT` (`pnpm run deck:setup` writes a working `.env` for a Deck target on first run; for a local/desktop target set `DECK_HOST=127.0.0.1` and the port you enabled above).
-- `pnpm run deck:debug` opens the target's DevTools listing (`http://<host>:<port>`) in your browser.
-- `pip install websocket-client` on the host running the CLI (only needed for `eval`, `screenshot`, `console` — `targets` works without it).
+- **Steam Deck / SteamOS**: Decky Loader turns on Steam's local debug port
+  (`8080`, reachable only on the device). To reach the device from another
+  machine, either enable **CEF Remote Debugging** in Steam's Developer settings
+  (the client then listens on `8081` on the network), or tunnel the local port
+  over SSH:
 
-## Targets and aliases
+  ```bash
+  ssh -N -L 8080:127.0.0.1:8080 deck@steamdeck
+  ```
 
-The target Steam client exposes several CDP surfaces. Use the alias when scripting; the raw target ID is fine for one-offs.
+- **Linux desktop**: `touch ~/.steam/steam/.cef-enable-remote-debugging`, then restart Steam.
+- **Windows**: start Steam with `steam.exe -cef-enable-remote-debugging`.
+- **macOS**: `open -a Steam --args -cef-enable-remote-debugging`.
 
-| Alias       | Title fragment       | What it is                                                        |
-|-------------|----------------------|-------------------------------------------------------------------|
-| `bp`        | `Big Picture`        | The Steam UI shown in Big Picture / Game Mode — shelves, modals, native recents. |
-| `qam`       | `QuickAccess`        | The right-side panel where the plugin's settings UI lives.        |
-| `sjc`       | `SharedJSContext`    | React tree behind both BP and QAM — best for store/router probes. |
-| `mainmenu`  | `MainMenu`           | Big Picture main-menu popup.                                      |
+Set the endpoint in `.env` (see [development.md](./development.md#environment-variables-env)):
 
-## Subcommands
+| Target | `DECK_CDP_HOST` | `DECK_CDP_PORT` |
+|---|---|---|
+| Deck on your network, CEF Remote Debugging on | the Deck's IP | `8081` |
+| Deck through the SSH tunnel above | `127.0.0.1` | `8080` |
+| Steam on the machine you are working on | `127.0.0.1` | `8080` |
 
-### `targets`
+`DECK_CDP_HOST` defaults to `DECK_HOST`. Then run:
 
-```
-python3 deckprobe/cdp.py targets
-```
-
-Lists every CDP target with its alias (if any) and ID. Run this first when an alias stops resolving — Steam build updates occasionally rename a surface.
-
-### `eval`
-
-Evaluate a JS expression in a target. The return value is JSON-serialised when it is an object or array, printed as-is otherwise. Promises are awaited.
-
-```
-python3 deckprobe/cdp.py eval bp 'document.title'
-
-# Read expression from stdin (handy for multi-line probes):
-echo 'JSON.stringify({n: document.querySelectorAll(".ds-card").length})' \
-  | python3 deckprobe/cdp.py eval bp -
+```bash
+pnpm run deck:debug   # opens http://<host>:<port> in your browser
 ```
 
-Errors and rejected promises are written to stderr and exit with code 1, so the CLI is safe to chain in shell pipelines.
+That page lists every debuggable surface; click one to open DevTools on it.
+Chrome's `chrome://inspect` works too: add `<host>:<port>` under
+"Discover network targets".
 
-### `screenshot`
+## Which page to attach to
 
+| Title contains | What it is |
+|---|---|
+| `SharedJSContext` | Where the plugin's code runs: the settings store, the plugin API (`window.deckShelves`), React state. Console logs from the plugin land here. |
+| `Big Picture` | The document shown in Gaming Mode. The Home shelves are rendered into it, so DOM inspection of shelves and cards happens here. |
+| `QuickAccess` | The Quick Access panel, including the plugin's panel and the sidecar. |
+| `MainMenu` | The Steam menu popup. |
+
+Steam builds occasionally rename these, so match by the fragment.
+
+The split matters when you query the DOM: the plugin runs in
+`SharedJSContext` but its shelves live in the Big Picture document, so
+`document.querySelector` in `SharedJSContext` finds nothing. Inspect shelves
+from the Big Picture page.
+
+## Console recipes
+
+Paste these into the DevTools console of the page named.
+
+```js
+// Big Picture: shelves currently mounted on the Home, by id
+[...document.querySelectorAll("[data-shelfid]")].map((el) => el.getAttribute("data-shelfid"))
+
+// Big Picture: the class chain of the focused element
+document.activeElement?.className
+
+// SharedJSContext: plugin API version and the shelves as the API sees them
+window.deckShelves?.version
+window.deckShelves?.api.getShelves()
+
+// SharedJSContext: the class map in use (see webpack-classmap.md)
+JSON.parse(localStorage.getItem("ds_class_map") ?? "null")
 ```
-python3 deckprobe/cdp.py screenshot bp /tmp/bp.png
-```
 
-Captures the target's viewport as a PNG. The output path is printed on success.
+The DevTools Performance and Memory tabs work on these pages as on any web
+page; see [performance.md](./performance.md) for what to look at.
 
-### `console`
+## Without DevTools
 
-Stream `console.{warn,error}` and uncaught exceptions until Ctrl-C. Pass `--all` to also include `log`/`info`. Pass `--duration N` to stop automatically after N seconds (useful in scripted runs).
-
-```
-python3 deckprobe/cdp.py console sjc
-python3 deckprobe/cdp.py console qam --all --duration 30
-```
-
-## Common debug recipes
-
-```
-# How many shelves are mounted right now?
-python3 deckprobe/cdp.py eval bp \
-  'document.querySelectorAll("[data-ds-shelf]").length'
-
-# What does the React store say about the active settings?
-python3 deckprobe/cdp.py eval sjc \
-  'JSON.stringify(window.__DECK_SHELVES__?.snapshot?.() ?? null)'
-
-# Capture the QAM after toggling a setting:
-python3 deckprobe/cdp.py screenshot qam /tmp/qam-after.png
-```
+- **Settings → Developer** (turn on Advanced mode, then Developer mode in
+  Advanced tools): the diagnostic log (last 50 plugin events, with a switch to
+  include every log line), the performance panel, an on-Home debug overlay
+  (FPS, shelf and render counters, focus, outlines) and a device simulator
+  (pretend to be a Steam Frame or Steam Machine, or force pointer input).
+- `pnpm run logs:decky` follows the Decky Loader journal on the device over
+  SSH, which includes the Python backend's output.
 
 ## Troubleshooting
 
-- **`alias 'bp' did not match any target`** — Steam is in a transitional state (mid-restart, splash screen). Wait a few seconds and re-run `targets`.
-- **`websocket-client not installed`** — `pip install websocket-client` (or `python3 -m pip install --user websocket-client` on the target device itself).
-- **Connection refused on the CDP port** — remote debugging isn't enabled on the target client, or Steam hasn't been restarted since enabling it. See the per-OS steps under Prerequisites above.
+- **Connection refused**: remote debugging is off on that client, Steam was not
+  restarted after enabling it, or the port is wrong (`8081` on the network,
+  `8080` locally).
+- **A page is missing from the list**: Steam is restarting or showing its
+  splash screen. Reload the list after a few seconds.
+- **Queries return nothing**: you are probably in `SharedJSContext` while
+  looking for Home DOM, or the other way round.

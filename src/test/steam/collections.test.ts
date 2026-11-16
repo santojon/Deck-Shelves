@@ -2,9 +2,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { dynamicCollectionAppIds, getCollectionApps, listCollections, removeAppFromCollection } from "../../steam/collections";
 
-/* The client's collection store, as read on a Steam Deck: GetCollection(id)
-   returns the live collection, the storage map holds the same objects, and a
-   dynamic collection's `allApps` are its effective members. */
 function collection(id: string, name: string, apps: number[], extra: Record<string, unknown> = {}) {
   return {
     id, displayName: name, bIsDynamic: false,

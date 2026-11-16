@@ -11,8 +11,7 @@ export type OpenerWithInput = {
 };
 
 export function getQamWindow(): (Window & OpenerWithInput) | null {
-  // The plugin runs in a sandboxed JS context; the QAM's "real" window is
-  // reachable through the shared DOM via `document.defaultView`.
+  // The QAM's real window is reachable through the shared DOM.
   try {
     return (document.defaultView ?? null) as (Window & OpenerWithInput) | null;
   } catch {
@@ -42,12 +41,8 @@ export function useQamCompositorSync(qamExpanded: boolean, enabled = true): void
   }, [qamExpanded, enabled]);
 }
 
-// This panel can mount twice at once (a loader's tab AND a neutral host's
-// native tab) — only the VISIBLE instance should manage the shared sidecar
-// state, so callers gate their singleton effects behind this.
-/* Starts inactive and measures on mount: starting active let a hidden copy (the
-   host tab's 0×0 panel) run the singleton effects for one commit — reset the
-   shared state and post "QamFriendsHidden" under the visible copy's open sidecar. */
+// Two copies can mount at once; only the visible one runs the singleton effects.
+// Starts inactive: starting active let a hidden copy reset the shared state for one commit.
 function isShown(el: HTMLElement): boolean {
   if (el.getClientRects().length === 0) return false;
   const r = el.getBoundingClientRect();
@@ -70,8 +65,6 @@ export function useIsActiveQamTab(scopeRef: { current: HTMLElement | null }): bo
   return isActive;
 }
 
-// Small pure helper (not inlined into the render's `&&` chain) so this
-// decision doesn't add another branch to DeckQAMSettings's own complexity.
 export function shouldRenderSidecar(isActiveTab: boolean, qamExpanded: boolean): boolean {
   return isActiveTab && qamExpanded;
 }

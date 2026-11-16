@@ -94,15 +94,11 @@ function extractCardName(card: HTMLElement, appid: number): string {
 function collectNativeShelfApps(): ShelfHit[] {
   const doc = getPreferredSteamDocument();
   if (!doc) return [];
-  // Don't include native shelf games when the user has hidden the row.
   const s = getCurrentSettings();
   if ((s as any)?.hideRecents === true) return [];
   const best = findNativeShelfEl(doc);
   if (!best) return [];
   const map = getClassMap();
-  // Native Steam cards are `<div role="link">` with the hashed
-  // `nativeCard` class. Appids live in img src; names come from
-  // `appStore.GetAppOverviewByAppID(appid)`.
   const sel = map.nativeCard
     ? `[class~="${map.nativeCard}"]:not(.ds-card)`
     : 'a[href*="/library/app/"]:not(.ds-card), [data-appid]:not(.ds-card)';
@@ -121,16 +117,11 @@ function collectNativeShelfApps(): ShelfHit[] {
 function collectShelfApps(): ShelfHit[] {
   const out: ShelfHit[] = [];
   const seen = new Set<number>();
-  /* Native shelf gets first dibs so a card that's also in a DS shelf
-     surfaces from the visible row the user expects to land on. If the
-     native row is hidden (or `hideRecents === true`), the dedupe below
-     simply preserves DS-shelf ordering. */
   for (const nat of collectNativeShelfApps()) {
     if (seen.has(nat.appid) || !nat.name) continue;
     seen.add(nat.appid);
     out.push(nat);
   }
-  // DS shelves walked in registry order — first match wins on duplicates.
   for (const shelf of readRegistry()) {
     for (const item of shelf.items) {
       if (seen.has(item.appid)) continue;
@@ -199,8 +190,6 @@ export const BUILT_IN_SHELF_SEARCH: SearchProviderDescriptor = {
   },
 };
 
-// Native recents card for `appid`. `:not(.ds-card)` keeps it native;
-// falls back to the appid encoded in the card's image src.
 function findNativeCard(doc: Document, appid: number): HTMLElement | null {
   const nativeShelf = findNativeShelfEl(doc);
   if (!nativeShelf) return null;
@@ -216,16 +205,11 @@ function findNativeCard(doc: Document, appid: number): HTMLElement | null {
   return null;
 }
 
-// The row's sideways scroller (DeckRow's own class; a card's box overflows too, so no size walk).
 function rowScrollerOf(shelfEl: HTMLElement): HTMLElement | null {
   return shelfEl.querySelector<HTMLElement>(".ds-row-scroll");
 }
 
-/* The card is not in the DOM: the shelf is still a placeholder below the
-   fold, or the row's virtualization left the card out. Make it the pending
-   focus target (a row anchors its card window on that), bring the shelf near
-   the viewport, re-window the row, and let the restore loop land the focus
-   once the card mounts. */
+// The card isn't mounted yet: mark it as the pending focus target and let the restore loop land on it.
 function revealAndFocus(doc: Document, appid: number, shelfId: string): void {
   const escape = (s: string) => (globalThis as any).CSS?.escape?.(s) ?? s.replace(/["\\]/g, "\\$&");
   const shelfEl = doc.querySelector<HTMLElement>(`.ds-shelf[data-shelfid="${escape(shelfId)}"]`);
@@ -254,10 +238,6 @@ export function focusShelfCard(appid: number, shelfId: string | null): void {
     return;
   }
   if (!target) return;
-  /* Use focusElement (BTakeFocus) only — it handles scroll internally.
-     Calling scrollIntoView BEFORE focusElement double-scrolls: first
-     inline:center on the shelf row resets the row's left position,
-     then BTakeFocus scrolls again. This left cards appearing with no
-     left-side spacing because the row ended up over-shifted. */
+  // focusElement scrolls by itself; scrolling first over-shifts the row.
   try { focusElement(target); } catch {}
 }

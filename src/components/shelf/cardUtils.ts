@@ -10,9 +10,7 @@ function readForceThemes(): boolean {
 }
 
 const NATIVE_CARD_EXCLUDED = new Set(['Panel', 'Focusable', 'gpfocus', 'gpfocuswithin']);
-// forceCssLoaderThemes adds DFL semantic card tokens (no state classes). Do NOT
-// add `nativeCardWrapper` or `gpfocuswithin` — both turn theme focused-state
-// selectors into all-card always-on rules.
+// No nativeCardWrapper or gpfocuswithin here: themes' focused-state rules would match every card.
 const FORCE_THEME_TOKENS = [
   'nativeSemanticCard', 'nativeSemanticCardContainer', 'nativeSemanticCardImage',
   'nativeSemanticCardWrapper', 'nativeCapsule', 'nativeCapsuleImage',
@@ -36,8 +34,7 @@ function addForceThemeExtras(map: any, out: Set<string>): void {
   for (const k of FORCE_THEME_TOKENS) addSplitTokens(map[k], out);
 }
 
-// Returns null when the class map isn't ready yet (caller should retry).
-// Returns a string (possibly empty) once the map is available.
+// null until the class map is ready; the caller retries.
 export function resolveNativeCardClass(doc: Document | null): string | null {
   const map = doc ? getRuntimeClassMap(doc) : null;
   if (!map?.nativeCard) return null;
@@ -61,11 +58,6 @@ function findNativeCardSample(doc: Document | null): HTMLElement | null {
   return sel ? (doc?.querySelector(`${sel}:not(.ds-card)`) as HTMLElement | null) : null;
 }
 
-/* Copy the native card's ::after animation-name onto a DS card so the theme's
-   focus-glow pseudo-element animation replays on the DS card too. Best-effort;
-   used by cards that don't run GameCard's fuller native-class injection (e.g.
-   PlaceholderCard, which serves unowned store / wishlist covers whose local art
-   404s). */
 export function applyNativeAfterAnimation(doc: Document | null, target: HTMLElement | null): void {
   if (!target) return;
   try {
@@ -76,11 +68,6 @@ export function applyNativeAfterAnimation(doc: Document | null, target: HTMLElem
   } catch {}
 }
 
-/* A card fetching its description and warming its image/icon/logo caches
-   unconditionally on mount does that for every off-screen card in a shelf
-   at once, competing with the focused card for network/CPU. Gates that work
-   to cards within `rootMargin` of the visible area. One-way latch (stays
-   true once near); observer disconnects once triggered. */
 export function useNearViewport(ref: { current: HTMLElement | null }, rootMargin: string): boolean {
   const [near, setNear] = useState(false);
   useEffect(() => {

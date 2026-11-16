@@ -6,8 +6,6 @@ import { onPendingAccountChange, pendingAccountQuestion } from "../../runtime/ac
 import type { useSettingsController } from "../settings/controller";
 import { openAccountChoice } from "./AccountChoiceModal";
 
-/* Backup tab: settings per Steam account (on by default), how many other accounts
-   keep their own here, and a choice still waiting for the signed-in account. */
 export function AccountsSection({ controller, t }: { controller: ReturnType<typeof useSettingsController>; t: (key: string) => string }) {
   const settings = controller.settings;
   const [question, setQuestion] = useState(pendingAccountQuestion);

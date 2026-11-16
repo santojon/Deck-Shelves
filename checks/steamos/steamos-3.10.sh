@@ -1,10 +1,7 @@
 check_name="SteamOS 3.10"
 check_version="Stable"
 
-# A literal system-path prefix is safe when every occurrence sits within a
-# few lines of its own os.path.exists() guard (e.g. a CA-bundle candidate
-# probed before use, never assumed present) — only flag genuinely
-# unguarded hardcoded access.
+# A system-path literal is fine when each use sits next to its own os.path.exists() guard.
 _unsafe_path_hit() {
   local file="$1" pattern="$2" total ln start end
   [[ -f "$file" ]] || return 1
@@ -95,9 +92,7 @@ run_checks() {
   fi
 
   local hardcoded_versions=0
-  # Only flag string comparisons using a SteamOS version — excludes SVG/JSX
-  # attrs and comments. Covers both single-digit minors (3.5-3.9) and the
-  # first two-digit one (3.10).
+  # Only string comparisons against a SteamOS version count, not SVG/JSX attrs or comments.
   if grep -rE '(===|!==|==|!=|>=|<=)\s*["'"'"']3\.(1[0-9]|[5-9])["'"'"']|["'"'"']3\.(1[0-9]|[5-9])["'"'"']\s*(===|!==|==|!=|>=|<=)' "$root/src/" 2>/dev/null | grep -qvE '^\s*//' ; then
     echo "  ❌ Hardcoded SteamOS version comparisons found in src/"
     ((hardcoded_versions++))

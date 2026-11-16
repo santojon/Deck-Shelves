@@ -1,6 +1,6 @@
 # Architecture
 
-Deck Shelves is a plugin that injects custom game shelves into the Steam Deck home screen. This document describes the project structure and how the main systems connect.
+Deck Shelves injects custom game shelves into the Steam Deck Home screen. This page describes the project structure and how the main systems connect; it is meant for contributors and for anyone debugging a conflict with another plugin or theme.
 
 <p align="center">
   <img src="../assets/screenshots/home.png" alt="Deck Shelves shelves injected into the Steam Deck home" width="640">
@@ -131,7 +131,7 @@ flowchart TB
     subgraph core["src/core"]
         pluginapi["pluginApi<br/>public API surface"]
         refresh["shelfRefresh<br/>debounced refresh"]
-        updates["updateNotifier + updateDownload"]
+        updates["updateNotifier<br/>update check"]
     end
 
     subgraph steamdir["src/steam"]
@@ -279,7 +279,7 @@ src/
 ├── domain/
 │ ├── settings.ts Pure settings operations (patch, add, delete, move)
 │ ├── defaults.ts Default shelf/settings/filter factories
-│ ├── templates.ts Shelf preset templates (15 entries)
+│ ├── templates.ts Shelf templates (15 standard + 4 online)
 │ ├── shelfOrder.ts pickFirstVisibleShelfId + interleaveSmartShelves (pure helpers)
 │ └── customfilters.ts TabMaster filter conversion
 │
@@ -296,7 +296,7 @@ src/
 │ ├── smartShelves.ts Smart-shelf CRUD + surprise-me + import/export
 │ ├── savedFilters.ts SavedFilter + SavedSmartFilter CRUD
 │ ├── online.ts Online-features toggles + acceptOnlinePrivacy
-│ ├── globalVisual.ts 36 global visual setters (consolidated)
+│ ├── globalVisual.ts Global visual setters
 │ └── profiles.ts Usage profiles + unified/lightMode/featureToggle setters
 │
 ├── integrations/
@@ -322,16 +322,8 @@ src/
 │
 ├── shims/ React/Decky UI shims for GamepadUI environment
 │
-└── test/ Vitest + Python test suites
- ├── steam/ applyManualOrder, evaluateFilterGroup, smartShelves
- ├── components/ refreshableSmartModes
- ├── core/ reorder, webpackCompat
- ├── domain/ settings, customfilters, shelfOrder, templates, schemas
- ├── qa/ qam-visibility
- ├── stubs/ host-api / host-ui / host-manifest stubs (vitest aliases)
- ├── steam.test.ts
- ├── scrollUtils.test.ts
- └── test_main.py Python sanitizer tests (pytest)
+└── test/ Vitest suites (mirroring src/), fixtures, host stubs,
+          and the backend's pytest suites (test_*.py)
 
 main.py Python entry: DEFAULT_SETTINGS, _SSL_CTX, Plugin class
  (lifecycle + RPC). Re-exports helpers from below.
@@ -374,7 +366,7 @@ homePatch: mount point + bridge component (or fallback root) → HomeInject
 ## Key Systems
 
 ### Native Class Map (`webpackCompat.ts` + `runtime/classmap.json`)
-Steam's GamepadUI uses webpack-hashed CSS classes that change on updates. The plugin ships a class map (semantic name → current hash) in `runtime/classmap.json`; `runtime/embeddedClassMap.ts` seeds it at boot into `window.__DS_CLASS_MAP` and `localStorage` (`ds_class_map`), and `webpackCompat.ts` reads tokens from it. This allows shelf cards to receive native Steam classes for CSS Loader theme compatibility. Selectors fall back to generic `[class*="…"]` patterns and to structural lookups. The map is refreshed from a device with the class-map tool when Steam changes (see [webpack-classmap.md](./webpack-classmap.md)).
+Steam's GamepadUI uses webpack-hashed CSS classes that change on updates. The plugin ships a class map (semantic name → current hash) in `runtime/classmap.json`; `runtime/embeddedClassMap.ts` seeds it at boot into `window.__DS_CLASS_MAP` and `localStorage` (`ds_class_map`), and `webpackCompat.ts` reads tokens from it. This allows shelf cards to receive native Steam classes for CSS Loader theme compatibility. Selectors fall back to generic `[class*="…"]` patterns and to structural lookups. When Steam renames classes, the seed is refreshed by hand from a device (see [webpack-classmap.md](./webpack-classmap.md)).
 
 > **Caution:** class tokens are tied to specific SteamOS builds. A Steam update can rename them silently. Never cache tokens in plugin settings or hardcode them in application logic without a fallback.
 
@@ -396,7 +388,7 @@ Each shelf with hero art enabled renders its own hero: two stacked image slots c
 | Mask wrapper 1 | `mask-image: radial-gradient(75% 83% at 50% 18%,...)` | Applied via inline style with webkit prefix |
 | Mask wrapper 2 | Same radial-gradient mask (double masking for stronger fade) | Second nested div with identical mask |
 
-The native hero does **not** use linear gradients or pseudo-elements for the bottom fade. The vignette effect is entirely achieved via radial-gradient `mask-image` on two wrapper divs, creating a soft oval reveal centered at 50% 18% (upper center).
+The native hero does **not** use linear gradients or pseudo-elements for the bottom fade. The vignette comes entirely from the radial-gradient `mask-image` on two wrapper divs, a soft oval centered at 50% 18%. Replacing it with a CSS gradient breaks CSS Loader theme compatibility.
 
 At runtime, the component discovers native classes from the recents section's sibling element and applies them for CSS Loader theme compatibility.
 
@@ -408,7 +400,7 @@ At runtime, the component discovers native classes from the recents section's si
 - Collection cache uses 60s TTL; smart-shelf resolver cache TTL defaults to 60 min (per-shelf override via `refreshIntervalMinutes`)
 - Native dimension changes require 4px tolerance + 2-cycle confirmation
 - `Shelf` is `memo`ized + carries a generation-id token on each `resolveShelfAppIds` call; in-flight resolves drop their `then`/`catch` if a newer one started, so a slow previous resolve cannot overwrite a newer result
-- nav-tree reparent poll throttled from 750 ms → 3000 ms (relies on MutationObservers + focusin for fast paths)
+- the nav-tree reparent falls back to a 3 s poll; MutationObservers and `focusin` cover the fast paths
 
 > **Note:** the API surface is `window.deckShelves.api` (major version **4**) — registries (`registerShelfSource` / `registerSmartShelfSource` / `registerFilterType` / `registerSortOption` / `registerImportType` / `registerSavedFilter` and the provider registries) and the consumer-side accessors (`getShelves`, `getSmartShelves`, `getSavedFilters`, `subscribeShelves` and the other `subscribe*` methods) are all live against the settings store. See [`plugin-api.md`](./plugin-api.md).
 
@@ -416,12 +408,10 @@ At runtime, the component discovers native classes from the recents section's si
 Optional and experimental (`recentsReplaceSource`, offered under `hideRecents`). With both settings on, Steam's own Recents row is not hidden: it shows the games of the first eligible shelf, under that shelf's title, with Steam's own tiles, art, focus and themes, and that shelf leaves the plugin's area. A failure while the feature is in use turns it off for the session: a toast, the `RecentsReplaceErrorBanner` in the QAM ("Retry" or "Disable toggle"), and plain hiding as the fallback. On a client where the feature is unavailable it stays off quietly: no error, Steam's row as it is, every shelf in the plugin's area.
 
 ### Hide Home Tabs (`hideHomeTabs`)
-When enabled, hides the native Novidades/Amigos/Recomendados tab bar. Detection uses `[role="tablist"]` as a sibling of the plugin's mount element — no hardcoded class names, compatible with SteamOS updates.
-
-> **Note:** the hero does **not** use linear gradients or pseudo-elements for the bottom vignette. The fade is achieved entirely via `mask-image: radial-gradient(...)` on two nested wrapper divs — matching the native structure discovered via CDP. Replacing it with a CSS gradient would break CSS Loader theme compatibility.
+When enabled, hides the native Home tab bar (What's New, Friends, Recommended…). Detection uses `[role="tablist"]` as a sibling of the plugin's mount element — no hardcoded class names, compatible with SteamOS updates.
 
 ### Plugin API (`pluginApi.ts`)
-External plugins can register custom shelf sources, filter types, sort options, smart-shelf modes, import formats, statistics/recommendation providers, runtime translations, and pre-baked saved filters at runtime. `pluginApi.ts` is the authoritative runtime that exposes `window.deckShelves`; the canonical types live in the `@deck-shelves/api` npm package, which it imports for leaf types and re-declares the interface against — keep both in sync. Everything first-party (the built-in statistics providers, v3 filters/sorts/sources, …) registers through the **same** registries third-party plugins use. The full API is documented in [`plugin-api.md`](./plugin-api.md). Quick example:
+External plugins can register custom shelf sources, filter types, sort options, smart-shelf modes, import formats, statistics/recommendation providers, runtime translations, and pre-baked saved filters at runtime. `pluginApi.ts` is the runtime that exposes `window.deckShelves`; the types come from the `@deck-shelves/api` npm package, which it imports and re-exports, so the published contract and the running code cannot drift. Everything first-party (the built-in statistics providers, v3 filters/sorts/sources, …) registers through the **same** registries third-party plugins use. The full API is documented in [`plugin-api.md`](./plugin-api.md). Quick example:
 ```ts
 const cleanup = window.deckShelves.api.registerShelfSource({
  id: "my-plugin-source",
@@ -459,7 +449,7 @@ Native Steam library tabs (`installed`, `great_on_deck`) post-filter the candida
 
 ### Composite source (`steam/index.ts > _resolveComposite`)
 
-Composite shelves declare `{ type: "composite", combine, sources: ShelfSource[] }`. Each child source is resolved through the same `resolveShelfAppIds` entry-point — depth-counted to a `MAX_COMPOSITE_DEPTH` ceiling — and the result sets are merged either as a union (round-robin pick, keeps every child represented when the overshoot truncates) or as an intersection (set membership). Children run in parallel via `Promise.all`; each child is wrapped in a 15 s `Promise.race` so a single hung online source (e.g. a slow `get_wishlist` RPC) can't park the parent resolve indefinitely. The wishlist and store helpers (`core/onlineStore.ts`) also wrap their Decky RPC calls in `rpcWithTimeout` and fall back to stale-but-readable cache when the backend stalls, so the resolver always returns within a bounded budget.
+Composite shelves declare `{ type: "composite", combine, sources: ShelfSource[] }`. Each child source is resolved through the same `resolveShelfAppIds` entry-point — depth-counted to a `MAX_COMPOSITE_DEPTH` ceiling — and the result sets are merged either as a union (round-robin pick, keeps every child represented when the overshoot truncates) or as an intersection (set membership). A child that carries its own `sort` / `sortReverse` is resolved in that order and one with its own `limit` is cut to it before the merge; the shelf sort then reorders the merged list, except `manual`, `source_order`, and `random` when every child already came in random order. Children run in parallel via `Promise.all`; each child is wrapped in a 15 s `Promise.race` so a single hung online source (e.g. a slow `get_wishlist` RPC) can't park the parent resolve indefinitely. The wishlist and store helpers (`core/onlineStore.ts`) also wrap their Decky RPC calls in `rpcWithTimeout` and fall back to stale-but-readable cache when the backend stalls, so the resolver always returns within a bounded budget.
 
 ### Asset cache busting (`core/assetRevision.ts` + `core/steamAssets.ts`)
 
@@ -479,7 +469,7 @@ Opt-in, off by default (`ownQamTabEnabled`, kept per device). Installed only by 
 
 ### Showcase / Dynamic Idle Mode (`runtime/showcaseMode.ts`)
 
-Opt-in, off by default (`showcaseModeEnabled`). During Home inactivity, cycles focus through the user's own shelves on a timer, reusing the exact same focus-a-shelf's-first-card mechanism Side Nav's own "jump to shelf" already ships — never synthetic input. Any real interaction (a controller button via `subscribeControllerInput`, or a pointer/wheel/keydown event) stops it and re-arms the idle timer. Optional in-shelf pan (`showcasePanCards`) walks a few cards per shelf before moving on. Not built yet: a shelf-participation picker UI (the `showcaseShelfIds` setting exists without one). Also exports `isNativeScreensaverActive()` (`ScreensaverPopup`/`BIsActive()` on the active `GamepadNavigationTree`), which both Showcase and the screensaver below use to stand down if Steam's own native screensaver is somehow active.
+Opt-in, off by default (`showcaseModeEnabled`). During Home inactivity, cycles focus through the user's own shelves on a timer, reusing the exact same focus-a-shelf's-first-card mechanism Side Nav's own "jump to shelf" already ships — never synthetic input. Any real interaction (a controller button via `subscribeControllerInput`, or a pointer/wheel/keydown event) stops it and re-arms the idle timer. Optional in-shelf pan (`showcasePanCards`) walks a few cards per shelf before moving on. The `showcaseShelfIds` setting (which shelves take part) has no UI yet. Also exports `isNativeScreensaverActive()` (`ScreensaverPopup`/`BIsActive()` on the active `GamepadNavigationTree`), which both Showcase and the screensaver below use to stand down if Steam's own native screensaver is somehow active.
 
 ### Keyboard bindings (`runtime/keyboardBindings.ts`)
 
@@ -487,7 +477,7 @@ Every gamepad binding (card hide/highlight/quick-launch, Quick Search, Side Nav,
 
 ### Own idle screensaver (`runtime/screensaverInject.ts`, `runtime/steamSettingsWriter.ts`)
 
-Opt-in, off by default (`screensaverShelvesEnabled`). Replaces Steam's native idle screensaver outright (two injection-into-the-native-one approaches were tried and are confirmed dead ends) with a slideshow of shelf games/Recents and, opt-in, local screenshots. Disables Steam's own idle timeout while active, restoring it exactly on toggle-off, via an internal settings-write path located at runtime by a stable call-site string (not a hardcoded module id) and never trusted without a round-trip verification first.
+Opt-in, off by default (`screensaverShelvesEnabled`). Replaces Steam's native idle screensaver outright (injecting into the native one does not work) with a slideshow of shelf games/Recents and, opt-in, local screenshots. Disables Steam's own idle timeout while active, restoring it exactly on toggle-off, via an internal settings-write path located at runtime by a stable call-site string (not a hardcoded module id) and never trusted without a round-trip verification first.
 
 ### Cross-device settings sync (`runtime/cloudSync.ts`)
 
@@ -538,7 +528,7 @@ SteamUIStore.GamepadNavTree
    guarded by:
      • mount-attached MutationObserver
      • parent MutationObserver
-     • 3 s poll fallback (was 750 ms — throttled in 1.6.x)
+     • 3 s poll fallback
      • focusin listener
    cleanup on unmount restores original parent ordering
 ```

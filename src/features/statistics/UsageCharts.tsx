@@ -1,9 +1,6 @@
 import type { UsageDailyPoint } from "../../domain/usageStats";
 
-/* Hand-rolled, dependency-free SVG/DOM usage charts. Time-series charts use a
-   fixed viewBox + `width:100%` (so they're responsive) with
-   `vector-effect="non-scaling-stroke"` so line widths stay crisp despite the
-   non-uniform scaling. Colours are shared so legends match. */
+// non-scaling-stroke keeps lines crisp under the non-uniform viewBox scaling.
 
 export const SERIES_COLORS = { launches: "#1a9fff", views: "#43c06d", features: "#ffa23a" } as const;
 export type SeriesKey = keyof typeof SERIES_COLORS;
@@ -22,10 +19,6 @@ export function ChartLegend({ items }: { items: Array<{ label: string; color: st
   );
 }
 
-/* Legend for the pie/donut charts — each row carries its colour, label and a
-   single figure (`mode='pct'` → share-of-total, else the raw count) so the
-   slice sizes are readable as numbers (a pie alone gives no sense of
-   magnitude). The figure mode follows the same toggle as the bar charts. */
 export function DonutLegend({ data, mode = "raw" }: { data: Array<{ label: string; value: number; color: string }>; mode?: "raw" | "pct" }) {
   const total = data.reduce((a, d) => a + d.value, 0) || 1;
   return (
@@ -41,8 +34,6 @@ export function DonutLegend({ data, mode = "raw" }: { data: Array<{ label: strin
   );
 }
 
-/* Day-axis labels (DD) under a time-series chart (DOM, evenly spaced). Kept out
-   of the SVG so the labels stay crisp regardless of chart scaling. */
 export function DayAxis({ points }: { points: UsageDailyPoint[] }) {
   return (
     <div style={{ display: "flex", marginTop: 2 }}>
@@ -53,8 +44,6 @@ export function DayAxis({ points }: { points: UsageDailyPoint[] }) {
   );
 }
 
-/* 3-point moving average — turns a jagged daily series into a readable trend
-   line (endpoints clamp to themselves so the curve doesn't shrink). */
 function smooth(values: number[]): number[] {
   return values.map((_, i) => {
     const a = values[i - 1] ?? values[i];
@@ -63,11 +52,6 @@ function smooth(values: number[]): number[] {
   });
 }
 
-/* Combo: total daily activity as faint bars (with value labels) + the three
-   metric *trend* lines on top (smoothed, with their latest value labelled).
-   Keeps the per-metric detail of the line chart while adding the bar/value
-   context the single-metric view lost. Uniform scaling so text stays
-   undistorted. */
 export function ComboBarsTrend({ points }: { points: UsageDailyPoint[] }) {
   const W = 320, H = 130, top = 12, bot = H - 6;
   const ih = bot - top;
@@ -105,8 +89,6 @@ export function ComboBarsTrend({ points }: { points: UsageDailyPoint[] }) {
   );
 }
 
-/* Stacked bars over time — a composition-style comparison of the same series
-   the line chart overlays (different lens: per-day totals + share). */
 export function StackedBars({ points, keys, normalize = false }: { points: UsageDailyPoint[]; keys: SeriesKey[]; normalize?: boolean }) {
   const W = 320, H = 120;
   const totals = points.map((p) => keys.reduce((a, k) => a + p[k], 0));
@@ -117,8 +99,6 @@ export function StackedBars({ points, keys, normalize = false }: { points: Usage
   return (
     <svg width="100%" viewBox={`0 0 ${W} ${H}`} role="img" style={{ display: "block", width: "100%", height: "auto" }}>
       {points.map((p, i) => {
-        // Normalized ("100%") bars show each day's composition/share; the raw
-        // mode shares a global max so bar heights compare day-to-day volume.
         const denom = normalize ? Math.max(1, totals[i]) : max;
         let y = H;
         return (
@@ -142,9 +122,6 @@ export function StackedBars({ points, keys, normalize = false }: { points: Usage
   );
 }
 
-/* Filled cumulative area (running total over time), with the value at each
-   step marked above its point. Uniform scaling (no `preserveAspectRatio`
-   stretch) so the value text stays undistorted. */
 export function AreaTrend({ values, color }: { values: number[]; color: string }) {
   const W = 320, H = 120, pad = 6, topPad = 12;
   const iw = W - pad * 2, ih = H - pad - topPad;
@@ -154,8 +131,6 @@ export function AreaTrend({ values, color }: { values: number[]; color: string }
   const yAt = (v: number) => topPad + ih - (v / max) * ih;
   const line = values.map((v, i) => `${i === 0 ? "M" : "L"}${xAt(i).toFixed(1)},${yAt(v).toFixed(1)}`).join(" ");
   const area = `${line} L${xAt(n - 1).toFixed(1)},${(topPad + ih).toFixed(1)} L${xAt(0).toFixed(1)},${(topPad + ih).toFixed(1)} Z`;
-  // Label every step; on the cumulative (monotone) curve they spread upward so
-  // they rarely collide. The last point is bold (the running total).
   return (
     <svg width="100%" viewBox={`0 0 ${W} ${H}`} role="img" style={{ display: "block", width: "100%", height: "auto" }}>
       <path d={area} fill={color} fillOpacity={0.22} />
@@ -170,9 +145,6 @@ export function AreaTrend({ values, color }: { values: number[]; color: string }
   );
 }
 
-/* Top-N horizontal bars (shelves, features, …) — DOM-based so labels stay
-   crisp and ellipsize cleanly. `mode='pct'` relabels the trailing value as a
-   share of the total (bars still scale to the largest row for readability). */
 export function TopBarChart({ rows, color, mode = "raw" }: { rows: Array<[string, number] | [string, number, string]>; color: string; mode?: "raw" | "pct" }) {
   const max = Math.max(1, ...rows.map((r) => r[1]));
   const total = rows.reduce((a, r) => a + r[1], 0) || 1;
@@ -191,10 +163,6 @@ export function TopBarChart({ rows, color, mode = "raw" }: { rows: Array<[string
   );
 }
 
-/* KPI card body: a big current-period number, a smaller reference number for
-   the previous period, and an up/down/flat arrow. Only the arrow carries
-   colour (green up / red down) — the numbers follow the theme text colour.
-   Presentational only — the caller wraps it in a focusable block. */
 export function TrendKpi({ value, refValue }: { value: number; refValue: number }) {
   const dir = value > refValue ? 1 : value < refValue ? -1 : 0;
   const arrow = dir > 0 ? "▲" : dir < 0 ? "▼" : "—";
@@ -211,9 +179,7 @@ export function TrendKpi({ value, refValue }: { value: number; refValue: number 
   );
 }
 
-/* Donut for categorical splits (card types, …). Arc paths computed by hand;
-   each slice is capped just under a full turn so a single 100% slice still
-   renders as a ring instead of degenerating to nothing. */
+// Capped just under a full turn so a single 100% slice still draws a ring.
 export function DonutChart({ data }: { data: Array<{ label: string; value: number; color: string }> }) {
   const S = 130, r = S / 2, ir = r * 0.56;
   const total = data.reduce((a, d) => a + d.value, 0) || 1;

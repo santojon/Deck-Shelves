@@ -5,9 +5,6 @@ import { takeNavTreeFocus } from '../../../runtime/navFocus'
 
 export type HideableRowMode = 'qam' | 'sidecar'
 
-// Wraps a control so it can be hidden from the QAM: in the sidecar it renders
-// with an eye toggle; in the QAM it renders the control (or nothing when
-// hidden). Shared by the sidecar GeneralTab and the profiles section.
 export function HideableRow({ tk, hidden, setHidden, mode, t, children }: {
   tk: string
   hidden: boolean
@@ -16,9 +13,7 @@ export function HideableRow({ tk, hidden, setHidden, mode, t, children }: {
   t: (k: string) => string
   children: ReactNode
 }) {
-  /* Toggling shows/hides the row in the QAM main panel, which makes Steam
-     re-resolve the nav tree and yank focus out of the sidecar — re-assert
-     focus on the eye after the re-render so the sidecar stays usable. */
+  // Hiding the row in the QAM makes Steam rebuild the nav tree and steal focus, so take it back.
   const eyeRef = useRef<HTMLDivElement>(null)
   const toggle = () => {
     setHidden(!hidden)
@@ -27,8 +22,7 @@ export function HideableRow({ tk, hidden, setHidden, mode, t, children }: {
   }
   if (mode === 'qam' && hidden) return null
   if (mode === 'qam') return <>{children}</>
-  // sidecar: row with the control on the left and an eye button on the right.
-  // flow-children='row' lets Steam's nav dpad-right into the eye button.
+  // flow-children='row' lets the d-pad reach the eye button.
   return (
     <Focusable className='ds-hide-row' flow-children='row' noFocusRing>
       {children}

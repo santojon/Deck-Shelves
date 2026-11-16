@@ -7,9 +7,6 @@ type DataAttributes = { [attribute: `data-${string}`]: string }
 
 const BUTTON_STYLE = { ...BTN_ICON_COMPACT_STYLE, flexShrink: 0 }
 
-/* The "…" control at the end of a list row. The menu is built when it opens, so it
-   reflects the item at that moment, and the client places it next to the control.
-   A on the row's name opens the same menu through this control (GrabReorderList). */
 export function RowMenuButton({ hint, menu, ...data }: { hint: string; menu: () => ReactElement } & DataAttributes) {
   const open = (evt?: { currentTarget?: EventTarget | null }) => showContextMenu(menu(), evt?.currentTarget ?? undefined)
   return (

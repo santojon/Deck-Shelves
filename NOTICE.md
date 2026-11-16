@@ -77,11 +77,12 @@ plugin and is not affiliated with or endorsed by Valve.
 
 ## Online services
 
-Everything works offline by default. The opt-in online shelves (wishlist,
+Everything works offline by default. Game artwork that Steam has no local copy
+of is loaded from Steam's artwork CDNs. The opt-in online shelves (wishlist,
 prices, deals) read Steam's own store and community endpoints
-(`store.steampowered.com`, `api.steampowered.com`, `steamcommunity.com`) and
-Steam's artwork CDNs; update checks ask GitHub's releases API for this
-repository (the pre-release channel is opt-in). No other server is contacted,
+(`store.steampowered.com`, `api.steampowered.com`, `steamcommunity.com`);
+update checks ask GitHub's releases API for this repository (the pre-release
+channel is opt-in). No other server is contacted,
 and nothing is sent anywhere except those requests.
 
 ## Dependencies
@@ -89,7 +90,8 @@ and nothing is sent anywhere except those requests.
 Runtime libraries: `react` / `react-dom`, `i18next` / `react-i18next` and `zod`,
 plus the Decky SDK packages the loader provides (`@decky/ui`, `@decky/api`), each
 under its own license; see the packages for details. The Python backend uses
-only the standard library. Build and test tooling (Vite, esbuild, TypeScript,
+only the standard library, plus `psutil` (BSD 3-Clause) for performance
+readings when the system already provides it; it is not bundled. Build and test tooling (Vite, esbuild, TypeScript,
 ESLint, Vitest) never ships. `@deck-shelves/api` and `@deck-shelves/host` are the author's own sibling
 projects (the public plugin API and the host contract), consumed as npm packages
 with their own notices.

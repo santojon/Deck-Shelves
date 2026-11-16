@@ -7,8 +7,6 @@ import { isOnline } from "../../core/connectivity";
 import { logInfo } from "../../runtime/logger";
 import { flowChildrenProps } from "../../core/steamOSVersion";
 
-// Not inlined into the render ternary — keeps that decision out of
-// UpdateBanner's own complexity count (see DeckQAMSettings's shouldRenderSidecar).
 function updateActionKey(): "update_install" | "download_update" {
   return canSelfInstallUpdate() ? "update_install" : "download_update";
 }
@@ -20,17 +18,10 @@ export function UpdateBanner({ controller }: { controller: SettingsController })
   const enabled = settings?.updateNotifyEnabled ?? true;
   const dismissed = settings?.updateNotifyDismissedVersion;
 
-  // Track the previous toggle value to detect a within-session OFF → ON flip;
-  // on that edge, reset the stored update result before probing.
-  /* Every mount checks once: `checkForUpdate` asks the release feed when
-     online (sharing an in-flight request) and falls back to the stored
-     result offline. The boot-time probe is `installUpdateProbes`
-     (runtime/bootPhases.ts). */
   const prevEnabledRef = useRef<boolean>(enabled);
   useEffect(() => {
     if (!enabled) { prevEnabledRef.current = false; return; }
-    // A self-install host already polls this same release feed and shows
-    // its own update notice — skip the duplicate check (see bootPhases.ts).
+    // A self-install host already shows its own notice for this release feed.
     if (canSelfInstallUpdate()) return;
     const wasOff = !prevEnabledRef.current;
     prevEnabledRef.current = true;

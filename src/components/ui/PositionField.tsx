@@ -1,4 +1,5 @@
-import { Dropdown, Field } from '../../runtime/host/decky'
+import { Field } from '../../runtime/host/decky'
+import { PanelDropdown } from './PanelDropdown'
 
 export type HorizontalPosition = 'left' | 'center' | 'right'
 
@@ -18,7 +19,6 @@ export function PositionField({
   onChange: (next: HorizontalPosition) => void
   t: (k: string) => string
   disabled?: boolean
-  // Global controls only: an extra first choice that hands the value back to each shelf.
   perShelfLabel?: string
   onPerShelf?: () => void
 }) {
@@ -29,7 +29,8 @@ export function PositionField({
   ]
   return (
     <Field label={t(labelKey)} childrenContainerWidth='min'>
-      <Dropdown
+      <PanelDropdown
+        menuLabel={t(labelKey)}
         rgOptions={perShelfLabel ? [{ data: PER_SHELF, label: perShelfLabel }, ...options] : options}
         selectedOption={value ?? (perShelfLabel ? PER_SHELF : 'left')}
         disabled={disabled}

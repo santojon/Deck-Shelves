@@ -61,7 +61,6 @@ describe("theme registry — one adapter per theme, flags + CSS + labels from on
     expect(root.getAttribute("data-ds-theme-gray-uninstalled")).toBe("true");
     expect(root.getAttribute("data-ds-theme-clc")).toBe("bold color");
     expect(root.getAttribute("data-ds-theme-focus-round-compat")).toBe("true");
-    // Mirrored to <html> for rules that must reach outside the root.
     expect(document.documentElement.getAttribute("data-ds-theme-focus-round-compat")).toBe("true");
     expect(root.hasAttribute("data-ds-theme-tilted-home")).toBe(false);
     clearRootThemeFlags(root);

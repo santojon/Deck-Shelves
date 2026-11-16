@@ -5,10 +5,7 @@ import { isSupportedSortKey } from "./sorting";
 import { RETIRED_SMART_MODES, INTERNAL_SMART_MODES } from "./smartShelves";
 import { SOURCE_V3_RESOLVERS } from "./v3Extensions";
 
-/* Why a shelf cannot resolve: a condition, sort key, built-in source or smart mode
-   that nothing evaluates any more (retired, or a plugin's that is not loaded). The
-   whole query is refused rather than evaluated without the missing piece, so a
-   shelf never widens to the library or orders by a key it does not have. */
+// The whole query is refused rather than run without the missing piece, so a shelf never widens to the whole library.
 
 type Loose = ShelfSource & Record<string, any>;
 
@@ -29,7 +26,6 @@ function unsupportedSmartMode(mode: unknown): string | null {
   return live ? null : `smart mode ${id}`;
 }
 
-// The checks per source type; each returns the first thing it cannot run.
 const SOURCE_CHECKS: Record<string, (source: Loose) => string | null> = {
   filter: (s) => unsupportedCondition(s.filter?.filterGroup) ?? unsupportedSort(s.filter?.sort),
   builtin: (s) => (String(s.sourceId) in SOURCE_V3_RESOLVERS ? null : `source ${s.sourceId}`),
@@ -46,7 +42,6 @@ function unsupportedInSource(source: Loose): string | null {
   return SOURCE_CHECKS[String(source.type)]?.(source) ?? null;
 }
 
-/** Null when every part of the query can run; otherwise what cannot. */
 export function unavailableReason(source: ShelfSource, sort?: string | string[]): string | null {
   return unsupportedSort(sort) ?? unsupportedInSource(source as Loose);
 }

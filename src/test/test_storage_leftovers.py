@@ -49,9 +49,9 @@ def test_profile_and_account_snapshots_count_as_automatic_but_not_for_the_daily_
     _touch(tmp_path / "settings-20240201-000000.json", OLD)
     storage._prune_auto_backups(bdir)
     left = os.listdir(bdir)
-    assert len(left) == 10 and "settings-20230101-000000-manual.json" in left   # a manual one is never pushed out
+    assert len(left) == 10 and "settings-20230101-000000-manual.json" in left
     assert storage._is_auto_backup("settings-20240101-000000-account-switch.json")
-    assert not storage._is_auto_backup("settings-20240101-000000-pre-import.json")   # as in 3.4.0
+    assert not storage._is_auto_backup("settings-20240101-000000-pre-import.json")
     assert storage._newest_auto_mtime(bdir) == os.path.getmtime(tmp_path / "settings-20240201-000000.json")
 
 
@@ -68,7 +68,7 @@ def test_a_fourth_quarantined_copy_removes_the_oldest(tmp_path):
 def test_quarantined_copies_older_than_seven_days_go(tmp_path):
     _touch(tmp_path / "settings-20240101-000000-corrupt.json", time.time() - 8 * 86400)
     _touch(tmp_path / "settings-20240102-000000-corrupt.json")
-    _touch(tmp_path / "settings-20240101-000000.json", time.time() - 8 * 86400)  # snapshots are not this rule's
+    _touch(tmp_path / "settings-20240101-000000.json", time.time() - 8 * 86400)
     storage._prune_quarantine(str(tmp_path))
     assert sorted(os.listdir(tmp_path)) == ["settings-20240101-000000.json", "settings-20240102-000000-corrupt.json"]
 
@@ -87,9 +87,9 @@ def test_stale_leftovers_go_in_both_folders_but_never_ours_or_a_recent_one(monke
     for d in (loader, canonical):
         _touch(d / "settings.json.99999.tmp", OLD)
         _touch(d / "settings.json.tmp", OLD)
-        _touch(d / "settings.json.88888.tmp")                            # recent: maybe the other host's write
-        _touch(d / f"settings.json.{os.getpid()}.tmp", OLD)              # ours: a write may be under way
-        _touch(d / "notes.tmp", OLD)                                     # not ours to touch
+        _touch(d / "settings.json.88888.tmp")
+        _touch(d / f"settings.json.{os.getpid()}.tmp", OLD)
+        _touch(d / "notes.tmp", OLD)
     storage.sweep_leftovers()
     for d in (loader, canonical):
         assert sorted(f for f in os.listdir(d) if f.endswith(".tmp")) == sorted(
@@ -122,13 +122,13 @@ def test_export_leftovers_go_only_from_the_export_folder_and_only_when_finished_
     folder = tmp_path / "Downloads"
     folder.mkdir()
     _touch(folder / "a.json")
-    _touch(folder / "a.json.tmp", time.time() - 120)          # its export finished: goes
-    _touch(folder / "b.json.tmp", OLD)                        # stale: goes
-    _touch(folder / "c.json.tmp", time.time() - 120)          # unfinished and recent: stays
-    _touch(folder / "photo.tmp", OLD)                         # not an export of ours
+    _touch(folder / "a.json.tmp", time.time() - 120)
+    _touch(folder / "b.json.tmp", OLD)
+    _touch(folder / "c.json.tmp", time.time() - 120)
+    _touch(folder / "photo.tmp", OLD)
     other = tmp_path / "Desktop"
     other.mkdir()
-    _touch(other / "d.json.tmp", OLD)                         # another folder: never scanned
+    _touch(other / "d.json.tmp", OLD)
     storage.sweep_export_tmps(str(folder / "deck-shelves.json"))
     assert sorted(os.listdir(folder)) == ["a.json", "c.json.tmp", "photo.tmp"]
     assert os.listdir(other) == ["d.json.tmp"]

@@ -7,10 +7,7 @@ run_checks() {
   local fail=0
   local src="$root/src"
 
-  # 1. Shine lives on .appportrait_LibraryItemBox:focus::after. CSS Loader
-  # targets the hashed `nativeCard`, which our .ds-card inherits via
-  # resolveNativeCardClass — verify the class promotion is wired.
-  if grep -q 'resolveNativeCardClass' "$src/components/shelf/GameCard.tsx" 2>/dev/null; then
+  if grep -q 'useNativeCardClassInjection' "$src/components/shelf/GameCard.tsx" 2>/dev/null; then
     echo "  ✅ Native card class promoted onto .ds-card (shine reaches DS cards)"
     ((pass++))
   else
@@ -18,9 +15,7 @@ run_checks() {
     ((fail++))
   fi
 
-  # 2. .ds-card::after opacity must NOT be forced — theme drives anim via
-  # opacity 0 → 0.8 on :focus. Forced opacity 1 → static purple stripe.
-  # Stylesheet template moved to shelfStylesheetTemplate.ts after the split.
+  # Forcing ::after opacity turns the theme's focus animation into a static stripe.
   local _shine_files="$src/components/shelf/shelfStylesheetTemplate.ts $src/components/shelf/shelfStyles.ts $src/themes/adapters/focusRoundCompat.ts"
   if grep -qs '::after' $_shine_files \
      && ! grep -qs '\.ds-card::after\s*{[^}]*opacity:\s*1' $_shine_files; then
@@ -31,8 +26,6 @@ run_checks() {
     ((fail++))
   fi
 
-  # 3. Under Round Compat, shine ::after suppressed so the focus visual
-  # disappears (matches the theme's behaviour on native cards).
   if grep -qs 'data-ds-theme-focus-round-compat="true"' $_shine_files \
      && grep -qs '\.ds-card.*::after' $_shine_files; then
     echo "  ✅ Shine ::after suppressed under Round Compat flag"
@@ -42,8 +35,6 @@ run_checks() {
     ((fail++))
   fi
 
-  # 4. The shine uses --flangrande-game-cover-shine-color from the theme;
-  # ensure source never writes to it (the theme is the sole owner).
   if grep -rqi 'flangrande-game-cover-shine-color\s*:[^"]*=\|--flangrande-game-cover-shine-color[^"]*"\s*:' "$src" 2>/dev/null; then
     echo "  ❌ Source writes to --flangrande-game-cover-shine-color (coupling)"
     ((fail++))

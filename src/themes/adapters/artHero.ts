@@ -3,8 +3,7 @@ import { getRuntimeClassMap } from "../../core/webpackCompat";
 import { cssLoaderStyleTexts } from "../detect";
 import type { ThemeAdapter } from "../types";
 
-// Fallback for the heroInner token if the runtime classmap hasn't been
-// populated yet — same value as `classmap.json` ships with.
+// Used until the runtime class map is populated.
 const FALLBACK_HERO_INNER = "_30D-80Lg-Luy-KxOumBlaY";
 
 function textMatchesArtHero(text: string, heroToken: string): boolean {
@@ -21,8 +20,6 @@ export function isArtHeroActive(): boolean {
   return cssLoaderStyleTexts().some((text) => textMatchesArtHero(text, heroToken));
 }
 
-/* ArtHero (full hero art + title overlay on the recents row). The flag drives
-   the hero-label layout rules of the base stylesheet; no CSS of its own. */
 export const artHeroTheme: ThemeAdapter = {
   id: "art-hero",
   label: "ArtHero",

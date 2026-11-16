@@ -8,13 +8,6 @@ import { getHostApi } from "../index";
 import { openManagedModal } from "../components/qam/common/openManagedModal";
 import { UpdateInstallingModal } from "../components/update/UpdateInstallingModal";
 
-/* Manual-update download: hand the release .zip URL to the backend, which saves
-   it to ~/Downloads (per-OS equivalent) for the user to install by hand — there
-   is no auto-install. Branded toasts report progress/result. When a release has
-   no packaged .zip asset, fall back to opening the release page so the user can
-   still grab it. Best-effort; never throws. */
-/* Run the backend download RPC; returns the saved path, or null on any failure
-   (logged). Kept separate so `downloadUpdate` stays simple. */
 async function runDownload(url: string, filename: string): Promise<string | null> {
   try {
     const res = await call<[unknown], { ok?: boolean; path?: string; error?: string }>(
@@ -43,14 +36,6 @@ async function downloadUpdate(result: UpdateCheckResult | null | undefined): Pro
   openReleaseUrl(releaseUrl);
 }
 
-/* Host-parametric install: a self-install host (a neutral host) obtains the
-   release and swaps it in directly; a host without that surface (Decky) has
-   no mechanism beyond handing the user a file, so this always falls back to
-   the manual download above. Best-effort — never throws. */
-
-/** Whether the resolved host can self-install updates — drives the button
-    label ("Install" vs "Download"). False before boot or on any host without
-    the optional `updates` surface. */
 export function canSelfInstallUpdate(): boolean {
   try { return !!getHostApi().updates?.canSelfInstall?.(); } catch { return false; }
 }
@@ -67,8 +52,7 @@ async function runInstall(result: UpdateCheckResult): Promise<InstallOutcome> {
     return "installed";
   } catch (e) {
     logInfo("UPDATE", "applyUpdate threw", String(e));
-    // A host that cannot take the install right now rejects with a `busy: ` message (contract
-    // HostUpdates.applyUpdate): a moment's wait, not a failed install. Any other error is one.
+    // A `busy: ` rejection means the host can't take the install right now, not that it failed.
     return /(?:^|:\s)busy: /.test(String(e)) ? "busy" : "failed";
   }
 }
@@ -78,9 +62,7 @@ export async function installOrDownloadUpdate(result: UpdateCheckResult | null |
   if (!canSelfInstallUpdate()) { await downloadUpdate(result); return; }
 
   const { latestVersion } = result;
-  // A blocking spinner modal makes the download+swap step explicit. The host
-  // hot-swaps the new bundle in place a few seconds after applyUpdate resolves
-  // (no renderer reload), so the modal is closed here on either outcome.
+  // The host swaps the bundle in place without a reload, so close the modal on either outcome.
   const closeModal = openManagedModal((close) =>
     createElement(UpdateInstallingModal, { version: latestVersion ?? undefined, closeModal: close }),
   );

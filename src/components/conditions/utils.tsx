@@ -60,10 +60,8 @@ export const ALL_FILTER_TYPES: FilterItemType[] = [
 ];
 
 export const COMPAT_LEVELS = ["verified", "playable", "unsupported", "unknown"] as const;
-// VR in three values (Steam's "VR Only" / "VR Supported" categories, else none).
 export const VR_LEVELS = ["only", "supported", "none"] as const;
 
-// Functions, so each new condition gets its own objects and arrays.
 const STARTING_OPTIONS: Partial<Record<FilterItemType, () => Record<string, any>>> = {
   hidden: () => ({ mode: "exclude" }),
   deckCompatibility: () => ({ levels: ["verified", "playable"] }),
@@ -126,9 +124,6 @@ function isValidRegex(pattern: any): boolean {
   try { new RegExp(pat); return true; } catch { return false; }
 }
 
-// Whether a type's options are enough to test anything. Types with no entry
-// (installed / favorites / nonSteam / updatePending / isNew / cloudAvailable /
-// controllerSupport / playtimeRange / friendsPlayingNow) always are.
 const COMPLETE_WHEN: Partial<Record<FilterItemType, (p: any) => boolean>> = {
   hidden: (p) => !!p.mode,
   deckCompatibility: (p) => nonEmptyArray(p.levels),
@@ -235,23 +230,11 @@ export function getTypeLabel(type: string): string {
   return isKnownFilterType(type) ? map[type] : t("filter_type_unavailable", { type });
 }
 
-/* Only true store/wishlist-data filters — price and discount need the
-   online-store fetch. Friend-activity filters (playing now / played
-   recently) read Steam's local friend list instead, so they're always
-   offered rather than gated here. Gated by `allowOnlineFilters` (is the
-   current source itself online), not by the Online Features toggle. */
 export function isOnlineFilterType(type: string): boolean {
   return type === "discount" || type === "priceRange";
 }
 
-/* genres/categories/franchise have no usable local data — even on a library
-   shelf they need Online Features on to fetch and cache Store/client
-   details. Gated by the toggle itself, not source type: unlike discount/
-   priceRange these are meaningful on any source (v3Extensions.ts). */
 export function isOnlineFeatureFilterType(type: string): boolean {
-  // The friends' libraries are fetched from Steam, so that one follows the toggle too.
   return type === "genres" || type === "categories" || type === "franchise" || type === "friends"
-    // Review score / release date / coming soon read online-enriched fields
-    // (onlineMetadata.ts), absent locally on desktop — unlike demo/steamosCompatibility.
     || type === "reviewScore" || type === "releaseDate" || type === "comingSoon";
 }

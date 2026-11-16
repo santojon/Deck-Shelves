@@ -1,277 +1,75 @@
 # Contributing to Deck Shelves
 
-Thank you for your interest in contributing! This guide covers the development setup, coding conventions, and how to submit changes.
+Thanks for taking the time. Commands are in
+[docs/development.md](docs/development.md) and the code layout is in
+[docs/architecture.md](docs/architecture.md).
 
-## Prerequisites
+## Setup
 
-- **Node.js** 20 or later
-- **pnpm** 10 or later
-- **Python 3.9+** (for the backend and lint)
-- A **Steam Deck** with [Decky Loader](https://decky.xyz) installed (for testing)
-- SSH access to the Deck on your local network
-
-## Supported platforms
-
-The dev / build / validation flows run on **Linux, macOS, and Windows**.
-
-| Workflow                                       | Linux | macOS | Windows |
-|------------------------------------------------|:-----:|:-----:|:-------:|
-| `pnpm install`                                 |  ✅  |  ✅   |   ✅    |
-| `pnpm run build` / `build:dev`                 |  ✅  |  ✅   |   ✅    |
-| `pnpm run typecheck`                           |  ✅  |  ✅   |   ✅    |
-| `pnpm run test`                                |  ✅  |  ✅   |   ✅    |
-| `pnpm run lint`                                |  ✅  |  ✅   |   ✅    |
-| `pnpm run dev:check` (typecheck + lint + test) |  ✅  |  ✅   |   ✅    |
-| `pnpm run package` / `verify:package`          |  ✅  |  ✅   |   ✅    |
-| `pnpm run validate:compat`                     |  ✅  |  ✅   |   ⚠️    |
-| `pnpm run deploy:deck*` (bash)                  |  ✅  |  ✅   |   ⚠️    |
-| `pnpm run deploy:deck:win*` (PowerShell)        |  —   |  —    |   ✅    |
-| `pnpm run validate:ci`                         |  ✅  |  ✅   |   ✅    |
-| `pnpm run update` / `update:*`                 |  ✅  |  ✅   |   ✅    |
-
-Everything a contributor needs to validate a change — build, typecheck,
-lint, tests, **packaging + verify** (`validate:ci`) and the dependency-update
-flow (`update:*`) — is Node or Python and runs natively on all three OSes (no bash, no
-`zip`/`unzip` CLI; packaging uses Python's `zipfile`). Python is invoked through
-a cross-OS launcher (`scripts/build/py.mjs`, which resolves `python3` /
-`python` / `py -3`), so a bare `python3` on PATH is not required on Windows.
-
-- ⚠️ `validate:compat` runs ~39 integration checks that are still bash
-  (`checks/**/*.sh`). The wrapper (`scripts/build/validate-compat.mjs`)
-  finds `bash` on PATH and routes through it, so on Windows it needs
-  **Git for Windows** (Git Bash) or **WSL**. The OS-independent subset is
-  covered by `pnpm run dev:check`.
-- ⚠️ The bash deploy scripts (`deploy:deck` / `:hard`, SSH + rsync + sudo)
-  need a POSIX shell; on Windows use **`pnpm run deploy:deck:win`** /
-  **`deploy:deck:win:hard`** — a PowerShell variant
-  ([`scripts/deploy/deploy-deck.ps1`](scripts/deploy/deploy-deck.ps1)) that
-  uses the OpenSSH `ssh`/`scp` bundled with Windows 10+ (no rsync/bash).
-  The other deck-operator scripts (watch, logs, perf-stress) remain
-  bash — run them under WSL / Git Bash.
-
-### Windows quickstart
-
-1. Install [Node.js 26+](https://nodejs.org/), [Python 3.9+](https://www.python.org/),
-   and (only for `validate:compat`) [Git for Windows](https://git-scm.com/download/win).
-2. From PowerShell or Git Bash: `npm install -g pnpm && pnpm install` (Node 26 no longer ships Corepack).
-3. `pnpm run dev:check && pnpm run package` — the full local build + package flow runs natively.
-4. `pnpm run validate:compat` only needs Git Bash / WSL for the bash integration checks.
-
-## Getting Started
-
-1. Fork and clone the repository
-2. Install dependencies:
+You need Node.js 26+, pnpm 12+ and Python 3.9+ with `ruff` and `pytest`
+(`python3 -m pip install ruff pytest`). To test on hardware, a Steam Deck (or
+another device in Gaming Mode) with [Decky Loader](https://decky.xyz),
+reachable over SSH.
 
 ```bash
 pnpm install
+cp .env.example .env                 # at least DECK_HOST
+pnpm run deck:setup <deck-hostname>  # first time only
+pnpm run deploy:deck                 # development build, copied over SSH
 ```
 
-3. Set up the Deck for development (first time only):
+On a machine that already runs Steam with Decky, `pnpm run deploy:local`
+installs into the local plugins folder instead.
 
-```bash
-pnpm run deck:setup <deck-hostname>
-```
+On Windows, build, lint and tests work natively; the compatibility checks need
+Git Bash or WSL, and `pnpm run deploy:deck:win` is the PowerShell deploy.
 
-4. Build and deploy:
+## Code
 
-```bash
-pnpm run build
-pnpm run deploy:deck <deck-hostname>
-```
+- ESLint and TypeScript enforce the style (complexity at most 10, files at most
+  1000 lines). New lint suppressions are not accepted; split the code instead.
+- Comments only where the code can't say it.
+- The Home runs inside Steam's UI on a handheld: no polling where an event
+  exists, every effect cleans up, stable props on cards and rows. See
+  [docs/performance.md](docs/performance.md).
+- New UI text goes into `i18n/<locale>/<area>.json` for **every** locale (use
+  the English text where you have no translation). Text that Steam itself shows
+  is read from the Steam client, not added there.
 
-5. Or use watch mode for automatic redeployment:
+## Pull requests
 
-```bash
-pnpm run watch:deck <deck-hostname>
-```
+1. Branch from `main`.
+2. Add an entry under `## [Unreleased]` in `RELEASE_NOTES.md`, in words a user
+   understands, without issue numbers. When the change fixes an issue or has
+   technical detail worth keeping (migrations, settings or API changes, renamed
+   CSS classes), also add it to `CHANGELOG.md`, citing the issue as `(#123)`.
+3. Run `pnpm run validate:ci`; it is the same check CI runs.
+4. Test on a device when the change touches the Home, the Quick Access panel or
+   input ([docs/qa-manual.md](docs/qa-manual.md)), or say in the PR why it isn't
+   needed.
+5. Start the PR title with a tag; it decides the version bump:
 
-### Developing on the machine that runs Steam
+| Tag | Bump |
+|---|---|
+| `[FIX]`, `[ENHANCEMENT]`, `[PERF]`, `[QA]` | patch |
+| `[FEATURE]`, `[CLEANUP]` | minor |
+| `[REFACTOR]` | major |
 
-If you're working **directly on a Deck / Linux / Windows box that already has
-Decky Loader installed**, skip the SSH flow and install into the local Decky
-plugin dir:
+After the merge, the version is bumped from the tag, the `[Unreleased]` entries
+move under it, and the release is built. Its text comes from `RELEASE_NOTES.md`,
+and issues cited in the release's entries get a comment. Don't edit the version
+in `package.json` or add version headers yourself.
 
-```bash
-pnpm run deploy:local        # build + install locally (no SSH)
-pnpm run deploy:local:hard   # + reload plugin_loader + restart Steam (Linux)
-```
+## Reporting issues
 
-It never installs Decky — set `DECKY_PLUGINS_DIR` if Decky isn't at
-`~/homebrew/plugins`. See [docs/development.md](docs/development.md#run-locally-decky-already-installed).
+Use the issue templates. For a bug, include the plugin version, the SteamOS (or
+OS), Steam client and Decky Loader versions, the other plugins and CSS Loader
+themes you use, and logs if you can (Settings → Advanced tools).
 
-## Project Structure
-
-```
-main.py                  Python backend entry — DEFAULT_SETTINGS, _SSL_CTX,
-                         Plugin class (lifecycle + RPC). Re-exports the
-                         helper modules below for back-compat imports.
-src/backend/paths.py     _steam_install_candidates, _normalize_path —
-                         path discovery + home-confined path validation.
-src/backend/storage.py   _settings_dir, _primary_file, _safe_read_json —
-                         settings.json read helpers (Decky env-var aware).
-src/backend/sanitizer.py _sanitize_settings — settings-shape normaliser
-                         (mirrors the Zod schemas in src/types.ts).
-src/index.tsx            Frontend entry point (Decky lifecycle)
-src/types.ts             Zod schemas (Shelf, Settings, FilterGroup)
-src/steam/               Steam API access (collections, tabs, filters, apps)
-src/store/               Settings store (backend RPC + localStorage cache)
-src/components/          React components
-  shelf/                 Card components (GameCard, MoreCard, PlaceholderCard, HeroBackground)
-  home/                  Home screen nav patches
-  conditions/            Filter group editor and per-type options
-  qam/                   QAM modals, shelf list, action buttons, icons
-    common/              Shared QAM components (QamToolbar, RowMenuButton, ShelfNameplate)
-    list/                Shelf list panel and actions
-    modals/              Delete, Edit, Export, Import, Template modals
-  about/                 Documentation tabs (Overview, HowTo, Shelves, Filters, Support)
-  styles/                Injected stylesheets
-src/core/                Utilities (focus, scroll, assets, webpack compat, plugin API)
-src/domain/              Pure domain logic (settings operations, defaults, templates)
-src/runtime/             Platform integration (home patching, Steam host, logger)
-src/features/            Feature-scoped modules (UI + hooks per feature; pure rules stay in src/domain)
-  setup/                 Setup wizard, first-run tour + banners, wizard entry
-  statistics/            Statistics + Suggestions panels, usage charts
-  profiles/              Profiles section / detail / modals
-  search/, sidenav/      Quick Search overlay, Side Nav overlay
-  settings/
-    controller.tsx       Hook entry (state + effects + compose action slices)
-    controller/          Action slices spread into the public `actions`
-      shelves.ts         Regular-shelf CRUD + import / export / reset
-      smartShelves.ts    Smart-shelf CRUD + surprise-me + import / export
-      savedFilters.ts    SavedFilter + SavedSmartFilter CRUD
-      online.ts          Online-features toggles + acceptOnlinePrivacy
-      globalVisual.ts    30 global visual setters (consolidated)
-      profiles.ts        Usage profiles + unified/lightMode/featureToggle setters
-src/integrations/        Third-party plugin integration (one descriptor per plugin: TabMaster, UnifiDeck, ...)
-src/themes/              Theme compatibility (one adapter per theme under adapters/ + registry)
-src/shims/               React/Decky GamepadUI shims
-src/test/                Vitest test suites
-i18n/                    Locale files
-docs/                    Architecture, API, filter, and development docs
-scripts/                 Build, deploy and CI scripts
-```
-
-See [`docs/architecture.md`](docs/architecture.md) for a detailed breakdown.
-
-## Code Style
-
-- **Indentation**: 2 spaces
-- **Semicolons**: always
-- **Quotes**: double quotes for strings
-- **Naming**: `camelCase` for variables and functions, `PascalCase` for components and types
-- **TypeScript**: avoid `any` — use proper types or `unknown`
-- **Imports**: group by external, then internal, then relative
-- **Comments**: only where the logic is not self-evident — do not add JSDoc or inline comments to obvious code
-
-## Build Modes
-
-- `pnpm run build` — production build (minified, no sourcemaps, `__DEV__` = false); the Decky store runs this one
-- `pnpm run build:dev` — development build (sourcemaps, no minification, `__DEV__` = true)
-
-## Compatibility Checks
-
-Before submitting, run the compatibility validation:
-
-```bash
-pnpm run validate:compat
-```
-
-All checks should pass. The individual check scripts live in the `checks/` subfolders.
-
-## Internationalization
-
-- Locales are **area-sliced**: `i18n/<locale>/{home,qam,about,settings,integrations,common}.json`. The loader (`src/i18n.ts`) merges the areas at runtime.
-- Base locale: the `i18n/en-US/` directory
-- Every locale must have the same merged key set as `en-US` (no cross-area key collisions)
-- When adding a new i18n key, add it to the matching area file in **all** locale directories
-- `pnpm run validate:compat` (and `node scripts/build/validate.mjs` for the build-time check) verifies per-locale key consistency automatically
-
-## Tests
-
-- Run unit tests (TypeScript + Python) locally with: `pnpm run validate:ci` (it also builds and packages)
-- The CI installs and runs `pytest` for Python tests in addition to Vitest for TypeScript tests. Ensure `pytest` is available locally (`pip install pytest`).
-- **QA harness flags** are documented in [docs/qa-manual.md §12](docs/qa-manual.md). Use `pnpm qa:<scenario>` scripts to deploy a build with a fixture pre-applied.
-
-## Validation
-
-`pnpm validate:ci` runs typecheck, lint, build, unit tests, packaging and the compatibility checks. It needs no device or `.env`, and it is the same command CI uses:
-
-```yaml
-- name: Validate
-  run: pnpm validate:ci
-```
-
-It exits with code 1 on any failure.
+Security problems go through [SECURITY.md](SECURITY.md), not public issues.
 
 ## Maintainer scripts
 
-- `bash scripts/dev/ensure-repo-settings.sh` — checks and patches the GitHub repository's merge
-  settings (squash-only, delete branch on merge); needs the `gh` CLI.
-- `pnpm run deck:debug` — opens the device's DevTools target list in the browser.
-
-## Submitting Changes
-
-1. Create a feature branch from `main`
-2. Make your changes in focused, atomic commits
-3. Add entries under `## [Unreleased]` in **both** `CHANGELOG.md` (technical detail) and `RELEASE_NOTES.md` (user-facing language). Use `### Added`, `### Fixed`, `### Changed`, `### Removed`, or `### Performance` as appropriate.
-4. Run `pnpm run validate:compat` and ensure all checks pass
-5. Build with `pnpm run build` and verify no errors
-6. Run `pnpm run validate:ci` and verify no errors
-7. Test on a real Steam Deck if possible
-8. Open a Pull Request with a title starting with one of these tags:
-
-| Tag | Bump | Example |
-|---|---|---|
-| `[FIX]` | patch (0.1.0 → 0.1.1) | `[FIX] Prevent shelf from disappearing on reboot` |
-| `[ENHANCEMENT]` | patch (0.1.0 → 0.1.1) | `[ENHANCEMENT] Add tooltip to shelf card on hover` |
-| `[PERF]` | patch (0.1.0 → 0.1.1) | `[PERF] Debounce shelf resolve on settings changes` |
-| `[QA]` | patch (0.1.0 → 0.1.1) | `[QA] Add forced-error harness for shelf render path` |
-| `[CLEANUP]` | minor (0.1.0 → 0.2.0) | `[CLEANUP] Remove deprecated filter helpers` |
-| `[FEATURE]` | minor (0.1.0 → 0.2.0) | `[FEATURE] Add drag-and-drop shelf reordering` |
-| `[REFACTOR]` | major (0.1.0 → 1.0.0) | `[REFACTOR] Simplify settings persistence layer` |
-
-When a PR is merged to `main`, the version bump and tag creation happen automatically based on the title tag. The `release.yml` workflow extracts the user-facing release body from `RELEASE_NOTES.md` (and falls back to `CHANGELOG.md` if a section is missing) — release notes are **not** auto-generated from commit messages, so the entries you add are exactly what ships.
-
-> **Important:** Do not manually edit version numbers in `package.json`. Do not add version headers to `CHANGELOG.md` / `RELEASE_NOTES.md` — only add entries under `## [Unreleased]`. The bump automation handles versioning.
-
-### Pull Request Format
-
-Your PR must follow the template, and the CI `validate` job must pass before it can merge.
-
-**Required sections:**
-
-- **Description** — What this PR does and why. Link related issues with `Closes #123`.
-- **Changelog** — must be non-empty. Add entries under `## [Unreleased]` in `CHANGELOG.md` (technical level: file paths, internal mechanics, regressions covered).
-- **Release Notes** — must be non-empty. Add entries under `## [Unreleased]` in `RELEASE_NOTES.md` (user-facing wording, no jargon — this is what ships in the GitHub release body and the Decky store description).
-
-**Type of Change** — at least **one** of the first three rows must be checked:
-
-- [ ] Refactor / restructure (`[REFACTOR]`)
-- [ ] New feature / Code cleanup (`[FEATURE]`, `[CLEANUP]`)
-- [ ] Bug fix / Enhancement / QA / Performance update (`[FIX]`, `[ENHANCEMENT]`, `[QA]`, `[PERF]`)
-
-The remaining rows (Documentation update / i18n / Build / CI) are additive — check them in addition to one of the three above when applicable.
-
-**Checklist** — every item must be checked. The "i18n keys" line is required only when the **i18n / localization** Type-of-Change row above is also checked; otherwise it can stay unchecked and the validator will skip it.
-
-- [ ] My PR title starts with `[FIX]`, `[ENHANCEMENT]`, `[PERF]`, `[QA]`, `[REFACTOR]`, `[CLEANUP]`, or `[FEATURE]`
-- [ ] I added my changes to `CHANGELOG.md` and `RELEASE_NOTES.md` under `## [Unreleased]`
-- [ ] I have read [CONTRIBUTING.md](CONTRIBUTING.md)
-- [ ] My code follows the project's code style (2 spaces, semicolons, double quotes)
-- [ ] I ran `pnpm run build` with no errors
-- [ ] I ran `pnpm run validate:compat` and all checks pass
-- [ ] I tested on a Steam Deck (or explained why this isn't needed)
-- [ ] **(only if i18n / localization is checked above)** New i18n keys added to **all** locale files
-
-**Other sections** — Screenshots / Videos and Additional Notes are optional but encouraged for UI changes and non-obvious decisions.
-
-
-## Reporting Issues
-
-Open an issue on GitHub with:
-
-- A description of the problem or suggestion
-- Steps to reproduce (if a bug)
-- SteamOS version and Decky Loader version
-- Other installed plugins in same environment
-- Any relevant logs (`journalctl --user -f | grep -i decky` on the Deck)
+- `bash scripts/dev/ensure-repo-settings.sh` checks and fixes the repository's
+  merge settings (squash only, delete branch on merge); needs the `gh` CLI. A
+  weekly workflow does the same.

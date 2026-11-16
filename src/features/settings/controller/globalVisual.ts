@@ -26,7 +26,6 @@ export function createGlobalVisualActions(deps: GlobalVisualDeps) {
     if (!s || (s as any)[key] === c) return;
     await persist({ ...s, [key]: c } as any);
   };
-  // Several values in one save (a group switching between "same on every shelf" and per shelf).
   const setValues = async (patch: Record<string, number | null>) => {
     const s = liveSettings();
     if (!s || Object.keys(patch).every((k) => (s as any)[k] === patch[k])) return;
@@ -65,7 +64,8 @@ export function createGlobalVisualActions(deps: GlobalVisualDeps) {
     setGlobalDescriptionLogoGap: (v: number) => setClampedNumber("globalDescriptionLogoGap", v, -40, 80),
     setGlobalHideNewBadge: (v: boolean) => setBool("globalHideNewBadge", v),
     setGlobalHideDiscountBadge: (v: boolean) => setBool("globalHideDiscountBadge" as any, v),
-    setGlobalDiscountBadgeMode: (v: "percent" | "price" | "both") => setEnum("discountBadgeMode", v),
+    setGlobalDiscountBadgeMode: (v: "percent" | "price" | "both" | "percent_price" | null) => setEnum("discountBadgeMode", v),
+    setGlobalDiscountBadgeFocusMode: (v: "percent" | "price" | "both" | "percent_price" | null) => setEnum("discountBadgeFocusMode", v),
     setGlobalHideCompatIcons: (v: boolean) => setBool("globalHideCompatIcons", v),
     setGlobalHideSeeMore: (v: boolean) => setBool("globalHideSeeMore", v),
     setGlobalHideRefreshCard: (v: boolean) => setBool("globalHideRefreshCard", v),

@@ -52,7 +52,7 @@ def _default_sink_is_headphones(status: str) -> bool:
         if not in_sinks:
             continue
         if content.startswith(("Sources:", "Filters:", "Streams:")):
-            break  # next top-level section ends the sink list
+            break
         if content.startswith("*"):  # the default sink is flagged with '*'
             return bool(_HEADPHONE_RE.search(content))
     return False

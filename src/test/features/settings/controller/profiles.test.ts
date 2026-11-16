@@ -147,7 +147,7 @@ describe('applyFactoryProfile', () => {
     expect(persisted[0].enabled).toBe(true)
     expect(persisted[0].activeProfileName).toBeNull()
     expect(persisted[0].profiles).toBe(savedProfiles)
-    expect(persisted[0].theme).toBe('default') // from the mocked defaultSettings()
+    expect(persisted[0].theme).toBe('default')
   })
 
   it('keeps showcaseSeen sticky true through a factory reset', async () => {
@@ -166,7 +166,7 @@ describe('applyFactoryProfile', () => {
     expect(persisted[0].shelves).toEqual([{ id: 'live-shelf' }])
 
     await actions.applyFactoryProfile(true)
-    expect(persisted[1].shelves).toEqual([]) // from the mocked defaultSettings()
+    expect(persisted[1].shelves).toEqual([])
   })
 
   it('names the synthetic factory profile "Padrão"', () => {

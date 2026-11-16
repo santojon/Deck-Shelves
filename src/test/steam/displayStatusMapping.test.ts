@@ -10,8 +10,7 @@ const statusGroup = (groups: string[]): FilterGroup =>
 
 const matches = (apps: AppOverview[], g: FilterGroup) => evaluateFilterGroup(g, apps).map((a) => a.appid)
 
-// Steam's own values: 19 UpdateQueued, 20 UpdateRequired, 18 UpdatePaused, 6 Updating, 7 Downloading,
-// 11 ReadyToLaunch, 12 RegionRestricted, 13 PresaleOnly.
+// Steam's values: 6 Updating, 7 Downloading, 11 ReadyToLaunch, 12 RegionRestricted, 13 PresaleOnly, 18-20 update paused/queued/required.
 describe('display status from Steam, as the filters read it', () => {
   it('a queued, required or paused update is an update pending; an idle, region-locked or presale game is not', () => {
     const pending = [19, 20, 18, 6].map((ds, i) => normalizeAppOverview(raw(100 + i, ds)) as AppOverview)
@@ -21,15 +20,15 @@ describe('display status from Steam, as the filters read it', () => {
   })
 
   it('an installed app in this device\'s download queue has an update pending, whatever its status says', () => {
-    // 14 InvalidPlatform: what the Deck can report for an installed game while it updates.
+    // 14 InvalidPlatform is what the Deck can report for an installed game while it updates.
     const queue = new Map<string, any[]>([['0', [{ appid: 300, completed: false }, { appid: 301, completed: true }]], ['99', [{ appid: 302 }]]])
     ;(globalThis as any).downloadsStore = { m_DownloadItems: queue }
     try {
       const at = (appid: number, installed = true) => normalizeAppOverview({ ...raw(appid, 14), installed }) as AppOverview
       expect(at(300).update_pending).toBe(true)
-      expect(at(301).update_pending).not.toBe(true) // finished
-      expect(at(302).update_pending).not.toBe(true) // another device's queue
-      expect(at(300, false).update_pending).not.toBe(true) // a first install, not an update
+      expect(at(301).update_pending).not.toBe(true)
+      expect(at(302).update_pending).not.toBe(true)
+      expect(at(300, false).update_pending).not.toBe(true)
     } finally {
       delete (globalThis as any).downloadsStore
     }

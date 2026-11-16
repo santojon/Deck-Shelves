@@ -9,10 +9,7 @@ import { WandIcon } from '../../components/icons'
 
 export function FirstRunBanner({ controller }: { controller: SettingsController }) {
   const { t } = controller
-  /* No shelves while snapshots exist means something cleared them (a reset, a
-     profile, an import), not day one — a fresh install has none. Offer the
-     snapshot picker then, whatever cleared them (a reset also clears the tour
-     flag, so that flag cannot tell). */
+  // No shelves while snapshots exist means something cleared them, so offer the snapshot picker.
   const [snaps, setSnaps] = useState<BackupEntry[] | null>(null)
   useEffect(() => {
     let alive = true

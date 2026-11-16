@@ -38,9 +38,6 @@ describe('export/import handler registry', () => {
   })
 
   it('round-trips a snapshot through a handler pair (export -> import -> apply)', async () => {
-    // A trivial handler pair that wraps the snapshot JSON in its own format,
-    // proving the format-agnostic contract: whatever a handler emits on export,
-    // its import counterpart turns back into the same snapshot JSON.
     const exportFn = (json: string) => `TESTFMT:v1\n${json}`
     const importFn = (raw: string) => raw.replace(/^TESTFMT:v1\n/, '')
 

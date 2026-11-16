@@ -1,8 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
 
-/* The filter group on a wishlist or store shelf combines its conditions like the library's: and/or,
-   inversion, and a personal condition that says nothing about a game the user does not own. */
-
 vi.mock("../../runtime/logger", () => ({ logInfo: () => {}, logWarn: () => {} }));
 vi.mock("../../store/settingsStore", () => ({ getCurrentSettings: () => null }));
 vi.mock("../../core/onlineStore", () => ({ getPriceMap: async () => new Map() }));

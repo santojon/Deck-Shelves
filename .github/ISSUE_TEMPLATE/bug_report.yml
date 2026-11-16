@@ -3,25 +3,11 @@ description: Something is broken or behaving unexpectedly
 title: "[BUG] "
 labels: ["type::bug"]
 body:
-  - type: markdown
-    attributes:
-      value: |
-        **Before submitting:** check if a similar issue already exists.
-
   - type: textarea
     id: description
     attributes:
       label: What happened?
-      description: A clear description of the bug.
-      placeholder: Describe the bug...
-    validations:
-      required: true
-
-  - type: textarea
-    id: expected
-    attributes:
-      label: Expected behavior
-      description: What did you expect to happen?
+      description: What you saw and what you expected instead.
     validations:
       required: true
 
@@ -30,30 +16,9 @@ body:
     attributes:
       label: Steps to reproduce
       placeholder: |
-        1. Open QAM
+        1. Open the Quick Access panel
         2. Go to...
-        3. See error
-    validations:
-      required: true
-
-  - type: input
-    id: version
-    attributes:
-      label: Plugin version
-      description: Shown in the Deck Shelves QAM panel / settings footer.
-      placeholder: "3.4.1"
-    validations:
-      required: true
-
-  - type: dropdown
-    id: release_channel
-    attributes:
-      label: Release channel
-      description: Are you on a stable release or a beta/pre-release?
-      options:
-        - Stable
-        - Beta / Pre-release
-        - Unknown
+        3. See...
     validations:
       required: true
 
@@ -61,64 +26,30 @@ body:
     id: steam_mode
     attributes:
       label: Steam UI mode
-      description: Which UI mode were you using when the bug occurred? (Deck Shelves does not support Desktop Mode)
       options:
-        - Game Mode (Steam Deck home / GamepadUI)
+        - Game Mode (Steam Deck home)
         - Big Picture Mode
         - Both / Not sure
     validations:
       required: true
 
-  - type: dropdown
-    id: host
+  - type: textarea
+    id: versions
     attributes:
-      label: Host / loader
-      description: What is loading Deck Shelves?
-      options:
-        - Decky Loader
-        - Other / Not sure
-    validations:
-      required: true
-
-  - type: dropdown
-    id: os
-    attributes:
-      label: Operating system
-      description: Which OS are you running?
-      options:
-        - SteamOS (Steam Deck)
-        - Bazzite
-        - HoloISO
-        - ChimeraOS
-        - Other Linux
-        - Windows
-        - macOS
-        - Other / Unknown
-    validations:
-      required: true
-
-  - type: input
-    id: os_version
-    attributes:
-      label: OS version
-      description: Output of `cat /etc/os-release` (Linux) or "Settings → System" version. For SteamOS use the build number.
-      placeholder: "e.g. SteamOS 3.7.21, Bazzite 41, Windows 11 23H2"
-    validations:
-      required: true
-
-  - type: input
-    id: steam_client
-    attributes:
-      label: Steam client version
-      description: Steam → top-left menu → Steam → "Check for Steam Client Updates..." (or "About Steam"). Look for the build date / version.
-      placeholder: "e.g. 1748993579 (Stable, Apr 21 2026)"
+      label: Versions
+      description: The plugin version is in the footer of the Quick Access panel and the Settings page.
+      value: |
+        Plugin (and stable or beta):
+        OS and version:
+        Steam client:
+        Decky Loader:
     validations:
       required: true
 
   - type: textarea
     id: context
     attributes:
-      label: Additional context
-      description: Logs, screenshots, or anything else useful.
+      label: Other plugins, themes and logs
+      description: Other plugins and CSS Loader themes you use, logs (Settings → Advanced tools) or screenshots.
     validations:
       required: false

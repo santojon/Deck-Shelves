@@ -3,11 +3,6 @@ import { SHELF_TEMPLATES, ONLINE_SHELF_TEMPLATES, DEFAULT_SHELF_TEMPLATES, cover
 import { createDefaultShelf, createDefaultSmartShelf } from "./defaults";
 import { addShelfToSettings } from "./settings";
 
-/* Setup packs ("recipes"): named bundles of existing shelf templates, smart
-   modes and a few settings, applied non-destructively (shelves you already
-   have are skipped, nothing is removed) and revertible as one step — the apply
-   record remembers exactly what it added and which settings it moved. Quick
-   presets cover the first run; packs, situations; device packs, Frame/Machine/Stream. */
 export type SetupPackGroup = "quick" | "pack" | "device";
 
 export type SetupPack = {
@@ -24,10 +19,8 @@ export const SETUP_PACKS: SetupPack[] = [
   { id: "backlog_rescue", group: "pack", templates: ["never_played"], smart: ["backlog_rescue", "best_unplayed"] },
   { id: "portable_deck", group: "pack", templates: ["installed", "deck_verified"], smart: ["short_battery", "travel_mode", "quick_play"] },
   { id: "rediscover", group: "pack", templates: ["most_played"], smart: ["rediscover", "forgotten_gems", "hidden_gems"] },
-  // Same living-room look as the Machine pack (hero art everywhere, full-page shelves, featured first game, logos); the shelves differ.
   { id: "living_room", group: "pack", templates: ["favorites", "recent"], smart: ["long_session", "deck_picks"], settings: { shelfHeroBackground: true, globalHeroEnabled: true, globalFullPageShelf: true, globalHighlightFirst: true, globalEnableLogo: true } },
   { id: "frame", group: "device", templates: ["vr_games", "vr_only", "recent", "favorites"], smart: ["quick_play", "short_battery"] },
-  // A TV: hero art everywhere, full-page shelves, the first game featured, logos.
   { id: "machine", group: "device", templates: ["favorites", "recent", "most_played"], smart: ["long_session", "deck_picks"], settings: { shelfHeroBackground: true, globalHeroEnabled: true, globalFullPageShelf: true, globalHighlightFirst: true, globalEnableLogo: true } },
   { id: "stream", group: "device", templates: ["steam_cloud", "recent"], smart: ["quick_play"] },
 ];
@@ -106,8 +99,6 @@ export function applySetupPack(settings: Settings, pack: SetupPack, titles: Setu
   return { next: { ...next, lastSetupApply: record } as Settings, record };
 }
 
-/* Undo one apply: drop the shelves it added (only those still present) and
-   put back the settings it moved. Anything the user did since stays. */
 export function revertSetupApply(settings: Settings, record: SetupApplyRecord): Settings {
   const dropShelves = new Set(record.addedShelfIds);
   const dropSmart = new Set(record.addedSmartIds);
@@ -120,8 +111,6 @@ export function revertSetupApply(settings: Settings, record: SetupApplyRecord): 
   return { ...next, lastSetupApply: null } as Settings;
 }
 
-/* Packs worth pointing out for this library, from the statistics the
-   Suggestions tab already derives (template ids / smart modes it names). */
 export function recommendedPackIds(hints: ReadonlyArray<{ templateId?: string; smartMode?: string }>, hasShelves: boolean): string[] {
   const out = new Set<string>();
   if (!hasShelves) out.add("essential");

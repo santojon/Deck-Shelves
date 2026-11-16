@@ -5,12 +5,11 @@ import { notifyUser } from '../../../runtime/notify'
 import { openManagedModal } from '../common/openManagedModal'
 import i18n from '../../../i18n'
 
-// Standalone t (this opens from the error boundary, which has no controller).
+// Standalone t: this opens from the error boundary, which has no controller.
 const tr = (k: string, fb: string) => { const v = i18n.t(k); return v && v !== k ? v : fb }
 
 export type SnapshotOrigin = 'account-switch' | 'pre-profile' | 'pre-import' | 'manual' | 'import' | 'auto'
 
-// What made a snapshot, read from its file name (the backend tags every kind but the daily one).
 export function snapshotOrigin(name: string): SnapshotOrigin {
   for (const tag of ['account-switch', 'pre-profile', 'pre-import', 'manual', 'import'] as const) {
     if (name.includes(`-${tag}`)) return tag
@@ -23,8 +22,6 @@ export function snapshotOriginLabel(name: string): string {
   return tr(`snapshot_origin_${origin.replace('-', '_')}`, origin)
 }
 
-/* Opens the snapshot picker from anywhere (Backup tab, recovery notices), or says
-   there is none yet. */
 export function openSnapshotPicker(): void {
   void listBackups().then((snapshots) => {
     if (!snapshots.length) { notifyUser('Deck Shelves', tr('snapshot_none_yet', 'No snapshots yet.'), 'info'); return }
@@ -32,10 +29,6 @@ export function openSnapshotPicker(): void {
   }).catch(() => {})
 }
 
-/* Snapshot picker shown from the error-boundary recovery UI. Lists the settings
-   snapshots (Advanced → Snapshots backups) and restores the chosen one — the
-   escape hatch when the UI has crashed. Restore is itself undoable (it snapshots
-   first). After restoring, the user reopens settings to see the recovered UI. */
 export function RestoreSnapshotModal({ closeModal, snapshots }: {
   closeModal?: () => void
   snapshots: BackupEntry[]

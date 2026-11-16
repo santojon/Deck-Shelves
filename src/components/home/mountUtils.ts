@@ -1,5 +1,3 @@
-// Mount discovery + anchor-resolution helpers for HomeShelves. Pure
-// DOM probing — no React state, no observers, idempotent.
 import { getPreferredSteamDocument, getPreferredSteamWindow, getAllSteamDocuments } from "../../runtime/steamHost";
 import { getRuntimeClassMap } from "../../core/webpackCompat";
 import { logInfo } from "../../runtime/logger";
@@ -8,7 +6,6 @@ import { isHomeBehindGame } from "../../runtime/powerGate";
 
 export const ROOT_ID = "deck-shelves-home-root";
 
-// Fallback for the native shelf-section token before the classmap warms.
 const FALLBACK_SHELF_SECTION = "_282X0J4BtrSF1IXctmOe-X";
 
 export function seededShuffle<T>(arr: T[], seed: number): T[] {
@@ -41,7 +38,6 @@ function windowIsOnHome(win: Window): boolean {
   } catch { return false; }
 }
 
-// The Home stays mounted behind a running game; its upkeep polls skip that time.
 export function homeBehindGame(): boolean {
   return isHomeBehindGame();
 }
@@ -75,7 +71,6 @@ function findGamepadNavRoot(ctrl: any): any {
   return main.Root || main.m_Root;
 }
 
-// Nav-tree facts for on-device drivers: node count + how many hold a DS card.
 export function countNavTreeDsCards(): { total: number; dsCards: number } | null {
   const ctrl = findGamepadNavController();
   const root = ctrl ? findGamepadNavRoot(ctrl) : null;
@@ -106,14 +101,7 @@ export function detectNavTreeApi(): { available: boolean; detail: string } {
   }
 }
 
-/* `lenient` accepts an `overflow-y: auto|scroll` panel that doesn't overflow
-   yet — early on, the Home holds only the native recents row, so the strict
-   test fails and the anchor fell through to the multi-child wrapper, i.e.
-   INSIDE the recents block (confirmed live under native Big Art: recents then
-   can't be collapsed without hiding the mount; the native hero shows through). */
-/* An element inside a `display: none` subtree never lays out, so it can never
-   host the mount: a previous instance's hidden native rows look like anchors
-   otherwise (the recents label still sits inside them). */
+// A display:none subtree never lays out, so hidden native rows can't host the mount.
 function isDisplayed(el: HTMLElement): boolean {
   try {
     const doc = el.ownerDocument;
@@ -209,13 +197,9 @@ export function resolveAnchor(doc?: Document): { parent: HTMLElement; before: Ch
     ?? findAnchorByContainer(doc);
 }
 
-// Holds the last mount we created so we can re-insert THE SAME node
-// after Steam blows it away — keeps React's portal target stable.
+// Re-inserting the same node after Steam removes it keeps the portal target stable.
 let lastCreatedMount: HTMLElement | null = null;
 
-/* Which instance owns the mount. A successor (a hot-swap) takes an existing
-   mount over by stamping it, and the predecessor's later cleanup must then
-   leave it alone: it used to remove any node with the mount's id. */
 const INSTANCE_TOKEN = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 
 function claimMount(mount: HTMLElement): HTMLElement {
@@ -270,9 +254,6 @@ function createMountIn(docs: Document[]): HTMLElement | null {
   return null;
 }
 
-/* A mount that landed INSIDE the recents block (early multi-child anchor) also
-   has a grid-bearing previous sibling, yet it is misplaced: collapsing recents
-   would hide the mount with it. Only a sibling of the whole block is adjacent. */
 function mountNestedInRecents(mount: HTMLElement): boolean {
   const parent = mount.parentElement;
   if (!parent || isScrollableViewport(parent, true)) return false;
@@ -280,8 +261,6 @@ function mountNestedInRecents(mount: HTMLElement): boolean {
   return !!grid && !mount.contains(grid);
 }
 
-/* True when the mount sits right after the recents row (its previous sibling is
-   the recents, or a wrapper containing the virtualized recents grid). */
 function isRecentsAdjacent(mount: HTMLElement): boolean {
   const prev = mount.previousElementSibling as HTMLElement | null;
   if (!prev || mountNestedInRecents(mount)) return false;
@@ -290,11 +269,6 @@ function isRecentsAdjacent(mount: HTMLElement): boolean {
   return !!prev.querySelector('[class*="ReactVirtualized"]');
 }
 
-/* The mount can be created early (before the home DOM settles), landing on the
-   generic-container anchor instead of next to recents — breaking recents-hide
-   and shelf position. Once the recents-adjacent anchor is available, move the
-   existing mount there (a React portal follows its target, so this is safe).
-   Only moves when currently misplaced, so it never thrashes. */
 function maybeRepositionMount(mount: HTMLElement, doc: Document): void {
   try {
     if (isRecentsAdjacent(mount)) return;

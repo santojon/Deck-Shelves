@@ -1,8 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { applySortToIds, type AppOverview } from '../../steam'
 
-// Test fixture — apps with controlled lastPlayed / playtime / name so we
-// can assert single-key + multi-key (primary/tiebreaker) ordering.
 function mk(appid: number, name: string, lastPlayed?: number, playtime?: number): AppOverview {
   return {
     appid,
@@ -42,15 +40,14 @@ describe('applySortToIds — single key', () => {
 
 describe('applySortToIds — multi-key (primary + tiebreakers)', () => {
   it('alphabetical is applied as a tiebreaker when primary keys tie', () => {
-    // Two apps with the same playtime (0); alphabetical should order them.
     const apps = [
       mk(1, 'Zeta', undefined, 0),
       mk(2, 'Alpha', undefined, 0),
-      mk(3, 'Bravo', 999, 50),  // higher playtime → wins primary
+      mk(3, 'Bravo', 999, 50),
     ]
     const sorted = applySortToIds([1, 2, 3], ['playtime', 'alphabetical'], apps)
-    expect(sorted[0]).toBe(3)   // playtime primary wins
-    expect(sorted.slice(1)).toEqual([2, 1])  // alphabetical breaks the 0-playtime tie
+    expect(sorted[0]).toBe(3)
+    expect(sorted.slice(1)).toEqual([2, 1])
   })
 
   it('recent + alphabetical: never-played games sort alphabetically among themselves', () => {
@@ -65,7 +62,6 @@ describe('applySortToIds — multi-key (primary + tiebreakers)', () => {
   })
 
   it('per-key reverse applies independently to each key', () => {
-    // Two apps share playtime; alphabetical reversed → Z before A.
     const apps = [
       mk(1, 'Alpha', undefined, 0),
       mk(2, 'Zeta', undefined, 0),
@@ -78,8 +74,8 @@ describe('applySortToIds — multi-key (primary + tiebreakers)', () => {
       undefined,
       [false, true],
     )
-    expect(sorted[0]).toBe(3)   // playtime primary unchanged
-    expect(sorted.slice(1)).toEqual([2, 1])  // alphabetical reversed
+    expect(sorted[0]).toBe(3)
+    expect(sorted.slice(1)).toEqual([2, 1])
   })
 
   it('single-element array degrades to single-key sort (same result)', () => {
@@ -93,31 +89,20 @@ describe('applySortToIds — multi-key (primary + tiebreakers)', () => {
   })
 
   it('three-key chain: playtime → recent → alphabetical', () => {
-    // Apps with overlapping playtime + lastPlayed so each tier breaks
-    // the previous tier's ties.
     const apps = [
       mk(1, 'Alpha', 100, 100),
-      mk(2, 'Bravo', 100, 100),  // ties playtime + recent with Alpha → alphabetical wins
-      mk(3, 'Charlie', 200, 100),  // ties playtime with the above, but more recent
+      mk(2, 'Bravo', 100, 100),
+      mk(3, 'Charlie', 200, 100),
     ]
     const sorted = applySortToIds(
       [1, 2, 3],
       ['playtime', 'recent', 'alphabetical'],
       apps,
     )
-    // All three tie on playtime (100) → fall through to recent.
-    // Charlie wins recent (200). Alpha and Bravo tie on recent (100) →
-    // fall through to alphabetical: Alpha then Bravo.
     expect(sorted).toEqual([3, 1, 2])
   })
 
   it('price keys participate in the chain when a priceMap is provided', () => {
-    // Three apps with overlapping discounts so a metacritic tiebreaker
-    // is required. The price comparator was previously the chain's
-    // dead-end (no synchronous data → fall through to alphabetical),
-    // which let the secondary key dominate. With the priceMap threaded
-    // in by the wishlist / store resolver, discount drives the primary
-    // order and metacritic only breaks ties.
     const apps = [
       mk(1, 'Alpha', undefined, 0),
       mk(2, 'Bravo', undefined, 0),
@@ -134,7 +119,6 @@ describe('applySortToIds — multi-key (primary + tiebreakers)', () => {
     const sorted = (applySortToIds as any)(
       [1, 2, 3], ['discount_high', 'metacritic'], apps, undefined, [false, false], priceMap,
     )
-    // Charlie (90% off) primary; Bravo (95 meta) beats Alpha (80 meta) at 50% off.
     expect(sorted).toEqual([3, 2, 1])
   })
 
@@ -144,7 +128,6 @@ describe('applySortToIds — multi-key (primary + tiebreakers)', () => {
       mk(2, 'Bravo', undefined, 100),
       mk(3, 'Charlie', undefined, 50),
     ]
-    // playtime asc (reversed) → Charlie first; alphabetical asc reversed → Bravo before Alpha
     const sorted = applySortToIds(
       [1, 2, 3],
       ['playtime', 'alphabetical'],

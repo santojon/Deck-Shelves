@@ -24,7 +24,7 @@ import { descriptorName } from '../../../core/descriptorName'
 import { isNonSteamBadgesAvailable } from '../../../integrations'
 import { usePlatform } from '../../../runtime/platformContext'
 import { BASE_SOURCE_TYPES, SORT_OPTIONS, V3_SOURCE_OPTIONS, type SourceType, type EditTab } from './editShelf/constants'
-import type { EditableShelfState } from './editShelf/types'
+import type { EditableShelfState, SourceOrder } from './editShelf/types'
 import { optionData } from './editShelf/utils'
 import { SavedFiltersBar } from './editShelf/SavedFiltersBar'
 import { DecorationTab } from './editShelf/DecorationTab'
@@ -43,7 +43,8 @@ import {
   buildSortPatchFields,
   buildPrimarySource as buildPrimarySourceShared,
   assembleFinalSource,
-  withSourceOrder,
+  patchSourceOrder,
+  discountBadgePatch,
   shelfSortForPatch,
   primarySortKey,
   isStateManualSort,
@@ -67,18 +68,15 @@ import {
   deriveExclusionFlags,
   onlineAdditionalIndexes,
   resolveFilterTabPlan,
+  orderingChildOf,
   type ChildSourceType,
 } from './editShelf/compositeSourceUtils'
 import { buildInitialShelfState } from './editShelf/buildInitialState'
-import { SourceSortField } from './editShelf/SourceSortField'
+import { SourceOrderFields } from './editShelf/SourceSortField'
+import { SourceOrderPreview, useSourceOrdering } from './editShelf/SourceOrderPreview'
 import { visualFlagsOf, applyVisualPatch, previewHideFlags, removableTail } from './editShelf/sharedEditProps'
 
-// Native library tabs. If the controller's async `listLibraryTabs` resolved
-/* to an empty list (a host-window store throwing on enumeration has been
-   seen in the wild, and the controller's `.catch` falls back to `[]`), we
-   still surface these so the source dropdown is never blank. The localized
-   labels in the `tabOptions` builder below match against `id` slugs, so these IDs
-   are guaranteed to render with the right translated names. */
+// Fallback for when the controller's tab list comes back empty.
 const NATIVE_FALLBACK_TABS: import('../../../runtime/platform').PlatformTab[] = [
   { id: 'all',        name: 'All Games' },
   { id: 'favorites',  name: 'Favorites' },
@@ -87,14 +85,10 @@ const NATIVE_FALLBACK_TABS: import('../../../runtime/platform').PlatformTab[] = 
   { id: 'nonsteam',   name: 'Non-Steam' },
 ]
 
-// Picker-gated arrays only persist when their picker is open and non-empty.
 function gatedArray<T>(on: boolean, arr: T[]): T[] | undefined {
   return on && arr.length ? arr : undefined
 }
 
-// Assemble the persisted shelf patch from editor state (sort/source are
-// attached by the caller). Kept out of handleSave so the save handler
-// stays flat — the conditional fields live here behind gatedArray.
 function buildSavePatch(
   state: EditableShelfState,
   ctx: { isManualSort: boolean; highlightPickerOpen: boolean; hiddenPickerOpen: boolean; title: string },
@@ -102,13 +96,11 @@ function buildSavePatch(
   const { baseSort, baseReverse } = buildSortPatchFields(state, ctx.isManualSort)
   const cleanedSynth = state.syntheticCards.map(sanitizeSyntheticCard)
   return {
-    title: ctx.title, limit: state.limit, matchNativeSize: state.matchNativeSize, highlightFirst: state.highlightFirst, highlightAll: state.highlightAll, highlightRandom: state.highlightRandom, enableLogo: state.enableLogo, enableIcon: state.enableIcon, enableDescription: state.enableDescription, descriptionBelowLogo: state.descriptionBelowLogo, logoPosition: state.logoPosition, descriptionPosition: state.descriptionPosition, logoSize: state.logoSize, logoTopOffset: state.logoTopOffset, iconVerticalAlign: state.iconVerticalAlign, shelfTitlePosition: state.shelfTitlePosition, gameNamePosition: state.gameNamePosition, playtimePosition: state.playtimePosition, descriptionHeight: state.descriptionHeight, descriptionLogoGap: state.descriptionLogoGap, descriptionScale: state.descriptionScale !== 100 ? state.descriptionScale : undefined, fullPageShelf: state.fullPageShelf || undefined, highlightedAppIds: gatedArray(ctx.highlightPickerOpen, state.highlightedAppIds), manualOrder: gatedArray(ctx.isManualSort, state.manualOrder), manualBaseSort: baseSort as any, sortReverse: state.sortReverse || undefined, manualBaseSortReverse: baseReverse as any, hideStatusLine: state.hideStatusLine, hideNewBadge: state.hideNewBadge, hideDiscountBadge: state.hideDiscountBadge, hideCompatIcons: state.hideCompatIcons, hideNonSteamBadge: state.hideNonSteamBadge, hideShelfTitle: state.hideShelfTitle, hideGameNames: state.hideGameNames, hideInstallIndicator: state.hideInstallIndicator, hideSeeMore: state.hideSeeMore, hideRefreshCard: state.hideRefreshCard, heroEnabled: state.heroEnabled, gameInfoAbove: state.gameInfoAbove || undefined, friendsPlayingOverlay: state.friendsPlayingOverlay || undefined, friendsPlayingOverlayRecent: state.friendsPlayingOverlayRecent || undefined, dedupeByExactName: state.dedupeByExactName || undefined, hiddenAppIds: gatedArray(ctx.hiddenPickerOpen, state.hiddenAppIds), syntheticCards: cleanedSynth.length ? cleanedSynth : undefined,
+    title: ctx.title, limit: state.limit, matchNativeSize: state.matchNativeSize, highlightFirst: state.highlightFirst, highlightAll: state.highlightAll, highlightRandom: state.highlightRandom, enableLogo: state.enableLogo, enableIcon: state.enableIcon, enableDescription: state.enableDescription, descriptionBelowLogo: state.descriptionBelowLogo, logoPosition: state.logoPosition, descriptionPosition: state.descriptionPosition, logoSize: state.logoSize, logoTopOffset: state.logoTopOffset, iconVerticalAlign: state.iconVerticalAlign, ...discountBadgePatch(state), shelfTitlePosition: state.shelfTitlePosition, gameNamePosition: state.gameNamePosition, playtimePosition: state.playtimePosition, descriptionHeight: state.descriptionHeight, descriptionLogoGap: state.descriptionLogoGap, descriptionScale: state.descriptionScale !== 100 ? state.descriptionScale : undefined, fullPageShelf: state.fullPageShelf || undefined, highlightedAppIds: gatedArray(ctx.highlightPickerOpen, state.highlightedAppIds), manualOrder: gatedArray(ctx.isManualSort, state.manualOrder), manualBaseSort: baseSort as any, sortReverse: state.sortReverse || undefined, manualBaseSortReverse: baseReverse as any, hideStatusLine: state.hideStatusLine, hideNewBadge: state.hideNewBadge, hideDiscountBadge: state.hideDiscountBadge, hideCompatIcons: state.hideCompatIcons, hideNonSteamBadge: state.hideNonSteamBadge, hideShelfTitle: state.hideShelfTitle, hideGameNames: state.hideGameNames, hideInstallIndicator: state.hideInstallIndicator, hideSeeMore: state.hideSeeMore, hideRefreshCard: state.hideRefreshCard, heroEnabled: state.heroEnabled, gameInfoAbove: state.gameInfoAbove || undefined, friendsPlayingOverlay: state.friendsPlayingOverlay || undefined, friendsPlayingOverlayRecent: state.friendsPlayingOverlayRecent || undefined, dedupeByExactName: state.dedupeByExactName || undefined, hiddenAppIds: gatedArray(ctx.hiddenPickerOpen, state.hiddenAppIds), syntheticCards: cleanedSynth.length ? cleanedSynth : undefined,
     ...behaviourPatch(state),
   } as any
 }
 
-// Context-aware behaviours (auto-pin / auto-collapse) — only persisted when a
-// rule tree is present, mirroring the smart-shelf editor.
 function behaviourPatch(state: EditableShelfState): Partial<Shelf> {
   const hasRules = (v: any) => !!v && Array.isArray(v.rules) && v.rules.length > 0
   return {
@@ -129,17 +121,12 @@ function tabFirstParts(tabOptions: any[], tabTextLabels: Map<string, string>, t:
   return { title, tab: String(first?.data ?? 'all') }
 }
 
-// Next editor state when the user switches source type. Kept module-level
-// so the setState updater stays a one-liner — the per-type branches and
-// their option lookups live here behind firstOptParts / tabFirstParts.
 function computeSourceTypeState(
   prev: EditableShelfState,
   type: SourceType,
   deps: { collectionOptions: any[]; tabOptions: any[]; tabTextLabels: Map<string, string>; externalOptions: any[]; t: (k: string) => string },
 ): EditableShelfState {
   const { collectionOptions, tabOptions, tabTextLabels, externalOptions, t } = deps
-  // Additional sources are preserved across primary-type changes — a filter
-  // primary can now stack composite sources like any other primary.
   const wipeExtras = {}
   if (type === 'collection') {
     const o = firstOptParts(collectionOptions, t('new_shelf'))
@@ -176,8 +163,6 @@ function hasAny(arr: unknown): boolean {
   return ((arr as any[] | undefined)?.length ?? 0) > 0
 }
 
-// A filter-source shelf keeps its sort on `state.filter.sort`; every other
-// source type keeps it on `state.sort` directly.
 function primarySortValue(state: EditableShelfState): Shelf['sort'] {
   return state.sourceType === 'filter' ? (state.filter.sort ?? 'alphabetical') : state.sort
 }
@@ -201,17 +186,8 @@ function buildAllSourceTypes(externalSources: unknown[], onlineEnabled: boolean)
 
 export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }: { closeModal?: () => void; controller: SettingsController; shelf: Shelf; mode?: 'create' | 'edit' }) {
   const { t, tabs: controllerTabs, collections: controllerCollections, actions } = controller
-  // openManagedModal captures `controller` at click-time. If Steam's
-  /* collectionStore hadn't populated when the user opened the modal,
-     `controllerCollections` stays at the stale `[]` for the modal's
-     entire lifetime — even though the controller's hook updates the
-     outer state later (periodic refresh). Re-fetch inside the modal
-     so the picker fills as soon as Steam exposes the data. */
+  // Re-fetched here: the controller's list can still be empty when the modal opens.
   const collections = useModalCollections(controllerCollections)
-  /* Guard the dropdown against any failure mode in the controller's async
-     `listLibraryTabs`: empty array, undefined, or never-resolved. Native
-     defaults below are the same 5 IDs `listLibraryTabs` would have
-     returned, so localized labels from the `tabOptions` builder still apply. */
   const platformTabs = resolvePlatformTabs(controllerTabs)
   const platform = usePlatform()
   const externalSources = useMemo(() => getExternalSources(), [])
@@ -220,25 +196,16 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
   )
   const hasNonSteamBadges = useMemo(() => isNonSteamBadgesAvailable(), [])
   const [activeTab, setActiveTab] = useState<EditTab>(() => {
-    /* Pending-tab hint set by dispatchShelfModal({ initialTab }) — used
-       when the user picks "Decoração" from the card context menu so the
-       modal lands directly on that tab. Module-private state drains
-       itself, so each modal open consumes the value once. */
     const t = consumePendingShelfModalTab()
     const valid = ['source', 'filters', 'childFilters', 'visual', 'display', 'decoration']
     if (t && valid.includes(t)) return t as EditTab
     return 'source'
   })
-  /* Index of the currently-focused card in the preview row. New
-     synthetic decorations land at this slot when the user clicks
-     "+ Add decoration"; falls back to the end of the row when nothing
-     is focused yet. Bumped by ShelfPreview via onFocusedIndexChange. */
   const [previewFocusedIndex, setPreviewFocusedIndex] = useState<number>(0)
-  // Bumped by the preview's RefreshCard to force a re-resolve in any tab.
   const [previewRefreshNonce, setPreviewRefreshNonce] = useState(0)
-  // Preview-isolated cache namespace so refreshing the modal doesn't poison
-  // the home shelf cache with unsaved edits, and so invalidating only wipes
-  // the preview's own entries.
+  // The source row whose games the preview shows alone to be ordered by hand (-1 is the first source).
+  const [orderingRow, setOrderingRow] = useState<number | null>(null)
+  // Separate cache namespace so unsaved edits never reach the home shelf cache.
   const previewShelfId = `${shelf.id}-preview`
   const refreshPreview = () => {
     invalidateSmartShelfCache(previewShelfId)
@@ -250,11 +217,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
   const [alternatingMode, setAlternatingMode] = useState<'odd' | 'even' | null>(null)
   const prePatternHighlightsRef = useRef<number[] | null>(null)
   const isManualSort = primarySortKey(primarySortValue(state)) === 'manual'
-  /* Synthetic cards are encoded as negative ids when interleaved with
-     the manual-sort row so the user can drag them alongside real games.
-     Encoding: `-(syntheticIndex + 1)`. The reorder handler splits them
-     back out before persisting (positive ids → manualOrder; negative
-     ids → syntheticCards[i].position = their new slot index). */
+  // Synthetic cards ride in the manual order as negative ids: -(index + 1).
   const SYNTH_SENTINEL = (i: number) => -(i + 1)
   const synthIndexOfSentinel = (id: number) => (id < 0 ? -id - 1 : -1)
 
@@ -271,19 +234,12 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
   const effectiveManualOrder = useMemo(() => {
     if (!isManualSort) return resolvedIds
     const idSet = new Set(resolvedIds)
-    // Mirror applyManualOrder's split: in-source manual entries lead,
-    // source items not drag-ordered follow, manual entries appended via
-    // the library context menu (not in the source set) go at the very
-    /* END so they're always visible. Hidden cards STAY in the preview
-       (overlaid with the ✕ marker by ShelfPreview) so the user can see
-       which games are hidden in every tab. The home shelf still
-       filters them via `applyManualOrder`'s hiddenAppIds arg — preview
-       and home intentionally diverge on this point. */
+    // Menu-added entries go last so they stay visible; hidden cards stay in the preview, marked.
     const gameOrder: number[] = []
     const appendTail: number[] = []
     const seen = new Set<number>()
     for (const id of state.manualOrder) {
-      if (id < 0) continue // legacy / unexpected sentinel — recomputed below
+      if (id < 0) continue
       if (seen.has(id)) continue
       seen.add(id)
       if (idSet.has(id)) gameOrder.push(id)
@@ -292,9 +248,6 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
     for (const id of resolvedIds) if (!seen.has(id)) gameOrder.push(id)
     gameOrder.push(...appendTail)
     if (!state.syntheticCards.length) return gameOrder
-    // Interleave decoration sentinels at their persisted `position`.
-    // Sorted asc so earlier slots splice before later ones (later splice
-    // positions stay valid as the array grows).
     const synthEntries = state.syntheticCards
       .map((c, i) => ({ pos: Math.max(0, Number(c.position) || 0), sentinel: SYNTH_SENTINEL(i) }))
       .sort((a, b) => a.pos - b.pos)
@@ -306,11 +259,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
   }, [isManualSort, resolvedIds, state.manualOrder, state.syntheticCards])
 
   const reorderManual = (nextOrder: number[]) => setState((prev) => {
-    /* Persist ONLY game appids in `manualOrder`. Synthetic positions
-       live in `syntheticCards[].position` (updated below) so adding /
-       removing decoration cards never needs to remap sentinels in
-       manualOrder. Result: manualOrder stays a clean appid list, and
-       dragging a decoration around the grid just shifts its `position`. */
+    // Only game appids go in manualOrder; synthetic slots live on syntheticCards[].position.
     const nextManualOrder: number[] = []
     const nextSynth = prev.syntheticCards.slice()
     for (let i = 0; i < nextOrder.length; i++) {
@@ -336,11 +285,6 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
            value === 'builtin' ? t('source_builtin') :
            t('source_filter'),
   }))
-  /* Native library tabs get a localized label + a small library-grid icon.
-     Detection by slugified ID OR slugified name OR slug-of-localized-name —
-     covers both `listLibraryTabs` defaults (lowercase ids "all"/"installed"/…)
-     AND TabMaster tabs whose IDs are UUIDs but whose display names match
-     "Installed" / "Favorites" / etc. (in English or any of the locales below). */
   const tabOptions: SingleDropdownOption[] = platformTabs
     .filter((item) => !isUnsupportedTab(item))
     .map((item) => {
@@ -358,7 +302,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
       }
       return { data: item.id, label: item.name }
     })
-  // Plain-text labels so title auto-fill doesn't stringify JSX to "[object Object]".
+  // Plain-text labels so the title auto-fill never shows "[object Object]".
   const tabTextLabels = new Map<string, string>(
     platformTabs
       .filter((item) => !isUnsupportedTab(item))
@@ -367,17 +311,12 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
         return [item.id, i18nKey ? t(i18nKey as any) : item.name]
       })
   )
-  // A dynamic collection carries the bolt; `title` keeps the plain name for a new shelf's title.
   const collectionOptions: (SingleDropdownOption & { title: string })[] = collections.map((item) => ({
     data: item.id,
     title: item.name,
     label: item.isDynamic ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>{icons.bolt}{item.name}</span> : item.name,
   }))
   const externalOptions: SingleDropdownOption[] = externalSources.map((src) => ({ data: src.id, label: descriptorName(t, src) }))
-  /* Placeholder injection: when the current value isn't present in the
-     option list (no items discovered yet OR orphan id), prepend a
-     "Selecione" entry so the dropdown never renders blank. The placeholder
-     has empty `data` and disappears on first real pick. */
   const placeholderOption: SingleDropdownOption = { data: '', label: t('select_placeholder' as any) }
   const withPlaceholder = (opts: SingleDropdownOption[], current: string): SingleDropdownOption[] =>
     !current || opts.some((o) => String(o.data) === current) ? opts : [placeholderOption, ...opts]
@@ -393,11 +332,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
       ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><OnlineIcon size={14} style={{ opacity: 0.7 }} />{t(item.labelKey)}</span>
       : t(item.labelKey)
   ) as any
-  /* Online-only sorts (price_low, discount_high, original_price_high) rely
-     on the price cache populated by online sources — hide them when the
-     current source can't populate it. Filter sources fall through to the
-     local library, where no price data exists, so they're treated as
-     non-online too. */
+  // Price sorts need the price cache, which only online sources fill.
   const isOnline = isOnlineSourceType(state.sourceType)
   const sortOptions = useMemo<SingleDropdownOption[]>(
     () => SORT_OPTIONS
@@ -405,9 +340,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
       .map((item) => ({ data: item.value, label: sortLabel(item) })),
     [t, isOnline]
   )
-  // `random` is excluded under a manual sort: re-shuffling the manual order
-  // every render would defeat the user's explicit ordering. Persisted values
-  // stay intact — only the option is hidden from this dropdown.
+  // No random under manual sort: it would reshuffle the user's order on every render.
   const baseSortOptions = useMemo<SingleDropdownOption[]>(
     () => SORT_OPTIONS
       .filter((item) => item.value !== 'manual' && item.value !== 'random' && (isOnline || !(item as any).requiresOnline))
@@ -442,9 +375,6 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
   const firstOptData = (opts: SingleDropdownOption[], fallback = ''): string => { const d = opts[0]?.data; return d == null ? fallback : String(d) }
   const pickNextAvailable = () => pickNextAvailableSource(compositeOpts)
   const canAddSource = buildChildTypeOptionsFn(-1).length > 0
-  // Additional-source row value picker, keyed by the row's own type — a
-  // plain lookup instead of a per-row if/else chain (kept out of the
-  // composite-row renderer's own complexity budget).
   const builtinLabel = (id: string): string => {
     const o = V3_SOURCE_OPTIONS.find((x) => x.value === id)
     return o ? (o.label ?? t(o.labelKey as string)) : t('filter_type_unavailable', { type: id })
@@ -456,13 +386,22 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
     builtin: (excludeRow) => builtinValueIds(state, excludeRow).map((id) => ({ data: id, label: builtinLabel(id) })),
     smart: (excludeRow) => smartValueIds(state, excludeRow).map((m) => ({ data: m, label: t(`smart_template_${m}` as any) })),
   }
-  // Each source sorts on its own when the shelf keeps the sources' order.
-  const perSourceSort = state.additionalSources.length > 0 && primarySortKey(primarySortValue(state)) === 'source_order'
+  const perSourceSort = state.additionalSources.length > 0
+  const followsShelf = primarySortKey(primarySortValue(state)) !== 'source_order'
+  const onPrimaryOrderChange = (patch: SourceOrder) => setState((prev) => ({ ...prev, primaryOrder: { ...prev.primaryOrder, ...patch } }))
+  const patchOrderAt = (row: number, patch: SourceOrder) => (row < 0 ? onPrimaryOrderChange(patch) : setState((prev) => {
+    const updated = prev.additionalSources.slice()
+    updated[row] = patchSourceOrder(updated[row], patch)
+    return { ...prev, additionalSources: updated }
+  }))
+  const toggleOrdering = (row: number) => setOrderingRow((cur) => (cur === row ? null : row))
+  const orderingChild = activeTab === 'source' ? orderingChildOf(previewSource, orderingRow) : undefined
+  const ordering = useSourceOrdering({
+    child: orderingChild, shelfId: `${previewShelfId}-order`, platform, nonce: previewRefreshNonce, hiddenAppIds: state.hiddenAppIds,
+    onChange: (manualOrder) => patchOrderAt(orderingRow ?? -1, { manualOrder }),
+  })
 
   const changeSourceType = (type: SourceType) => {
-    /* Filter is mutually exclusive — switching into it drops stacked
-       additional sources (composite combines aren't valid alongside a
-       filter primary). See computeSourceTypeState for the per-type rules. */
     setState((prev) => computeSourceTypeState(prev, type, { collectionOptions, tabOptions, tabTextLabels, externalOptions, t }))
     if (type !== 'filter' && activeTab === 'filters') setActiveTab('source')
     if (type !== 'collection' && type !== 'tab' && type !== 'wishlist' && type !== 'store' && activeTab === 'childFilters') setActiveTab('source')
@@ -490,8 +429,6 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
       patch.source = assembleFinalSource(primarySource, state) as any
       patch.sort = shelfSortForPatch(state)
       if (mode === 'create') {
-        // Modal-driven create: nothing was persisted on open. Build the full
-        // shelf locally and commit only on Save. Cancel/close discards.
         const draft: Shelf = { ...shelf, ...(patch as Partial<Shelf>) } as Shelf;
         const created = await actions.commitShelf(draft);
         logInfo("SETTINGS", "shelf created", { shelfId: created?.id });
@@ -503,9 +440,6 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
     })();
   }
 
-  // Primary source's own sub-picker/hint — exactly one shows, matching
-  // `state.sourceType`. A switch keeps this a single-scope dispatch instead
-  // of 6 parallel `sourceType === X &&` checks directly in the render body.
   const renderPrimarySourcePicker = () => {
     switch (state.sourceType) {
       case 'collection':
@@ -522,7 +456,6 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
             label={t('source_builtin')}
             rgOptions={[
               ...V3_SOURCE_OPTIONS.map((o) => ({ data: o.value, label: o.label ?? t(o.labelKey as string) })),
-              // A saved source no build offers any more stays selectable, named as unavailable.
               ...(V3_SOURCE_OPTIONS.some((o) => o.value === state.builtinSourceId) ? [] : [{ data: state.builtinSourceId, label: t('filter_type_unavailable', { type: state.builtinSourceId }) }]),
             ]}
             selectedOption={state.builtinSourceId}
@@ -539,18 +472,10 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
     }
   }
 
-  /* Composite "source 2+" rows: stack extra sources on any primary (filter
-     is the only forbidden combo — buildChildTypeOptions drops it from the
-     dropdown once one is in play). Saving collapses 2+ sources into a
-     composite; single-source shelves keep the flat shape. */
   const renderAdditionalSourcesBlock = () => {
     if (!(state.additionalSources.length > 0 || canAddSource)) return null
     return (
       <>
-        {/* Combine dropdown placed BEFORE the source rows so the user picks
-            the relationship up-front (mirrors the smart-shelf composite UI).
-            Only rendered once an extra source exists — for a single source
-            the combine operator is irrelevant. */}
         {state.additionalSources.length > 0 && (
           <DropdownItem
             label={t('composite_combine_label')}
@@ -568,15 +493,8 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
           const childType = normalizeChildSourceType(child?.type);
           const needsValuePicker = childSourceNeedsValuePicker(childType);
           const childValue = childSourceValue(child, childType);
-          // Per-row value pickers exclude tabs/collections/external
-          // already in use elsewhere — the row keeps its OWN
-          // current pick available (excludeRow=idx).
           const innerOpts = childValueOptBuilders[childType]?.(idx) ?? [];
           const typeOpts = buildChildTypeOptionsFn(idx);
-          /* Type options exclude exhausted sources for this
-             row. The row's CURRENT type is always present
-             (excludeRow=idx surfaces it) so the dropdown can
-             show what's actually selected. */
           if (!typeOpts.some((o: SingleDropdownOption) => o.data === childType)) {
             typeOpts.unshift({ data: childType, label: childSourceTypeLabel(childType, t) });
           }
@@ -587,7 +505,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
             if (next === 'external') return { type: 'external', sourceId: firstOptData(buildExternalValueOpts(idx)) } as any;
             if (next === 'builtin') return { type: 'builtin', sourceId: builtinValueIds(state, idx)[0] ?? '' } as any;
             if (next === 'smart') return { type: 'smart', mode: smartValueIds(state, idx)[0] ?? 'recently_played' } as any;
-            return { type: next } as any; // wishlist / store have no value
+            return { type: next } as any;
           };
           const onTypeChange = (next: ChildSourceType) => {
             setState((prev) => {
@@ -603,15 +521,12 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
               return { ...prev, additionalSources: updated };
             });
           };
-          const onRemove = () => setState((prev) => ({ ...prev, additionalSources: prev.additionalSources.filter((_: any, i: number) => i !== idx) }));
+          const onRemove = () => { setOrderingRow(null); setState((prev) => ({ ...prev, additionalSources: prev.additionalSources.filter((_: any, i: number) => i !== idx) })) };
+          const onOrderChange = (patch: SourceOrder) => patchOrderAt(idx, patch);
           const childTypeLabel = childSourceTypeLabel(childType, t);
           return (
             <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '4px 0', borderTop: idx === 0 ? '1px solid rgba(255,255,255,0.08)' : 'none', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-              {/* Focusable wrapper so Steam's gamepad nav
-                  treats the dropdown + × as horizontal
-                  siblings (DOM order = visual order =
-                  left-to-right). Without it the X button
-                  is reached via DOWN, which is awkward. */}
+              {/* Focusable row so gamepad nav treats the dropdown and × as horizontal siblings. */}
               <Focusable style={{ display: 'flex', gap: 8, alignItems: 'center', width: '100%' }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <DropdownItem
@@ -634,16 +549,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
                 />
               )}
               {perSourceSort && (
-                <SourceSortField
-                  sourceType={childType}
-                  onlineEnabled={onlineOn}
-                  order={child}
-                  onChange={(order) => setState((prev) => {
-                    const updated = prev.additionalSources.slice();
-                    updated[idx] = withSourceOrder(updated[idx], order);
-                    return { ...prev, additionalSources: updated };
-                  })}
-                />
+                <SourceOrderFields sourceType={childType} onlineEnabled={onlineOn} order={child} onChange={onOrderChange} followsShelf={followsShelf} ordering={orderingRow === idx} onToggleOrdering={() => toggleOrdering(idx)} />
               )}
             </div>
           );
@@ -663,9 +569,6 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
     )
   }
 
-  // Filter-mode sort + (when manual) the pre-manual base-sort fallback.
-  // Filter-source shelves keep their sort on `state.filter.sort`, everyone
-  // else on `state.sort` — both fields read/write through the same control.
   const renderSortControls = () => (
     <>
       <SortField
@@ -695,9 +598,6 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
     </>
   )
 
-  // Preview card-picker mode: "highlight" (Visual tab) and "hidden" (Display
-  // tab) are mutually exclusive, each active only while its tab's picker is
-  // open — resolved once instead of repeating the two-tab check per prop.
   const previewSelection = (() => {
     const kind: 'highlight' | 'hidden' | null =
       activeTab === 'visual' && highlightPickerOpen ? 'highlight'
@@ -751,11 +651,14 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
                     <DropdownItem label={t('source')} rgOptions={sourceTypeOptions} selectedOption={state.sourceType} onChange={(opt: unknown) => changeSourceType(String(optionData(opt)) as SourceType)} bottomSeparator='thick' />
                     {renderPrimarySourcePicker()}
                     {perSourceSort && (
-                      <SourceSortField
+                      <SourceOrderFields
                         sourceType={state.sourceType}
                         onlineEnabled={onlineOn}
                         order={state.primaryOrder}
-                        onChange={(order) => setState((prev) => ({ ...prev, primaryOrder: order }))}
+                        onChange={onPrimaryOrderChange}
+                        followsShelf={followsShelf}
+                        ordering={orderingRow === -1}
+                        onToggleOrdering={() => toggleOrdering(-1)}
                       />
                     )}
                     {state.sourceType === 'external' && contextAwareSourceRequiresFocus(state.externalSourceId) && (
@@ -763,11 +666,6 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
                     )}
                     {renderAdditionalSourcesBlock()}
                     {(() => {
-                      /* Owned-exclusion toggles, one block per online source.
-                         Primary (when online) uses the editor's
-                         `state.excludeOwned/...` fields. Each additional
-                         online source stores its own values on its own
-                         entry (`state.additionalSources[i].excludeOwned/...`). */
                       const primaryOnline = state.sourceType === 'wishlist' || state.sourceType === 'store'
                       const onlineAdditionalIdx = onlineAdditionalIndexes(state)
                       if (!primaryOnline && onlineAdditionalIdx.length === 0) return null
@@ -798,7 +696,6 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
                           const updated = prev.additionalSources.slice()
                           const cur: any = updated[idx]
                           updated[idx] = { ...cur, ...next }
-                          // Strip cleared flags so persisted JSON stays minimal
                           for (const k of ['excludeOwned', 'excludeOwnedNonSteam', 'hideOwnedNonSteamCloud']) {
                             if ((updated[idx] as any)[k] !== true) delete (updated[idx] as any)[k]
                           }
@@ -866,10 +763,6 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
                 ),
               },
               ...((() => {
-                /* One filter section per filter source: the primary (when it
-                   is a filter) plus every stacked filter secondary. Each edits
-                   its own filterGroup, with a separator label when there's more
-                   than one — mirroring the online-filters tab below. */
                 type FSlot = { key: string; group: FilterGroup; onChange: (g: FilterGroup) => void }
                 const fslots: FSlot[] = []
                 if (state.sourceType === 'filter') {
@@ -894,7 +787,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
                 const multi = fslots.length > 1
                 return [{
                   id: 'filters',
-                  // Tab.title typed `string` but renders any ReactNode.
+                  // Tab.title is typed string but renders any ReactNode.
                   title: (<TabLabel icon={<FunnelIcon />} text={t('edit_tab_filters')} />) as unknown as string,
                   content: (
                     <FieldContainer>
@@ -912,19 +805,8 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
                 }]
               })()),
               ...((() => {
-                // Filters tab visibility:
-                //  - direct collection / tab → single regular childFilter block
-                /*  - direct wishlist / store → single online-filter block
-                    - composite with online children → ONE block PER online
-                      child (each child carries its own childFilter on its
-                      source entry; composite parent has none).
-                    - composite with only offline children → no tab. */
                 const plan = resolveFilterTabPlan(state);
                 if (!plan.showTab) return [];
-                /* Build the slot list. Slots[0] always exists when the tab
-                   shows: it's the primary's filter when primary is online
-                   OR offline; when primary is offline (collection/tab) the
-                   panel is regular (no online predicates). */
                 type Slot = { key: string; label?: string; group: FilterGroup; onChange: (g: FilterGroup) => void; allowOnline: boolean }
                 const primarySlot: Slot | null = !(plan.primaryOffline || plan.primaryOnline) ? null : {
                   key: 'primary',
@@ -952,13 +834,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
                   }
                 })
                 const slots: Slot[] = primarySlot ? [primarySlot, ...additionalSlots] : additionalSlots
-                /* When primary is composite-but-offline (e.g. collection)
-                   with online additionals, we don't surface a slot for the
-                   primary — the online predicates only apply to the online
-                   children. */
                 if (slots.length === 0) {
-                  // composite with only offline children (shouldn't happen
-                  // because showTab gates) — bail out safely.
                   return []
                 }
                 const multi = slots.length > 1
@@ -1013,14 +889,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
                     setCards={(next: any) => setState((prev) => ({ ...prev, syntheticCards: next }))}
                     defaultPosition={previewFocusedIndex}
                     onFirstCardAdded={() => setState((prev) => {
-                      // Auto-engage manual sort + seed manualOrder from
-                      // the currently resolved row so the decoration
-                      // can later be reordered alongside real games.
-                      /* Already-manual shelves keep their current
-                         manualOrder + manualBaseSort untouched — adding
-                         a decoration must NEVER reset the user's order.
-                         For filter sources the relevant sort lives in
-                         `prev.filter.sort`, not `prev.sort`; check both. */
+                      // Seed a manual order from the current row; an existing manual order stays.
                       const isManualShelf = prev.sort === 'manual'
                       const isManualFilter = prev.sourceType === 'filter' && prev.filter?.sort === 'manual'
                       if (isManualShelf || isManualFilter) return prev
@@ -1045,6 +914,10 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
                     display={{ hideStatusLine: state.hideStatusLine, hideNewBadge: state.hideNewBadge, hideDiscountBadge: state.hideDiscountBadge, hideCompatIcons: state.hideCompatIcons, hideNonSteamBadge: state.hideNonSteamBadge, hideShelfTitle: state.hideShelfTitle, hideGameNames: state.hideGameNames === true, hideInstallIndicator: state.hideInstallIndicator === true, hideSeeMore: state.hideSeeMore === true, hideRefreshCard: state.hideRefreshCard === true }}
                     setDisplay={(patch: any) => setState((prev) => { const next = { ...prev, ...patch }; if (patch.hideShelfTitle === false && (prev as any).gameInfoAbove) next.gameInfoAbove = false; return next; })}
                     hasNonSteamBadges={hasNonSteamBadges}
+                    discountBadgeMode={state.discountBadgeMode}
+                    setDiscountBadgeMode={(v) => setState((prev) => ({ ...prev, discountBadgeMode: v }))}
+                    discountBadgeFocusMode={state.discountBadgeFocusMode}
+                    setDiscountBadgeFocusMode={(v) => setState((prev) => ({ ...prev, discountBadgeFocusMode: v }))}
                     dedupeByExactName={state.dedupeByExactName}
                     setDedupeByExactName={(v) => setState((prev) => ({ ...prev, dedupeByExactName: v }))}
                     setHiddenAppIds={(next) => setState((prev) => ({ ...prev, hiddenAppIds: next }))}
@@ -1062,7 +935,9 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
             ]}
           />
       )}
-      preview={(
+      preview={ordering.active ? (
+          <SourceOrderPreview t={t} row={orderingRow ?? -1} limit={orderingChild?.limit} source={orderingChild} ordering={ordering} look={previewHideFlags(state)} />
+      ) : (
           <PreviewPanel
             t={t}
             title={state.title}
@@ -1071,11 +946,6 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
             resolvedIds={resolvedIds}
             effectiveManualOrder={effectiveManualOrder}
             resolvedMeta={(() => {
-              /* Merge resolvedMeta with synthetic-card sentinel entries
-                 so the manual-sort row can render decoration cards as
-                 mini-cards alongside game cards. Sentinel id =
-                 -(syntheticIndex + 1) per the encoding in
-                 effectiveManualOrder. */
               if (!state.syntheticCards.length) return resolvedMeta
               const m = new Map(resolvedMeta)
               state.syntheticCards.forEach((c, i) => {

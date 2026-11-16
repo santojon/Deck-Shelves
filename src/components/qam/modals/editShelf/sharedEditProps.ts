@@ -1,7 +1,3 @@
-/* Prop derivations the regular and smart shelf editors share verbatim: the
-   visual-tab flag bundle, the patch that keeps the hidden-title rule, the
-   preview's hide-* flags and the "removable tail" of a manual order. */
-
 export type VisualFlagSource = {
   matchNativeSize: boolean
   highlightFirst: boolean
@@ -58,7 +54,6 @@ export function visualFlagsOf<S extends VisualFlagSource>(state: S) {
   }
 }
 
-// Placing the game info above the cards implies hiding the shelf title.
 export function applyVisualPatch<S extends { hideShelfTitle?: boolean }>(prev: S, patch: any): S {
   const next = { ...prev, ...patch }
   if (patch.gameInfoAbove === true) next.hideShelfTitle = true
@@ -89,8 +84,6 @@ export function previewHideFlags(state: PreviewHideSource) {
   }
 }
 
-/* Manual-order entries no longer present in the resolved source: the preview
-   offers to remove them. Undefined when there is nothing to remove. */
 export function removableTail(manualOrder: number[], resolvedIds: number[]): Set<number> | undefined {
   if (!manualOrder.length) return undefined
   const inSource = new Set(resolvedIds)

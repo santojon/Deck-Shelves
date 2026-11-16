@@ -16,16 +16,12 @@ import { registerDisposer } from "../runtime/runtimeDisposer";
 
 export { buildShelfContextMenu, buildLibraryAddToShelfItems };
 
-/* Only a SteamOS build confirmed older than 3.8 uses the legacy menu flow.
-   Unknown / non-SteamOS hosts (Windows, macOS, desktop-Linux Steam —
-   getSteamOSVersion() is null there, so isSteamOS38OrLater() is null, not false)
-   fall through to the MODERN flow, which is correct for every current client. */
+// Only a SteamOS build confirmed older than 3.8 uses the legacy flow; unknown hosts get the modern one.
 function isLegacyMenuFlow(): boolean {
   return isSteamOS38OrLater() === false;
 }
 
 let cachedMenuComponent: any = null;
-// Guards the synthetic-open prewarm to one run per session (see its own note).
 let prewarmAttempted = false;
 let cachedMenuTemplateProps: Record<string, any> = {};
 let lastExtractionAttempt = 0;
@@ -34,11 +30,7 @@ let passiveHookInstalled = false;
 let showContextMenuHookInstalled = false;
 let showGameMenuActive = false;
 
-/* Independent legacy (≤ 3.7) cache — never shared with the modern path.
-   Sharing the cache would let a partially-corrupted modern extraction
-   poison the legacy fallback (and vice-versa). Two distinct sets of state
-   also let us run the v1.2.0 recursive retry without disturbing modern
-   runs interleaved on the same session. */
+// Kept apart from the modern cache so a bad extraction on one path can't poison the other.
 let legacyCachedComponent: any = null;
 let legacyCachedTemplateProps: Record<string, any> = {};
 let legacyLastAttempt = 0;
@@ -51,8 +43,7 @@ function getAppStore(): any {
   return steamAppStore();
 }
 
-// Direct webpack patch of LibraryContextMenu.prototype.render. Gated
-// on _activeShelfIdForMenu so native cards aren't affected.
+// Gated on the active shelf id so native cards aren't affected.
 let _libraryContextMenuClass: any = null;
 let _libraryContextMenuPatched = false;
 let _menuClassLookupDone = false;
@@ -79,10 +70,7 @@ function dedupDsMenuItems(items: any[]): void {
   for (let i = items.length - 1; i >= 0; i--) {
     const k = items[i]?.key;
     if (typeof k !== "string") continue;
-    /* Exact match on group-level keys + prefix match on the per-shelf
-       flat items the library-card path emits (one MenuItem per shelf,
-       key like `ds-lib-add-s_7b1a8487`). Without the prefix check, the
-       flat items accumulated across re-renders. */
+    // Per-shelf flat items are matched by prefix, or they pile up across re-renders.
     if (DS_ROOT_KEYS.has(k) || k.startsWith("ds-lib-add-") || k.startsWith("ds-lib-rm-") || k.startsWith("ds-card-add-") || k.startsWith("ds-card-rm-")) {
       items.splice(i, 1);
     }
@@ -109,9 +97,7 @@ function appidNamedByList(menuItems: any[]): number {
   return named.size === 1 ? [...named][0] : 0;
 }
 
-/* On a menu's first render the props are the game menu's own; on later renders they are the
-   menu body's, which name no app, so the list's own entries say which game it is. The card
-   that opened the menu is the last resort. */
+// Later renders get the menu body's props, which name no app, so the list's entries identify the game.
 function resolveAppidFromMenuChildren(menuItems: any[], self: any): number {
   return appidFromSelfProps(self) || appidNamedByList(menuItems) || getActiveAppIdForMenu() || 0;
 }
@@ -141,7 +127,6 @@ const PASS_COUNTERS: Partial<Record<GameMenuEntriesEvent["type"], string>> = {
   rejected: "lcmNoChildren", empty: "lcmNoAppid", placed: "lcmSplicedLib", failed: "lcmFailed",
 };
 
-// Debug tap, surfaced through `window.deckShelves.debug` for probes over CDP.
 function recordMenuEvent(event: GameMenuEntriesEvent): void {
   if (event.type === "installed" || event.type === "uninstalled") { setDebugCounter("lcmPatched", event.type === "installed"); return; }
   if (!("ms" in event)) return;
@@ -188,7 +173,7 @@ function getDebugBucket(): DebugBucket | null {
 function ensureDebugBucket(): void {
   try {
     const g: any = (globalThis as any);
-    if (!g.deckShelves) return; // not installed yet — debug fields no-op
+    if (!g.deckShelves) return;
     if (!g.deckShelves.debug) g.deckShelves.debug = {};
   } catch {}
 }
@@ -246,11 +231,6 @@ export function installCreateContextMenuPatch(): void {
   } catch {}
 }
 
-/* `getFrontendLib` — the host-parametric lib-object resolver — is imported from
-   the host adapter (see the top import). It is THE single place that maps a
-   loader global (`DFL`) or a neutral host (`__SHELVES_HOST__.ui`) to the UI
-   surface; the menu code below just calls it, never re-derives the chain. */
-
 function getSPDocument(): Document {
   return getPreferredSteamDocument();
 }
@@ -270,12 +250,7 @@ function installCaptureHooks(): {
 
   const captureFromArgs = (type: any, props: any) => {
     if (captured) return;
-    // Accept any component type — modern Steam wraps `AppContextMenu` in
-    /* `React.memo` (an object with `$$typeof === Symbol.for('react.memo')`)
-       or `React.forwardRef`, so the previous `typeof type !== "function"`
-       gate silently rejected the real captures and forced every shelf-card
-       menu into the fallback path. The `overview + client` props signature is
-       unique to `AppContextMenu`, so it's a sufficient filter on its own. */
+    // Modern Steam wraps the menu in memo or forwardRef, so any component type is accepted.
     if (!type) return;
     if (!props || !("overview" in props) || !("client" in props)) return;
     const tProps = { ...props };
@@ -316,30 +291,18 @@ function installCaptureHooks(): {
 
 export function prewarmMenuExtraction(): () => void {
   if (cachedMenuComponent) return () => {};
-  /* Once per session, not once per Home mount. This schedules synthetic menu
-     opens, and each one can strand an empty modal overlay that captures the
-     gamepad focus context (observed live: a childless `ModalDialogOverlay_*`
-     nav tree, no `.gpfocus`, navigation dead — and Escape does NOT clear it). */
-  /* Re-running on every return to Home meant 5 more chances to strand one each
-     time the capture hadn't succeeded. The passive hook still captures the menu
-     whenever the user opens one for real, so nothing is permanently lost. */
+  // Once per session: each synthetic open can strand an empty modal overlay that freezes gamepad navigation.
   if (prewarmAttempted) return () => {};
   prewarmAttempted = true;
-  /* Skip on legacy (≤ 3.7): the flow extracts lazily on the first
-     MENU press; firing 5 staggered extractions on cold boot hit a race in
-     3.7's overlay timing where the panels iteration finds the right fiber
-     but the synthetic `onMenuButton` call mutates `lastExtractionAttempt`
-     before the user ever interacts. */
+  // Skipped on legacy builds, where cold-boot extractions race the overlay timing.
   if (isLegacyMenuFlow()) return () => {};
-  // Early 150ms tick runs before the recents replacement swaps the native
-  // row's games on most devices, so the native `{overview, client}` menu
-  // factory is captured first.
+  // The early tick captures the native menu factory before the recents row is replaced.
   const delays = [150, 500, 1500, 3500, 7000];
   const timers: any[] = [];
   for (const ms of delays) {
     timers.push(setTimeout(() => {
       if (cachedMenuComponent) return;
-      lastExtractionAttempt = 0; // bypass cooldown — we want every delay to actually try
+      lastExtractionAttempt = 0;
       try { extractAppContextMenu(); } catch {}
     }, ms));
   }
@@ -409,11 +372,7 @@ export function installPassiveMenuHook(): void {
 
 export function installPassiveShowContextMenuHook(): void {
   if (showContextMenuHookInstalled) return;
-  /* Legacy (≤ 3.7): rely on the React.createElement hook only. The frontend-lib
-     showContextMenu wrapper was added for 3.8/3.9-only paths where Steam
-     sometimes constructs the menu element via a module-bound reference
-     before the createElement hook installs; pre-3.8 the createElement
-     capture is sufficient on its own. */
+  // Legacy builds only need the createElement hook.
   if (isLegacyMenuFlow()) return;
   const fl = getFrontendLib();
   if (!fl || typeof fl.showContextMenu !== "function") return;
@@ -429,8 +388,7 @@ export function installPassiveShowContextMenuHook(): void {
           delete tProps.hasCustomArtwork;
           delete tProps.onChangeArtwork;
           cachedMenuTemplateProps = tProps;
-          // See tryCapture in installPassiveMenuHook — patch on capture so
-          // native renders also gain DS items via resolveShelfIdFromProps.
+          // Patch on capture so native renders also get the shelf items.
           try { getInjectedMenuComponent(cachedMenuComponent); } catch {}
         }
       }
@@ -467,16 +425,9 @@ function findLegacyMenuFn(doc: Document): ((e: any) => void) | null {
   return null;
 }
 
-/* `menuFn` is Steam's own onMenuButton handler — calling it for real opens
-   a real menu overlay as a side effect of letting Steam render it (that's
-   how the createElement hook gets a chance to see it). Dispatch a synthetic
-   Escape right after, the same "cancel" signal GamepadUI's own B-button
-   sends, so the capture never leaves a menu visibly open on screen. */
+// Opens Steam's real menu so the hook can capture it, then sends a synthetic Escape to close it.
 function dismissSyntheticMenu(): void {
-  /* Dispatch on every known Steam document (not just the one getSPDocument()
-     guesses) — the menu can render in a different window than the one this
-     resolver picks, and a dismiss aimed at the wrong window silently does
-     nothing, leaving the menu stuck on screen. */
+  // Sent to every Steam document, since the menu may render in another window.
   const docs = new Set<Document>([getSPDocument(), ...getAllSteamDocuments()].filter(Boolean) as Document[]);
   for (const doc of docs) {
     try {
@@ -489,11 +440,7 @@ function dismissSyntheticMenu(): void {
   }
 }
 
-/* A synthetic menu open can commit AFTER a fixed dismiss schedule has run,
-   leaving an empty modal overlay registered in the gamepad nav tree that
-   captures the focus context and freezes navigation (observed live: an extra
-   `ModalDialogOverlay_*` tree with zero children holding lastFocus, and no
-   `.gpfocus` anywhere, while the shelves rendered fine). */
+// A synthetic open can commit after the dismiss schedule and leave an empty overlay that freezes navigation.
 function runLegacyMenuCapture(menuFn: (e: any) => void): { component: any; templateProps: Record<string, any> } | null {
   const hooks = installCaptureHooks();
   try {
@@ -507,11 +454,7 @@ function runLegacyMenuCapture(menuFn: (e: any) => void): { component: any; templ
   }
   const captured = hooks.getCaptured();
   if (captured) {
-    /* The capture happens synchronously inside menuFn(), but the menu
-       manager's actual open (via a ref/context, not a plain synchronous
-       DOM write) can commit on a later tick — dismissing only once, right
-       here, can fire before that commit and leave the menu stuck visible.
-       Repeat over the next couple of ticks/frames to catch it either way. */
+    // The menu can commit a tick or two later, so the dismiss repeats.
     dismissSyntheticMenu();
     setTimeout(dismissSyntheticMenu, 0);
     setTimeout(dismissSyntheticMenu, 50);
@@ -554,8 +497,7 @@ function resolveLegacyOwnerWindow(): any {
 function buildLegacyMenuElement(React: any, overview: any, shelfId: string | undefined): any {
   const ownerWindow = resolveLegacyOwnerWindow();
   const baseTarget = shelfId ? getInjectedMenuComponent(legacyCachedComponent) : legacyCachedComponent;
-  // See buildFreshMenuElement — render via createElement so a class-component menu
-  // (beta) is instantiated and its patched render runs, not called as a function.
+  // createElement so a class-component menu runs its patched render.
   const renderTarget = function DsFreshMenuLegacy(props: any) { return React.createElement(baseTarget, props); };
   const props = buildMenuProps(overview, ownerWindow, shelfId, legacyCachedTemplateProps);
   return React.createElement(renderTarget, props);
@@ -596,10 +538,7 @@ function isModernPanelCandidate(panel: Element): boolean {
   if (!isLegacyPanelCandidate(panel)) return false;
   const rect = (panel as HTMLElement).getBoundingClientRect();
   if (rect.width !== 0 && rect.height !== 0) return true;
-  /* Zero rect normally means "not really rendered" — except inside the
-     native recents row we collapse via display:none (homePatch.tsx). Those
-     cards are real, just visually hidden, and the only native menu source
-     available on the home once hidden. */
+  // Cards in the hidden native recents row have a zero rect but are real.
   return !!panel.closest('[data-ds-hidden-collapse="1"]');
 }
 
@@ -662,9 +601,7 @@ function presentMenuElement(menuElement: any, cardEl: HTMLElement): void {
 function buildFreshMenuElement(overview: any, anchorDoc: Document | undefined, shelfId: string | undefined): any {
   const React = getSteamReact();
   const baseTarget = shelfId ? getInjectedMenuComponent(cachedMenuComponent) : cachedMenuComponent;
-  // Render via React.createElement, not `baseTarget(props)` — the captured menu is
-  // a plain function on the stable client but a CLASS on the beta, and calling a
-  // class as a function bypasses its (patched) render, so our items never inject.
+  // createElement, not a direct call: the captured menu is a class on some clients, and calling it skips the patched render.
   const renderTarget = function DsFreshMenu(props: any) { return React.createElement(baseTarget, props); };
   const props = buildMenuProps(overview, resolveOwnerWindow(anchorDoc), shelfId, cachedMenuTemplateProps);
   return React.createElement(renderTarget, props);
@@ -720,8 +657,7 @@ function tryShowGameMenuLegacyWrapped(appid: number, shelfId?: string): boolean 
 export function showGameMenu(appid: number, shelfId?: string): void {
   if (showGameMenuActive) return;
   showGameMenuActive = true;
-  // Native menu actions (Customize Artwork, Properties, …) bypass our
-  // onActivate, so save focus here for B-back restoration.
+  // Native menu actions bypass onActivate, so focus is saved here for restoring on B.
   try { if (appid > 0) saveFocusTarget(appid, shelfId); } catch {}
   try {
     if (isLegacyMenuFlow()) {

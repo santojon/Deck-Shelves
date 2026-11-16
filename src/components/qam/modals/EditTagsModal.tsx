@@ -5,8 +5,6 @@ import { ModalShell } from '../../ui'
 import { textFromDeckyChange } from './modalUtils'
 import { customTagsFor, setCustomTags } from '../../../runtime/gameLists'
 
-/* Free tags on one game, comma-separated, read by the Custom tags filter.
-   Save on OK / Menu; an empty field clears the game's tags. */
 export function EditTagsModal({ closeModal, controller, appid, gameName }: {
   closeModal?: () => void
   controller: SettingsController

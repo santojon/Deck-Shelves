@@ -1,8 +1,6 @@
 import { getExternalStatisticsProviders } from "./pluginApi";
 import { deriveSuggestions, type StatSuggestion, type SuggestionContext, type LibraryStat } from "../domain/statistics";
 
-// Resolve the built-in statistics providers and derive suggestions. Shared
-// by the Statistics tab and the template picker so both stay in sync.
 export async function resolveStatSuggestions(ctx: SuggestionContext = {}): Promise<StatSuggestion[]> {
   const providers = getExternalStatisticsProviders();
   const byId: Record<string, LibraryStat[]> = {};

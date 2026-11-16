@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
-// Stub the runtime modules BEFORE importing the resolver. vi.mock is hoisted.
 vi.mock('../../runtime/batteryState', () => ({
   getBatteryState: vi.fn(() => null),
   isLowBattery: vi.fn(() => false),
@@ -30,7 +29,6 @@ function app(overrides: Partial<AppOverview> & { appid: number }): AppOverview {
 beforeEach(() => {
   invalidateSmartShelfCache()
   vi.clearAllMocks()
-  // Reset to default mock values.
   vi.mocked(batteryState.getBatteryState).mockReturnValue(null)
   vi.mocked(friendsState.getFriendsPlayingAppIds).mockReturnValue(new Set())
   vi.mocked(friendsState.getFriendsRecentlyPlayedAppIds).mockReturnValue(new Set())
@@ -42,7 +40,6 @@ describe('low_battery_mode', () => {
     vi.mocked(batteryState.getBatteryState).mockReturnValue(null)
     const apps: AppOverview[] = [
       app({ appid: 1, installed: true, deck_compatibility_category: 3, playtime_forever: 60, ...({ size_on_disk: 2 * 1024 * 1024 * 1024 } as any) }),
-      // size too big → excluded
       app({ appid: 2, installed: true, deck_compatibility_category: 3, playtime_forever: 60, ...({ size_on_disk: 10 * 1024 * 1024 * 1024 } as any) }),
     ]
     const ids = resolveSmartShelf('low_battery_mode', apps, 10)
@@ -54,7 +51,7 @@ describe('low_battery_mode', () => {
     vi.mocked(batteryState.getBatteryState).mockReturnValue({
       hasBattery: true,
       state: 'discharging',
-      level: 0.15, // 15% — below default 30% threshold
+      level: 0.15,
       ts: Date.now(),
     })
     const apps: AppOverview[] = [
@@ -62,7 +59,6 @@ describe('low_battery_mode', () => {
       app({ appid: 2, installed: true, deck_compatibility_category: 3, playtime_forever: 60, ...({ size_on_disk: 1 * 1024 * 1024 * 1024 } as any) }),
     ]
     const ids = resolveSmartShelf('low_battery_mode', apps, 10)
-    // 1 GB before 3 GB
     expect(ids).toEqual([2, 1])
   })
 
@@ -78,7 +74,6 @@ describe('low_battery_mode', () => {
       app({ appid: 2, installed: true, deck_compatibility_category: 3, playtime_forever: 60, last_played: 200, ...({ size_on_disk: 1 * 1024 * 1024 * 1024 } as any) }),
     ]
     const ids = resolveSmartShelf('low_battery_mode', apps, 10)
-    // Deck level (both 3) + last_played desc → 2 (200) before 1 (100)
     expect(ids).toEqual([2, 1])
   })
 })
@@ -113,9 +108,9 @@ describe('friends_playing', () => {
     vi.mocked(friendsState.getFriendsPlayingAppIds).mockReturnValue(new Set([1, 2]))
     vi.mocked(friendsState.getFriendsRecentlyPlayedAppIds).mockReturnValue(new Set([1, 2]))
     const apps: AppOverview[] = [
-      app({ appid: 1, last_played: 100 }), // owned (in library)
-      app({ appid: 2, last_played: 200 }), // owned
-      app({ appid: 3, last_played: 300 }), // owned but no friend playing
+      app({ appid: 1, last_played: 100 }),
+      app({ appid: 2, last_played: 200 }),
+      app({ appid: 3, last_played: 300 }),
     ]
     const ids = resolveSmartShelf('friends_playing', apps, 10)
     expect(ids).toContain(1)
@@ -125,13 +120,11 @@ describe('friends_playing', () => {
 
   it('ranks currently-playing friends ahead of recently-played-only', () => {
     invalidateSmartShelfCache()
-    // App 1: only in recently-played set
-    // App 2: in live set AND recently-played
     vi.mocked(friendsState.getFriendsPlayingAppIds).mockReturnValue(new Set([2]))
     vi.mocked(friendsState.getFriendsRecentlyPlayedAppIds).mockReturnValue(new Set([1, 2]))
     const apps: AppOverview[] = [
-      app({ appid: 1, last_played: 500 }), // higher last_played but only recently-played
-      app({ appid: 2, last_played: 100 }), // currently playing → first
+      app({ appid: 1, last_played: 500 }),
+      app({ appid: 2, last_played: 100 }),
     ]
     const ids = resolveSmartShelf('friends_playing', apps, 10)
     expect(ids).toEqual([2, 1])
@@ -152,7 +145,7 @@ describe('friends_playing', () => {
     vi.mocked(friendsState.getFriendsRecentlyPlayedAppIds).mockReturnValue(new Set([1, 2]))
     const apps: AppOverview[] = [
       app({ appid: 1 }),
-      app({ appid: 2 }), // recently played only — excluded with includeRecentlyPlayed=0
+      app({ appid: 2 }),
     ]
     const ids = resolveSmartShelf('friends_playing', apps, 10, { includeRecentlyPlayed: 0 })
     expect(ids).toEqual([1])
@@ -160,17 +153,12 @@ describe('friends_playing', () => {
 
   it('surfaces NON-OWNED games (friend playing a game user does not have)', () => {
     invalidateSmartShelfCache()
-    // Friends in-game: 1 (owned by user) + 99 (NOT in user library)
     vi.mocked(friendsState.getFriendsPlayingAppIds).mockReturnValue(new Set([1, 99]))
     vi.mocked(friendsState.getFriendsRecentlyPlayedAppIds).mockReturnValue(new Set([1, 99]))
     const apps: AppOverview[] = [
       app({ appid: 1, last_played: 100 }),
-      // 99 NOT in apps array — represents a non-owned game
     ]
     const ids = resolveSmartShelf('friends_playing', apps, 10)
-    // Owned (1) comes first, then non-owned (99). Rendering layer handles
-    // metadata-fetch + store navigation for the non-owned id via the
-    // `includesNonOwned` source flag.
     expect(ids).toContain(1)
     expect(ids).toContain(99)
     expect(ids.indexOf(1)).toBeLessThan(ids.indexOf(99))
@@ -178,8 +166,6 @@ describe('friends_playing', () => {
 
   it('non-owned currently-playing rank ahead of non-owned recently-played-only', () => {
     invalidateSmartShelfCache()
-    // App 99: live (currently playing). App 88: recently-played only.
-    // Neither is in user library.
     vi.mocked(friendsState.getFriendsPlayingAppIds).mockReturnValue(new Set([99]))
     vi.mocked(friendsState.getFriendsRecentlyPlayedAppIds).mockReturnValue(new Set([88, 99]))
     const apps: AppOverview[] = []
@@ -194,7 +180,6 @@ describe('friends_playing', () => {
     const apps: AppOverview[] = [
       app({ appid: 1, last_played: 100 }),
     ]
-    // limit=1 should keep only the owned one (it leads the array).
     const ids = resolveSmartShelf('friends_playing', apps, 1)
     expect(ids).toEqual([1])
   })

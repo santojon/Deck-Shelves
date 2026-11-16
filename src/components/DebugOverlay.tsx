@@ -8,8 +8,6 @@ import { getPerfSnapshot, requestPerfRefresh } from "../runtime/perfState";
 
 interface PerShelf { id: string; title: string; nodes: number }
 interface Stats { fps: number; frameMs: number; shelves: number; nodes: number; focusables: number; perShelf: PerShelf[] }
-// Focused element readout: the ancestor tag path, the focused element's own full
-// class list, and every `ds-*` class applied across the focus chain.
 interface FocusInfo { chain: string[]; classes: string[]; ds: string[] }
 
 function cornerStyle(corner: string): React.CSSProperties {
@@ -36,25 +34,16 @@ function panelStyle(corner: string, vertical: boolean, transparent: boolean): Re
     gap: vertical ? 2 : 16,
     alignItems: vertical ? "flex-start" : "center",
     flexWrap: "wrap",
-    // Cap the width so lines wrap inside the box (no right-edge clipping), but
-    // let height grow with content — pointerEvents:none means we can't scroll, so
-    // clipping would hide the lower rows (perf/session/focus) entirely.
+    // pointerEvents is none, so the box can't scroll: let it grow instead of clipping.
     maxWidth: vertical ? 300 : "94vw",
     overflow: "visible",
   };
 }
 
-/* Outline targets: shelves + every DS descendant + the search / Side Nav /
-   friend / badge roots. Light: toggle each element's own `outline` (no boxes,
-   no per-element getBoundingClientRect reflow), swept across every Steam doc so
-   the Side Nav + search overlays (separate docs) get outlined too. Follows the
-   element's border-radius (may look rounded) — accepted; keeps badges intact. */
 const OUTLINE_SEL = '.ds-shelf, .ds-shelf [class*="ds-"], [class*="ds-search"], [class*="ds-sidenav"], [class*="ds-friend"], [class*="ds-card-badge"], [class*="ds-new-badge"]';
 const OUTLINE_CAP = 800;
 const OUTLINE_MARK = "data-ds-outline";
 
-/** Render-weight colour ramp by descendant count (cheaper → heavier):
-    light blue < green < orange < red. */
 function weightColor(n: number): string {
   if (n < 8) return "#5aa9ff";
   if (n < 30) return "#3ddc84";
@@ -70,14 +59,11 @@ function clearOutlines(): void {
           el.style.outline = "";
           el.removeAttribute(OUTLINE_MARK);
         }
-      } catch { /* gone */ }
+      } catch {}
     }
-  } catch { /* best effort */ }
+  } catch {}
 }
 
-/** Toggle each matched element's own 1px `outline`, weight-coloured, across every
-    Steam doc. Cheap: no boxes, no getBoundingClientRect reflow — just an inline
-    style + marker (so clearOutlines can strip them). */
 function drawOutlines(): void {
   for (const doc of getAllSteamDocuments()) {
     try {
@@ -85,7 +71,7 @@ function drawOutlines(): void {
         el.style.outline = `1px solid ${weightColor(el.querySelectorAll("*").length)}`;
         el.setAttribute(OUTLINE_MARK, "1");
       }
-    } catch { /* best effort */ }
+    } catch {}
   }
 }
 
@@ -97,9 +83,6 @@ function classListOf(el: Element): string[] {
   return typeof el.className === "string" && el.className ? el.className.trim().split(/\s+/) : [];
 }
 
-/** Walk the gamepad-focused element's ancestor chain: build the tag path, capture
-    the focused element's own full class list, and collect every `ds-*` class
-    seen along the way (so the applied DS classes are visible at a glance). */
 function readFocusInfo(doc: Document): FocusInfo {
   const chain: string[] = [];
   const ds = new Set<string>();
@@ -115,7 +98,7 @@ function readFocusInfo(doc: Document): FocusInfo {
       chain.push(`${el.tagName.toLowerCase()}${list.length ? "." + list[0] : ""}`);
       el = el.parentElement; depth++;
     }
-  } catch { /* best effort */ }
+  } catch {}
   return { chain, classes, ds: Array.from(ds) };
 }
 
@@ -166,8 +149,6 @@ function FocusBlock({ info, vertical }: { info: FocusInfo; vertical: boolean }) 
   );
 }
 
-// Live Visibility Rules v2 context signals (device / perf / session) — the same
-// state the rules read, surfaced for on-device debugging.
 function deviceParts(): string[] {
   const dev = getDeviceState();
   const parts: string[] = [];
@@ -178,7 +159,7 @@ function deviceParts(): string[] {
 }
 
 function perfSessionParts(): string[] {
-  requestPerfRefresh(); // 30 s-cached; populates cpu/mem for the readout
+  requestPerfRefresh();
   const perf = getPerfSnapshot();
   const sess = getSessionState();
   const parts: string[] = [];
@@ -206,11 +187,6 @@ function DebugPanel({ stats, focusInfo }: { stats: Stats; focusInfo: FocusInfo }
   );
 }
 
-/** Dev overlay — read-only shelf/perf/render readout on the home. rAF sampler +
-    DOM counts scoped to the DS mount; live-configurable (corner, orientation,
-    transparency, content, weight-coloured render outlines, reactive focus).
-    Mounted only when enabled; rAF + outlines cleaned up on unmount;
-    `pointerEvents:none` keeps it inert to input. */
 export function DebugOverlay({ mountEl, shelves }: { mountEl: HTMLElement | null; shelves: any[] }) {
   const [stats, setStats] = useState<Stats | null>(null);
   const [focusInfo, setFocusInfo] = useState<FocusInfo>({ chain: [], classes: [], ds: [] });
@@ -228,7 +204,6 @@ export function DebugOverlay({ mountEl, shelves }: { mountEl: HTMLElement | null
       acc += now - last; last = now; frames++;
       const doc = mountEl?.ownerDocument ?? null;
       const opts = (getCurrentSettings() as any) ?? {};
-      // Reactive focus readout: re-read every frame, re-render only when it changes.
       if (doc && opts.debugOverlayFocus === true) {
         const fi = readFocusInfo(doc);
         const key = `${fi.chain.join(">")}#${fi.ds.join(".")}#${fi.classes.join(" ")}`;

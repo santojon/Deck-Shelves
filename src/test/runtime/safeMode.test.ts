@@ -6,7 +6,6 @@ import {
 
 const KEY = "ds-boot-outcomes-v1";
 
-// A Map-backed localStorage stands in for the Deck's: it outlives every simulated restart.
 let store: Map<string, string>;
 const prevStorage = (globalThis as any).localStorage;
 
@@ -23,22 +22,16 @@ afterEach(() => {
 
 const stored = () => JSON.parse(store.get(KEY) ?? "{}");
 
-// The record an earlier build left behind, read by the next boot.
 function seed(record: unknown): void {
   store.set(KEY, JSON.stringify(record));
   __resetSafeModeForTest(true);
 }
 
-/* A Steam restart: a new window (the session mark is gone), the bundle
-   evaluated again (its cache gone) and localStorage carried over; then the
-   boot evaluates. A bare evaluateBootOutcome() is the bundle booting again in
-   the same window (hot-swap, reload, the other copy of a dual install). */
 function restart(): boolean {
   __resetSafeModeForTest(true);
   return evaluateBootOutcome();
 }
 
-// One boot: evaluates (folding the previous boot in), then Home starts and maybe completes.
 function boot(completes: boolean): boolean {
   const safe = restart();
   recordBootStarted();
@@ -54,7 +47,6 @@ describe("safeMode", () => {
 
   it("a boot where Home never started is not counted as incomplete", () => {
     restart();
-    // no recordBootStarted in any of these sessions
     expect(restart()).toBe(false);
     expect(restart()).toBe(false);
     expect(restart()).toBe(false);
@@ -85,7 +77,6 @@ describe("safeMode", () => {
     boot(false); boot(false);
     for (let i = 0; i < SAFE_MODE_BOOT_WINDOW - 1; i++) boot(true);
     expect(boot(false)).toBe(false);
-    // Three incomplete boots overall, but only one inside the window.
     expect(restart()).toBe(false);
     expect(stored().boots).toHaveLength(SAFE_MODE_BOOT_WINDOW);
   });
@@ -103,7 +94,6 @@ describe("safeMode", () => {
     for (let i = 0; i < SAFE_MODE_AFTER_INCOMPLETE_BOOTS; i++) {
       expect(restart()).toBe(false);
       recordBootStarted();
-      // Hot-swap, reload or the other copy: evaluated again before the mount completed.
       expect(evaluateBootOutcome()).toBe(false);
       recordBootStarted();
       recordBootCompleted();
@@ -118,8 +108,6 @@ describe("safeMode", () => {
     for (let i = 0; i < SAFE_MODE_AFTER_INCOMPLETE_BOOTS; i++) boot(false);
     expect(restart()).toBe(true);
     expect(evaluateBootOutcome()).toBe(true);
-    // Leaving Safe Mode takes effect on a reload in the same session, and that reload
-    // can be cut short mid-mount without becoming a failed boot.
     leaveSafeMode();
     expect(evaluateBootOutcome()).toBe(false);
     recordBootStarted();
@@ -138,7 +126,6 @@ describe("safeMode", () => {
     unsub();
     expect(isSafeModeActive()).toBe(false);
     expect(stored().boots).toEqual([]);
-    // Two more incomplete boots would trip again if the old ones were still counted.
     expect(boot(false)).toBe(false);
     expect(boot(false)).toBe(false);
     expect(restart()).toBe(false);

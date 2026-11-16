@@ -24,7 +24,7 @@
   "update_installing": "A instalar a atualização {{version}}…",
   "update_installed": "Atualizado para {{version}}.",
   "update_install_failed": "Falha na instalação — a recorrer à transferência.",
-  "update_install_busy": "O host ainda está a verificar atualizações — tente novamente daqui a pouco.",
+  "update_install_busy": "Ainda a verificar atualizações — tente novamente daqui a pouco.",
   "update_downloading": "A transferir a atualização {{version}}…",
   "update_downloaded": "Guardado em {{path}} — instale manualmente.",
   "update_download_failed": "Falha na transferência — a abrir a página da versão.",

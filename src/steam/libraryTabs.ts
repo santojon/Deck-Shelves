@@ -3,8 +3,6 @@ import { type SteamCollectionLike, type SteamCollectionStore, type SteamHostWind
 import { getPreferredSteamDocument } from "../runtime/steamHost";
 import { type SteamObject, appIdOfRow, firstStringFromKeys, getSteamClients, getSteamWindows, hasAnyMethod } from "./steamAccess";
 
-/* Library tabs: the native tab list, TabMaster's custom tabs (read through React fibers), and the app ids behind a tab. */
-
 export function slugifyTab(value: string): string {
   return value.toLowerCase().normalize("NFD").replace(/[^\w\s-]/g, "").trim().replace(/\s+/g, "_");
 }
@@ -18,12 +16,9 @@ function normalizeTabId(value: string): string {
   return slugifyTab(raw);
 }
 
-// The TabMaster plugin's context value (its tabs), read through React fibers.
 export interface TabMasterTab { id?: string; title?: string; name?: string; [key: string]: any }
 
 interface TabMasterContext { visibleTabsList?: TabMasterTab[]; tabsMap?: Map<string, TabMasterTab>; [key: string]: any }
-
-// ─── React fiber traversal for plugin context discovery ──────────────────
 
 let pluginContextCache: { ts: number; value: TabMasterContext | null } | null = null;
 
@@ -42,7 +37,6 @@ function extractTabMasterFromFiberValue(val: unknown): TabMasterContext | null {
   return null;
 }
 
-// The slice of a React fiber the walk reads.
 type FiberNode = { memoizedProps?: { value?: unknown } | null; child?: FiberNode | null; sibling?: FiberNode | null };
 
 function walkFiberForTabMasterContext(startFiber: FiberNode | null | undefined): TabMasterContext | null {
@@ -241,10 +235,7 @@ const USER_COLLECTION_ID_KEYS = ["id", "m_strId", "key"];
 
 const USER_COLLECTION_NAME_KEYS = ["displayName", "m_strName"];
 
-/* Steam builds collectionStore's system collections asynchronously after boot.
-   Reading a system-collection MobX getter (recentAppsCollection, …) before that
-   throws inside Steam's own SystemCollectionIdToName (undefined `.get`, issue
-   #113), so gate every such read on the store having its core collection built. */
+// Reading a system collection getter before Steam builds them throws inside Steam.
 function collectionStoreReady(cs: SteamCollectionStore | null | undefined): boolean {
   try { return !!(cs?.allAppsCollection ?? cs?.allGamesCollection)?.apps; } catch { return false; }
 }
@@ -289,8 +280,7 @@ function addUserCollectionTabs(cs: SteamCollectionStore | null | undefined, seen
   }
 }
 
-// Native "Recentes" tab plus user collections; uses the raw storage
-// map to avoid the MobX userCollections poisoning path.
+// Raw storage map, not the MobX `userCollections` computed.
 function buildCollectionStoreTabs(): PlatformTab[] {
   try {
     const cs = steamCollectionStore();
@@ -303,8 +293,7 @@ function buildCollectionStoreTabs(): PlatformTab[] {
 }
 
 export async function listLibraryTabs(): Promise<PlatformTab[]> {
-  // Always swallow errors: a rejected promise here empties the editor's
-  // tab dropdown. Fall back to native defaults.
+  // A rejected promise here empties the editor's tab dropdown.
   try {
     const settingsTabs = await fetchTabsFromSettingsFile();
     if (settingsTabs.length > 0) return settingsTabs;

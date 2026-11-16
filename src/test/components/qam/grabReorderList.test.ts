@@ -9,7 +9,6 @@ const host = vi.hoisted(() => ({
   takeFocus: vi.fn((_el: HTMLElement) => true),
 }))
 
-// Small doubles for the host adapter: plain elements that expose their handlers.
 vi.mock('../../../runtime/host/decky', async () => {
   const { createElement: el, Fragment: Frag } = await import('react')
   const dataAttrs = (props: Record<string, unknown>) =>
@@ -149,18 +148,15 @@ function pressA(id: string, isRepeat?: boolean) {
   return evt
 }
 
-// X on a name area: the grab.
 function pressX(id: string, isRepeat?: boolean) {
   const evt = pad(SECONDARY, isRepeat)
   act(() => { propsOf(id).onSecondaryButton(evt) })
   return evt
 }
 
-// A row whose actions hold the menu control the panel's lists use.
 const menuActions = (opened: (id: string) => void) => (item: Item): ReactNode =>
   h('button', { className: 'test-action', 'data-ds-row-menu': '1', onClick: () => opened(item.id) }, `act-${item.id}`)
 
-// Through the name area's generic callback; `handled` stays undefined when the list set none there.
 function buttonDown(id: string, button: number, isRepeat?: boolean) {
   const evt = pad(button, isRepeat)
   let handled: unknown
@@ -183,7 +179,6 @@ function flushFrames() {
   })
 }
 
-// The single focus request after a press: its element, and one scroll of that row to the nearest edge.
 function expectFocusOn(id: string, scrolls: Array<{ el: Element; opts: unknown }>) {
   expect(host.takeFocus).toHaveBeenCalledTimes(1)
   expect(host.takeFocus.mock.calls[0][0]).toBe(targetOf(id))

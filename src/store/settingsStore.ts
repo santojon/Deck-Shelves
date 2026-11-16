@@ -7,35 +7,23 @@ import { logError, logInfo, logWarn, setVerboseLogging } from "../runtime/logger
 import { applyQASettingsOverride, qaOverrideActive, qaSeedActive } from "../qa/harness";
 import { SYNC_LISTS, LOCAL_ONLY_FIELDS } from "../domain/settingsMerge";
 
-/* Bumping the cache key invalidates persisted localStorage entries from
-   previous plugin versions in one shot. v3 forces a backend refetch on
-   first load after upgrade — required because the backend sanitizer
-   migrates legacy "Recently Played" shelves whose stale source the cache
-   would otherwise keep alive across plugin reloads. */
+// Bumping the key invalidates every persisted cache entry at once.
 const CACHE_KEY = 'deck-shelves-settings-cache-v3';
 const SHARED_STATE_KEY = '__DECK_SHELVES_SHARED_SETTINGS__';
 
-/* A QA-overridden payload (tagged `__dsQaOverride` by `applyQASettingsOverride`)
-   must never be trusted as real data once its QA session ends — see
-   `qaOverrideActive`'s doc comment for the incident this prevents: fixture
-   data written to the cache can survive in localStorage past its QA build. */
+// A QA-tagged payload is never trusted once its QA session ends.
 function isUntrustedQaPayload(raw: unknown): boolean {
   return !qaOverrideActive && !!raw && typeof raw === "object" && (raw as any).__dsQaOverride === true;
 }
 
 function readCache(): Settings | null {
   try {
-    // One-shot cleanup of pre-v3 cache entries so users upgrading from
-    // older builds don't carry stale shelf sources forward.
     try { globalThis.localStorage?.removeItem('deck-shelves-settings-cache-v2'); } catch {}
     const raw = globalThis.localStorage?.getItem(CACHE_KEY);
     if (!raw) return null;
     const rawParsed = JSON.parse(raw);
     if (isUntrustedQaPayload(rawParsed)) return null;
     const parsed = SettingsSchema.safeParse(rawParsed);
-    // Apply migrations to cached payload too — same pre-v3 payload could
-    // also be sitting at v3 if the user wrote it after the cache bump
-    // before the migration shipped.
     return parsed.success ? migrate(parsed.data) : null;
   } catch {
     return null;
@@ -70,32 +58,21 @@ function writeSharedState(s: Settings) {
 
 /* Used by the cache read below, which runs at load (through migrate), so they come first: the
    bundle sets a module's constants in source order, and one set later is still undefined there. */
-/* Current settings-document schema version. Bump when a migration below is
-   added; older versions read a higher number and leave the doc untouched. */
+// Bump when adding a migration; older builds leave a higher-versioned document untouched.
 export const SCHEMA_VERSION = 2;
 // Documents below this version predate the hidden-games item on smart shelves.
 const HIDDEN_FILTER_SCHEMA_VERSION = 2;
-// Backfilled entities get a fixed low clock — any genuine future edit (Date.now)
-// always beats it, and two devices' never-edited copies tie by content, not by
-// which device happened to load first.
+// A fixed low clock: any real edit beats it, and never-edited copies tie by content.
 const BACKFILL_EPOCH = 1;
 
 const _init = readCache() ?? readSharedState();
 let current: Settings | null = _init ? applyQASettingsOverride(_init) : null;
-/* Seeded here without going through notify(), so its side effects need
-   repeating: sync verbose-logging, and write cache/shared-state so an
-   active QA override is reflected immediately — otherwise notify()'s
-   same-settings short-circuit (the override is deterministic) would leave
-   both permanently stale for the whole session. */
+// Seeded without notify(), so its side effects (verbose logging, cache, shared state) run here.
 setVerboseLogging((current as any)?.verboseLoggingEnabled === true);
 if (current) { writeCache(current); writeSharedState(current); }
 const listeners = new Set<(s: Settings) => void>();
 
-/* Tracks whether the most recent saveSettings attempt actually reached the
-   backend. When the backend hangs / returns false we flip this to false;
-   while it is false, refreshSettings's background fetch stops overriding
-   `current` so the user's pending changes survive even across plugin
-   reloads. Persisted to localStorage so a remount doesn't drop the flag. */
+// While false, background refreshes don't override `current`, so unsaved changes survive reloads.
 const SAVE_OK_KEY = "deck-shelves-last-save-ok";
 let lastSaveSucceeded = (() => {
   try { return globalThis.localStorage?.getItem(SAVE_OK_KEY) !== "0"; } catch { return true; }
@@ -106,11 +83,9 @@ function markSaveResult(ok: boolean): void {
   try { (globalThis as any).__ds_last_save_ok = ok; } catch {}
 }
 
-/* Until this session has read the settings file, `current` is the local cache, which can be older
-   than the file: the cache reaches disk lazily, so a Steam restart right after a change can drop it.
-   Saves made before the read keep only the fields they changed and are laid over the file's
-   document when it arrives, so a stale cache never overwrites a newer file. After a failed save
-   the cache is the newer copy, so it is written as before. */
+// Until the file is read, `current` is the local cache, which can be older than the file.
+// Early saves keep only the fields they changed and are laid over the file's document when it arrives;
+// after a failed save the cache is the newer copy and is written as is.
 let fileRead = !lastSaveSucceeded;
 let earlyEdits: { fields: Record<string, unknown>; resolvers: Array<(ok: boolean) => void> } | null = null;
 let earlyTimer: ReturnType<typeof setTimeout> | null = null;
@@ -145,13 +120,7 @@ function withTimeout<T>(promise: Promise<T>, ms = 8000): Promise<T> {
   });
 }
 
-// Dev-only: the last raw (pre-QA-override) payload notify() saw, so a QA
-// script can force a recompute after changing an override input without
-// waiting on an unrelated backend refresh. Tree-shaken in release builds.
-let lastRawForQA: Settings | null = null;
-
-// The QA tag only means something in a QA build: a normal build never keeps or saves it, even when
-// older data carries it (the settings file or a profile snapshot written before QA builds were fenced).
+// The QA tag only means something in a QA build; a normal build never keeps or saves it.
 function withoutQaTag(s: Settings): Settings {
   if (qaOverrideActive || (s as any)?.__dsQaOverride === undefined) return s;
   const copy = { ...(s as any) };
@@ -160,14 +129,10 @@ function withoutQaTag(s: Settings): Settings {
 }
 
 function notify(raw: Settings, persist = true) {
-  if (__DEV__) lastRawForQA = raw;
-  // Fresh-install QA seed active: an untagged payload is a backend refresh —
-  // drop it so the session's in-memory progress (tour seen, packs applied) holds.
+  // With the fresh-install QA seed active, an untagged payload is a backend refresh and is dropped.
   if (qaSeedActive() && (raw as any).__dsQaOverride !== true) return;
   const s = applyQASettingsOverride(withoutQaTag(raw));
-  // Re-sync the logger flag on every notify, BEFORE the same-settings
-  // short-circuit, so the boot path's notify(cached) applies it even when the
-  // payload matches the seeded `current` (verbose state would otherwise stick).
+  // Before the same-settings short-circuit, so the boot path's notify(cached) still applies it.
   setVerboseLogging((s as any).verboseLoggingEnabled === true);
   if (isSameSettings(current, s)) {
     return;
@@ -184,10 +149,7 @@ function notify(raw: Settings, persist = true) {
   } catch {}
 }
 
-/* One-time migrations applied to every settings load — runs against both
-   the cached snapshot and freshly-fetched backend payloads, so users carry
-   the fix forward regardless of where the stale data sits. Each migration
-   MUST be idempotent. */
+// Runs on every load, cached or fetched; each migration must be idempotent.
 
 function dedupeById<T extends { id?: string }>(arr: readonly T[]): T[] {
   const seen = new Set<string>();
@@ -200,10 +162,7 @@ function dedupeById<T extends { id?: string }>(arr: readonly T[]): T[] {
   });
 }
 
-/* Drop duplicate shelves / smart shelves by id. A cloud-sync or template path
-   can append an entry that already exists (same id), which renders the shelf
-   twice on the home — dedupe on every load so it self-heals (the next push
-   then writes the cleaned list back to the cloud). Keeps the first occurrence. */
+// Duplicate ids render a shelf twice; dedupe on every load, keeping the first.
 function dedupeShelves(s: Settings): Settings {
   const shelves = dedupeById(s.shelves ?? []);
   const smart = dedupeById((s as any).smartShelves ?? []);
@@ -219,9 +178,7 @@ function stripStamp(e: any): string {
   return JSON.stringify(rest);
 }
 
-// The scalar bag = every field except the per-id sync lists and the sync
-// bookkeeping / device-local fields. Serialized with sorted keys so key order
-// never registers as a change.
+// Sorted keys so key order never registers as a change.
 function scalarBag(s: any): string {
   const skip = new Set<string>([...SYNC_LISTS, "syncTombstones", "preferencesUpdatedAt", ...LOCAL_ONLY_FIELDS]);
   const out: any = {};
@@ -229,10 +186,7 @@ function scalarBag(s: any): string {
   return JSON.stringify(out);
 }
 
-/* Give any list entity that lacks a sync clock the fixed backfill epoch, and
-   ensure the sync bookkeeping fields exist — so a pre-sync document merges
-   deterministically without a one-time re-stamp on every device. Returns the
-   same reference when nothing needed backfilling (identity-preserving). */
+// Returns the same reference when nothing needed backfilling.
 function backfillSyncStamps(s: Settings): Settings {
   const out: any = { ...s };
   let changed = false;
@@ -259,8 +213,6 @@ function stampEntity(e: any, before: any, now: number): any {
   return { ...e, updatedAt: now };
 }
 
-// Stamp one list vs its previous version: fresh clock on changed/new entities,
-// a tombstone for every removed id, and clear the tombstone of a re-created one.
 function stampList(prevList: any[], nextList: any[], tombstones: Record<string, number>, now: number): any[] {
   const prevById = new Map(prevList.map((e) => [e.id, e] as const));
   const nextIds = new Set(nextList.map((e) => e.id));
@@ -274,11 +226,7 @@ function pruneTombstones(tombstones: Record<string, number>, now: number): void 
   for (const [id, t] of Object.entries(tombstones)) if (now - t > TOMBSTONE_TTL_MS) delete tombstones[id];
 }
 
-/* Central sync-stamping: bump `updatedAt` on every changed/new list entity,
-   tombstone every removed id (and clear the tombstone of a re-created one), and
-   bump `preferencesUpdatedAt` when any scalar changed — so settingsMerge can
-   converge devices per-entity. Runs on every user save; sync-applied saves pass
-   fromSync to skip it (they already carry authoritative stamps). */
+// Sync-applied saves skip this; they already carry authoritative stamps.
 export function stampChanges(prev: Settings | null, next: Settings): Settings {
   const now = Date.now();
   const out: any = { ...next };
@@ -298,10 +246,7 @@ function hasHiddenFilterItem(items: FilterItem[]): boolean {
     || (it?.type === "merge" && Array.isArray(it.params?.items) && hasHiddenFilterItem(it.params.items as FilterItem[])));
 }
 
-/* Smart shelves made before the hidden-games default still show Steam-hidden
-   games. Append the same `hidden: exclude` item a new smart shelf gets, unless
-   the shelf already has a `hidden` item (any mode, at any depth). An `or` group
-   is first folded into a `merge` item so the exclusion applies on top of it. */
+// Smart shelves made before the hidden-games default get the same `hidden: exclude` item, unless they have one.
 function withHiddenGamesExcluded(group: FilterGroup | undefined): FilterGroup {
   const raw = group?.items;
   const items = Array.isArray(raw) ? raw : [];
@@ -311,11 +256,7 @@ function withHiddenGamesExcluded(group: FilterGroup | undefined): FilterGroup {
   return { mode: "and", items: [...items, createHiddenGamesExcludeItem()] };
 }
 
-/* Runs once per document (see the schema-version gate in migrate), so a user who
-   removes the item afterwards keeps it removed. A changed shelf gets a clock one
-   tick above its old one: it beats the un-migrated copy of the same shelf in a
-   cloud-sync merge, is identical on every upgraded device, and still loses to
-   any real edit (Date.now). */
+// A changed shelf gets a clock one tick above its old one: it beats the un-migrated copy and loses to any real edit.
 function migrateSmartShelfHidden(sh: SmartShelf): SmartShelf {
   const items = sh.filterGroup?.items;
   // A malformed group is left alone: a throw here would reset the whole config.
@@ -327,9 +268,7 @@ function migrateSmartShelfHidden(sh: SmartShelf): SmartShelf {
 
 export function migrate(s: Settings): Settings {
   const stored = s.schemaVersion ?? 0;
-  // A NEWER version wrote this document — never migrate or downgrade it (return
-  // untouched); its higher-schema fields survive via the preserve-unknown
-  // sanitizer, and it already carries its own sync bookkeeping.
+  // A newer version wrote this document: never migrate or downgrade it.
   if (stored > SCHEMA_VERSION) return s;
   s = dedupeShelves(s);
   s = backfillSyncStamps(s);
@@ -344,11 +283,7 @@ export function migrate(s: Settings): Settings {
     });
   }
   const shelves = s.shelves.map((sh) => {
-    /* "Recently Played" template used to emit { type: "tab", tab: "recent" },
-       but listLibraryTabs() never had a "recent" tab id — so the edit modal's
-       dropdown couldn't match and the source field looked unset. Filter
-       source with sort=recent reproduces the same behavior on the home and
-       round-trips cleanly through the modal. */
+    // listLibraryTabs() has no "recent" tab, so a filter source sorted by recent stands in.
     const src = sh.source as any;
     if (src && src.type === "tab" && src.tab === "recent") {
       mutated = true;
@@ -357,14 +292,10 @@ export function migrate(s: Settings): Settings {
     return sh;
   });
   const base = mutated ? { ...s, shelves, smartShelves } : s;
-  // Stamp the current version — only ever bumps up (never downgrades).
   return stored === SCHEMA_VERSION ? base : { ...base, schemaVersion: SCHEMA_VERSION };
 }
 
-/* A single invalid field must NEVER nuke the whole config to defaults: that
-   silently wipes the user's shelves and, once the empty state is saved back,
-   destroys them on disk. Preserve the real data by merging the candidate over
-   defaults so every field is present, and log the offending issues loudly. */
+// One invalid field must never reset the whole config: merge over defaults and log the issues.
 function preserveOnParseFailure(candidate: unknown, error: unknown): Settings {
   try { logError("STORAGE", "settings failed schema validation — preserving data (not resetting)", JSON.stringify((error as any)?.issues?.slice(0, 6))); } catch {}
   if (candidate && typeof candidate === "object") {
@@ -384,11 +315,7 @@ const COLD_RETRY_MAX = 10;
 let coldRetryTimer: ReturnType<typeof setTimeout> | null = null;
 let coldRetryAttempt = 0;
 
-/* Cold boot can mount the home before the backend RPC bridge attaches, so the
-   first get_settings throws "backend not ready" and the cold path below falls
-   back to empty defaults. Retry with backoff until the backend answers, then
-   notify — the home then populates on its own instead of only once the user
-   opens the QAM (the sole-host "no shelves until I open the QAM" bug). */
+// Cold boot can mount the Home before the backend bridge attaches, so retry until it answers.
 function scheduleColdRetry(): void {
   if (coldRetryTimer != null || coldRetryAttempt >= COLD_RETRY_MAX) return;
   const delay = Math.min(500 * 2 ** coldRetryAttempt, 4000);
@@ -402,8 +329,7 @@ function scheduleColdRetry(): void {
   }, delay);
 }
 
-// The store's effective state after a notify() — a QA override/seed applied
-// inside notify() must reach direct callers too, not just subscribers.
+// A QA override applied inside notify() must reach direct callers too.
 function effectiveState(fallback: Settings): Settings {
   return current ?? fallback;
 }
@@ -479,10 +405,7 @@ function holdUntilFileRead(before: Settings | null, next: Settings): Promise<boo
   return new Promise<boolean>((resolve) => { job.resolvers.push(resolve); });
 }
 
-/* For a reader that must not depend on something else reading the file (the own tab decides once
-   per start, and in Safe Mode or away from the Home nothing else may read it): reads it now unless
-   this session already has. It starts no wait: how long to trust the local copy instead is the
-   reader's call, and saves keep waiting for the file. */
+// For a reader that can't rely on another read of the file: reads it now unless this session already has.
 export function requestSettingsFileRead(): void {
   readFileOnce();
 }
@@ -491,17 +414,12 @@ export async function refreshSettings(): Promise<Settings> {
   const cached = current ?? readCache() ?? readSharedState();
   if (cached) {
     notify(cached);
-    // If the last save attempt failed (across plugin reloads — flag is
-    // persisted), retry the cached state once on boot. Without this the
-    // user's unsynced toggle would never propagate to disk.
+    // The last save failed (the flag survives reloads), so retry the cached state once.
     if (!lastSaveSucceeded) {
       logWarn("STORAGE", "retrying unsynced save on boot");
       saveSettings(cached).catch(() => {});
     }
-    /* Snapshot the state we showed before kicking off the background read.
-       If the user mutates anything while the call is in flight, `current`
-       will diverge from this snapshot and we MUST keep the user's edits —
-       the backend response is racing them and is necessarily stale. */
+    // Edits made while the read is in flight win over its necessarily stale answer.
     const refreshAnchor = JSON.stringify(current);
     const sentEpoch = fileEpoch;
     withTimeout(call<[], unknown>("get_settings"), 5000)
@@ -516,10 +434,7 @@ export async function refreshSettings(): Promise<Settings> {
           logWarn("STORAGE", "background refresh suppressed (last save unconfirmed)");
           return;
         }
-        /* 2) User mutated state mid-read → adopting the backend response
-              would silently revert those edits even though they're being
-              actively saved. Skip and let the next refresh pick them up
-              once the save has settled. */
+        // 2) State changed mid-read → adopting the answer would revert those edits.
         if (JSON.stringify(current) !== refreshAnchor) {
           logWarn("STORAGE", "background refresh suppressed (state changed mid-read)");
           return;
@@ -547,10 +462,7 @@ export async function refreshSettings(): Promise<Settings> {
   }
 }
 
-/* Coalesce rapid saveSettings calls: when a backend write is already in
-   flight, queue the latest payload and let the resolver of every caller
-   share the same outcome. Eliminates the queue of N RPC calls that piled
-   up behind a slow plugin worker, each hitting its own 8 s timeout. */
+// Rapid saves coalesce: while a write is in flight only the latest payload is queued.
 let pendingSave: { next: Settings; resolvers: Array<(ok: boolean) => void> } | null = null;
 let saveInFlight = false;
 
@@ -570,30 +482,21 @@ async function flushPendingSave(): Promise<void> {
 }
 
 export function saveSettings(next: Settings, opts?: { fromSync?: boolean }): Promise<boolean> {
-  // Stamp per-entity sync clocks + tombstones from the diff vs the current state,
-  // unless this is a sync-applied write (which already carries authoritative
-  // stamps from the merge — re-stamping would clobber the other device's clocks).
+  // Sync-applied writes skip stamping, or the other device's clocks get clobbered.
   const stamped = withoutQaTag(opts?.fromSync ? next : stampChanges(current, next));
-  // Never let a QA-overridden session reach the real backend — see
-  // `qaOverrideActive`'s doc comment for the incident this guards against.
-  // Replaces a narrower, two-flag version of this same check.
+  // A QA-overridden session never reaches the real backend.
   if (qaOverrideActive) {
     logInfo("STORAGE", "saveSettings skipped (QA override active)");
     notify(stamped);
     return Promise.resolve(true);
   }
-  // Always update local + cache + listeners immediately so the UI stays
-  // responsive even while a slow backend write is pending. An early save is
-  // recorded first, so a save a listener makes in answer is laid over it.
+  // Local state, cache and listeners update at once; an early save is recorded first so a listener's own save lays over it.
   const held = fileRead ? null : holdUntilFileRead(current, stamped);
   notify(stamped);
   return held ?? new Promise<boolean>((resolve) => { queueSave(stamped, [resolve]); });
 }
 
-/* A save that switches a profile carries a request for a safety snapshot: the
-   backend copies the file it is about to replace, in the same step, so nothing
-   lands in between (a separate call could be served after the write). Kept until
-   the next write, which also covers a save that was coalesced or held. */
+// The backend snapshots the file it replaces in the same step, so nothing lands in between.
 let nextSaveSnapshot: SafetySnapshotKind | null = null;
 
 export function snapshotOnNextSave(kind: SafetySnapshotKind): void {
@@ -603,20 +506,14 @@ export function snapshotOnNextSave(kind: SafetySnapshotKind): void {
 async function runSave(next: Settings): Promise<boolean> {
   const snapshot = nextSaveSnapshot;
   nextSaveSnapshot = null;
-  // Single-writer: a stood-down instance (dual-host install) never writes
-  // settings — the owning instance is authoritative. The local notify()
-  // already ran, so this instance's UI stays responsive.
+  // Single writer: a stood-down instance never writes settings.
   if (!isHomeOwner()) {
     logInfo("STORAGE", "saveSettings skipped — not the renderer owner (single-writer)");
     return true;
   }
   logInfo("STORAGE", "saveSettings start", { enabled: next.enabled, shelfCount: next.shelves.length });
 
-  /* Single attempt with a single RPC. Previously this was 3 retries +
-     a post-save get_settings verification, which on a slow backend stacked
-     up to 6 timeouts per save and kept the UI in error-state for ~45s.
-     The cache + `lastSaveSucceeded` flag handle one-off failures gracefully
-     — the next user-triggered save will retry the write naturally. */
+  // One attempt; the cache and `lastSaveSucceeded` cover failures until the next save.
   try {
     const payload = snapshot ? { settings: next, snapshot } : { settings: next };
     const ok = await withTimeout(call<[unknown], boolean>("set_settings", payload), 8000);
@@ -705,9 +602,7 @@ export async function createSnapshot(): Promise<BackupEntry[]> {
   }
 }
 
-/* Best-effort safety snapshot right before a risky action: an import, a profile
-   switch (at most one a minute) or a Steam account change. The backend maps the
-   kind to a fixed file tag, and none waits on the 24h auto-snapshot cooldown. */
+// Best-effort snapshot before an import, a profile switch (at most one a minute) or an account change.
 export type SafetySnapshotKind = "import" | "profile" | "account";
 
 export async function createSafetySnapshot(kind: SafetySnapshotKind): Promise<void> {
@@ -786,10 +681,7 @@ export async function readJsonFile(path: string): Promise<string | null> {
   }
 }
 
-/* One-shot: true exactly once, the first time this is called after the
-   backend recovered settings.json from a `.bak`/backups snapshot because
-   the primary file was corrupted. The backend clears its own flag on read,
-   so a later unrelated boot never re-fires this. */
+// True once, after the backend restored settings from a backup; the backend clears its flag on read.
 export async function wasSettingsRecovered(): Promise<boolean> {
   try {
     return !!(await withTimeout(call<[], boolean>("was_settings_recovered"), 8000));
@@ -801,17 +693,6 @@ export async function wasSettingsRecovered(): Promise<boolean> {
 
 export function getCurrentSettings(): Settings | null {
   return current;
-}
-
-/* Dev-only: force a recompute of `current` from the last known raw payload.
-   A QA override (e.g. the perf-matrix scenario key) is read at apply time,
-   not pushed via an event, so changing it does nothing until the next
-   unrelated backend refresh. Exposed on `globalThis` for an external perf
-   driver to call right after writing the override input. */
-if (__DEV__) {
-  (globalThis as any).__ds_qa_reapply_override = () => {
-    if (lastRawForQA) notify(lastRawForQA);
-  };
 }
 
 export function subscribeSettings(listener: (s: Settings) => void): () => void {

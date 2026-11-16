@@ -1,12 +1,6 @@
 import { useEffect, useState } from 'react';
 
-// The QAM-expanded state is per QAM session: it never survives across
-// QAM open/close cycles, even when the plugin tab itself stays mounted
-/* in SharedJSContext. Persisting at the module level produced stale-open
-   reports — every fresh QAM open inherited the previous session's state.
-   Backed by SharedJSContext's sessionStorage (this module runs there) so the
-   EXTERNAL setter can write before the hook subscribes; that storage outlives
-   the QAM popup, so the tab's mount resets it (`resetQamExpanded`). */
+// Per QAM session: sessionStorage outlives the popup, so the tab's mount resets it.
 const STORAGE_KEY = '__ds_qam_expanded__';
 const emitter = new EventTarget();
 const EVENT = 'ds-qam-expanded-changed';
@@ -23,8 +17,7 @@ function writeSession(value: boolean): void {
 
 let current = readSession();
 
-// Drive the native QAM compositor expansion using the same protocol the
-// Friends & Chat module uses. window.opener of the QAM.
+// Same protocol the Friends & Chat module uses to expand the QAM.
 function notifyCompositor(expanded: boolean): void {
   const g = (globalThis as unknown as { opener?: Window | null });
   const opener = g.opener ?? null;
@@ -37,21 +30,9 @@ function notifyCompositor(expanded: boolean): void {
   } catch {}
 }
 
-function getQamExpanded(): boolean {
-  return current;
-}
-
 function setQamExpanded(next: boolean | ((prev: boolean) => boolean)): void {
-  if (__DEV__) {
-    const g = globalThis as unknown as { __ds_set_count__?: number; __ds_last_set__?: unknown };
-    g.__ds_set_count__ = (g.__ds_set_count__ ?? 0) + 1;
-    g.__ds_last_set__ = { type: typeof next, t: Date.now() };
-  }
   const value = typeof next === 'function' ? next(current) : next;
-  /* Same value: nothing to store or post, but still resync every mounted panel —
-     `resetQamExpanded` changes `current` silently, so a panel can be showing an
-     open sidecar while the store already says closed, and every toggle would
-     then be a no-op. */
+  // Still resync every panel: resetQamExpanded changes the value without an event.
   if (value !== current) {
     current = value;
     writeSession(value);
@@ -60,27 +41,9 @@ function setQamExpanded(next: boolean | ((prev: boolean) => boolean)): void {
   emitter.dispatchEvent(new Event(EVENT));
 }
 
-// Wipe both the live ref and the persisted flag without firing the event.
-// Used by the React tree's mount effect so a freshly-mounted DS QAM tab
-// never inherits a stale expanded state from the previous QAM session.
 export function resetQamExpanded(): void {
   current = false;
   writeSession(false);
-}
-
-function toggleQamExpanded(): void {
-  setQamExpanded((v) => !v);
-}
-
-/* Debug hook used by the screenshot scripts and CDP probes to drive the
-   sidecar open/closed without having to simulate a real gamepad input
-   (SteamClient.Input doesn't fire for dispatched keyboard events). Dev-only —
-   `if (__DEV__)` dead-code-eliminates it from release builds. */
-if (__DEV__) {
-  try {
-    const g = globalThis as unknown as { __ds_qam_expanded__?: unknown };
-    g.__ds_qam_expanded__ = { set: setQamExpanded, get: getQamExpanded, toggle: toggleQamExpanded };
-  } catch {}
 }
 
 export function useQamExpanded(): [boolean, (next: boolean | ((prev: boolean) => boolean)) => void] {

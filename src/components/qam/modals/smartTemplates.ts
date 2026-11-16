@@ -1,12 +1,9 @@
 import type { SmartShelfMode } from '../../../types'
 
-/* Shared smart-template list. The standalone picker modal was retired in favour
-   of the unified CreateShelfModal (Standard + Smart tabs); this list is what its
-   Smart tab renders. Kept in this module so the existing import path is stable. */
 type SmartTemplateCategory = "status" | "time" | "platform" | "compat" | "other"
 type SmartTemplate = { mode: SmartShelfMode; titleKey: string; category: SmartTemplateCategory }
 
-// Ordered by probability of returning results: highest first
+// Ordered by probability of returning results, highest first.
 export const SMART_TEMPLATES: SmartTemplate[] = [
   { mode: "daily_pick",             titleKey: "smart_template_daily_pick",             category: "time" },
   { mode: "deck_picks",             titleKey: "smart_template_deck_picks",             category: "compat" },
@@ -35,7 +32,5 @@ export const SMART_TEMPLATES: SmartTemplate[] = [
   { mode: "couch_gaming",           titleKey: "smart_template_couch_gaming",           category: "status" },
   { mode: "coop_ready",             titleKey: "smart_template_coop_ready",             category: "status" },
   { mode: "party_games",            titleKey: "smart_template_party_games",            category: "status" },
-  // Online-gated template: hidden from the picker when onlineFeaturesEnabled
-  // is off (mirrors the requiresOnline pattern in editShelf/constants.ts).
   { mode: "friends_playing",        titleKey: "smart_template_friends_playing",        category: "status" },
 ]

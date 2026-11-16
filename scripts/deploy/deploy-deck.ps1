@@ -12,7 +12,6 @@ $ErrorActionPreference = 'Stop'
 $ScriptDir   = Split-Path -Parent $MyInvocation.MyCommand.Path
 $ProjectRoot = (Resolve-Path (Join-Path $ScriptDir '..\..')).Path
 
-# Load .env (KEY=VALUE, # comments, optional quotes)
 $envVars = @{}
 $envPath = Join-Path $ProjectRoot '.env'
 if (Test-Path $envPath) {
@@ -41,7 +40,7 @@ if (-not $DeckHost) {
 
 $Slug       = 'deck-shelves'
 $PluginDir  = "/home/$DeckUser/homebrew/plugins/$Slug"
-$StageRel   = ".deploy/$Slug"                       # relative — avoids the scp "C:" gotcha
+$StageRel   = ".deploy/$Slug" # a relative path keeps scp from reading C: as a host
 $StageDir   = Join-Path $ProjectRoot ".deploy\$Slug"
 $TempRemote = "/tmp/$Slug"
 $Target     = "$DeckUser@$DeckHost"
@@ -55,19 +54,15 @@ function Invoke-Remote([string[]]$opts, [string]$cmd) {
 
 Push-Location $ProjectRoot
 try {
-  # Build
   & pnpm run build:dev
   if ($LASTEXITCODE -ne 0) { throw 'build failed' }
 
-  # Stage
   if (Test-Path (Join-Path $ProjectRoot '.deploy')) { Remove-Item -Recurse -Force (Join-Path $ProjectRoot '.deploy') }
   New-Item -ItemType Directory -Force -Path (Join-Path $StageDir 'dist') | Out-Null
   Copy-Item 'plugin.json', 'package.json', 'main.py' $StageDir
-  # Backend modules in the repo layout main.py also accepts.
   New-Item -ItemType Directory -Force -Path (Join-Path $StageDir 'src\backend') | Out-Null
   Get-ChildItem -Path (Join-Path $ProjectRoot 'src\backend') -Filter '*.py' -File |
     ForEach-Object { Copy-Item $_.FullName (Join-Path $StageDir 'src\backend') }
-  # Inject the dev `debug` flag into the staged plugin.json (node = cross-platform).
   & node -e 'const fs=require("fs"),p=JSON.parse(fs.readFileSync(process.argv[1]));if(!p.flags.includes("debug"))p.flags.push("debug");fs.writeFileSync(process.argv[1],JSON.stringify(p,null,2)+"\n")' (Join-Path $StageDir 'plugin.json')
   Copy-Item -Recurse -Force (Join-Path $ProjectRoot 'dist\*') (Join-Path $StageDir 'dist')
   foreach ($d in 'assets', 'i18n') {
@@ -77,9 +72,8 @@ try {
     }
   }
 
-  # Upload to a temp dir the deck user owns (scp -r the folder into /tmp)
   Invoke-Remote $SshOpts "rm -rf '$TempRemote'" | Out-Null
-  & scp @SshOpts -r $StageRel "${Target}:/tmp/"    # creates /tmp/deck-shelves
+  & scp @SshOpts -r $StageRel "${Target}:/tmp/"
   if ($LASTEXITCODE -ne 0) { throw 'scp upload failed' }
 
   # Move temp → plugin dir (sudo -n → sudo -S → direct)
@@ -104,7 +98,6 @@ try {
     exit 1
   }
 
-  # Reload
   if ($Hard) {
     if ($SudoPass) {
       Invoke-Remote $SshAlive "test -f '$PluginDir/dist/index.js' || echo '[deploy] WARN: index.js missing'; printf '%s\n' '$SudoPass' | sudo -S systemctl restart plugin_loader.service 2>/dev/null; killall steam 2>/dev/null || true" | Out-Null

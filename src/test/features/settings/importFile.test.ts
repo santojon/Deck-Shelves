@@ -7,7 +7,6 @@ import { defaultSettings } from "../../../domain/defaults";
 const DIR = "/home/deck/Downloads";
 const shelf = { id: "s1", title: "One", source: { type: "tab", tab: "all" }, limit: 5, enabled: true, hidden: false };
 const smart = { id: "m1", title: "Smart", mode: "on_deck", enabled: true };
-// What "Export all" writes (deck-shelves.json): the whole settings document under `state`.
 const fullBackup = JSON.stringify({ state: { ...defaultSettings(), shelves: [shelf], smartShelves: [smart] } });
 
 function disk(files: Record<string, string>) {

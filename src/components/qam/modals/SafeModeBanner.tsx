@@ -3,17 +3,12 @@ import { DialogButton } from '../../../runtime/host/decky'
 import type { SettingsController } from '../../../features/settings/controller'
 import { leaveSafeMode, isSafeModeActive, subscribeSafeMode } from '../../../runtime/safeMode'
 
-// Self-subscribing slot: renders the banner only while Safe Mode is active.
 export function SafeModeSlot({ controller }: { controller: SettingsController }) {
   const [active, setActive] = useState(() => isSafeModeActive())
   useEffect(() => subscribeSafeMode(() => setActive(isSafeModeActive())), [])
   return active ? <SafeModeBanner controller={controller} /> : null
 }
 
-/* Shown while automatic Safe Mode is active (Home patches skipped this session
-   after repeated incomplete boots). Leaving clears the record; the patches come
-   back on the next Steam restart — the banner says so instead of pretending
-   it can re-inject live. Same visual frame as the crash banner. */
 function SafeModeBanner({ controller }: { controller: SettingsController }) {
   const { t } = controller
   return (

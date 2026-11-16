@@ -19,24 +19,15 @@ export function createDefaultShelf(firstCollectionId = "", title = "New shelf"):
   return { id: randomShelfId(), title, enabled: true, hidden: false, limit: 20, matchNativeSize: false, highlightFirst: false, highlightAll: false, hideStatusLine: false, hideNewBadge: false, hideDiscountBadge: false, hideCompatIcons: false, hideNonSteamBadge: false, hideShelfTitle: false, hideGameNames: false, hideInstallIndicator: false, hideSeeMore: false, hideRefreshCard: false, source: createDefaultSource("tab", firstCollectionId) };
 }
 
-// The filter item that keeps Steam-hidden games off a smart shelf; the
-// settings migration appends the same item to smart shelves made before it.
 export function createHiddenGamesExcludeItem(): FilterItem {
   return { type: "hidden", inverted: false, params: { mode: "exclude" } };
 }
 
 export function createDefaultSmartShelf(mode: SmartShelfMode, title: string): SmartShelf {
-  /* Excludes Steam-hidden games by default — a hidden game surfacing on an
-     auto-generated "Recently Played"/"On Deck"/etc. shelf is surprising.
-     A real, visible filter condition (not a hidden setting): remove it in
-     the shelf's own filter editor to let hidden games back onto this shelf. */
   const base: SmartShelf = {
     id: randomShelfId(), title, mode, enabled: true, hidden: false,
     filterGroup: { mode: "and", items: [createHiddenGamesExcludeItem()] },
   };
-  // Mirror the mode's hardcoded visibility window into `visibleHours` so the
-  // user sees and can edit the same constraint that the resolver applies
-  // internally. Other modes leave the field unset.
   if (mode === "spare_time") {
     (base as any).visibleHours = [
       { start: 6, end: 9 },
@@ -44,12 +35,8 @@ export function createDefaultSmartShelf(mode: SmartShelfMode, title: string): Sm
       { start: 19, end: 22 },
     ];
   } else if (mode === "long_session_night") {
-    // Differentiation from base long_session: this template surfaces only
-    // during evening hours (19h–23h) when long sessions are typical.
     (base as any).visibleHours = [{ start: 19, end: 23 }];
   } else if (mode === "friends_playing") {
-    // This template surfaces games friends are in — ship it with the friend
-    // avatar overlay (+ the 14-day lookback) on by default.
     (base as any).friendsPlayingOverlay = true;
     (base as any).friendsPlayingOverlayRecent = true;
   }

@@ -17,13 +17,6 @@ function findHomeRootDoc(): { doc: Document; root: HTMLElement } | null {
 
 type AvatarItem = { key: string; left: number; top: number; size: number; avatars: string[] };
 
-/* Single global overlay drawing the native "friend in this game" avatar(s) for
-   every friend card, portaled to <body> so they sit above the focus ring and
-   adjacent cards (an in-card element is trapped in the focused card's stacking
-   context + clipped by the row scroller). Each tracks its card's live
-   `.ds-card-art` rect, so size + overhang scale with focus like native. */
-// Mounted only while the configuration uses friends data (the same demand check
-// that starts the friends poller), so its observers cost nothing otherwise.
 export function FriendsAvatarOverlay() {
   const [needed, setNeeded] = useState(() => settingsNeedFriends(getCurrentSettings()));
   useEffect(() => subscribeSettings((s) => setNeeded(settingsNeedFriends(s))), []);
@@ -42,9 +35,6 @@ function FriendsAvatarLayer() {
     }
     const { doc, root } = located;
     const win = doc.defaultView ?? window;
-    // Hide while the home is covered (QAM / a modal) — same as the new/discount
-    // badges, which vanish because focus leaves the cards. We track all cards
-    // regardless of focus, so detect the obscuring overlay explicitly.
     const unsubOverlay = subscribeOverlayActive(doc, setObscured);
     let raf: number | null = null;
     let lastSig = "";
@@ -68,14 +58,12 @@ function FriendsAvatarLayer() {
         });
       });
       const sig = JSON.stringify(next);
-      if (sig === lastSig) return; // skip no-op re-renders (spurious syncs)
+      if (sig === lastSig) return;
       lastSig = sig;
       setItems(next);
     };
     const schedule = () => { if (raf === null) raf = win.requestAnimationFrame(sync); };
-    // Focus scales the featured card (transform) → re-measure on focus (cheap),
-    // plus a settle pass after the ~160ms lift, instead of observing every
-    // `class` mutation in the subtree (which fires on every nav focus change).
+    // Re-measure on focus plus once after the lift, rather than observing every class change.
     const onFocus = () => { schedule(); if (settleTimer) clearTimeout(settleTimer); settleTimer = win.setTimeout(schedule, 200); };
     const mo = new MutationObserver(schedule);
     mo.observe(root, { subtree: true, childList: true, attributes: true, attributeFilter: ["data-ds-friend-avatars"] });

@@ -6,8 +6,6 @@ import { SHELF_CACHE_TTL_MS } from "../../../components/shelf/shelfViewHelpers";
 
 const KEY = "ds-shelf-cache-s_test-recent-r0-r0";
 
-// jsdom's opaque-origin document has no usable localStorage; an in-memory
-// stand-in with the same surface is enough for the cache module.
 const store = new Map<string, string>();
 vi.stubGlobal("localStorage", {
   getItem: (k: string) => store.get(k) ?? null,

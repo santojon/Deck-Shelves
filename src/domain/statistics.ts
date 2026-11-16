@@ -1,6 +1,3 @@
-// Pure statistics aggregation — no Steam APIs, no side-effects. The
-// adapter in src/steam/statistics.ts feeds it real data.
-
 export interface LibraryStatGame {
   appid: number;
   isSteam: boolean;
@@ -109,8 +106,6 @@ export function computeLibraryStatistics(games: LibraryStatGame[], nowMs: number
   ];
 }
 
-/* ── Shelf statistics ───────────────────────────────────────────────── */
-
 export interface ShelfStatInput {
   kind: "regular" | "smart";
   sourceType: string;
@@ -124,8 +119,6 @@ export interface ShelfStatInput {
   linkedCards: number;
 }
 
-// Maps a concrete source type onto the bucket shown in "by shelf type".
-// wishlist + store stay distinct so online shelves surface individually.
 const SHELF_TYPE_BUCKET: Record<string, string> = {
   filter: "filter", tab: "tab", collection: "collection",
   wishlist: "wishlist", store: "store", composite: "composite", external: "external",
@@ -178,7 +171,6 @@ export function computeShelfStatistics(shelves: ShelfStatInput[]): LibraryStat[]
     { id: "shelf_slots_total", label: "Total card slots",   value: slotsTotal, category: "shelves" },
     { id: "shelf_slots_avg",   label: "Avg slots / shelf",  value: slotsAvg,   category: "shelves" },
   ];
-  // "By card type" counts actual cards, not shelves.
   for (const [id, value] of [["decorative_cards", decorativeCards], ["gap_cards", gapCards], ["linked_cards", linkedCards]] as const) {
     if (value) out.push({ id, label: id, value, category: "card_types" });
   }
@@ -188,11 +180,8 @@ export function computeShelfStatistics(shelves: ShelfStatInput[]): LibraryStat[]
   return out;
 }
 
-/* ── Over-time history ──────────────────────────────────────────────── */
-
 export interface ShelfSnapshot { date: string; shelves: number; games: number }
 
-// Append today's snapshot (one per calendar day), newest last, capped.
 export function appendSnapshot(history: ShelfSnapshot[], today: ShelfSnapshot, cap = 90): ShelfSnapshot[] {
   const out = history.filter((h) => h.date !== today.date);
   out.push(today);
@@ -210,18 +199,15 @@ export function summarizeHistory(history: ShelfSnapshot[]): LibraryStat[] {
   ];
 }
 
-/* ── Suggestions derived from statistics ────────────────────────────── */
-
 export interface StatSuggestion {
   id: string;
   messageKey: string;
   params: Record<string, string | number>;
-  templateId?: string; // regular SHELF_TEMPLATES id
-  smartMode?: string;  // smart-shelf mode
-  removeShelfId?: string; // usage-derived "remove this unused shelf" suggestion
+  templateId?: string;
+  smartMode?: string;
+  removeShelfId?: string;
 }
 
-// seed = rotation seed (day index); exclude = template ids/modes already present.
 export interface SuggestionContext {
   seed?: number;
   smartEnabled?: boolean;
@@ -234,8 +220,6 @@ function statValue(stats: LibraryStat[], id: string): number {
   return typeof e?.value === "number" ? e.value : 0;
 }
 
-// Rotate a window of `n` items starting at `seed` so the visible subset
-// varies between seeds but is stable for a given one.
 function rotateWindow<T>(arr: T[], seed: number, n: number): T[] {
   if (arr.length <= n) return arr.slice();
   const start = ((seed % arr.length) + arr.length) % arr.length;
@@ -274,11 +258,6 @@ function smartCandidates(lib: LibraryStat[]): StatSuggestion[] {
   return out;
 }
 
-/* Usage-derived "consider removing this shelf" suggestions: a shelf with 0
-   recorded views while OTHER shelves DO have views and tracking has run long
-   enough — i.e. "you're active but never open this one", not "no data yet".
-   Pure: caller supplies the per-shelf view counts + how many days were
-   tracked. */
 export function deriveRemovalSuggestions(
   shelves: ReadonlyArray<{ id: string; title?: string }>,
   shelfViews: Record<string, number>,
@@ -302,9 +281,6 @@ export function deriveRemovalSuggestions(
   return out.slice(0, opts.max ?? 4);
 }
 
-// Contextual + rotative suggestions: heuristic-gated (can be empty),
-// rotating by `seed` so different valid templates surface over time. Pure;
-// the UI localizes `messageKey` and applies `templateId` / `smartMode`.
 export function deriveSuggestions(lib: LibraryStat[], shelf: LibraryStat[], ctx: SuggestionContext = {}): StatSuggestion[] {
   const { seed = 0, smartEnabled = false, exclude = [], max = 5 } = ctx;
   let pool = regularCandidates(lib, shelf);

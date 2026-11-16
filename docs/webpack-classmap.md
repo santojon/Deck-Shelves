@@ -1,98 +1,82 @@
- # Webpack classmap — discovery & runtime mapping
+# Webpack class map
 
- A short guide to discover Steam's webpack-hashed classes (viewport / shelf / cards / native sections) and inject a runtime mapping the plugin uses to locate scroll/focus elements and to mirror native styling on injected shelves.
+Steam's Gaming Mode UI is a webpack bundle whose CSS classes are hashed
+(`_3PhGYbMWIcIaZCfllWN19N`) and renamed by Steam updates without notice. The
+plugin needs some of them: to find the Home's scroll viewport for focus and
+centering, and to give its shelves and cards the same classes as Steam's own,
+so CSS Loader themes (ArtHero, TiltedHome and others) style them too. This
+page explains where those tokens come from and how to refresh them.
 
- ## Purpose
- - Make selector discovery deterministic across Steam versions and themes.
- - Allow `DeckRow` to use a runtime-provided `viewport` selector before falling back to heuristics.
- - Allow injected shelves to inherit native classes (`nativeShelf`, `nativeShelfTitle`, `nativeShelfRow`, `nativeCard*`) so CSS Loader themes — including ArtHero and TiltedHome — apply automatically.
+> **Never hardcode a token in application logic.** Read it through the class
+> map (`src/core/webpackCompat.ts`), and keep a structural fallback for when
+> it is missing.
 
-> **Caution:** webpack-hashed class tokens change on every Steam update without notice. Never hardcode a token (e.g. `_3PhGYbMWIcIaZCfllWN19N`) in application logic — always go through the runtime map or the heuristic fallback chain.
+## Where the map comes from
 
-## Runtime tokens (current keys)
+The map is a JSON object of semantic name → token, shipped as a seed in
+`src/runtime/classmap.json`. At boot `src/runtime/embeddedClassMap.ts` writes
+it to `window.__DS_CLASS_MAP` and to `localStorage["ds_class_map"]` (shared
+between Steam's windows). `getRuntimeClassMap()` reads the target window's
+`__DS_CLASS_MAP` first, then `localStorage`.
 
-The runtime map carries these keys. It is the seed in `src/runtime/classmap.json`, written at boot to `localStorage['ds_class_map']` (shared between Steam's windows); a `window.__DS_CLASS_MAP` set in the target window by a development snippet takes precedence. The plugin no longer discovers tokens at run time: when Steam changes, refresh the seed from a device with the discovery snippet below.
+The plugin does not discover tokens while it runs. When a Steam update renames
+a class, the seed has to be refreshed and a new version shipped. Until then the
+selectors fall back to generic `[class*="…"]` patterns and to structure
+(siblings of the plugin's mount, `role` attributes), which keeps things working
+with less precision: themes may stop matching the shelves exactly.
 
-| Key | Discovered from | Use |
+## Keys in the seed
+
+| Keys | What they mark | Used for |
 |---|---|---|
-| `viewport` | first ancestor with vertical overflow + meaningful height | `DeckRow` scroll-center math, focus restore |
-| `row` | shelf row container | (legacy; reserved) |
-| `card` | game card root | (legacy; reserved) |
-| `nativeShelf` | shelf-level wrapper around the title + row | additive promotion of the first DS shelf to the recents slot when CSS Loader is active |
-| `nativeShelfTitle` | sibling heading element (font-size ≥ 16px) | match native title typography |
-| `nativeShelfRow` | row sibling of the title | match native row spacing/transitions |
-| `nativeCard*` | native game card tokens (`Panel`, art, label, status, badge) | apply native styles to our `.ds-card` and friends |
-| `nativeSection*` | section-level tokens around the recents block | restore wrapper class on promoted first shelf |
+| `viewport` | The Home's vertically scrolling container | Centering the focused row, focus restore |
+| `shelfSection`, `scrollGrid`, `nativeShelfContainer` | Steam's shelf section, its horizontal grid and wrapper | Matching native row spacing and layout |
+| `nativeCard`, `nativeCardWrapper`, `nativeCardInner`, `nativeCardFocusable`, `nativeCardOverlay` | A native game card and its layers | Native classes on the plugin's cards |
+| `nativeCardArt`, `nativeCardArtOuter`, `nativeCardArtPortrait`, `nativeCardImg`, `nativeCardImgFade` | Card artwork and its fade-in | Native art sizing and animation |
+| `nativeLabelOuter`, `nativeLabelInner` | The name label under a focused card | Native label styling |
+| `heroRoot`, `heroInner` | The Recents hero art | The per-shelf hero |
 
- ## Discovery snippet (run in CDP/CEF console)
- Paste this into the page console (or run via `cdp_probe.py` if supported):
+Code may read other keys (for example `nativeShelfRow`); when the seed lacks
+them, that code takes its fallback.
 
- ```js
- (function(){
-   const nodes = Array.from(document.querySelectorAll('[class]'));
-   const candidates = new Set();
-   nodes.forEach(n=>{
-     try{
-       const cs = getComputedStyle(n);
-       const oy = (cs.overflowY||'').toLowerCase();
-       if((oy==='auto' || oy==='scroll' || oy==='overlay') && n.scrollHeight>n.clientHeight && n.clientHeight>80){
-         for(const c of Array.from(n.classList)){
-           if(c && c.startsWith('_') && c.length>5) candidates.add(c);
-         }
+## Refreshing the seed after a Steam update
+
+1. Open DevTools on the Big Picture page with the Home visible (see
+   [cdp.md](./cdp.md)).
+2. Find the new tokens. For the viewport, this lists hashed classes on large
+   scrolling elements:
+
+   ```js
+   (() => {
+     const found = new Set();
+     for (const el of document.querySelectorAll("[class]")) {
+       const cs = getComputedStyle(el);
+       const scrolls = ["auto", "scroll", "overlay"].includes(cs.overflowY);
+       if (scrolls && el.scrollHeight > el.clientHeight && el.clientHeight > 80) {
+         for (const c of el.classList) if (c.startsWith("_") && c.length > 5) found.add(c);
        }
-     }catch(e){}
-   });
-   console.log('ds:candidates', Array.from(candidates));
-   return Array.from(candidates);
- })();
- ```
+     }
+     return [...found];
+   })();
+   ```
 
- This snippet returns class tokens that look webpack-hashed and belong to scrollable elements (viewport candidates).
+   For cards and labels, inspect a native Recents card in the Elements panel
+   and read the classes on each layer. `discoverClassMap()` in
+   `src/core/webpackCompat.ts` holds the full set of heuristics if you need to
+   see how each key is located.
+3. Try the new values before shipping them. In the Big Picture console:
 
- ## Runtime injection snippet
- After identifying candidate tokens (for example `._3PhGYbMWIcIaZCfllWN19N`), inject a mapping:
+   ```js
+   window.__DS_CLASS_MAP = { ...JSON.parse(localStorage.getItem("ds_class_map")), viewport: "_newToken" };
+   ```
 
- ```js
- // define in the global context (run in the Steam/CEF console)
- window.__DS_CLASS_MAP = {
-   viewport: '_3PhGYbMWIcIaZCfllWN19N', // token (without leading '.') or with '.' prefixed
-   row: '_39tNvaLedsTrVh0fFsP4Jm',
-   card: '_CARDTOKEN_EXAMPLE'
- };
+   Values may include or omit the leading dot. Remove the override with
+   `delete window.__DS_CLASS_MAP`; the seed applies again on the next boot.
+4. Update `src/runtime/classmap.json`, deploy, and check the Home with a theme
+   that depends on the classes (ArtHero, TiltedHome, Switch Like Home).
 
- // or persist via localStorage (the plugin reads this too)
- localStorage.setItem('ds_class_map', JSON.stringify(window.__DS_CLASS_MAP));
- ```
+## Safety
 
- Notes:
- - `DeckRow` searches, in order: (1) known hard-coded selector; (2) `window.__DS_CLASS_MAP` / `localStorage['ds_class_map']`; (3) hashed-token heuristic; (4) generic fallback.
- - Values in `__DS_CLASS_MAP` may include or omit the leading dot. If omitted, the plugin converts the token into a class selector.
- - **Lookup order:** `getRuntimeClassMap()` reads the target window's `__DS_CLASS_MAP` first, then `localStorage['ds_class_map']` (the bundled seed). There is no run-time discovery merge; a SteamOS update that renames a token needs a refreshed seed.
-
- ## Verify using the unified CDP CLI
-
- The CDP CLI (`deckprobe/cdp.py`, see [cdp.md](./cdp.md)) replaces the older `cdp_probe.py`. To inspect the live classmap on a running Deck:
-
- ```bash
- # List the current runtime classmap (after the plugin mounts)
- python3 deckprobe/cdp.py eval bp 'JSON.stringify(window.__DS_CLASS_MAP || localStorage.getItem("ds_class_map"))'
-
- # Inspect a focused element's class chain
- python3 deckprobe/cdp.py eval bp 'document.activeElement?.className'
-
- # Drop a pinned map so the bundled seed applies again (development helper)
- python3 deckprobe/cdp.py eval bp 'delete window.__DS_CLASS_MAP'
- ```
-
- Tokens like `_3PhGYbMWIcIaZCfllWN19N` appear as values of the runtime map keys.
-
- ## Recommendations
- - Prefer injecting `window.__DS_CLASS_MAP` from a startup snippet (CDP) rather than relying solely on heuristics.
- - Keep a small per-version mapping file if you intend to distribute internals to QA.
- - Log tokens discovered by `cdp_probe` to build a version history.
-
-> **Tip:** after a SteamOS update, run the discovery snippet first and compare against the previous `classmap.json` seed. If tokens changed, update the seed and redeploy — the heuristic fallback will keep things working in the meantime, but with less precision.
-
- ## Safety and cleanup
- - Do not persist sensitive data in `localStorage`. The mapping is safe for UI tokens.
- - Remove or update the mapping when Steam or the UI changes.
+The map holds UI class names only. Don't put anything else in
+`ds_class_map`, and don't store tokens in plugin settings: they are tied to a
+Steam build and would outlive it.

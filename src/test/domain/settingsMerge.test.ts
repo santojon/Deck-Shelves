@@ -29,7 +29,6 @@ describe("mergeSettings — cross-device convergence", () => {
     const ab = mergeSettings(a, b);
     const ba = mergeSettings(b, a);
     expect(ab.shelves).toEqual(ba.shelves);
-    // per-id LWW keeps the newer "a" (updatedAt 9), union keeps both uniques.
     expect(ab.shelves.map((s) => s.id)).toEqual(["a", "only_a", "only_b"]);
     expect((ab.shelves.find((s) => s.id === "a") as any).updatedAt).toBe(9);
   });
@@ -40,14 +39,10 @@ describe("mergeSettings — cross-device convergence", () => {
   });
 
   it("keeps the active profile device-local — a merge never adopts the other device's", () => {
-    // This device is handheld (no profile); the other pushed a 'Showcase' profile.
-    // The merge must keep THIS device's activeProfileName, not cross it over.
     const local = mk({ shelves: [sh("a", 5)], activeProfileName: null });
     const remote = mk({ shelves: [sh("a", 9)], activeProfileName: "Showcase" });
     expect((mergeSettings(local, remote) as any).activeProfileName).toBe(null);
-    // And symmetrically from the other side: the device on 'Showcase' keeps it.
     expect((mergeSettings(remote, local) as any).activeProfileName).toBe("Showcase");
-    // Shelves still converge (per-id LWW) regardless of the local-only field.
     expect((mergeSettings(local, remote).shelves.find((s) => s.id === "a") as any).updatedAt).toBe(9);
   });
 
@@ -58,7 +53,6 @@ describe("mergeSettings — cross-device convergence", () => {
     expect(out.showcaseSeen).toBe(false);
     expect(out.devModeEnabled).toBe(false);
     expect(out.debugOverlayEnabled).toBe(false);
-    // Symmetrically: merging from the other side keeps ITS local values.
     const outRev = mergeSettings(remote, local) as any;
     expect(outRev.showcaseSeen).toBe(true);
     expect(outRev.devModeEnabled).toBe(true);
@@ -70,7 +64,6 @@ describe("mergeSettings — cross-device convergence", () => {
     const out = mergeSettings(local, remote);
     expect(out.shelves.map((s) => s.id)).toEqual([]);
     expect((out as any).syncTombstones.a).toBe(8);
-    // symmetric
     expect(mergeSettings(remote, local).shelves.map((s) => s.id)).toEqual([]);
   });
 

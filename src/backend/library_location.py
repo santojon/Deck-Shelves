@@ -55,9 +55,7 @@ def _find_libraryfolders_vdf() -> Optional[str]:
 
 
 def _mount_fstype(path: str, mounts_file: str = "/proc/mounts") -> str:
-    # Best-effort, Linux only: the longest /proc/mounts entry whose mount
-    # point contains `path` owns it — same "longest prefix wins" logic
-    # `findmnt` uses internally. `mounts_file` is overridable for tests.
+    # The longest /proc/mounts mount point containing the path owns it, as findmnt decides.
     try:
         with open(mounts_file, encoding="utf-8", errors="ignore") as fh:
             lines = fh.readlines()

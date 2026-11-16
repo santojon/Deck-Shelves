@@ -39,7 +39,6 @@ def _build_ssl_context() -> ssl.SSLContext:
 _SSL_CTX = _build_ssl_context()
 
 import sys
-# Sibling modules live in src/backend/ in the repo and in py_modules/ in the package.
 _PLUGIN_DIR = os.path.dirname(os.path.abspath(__file__))
 for _p in (_PLUGIN_DIR, os.path.join(_PLUGIN_DIR, "py_modules"), os.path.join(_PLUGIN_DIR, "src", "backend")):
     if _p not in sys.path:
@@ -47,10 +46,6 @@ for _p in (_PLUGIN_DIR, os.path.join(_PLUGIN_DIR, "py_modules"), os.path.join(_P
 
 from plugin_host import logger
 
-# Settings-shape normaliser, path discovery + validation, and
-# settings.json read helpers — extracted into sibling modules. Re-exported
-# by name so `from main import _sanitize_settings, _normalize_path`
-# continues to work for existing pytest suites + any external callers.
 from paths import _steam_install_candidates, _normalize_path, _validate_json_export_path
 from storage import _settings_dir, _primary_file, _safe_read_json, _backups_dir, _write_versioned_backup, _list_backups, _is_safe_backup_name, _export_backup, _import_backup, _delete_backup, _clear_backups, AUTO_THROTTLE_SECONDS, _read_wrapped, sync_mirror, reconcile_settings, _canonical_settings_dir, _loader_settings_dir, _is_corrupt_json, _recover_wrapped, _quarantine_corrupt_primary, take_reconcile_recovery, sweep_leftovers, sweep_export_tmps, count_quarantined, keep_account_salt
 from sanitizer import _sanitize_settings, merge_hub_config
@@ -64,10 +59,7 @@ from peripherals import get_bluetooth_state as _bt_state, get_audio_state as _au
 from shortcuts import shortcut_tags as _shortcut_tags
 from ttl_cache import TtlCache, wants_force
 
-# Probe answers kept for a few seconds: the visibility rules call these on
-# every shelf evaluation. One cache per method; `{force: true}` re-probes.
-# Hardware info stays uncached: only System information and the bug report
-# read it, and its Refresh must see a disk plugged in just now.
+# Cached briefly: the visibility rules call these probes on every shelf evaluation.
 _PERF_CACHE = TtlCache(5.0, read_perf_snapshot)
 _BLUETOOTH_CACHE = TtlCache(10.0, _bt_state)
 _AUDIO_CACHE = TtlCache(10.0, _audio_state)
@@ -110,9 +102,7 @@ def _redact_secrets(text: str) -> str:
                   flags=re.IGNORECASE)
 
 
-# Only GitHub release-asset hosts are accepted for the manual-update download —
-# never an arbitrary URL from the frontend. github.com serves the release page /
-# redirect; objects.githubusercontent.com is where the asset bytes actually live.
+# Manual-update downloads only ever follow GitHub release-asset hosts.
 _RELEASE_ASSET_HOSTS = ("github.com", "objects.githubusercontent.com", "release-assets.githubusercontent.com")
 
 
@@ -150,7 +140,7 @@ def _safe_zip_name(name: str) -> str:
     return base
 
 
-_DOWNLOAD_MAX_BYTES = 200 * 1024 * 1024  # a release zip is a few MB
+_DOWNLOAD_MAX_BYTES = 200 * 1024 * 1024
 
 
 def _stream_to(resp, f) -> None:
@@ -194,6 +184,17 @@ def _fetch_json_page(req: "urllib.request.Request"):
         return 200, json.loads(resp.read().decode("utf-8"))
 
 
+_STEAM_ID64_BASE = 76561197960265728
+
+
+def _requested_steam_id64(arg: Any) -> Optional[str]:
+    """The SteamID64 the frontend read from the running client, kept only when it is an individual account's."""
+    sid = arg.get("steamid") if isinstance(arg, dict) else None
+    if isinstance(sid, str) and re.fullmatch(r"7656119\d{10}", sid) and int(sid) > _STEAM_ID64_BASE:
+        return sid
+    return None
+
+
 class Plugin:
     settings_dir: str = ""
 
@@ -201,9 +202,7 @@ class Plugin:
         Plugin.settings_dir = _settings_dir()
         os.makedirs(Plugin.settings_dir, exist_ok=True)
 
-    # One-shot flag: set when `_read_state` recovers from a corrupted
-    # primary, read (and cleared) once by `was_settings_recovered` so the
-    # frontend can show a single toast instead of polling continuously.
+    # Set when a corrupt primary was recovered; cleared on first read.
     _corruption_recovered: bool = False
 
     def _read_state(self) -> Dict[str, Any]:
@@ -217,11 +216,7 @@ class Plugin:
         if not path or not os.path.exists(path):
             return dict(DEFAULT_SETTINGS)
         if _is_corrupt_json(path):
-            # The primary is unreadable — never let this be what the next
-            # save rotates into `.bak` (that used to destroy the last known
-            # GOOD backup). Try `.bak`, then the newest `backups/*`
-            # snapshot; quarantine the broken file either way so it isn't
-            # just silently lost, and surface it once to the frontend.
+            # An unreadable primary must never rotate into .bak; recover from a backup and quarantine it.
             recovered = _recover_wrapped(path)
             try:
                 logger.error(
@@ -237,45 +232,27 @@ class Plugin:
             return dict(DEFAULT_SETTINGS)
         data = _safe_read_json(path)
         state = data.get("state") if isinstance(data.get("state"), dict) else data
-        # `_sanitize_settings` already fail-safes malformed input to sane
-        # defaults — a persisted state with no shelves and the
-        # master toggle off is not a sign of corruption, it's the normal
-        # state of a fresh install before the user enables the plugin. An
-        # earlier version discarded that state wholesale in favor of
-        # DEFAULT_SETTINGS whenever both were falsy, silently dropping any
-        # other field set in the meantime (showcaseSeen in particular) and
-        # locking users out behind a first-run tour that could never be
-        # marked seen.
+        # No shelves with the master toggle off is a normal fresh install, not corruption.
         return _sanitize_settings(state)
 
     def _write_state(self, state: Dict[str, Any]) -> None:
         self._ensure_dirs()
         clean = _sanitize_settings(state)
         path = _primary_file()
-        # Monotonic revision + timestamp, carried in the wrapper (not inside
-        # `state`, so the sanitizer's allowlist never has to know about
-        # storage metadata).
+        # Revision metadata lives in the wrapper so the sanitizer allowlist never sees it.
         prev = _read_wrapped(path)
         rev = (prev["rev"] if prev else 0) + 1
         updated_at = time.time()
         wrapped = {"state": clean, "rev": rev, "updatedAt": updated_at}
-        tmp_path = f"{path}.{os.getpid()}.tmp"  # unique per writer, see storage._atomic_write_wrapped
+        tmp_path = f"{path}.{os.getpid()}.tmp"
         bak_path = path + ".bak"
         try:
             os.makedirs(os.path.dirname(path), exist_ok=True)
-            # Atomic write: write to .tmp first, then rename over the real file.
-            # This guarantees settings.json is never left in a half-written state.
             with open(tmp_path, "w", encoding="utf-8") as f:
                 json.dump(wrapped, f, ensure_ascii=False, indent=2)
                 f.flush()
                 os.fsync(f.fileno())
-            # Keep a backup of the previous good write before replacing it:
-            # a rolling versioned snapshot (restore picker) + the single `.bak`.
-            # If the CURRENT primary is itself unreadable (e.g. `_read_state`
-            # never got a chance to run first, or it was corrupted after its
-            # own read), it must never become the new `.bak` — that would
-            # destroy the one file this recovery path depends on. Quarantine
-            # it instead and leave the existing `.bak` exactly as it was.
+            # An unreadable current primary is quarantined instead of becoming the new .bak.
             if os.path.exists(path):
                 if _is_corrupt_json(path):
                     _quarantine_corrupt_primary(path)
@@ -291,7 +268,6 @@ class Plugin:
                 logger.error(f"Failed writing settings to {path}: {e}")
             except Exception:
                 pass
-            # Clean up orphaned .tmp on failure
             try:
                 if os.path.exists(tmp_path):
                     os.remove(tmp_path)
@@ -299,7 +275,6 @@ class Plugin:
                 pass
             raise
         sync_mirror(clean, rev, updated_at)
-        # After a successful save: stale write leftovers and old quarantined copies go.
         sweep_leftovers()
 
     def _extract_settings(self, settings: Any = None, *args, **kwargs) -> Dict[str, Any]:
@@ -321,96 +296,58 @@ class Plugin:
         return {}
 
     async def get_settings(self, *args, **kwargs) -> Dict[str, Any]:
-        # `_read_state` opens + parses the settings JSON synchronously; move
-        # it off the event loop so a slow read doesn't block every other
-        # plugin RPC behind it.
         return await asyncio.to_thread(self._read_state)
 
     async def was_settings_recovered(self, *args, **kwargs) -> bool:
-        # One-shot: `_read_state` sets this the moment it recovers from a
-        # corrupted primary settings file. The frontend polls this once at
-        # boot to show a single toast — reading it clears it, so a later
-        # unrelated boot never re-shows a stale notice.
         was = Plugin._corruption_recovered
         Plugin._corruption_recovered = False
         return was
 
     async def keep_account_salt(self, salt: Any = "", *args, **kwargs) -> Dict[str, Any]:
-        # The salt behind the per-account keys: the one this device already keeps, else the
-        # offered one, kept beside the settings file (never in it). "" when none could be kept.
+        # The salt is kept beside the settings file, never inside it.
         if isinstance(salt, dict):
             salt = salt.get("salt", "")
         return {"salt": await asyncio.to_thread(keep_account_salt, salt)}
 
     async def get_css_loader_themes(self, *args, **kwargs) -> Dict[str, Any]:
-        # Actual active/installed CSS Loader theme names off disk (read-only).
-        # Off-thread: it walks ~/homebrew/themes and reads small JSON files.
         return await asyncio.to_thread(read_css_loader_themes)
 
     async def get_display_state(self, *args, **kwargs) -> Dict[str, Any]:
-        # External-display / dock state via the Linux DRM connectors (read-only).
-        # Off-thread + fail-soft; `supported` is False off SteamOS/Linux.
         return await asyncio.to_thread(read_display_state)
 
     async def get_host_os(self, *args, **kwargs) -> Dict[str, Any]:
-        # Authoritative cross-OS host identity (Python `platform` + os-release) so
-        # System information and the bug report name the real OS on every platform.
         return await asyncio.to_thread(_host_os)
 
     async def get_hardware_info(self, *args, **kwargs) -> Dict[str, Any]:
-        # Static machine specs (Deck model, CPU, RAM, GPU, storage) from sysfs /
-        # /proc / platform (read-only, off-thread, fail-soft cross-OS). On-demand —
-        # no background poll; feeds System information + the opt-in bug-report block.
         return await asyncio.to_thread(_hardware_info)
 
     async def get_device_identity(self, *args, **kwargs) -> Dict[str, Any]:
-        # Lightweight DMI/arch-only probe (no disk/GPU/mem scan) for the
-        # device-kind classifier — primed once at boot, cached by the
-        # frontend, no background poll.
         return await asyncio.to_thread(_device_identity)
 
     async def get_library_locations(self, *args, **kwargs) -> Dict[str, Any]:
-        # Parses `libraryfolders.vdf` (filesystem-level, renderer can't read it)
-        # into a library list + appid->library map for the Library Location
-        # filter/trigger. Read-only, off-thread, fail-soft, no background poll.
         return await asyncio.to_thread(_library_locations)
 
     async def get_perf_snapshot(self, force: Any = False, *args, **kwargs) -> Dict[str, Any]:
-        # On-demand CPU / memory snapshot from /proc (read-only). Off-thread (the
-        # CPU read sleeps ~100 ms between /proc/stat samples). No background poll.
-        # Cached 5 s.
         return await asyncio.to_thread(_PERF_CACHE.get, wants_force(force, **kwargs))
 
     async def get_bluetooth_state(self, force: Any = False, *args, **kwargs) -> Dict[str, Any]:
-        # Paired + connected Bluetooth devices via bluetoothctl (read-only,
-        # off-thread, fail-soft off Linux). On-demand — no background poll.
-        # Cached 10 s.
         return await asyncio.to_thread(_BLUETOOTH_CACHE.get, wants_force(force, **kwargs))
 
     async def get_audio_state(self, force: Any = False, *args, **kwargs) -> Dict[str, Any]:
-        # Whether the active output sink is a headphone/headset port via wpctl
-        # (read-only, off-thread, fail-soft). On-demand — no background poll.
-        # Cached 10 s.
         return await asyncio.to_thread(_AUDIO_CACHE.get, wants_force(force, **kwargs))
 
     def _save_pipeline(self, data: Dict[str, Any], snapshot_kind: str = "") -> bool:
-        # Whole save pipeline runs in a single worker thread so neither the
-        # sanitizer (CPU-bound; ~600 lines of mapping for a large settings
-        # blob) nor the disk write blocks the asyncio loop. Returns True
-        # when the write either succeeded or was skipped as a no-op.
         clean = _sanitize_settings(data)
         try:
             current = self._read_state()
-            # The host's own config entity merges per key with what is on disk
-            # (the frontend may carry a stale copy of a key the host updated).
+            # The host config entity merges per key with disk, since the frontend may hold a stale copy.
             if isinstance(current, dict) and (current.get("hubConfig") or clean.get("hubConfig")):
                 clean["hubConfig"] = merge_hub_config(current.get("hubConfig"), clean.get("hubConfig"))
             if json.dumps(current, sort_keys=True) == json.dumps(clean, sort_keys=True):
                 return True
         except Exception:
             pass
-        # A save that switches a profile asks for a safety snapshot of the file
-        # it replaces, taken here so nothing can be written in between.
+        # Snapshot taken here so nothing can be written between it and the save.
         if snapshot_kind in self._SAFETY_KINDS:
             tag, gap = self._SAFETY_KINDS[snapshot_kind]
             _write_versioned_backup(_primary_file(), tag=tag, tag_throttle_seconds=gap)
@@ -436,7 +373,6 @@ class Plugin:
             return False
 
     def _extract_snapshot_kind(self, settings: Any = None, *args, **kwargs) -> str:
-        # Only the wrapper object ({settings, snapshot}) carries it.
         for candidate in (settings, *args, kwargs):
             if isinstance(candidate, dict) and isinstance(candidate.get("settings"), dict):
                 kind = candidate.get("snapshot")
@@ -448,7 +384,6 @@ class Plugin:
         return dict(DEFAULT_SETTINGS)
 
     async def list_backups(self, *args, **kwargs) -> Dict[str, Any]:
-        # `quarantined`: how many unreadable settings copies are kept (diagnostics only).
         return await asyncio.to_thread(lambda: {"backups": _list_backups(), "quarantined": count_quarantined()})
 
     def _extract_name(self, name: Any, *args, **kwargs) -> str:
@@ -469,8 +404,7 @@ class Plugin:
         state = data.get("state") if isinstance(data.get("state"), dict) else data
         if not isinstance(state, dict) or not state:
             return {"ok": False, "error": "invalid_backup"}
-        # Goes through the sanitizer + atomic write, which also snapshots the
-        # current state first — so a restore is itself undoable.
+        # Goes through the normal save, which snapshots first, so a restore can be undone.
         self._write_state(state)
         return {"ok": True, "state": self._read_state()}
 
@@ -484,10 +418,7 @@ class Plugin:
             return {"ok": True, "backups": _list_backups()}
         return await asyncio.to_thread(_do)
 
-    # Safety snapshot right before a risky action. The frontend names only the
-    # kind; the file tag comes from this fixed table (no frontend text reaches a
-    # file name), and none is skipped by the 24h auto-snapshot cooldown.
-    # Kind -> (tag, minimum gap between two of that tag, seconds).
+    # Kind -> (tag, min seconds between two); tags are fixed so no frontend text reaches a file name.
     _SAFETY_KINDS = {
         "import": ("pre-import", 0),
         "profile": ("pre-profile", 60),
@@ -509,11 +440,7 @@ class Plugin:
         payload = name if isinstance(name, dict) else {"name": name, **kwargs}
         nm = str(payload.get("name", "") or "")
         dest_raw = str(payload.get("dest") or payload.get("dest_path") or "")
-        # `_export_backup` itself never validated `dest` at all (unlike
-        # write_json_file's home confinement) — it could copy our own
-        # settings backup over an arbitrary file the process can write to,
-        # anywhere on disk. Same allowlist + `.json`-only + symlink-free
-        # validation as the other JSON export/import RPCs.
+        # Same path allowlist, .json-only and symlink checks as the other JSON export/import RPCs.
         dest = _validate_json_export_path(dest_raw, _json_export_roots())
         if not dest:
             return False
@@ -534,10 +461,7 @@ class Plugin:
     async def import_backup(self, src_path: Any = "", *args, **kwargs) -> Dict[str, Any]:
         payload = src_path if isinstance(src_path, dict) else {"src_path": src_path, **kwargs}
         src_raw = str(payload.get("src_path") or payload.get("src") or "")
-        # `_import_backup` itself never validated `src` either — it could
-        # read any file the process has access to (content is checked for
-        # an `enabled`/`shelves` shape afterward, but that's not a path
-        # restriction). Same validation as export.
+        # Same path validation as export.
         src = _validate_json_export_path(src_raw, _json_export_roots())
 
         def _do():
@@ -547,7 +471,6 @@ class Plugin:
         return await asyncio.to_thread(_do)
 
     async def get_tabmaster_tabs(self, *args, **kwargs):
-        # File work runs on a worker thread so other calls keep flowing.
         return await asyncio.to_thread(self._get_tabmaster_tabs_sync, *args, **kwargs)
 
     def _get_tabmaster_tabs_sync(self) -> Dict[str, Any]:  # noqa: C901
@@ -560,16 +483,13 @@ class Plugin:
         decky_home = os.environ.get("DECKY_HOME") or os.path.expanduser("~/homebrew")
         settings_path = os.path.join(decky_home, "settings", "TabMaster", "settings.json")
         try:
-            # TabMaster is an OPTIONAL, purely additive integration. Its absence
-            # (no settings file / no users) is a normal case, not an error — return
-            # empty SILENTLY so it never looks like a dependency in the logs.
+            # TabMaster is optional; a missing settings file is normal, so return empty without logging.
             if not os.path.exists(settings_path):
                 return {"tabs": [], "error": "file_not_found"}
             data = _safe_read_json(settings_path)
             users_dict = data.get("usersDict", {})
             if not users_dict:
                 return {"tabs": [], "error": "no_users"}
-            # Use the first (and usually only) user entry
             user_data = next(iter(users_dict.values()))
             raw_tabs = user_data.get("tabs", {})
             tabs = []
@@ -583,7 +503,7 @@ class Plugin:
                     "filters": tab.get("filters", []),
                     "filtersMode": str(tab.get("filtersMode", "and")),
                 })
-            # Sort by position: visible (>= 0) first ascending, then hidden (-1)
+            # Visible tabs (position >= 0) first, then hidden ones (-1).
             tabs.sort(key=lambda t: (t["position"] < 0, t["position"]))
             try:
                 visible = sum(1 for t in tabs if t["position"] >= 0)
@@ -602,29 +522,19 @@ class Plugin:
         return os.path.expanduser("~")
 
     async def get_user_desktop(self) -> str:
-        # Default folder for Import / Export. Prefer ~/Downloads (where the
-        # plugin's example/export files live), then ~/Desktop, then home.
         for candidate in [os.path.expanduser("~/Downloads"), os.path.expanduser("~/Desktop"), os.path.expanduser("~")]:
             if os.path.exists(candidate):
                 return candidate
         return os.path.expanduser("~")
 
     async def get_user_pictures(self) -> str:
-        # Default folder for the image picker. Prefer ~/Pictures, then home —
-        # resolved to an absolute path so it works on any OS / account (replaces
-        # the old /home/deck/Pictures hardcode).
         for candidate in [os.path.expanduser("~/Pictures"), os.path.expanduser("~")]:
             if os.path.exists(candidate):
                 return candidate
         return os.path.expanduser("~")
 
     async def download_release(self, url: str = "", filename: str = "", *args, **kwargs) -> Dict[str, Any]:
-        # Download a release .zip to the user's Downloads folder for MANUAL
-        # install (no auto-update). The frontend may deliver { url, filename } as
-        # a single positional dict (Decky arg quirk) — recover both fields. Only
-        # this project's GitHub release assets are accepted, and the name is reduced to a safe
-        # basename so nothing escapes the download dir. The blocking fetch runs
-        # off the asyncio loop so the plugin process stays responsive.
+        # Only this project's GitHub release assets are accepted, and the name is reduced to a safe basename.
         _ = (args, kwargs)
         if isinstance(url, dict):
             filename = filename or str(url.get("filename") or "")
@@ -655,13 +565,14 @@ class Plugin:
 
     async def get_shortcut_tags(self, *args, **kwargs) -> Dict[str, Any]:
         """Tags on the logged-in account's non-Steam shortcuts, `{appid: [tag]}`."""
-        return await asyncio.to_thread(self._get_shortcut_tags_sync)
+        requested = _requested_steam_id64(args[0] if args else kwargs)
+        return await asyncio.to_thread(self._get_shortcut_tags_sync, requested)
 
-    def _get_shortcut_tags_sync(self) -> Dict[str, Any]:
-        sid64 = self._get_steam_id64()
+    def _get_shortcut_tags_sync(self, requested: Optional[str] = None) -> Dict[str, Any]:
+        sid64 = self._get_steam_id64(requested)
         if not sid64:
             return {"ok": False, "error": "no Steam account found"}
-        account = str(int(sid64) - 76561197960265728)
+        account = str(int(sid64) - _STEAM_ID64_BASE)
         for root in _steam_install_candidates():
             path = os.path.join(root, "userdata", account, "config", "shortcuts.vdf")
             if not os.path.isfile(path):
@@ -674,7 +585,6 @@ class Plugin:
         return {"ok": True, "tags": {}}
 
     async def export_settings(self, *args, **kwargs):
-        # File work runs on a worker thread so other calls keep flowing.
         return await asyncio.to_thread(self._export_settings_sync, *args, **kwargs)
 
     def _export_settings_sync(self, dest_path: Any = None, *args, **kwargs) -> bool:
@@ -688,7 +598,6 @@ class Plugin:
             state.pop("accountSettings", None)
             export_data = {"state": state}
             sweep_export_tmps(path)
-            # tmp + fsync + rename: an interrupted export never leaves a half file.
             tmp = path + ".tmp"
             with open(tmp, "w", encoding="utf-8") as f:
                 json.dump(export_data, f, ensure_ascii=False, indent=2)
@@ -704,7 +613,6 @@ class Plugin:
             return False
 
     async def import_settings(self, *args, **kwargs):
-        # File work runs on a worker thread so other calls keep flowing.
         return await asyncio.to_thread(self._import_settings_sync, *args, **kwargs)
 
     def _import_settings_sync(self, src_path: Any = None, *args, **kwargs) -> Dict[str, Any]:
@@ -724,18 +632,10 @@ class Plugin:
             return self._read_state()
 
     async def write_json_file(self, *args, **kwargs):
-        # File work runs on a worker thread so other calls keep flowing.
         return await asyncio.to_thread(self._write_json_file_sync, *args, **kwargs)
 
     def _write_json_file_sync(self, path: str = "", content: str = "", *args, **kwargs) -> bool:
-        # The frontend sends a single { path, content } object. Depending on how
-        # Decky delivers it, `content` can arrive bundled inside the first
-        # positional dict (leaving the `content` param empty) — recover it so we
-        # never write a 0-byte file. `_validate_json_export_path` extracts and
-        # confines the path itself: must be a `.json` file under the settings
-        # dir or a standard export folder (Downloads/Desktop/Documents), with
-        # no symlink involved — never an arbitrary path like an autostart
-        # entry or a dotfile.
+        # Decky may bundle content inside the first positional dict; recover it so a 0-byte file is never written.
         if isinstance(path, dict) and not content:
             content = path.get("content", "")
         if not content and isinstance(kwargs.get("content"), str):
@@ -767,7 +667,6 @@ class Plugin:
             return False
 
     async def read_json_file(self, *args, **kwargs):
-        # File work runs on a worker thread so other calls keep flowing.
         return await asyncio.to_thread(self._read_json_file_sync, *args, **kwargs)
 
     def _read_json_file_sync(self, path: str = "", *args, **kwargs) -> Dict[str, Any]:
@@ -785,24 +684,12 @@ class Plugin:
             return {"ok": False}
 
     async def read_image_b64(self, *args, **kwargs):
-        # File work runs on a worker thread so other calls keep flowing.
         return await asyncio.to_thread(self._read_image_b64_sync, *args, **kwargs)
 
     def _read_image_b64_sync(self, path: str = "", *args, **kwargs) -> Dict[str, Any]:
-        # Reads a local image as a base64 data URL so the frontend can
-        # render it directly via `<img src="data:...">`. CEF blocks
-        # bare `file://` urls under the home shelf, and the decoration
-        # editor lets the user pick any image from `~/Pictures` etc.
-        # Returns `{ok: true, dataUrl}` on success; `{ok: false}` when
-        # the file is missing, oversized, or outside the home dir.
-        # Size cap: 8 MiB — anything larger is almost certainly a
-        # mistake (Steam Deck card art ranges 30-300 KiB).
+        # CEF blocks bare file:// URLs on the home shelf, so images go to the frontend as data URLs.
         import base64
-        # Stays home-wide (not folder-restricted) to keep "pick any image
-        # from ~/Pictures etc." working — but now rejects a symlinked path,
-        # so a pre-placed symlink can't redirect this into reading a
-        # non-image file elsewhere under home (the extension/mime allowlist
-        # below is the other half of that defense).
+        # Symlinks are rejected so a planted link can't redirect the read; the extension/mime allowlist covers the rest.
         path = _normalize_path(path if path else (args[0] if args else kwargs.get("path")), reject_symlinks=True)
         if not path or not os.path.exists(path) or not os.path.isfile(path):
             return {"ok": False}
@@ -838,9 +725,6 @@ class Plugin:
         Decryption is OS-dispatched in `_decrypt_chromium_cookie` (Linux + macOS
         implemented; Windows falls back to the public path). Fail-soft — returns
         '' when nothing is readable so callers use the unauthenticated path."""
-        # Path discovery is centralised in `_steam_install_candidates()` so
-        # adding a new platform (Windows / macOS / new Flatpak variant) is a
-        # one-line change in that helper.
         cookie_paths = [
             os.path.join(root, "config", "htmlcache", "Default", "Cookies")
             for root in _steam_install_candidates()
@@ -876,23 +760,20 @@ class Plugin:
             if not ev:
                 return ""
             if ev[:3] not in (b"v10", b"v11"):
-                return ev.decode("utf-8", errors="replace")  # not encrypted
+                return ev.decode("utf-8", errors="replace")
             body = ev[3:]
             if sys.platform.startswith("linux"):
-                # Linux Chromium without a keyring: PBKDF2(b"peanuts", …, 1 iter).
                 key = hashlib.pbkdf2_hmac("sha1", b"peanuts", b"saltysalt", 1, 16)
                 return self._aes_128_cbc(key, body)
             if sys.platform == "darwin":
                 pw = self._macos_safe_storage_password()
                 if not pw:
                     return ""
-                # macOS Chromium: PBKDF2(keychain password, …, 1003 iters).
                 key = hashlib.pbkdf2_hmac("sha1", pw, b"saltysalt", 1003, 16)
                 return self._aes_128_cbc(key, body)
             if sys.platform == "win32":
-                # Windows v10 = AES-256-GCM with a DPAPI-wrapped key in Local State.
                 return self._decrypt_windows_gcm(body)
-            return ""  # unknown OS — public fallback.
+            return ""
         except Exception:
             return ""
 
@@ -900,13 +781,7 @@ class Plugin:
     def _aes_128_cbc(key: bytes, body: bytes) -> str:
         try:
             iv = b" " * 16
-            # Decky's own PyInstaller-bundled PluginLoader sets LD_LIBRARY_PATH
-            # to its OWN extracted libssl/libcrypto (for its internal use) — a
-            # spawned `openssl` CLI inherits that and fails to dynamic-link
-            # against the system's actual OpenSSL (confirmed live: "version
-            # OPENSSL_3.x.0 not found"), silently breaking every decrypt only
-            # when run as the real long-running plugin, never interactively.
-            # Strip it so the child resolves the system's own libraries.
+            # The loader's LD_LIBRARY_PATH points at its bundled libssl, which breaks the system openssl CLI.
             env = {k: v for k, v in os.environ.items() if k != "LD_LIBRARY_PATH"}
             result = _sp_run(
                 ["openssl", "enc", "-aes-128-cbc", "-d",
@@ -1074,48 +949,16 @@ class Plugin:
         except Exception:
             return b""
 
-    def _logged_in_steam_id64(self) -> Optional[str]:
-        """The SteamID64 of the account Steam is CURRENTLY logged into, read from
-        `config/loginusers.vdf` (keys are SteamID64s; the account with
-        `MostRecent "1"`, else the highest `Timestamp`, is the active one). This is
-        what distinguishes accounts on a multi-account machine — the userdata
-        directory listing alone can't (it has one dir per account ever used)."""
-        for root in _steam_install_candidates():
-            path = os.path.join(root, "config", "loginusers.vdf")
-            if not os.path.isfile(path):
-                continue
-            try:
-                with open(path, "r", encoding="utf-8", errors="replace") as f:
-                    text = f.read()
-            except Exception:
-                continue
-            best_id, best_ts, most_recent = None, -1, None
-            for m in re.finditer(r'"(7656\d{13,})"\s*\{([^{}]*)\}', text):
-                sid, body = m.group(1), m.group(2)
-                if re.search(r'"MostRecent"\s*"1"', body):
-                    most_recent = sid
-                ts_m = re.search(r'"Timestamp"\s*"(\d+)"', body)
-                ts = int(ts_m.group(1)) if ts_m else 0
-                if ts > best_ts:
-                    best_ts, best_id = ts, sid
-            chosen = most_recent or best_id
-            if chosen:
-                return chosen
-        return None
-
-    def _get_steam_id64(self) -> Optional[str]:
-        """Derive the user's SteamID64. Prefers the logged-in account from
-        `loginusers.vdf`; falls back to the userdata directory (the most recently
-        used dir when several exist, so a multi-account machine still resolves the
-        active account rather than an arbitrary first one).
+    def _get_steam_id64(self, requested: Optional[str] = None) -> Optional[str]:
+        """The account's SteamID64: the one the frontend read from the running client
+        (`_requested_steam_id64`), which tells accounts apart on a multi-account device;
+        without it, the most recently used userdata directory.
 
         userdata/ dirs are named by SteamID3 (the lower 32 bits);
         SteamID64 = SteamID3 + 76561197960265728.
         """
-        logged_in = self._logged_in_steam_id64()
-        if logged_in:
-            return logged_in
-        # Same install-root list as `_get_steam_cookie` — first match wins.
+        if requested:
+            return requested
         userdata_candidates = [
             os.path.join(root, "userdata") for root in _steam_install_candidates()
         ]
@@ -1135,19 +978,19 @@ class Plugin:
                 reverse=True,
             )
             steam_id3 = int(candidates[0])
-            return str(76561197960265728 + steam_id3)
+            return str(_STEAM_ID64_BASE + steam_id3)
         except Exception:
             return None
 
     async def get_wishlist(self, community_url: str = "", *args, **kwargs) -> Dict[str, Any]:  # noqa: C901
         """Fetch the current user's Steam wishlist appids.
 
-        Uses IWishlistService/GetWishlist/v1/ with the SteamID64 derived from the
-        local userdata/ directory — no cookie or login required for public profiles.
+        Uses IWishlistService/GetWishlist/v1/ with the account's SteamID64 (from the
+        running client, else the userdata/ directory) — no cookie or login required for public profiles.
         Falls back to the JWT from the Chromium cookie store if the public call fails.
         """
         try:
-            steam_id64 = self._get_steam_id64()
+            steam_id64 = self._get_steam_id64(_requested_steam_id64(community_url) or _requested_steam_id64(kwargs))
             if not steam_id64:
                 return {"ok": False, "error": "could not determine SteamID64 from userdata"}
 
@@ -1156,39 +999,26 @@ class Plugin:
             for attempt, url in enumerate([base_url, None]):
                 headers = {"Accept": "application/json", "User-Agent": "Mozilla/5.0"}
                 if attempt == 1:
-                    # Second attempt: try with JWT from cookie (for private wishlists)
+                    # Retry with the cookie JWT for private wishlists.
                     raw_cookie = await asyncio.to_thread(self._get_steam_cookie, "steamLoginSecure")
                     if not raw_cookie:
                         break
-                    # The steamLoginSecure value is `<steamid>||<jwt>`, but it is
-                    # stored URL-encoded (`%7C%7C`) in the cookie DB — decoding
-                    # first is what makes the split find the separator. Without
-                    # this the JWT never extracts and every PRIVATE wishlist falls
-                    # through to "empty or private" even with a valid session.
+                    # The cookie value is URL-encoded, so decode before splitting on ||.
                     cookie = urllib.parse.unquote(raw_cookie)
                     parts = cookie.split("||", 1)
                     jwt = parts[1].strip() if len(parts) > 1 else ""
                     if not jwt:
                         break
-                    # Confirmed live against a real private wishlist: this
-                    # endpoint does not honour an `Authorization: Bearer`
-                    # header at all — it silently returns `{"response":{}}`
-                    # (200 OK, no error) instead of the real items, so every
-                    # private wishlist read as "empty" with the header form.
-                    # `access_token` as a query param is what Steam's own
-                    # client actually sends and the only form that works;
-                    # `_redact_secrets` (used on every error path below)
-                    # scrubs it from anything that reaches our own logs.
+                    # This endpoint ignores Bearer auth and only honours access_token as a query param; error paths redact it.
                     url = f"{base_url}&access_token={urllib.parse.quote(jwt)}"
 
                 req = urllib.request.Request(url, headers=headers)
-                # Off the event loop: a slow network must not stall other RPCs.
                 status, data = await asyncio.to_thread(_fetch_json_page, req)
                 if status != 200:
                     continue
                 items = data.get("response", {}).get("items", [])
                 if not items and attempt == 0:
-                    continue  # might be private, try with auth
+                    continue
                 ids: List[int] = [int(it["appid"]) for it in items if it.get("appid")]
                 return {"ok": True, "ids": ids, "count": len(ids), "authed": attempt > 0}
 

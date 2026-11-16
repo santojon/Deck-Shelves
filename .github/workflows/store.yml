@@ -17,7 +17,6 @@ env:
 jobs:
   prepare-submission:
     runs-on: ubuntu-latest
-    # if: github.event_name == 'workflow_dispatch' || github.ref_name == github.event.repository.default_branch || startsWith(github.ref, 'refs/tags/v')
     if: github.event_name == 'workflow_dispatch'
     steps:
       - name: Checkout
@@ -41,14 +40,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
           echo "Plugin: $PLUGIN_NAME v$VERSION ($COMMIT)"
 
-          # RELEASE_NOTES.md first, CHANGELOG.md when the version is missing there.
-          CHANGELOG=""
-          if [[ -f "RELEASE_NOTES.md" ]]; then
-            CHANGELOG=$(awk "/^## \\[${VERSION}\\]/{found=1; next} /^## \\[/{if(found) exit} found{print}" RELEASE_NOTES.md | sed '/^$/N;/^\n$/d' | sed -e 's/^[[:space:]]*//' -e '/^$/d')
-          fi
-          if [[ -z "$CHANGELOG" && -f "CHANGELOG.md" ]]; then
-            CHANGELOG=$(awk "/^## \\[${VERSION}\\]/{found=1; next} /^## \\[/{if(found) exit} found{print}" CHANGELOG.md | sed '/^$/N;/^\n$/d' | sed -e 's/^[[:space:]]*//' -e '/^$/d')
-          fi
+          CHANGELOG=$(awk "/^## \\[${VERSION}\\]/{found=1; next} /^## \\[/{if(found) exit} found{print}" RELEASE_NOTES.md | sed '/^$/N;/^\n$/d' | sed -e 's/^[[:space:]]*//' -e '/^$/d')
           if [[ -z "$CHANGELOG" ]]; then
             CHANGELOG="Version ${VERSION} release."
           fi
@@ -109,7 +101,6 @@ jobs:
           git config --global user.email "${{ github.actor }}@users.noreply.github.com"
 
           echo "::group::Detect existing open PR (fork=${FORK})"
-          # ── Detect existing open PR for this plugin (owned by our fork) ──
           EXISTING_PR=$(gh pr list \
             --repo SteamDeckHomebrew/decky-plugin-database \
             --state open \
@@ -128,7 +119,6 @@ jobs:
 
           if [[ -n "$EXISTING_PR" ]]; then
             echo "::group::Update existing PR branch (rebase + refresh plugin folder)"
-            # ── Update path: reuse existing branch, rebase on upstream, update submodule ──
             PR_NUMBER=$(echo "$EXISTING_PR" | base64 --decode | jq -r '.number')
             BRANCH=$(echo "$EXISTING_PR" | base64 --decode | jq -r '.headRefName')
             echo "🔍 Found existing PR #${PR_NUMBER} on branch: ${BRANCH}"
@@ -165,7 +155,6 @@ jobs:
               cd ../..
               git add "plugins/${PLUGIN_SLUG}"
 
-              # Ensure .gitmodules contains a reference for this plugin path.
               GITMODULES=".gitmodules"
               SUBMODULE_PATH="plugins/${PLUGIN_SLUG}"
               SUBMODULE_URL="${REPO_URL}.git"
@@ -197,13 +186,11 @@ jobs:
 
           else
             echo "::group::Create new submission branch + PR"
-            # ── Create path: new branch + PR ──
             NEW_BRANCH="submit-${PLUGIN_SLUG}-v${VERSION}"
             echo "📌 No open PR found; creating new branch: ${NEW_BRANCH}"
 
             git checkout -B "${NEW_BRANCH}" upstream/main
 
-            # Auto-detect: is this an update (plugin previously merged) or new addition?
             MERGED_PR=$(gh pr list \
               --repo SteamDeckHomebrew/decky-plugin-database \
               --state merged \
@@ -222,7 +209,6 @@ jobs:
               echo "🔍 No merged PR and plugin not in upstream → this is a NEW plugin submission"
             fi
 
-            # Add or update plugin: clone fresh to ensure commit is present
             if [[ -d "plugins/${PLUGIN_SLUG}" ]]; then
               rm -rf "plugins/${PLUGIN_SLUG}"
             fi
@@ -238,7 +224,6 @@ jobs:
               cd ../..
               git add "plugins/${PLUGIN_SLUG}"
 
-              # Ensure .gitmodules contains a reference for this plugin path.
               GITMODULES=".gitmodules"
               SUBMODULE_PATH="plugins/${PLUGIN_SLUG}"
               SUBMODULE_URL="${REPO_URL}.git"
@@ -290,12 +275,11 @@ jobs:
 
             if [[ "$IS_UPDATE" == "true" ]]; then
               PR_TITLE="Update ${PLUGIN} to v${VERSION}"
-              # Write PR body safely: include changelog (may contain backticks) literally
               {
                 echo "# Update ${PLUGIN} to v${VERSION}"
                 echo ""
               } > ../pr_body.md
-              # Append changelog indented by 4 spaces to preserve formatting in the PR body
+              # Indented so the changelog renders as-is in the PR body.
               if [[ -f "$CHANGELOG_FILE" ]]; then
                 sed 's/^/    /' "$CHANGELOG_FILE" >> ../pr_body.md || true
               fi
@@ -308,12 +292,10 @@ jobs:
               COMMIT_MSG="Updating ${PLUGIN} to v${VERSION}"
             else
               PR_TITLE="Add ${PLUGIN} to Plugin Store"
-              # Write PR body safely: include description (may contain backticks) literally
               {
                 echo "# Add ${PLUGIN} to Plugin Store"
                 echo ""
               } > ../pr_body.md
-              # Append description indented by 4 spaces to preserve formatting in the PR body
               if [[ -f "$DESCRIPTION_FILE" ]]; then
                 sed 's/^/    /' "$DESCRIPTION_FILE" >> ../pr_body.md || true
               fi

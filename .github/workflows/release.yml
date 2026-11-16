@@ -58,16 +58,7 @@ jobs:
         env:
           VERSION: ${{ steps.tag.outputs.version }}
         run: |
-          # Prefer the user-facing RELEASE_NOTES.md; fall back to the
-          # technical CHANGELOG.md when a version is missing there.
-          NOTES=""
-          if [[ -f "RELEASE_NOTES.md" ]]; then
-            NOTES=$(awk "/^## \\[${VERSION}\\]/{found=1; next} /^## \\[/{if(found) exit} found{print}" RELEASE_NOTES.md | sed '/^$/N;/^\n$/d')
-          fi
-          if [[ -z "$NOTES" && -f "CHANGELOG.md" ]]; then
-            echo "RELEASE_NOTES.md had no section for ${VERSION} — falling back to CHANGELOG.md"
-            NOTES=$(awk "/^## \\[${VERSION}\\]/{found=1; next} /^## \\[/{if(found) exit} found{print}" CHANGELOG.md | sed '/^$/N;/^\n$/d')
-          fi
+          NOTES=$(awk "/^## \\[${VERSION}\\]/{found=1; next} /^## \\[/{if(found) exit} found{print}" RELEASE_NOTES.md | sed '/^$/N;/^\n$/d')
           if [[ -z "$NOTES" ]]; then
             echo "No release notes found for ${VERSION} — generate_release_notes will be used."
           fi
@@ -87,8 +78,8 @@ jobs:
           generate_release_notes: ${{ steps.notes.outputs.body == '' }}
           files: |
             deck-shelves-v*.zip
-      # Every #N in this release's changelog section gets a comment pointing at the release.
-      - name: Comment on issues named in the changelog
+      # Every #N in this release's section of either file gets a comment pointing at the release.
+      - name: Comment on issues named in the release notes or changelog
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.tag.outputs.tag }}
@@ -98,13 +89,17 @@ jobs:
           REPO="${{ github.repository }}"
           REL_URL="https://github.com/${REPO}/releases/tag/${TAG}"
           SECTION=""
-          for NAME in "${VERSION}" "Unreleased"; do
-            if [ -z "$SECTION" ]; then
-              SECTION=$(awk "/^## \\[${NAME}\\]/{found=1; next} /^## \\[/{if(found) exit} found{print}" CHANGELOG.md)
-            fi
+          for f in RELEASE_NOTES.md CHANGELOG.md; do
+            PART=""
+            for NAME in "${VERSION}" "Unreleased"; do
+              if [ -z "$PART" ]; then
+                PART=$(awk "/^## \\[${NAME}\\]/{found=1; next} /^## \\[/{if(found) exit} found{print}" "$f")
+              fi
+            done
+            SECTION="${SECTION}${PART}"$'\n'
           done
           ISSUES=$(printf '%s\n' "$SECTION" | grep -oE '#[0-9]+' | tr -d '#' | sort -un || true)
-          if [ -z "$ISSUES" ]; then echo "No issue references in the changelog section — nothing to comment."; exit 0; fi
+          if [ -z "$ISSUES" ]; then echo "No issue references in this release's sections — nothing to comment."; exit 0; fi
           for n in $ISSUES; do
             echo "Commenting on #$n"
             gh issue comment "$n" --repo "$REPO" \

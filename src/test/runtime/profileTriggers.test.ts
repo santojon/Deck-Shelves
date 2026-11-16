@@ -35,14 +35,14 @@ describe('installProfileTriggers', () => {
   it('applies a profile on trigger transition, not when unchanged', () => {
     store.current = { profileTriggersEnabled: true, profiles: [profile], activeProfileName: null }
     resolved.current = null
-    const un = installProfileTriggers() // initial: resolved null → nothing
+    const un = installProfileTriggers()
     expect(saved.list.length).toBe(0)
     resolved.current = 'Docked'
-    cb.settings!(store.current) // transition null → Docked → apply
+    cb.settings!(store.current)
     expect(saved.list.length).toBe(1)
     expect(saved.list[0].activeProfileName).toBe('Docked')
-    expect(saved.list[0].enabled).toBe(true) // snapshot spread in
-    cb.settings!(store.current) // same resolved → no re-apply (transition guard)
+    expect(saved.list[0].enabled).toBe(true)
+    cb.settings!(store.current)
     expect(saved.list.length).toBe(1)
     un()
   })
@@ -56,8 +56,6 @@ describe('installProfileTriggers', () => {
   })
 
   it('does not re-save once the active profile genuinely already matches', () => {
-    // Apply for real once, then feed the exact reflected result back as the
-    // live settings — a second resolution of the same profile must no-op.
     store.current = { profileTriggersEnabled: true, profiles: [profile], activeProfileName: null }
     resolved.current = 'Docked'
     const un = installProfileTriggers()
@@ -70,20 +68,15 @@ describe('installProfileTriggers', () => {
   })
 
   it('reconciles real values when activeProfileName already names the profile but the settings were never actually applied', () => {
-    // e.g. `activeProfileName` reflects an earlier local trigger fire, but a
-    // later cross-device merge pulled in other fields that no longer match
-    // the profile's own snapshot — the label alone must not be trusted.
     store.current = { profileTriggersEnabled: true, profiles: [profile], activeProfileName: 'Docked', enabled: false }
     resolved.current = 'Docked'
     const un = installProfileTriggers()
     expect(saved.list.length).toBe(1)
-    expect(saved.list[0].enabled).toBe(true) // reconciled from the snapshot
+    expect(saved.list[0].enabled).toBe(true)
     un()
   })
 
   it('does not reset showcaseSeen when a named profile is auto-triggered', () => {
-    // The profile's snapshot never carries showcaseSeen (excluded at save
-    // time) — a naive spread would wipe the live true back to undefined.
     store.current = { profileTriggersEnabled: true, profiles: [profile], activeProfileName: null, showcaseSeen: true }
     resolved.current = 'Docked'
     const un = installProfileTriggers()
@@ -95,7 +88,7 @@ describe('installProfileTriggers', () => {
   it('names the factory profile by its translated name in the trigger toast, not its stored id', () => {
     toasts.list = []
     store.current = { profileTriggersEnabled: true, profiles: [], activeProfileName: null, factoryProfileTrigger: { rules: [{ kind: 'charging' }] } }
-    resolved.current = 'Padrão' // FACTORY_PROFILE_NAME
+    resolved.current = 'Padrão'
     const un = installProfileTriggers()
     expect(toasts.list.length).toBe(1)
     expect(toasts.list[0]).not.toContain('Padrão')
@@ -106,7 +99,7 @@ describe('installProfileTriggers', () => {
   it('does not reset showcaseSeen when the factory profile is auto-triggered', () => {
     const ft = { rules: [{ kind: 'charging' }] }
     store.current = { profileTriggersEnabled: true, profiles: [], activeProfileName: null, showcaseSeen: true, factoryProfileTrigger: ft }
-    resolved.current = 'Padrão' // FACTORY_PROFILE_NAME
+    resolved.current = 'Padrão'
     const un = installProfileTriggers()
     expect(saved.list.length).toBe(1)
     expect(saved.list[0].showcaseSeen).toBe(true)
@@ -141,9 +134,6 @@ describe('installProfileTriggers', () => {
   })
 
   it('keeps the live shelves/smartShelves when the triggered profile is unlinked', () => {
-    // Regression: applyByName used to apply the full snapshot verbatim,
-    // ignoring linkShelves entirely — unlike the manual apply path
-    // (controller/profiles.ts), which already respected it.
     const unlinked = {
       id: 'p2',
       name: 'Unlinked',
@@ -165,7 +155,7 @@ describe('installProfileTriggers', () => {
     expect(applied.shelves).toEqual([{ id: 'live-shelf' }])
     expect(applied.smartShelves).toEqual([{ id: 'live-smart' }])
     expect(applied.allShelvesOrder).toEqual(['live-shelf'])
-    expect(applied.enabled).toBe(true) // non-shelf fields still come from the snapshot
+    expect(applied.enabled).toBe(true)
     un()
   })
 
@@ -196,39 +186,34 @@ describe('installProfileTriggers', () => {
     const home = { id: 'p0', name: 'Home', snapshot: { enabled: true, shelves: [] } }
     store.current = { profileTriggersEnabled: true, profiles: [home, profile], activeProfileName: 'Home' }
     resolved.current = null
-    const un = installProfileTriggers() // initial: no trigger, no baseline captured
+    const un = installProfileTriggers()
     expect(saved.list.length).toBe(0)
     resolved.current = 'Docked'
-    cb.settings!(store.current) // Home → Docked: capture baseline=Home, apply Docked
+    cb.settings!(store.current)
     expect(saved.list[saved.list.length - 1].activeProfileName).toBe('Docked')
-    store.current = { ...store.current, activeProfileName: 'Docked' } // reflect the applied state
+    store.current = { ...store.current, activeProfileName: 'Docked' }
     resolved.current = null
-    cb.settings!(store.current) // trigger denied → restore Home
+    cb.settings!(store.current)
     expect(saved.list[saved.list.length - 1].activeProfileName).toBe('Home')
     un()
   })
 
   it('restores hideRecents (and enabled) to their pre-trigger value on revert — master toggle off, no named profile active', () => {
-    // Reproduces the reported scenario: plugin disabled (no DS shelves on
-    // home), hideRecents false; an external-display trigger applies a
-    // "Docked" profile with enabled+hideRecents true; on disconnect the
-    // revert must restore both to their exact pre-trigger values, not just
-    // the profile name.
     const docked = { id: 'p1', name: 'Docked', snapshot: { enabled: true, hideRecents: true, shelves: [{ id: 's1' }] } }
     store.current = { profileTriggersEnabled: true, profiles: [docked], activeProfileName: null, enabled: false, hideRecents: false }
     resolved.current = null
-    const un = installProfileTriggers() // initial: no trigger, no baseline captured
+    const un = installProfileTriggers()
     expect(saved.list.length).toBe(0)
 
     resolved.current = 'Docked'
-    cb.settings!(store.current) // external display connects → apply Docked
+    cb.settings!(store.current)
     const applied = saved.list[saved.list.length - 1]
     expect(applied.enabled).toBe(true)
     expect(applied.hideRecents).toBe(true)
-    store.current = { ...store.current, ...applied } // reflect the applied state, like the real app's notify()
+    store.current = { ...store.current, ...applied }
 
     resolved.current = null
-    cb.settings!(store.current) // external display disconnects → trigger denied, revert
+    cb.settings!(store.current)
     const reverted = saved.list[saved.list.length - 1]
     expect(reverted.enabled).toBe(false)
     expect(reverted.hideRecents).toBe(false)
@@ -266,10 +251,10 @@ describe('installProfileTriggers', () => {
     store.current = { profileTriggersEnabled: true, profiles: [profile], activeProfileName: null, hideRecents: true }
     resolved.current = 'Docked'
     let un = installProfileTriggers()
-    un() // "restart": the in-memory baseline is gone, the stored copy stays
+    un()
     store.current = saved.list[0]
     saved.list = []
-    un = installProfileTriggers() // still triggered: must not adopt the triggered state as the baseline
+    un = installProfileTriggers()
     resolved.current = null
     cb.settings!(store.current)
     expect(saved.list.length).toBe(1)
@@ -284,7 +269,7 @@ describe('installProfileTriggers', () => {
     store.current = { profileTriggersEnabled: true, profiles: [docked], activeProfileName: null, hideRecents: false, globalHideGameNames: false }
     resolved.current = 'Docked'
     const un = installProfileTriggers()
-    store.current = { ...saved.list[0], globalHideGameNames: true, shelves: [{ id: 'new', updatedAt: 5 }] } // the user edits while Docked is active
+    store.current = { ...saved.list[0], globalHideGameNames: true, shelves: [{ id: 'new', updatedAt: 5 }] }
     resolved.current = null
     cb.settings!(store.current)
     const reverted = saved.list[saved.list.length - 1]
@@ -303,10 +288,10 @@ describe('installProfileTriggers', () => {
     resolved.current = 'Docked'
     let un = installProfileTriggers()
     store.current = { ...saved.list[0], globalHideGameNames: true }
-    un() // restart with the edit in place
+    un()
     saved.list = []
     un = installProfileTriggers()
-    expect(saved.list.every((s) => s.globalHideGameNames === true)).toBe(true) // the re-apply never drops the edit
+    expect(saved.list.every((s) => s.globalHideGameNames === true)).toBe(true)
     resolved.current = null
     cb.settings!(store.current)
     const reverted = saved.list[saved.list.length - 1]
@@ -327,7 +312,7 @@ describe('installProfileTriggers', () => {
     const un = installProfileTriggers()
     try {
       resolved.current = null
-      cb.settings!(store.current) // the trigger takes over and is denied, all inside the QA session
+      cb.settings!(store.current)
       expect(mem.get('ds-trigger-baseline-v1')).toBe(real)
     } finally {
       un()
@@ -338,14 +323,13 @@ describe('installProfileTriggers', () => {
 
   it('a normal boot never reverts to a pre-trigger copy a QA build left behind', () => {
     const mem = new Map<string, string>()
-    // Fixture-era values: reverting to them would write fixture data over the real settings.
     const fromQa = { hideRecents: false, recentsReplaceSource: true, shelves: [{ id: 'qa_st_01' }], __dsQaOverride: true }
     mem.set('ds-trigger-baseline-v1', JSON.stringify({ name: 'Docked', settings: fromQa, applied: { ...fromQa, activeProfileName: 'Docked' } }))
     vi.stubGlobal('localStorage', { getItem: (k: string) => mem.get(k) ?? null, setItem: (k: string, v: string) => { mem.set(k, v) }, removeItem: (k: string) => { mem.delete(k) } })
     const docked = { id: 'p1', name: 'Docked', snapshot: { enabled: true, hideRecents: true } }
     store.current = { profileTriggersEnabled: true, profiles: [docked], activeProfileName: 'Docked', enabled: true, hideRecents: true, recentsReplaceSource: false, shelves: [{ id: 'real' }] }
     resolved.current = 'Docked'
-    const un = installProfileTriggers() // a restart while the trigger is active
+    const un = installProfileTriggers()
     try {
       saved.list = []
       resolved.current = null

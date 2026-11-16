@@ -1,8 +1,4 @@
-/* Keyboard-binding parser + matcher, mirroring runtime/buttonBindings.ts's
-   combo grammar (single / double-tap / chord) but for physical keyboard
-   keys ("KeyF", "Digit1", KeyboardEvent.code values). Arrow keys are
-   deliberately excluded — Steam's own GamepadUI intercepts them as
-   virtual D-pad navigation before a real keydown reaches the page. */
+// Arrow keys are left out: Steam turns them into D-pad navigation before a keydown reaches the page.
 
 import type { KeyboardBindings } from "../types";
 
@@ -20,8 +16,7 @@ const ALLOWED_KEY_TOKENS = [
 
 const ALLOWED_KEY_SET = new Set<string>(ALLOWED_KEY_TOKENS);
 
-// Reserved — Escape and Enter already carry native meaning (close/confirm)
-// everywhere Steam's own UI is involved; binding them risks a stuck state.
+// Escape and Enter carry native meaning in Steam's UI; binding them risks a stuck state.
 const RESERVED_CODES = new Set<string>(["Escape", "Enter"]);
 
 export type KeyCombo =
@@ -62,18 +57,13 @@ export function validateKeyCombo(raw: string | null | undefined, opts?: { allowN
   if (!tokens.length) return { ok: false, reason: "empty" };
   const issue = keyTokenIssue(tokens);
   if (issue) return { ok: false, reason: issue };
-  // Two identical keys are a double-tap; a repeat inside a longer chord is not.
   if (tokens.length > 2 && new Set(tokens).size !== tokens.length) {
     return { ok: false, reason: "duplicate" };
   }
   return { ok: true };
 }
 
-/* Skip binding matches while an editable element holds focus — the
-   keyboard buses used for matching deliver every keydown regardless of
-   focus (Home's BP-injected listener runs in the capture phase, ahead of
-   a focused input's own handler), so without this a bound letter key
-   would fire mid-typing in a text field. */
+// The key buses see every keydown before a focused input does, so skip matches while typing.
 export function isEditableKeyTarget(tag: string | null | undefined): boolean {
   const t = (tag ?? "").toUpperCase();
   return t === "INPUT" || t === "TEXTAREA";
@@ -87,10 +77,7 @@ export function createKeyMatcherState(): KeyMatcherState {
   return { lastPress: new Map() };
 }
 
-/* Modifier state carried by the keydown itself (`ctrlKey` / `shiftKey` /
-   `altKey`): a held modifier went down long before the letter and its repeats
-   are skipped, so a chord such as Ctrl+Shift+S can never meet the 200 ms rule
-   on timestamps alone. */
+// A held modifier's repeats are skipped, so chords read modifiers from the keydown, not timestamps.
 export interface KeyModifierFlags { ctrl?: boolean; shift?: boolean; alt?: boolean }
 const MODIFIER_FLAG: Record<string, keyof KeyModifierFlags> = {
   ControlLeft: "ctrl", ControlRight: "ctrl", ShiftLeft: "shift", ShiftRight: "shift", AltLeft: "alt", AltRight: "alt",
@@ -99,7 +86,6 @@ export function heldModifiers(e: { ctrlKey?: boolean; shiftKey?: boolean; altKey
   return { ctrl: !!e.ctrlKey, shift: !!e.shiftKey, alt: !!e.altKey };
 }
 
-// Call on every keydown. Returns true when the combo fires.
 export function matchKeyEvent(
   code: string | null | undefined,
   combo: KeyCombo | null,
@@ -128,9 +114,6 @@ export function matchKeyEvent(
   });
 }
 
-// Collision detector — mirrors findCollisions in buttonBindings.ts, scoped
-// to the keyboard fields only (a keyboard combo and a gamepad combo never
-// collide with each other; they're independent trigger paths by design).
 export function findKeyCollisions(b: KeyboardBindings): string[][] {
   const seen = new Map<string, string[]>();
   const fields: Array<keyof KeyboardBindings> = [
@@ -147,11 +130,7 @@ export function findKeyCollisions(b: KeyboardBindings): string[][] {
   return Array.from(seen.values()).filter((arr) => arr.length > 1);
 }
 
-/* Unlike gamepad bindings, keyboard bindings default to unset — opting a
-   keyboard into an action is something the user turns on explicitly, not
-   something that should suddenly claim a key press. The one exception is the
-   quick-settings sidecar: Ctrl+Shift+S opens it out of the box (the same
-   chord family the standalone host's sidecar uses). */
+// Keyboard bindings default to unset; only the sidecar gets a default chord.
 export const DEFAULT_KEYBOARD_BINDINGS: Required<KeyboardBindings> = {
   cardHideRemove: null,
   cardHighlightToggle: null,
@@ -184,8 +163,6 @@ export function resolveKeyboardBindings(
   };
 }
 
-// Render a stored key combo for display, e.g. "KeyF" -> "F",
-// "ControlLeft+KeyF" -> "CTRL + F", "KeyF+KeyF" -> "F ×2".
 export function formatKeyComboForDisplay(combo: string | null | undefined): string {
   if (!combo) return "";
   const tokens = tokenizeKeyCombo(String(combo));

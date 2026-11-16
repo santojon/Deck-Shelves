@@ -4,10 +4,20 @@ import { WandIcon } from '../../icons';
 import { applyGameInfoAboveToggle, applyHideTitleToggle } from '../common/gameInfoCoupling';
 import { DESCRIPTION_SIZE_GROUP, LOGO_SIZE_GROUP, ResetGlobalVisualButton, groupPatch, isGroupSet } from '../common/globalVisualGroups';
 import type { SettingsController } from '../../../features/settings/controller';
+import { discountBadgeModeOptions } from '../modals/editShelf/DisplayTabContent';
 
-/* Global visual defaults section, extracted from DeckQAMSettings to keep that
-   file under the code-line cap. Renders the same toggles as before; the inner
-   IIFE groups keep each render arm under the complexity cap. */
+// "Per shelf" leaves each mode to the shelves' Display tab.
+function GlobalDiscountBadgeFields({ settings, actions, t, perShelf, disabled }: { settings: any; actions: any; t: (...args: any[]) => any; perShelf: string; disabled: boolean }) {
+  const options = [{ data: 'per_shelf', label: perShelf }, ...discountBadgeModeOptions(t)];
+  const pick = (set: (v: unknown) => void) => (opt: any) => { const v = opt?.data ?? opt; set(v === 'per_shelf' ? null : v); };
+  return (
+    <>
+      <DropdownItem label={t('discount_badge_mode')} rgOptions={options} selectedOption={settings.discountBadgeMode ?? 'per_shelf'} disabled={disabled} onChange={pick((v) => actions.setGlobalDiscountBadgeMode(v))} />
+      <DropdownItem label={t('discount_badge_focus_mode')} rgOptions={options} selectedOption={settings.discountBadgeFocusMode ?? 'per_shelf'} disabled={disabled} onChange={pick((v) => actions.setGlobalDiscountBadgeFocusMode(v))} />
+    </>
+  );
+}
+
 export function VisualGlobalSection({ controller, hidden, isHid, lightMode, mountCrashed, hasNonSteamBadges }: {
   controller: SettingsController;
   hidden: boolean;
@@ -36,7 +46,7 @@ export function VisualGlobalSection({ controller, hidden, isHid, lightMode, moun
         {!isHid('globalHighlightAll') && <ToggleField label={t('highlight_all')} checked={settings.globalHighlightAll === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalHighlightAll(value)} />}
         {!isHid('globalHighlightRandom') && <ToggleField label={t('highlight_random')} checked={(settings as any).globalHighlightRandom === true} disabled={mountCrashed} onChange={(value: boolean) => (actions as any).setGlobalHighlightRandom(value)} />}
         </>))()}
-        {/* Decorations are stripped on the home in light mode — hide here too. */}
+        {/* Light mode strips decorations on the home. */}
         {(() => {
           if (lightMode) return null;
           return (<>
@@ -56,7 +66,6 @@ export function VisualGlobalSection({ controller, hidden, isHid, lightMode, moun
         )}
         </>))()}
 
-        {/* Group: Icon + vertical align */}
         {(() => (<>
         {!isHid('globalEnableIcon') && <ToggleField label={t('enable_icon')} checked={(settings as any).globalEnableIcon === true} disabled={mountCrashed} onChange={(value: boolean) => (actions as any).setGlobalEnableIcon(value)} />}
         {(settings as any).globalEnableIcon === true && !isHid('globalIconVerticalAlign') && (
@@ -75,7 +84,6 @@ export function VisualGlobalSection({ controller, hidden, isHid, lightMode, moun
         )}
         </>))()}
 
-        {/* Group: Description + position + (paired) below-logo + height */}
         {(() => (<>
         {!isHid('globalEnableDescription') && <ToggleField label={t('enable_description')} checked={(settings as any).globalEnableDescription === true} disabled={mountCrashed} onChange={(value: boolean) => (actions as any).setGlobalEnableDescription(value)} />}
         {(settings as any).globalEnableDescription === true && !isHid('globalDescriptionSizeSame') && <ToggleField label={t('global_description_size_same' as any)} checked={descriptionSizes} disabled={mountCrashed} onChange={(value: boolean) => (actions as any).setGlobalVisualValues(groupPatch(settings, DESCRIPTION_SIZE_GROUP, value))} />}
@@ -119,7 +127,7 @@ export function VisualGlobalSection({ controller, hidden, isHid, lightMode, moun
         {!isHid('globalHideInstallIndicator') && <ToggleField label={t('hide_install_indicators')} checked={settings.globalHideInstallIndicator === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalHideInstallIndicator(value)} />}
         {!isHid('globalHideNewBadge') && <ToggleField label={t('hide_new_badge')} checked={settings.globalHideNewBadge === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalHideNewBadge(value)} />}
         {!isHid('globalHideDiscountBadge') && <ToggleField label={t('hide_discount_badge')} checked={(settings as any).globalHideDiscountBadge === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalHideDiscountBadge(value)} />}
-        {!isHid('globalHideDiscountBadge') && (settings as any).globalHideDiscountBadge !== true && <DropdownItem label={t('discount_badge_mode')} rgOptions={[{ data: 'percent', label: t('discount_badge_percent') }, { data: 'price', label: t('discount_badge_price') }, { data: 'both', label: t('discount_badge_both') }]} selectedOption={(settings as any).discountBadgeMode ?? 'percent'} disabled={mountCrashed} onChange={(opt: any) => (actions as any).setGlobalDiscountBadgeMode(opt?.data ?? opt)} />}
+        {!isHid('globalHideDiscountBadge') && (settings as any).globalHideDiscountBadge !== true && <GlobalDiscountBadgeFields settings={settings} actions={actions} t={t} perShelf={perShelf} disabled={mountCrashed} />}
         </>))()}
         {(() => (<>
         {!isHid('globalHideCompatIcons') && <ToggleField label={t('hide_compat_icons')} checked={settings.globalHideCompatIcons === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalHideCompatIcons(value)} />}

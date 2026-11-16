@@ -11,14 +11,12 @@ import {
 
 describe('EAppDisplayStatus', () => {
   it("matches the values of Steam's own EDisplayStatus", () => {
-    // Read from the client's enum (the protobuf EDisplayStatus) on a SteamOS Deck, 2026-10-23.
     expect(EAppDisplayStatus).toMatchObject({
       Invalid: 0, Launching: 1, Uninstalling: 2, Installing: 3, Running: 4, Validating: 5, Updating: 6,
       Downloading: 7, Synchronizing: 8, ReadyToInstall: 9, ReadyToPreload: 10, ReadyToLaunch: 11,
       UpdatePaused: 18, UpdateQueued: 19, UpdateRequired: 20, DownloadPaused: 22, DownloadQueued: 23,
       DownloadRequired: 24, Terminating: 36, DownloadFailed: 38, UpdateFailed: 39,
     });
-    // One name per status: two names for one value read as two statuses.
     const values = Object.values(EAppDisplayStatus);
     expect(new Set(values).size).toBe(values.length);
   });
@@ -48,8 +46,6 @@ describe('resolveQuickLaunchAction', () => {
   });
 
   it("a queued or required update maps to \"update\", as Steam's own menu starts with Update", () => {
-    // Steam's game page shows Update for both, and a queued update (19) with no progress is the
-    // usual state of a game or a Proton tool waiting for its update.
     for (const ds of [EAppDisplayStatus.UpdateQueued, EAppDisplayStatus.UpdateRequired]) {
       expect(resolveQuickLaunchAction({ installed: true, displayStatus: ds })).toBe('update');
       expect(resolveQuickLaunchAction({ installed: true, displayStatus: ds, statusPercentage: 0 })).toBe('update');

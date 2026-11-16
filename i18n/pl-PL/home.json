@@ -24,7 +24,7 @@
   "update_installing": "Instalowanie aktualizacji {{version}}…",
   "update_installed": "Zaktualizowano do wersji {{version}}.",
   "update_install_failed": "Instalacja nie powiodła się — powrót do pobierania.",
-  "update_install_busy": "Host wciąż sprawdza aktualizacje — spróbuj ponownie za chwilę.",
+  "update_install_busy": "Wciąż trwa sprawdzanie aktualizacji — spróbuj ponownie za chwilę.",
   "update_downloading": "Pobieranie aktualizacji {{version}}…",
   "update_downloaded": "Zapisano w {{path}} — zainstaluj ręcznie.",
   "update_download_failed": "Pobieranie nie powiodło się — otwieranie strony wydania.",

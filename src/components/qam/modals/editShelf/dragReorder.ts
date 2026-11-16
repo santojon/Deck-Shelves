@@ -1,6 +1,3 @@
-/* Shared pointer-drag reorder + price-cache helpers for ShelfPreview's
-   manual-sort row (drag mechanics, discount-badge lookup). */
-
 export function readPriceCache(isOnlineShelfSource: boolean): any {
   if (!isOnlineShelfSource) return null
   try {
@@ -9,7 +6,6 @@ export function readPriceCache(isOnlineShelfSource: boolean): any {
   } catch { return null }
 }
 
-// Which card (by index) the pointer's X currently sits over.
 export function findCardIndexAtX(cards: HTMLElement[], clientX: number): number {
   for (let i = 0; i < cards.length; i++) {
     const r = cards[i].getBoundingClientRect()
@@ -18,8 +14,6 @@ export function findCardIndexAtX(cards: HTMLElement[], clientX: number): number 
   return -1
 }
 
-// Move `fromId` to where `toId` currently sits; null when either id is
-// missing or they're already in place (nothing to reorder).
 export function reorderIds(order: number[], fromId: number, toId: number): number[] | null {
   const base = order.slice()
   const from = base.indexOf(fromId)

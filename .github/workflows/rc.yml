@@ -1,7 +1,6 @@
 name: "Release · RC → Store"
 
-# Runs after a successful release, so the store gets the new tag; only a tag commit
-# carrying `[rc]` (added by bump.yml for PRs with the `rc` label) goes to the store.
+# Runs after a successful release; only a tag commit carrying [rc] (PRs with the rc label) goes to the store.
 on:
   # No branch filter: head_branch is the tag here, so `branches: [main]` would skip every release.
   workflow_run:
@@ -24,7 +23,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          echo "Release workflow #${{ github.event.workflow_run.id }} succeeded — disparando store.yml"
+          echo "Release workflow #${{ github.event.workflow_run.id }} succeeded — triggering store.yml"
           gh workflow run store.yml \
             --repo "${{ github.repository }}" \
             --ref main

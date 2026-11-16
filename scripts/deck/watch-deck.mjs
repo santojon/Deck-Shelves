@@ -4,7 +4,6 @@ import path from "node:path";
 import process from "node:process";
 import { execSync } from "node:child_process";
 
-// Load .env from project root (Node doesn't source shell env files automatically)
 const __root = path.resolve(import.meta.dirname, "../..");
 const dotEnvPath = path.join(__root, ".env");
 if (fs.existsSync(dotEnvPath)) {

@@ -70,8 +70,6 @@ describe('PerShelfHero label observer', () => {
     const clone = displayed()!
     const raf = vi.spyOn(globalThis, 'requestAnimationFrame')
 
-    // Let the real observer deliver the mutation without advancing a frame.
-    // A stable output node alone would also pass if the filter were missing.
     await act(async () => {
       if (kind === 'class') host.classList.toggle('visible')
       else if (kind === 'text') clone.firstChild!.textContent = 'Output-only text'
@@ -98,7 +96,6 @@ describe('PerShelfHero label observer', () => {
     const changeOutput = () => host.classList.toggle('visible')
     const changeSource = () => { source.firstChild!.textContent = 'Mixed-batch title' }
 
-    // Synchronous writes enter the same observer delivery in either order.
     await act(async () => {
       if (order === 'output-first') { changeOutput(); changeSource() }
       else { changeSource(); changeOutput() }

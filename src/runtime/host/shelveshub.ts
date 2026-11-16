@@ -1,16 +1,8 @@
-/* Fulfils the HostApi contract using the runtime a neutral host injects as
-   `window.__SHELVES_HOST__`, so the bundle runs unchanged without the plugin
-   loader. Sibling of `decky.ts`; contains NO `@decky/*` imports. Interim bridge
-   only: `resolveHost` uses a conforming injected runtime as-is, falling back
-   here for the older runtime shape until the runtime conforms directly. */
 import { HOST_API_VERSION, type Disposable, type HostApi, type PluginDescriptor, type ToastOptions } from "./contract";
 import { getPlatform } from "../platformContext";
 import type { PlatformApi } from "../platform";
 import { logInfo } from "../logger";
 
-/* Shape of the runtime a neutral host injects before the bundle. Only the
-   members this adapter consumes are typed; `ui` is the contract's own `ui`,
-   so the Steam-native components the runtime locates flow straight through. */
 interface ShelvesHostRuntime {
   readonly version?: string;
   readonly ui: HostApi["ui"];
@@ -55,7 +47,6 @@ export function createShelvesHubHostApi(): HostApi {
         return rt.rpc.call<Req, Res>(method, args);
       },
     },
-    // The runtime locates the Steam-native components; they satisfy `HostUi`.
     ui: rt.ui,
     routes: {
       register(path, component) {
@@ -67,16 +58,10 @@ export function createShelvesHubHostApi(): HostApi {
     },
     notifications: {
       toast(opts: ToastOptions) {
-        // Contract's `{ title?, body, durationMs? }` maps to the runtime's
-        // `send(title, body, timeout)`.
         try { rt.notifications.send(opts.title ?? "", opts.body, opts.durationMs); } catch {}
       },
     },
-    // Platform is renderer-side (SteamClient / collectionStore), identical under
-    // both hosts — reuse the same provider the plugin loader adapter does.
     platform: getPlatform() as PlatformApi,
-    // Internal hooks index.tsx fires at the matching lifecycle moments (not part
-    // of the HostApi contract — exposed via an `as any` cast at the call site).
     ...({
       __fireMount: () => { for (const cb of mountCbs) try { cb(); } catch {} },
       __fireUnmount: () => { for (const cb of unmountCbs) try { cb(); } catch {} },

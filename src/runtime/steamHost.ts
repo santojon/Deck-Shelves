@@ -12,13 +12,11 @@ export function getPreferredSteamDocument(): Document {
   return getPreferredSteamWindow().document ?? document;
 }
 
-// Feed the focused-window and the GamepadUI main-window BrowserWindows to `push`.
 function pushFocusedAndMain(push: (candidate: any) => void): void {
   try { push((window as any).SteamUIStore?.GetFocusedWindowInstance?.()?.BrowserWindow); } catch {}
   try { push((window as any).SteamUIStore?.WindowStore?.GamepadUIMainWindowInstance?.BrowserWindow); } catch {}
 }
 
-// Feed every BrowserWindow in the SteamUIStore window list to `push`.
 function pushAllSteamUIWindows(push: (candidate: any) => void): void {
   try {
     const steamWindows = (window as any).SteamUIStore?.WindowStore?.SteamUIWindows;

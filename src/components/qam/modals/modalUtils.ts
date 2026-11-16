@@ -1,5 +1,4 @@
-// Decky's onChange hands back a raw string, an event, or a `{ value }` object
-// depending on the field. Pick the first defined candidate across those shapes.
+// Decky's onChange can hand back a string, an event or a { value } object.
 function pickChangeValue(v: any): unknown {
   return v?.target?.value ?? v?.currentTarget?.value ?? v?.value ?? v
 }
@@ -15,8 +14,6 @@ export function filenameWithJson(name: string): string {
   return base.toLowerCase().endsWith('.json') ? base : `${base}.json`
 }
 
-// Split a full path into its folder + filename so import modals can show just
-// the filename (matching the export modals) instead of the whole path.
 export function splitPath(p: string): { dir: string; base: string } {
   const norm = String(p ?? '').replace(/\\/g, '/')
   const idx = norm.lastIndexOf('/')
@@ -29,8 +26,7 @@ export function joinPath(dir: string, base: string): string {
   return dir.endsWith(sep) ? `${dir}${base}` : `${dir}${sep}${base}`
 }
 
-// The picker result shape varies across Steam/Decky builds — take the first
-// defined path-ish field, matching the previous `?? ` fallback order.
+// The picker result shape varies across Steam and Decky builds.
 const PICKER_PATH_KEYS = ['realpath', 'path', 'strPath', 'filepath', 'file_path', 'selectedPath']
 
 function firstPathField(o: any): string {

@@ -1,11 +1,6 @@
 import { gamepadDialogClasses, quickAccessControlsClasses } from '../../runtime/host/decky'
 
-// Bridge: `quickAccessControlsClasses` is undefined in SharedJSContext (where
-/* DeckModalStyles renders), but it IS defined here in the QAM context. Persist
-   the three obfuscated class tokens we use in modal CSS to localStorage on
-   module load so DeckModalStyles can pick them up via the same key without
-   hardcoding values that drift on every Steam Big Picture update. Storage key
-   must match the read in `DeckModalStyles.tsx`. */
+// quickAccessControlsClasses only exists in the QAM context, so save its tokens for the modal styles.
 try {
   const w: any = (typeof window !== 'undefined') ? window : null
   const cls: any = quickAccessControlsClasses as any
@@ -21,10 +16,6 @@ try {
 export function DeckQAMStyles() {
   return (
     <style>{`
-      /* ───── Deck Shelves design tokens ─────
-         Single source of truth for colour / radius / spacing across QAM,
-         sidecar, About page, Settings page and modals. Themes can
-         override at the :root level via CSS Loader. */
       :where(:root, .deck-shelves-qam-panel, .deck-shelves-settings-page, .deck-shelves-root, .deck-shelves-info-page, .deck-shelves-dialog) {
         --ds-surface:        rgba(255, 255, 255, 0.04);
         --ds-surface-hi:     rgba(255, 255, 255, 0.08);
@@ -57,8 +48,6 @@ export function DeckQAMStyles() {
         --ds-pad-card:   "12px 14px";
       }
 
-      /* The panel fills the tab and never scrolls sideways; anything positioned
-         inside it is placed against it. */
       .deck-shelves-qam-panel {
         position: relative;
         width: 100%;
@@ -75,9 +64,6 @@ export function DeckQAMStyles() {
         width: 300px;
         min-width: 300px;
       }
-      /* When expanded, the panel and its constrained ancestors must allow the
-         sidecar to overflow to the right (the Decky plugin tab wrapper
-         normally clips at 300px). */
       .deck-shelves-qam-panel[data-ds-qam-expanded="1"] {
         overflow-x: visible;
         overflow-y: visible;
@@ -89,12 +75,9 @@ export function DeckQAMStyles() {
         overflow: visible !important;
       }
 
-      /* Other Quick Access tabs get this inset from a panel section, which this
-         panel does not use, so field rows carry it themselves. */
       .deck-shelves-qam-panel .${gamepadDialogClasses.Field} {
         padding-inline: var(--ds-pad-row, 16px);
       }
-      /* Rows of our own (the toolbars, saved filters): one line, same inset. */
       .deck-shelves-qam-panel .deck-shelves-bare-row {
         display: flex;
         align-items: center;
@@ -110,7 +93,6 @@ export function DeckQAMStyles() {
         margin-inline: var(--ds-pad-row, 16px);
         border-top: 1px solid var(--ds-border-strong, rgba(255, 255, 255, 0.1));
       }
-      /* Stops where the sidecar's eye column starts, like the hide-row lines. */
       .deck-shelves-qam-sidecar .deck-shelves-divider {
         margin-inline-end: 60px;
       }
@@ -122,7 +104,6 @@ export function DeckQAMStyles() {
         padding: var(--ds-gap-md, 8px) var(--ds-pad-row, 16px);
         color: var(--ds-text-faint, rgba(255, 255, 255, 0.45));
       }
-      /* Force ellipsis on shelf titles in the QAM shelf lists */
       .deck-shelves-qam-panel .deck-shelves-shelf-list .${gamepadDialogClasses.Field} {
         overflow: hidden;
       }
@@ -140,7 +121,6 @@ export function DeckQAMStyles() {
         min-width: 0;
         flex: 1 1 0;
       }
-      /* Controller grab: the name area; focus and the held row use Steam's own row highlight */
       .deck-shelves-qam-panel .ds-grab-target {
         flex: 1 1 auto;
         width: 100%;
@@ -184,8 +164,6 @@ export function DeckQAMStyles() {
         box-sizing: border-box;
         transition: background 0.1s;
       }
-      /* Whole-row highlight: fires whether the title toggle or the inline
-         action button holds focus, so the bar reads as one focus unit. */
       .deck-shelves-qam-panel .ds-collapsible-row.gpfocuswithin,
       .deck-shelves-qam-panel .ds-collapsible-row:focus-within,
       .deck-shelves-settings-page .ds-collapsible-row.gpfocuswithin,
@@ -223,10 +201,6 @@ export function DeckQAMStyles() {
         margin-right: 4px;
         color: #fff;
       }
-      /* The box border/background only exist in the settings page; the QAM
-         keeps the flat look (header + content, no surrounding box). Inter-box
-         spacing: top-margin in the QAM, bottom-margin in settings (so the last
-         box also keeps space before the next, non-box section). */
       .deck-shelves-qam-panel .ds-collapsible-box {
         margin-top: 8px;
       }
@@ -237,21 +211,13 @@ export function DeckQAMStyles() {
         overflow: hidden;
         margin-bottom: 12px;
       }
-      /* No horizontal padding: content focusables span the section's full
-         width (so focus highlights read edge-to-edge like the header row). */
       .deck-shelves-qam-panel .ds-collapsible-content {
         padding: 2px 0 10px;
       }
-      /* More breathing room below the header in the settings page (the QAM
-         stays compact). */
       .deck-shelves-settings-page .ds-collapsible-content {
         padding: 10px 14px 12px;
       }
 
-      /* The native Decky ToggleField wrapper paints an opaque slate
-         (rgb(35,38,46)) that ignores the theme. Re-skin every config toggle
-         to the themed "row" surface + border (like the Shortcuts rows), and
-         drop the native bottom separator so the card edge reads cleanly. */
       .deck-shelves-settings-page .${gamepadDialogClasses.Field}:has([role="checkbox"]) {
         background: var(--ds-surface, rgba(255, 255, 255, 0.04)) !important;
         border: 1px solid var(--ds-border, rgba(255, 255, 255, 0.06));
@@ -260,14 +226,10 @@ export function DeckQAMStyles() {
       .deck-shelves-settings-page .${gamepadDialogClasses.Field}:has([role="checkbox"]).${gamepadDialogClasses.WithBottomSeparatorStandard}::after {
         display: none;
       }
-      /* About pages are pure documentation — strip the native Field slate so
-         text items are transparent and follow the theme surface behind them. */
       .deck-shelves-info-page .${gamepadDialogClasses.Field} {
         background: transparent !important;
       }
 
-      /* ───── Shared "card" surface used by Settings details + About
-         page + modals. Uses --ds-* tokens so themes can override. */
       .ds-settings-section {
         display: flex;
         flex-direction: column;
@@ -298,7 +260,6 @@ export function DeckQAMStyles() {
       .ds-settings-section__trailing { flex-shrink: 0; display: inline-flex; align-items: center; gap: var(--ds-gap-sm, 6px); }
       .ds-settings-section__body { display: flex; flex-direction: column; gap: var(--ds-gap-md, 8px); }
 
-      /* Log row focus state — visible highlight on gamepad focus */
       .ds-log-row.gpfocus,
       .ds-log-row:focus,
       .ds-log-row:focus-within,
@@ -333,32 +294,30 @@ export function DeckQAMStyles() {
         outline: none;
       }
 
-      /* Sidecar panel — mirrors the native Friends & Chat second column.
-         Rendered inline, as a sibling of the main column inside the tab;
-         position: fixed lays it over the right portion of the widened QAM
-         (left edge ~351 = 51 tab strip + 300 plugin tab width). */
       .deck-shelves-qam-sidecar {
-        /* Fixed to the QAM viewport (the measurement anchors it to the tab's
-           content panel, whose box stays put when its content scrolls), so the
-           sidecar never slides along when the gamepad focus scrolls the main
-           column under it. */
         position: fixed;
         left: 348px;
         top: 14px;
         width: 503px;
         height: 440px;
-        /* No explicit background -- Steam does not expose theme CSS vars
-           on documentElement (CDP confirmed empty main-editor-bg-color /
-           gamepad-ui-bg-color), so we let the QAM popup own gradient
-           show through instead of forcing the legacy rgb(14,20,27). */
         background: transparent;
         border-left: 1px solid rgba(255, 255, 255, 0.06);
         padding: 0;
         z-index: 5;
         box-sizing: border-box;
       }
-      /* Header pinned to the very top of the sidecar (it starts at the tab's
-         content top, like the host's), with a back control on the left. */
+      :has(> [data-ds-sidecar-menu]) {
+        overflow: visible !important;
+        transform: none !important;
+      }
+      .ModalOverlayBackground:has(~ .ModalOverlayContent [data-ds-sidecar-menu]) {
+        backdrop-filter: none !important;
+        background: transparent !important;
+      }
+      [data-ds-sidecar-list="1"] .ModalOverlayBackground {
+        backdrop-filter: none !important;
+        background: transparent !important;
+      }
       .ds-sidecar-title {
         position: absolute;
         top: 0;
@@ -378,8 +337,6 @@ export function DeckQAMStyles() {
         box-sizing: border-box;
         z-index: 2;
       }
-      /* Tab strip in the sidecar header (the standalone host's sidecar pattern:
-         the active tab bright with a tinted pill, the others dimmed). */
       .ds-sidecar-tabs {
         display: flex;
         align-items: center;
@@ -391,19 +348,19 @@ export function DeckQAMStyles() {
         display: inline-flex;
         align-items: center;
         gap: 6px;
-        height: 32px;
+        height: 34px;
         padding: 0 12px;
-        border-radius: 4px;
-        font-size: 13px;
-        font-weight: 500;
-        letter-spacing: 0;
-        color: rgba(255, 255, 255, 0.6);
+        border-radius: 17px;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+        color: #dcdedf;
         background: transparent;
       }
       .ds-sidecar-tab[data-active="1"] {
-        font-weight: 700;
         color: #ffffff;
-        background: rgba(255, 255, 255, 0.14);
+        background: rgba(255, 255, 255, 0.15);
       }
       .ds-sidecar-back {
         display: inline-flex;
@@ -436,7 +393,6 @@ export function DeckQAMStyles() {
         box-sizing: border-box;
       }
 
-      /* Sidecar General tab — hideable rows + eye buttons. */
       .ds-hide-row {
         display: flex;
         align-items: center;
@@ -446,16 +402,10 @@ export function DeckQAMStyles() {
         box-sizing: border-box;
         position: relative;
       }
-      /* The Decky-generated Field wrapper becomes the first flex child here,
-         so give it the grow space and let the eye button take the rest. */
       .ds-hide-row > :first-child {
         flex: 1 1 auto;
         min-width: 0;
       }
-      /* Strip Decky's bottom separator on toggles that sit inside a
-         hide-row, then redraw it ourselves only across the toggle column
-         — so the line stops short of the eye button instead of running
-         under it. */
       .ds-hide-row .${gamepadDialogClasses.WithBottomSeparatorStandard}::after {
         display: none;
       }

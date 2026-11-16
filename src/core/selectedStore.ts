@@ -1,8 +1,5 @@
-/* A per-key selected store: one upstream subscription (`attach`) recomputes
-   every subscribed key on a signal and notifies only the keys whose value
-   changed. Built for `useSyncExternalStore` in card components — a Home-wide
-   signal (shelf refresh, friends poll) then re-renders the few cards whose
-   own value moved instead of every mounted card (S6 render scaling). */
+// Recomputes every key on one upstream signal and notifies only the keys whose value changed,
+// so a Home-wide signal re-renders only the cards that actually moved.
 export type SelectedStore<T> = {
   subscribe(key: number, cb: () => void): () => void;
   get(key: number): T;
@@ -31,7 +28,6 @@ export function createSelectedStore<T>(opts: {
     for (const [key, cbs] of subs) {
       const next = opts.compute(key);
       const prev = values.get(key);
-      // Nothing read yet for this key → nothing to notify about.
       if (prev === undefined) { values.set(key, next); continue; }
       if (opts.equal(prev, next)) continue;
       values.set(key, next);

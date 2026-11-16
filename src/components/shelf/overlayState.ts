@@ -1,5 +1,3 @@
-
-
 type Listener = (active: boolean) => void;
 
 let active = false;
@@ -11,10 +9,6 @@ function detect(doc: Document, win: Window): boolean {
   try {
     const homeRoot = doc.getElementById("deck-shelves-home-root");
     if (!homeRoot) return false;
-    /* A DS ambient overlay (search / Side Nav) is up: treat as obscured so the
-       portaled card decorations hide instead of floating over the on-screen
-       keyboard. Center-point hit-testing below misses these (search sits above
-       center; the Side Nav hugs the edge). */
     if (doc.querySelector(".ds-search-overlay, .ds-sidenav-overlay")) return true;
     const cx = win.innerWidth / 2;
     const cy = win.innerHeight / 2;
@@ -28,7 +22,6 @@ function detect(doc: Document, win: Window): boolean {
 
 function ensureWatcher(doc: Document): void {
   if (setupDoc === doc && cleanup) return;
-  // Re-setup if the doc changed (e.g. Steam UI reload).
   try { cleanup?.(); } catch {}
   setupDoc = doc;
   const win = doc.defaultView ?? window;
@@ -46,7 +39,6 @@ function ensureWatcher(doc: Document): void {
   doc.addEventListener("focusout", recheck, true);
   win.addEventListener("focusin", recheck, true);
   win.addEventListener("focusout", recheck, true);
-  // Initial state.
   active = detect(doc, win);
   cleanup = () => {
     obs.disconnect();
@@ -60,7 +52,6 @@ function ensureWatcher(doc: Document): void {
 export function subscribeOverlayActive(doc: Document, listener: Listener): () => void {
   ensureWatcher(doc);
   listeners.add(listener);
-  // Fire once so the subscriber syncs with current state.
   try { listener(active); } catch {}
   return () => {
     listeners.delete(listener);

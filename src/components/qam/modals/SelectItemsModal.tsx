@@ -7,25 +7,18 @@ import { flowChildrenProps } from "../../../core/steamOSVersion";
 interface SelectableItem {
   id: string;
   label: string;
-  /** Optional secondary line shown under the label (dim). */
   hint?: string;
-  /** Hide the row entirely. Used by callers to mark categories the
-   *  source payload doesn't include. */
   hidden?: boolean;
-  /** Default checked state. Callers always pass `true` for "all on by
-   *  default" — kept as a prop so future flows can opt out. */
   defaultChecked?: boolean;
 }
 
 export interface SelectItemsModalProps {
   closeModal?: () => void;
   title: string;
-  /** Short text above the toggle list. Optional. */
   description?: string;
   items: ReadonlyArray<SelectableItem>;
   confirmLabel: string;
   cancelLabel: string;
-  /** Header / footer slot for extra controls (destination picker etc.). */
   header?: React.ReactNode;
   footer?: React.ReactNode;
   destructive?: boolean;

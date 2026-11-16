@@ -1,9 +1,4 @@
 // @vitest-environment jsdom
-/* The role options and the host role, on a copy of the Quick Access panel fixture. React's own
-   renderer supplies the rules the component relies on: a mounted memo keeps the inner function it
-   mounted with, a changed element type mounts anew, a memoized list keeps its identity while its
-   inputs are equal, and a render that throws unmounts its tree with its layout cleanups (E4,
-   E12). The strip stays mounted while the panel is closed (E2); changeable elements are plain objects. */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import * as React from "react";
 import { act, createElement, Fragment, memo, useEffect, useLayoutEffect, useMemo, useState } from "react";
@@ -31,12 +26,10 @@ const ELEMENT = Symbol.for("react.transitional.element");
 const STEAM_FIELDS = new Set(["key", "tab", "title", "strTitle", "panel", "vrPopupSize", "vrLocation", "className", "eFeature", "allowInKioskMode"]);
 const TABLE_NAMES = ["Notifications", "RemotePlayTogetherControls", "VoiceChat", "Friends", "Settings", "Perf", "Help", "Soundtrack", "VRBatteries"];
 
-// A plain element object that the component may change (Steam's production elements are not frozen).
 function el(type: unknown, props: Record<string, unknown>, key: string | null = null): any {
   return { $$typeof: ELEMENT, type, key, ref: null, props, _owner: null, _store: { validated: 1 } };
 }
 
-// The tab lists in a render result, as another party would find them.
 function findLists(out: unknown): AnyEntry[][] {
   const found = new Set<AnyEntry[]>();
   const isList = (v: any) => Array.isArray(v) && v.length > 0 && typeof v[0]?.key === "number" && "panel" in v[0];
@@ -47,7 +40,6 @@ function findLists(out: unknown): AnyEntry[][] {
   return [...found];
 }
 
-// A fixture error boundary: a draw that throws leaves an empty strip while Steam keeps running.
 class Boundary extends React.Component<{ children?: React.ReactNode }, { failed: boolean }> {
   state = { failed: false };
   static getDerivedStateFromError() { return { failed: true }; }
@@ -66,7 +58,6 @@ function makeSteam(win: any) {
     const title = emptyTitle ? createElement(Fragment) : createElement("h2", null, `en-${key}`);
     return { key, tab: createElement("i", { "data-steam-icon": key }), title, strTitle: `en-${key}`, panel: createElement(Content, { k: key }), vrPopupSize: { width: 400, height: 600 }, vrLocation: key === 2 ? "dashboard-bar" : "quick-access-menu" };
   }
-  // Steam's order, each optional tab only while its flag is on (E4, E5).
   function buildList(flags: Flags): AnyEntry[] {
     const wanted: Array<[unknown, number, boolean?]> = [[flags.voice, 2, true], [true, 0], [true, 3, true], [true, 4], [flags.perf !== false, 5], [true, 7], [true, 6]];
     return wanted.filter(([want]) => want).map(([, key, empty]) => entry(key, empty));
@@ -80,7 +71,6 @@ function makeSteam(win: any) {
       key: String(e.key), id: `quickaccess_tab_${e.key}`, role: "tab", "aria-label": e.strTitle, "aria-selected": e.key === selected, onFocus: () => fx.select(e.key),
     }, e.tab)));
   }
-  // Keeps a tab's panel mounted once it was shown (the keep-alive time, E8).
   const Item = memo(function Item({ entry: e, shown, visible }: { entry: AnyEntry; shown: boolean; visible: boolean }) {
     const [kept, setKept] = useState(false);
     if (shown && visible && !kept) setKept(true);
@@ -109,7 +99,6 @@ function makeSteam(win: any) {
   }
   function noop() {}
   const rootProps = () => ({ active: fx.open, visible: fx.open, expanded: false, showHeaderAndFooter: true, onFocusNavActivated: noop, onFocusNavDeactivated: noop });
-  // The view that renders the root through a portal into the panel's own document (E2, E3).
   const PanelView = memo(function PanelView(props: any) {
     return el("div", { className: "panel-view", children: [el("span", { children: "view" }, "s"), createPortal(el(fx.rootType ?? Root, props), fx.panelDoc.body, "p")] });
   });
@@ -133,7 +122,6 @@ function makeSteam(win: any) {
   fx.selectTab = (key: number) => act(() => { fx.select(key); });
   fx.setFlags = (flags: Flags) => act(() => { fx.flags = { ...fx.flags, ...flags }; for (const f of fx.forceRoot) f(); });
   fx.lastDraw = (): Draw => fx.draws[fx.draws.length - 1];
-  // Another party that puts its entry into every list the root builds (the loader model of E6, E10).
   fx.addParty = (party: any, afterPerf = false) => {
     const base = fx.rootType ?? Root;
     fx.rootType = function OtherParty(props: any) {
@@ -143,7 +131,6 @@ function makeSteam(win: any) {
     };
   };
   fx.installLoader = () => fx.addParty({ key: 999, tab: createElement("b", null, "L"), panel: createElement("div", null, "loader"), loaderField: 1 });
-  // The neutral host's model: its entry after performance, its stamp written when it inserts it.
   fx.installHost = () => {
     const host = { key: 900, tab: createElement("i", null, "H"), title: createElement(Fragment), strTitle: "Deck Shelves", panel: createElement("div", null, "host panel"), vrLocation: "quick-access-menu", __shelvesTab: true };
     const base = fx.rootType ?? Root;
@@ -180,21 +167,17 @@ function memoryStorage() {
   };
 }
 
-// ---- sessions ----
-
 let fx: any;
 let win: any;
 let store: ReturnType<typeof memoryStorage>;
 let mod: Mod;
 const mountedFixtures: any[] = [];
-// When set, the component sees the window through a proxy that records the names it writes.
 let windowWrites: string[] | null = null;
 
 async function freshModule(): Promise<Mod> {
   vi.resetModules(); return await import("../../runtime/ownQamTab");
 }
 
-// The work queued after a draw has run long before Steam stops; a simulated restart lets it run.
 async function flush(): Promise<void> {
   for (let i = 0; i < 3; i++) await Promise.resolve();
 }
@@ -226,7 +209,6 @@ function install(s: Settings, panel = pluginPanel(), extra: Record<string, unkno
   return { panel, uninstall: m.installOwnQamTab({ title: "Deck Shelves", icon, renderPanel: panel.factory, isEnabled: s.isEnabled, subscribe: s.subscribe, ...extra }) };
 }
 
-// The host role's values: the neutral host's key and marker, no yielding and a guard key of its own.
 function installHostRole(s: Settings, panel = pluginPanel(), extra: Record<string, unknown> = {}, m: Mod = mod) {
   return install(s, panel, { yieldToHostTab: false, markerFields: { __shelvesTab: true }, key: HOST_KEY, onFirstDraw: () => {}, guardKey: HOST_GUARD, ...extra }, m);
 }
@@ -244,19 +226,15 @@ const cycle = (n: number) => { for (let i = 0; i < n; i++) { fx.openPanel(); fx.
 const isHostSignal = (name: string) => name.startsWith("__SHELVES");
 const crashHost = (e: AnyEntry) => hostEntries([e]).length > 0;
 const crashPlugin = (e: AnyEntry) => pluginEntries([e]).length > 0;
-// The only names written to the global object: the guard key's session marker, which holds only the session's id.
 const markerKeys = (names: string[]) => [...new Set(names)].map((n) => [isHostSignal(n), Reflect.ownKeys(win[n])]);
 const expectOneMarker = () => expect(markerKeys(windowWrites!)).toEqual([[false, ["sid"]]]);
 
-// Openings with the work queued after each draw run in between, as on the device.
 async function openings(n: number): Promise<Draw[]> {
   const out: Draw[] = [];
   for (let i = 0; i < n; i++) { fx.openPanel(); out.push(fx.lastDraw()); fx.closePanel(); await flush(); }
   return out;
 }
 
-// The neutral host's stand-in: an activation on at once, a recording first-draw report that can
-// write the owner stamp, and a stop that uninstalls and then unsets the stamp it wrote.
 function hostStandIn(opts: { stamp?: boolean; report?: () => void } = {}) {
   const activation = on();
   const calls: Array<{ drawn: boolean }> = [];
@@ -291,7 +269,6 @@ afterEach(() => {
 });
 
 describe("ownQamTab — the role options and the host role", () => {
-  // The plugin role's placement, yielding and crash-guard scenarios, with their outcomes.
   async function pluginScenarios(): Promise<void> {
     await newSession(); fx.installLoader(); cycle(1);
     const before = fx.lastList.slice();
@@ -323,7 +300,6 @@ describe("ownQamTab — the role options and the host role", () => {
     }
   }
 
-  // kind 0: the first draw crashes; 1: a fixture boundary catches it; 2: a later list crashes; -1: no crash.
   async function pluginStart(kind: number): Promise<void> {
     await newSession();
     fx.boundary = kind === 1;
@@ -512,7 +488,6 @@ describe("ownQamTab — the role options and the host role", () => {
     expectOneMarker();
   });
 
-  // Starts the crashing role, one simulated restart after another, until a start finds it paused.
   async function crashUntilPaused(start: () => void, crashOn: (e: AnyEntry) => boolean): Promise<number> {
     for (let failures = 0; failures <= 3; failures++) {
       await newSession();
@@ -526,7 +501,6 @@ describe("ownQamTab — the role options and the host role", () => {
     return -1;
   }
 
-  // The record a role's guard holds after one clean start with a completed draw.
   async function cleanRecord(start: () => void): Promise<Map<string, string>> {
     const clean = memoryStorage();
     vi.stubGlobal("localStorage", clean);
@@ -642,7 +616,6 @@ describe("ownQamTab — the role options and the host role", () => {
     expect([count("warn"), host.calls.length]).toEqual([1, 0]);
   });
 
-  // With the owner stamp set after the first draw, the remembered tab stays the host role's.
   it("host role: uninstalled while Steam remembers its tab, Steam's first tab is shown", async () => {
     await newSession();
     const host = hostStandIn({ stamp: true }); host.start(); runDeferred(); fx.openPanel();

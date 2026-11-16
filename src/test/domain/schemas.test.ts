@@ -99,12 +99,6 @@ describe('SettingsSchema with new templates', () => {
   })
 })
 
-// A newer build's field (added after an older backend/frontend build shipped)
-// must round-trip through `.parse()` instead of vanishing — cross-device sync,
-// a downgrade, or a mixed hub/Decky-loader install otherwise silently drops it
-// on the very next save. `.passthrough()` on the
-// schema is the frontend half; `_preserve_unknown` in sanitizer.py is the
-// backend half (see test_main.py's mirroring test).
 describe('unknown-field round-trip (.passthrough())', () => {
   it('keeps an unrecognised root-level field', () => {
     const r = SettingsSchema.parse({ futureRootField: 'z' } as any)

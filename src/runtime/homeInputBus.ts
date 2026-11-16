@@ -1,16 +1,8 @@
 import { devStamp } from "./devStamps";
-// Buttons received via Decky `Focusable.onButtonDown` on the home root
-/* are forwarded to subscribers here. Decky's Focusable IS the only path
-   that reliably delivers controller events in this Steam build —
-   `SteamClient.Input.RegisterForControllerInputMessages` callbacks
-   registered from SharedJSContext (where DS runs) never fire, even when
-   the registration succeeds. */
+// Controller input only arrives through Decky's Focusable; Steam's own registration never fires here.
 
 import { GamepadButton } from "./host/decky";
-/* Side-effect import: forces controllerInput.ts to load, which boots
-   the BP-context keydown listener used by Quick Search. Without this
-   nothing imports the module, its top-level `pollUntilInstalled` never
-   runs, and `__ds_bp_keydown_installed` stays undefined in BP. */
+// Side-effect import: loads the keydown listener, which nothing else imports.
 import "./controllerInput";
 
 type HomeButtonEvent = { button: number };
@@ -32,9 +24,6 @@ export function dispatchHomeButtonDown(evt: { detail?: { button?: number } } | a
   }
 }
 
-// Keyboard events captured by the BP-injected listener — polled from
-// SharedJSContext. Subscribers receive each key event with the standard
-// KeyboardEvent shape.
 export interface KeyEvent {
   key: string;
   code?: string;

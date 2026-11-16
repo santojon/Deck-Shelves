@@ -9,8 +9,6 @@ import { hasExternalSmartSource, resolveExternalSmartSource } from "../core/plug
 import { logInfo, logWarn } from "../runtime/logger";
 import { collectFilterGroupItemsFlat, enrichForSort, mergeCompositeResults, prefetchCatalogFilterData } from "./resolveShared";
 
-/* The smart source: one or more smart modes resolved and merged, then the smart shelf's own filter group. */
-
 type SmartResolverDeps = {
   apps: AppOverview[];
   internalModes: ReadonlySet<string>;

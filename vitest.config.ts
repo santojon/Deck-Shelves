@@ -1,11 +1,7 @@
 import { defineConfig } from 'vitest/config'
 import { fileURLToPath } from 'node:url'
 
-// The `@host/*` specifiers resolve (via the plugin build alias) to the runtime
-// shims, which read Steam/loader globals that exist only inside the live
-// renderer. In a raw Node/Vitest run those globals are missing, so alias the
-// `@host/*` specifiers to no-op stubs — the suite can import the codebase
-// without the renderer runtime.
+// The @host/* shims read globals that only exist in the live renderer, so tests alias them to stubs.
 export default defineConfig({
   define: {
     __DEV__: JSON.stringify(true),

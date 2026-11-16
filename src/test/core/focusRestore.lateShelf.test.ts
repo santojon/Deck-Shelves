@@ -2,9 +2,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { saveFocusTarget, beginFocusRestoreLoop, clearFocusTarget, hasPendingFocus } from "../../core/focusRestore";
 
-/* The restore target: a card on a lower shelf that mounts its row (and the
-   card inside it) only after the Home rebuilt, like a virtualized shelf on a
-   slow return from a game page. */
 function cardWithNavNode(appid: number, shelfId: string) {
   const card = document.createElement("div");
   card.className = "ds-card";
@@ -28,7 +25,6 @@ function mountRow(root: HTMLElement, appid: number, shelfId: string) {
   return made;
 }
 
-// Mutation observers deliver on a microtask; the fake clock does not block that.
 async function flushObservers(): Promise<void> { await vi.advanceTimersByTimeAsync(0); }
 
 describe("focus restore survives a shelf that mounts its cards late", () => {
@@ -52,10 +48,8 @@ describe("focus restore survives a shelf that mounts its cards late", () => {
     await vi.advanceTimersByTimeAsync(4000);
     const taken = node.BTakeFocus.mock.calls.length;
     expect(taken).toBeGreaterThan(0);
-    // The retake window is over: no more ticks.
     await vi.advanceTimersByTimeAsync(1000);
     expect(node.BTakeFocus.mock.calls.length).toBe(taken);
-    // A new window on the same loop: one tick at once, then every 120 ms — not two loops' worth.
     beginFocusRestoreLoop();
     await vi.advanceTimersByTimeAsync(10);
     expect(node.BTakeFocus.mock.calls.length).toBe(taken + 1);
@@ -81,7 +75,6 @@ describe("focus restore survives a shelf that mounts its cards late", () => {
     const { node } = mountRow(root, 620, "s3");
     await flushObservers();
     expect(node.BTakeFocus).toHaveBeenCalledWith(2);
-    // The re-issue window runs again for the late card.
     await vi.advanceTimersByTimeAsync(1000);
     expect(node.BTakeFocus.mock.calls.length).toBeGreaterThan(1);
   });

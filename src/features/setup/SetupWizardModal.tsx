@@ -21,7 +21,6 @@ const PACK_ICON: Record<string, Glyph> = {
   essential: StackIcon, steam_and_nonsteam: PuzzleIcon, backlog_rescue: BookmarkIcon, portable_deck: BatteryIcon,
   rediscover: RestoreIcon, living_room: MonitorIcon, frame: HeadsetIcon, machine: ConsoleIcon, stream: CloudIcon,
 }
-// Settings a pack may turn on → their existing labels.
 const SETTING_LABEL: Record<string, string> = {
   shelfHeroBackground: 'shelf_hero_background',
   globalHighlightFirst: 'highlight_first',
@@ -115,11 +114,6 @@ function counts(preview: SetupPreview): { shelves: number; smart: number; settin
   }
 }
 
-/* Setup wizard: pick a pack from a tile grid (quick presets, situation packs,
-   device packs), review exactly what it adds, apply, and land on a done screen
-   that offers the one-step undo. Non-destructive (existing shelves kept,
-   covered templates skipped); re-openable from the QAM title bar at any time.
-   Without a controller (the title-bar entry) it creates its own. */
 export function SetupWizardModal({ closeModal, controller }: { closeModal?: () => void; controller?: SettingsController }) {
   if (controller) return <SetupWizardBody closeModal={closeModal} controller={controller} />
   return <StandaloneWizard closeModal={closeModal} />

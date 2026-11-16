@@ -2,8 +2,6 @@ import type { SmartShelfMode } from '../../../../types'
 
 export type SourceType = 'collection' | 'tab' | 'filter' | 'external' | 'wishlist' | 'store' | 'builtin'
 
-// Built-in sources: the client's dynamic collections together, and the per-device game
-// lists (resolvers in steam/v3Extensions.ts). The picker stores `{ type: 'builtin', sourceId: value }`.
 export const V3_SOURCE_OPTIONS: { value: string; labelKey?: string; label?: string }[] = [
   { value: 'dynamic_collections', labelKey: 'source_v3_dynamic_collections' },
   { value: 'pinned_games', labelKey: 'source_v3_pinned' },
@@ -11,8 +9,7 @@ export const V3_SOURCE_OPTIONS: { value: string; labelKey?: string; label?: stri
   { value: 'session_queue_source', labelKey: 'source_v3_session_queue' },
   { value: 'temporary_queue_source', labelKey: 'source_v3_temporary_queue' },
 ]
-/* Every live smart-shelf mode, highest-result-probability first (the order of
-   `smartTemplates.ts`). `custom` is left out: it is the filter-only mode. */
+// `custom` is left out: it is the filter-only mode.
 export const SMART_MODE_OPTIONS: SmartShelfMode[] = [
   'daily_pick', 'deck_picks', 'on_deck', 'recently_played',
   'long_session', 'random_pick', 'not_started',
@@ -25,9 +22,7 @@ export const SMART_MODE_OPTIONS: SmartShelfMode[] = [
 ]
 export type EditTab = 'source' | 'filters' | 'childFilters' | 'visual' | 'display' | 'decoration'
 
-// `composite` is implicit: the user picks a primary source then adds
-// extra ones inline via `+ Add source`. Two or more sources collapse to
-// a composite on save. `filter` is mutually exclusive and never combines.
+// Composite is implicit: two or more sources collapse into one on save.
 export const BASE_SOURCE_TYPES: SourceType[] = ['collection', 'tab', 'filter']
 
 export const SORT_OPTIONS = [
@@ -46,23 +41,20 @@ export const SORT_OPTIONS = [
   { value: 'discount_high', labelKey: 'sort_discount_high', requiresOnline: true },
   { value: 'original_price_high', labelKey: 'sort_original_price_high', requiresOnline: true },
   { value: 'random', labelKey: 'sort_random' },
-  // Reads Steam's local friend list, so it is valid on any source.
   { value: 'friends_playing_now', labelKey: 'sort_friends_playing_now' },
   { value: 'owned_games', labelKey: 'sort_owned_games' },
   { value: 'completion_percent', labelKey: 'sort_completion_percent' },
   { value: 'closest_to_completion', labelKey: 'sort_closest_to_completion' },
   { value: 'family_shared_games', labelKey: 'sort_family_shared_games' },
-  // The friends' libraries are fetched from Steam, so these follow the online toggle.
   { value: 'most_friends_owning', labelKey: 'sort_most_friends_owning', requiresOnline: true },
   { value: 'trending_among_friends', labelKey: 'sort_trending_among_friends', requiresOnline: true },
-  // The order the source gives; in a composite, each source with its own sort.
   { value: 'source_order', labelKey: 'sort_source_order' },
   { value: 'manual', labelKey: 'sort_manual' },
 ] as const
 
-// Gamepad direction button codes used by the manual-sort grab mode to
-// intercept FocusNavController.DispatchVirtualButtonClick while the user is
-// holding a card.
+// Editor-only choice for a composite's source: no sort of its own, it follows the shelf. Never saved.
+export const FOLLOW_SHELF_SORT = 'shelf'
+
 export const DIR_LEFT = 11
 export const DIR_RIGHT = 12
 export const HOLD_MS = 300

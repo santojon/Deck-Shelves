@@ -19,7 +19,6 @@ export const noHeroGradientTheme: ThemeAdapter = {
   flags: ["data-ds-theme-no-hero-gradient"],
   read: () => ({ "data-ds-theme-no-hero-gradient": isNoHeroGradientActive() }),
   css: () => `
-    /* No Hero Gradient — strip mask/zoom on promoted heroes. */
     [data-ds-theme-no-hero-gradient="true"] .ds-shelf[data-ds-recents-slot="true"] .ds-per-shelf-hero-img {
       mask-image: none !important;
       -webkit-mask-image: none !important;

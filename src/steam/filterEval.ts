@@ -7,8 +7,6 @@ import { type AppOverview, appIdOf, appNameOf, isFavoriteOf, isHiddenOf, isInsta
 import { getAppDeveloperCached, getAppPublisherCached } from "./publisherDeveloper";
 import { FILTER_V3_EVALUATORS } from "./v3Extensions";
 
-/* Filter evaluation: one evaluator per filter type, the price-cache reads the price filters need, and the group evaluation (and/or, inverted items). */
-
 export function isDeckCompatMatch(cat: number | undefined, allowed: string[] | undefined): boolean {
   if (!allowed || allowed.length === 0) return true;
   const map: Record<string, number[]> = {
@@ -19,20 +17,15 @@ export function isDeckCompatMatch(cat: number | undefined, allowed: string[] | u
   return cat != null && cats.includes(cat);
 }
 
-// SteamOS compat uses the SAME 0..3 category scale as Deck compat (verified=3,
-// playable=2, unsupported=1, unknown=0) — confirmed live against
-// `steam_os_compat_category` itself. Reuse the identical mapping.
+// SteamOS compat uses the same 0..3 scale as Deck compat.
 function isSteamOsCompatMatch(cat: number | undefined, allowed: string[] | undefined): boolean {
   return isDeckCompatMatch(cat, allowed);
 }
 
-// Pre-fetched data passed into the synchronous filter evaluator so async
-// collection lookups can happen before evaluation begins.
 export type FilterEvalContext = {
   collectionAppIds: Map<string, Set<number>>;
 };
 
-// Per-type filter evaluators (dispatch table).
 type FilterEvaluator = (item: FilterItem, app: AppOverview, ctx?: FilterEvalContext) => boolean;
 
 function evalHidden(item: FilterItem, app: AppOverview): boolean {
@@ -42,9 +35,7 @@ function evalHidden(item: FilterItem, app: AppOverview): boolean {
   return true;
 }
 
-/* Remote Play install location. `remote-only` (installed elsewhere, not here)
-   powers a "play-from-remote" shelf. Steam apps only — non-Steam shortcuts have
-   no per-client data (installed_remote undefined), so they only match `local`. */
+// Non-Steam shortcuts have no per-client data, so they only match `local`.
 const REMOTE_PLAY_MODES: Record<string, (local: boolean, remote: boolean) => boolean> = {
   "local":       (local) => local,
   "local-only":  (local, remote) => local && !remote,
@@ -62,11 +53,7 @@ function evalRemotePlay(item: FilterItem, app: AppOverview): boolean {
 }
 
 function evalLibraryLocation(item: FilterItem, app: AppOverview): boolean {
-  /* New shape: `libraryIds` (multi-select of specific libraries, mixing
-     e.g. one SD card + one USB drive) — present (even empty) means the
-     item was saved by the granular editor. Empty = not yet narrowed down,
-     so no restriction rather than matching nothing. Absent entirely means
-     an older single-`category` save (pre-granularity) — kept working as-is. */
+  // An empty `libraryIds` means not narrowed yet; a missing one is an older single-category save.
   const libraryIds = Array.isArray(item.params?.libraryIds) ? (item.params!.libraryIds as string[]) : null;
   if (libraryIds) {
     if (!libraryIds.length) return true;
@@ -80,10 +67,7 @@ function evalLibraryLocation(item: FilterItem, app: AppOverview): boolean {
 function evalAppStatus(item: FilterItem, app: AppOverview): boolean {
   const groups: string[] = Array.isArray(item.params?.groups) ? item.params!.groups : [];
   let ds = app.display_status as number | undefined;
-  /* Non-Steam shortcuts (e.g. Unifideck) usually carry no per-client
-     display_status, so a status filter would match nothing. Synthesize
-     installed / not-installed from the install heuristic so the installed_idle
-     and not_installed groups work for them too. */
+  // Non-Steam shortcuts usually carry no display_status, so derive it from the install check.
   if ((ds === undefined || ds === 0) && isNonSteamOf(app)) {
     ds = isInstalledOf(app) ? EAppDisplayStatus.ReadyToLaunch : EAppDisplayStatus.ReadyToInstall;
   }
@@ -117,16 +101,13 @@ function evalPlaytimeRange(item: FilterItem, app: AppOverview): boolean {
   return true;
 }
 
-// Recent activity — Steam's rolling two-week playtime (current rotation).
 function evalRecentlyActive(item: FilterItem, app: AppOverview): boolean {
   const minMinutes = Number(item.params?.minMinutes ?? 1);
   const recent = Number(app.playtime_last_two_weeks ?? (app as any).minutes_playtime_last_two_weeks ?? 0);
   return recent >= minMinutes;
 }
 
-/* Neglected — played before but not in the last N days. Distinct from inverting
-   playedWithinDays: never-played titles (a last-launch timestamp of 0) are NOT
-   neglected, they are simply untouched, so they never match here. */
+// Never-played titles are untouched, not neglected.
 function evalNeglected(item: FilterItem, app: AppOverview): boolean {
   const days = Number(item.params?.days ?? 30);
   const last = lastPlayedOf(app);
@@ -149,10 +130,8 @@ function evalNameRegex(item: FilterItem, app: AppOverview): boolean {
 
 function evalCollection(item: FilterItem, app: AppOverview, ctx?: FilterEvalContext): boolean {
   const colId = String(item.params?.collectionId ?? "").trim();
-  if (!colId) return true; // half-configured: don't restrict
-  /* Missing entry = lookup failed or returned 0 apps. Exclude (
-     pass-through here previously leaked the entire library when Bazzite-shaped
-     collectionStore returned empty). */
+  if (!colId) return true;
+  // A missing set means the lookup failed; matching everything would leak the whole library.
   const appSet = ctx?.collectionAppIds.get(colId);
   return appSet ? appSet.has(app.appid) : false;
 }
@@ -161,7 +140,6 @@ function childrenOf(item: FilterItem): FilterItem[] {
   return Array.isArray(item.params?.children) ? (item.params.children as FilterItem[]) : [];
 }
 
-// At least `threshold` of the conditions inside match, each counting its weight (1 unless saved otherwise).
 function evalWeighted(item: FilterItem, app: AppOverview, ctx?: FilterEvalContext): boolean {
   const threshold = Number(item.params?.threshold ?? 1);
   let sum = 0;
@@ -200,14 +178,11 @@ function evalAppIdList(item: FilterItem, app: AppOverview): boolean {
 }
 
 function evalControllerSupport(item: FilterItem, app: AppOverview): boolean {
-  // nControllerSupport: 0 = none, 1 = partial, 2 = full
   const n = Number(app.controller_support ?? 0);
   const min = Number(item.params?.min ?? 1);
   return Number.isFinite(n) && n >= min;
 }
 
-// EAppType bit-flag enum (Steam client). Lookup table replaces the
-// linear if-chain so adding a new kind drops to "one row".
 const APP_TYPE_BY_KIND: Record<string, number> = {
   software: 2, application: 2,
   demo: 8, dlc: 32, guide: 64, driver: 128, config: 256, hardware: 512,
@@ -223,8 +198,6 @@ function matchesShortcutKind(kind: string, app: AppOverview): boolean {
   const t = app.app_type;
   if (kind === "game") return t === undefined || t === 1;
   if (kind === "tool") {
-    // Tool matches explicit type 4 OR any non-1/2/8/32/.../65536 Steam app
-    // (legacy "anything not recognised" semantics).
     return t === 4 || (t !== undefined && !NON_TOOL_APP_TYPES.has(t));
   }
   const expected = APP_TYPE_BY_KIND[kind];
@@ -238,10 +211,7 @@ function evalShortcutType(item: FilterItem, app: AppOverview): boolean {
 
 type PriceCacheEntry = { discount?: number; unpriced?: boolean; price?: number; currency?: string };
 
-/* Memoise the parsed price cache keyed on the raw string: evalDiscount /
-   evalPriceRange call this once per app, and re-parsing the whole cache each time
-   blocked the UI ~2 s per shelf-resolution pass (100+ cards). One parse serves the
-   pass; any write (raw string changes) self-invalidates it — no staleness. */
+// Parsed once per raw string; re-parsing per app blocked the UI for seconds.
 let _priceEntriesRaw: string | null = null;
 
 let _priceEntriesParsed: Record<number, { ts: number; data: PriceCacheEntry }> | null = null;
@@ -258,9 +228,7 @@ function readPriceCacheEntry(appid: number): PriceCacheEntry | null | "bootstrap
   } catch { return null; }
 }
 
-/* Price bounds in the user's own currency (the cache stores the final price in
-   the store's minor unit — cents — localised via appdetails). min/max params are
-   in whole currency units; unpriced/free titles never match. */
+// The cache stores minor units (cents); the params are whole units.
 function priceInBounds(entry: PriceCacheEntry, item: FilterItem): boolean {
   if (entry.unpriced === true) return false;
   const price = Number(entry.price ?? 0) / 100;
@@ -315,9 +283,7 @@ function evalFriendsPlayedRecently(item: FilterItem, app: AppOverview): boolean 
   } catch { return false; }
 }
 
-/* Desktop Steam clients (macOS/Windows) never mark a non-native game's
-   `available_on_current_platform` as `false` — only `true` or undefined — so an
-   undefined value there is unreliable (unlike the Deck, where `false` IS given). */
+// Desktop clients never set `available_on_current_platform` to false, so undefined is unreliable there.
 const PLATFORM_LOCAL_ONESIDED = (() => {
   try { return /mac|win/i.test((globalThis as any).navigator?.platform ?? ""); } catch { return false; }
 })();
@@ -331,7 +297,6 @@ const FILTER_EVALUATORS: Record<string, FilterEvaluator> = {
   appStatus:              evalAppStatus,
   isNew:                  evalIsNew,
   deckCompatibility:      (item, app) => isDeckCompatMatch(app.deck_compatibility_category, item.params?.levels ?? []),
-  // The rating of the device in use (Deck / Machine / Frame); everything else falls back to the Deck one.
   deviceCompatibility:    (item, app) => isDeckCompatMatch(compatCategoryForFamily(getDeviceProfile().family, {
     deckCompatCategory: app.deck_compatibility_category, machineCompatCategory: app.machine_compatibility_category, frameCompatCategory: app.frame_compatibility_category,
   }), item.params?.levels ?? []),
@@ -355,12 +320,11 @@ const FILTER_EVALUATORS: Record<string, FilterEvaluator> = {
   cloudAvailable:         (_i, app) => app.cloud_available === true,
   controllerSupport:      evalControllerSupport,
   systemCompatibility:    (_i, app) => {
-    // Steam's own field first; then our private store-derived fill (macOS, where
-    // Steam leaves it undefined). We never write Steam's field — store pages read it.
+    // Never write Steam's own field; store pages read it.
     let v = app.available_on_current_platform;
     if (typeof v !== "boolean") v = (app as any).__ds_available_on_platform;
     if (typeof v === "boolean") return v;
-    return !PLATFORM_LOCAL_ONESIDED; // undefined: include on the Deck, exclude on desktop
+    return !PLATFORM_LOCAL_ONESIDED;
   },
   remotePlayLocation:     evalRemotePlay,
   libraryLocation:        evalLibraryLocation,
@@ -371,14 +335,13 @@ const FILTER_EVALUATORS: Record<string, FilterEvaluator> = {
   friendsPlayedRecently:  evalFriendsPlayedRecently,
 };
 
-// A filter another plugin registered. A type nobody evaluates matches nothing:
-// the resolvers refuse the query first (unsupportedFilterType), so this never widens a shelf.
+// Resolvers refuse unknown types first, so this never widens a shelf.
 function evalExternal(item: FilterItem, app: AppOverview): boolean {
   try {
     if (hasExternalFilterType(item.type)) {
       return evaluateExternalFilter(item.type, toPublicAppMeta(app), item.params ?? {});
     }
-  } catch { /* a plugin's evaluator threw */ }
+  } catch {}
   return false;
 }
 
@@ -387,7 +350,6 @@ function isEvaluable(type: string): boolean {
   return hasExternalFilterType(type) && !isInternalFilterType(type);
 }
 
-/** Every condition of a group, the ones inside merge and composite items included, in document order. */
 export function flattenItems(items: unknown, out: FilterItem[] = []): FilterItem[] {
   if (!Array.isArray(items)) return out;
   for (const item of items) {
@@ -399,9 +361,6 @@ export function flattenItems(items: unknown, out: FilterItem[] = []): FilterItem
   return out;
 }
 
-/* The first condition type, at any depth, that neither the plugin nor a loaded
-   plugin evaluates: a retired type, or one from a plugin that is not running.
-   One such condition makes the whole query unavailable, whatever the group mode. */
 export function unsupportedFilterType(group: FilterGroup | null | undefined): string | null {
   const bad = flattenItems(group?.items).find((item) => !isEvaluable(String(item.type ?? "")));
   return bad ? String(bad.type ?? "") || "(empty)" : null;

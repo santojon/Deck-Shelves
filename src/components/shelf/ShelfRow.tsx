@@ -8,16 +8,6 @@ import type { DeckRowItem } from "./types";
 import type { CardWindow } from "../../domain/cardWindow";
 import { withDefaults } from "../withDefaults";
 
-/* Shared `items.map → GameCard/RefreshCard/MoreCard` loop used by both the
-   home shelf (DeckRow) and the EditShelfModal preview. Pure presentational
-   — no state, no effects. Sizing, featured rules, and hide-flags come in
-   as props; the caller owns the surrounding wrapper (focus delegate,
-   scroll padding, theme overrides). */
-/*
-   Trailing cards (Refresh, More) follow the same `isRefresh` / `isMoreLink`
-   item-flag convention DeckRow already uses. Home shelves render them
-   interactive by default; preview sets `refreshInteractive`/`moreInteractive`
-   to opt out where the modal wants flat / read-only cards. */
 export interface ShelfRowProps {
   items: DeckRowItem[];
   cardW: number;
@@ -50,27 +40,13 @@ export interface ShelfRowProps {
   playtimePosition?: 'left' | 'center' | 'right';
   refreshInteractive?: boolean;
   moreInteractive?: boolean;
-  // Render badges inside the card instead of via the BP-body portal.
-  // The modal preview needs this because the portal's overlay-detection
-  // sees the modal blocking the home root and hides the badge.
+  // For the modal preview: the portal overlay treats a modal as covering the Home and hides the badge.
   inlineBadges?: boolean;
-  // Suppress per-card quick actions whose effect bypasses the parent's
-  // edit-state (currently Y → highlight). Set by the modal preview.
   previewMode?: boolean;
-  // Per-card X-button binding. `removableSet` = appids that get the
-  // "Remove from shelf" action — the manualOrder entries NOT present in
-  /* the resolved source (typically games appended via the library menu
-     "Add to shelf"). Drag-ordered cards stay OUT of this set so X
-     doesn't pretend to remove them (it'd just re-pop them from source).
-     For cards NOT in `removableSet`, X falls back to "Hide from shelf"
-     when `onHideCard` is provided. */
   removableSet?: Set<number>;
   onRemoveCard?: (appid: number) => void;
   hiddenSet?: Set<number>;
   onHideCard?: (appid: number) => void;
-  /* Cards outside [start, end) mount as same-sized, non-focusable slots so the
-     row keeps its width and scroll geometry while only the visible span (plus
-     overscan) pays for a real card. Absent = mount everything (preview). */
   window?: CardWindow | null;
 }
 
@@ -90,7 +66,6 @@ const withRowDefaults = (props: ShelfRowProps): RowProps => withDefaults(props, 
 
 type WideRule = Pick<ShelfRowProps, "highlightFirst" | "highlightAll" | "highlightedSet">;
 
-// Featured-size card: the first one, all of them, or a listed appid.
 function isHighlighted(item: DeckRowItem, idx: number, p: WideRule): boolean {
   if (p.highlightAll) return true;
   if (p.highlightFirst && idx === 0) return true;
@@ -105,13 +80,11 @@ function cardSize(wide: boolean, p: RowProps): { w: number; h: number; artH: num
   };
 }
 
-// Whether this item takes the featured width; DeckRow's card window uses the same rule.
 export function isWideItem(item: DeckRowItem, idx: number, p: WideRule): boolean {
   if (item.synthetic) return item.synthetic.size === "featured";
   return !item.isRefresh && !item.isMoreLink && isHighlighted(item, idx, p);
 }
 
-// Same-sized, non-focusable stand-in for a card outside the mounted window.
 function renderSlot(item: DeckRowItem, idx: number, p: RowProps) {
   const { w, h } = cardSize(isWideItem(item, idx, p), p);
   return <div key={item.id} className="ds-card-slot" aria-hidden="true" style={{ width: w, minWidth: w, height: h, flexShrink: 0 }} />;

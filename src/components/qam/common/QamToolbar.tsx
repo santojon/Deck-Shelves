@@ -2,7 +2,6 @@ import type { ReactNode } from 'react'
 import { DialogButton, Focusable } from '../../../runtime/host/decky'
 import { BTN_ICON_STYLE } from '../../ui/buttonStyles'
 
-// A band of panel actions. The buttons split the band's width evenly (DeckQAMStyles).
 export function QamToolbar({ children }: { children: ReactNode }) {
   return <Focusable className='deck-shelves-bare-row' flow-children='row'>{children}</Focusable>
 }

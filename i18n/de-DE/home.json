@@ -24,7 +24,7 @@
   "update_installing": "Update {{version}} wird installiert…",
   "update_installed": "Auf {{version}} aktualisiert.",
   "update_install_failed": "Installation fehlgeschlagen — Rückgriff auf Download.",
-  "update_install_busy": "Der Host prüft noch auf Updates — versuche es gleich noch einmal.",
+  "update_install_busy": "Es wird noch nach Updates gesucht — versuche es gleich noch einmal.",
   "update_downloading": "Update {{version}} wird heruntergeladen…",
   "update_downloaded": "Gespeichert unter {{path}} – manuell installieren.",
   "update_download_failed": "Download fehlgeschlagen – Release-Seite wird geöffnet.",

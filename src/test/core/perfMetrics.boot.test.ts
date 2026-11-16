@@ -6,7 +6,6 @@ import {
 import { disposeAll } from "../../runtime/runtimeDisposer";
 import { claimHomeOwnership } from "../../runtime/host/ownerGuard";
 
-// The critical-path measurement, controlled per boot so a sibling's number can be told from the owner's.
 const perf = vi.hoisted(() => ({ critical: 0 }));
 vi.mock("../../core/perf", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../core/perf")>()),
@@ -16,15 +15,12 @@ vi.mock("../../core/perf", async (importOriginal) => ({
 const g = globalThis as any;
 const ownerScope = (): any => g.window ?? g;
 
-// The entry's stash of an instance on `window`: one entry per host kind, never removed.
 function stash(kind: string): void {
   const entry = { kind, dispose: () => {} };
   g.__DECK_SHELVES_INSTANCE__ = entry;
   (g.__DECK_SHELVES_INSTANCES__ ??= {})[kind] = entry;
 }
 
-/* Mirrors the entry's order: boot start, the renderer claim, the stash, then
-   the end of the critical path. Returns whether this copy owns the renderer. */
 function bootInstance(kind: "decky" | "shelveshub"): boolean {
   markBootStart();
   const owner = claimHomeOwnership(kind);
@@ -56,7 +52,7 @@ describe("perfMetrics boot diagnostics", () => {
     delete w.__DECK_SHELVES_OWNER__;
     delete w.__DECK_SHELVES_OWNER_META__;
     delete w.__SHELVES_FORCE_OWNER__;
-    claimHomeOwnership("decky"); // a single install owns the renderer
+    claimHomeOwnership("decky");
     disposeAll();
   });
   afterEach(() => { vi.unstubAllGlobals(); disposeAll(); });
@@ -64,7 +60,6 @@ describe("perfMetrics boot diagnostics", () => {
   describe("boot phases", () => {
     it("records the critical path as a phase once it ends", () => {
       markBootStart();
-      // Kept aside until the critical path ends: nothing lands in the shared record yet.
       expect(getPerfSnapshot().bootPhases).toEqual([]);
       recordBootCritical();
       expect(phase("critical")).toMatchObject({ name: "critical", atMs: 0 });
@@ -80,7 +75,6 @@ describe("perfMetrics boot diagnostics", () => {
       recordMountDone();
       const first = phase("mount");
       expect(first?.durationMs).toBeGreaterThanOrEqual(0);
-      // Home mounts again on every return; the boot record must not move.
       markMountStart();
       recordMountDone();
       expect(phase("mount")).toEqual(first);
@@ -103,7 +97,6 @@ describe("perfMetrics boot diagnostics", () => {
       mountAndWatch();
       expect(phaseNames()).toEqual(["critical", "mount"]);
       markBootStart();
-      // The previous boot stays on record until this one commits.
       expect(phaseNames()).toEqual(["critical", "mount"]);
       expect(getPerfSnapshot().bootWatchdog).toBe("ok");
       recordBootCritical();
@@ -119,7 +112,6 @@ describe("perfMetrics boot diagnostics", () => {
 
     it("lands a verdict recorded during the critical path together with the boot", () => {
       markBootStart();
-      // installStartupWatchdog(null) records this before the critical path ends.
       recordBootWatchdog("off: no Home patch");
       expect(getPerfSnapshot().bootWatchdog).toBeNull();
       recordBootCritical();
@@ -135,14 +127,13 @@ describe("perfMetrics boot diagnostics", () => {
 
     it("is warm when the earlier instance was dismounted before this boot (plain reload)", () => {
       bootInstance("decky");
-      disposeAll(); // the loader's onDismount → the instance's teardown
+      disposeAll();
       bootInstance("decky");
       expect(getPerfSnapshot().bootOrigin).toBe("warm");
     });
 
     it("is hot-swap when the earlier instance was still live when this one booted", () => {
       bootInstance("decky");
-      // The entry disposes the previous instance only AFTER markBootStart.
       markBootStart();
       disposeAll();
       stash("decky");
@@ -168,7 +159,7 @@ describe("perfMetrics boot diagnostics", () => {
       expect(bootInstance("decky")).toBe(true);
       mountAndWatch();
       expect(claimHomeOwnership("shelveshub")).toBe(false);
-      markBootStart(); // deferred to the host: never reaches recordBootCritical
+      markBootStart();
       const snap = getPerfSnapshot();
       expect(snap.bootOrigin).toBe("cold");
       expect(snap.bootPhases.map((p) => p.name)).toEqual(["critical", "mount"]);
@@ -181,7 +172,7 @@ describe("perfMetrics boot diagnostics", () => {
       const before = getPerfSnapshot();
       markBootStart();
       expect(claimHomeOwnership("shelveshub")).toBe(false);
-      recordBootWatchdog("off: no Home patch"); // a stood-down copy has no Home patch to watch
+      recordBootWatchdog("off: no Home patch");
       stash("shelveshub");
       recordBootCritical();
       const after = getPerfSnapshot();
@@ -204,15 +195,14 @@ describe("perfMetrics boot diagnostics", () => {
 
     it("still tells the owner kind's own reload apart from its sibling's", () => {
       bootInstance("decky");
-      bootInstance("shelveshub"); // stands down
-      disposeAll(); // both dismounted
+      bootInstance("shelveshub");
+      disposeAll();
       expect(bootInstance("decky")).toBe(true);
       expect(getPerfSnapshot().bootOrigin).toBe("warm");
     });
   });
 
   describe("record left by an earlier build", () => {
-    // The shape the previous release keeps on globalThis: no boot fields, no severe long-task bucket.
     const olderRecord = () => ({
       bootCriticalMs: 96, mountMs: 412, mountStarted: true,
       activeTimers: 1, activeObservers: 0, activeSubscriptions: 2,
@@ -224,7 +214,7 @@ describe("perfMetrics boot diagnostics", () => {
     it("gains the boot fields instead of throwing on the first boot after an in-session update", async () => {
       const current = g.__ds_perf_state;
       g.__ds_perf_state = olderRecord();
-      stash("decky"); // the earlier build's instance, still stashed on window
+      stash("decky");
       vi.resetModules();
       try {
         const fresh = await import("../../core/perfMetrics");
@@ -232,10 +222,10 @@ describe("perfMetrics boot diagnostics", () => {
         stash("decky");
         expect(() => fresh.recordBootCritical()).not.toThrow();
         const snap = fresh.getPerfSnapshot();
-        expect(snap.bootOrigin).toBe("hot-swap"); // the earlier build never flagged its dismount
+        expect(snap.bootOrigin).toBe("hot-swap");
         expect(snap.bootPhases.map((p) => p.name)).toEqual(["critical"]);
         expect(snap.longTaskOver200Count).toBe(0);
-        expect(snap.mountMs).toBe(412); // its counters are kept
+        expect(snap.mountMs).toBe(412);
       } finally {
         g.__ds_perf_state = current;
         vi.resetModules();
@@ -252,7 +242,7 @@ describe("perfMetrics boot diagnostics", () => {
         disconnect() {}
       });
       markBootStart();
-      recordBootCritical(); // the observer starts here, before the Home's first mount
+      recordBootCritical();
       expect(deliver).not.toBeNull();
       deliver!({ getEntries: () => [{ duration: 60 }, { duration: 250 }, { duration: 300 }] });
       const snap = getPerfSnapshot();

@@ -17,11 +17,7 @@ import { STORE_CATEGORY, hasStoreCategory } from "./v3Extensions";
 const resolverCache = new Map<string, { ts: number; ids: number[] }>();
 const DEFAULT_SMART_TTL_MS = 60 * 60 * 1000;
 
-/* Persisted across Steam restarts so a fresh boot can reuse a still-valid
-   result instantly instead of recomputing — a restart used to act as an
-   unintentional full cache wipe. Same TTL rule as the in-memory cache
-   (including `friends_playing`'s own ttl=0); this only extends how long an
-   entry survives, not how freshness is judged. Bounded to the N most recent. */
+// Persisted so a restart can reuse a still-fresh result; freshness rules are unchanged.
 const PERSIST_KEY = "ds-smart-shelf-cache-v1";
 const PERSIST_MAX_ENTRIES = 200;
 
@@ -33,7 +29,7 @@ function loadPersistedCache(): void {
     for (const [k, v] of Object.entries(parsed)) {
       if (v && typeof v.ts === "number" && Array.isArray(v.ids)) resolverCache.set(k, v);
     }
-  } catch { /* corrupt or private-mode storage — start cold */ }
+  } catch {}
 }
 loadPersistedCache();
 
@@ -43,13 +39,12 @@ function persistCache(): void {
       .sort((a, b) => b[1].ts - a[1].ts)
       .slice(0, PERSIST_MAX_ENTRIES);
     (globalThis as any).localStorage?.setItem?.(PERSIST_KEY, JSON.stringify(Object.fromEntries(entries)));
-  } catch { /* best-effort */ }
+  } catch {}
 }
 
 let cacheHits = 0;
 let cacheMisses = 0;
 
-/** Read-only hit/miss counts since boot, for the Performance panel. */
 export function getSmartShelfCacheStats(): { hits: number; misses: number } {
   return { hits: cacheHits, misses: cacheMisses };
 }
@@ -72,8 +67,6 @@ function lastPlayedSec(app: AppOverview): number {
   return Number(app.last_played ?? 0);
 }
 
-// The compatibility rating of the device in use (Deck, Machine or Frame);
-// on a Deck, and for any family without its own rating, the Deck one.
 function deckCompat(app: AppOverview): number {
   const own = compatCategoryForFamily(getDeviceProfile().family, {
     deckCompatCategory: app.deck_compatibility_category,
@@ -90,8 +83,7 @@ function resolveQuickPlay(apps: AppOverview[], limit: number, params?: SmartPara
     .filter(
       (a) =>
         a.installed &&
-        // Exclude tools, Proton, runtimes, redistributables. app_type=1 is a
-        // game; absent/unknown is allowed through to avoid false negatives.
+        // app_type 1 is a game; unknown is allowed through to avoid false negatives.
         (a.app_type === undefined || a.app_type === 1) &&
         deckCompat(a) >= minDeck &&
         playtimeMinutes(a) < maxPt,
@@ -106,7 +98,6 @@ function resolveNotStarted(apps: AppOverview[], limit: number, params?: SmartPar
   return apps
     .filter((a) =>
       !a.is_non_steam &&
-      // Game-only: exclude DLC, tools, redistributables, soundtracks etc.
       (a.app_type === undefined || a.app_type === 1) &&
       playtimeMinutes(a) === 0 && lastPlayedSec(a) === 0 &&
       deckCompat(a) >= minDeck,
@@ -172,7 +163,7 @@ function resolveInterrupted(apps: AppOverview[], limit: number, params?: SmartPa
 export const TIME_OF_DAY_WINDOWS: ReadonlyArray<{ start: number; end: number; subMode: SmartShelfMode }> = [
   { start: 5,  end: 12, subMode: "quick_play" },
   { start: 12, end: 18, subMode: "deck_picks" },
-  { start: 18, end: 5,  subMode: "rediscover" }, // wraps midnight
+  { start: 18, end: 5,  subMode: "rediscover" },
 ];
 
 function resolveTimeOfDay(apps: AppOverview[], limit: number, params?: SmartParams): number[] {
@@ -184,9 +175,6 @@ function resolveTimeOfDay(apps: AppOverview[], limit: number, params?: SmartPara
 
 function resolveDailyPick(apps: AppOverview[], limit: number): number[] {
   const dayIndex = Math.floor(Date.now() / 86400000);
-  // Game-focused: rotate through games only. Without this filter, a
-  // library with many DLCs / soundtracks would surface those as the
-  // "daily pick" — not what the user expects from the template's name.
   const eligible = apps.filter((a) =>
     !a.is_non_steam &&
     (a.app_type === undefined || a.app_type === 1) &&
@@ -250,12 +238,6 @@ function resolveNonSteam(apps: AppOverview[], limit: number): number[] {
     .map((a) => a.appid);
 }
 
-/* Media / non-game template resolvers — each filters the local pool to
-   a specific Steam EAppType bit-flag so users can carve a shelf for
-   soundtracks, videos, demos etc. that the game-focused templates above
-   would otherwise hide. See `shortcutType` filter for the full app_type
-   table. */
-
 function resolveSoundtracks(apps: AppOverview[], limit: number): number[] {
   return apps
     .filter((a) => !a.is_non_steam && a.app_type === 8192)
@@ -282,16 +264,9 @@ function resolveDemos(apps: AppOverview[], limit: number): number[] {
 }
 
 function resolveCloudGames(apps: AppOverview[], limit: number): number[] {
-  // Non-Steam shortcuts that Unifideck (or any future provider) tagged
-  // as cloud-play. Re-uses the same detection the resolver already
-  /* applies for the "hideOwnedNonSteamCloud" toggle: the appid lives in
-     a `[Unifideck] microsoft`-style collection. Returns an empty shelf
-     when no cloud collection is detected — the template is purposely
-     about cloud-play entries only, so falling back to "any non-Steam"
-     would mis-label the row on devices without Unifideck. */
+  // Empty without a cloud collection; falling back to any non-Steam would mislabel the row.
   try {
-    // Lazy require to avoid a circular import — smartShelves.ts is
-    // imported by steam/index.ts at module load.
+    // Lazy require to avoid a circular import.
     const { getUnifideckCloudPlaySet } = require("./index") as {
       getUnifideckCloudPlaySet?: () => Set<number>;
     };
@@ -308,9 +283,6 @@ function resolveCloudGames(apps: AppOverview[], limit: number): number[] {
 }
 
 function resolveRandomPick(apps: AppOverview[], limit: number): number[] {
-  // Game-only random pick: shuffle from games (Steam app_type 1 / undefined)
-  // only so tools, DLCs and soundtracks don't dominate the result on
-  // libraries with many of them.
   const arr = apps.filter((a) =>
     !a.is_non_steam &&
     (a.app_type === undefined || a.app_type === 1),
@@ -333,8 +305,6 @@ function resolveForgotten(apps: AppOverview[], limit: number, params?: SmartPara
     .filter(
       (a) =>
         !a.is_non_steam &&
-        // Exclude tools, applications, redistributables, Proton, servers, etc.
-        // app_type=1 is a game; absent means unknown (allow through)
         (a.app_type === undefined || a.app_type === 1) &&
         playtimeMinutes(a) === 0 &&
         lastPlayedSec(a) === 0 &&
@@ -368,10 +338,6 @@ function resolveSpareTime(apps: AppOverview[], limit: number, params?: SmartPara
     .map((a) => a.appid);
 }
 
-// v2 heuristic templates. Each composes the primitives in
-// `./heuristics.ts` so behaviour stays inspectable + tunable via
-// `SMART_PARAM_DEFAULTS`.
-
 function resolveBacklogRescue(apps: AppOverview[], limit: number, params?: SmartParams, shelfId?: string): number[] {
   const minPt = getParam("backlog_rescue", params, "minPlaytimeMinutes");
   const stalenessDays = getParam("backlog_rescue", params, "stalenessDays");
@@ -386,7 +352,6 @@ function resolveBacklogRescue(apps: AppOverview[], limit: number, params?: Smart
     lastPlayedSec(a) > 0 && lastPlayedSec(a) < cutoff &&
     deckCompat(a) >= minDeck,
   );
-  // Weighted composite — caller-tunable weights via smartParams.
   const ranked = weightedRank(
     pool,
     [
@@ -420,7 +385,6 @@ function resolveForgottenGems(apps: AppOverview[], limit: number, params?: Smart
   return ranked.slice(0, limit).map((a) => (a as any).appid);
 }
 
-// Never-played games by review alone, best first.
 function resolveHiddenGems(apps: AppOverview[], limit: number, params?: SmartParams): number[] {
   const minReview = getParam("hidden_gems", params, "minReviewScore");
   const minDeck = getParam("hidden_gems", params, "minDeckLevel");
@@ -449,10 +413,6 @@ function resolveWeeklyRotation(apps: AppOverview[], limit: number, params?: Smar
   );
   return rotateWindow(pool, `weekly_rotation:${shelfId ?? "_"}`, rotateDays, limit).map((a) => (a as any).appid);
 }
-
-// Second-wave heuristic templates. Each composes existing AppOverview signals
-// (size_on_disk, review_percentage, rt_purchased_time) + the rotateWindow
-// primitive — no new backend signals required.
 
 function sizeOnDiskBytes(app: AppOverview): number {
   return Number((app as any).size_on_disk ?? 0);
@@ -513,7 +473,6 @@ function resolveRecentHiddenInstalls(apps: AppOverview[], limit: number, params?
     .map((a) => a.appid);
 }
 
-// The battery state comes from runtime/batteryState.ts; unknown or charging keeps the short_battery pool.
 function resolveLowBatteryMode(apps: AppOverview[], limit: number, params?: SmartParams): number[] {
   const threshold = getParam("low_battery_mode", params, "batteryThresholdPct") / 100;
   const maxPt = getParam("low_battery_mode", params, "maxPlaytimeMinutes");
@@ -522,10 +481,6 @@ function resolveLowBatteryMode(apps: AppOverview[], limit: number, params?: Smar
   const maxBytes = maxSizeMb * 1024 * 1024;
   const battery = getBatteryState();
   const isOnBatteryLow = battery?.hasBattery === true && battery.state === "discharging" && battery.level > 0 && battery.level <= threshold;
-  /* Same selection rules as short_battery (installed + small + Deck-friendly
-     + short playtime). The differentiation is the visibility-on-low-battery
-     semantic: when battery is OK, the shelf still renders but with the same
-     candidates as short_battery — users get a useful set in any device state. */
   const pool = apps.filter((a) =>
     !a.is_non_steam &&
     (a.app_type === undefined || a.app_type === 1) &&
@@ -535,8 +490,6 @@ function resolveLowBatteryMode(apps: AppOverview[], limit: number, params?: Smar
     Number((a as any).size_on_disk ?? 0) <= maxBytes &&
     deckCompat(a) >= minDeck,
   );
-  // When battery IS low: hoist the focused subset to the front (small + low
-  // playtime first). Otherwise normal ordering (Deck level + recent).
   if (isOnBatteryLow) {
     return pool
       .sort((a, b) => (Number((a as any).size_on_disk ?? 0) - Number((b as any).size_on_disk ?? 0)) || (playtimeMinutes(a) - playtimeMinutes(b)))
@@ -549,10 +502,7 @@ function resolveLowBatteryMode(apps: AppOverview[], limit: number, params?: Smar
     .map((a) => a.appid);
 }
 
-/* Online gate: reuse the same master toggle as wishlist / store. When the
-   user has online features off, friends data is treated as off too —
-   consistent with the rest of the online-gated UX. Local friend cache may
-   still have stale entries; gating here keeps them out of the resolver. */
+// Friends data follows the online master toggle.
 function friendsDataAllowed(): boolean {
   try {
     const s = getCurrentSettings();
@@ -567,8 +517,6 @@ function resolveFriendsPlaying(apps: AppOverview[], limit: number, params?: Smar
   const liveSet = getFriendsPlayingAppIds();
   const friendSet = includeRecent ? getFriendsRecentlyPlayedAppIds() : liveSet;
   if (friendSet.size === 0) return [];
-  // Owned games (in user's library): full filtering + sort by Deck level /
-  // last-played / live-or-recent.
   const ownedMatches = apps
     .filter((a) =>
       !a.is_non_steam &&
@@ -577,26 +525,16 @@ function resolveFriendsPlaying(apps: AppOverview[], limit: number, params?: Smar
       deckCompat(a) >= minDeck,
     )
     .sort((a, b) => {
-      // Currently-playing friends rank first; recent-only fallback to last_played.
       const aLive = liveSet.has(a.appid) ? 1 : 0;
       const bLive = liveSet.has(b.appid) ? 1 : 0;
       if (aLive !== bLive) return bLive - aLive;
       return lastPlayedSec(b) - lastPlayedSec(a);
     })
     .map((a) => a.appid);
-  /* Non-owned games (friends playing something the user lacks): raw appids
-     appended after the owned matches. Shelf rendering picks them up via the
-     source's `includesNonOwned: true`, routing metadata through the Store API
-     name lookup (same path wishlist/store use). Clicks land on /library/app/<id>
-     (BP redirects to the store page); live players rank ahead of recent-only. */
-  /* Library-owned set MUST be derived from the full `apps` pool (not just
-     the post-filter `ownedMatches`), otherwise apps the user owns but
-     that got filtered out (non-Steam shortcut, Deck level too low, etc.)
-     would leak back as "non-owned" — wrong semantically and visible to
-     the user as duplicate / unowned-looking cards. */
+  // Friends' games the user doesn't own are appended as raw ids after the owned matches.
+  // Ownership comes from the full pool, or filtered-out owned games would come back as unowned.
   const libraryAppIds = new Set(apps.map((a) => a.appid));
   const nonOwnedIds: number[] = [];
-  // Walk live set first so currently-playing non-owned items lead.
   for (const id of liveSet) {
     if (!libraryAppIds.has(id)) nonOwnedIds.push(id);
   }
@@ -610,7 +548,6 @@ function resolveFriendsPlaying(apps: AppOverview[], limit: number, params?: Smar
   return [...ownedMatches, ...nonOwnedIds].slice(0, limit);
 }
 
-// Played Steam games whose achievement progress reached the threshold but not 100%, most advanced first.
 function resolveAlmostFinished(apps: AppOverview[], limit: number, params?: SmartParams): number[] {
   const minPct = getParam("almost_finished", params, "minAchievementPct");
   const minDeck = getParam("almost_finished", params, "minDeckLevel");
@@ -623,7 +560,6 @@ function resolveAlmostFinished(apps: AppOverview[], limit: number, params?: Smar
     .map((x) => x.a.appid);
 }
 
-// Steam games with one of the mode's store categories, last played first.
 const CATEGORY_MODES: Partial<Record<SmartShelfMode, readonly number[]>> = {
   couch_gaming: [STORE_CATEGORY.sharedScreen, STORE_CATEGORY.sharedScreenPvp, STORE_CATEGORY.sharedScreenCoop],
   coop_ready: [STORE_CATEGORY.coop, STORE_CATEGORY.onlineCoop, STORE_CATEGORY.sharedScreenCoop, STORE_CATEGORY.lanCoop],
@@ -640,7 +576,6 @@ function resolveByCategory(mode: SmartShelfMode, apps: AppOverview[], limit: num
     .map((a) => a.appid);
 }
 
-/** Loads the data the modes read before they resolve: the achievement counts of the played games. */
 export async function prepareSmartModes(modes: string[], apps: AppOverview[]): Promise<void> {
   if (modes.includes("almost_finished")) await loadAchievements(apps);
 }
@@ -649,9 +584,6 @@ type ModeResolver = (apps: AppOverview[], limit: number, params?: SmartParams, s
 
 const resolveNone: ModeResolver = () => [];
 
-/* One resolver per smart mode. "custom" is dispatched via `resolveShelfAppIds`
-   in `src/steam/index.ts` (it needs filterGroup + sort which aren't exposed
-   here); reaching it here means a buggy caller — fail soft with []. */
 const MODE_RESOLVERS: Partial<Record<SmartShelfMode, ModeResolver>> = {
   quick_play: (apps, limit, params) => resolveQuickPlay(apps, limit, params),
   not_started: (apps, limit, params) => resolveNotStarted(apps, limit, params),
@@ -688,8 +620,6 @@ const MODE_RESOLVERS: Partial<Record<SmartShelfMode, ModeResolver>> = {
   custom: resolveNone,
 };
 
-/* Modes that duplicated another one: still accepted, rewritten to the mode they
-   duplicated when the settings load (domain/retired.ts), never offered. */
 export const RETIRED_SMART_MODES: ReadonlySet<string> = new Set([
   "long_session_night", "never_touched_classics", "monthly_spotlight", "seasonal_rotation",
 ]);
@@ -702,18 +632,12 @@ export function resolveSmartShelf(
   ttlMs?: number,
   shelfId?: string,
 ): number[] {
-  /* Friends-playing reflects live friend state (polled ~every 90s). Never serve
-     a stale cached result (e.g. the empty set captured at boot before the first
-     poll) — re-resolve each refresh tick so the shelf appears as soon as a
-     friend's status is known. The resolve itself is a cheap Set filter. */
+  // Friends state changes live, so never serve a cached result.
   const ttl = mode === "friends_playing"
     ? 0
     : typeof ttlMs === "number" && ttlMs > 0 ? ttlMs : DEFAULT_SMART_TTL_MS;
   const paramsKey = params ? JSON.stringify(params) : "";
-  /* Per-shelf namespacing: when `shelfId` is given, two shelves with the
-     same `mode + limit + params + ttl` keep independent cache entries — so
-     refreshing one (`invalidateSmartShelfCache(shelfId)`) doesn't disturb
-     the other. Falls back to a global key when omitted (legacy callers). */
+  // Keyed per shelf so refreshing one shelf doesn't disturb another.
   const cacheKey = shelfId
     ? `${shelfId}:${mode}:${limit}:${paramsKey}:${ttl}`
     : `${mode}:${limit}:${paramsKey}:${ttl}`;
@@ -753,13 +677,11 @@ export function isInVisibilityWindow(
 ): boolean {
   const ranges = normalizeWindow(window);
   if (ranges.length === 0) {
-    // No hour restriction — apply only the global day filter.
     return dayAllowed(daysOfWeek, now.getDay());
   }
   const h = now.getHours();
   const today = now.getDay();
   for (const r of ranges) {
-    // Per-range days override the global daysOfWeek for this range only.
     if (Array.isArray(r.days)) {
       if (!r.days.includes(today)) continue;
     } else if (!dayAllowed(daysOfWeek, today)) {
@@ -776,18 +698,11 @@ export function nextVisibilityBoundary(
   now: Date = new Date(),
 ): number | null {
   const ranges = normalizeWindow(window);
-  // No window AND no day restriction → never flips.
   if (ranges.length === 0 && (!daysOfWeek || daysOfWeek.length === 0)) return null;
-  /* The next boundary is the start of the next hour boundary that matches
-     either the start or end of the window, OR the start of the next allowed
-     day if `daysOfWeek` excludes today. Cheapest correct implementation:
-     step the clock forward one hour at a time and return the first hour
-     where `isInVisibilityWindow` flips. */
+  // Steps an hour at a time and returns the first hour where the result flips.
   const cur = isInVisibilityWindow(window, daysOfWeek, now);
   const probe = new Date(now.getTime());
   probe.setMinutes(0, 0, 0);
-  // Walk forward up to 8 days. If we don't find a flip, the window is
-  // effectively constant given the current day-of-week filter.
   for (let i = 1; i <= 24 * 8; i++) {
     probe.setTime(probe.getTime() + 60 * 60 * 1000);
     if (isInVisibilityWindow(window, daysOfWeek, probe) !== cur) {
@@ -802,11 +717,7 @@ export function getModeVisibilityWindows(mode: SmartShelfMode): ReadonlyArray<{ 
   return undefined;
 }
 
-// --- Visibility Rules v2 ---
-/* `evalVisibility` is the single entry every call site uses: it walks the rule
-   tree when `visibility.rules` is present, else delegates to the untouched legacy
-   `isInVisibilityWindow` (existing shelves behave EXACTLY as before). Unknown rule
-   kinds (e.g. a device rule from a newer build) evaluate as true — fail-open. */
+// Unknown rule kinds evaluate as true (fail open).
 type VisibilityLike = { visibility?: any; visibleHours?: any; visibleDaysOfWeek?: number[] } | undefined;
 
 function evalTimeWindowRule(rule: any, now: Date): boolean {
@@ -816,9 +727,6 @@ function evalTimeWindowRule(rule: any, now: Date): boolean {
   return inSingleRange({ start, end }, now.getHours());
 }
 
-/* Time-context kinds are pure date math; session kinds read live session state;
-   perf/peripheral kinds read on-demand backend state; device kinds read
-   hardware; unknown kinds are neutral (fail-open). */
 function evalContextKind(kind: string, rule: any, now: Date): boolean {
   if (isTimeContextKind(kind)) return evalTimeContextRule(rule, now);
   if (isSessionRuleKind(kind)) return evalSessionRule(rule);
@@ -836,9 +744,7 @@ function evalVisibilityRuleRaw(rule: any, now: Date): boolean {
   }
 }
 
-/* A rule may carry `not: true` to invert its match — the basis for "inverse"
-   triggers (e.g. "stopped charging" = not charging, "went online" = not
-   offline). The editor never lets a kind and its inverse coexist. */
+// `not: true` inverts a rule; the editor never lets a kind and its inverse coexist.
 function evalVisibilityRule(rule: any, now: Date): boolean {
   const res = evalVisibilityRuleRaw(rule, now);
   return rule?.not === true ? !res : res;
@@ -849,13 +755,11 @@ export function evalVisibilityRules(
   now: Date = new Date(),
 ): boolean {
   const rules = Array.isArray(visibility?.rules) ? visibility!.rules : [];
-  if (rules.length === 0) return true; // no restriction
+  if (rules.length === 0) return true;
   const results = rules.map((r) => evalVisibilityRule(r, now));
   return visibility!.mode === "all" ? results.every(Boolean) : results.some(Boolean);
 }
 
-/* Single entry point used by every call site. New `visibility.rules` win;
-   otherwise the legacy window fields drive it (zero behaviour change). */
 export function evalVisibility(entry: VisibilityLike, now: Date = new Date()): boolean {
   if (!entry) return true;
   const rules = Array.isArray(entry.visibility?.rules) ? entry.visibility.rules : [];
@@ -863,8 +767,7 @@ export function evalVisibility(entry: VisibilityLike, now: Date = new Date()): b
   return isInVisibilityWindow(entry.visibleHours, entry.visibleDaysOfWeek, now);
 }
 
-/* True when the entry has any time/day rule (or legacy window) that flips on a
-   clock boundary; device rules flip on hardware events, not the clock. */
+// Device rules flip on hardware events, not the clock.
 function hasClockRule(entry: VisibilityLike): boolean {
   const rules = Array.isArray(entry?.visibility?.rules) ? entry!.visibility.rules : [];
   if (rules.length > 0) {
@@ -873,8 +776,6 @@ function hasClockRule(entry: VisibilityLike): boolean {
   return normalizeWindow(entry?.visibleHours).length > 0 || ((entry?.visibleDaysOfWeek?.length ?? 0) > 0);
 }
 
-/* Next epoch-ms at which `evalVisibility` would change, or null when nothing
-   clock-based restricts the entry. */
 export function nextVisibilityFlip(entry: VisibilityLike, now: Date = new Date()): number | null {
   if (!entry || !hasClockRule(entry)) return null;
   const cur = evalVisibility(entry, now);
@@ -887,16 +788,12 @@ export function nextVisibilityFlip(entry: VisibilityLike, now: Date = new Date()
   return null;
 }
 
-// --- Profile triggers (auto-apply a settings profile when its predicate is true) ---
-/* A profile's `trigger` is a Visibility tree (same shape as shelf visibility).
-   Unlike shelf visibility, an EMPTY trigger never fires — there is nothing to
-   auto-apply, so an unconfigured profile is inert. */
+// Unlike shelf visibility, an empty trigger never fires.
 function isKnownRuleKind(kind: string): boolean {
   return kind === "timeWindow" || kind === "dayOfWeek" || isTimeContextKind(kind) || isSessionRuleKind(kind)
     || isPerfRuleKind(kind) || isPeripheralRuleKind(kind) || isDeviceRuleKind(kind);
 }
 
-// A rule a trigger cannot judge: an unknown kind, or perf / peripheral / display data that has not arrived.
 function ruleLacksData(rule: any): boolean {
   const kind = String(rule?.kind ?? "");
   if (!isKnownRuleKind(kind)) return true;
@@ -906,9 +803,7 @@ function ruleLacksData(rule: any): boolean {
   return false;
 }
 
-/* Unlike shelf visibility, a trigger acts only on evidence: a rule without data,
-   or of a kind this build does not know, counts as not matching (an "all"
-   trigger waits; an "any" trigger ignores it). */
+// A trigger acts only on evidence: a rule without data counts as not matching.
 export function evalProfileTrigger(trigger: unknown, now: Date = new Date()): boolean {
   const t = trigger as any;
   if (!t || !Array.isArray(t.rules) || t.rules.length === 0) return false;
@@ -917,8 +812,7 @@ export function evalProfileTrigger(trigger: unknown, now: Date = new Date()): bo
   return evalVisibilityRules({ ...t, rules: known }, now);
 }
 
-/* Name of the first profile whose trigger is currently active, or null.
-   First-match wins so ordering in the profiles list is the tie-break. */
+// First match wins, so list order is the tie-break.
 export function resolveTriggeredProfile(
   profiles: ReadonlyArray<{ name: string; trigger?: unknown }> | undefined,
   now: Date = new Date(),
@@ -928,8 +822,6 @@ export function resolveTriggeredProfile(
   return null;
 }
 
-/* Earliest clock boundary at which any profile trigger would flip, for one-shot
-   re-arm scheduling (no polling). null when no trigger is clock-based. */
 export function nextProfileTriggerFlip(
   profiles: ReadonlyArray<{ name: string; trigger?: unknown }> | undefined,
   now: Date = new Date(),
@@ -949,8 +841,6 @@ export const INTERNAL_SMART_MODES = new Set<string>(SmartShelfModeSchema.options
 
 export function invalidateSmartShelfCache(shelfId?: string): void {
   if (!shelfId) { resolverCache.clear(); persistCache(); return; }
-  // Per-shelf scope: the namespaced cache key starts with `${shelfId}:`.
-  // Wipe only those entries so refresh on shelf A doesn't disturb shelf B.
   const prefix = `${shelfId}:`;
   for (const k of Array.from(resolverCache.keys())) {
     if (k.startsWith(prefix)) resolverCache.delete(k);

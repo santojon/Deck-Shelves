@@ -2,7 +2,6 @@ import { logInfo } from "../../../runtime/logger";
 import { navNodeFromFiber } from "../../../core/focusRestore";
 import { findMainNavRoot, navNodeElement, resolveFocusNavController } from "./focusNav";
 
-// Every nav node whose element is one of our `.deck-shelves-root` wrappers.
 function findOurNavNodes(root: any): any[] {
   const ourNodes: any[] = [];
   (function findWrapper(node: any) {
@@ -16,10 +15,6 @@ function findOurNavNodes(root: any): any[] {
   return ourNodes;
 }
 
-/* The standalone host mounts our root outside Steam's React tree: the
-   Focusable still makes its node, but the node hangs off a parent that does
-   not list it, so a walk from the root never meets it (D-pad traversal then
-   skips every shelf). The node is still on the wrapper element's fiber. */
 function findOurNavNodesByFiber(mountEl: HTMLElement): any[] {
   const out: any[] = [];
   for (const el of Array.from(mountEl.querySelectorAll<HTMLElement>(".deck-shelves-root"))) {
@@ -29,22 +24,18 @@ function findOurNavNodesByFiber(mountEl: HTMLElement): any[] {
   return out;
 }
 
-// Our wrapper nodes: the ones the tree walk reaches, else the ones on the fibers.
 function locateOurNavNodes(root: any, mountEl: HTMLElement): any[] {
   const walked = findOurNavNodes(root);
   return walked.length ? walked : findOurNavNodesByFiber(mountEl);
 }
 
-/* -2: our DOM is on screen but Steam's live tree has no node for it (the
-   tree was rebuilt under us) — the caller can re-mount to re-register. */
 function missingNodesResult(mountEl: HTMLElement): number {
   const domPresent = !!mountEl.querySelector(".deck-shelves-root");
   if (domPresent) logInfo("HOME", "reparentNavTreeNodes: DS nav node absent from tree while DOM present — focus loss imminent");
   return domPresent ? -2 : 0;
 }
 
-/* Do not perturb the tree while focus is inside our subtree — that can
-   orphan the currently-focused node if splicing happens mid-navigation. */
+// Splicing while focus is inside our subtree can orphan the focused node.
 function focusIsInsideOurNodes(ctrl: any, context: any, ourNodes: any[]): boolean {
   const activeEl = ctrl.m_ActiveContext?.ActiveElementNavNode?.m_element
     ?? context?.ActiveElementNavNode?.m_element;
@@ -74,7 +65,6 @@ function findNodeByElement(start: any, targetEl: HTMLElement): any | null {
   return found;
 }
 
-// The nearest ancestor that is a vertical layout holding at least two children.
 function climbToLayoutContainer(deepest: any): any {
   let target = deepest;
   let cursor: any = deepest.m_Parent;
@@ -92,11 +82,6 @@ function climbToLayoutContainer(deepest: any): any {
   return target;
 }
 
-/* Preferred target: the nav node whose Element === mountEl.parentElement.
-   That's the home Panel that in DOM already contains [recents, mount, tabs]
-   — placing our nav node inside it gets D-pad traversal
-   recents → shelves → tabs (matching DOM order) instead of forcing users
-   to walk past the tabs before reaching shelves. */
 function chooseTargetNode(root: any, mountEl: HTMLElement): any | null {
   const domParent = mountEl.parentElement;
   if (domParent) {
@@ -108,7 +93,6 @@ function chooseTargetNode(root: any, mountEl: HTMLElement): any | null {
   return deepest ? climbToLayoutContainer(deepest) : null;
 }
 
-// Keep DOM order: insert before the first sibling that follows our element.
 function insertionIndexFor(ourEl: HTMLElement | null, targetChildren: any[]): number {
   if (!ourEl) return targetChildren.length;
   for (let i = 0; i < targetChildren.length; i++) {
@@ -125,8 +109,6 @@ function listedUnder(node: any, parent: any): boolean {
 function moveNodeUnder(ourNode: any, target: any): boolean {
   const mParent = ourNode.m_Parent;
   if (mParent === target && listedUnder(ourNode, target)) return false;
-  // Detach from the old parent when it lists us; a node its parent does not
-  // list (the standalone host's root) is simply attached below.
   const parentChildren: any[] | undefined = mParent?.m_rgChildren;
   const idx = parentChildren ? parentChildren.indexOf(ourNode) : -1;
   if (idx >= 0) parentChildren!.splice(idx, 1);
@@ -137,7 +119,6 @@ function moveNodeUnder(ourNode: any, target: any): boolean {
   return true;
 }
 
-// Steam's focus source for a change the app makes itself (its own unmount uses it).
 const FOCUS_SOURCE_APPLICATION = 2;
 
 function releaseNode(node: any): boolean {
@@ -151,10 +132,7 @@ function releaseNode(node: any): boolean {
   return true;
 }
 
-/* The Home left the document (a game launched from it) while our React tree lives on, so our
-   nodes would stay in Steam's tree: Steam then focuses a card no one sees and sends it the Steam
-   and QAM buttons, which never reach Steam. Take them out as Steam's own unmount does (focus
-   released first); reparentNavTreeNodes puts them back on the return. -1 while still attached. */
+// Once the Home leaves the document our nodes must leave Steam's tree, or Steam focuses a card no one sees.
 export function releaseDetachedNavNodes(mountEl: HTMLElement): number {
   if (mountEl.isConnected) return -1;
   let released = 0;
@@ -178,7 +156,6 @@ export function reparentNavTreeNodes(mountEl: HTMLElement): number {
   const target = chooseTargetNode(root, mountEl);
   if (!target) return -1;
 
-  // Stability guard: once ourNodes are under the chosen target, no churn.
   if (ourNodes.every((n) => n.m_Parent === target && listedUnder(n, target))) return 0;
 
   let moved = 0;

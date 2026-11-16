@@ -29,15 +29,12 @@ export function CollapsibleSection({
   status,
   children,
 }: {
-  // Names the open state kept in local storage. Sections made on the fly, like
-  // a filter's conditions, leave it out and keep the state in memory only.
   id?: string;
   title: string;
   count: number;
   initialOpen?: boolean;
   icon?: React.ReactNode;
   headerExtra?: React.ReactNode;
-  // Shown at the end of the header, beside the arrow, open or closed.
   status?: React.ReactNode;
   children: React.ReactNode;
 }) {
@@ -51,13 +48,8 @@ export function CollapsibleSection({
     return next
   })
   const chevron = <span style={{ fontSize: 9, color: 'var(--ds-text-dim, #b8bcbf)' }}>{open ? '▲' : '▼'}</span>
-  // The box and the content padding come from each surface's sheet: flat in the
-  // QAM, boxed in the settings page (DeckQAMStyles) and in dialogs (DeckModalStyles).
   return (
     <div className='ds-collapsible-box'>
-      {/* The whole row highlights as one focus unit (CSS `.gpfocuswithin`),
-          whether the title toggle or the inline action button is focused. A on
-          the title toggles. */}
       <Focusable className='ds-collapsible-row' {...flowChildrenProps('vertical')} noFocusRing focusWithinClassName='gpfocuswithin' style={{ display: 'flex', alignItems: 'center' }}>
         <Focusable className='ds-collapsible-header' data-ds-section={id} onClick={toggle} onOKButton={toggle} noFocusRing style={{ flex: 1, minWidth: 0 }}>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

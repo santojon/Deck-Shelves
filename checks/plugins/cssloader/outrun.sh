@@ -7,11 +7,7 @@ run_checks() {
   local fail=0
   local src="$root/src"
 
-  # Only flag refs outside comments — doc comments mentioning Outrun
-  # (e.g. CSS pattern shared with Round/ArtHero) aren't theme coupling.
-  # Strip /* */ block comments AND // line comments before scanning so
-  # multi-line comments (prose continuation lines that don't start with
-  # `/` or `*`) don't false-positive.
+  # Block and line comments are stripped first so prose naming the theme isn't counted as coupling.
   local code_hits
   code_hits=$(grep -Riln "outrun" "$src" --exclude-dir=__pycache__ 2>/dev/null | while IFS= read -r f; do
     if python3 -c "import sys,re; t=open(sys.argv[1],encoding='utf-8',errors='ignore').read(); t=re.sub(r'/\*.*?\*/','',t,flags=re.S); t=re.sub(r'//[^\n]*','',t); sys.exit(0 if re.search('outrun',t,re.I) else 1)" "$f" 2>/dev/null; then echo "$f"; fi

@@ -108,7 +108,6 @@ describe("shelfRefresh under the power gate", () => {
   it("the screen going dark and coming back (gate + suspend fallback on the same event) refreshes once", () => {
     const seen: any[] = [];
     const unsub = subscribeShelfRefresh(() => seen.push(1));
-    // The gate listens first (installed first), the suspend fallback after it.
     let hidden = true;
     Object.defineProperty(document, "hidden", { configurable: true, get: () => hidden });
     const fallback = () => { if (hidden) pauseShelfRefresh(); else resumeShelfRefresh(); };

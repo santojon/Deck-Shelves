@@ -61,18 +61,14 @@ const commentLengthPlugin = {
   },
 };
 
-// Existing violations at rule-enablement time are baselined in
-// `eslint-suppressions.json` (committed). New violations in any file
-// (including files with suppressed entries) fail the lint. Run
-// `pnpm run lint:js:prune` after refactoring to clear stale entries.
+// Older violations are baselined in eslint-suppressions.json; run lint:js:prune to drop stale entries.
 export default [
   {
     files: ['src/**/*.{ts,tsx}'],
     ignores: ['src/test/**', 'src/**/*.test.{ts,tsx}', 'src/qa/**'],
     languageOptions: {
       parser: tsParser,
-      // `projectService` enables type-aware rules (below). Slower than
-      // syntax-only linting, but required for the async-safety catchers.
+      // projectService is needed for the type-aware async rules.
       parserOptions: { ecmaVersion: 'latest', sourceType: 'module', ecmaFeatures: { jsx: true }, projectService: true, tsconfigRootDir: import.meta.dirname },
     },
     plugins: {
@@ -83,41 +79,20 @@ export default [
     linterOptions: {
       reportUnusedDisableDirectives: 'off',
     },
-    // Rules picked for high bug-catching value with low false-positive
-    // friction. Stylistic-only rules (formatting, line length, naming)
-    // are intentionally NOT added — they generate churn without catching
-    // bugs and the project has no formatter yet.
     rules: {
       complexity: ['error', 10],
-      // Code-file size cap. Above 1000 lines a module almost certainly
-      // owns too many responsibilities — split into focused submodules.
-      // Counts code lines only (blank + comment lines ignored).
       'max-lines': ['error', { max: 1000, skipBlankLines: true, skipComments: true }],
-      // React: hook-order safety (calls of hooks in conditionals / loops
-      // / nested functions). `exhaustive-deps` is intentionally NOT
-      // enabled — the project has many intentional dep omissions where
-      // the rule is too noisy without a separate review pass.
+      // exhaustive-deps stays off: many dependency omissions are intentional.
       'react-hooks/rules-of-hooks': 'error',
-      // Modern JS: `var` is forbidden, `let` that's never reassigned
-      // should be `const`. Both auto-fixable.
       'no-var': 'error',
       'prefer-const': 'error',
-      // Bug catchers: strict equality (with `'smart'` to keep `==
-      // null` shorthand), no `debugger`, throw real Errors, no
-      // duplicated imports, no self-assignment, no unreachable code.
       'eqeqeq': ['error', 'smart'],
       'no-debugger': 'error',
       'no-throw-literal': 'error',
       'no-duplicate-imports': 'error',
       'no-self-assign': 'error',
       'no-unreachable': 'error',
-      // switch case must end with break/return — fallthroughs are a
-      // common source of silent bugs.
       'no-fallthrough': 'error',
-      // Recommended bug catchers: unsafe `?.` short-circuit
-      // into arithmetic/spread, always-true/false binary exprs (`a ?? b || c`
-      // precedence), NaN misuse, bad typeof strings, async promise executors,
-      // duplicate else-if branches, assignment inside a condition.
       'no-unsafe-optional-chaining': 'error',
       'no-constant-binary-expression': 'error',
       'use-isnan': 'error',
@@ -125,25 +100,14 @@ export default [
       'no-async-promise-executor': 'error',
       'no-dupe-else-if': 'error',
       'no-cond-assign': ['error', 'always'],
-      // Type-aware async safety: a promise left unhandled (no await / .then /
-      // .catch / void) swallows errors and races; passing an async fn where a
-      // void callback is expected (event handlers, useEffect) misfires.
       '@typescript-eslint/no-floating-promises': 'error',
-      // `attributes: false` allows async JSX handlers (`onClick={async…}`,
-      // benign fire-and-forget) while still catching async fns in `if`/`&&`,
-      // `forEach`, and other spots that silently drop the promise.
+      // attributes: false allows async JSX handlers but still catches dropped promises elsewhere.
       '@typescript-eslint/no-misused-promises': ['error', { checksVoidReturn: { attributes: false } }],
-      // Consecutive `//` comments capped at 3 lines; `/* */` blocks at 5
-      // lines. Long-form notes belong in docs/.
       'ds-local/comment-length': 'error',
     },
   },
   {
-    // Tests + QA harness — excluded from the main block above (complexity /
-    // max-lines / comment-length would only churn naturally long, repetitive
-    // test code, and type-aware rules add cost). This block runs the
-    // zero-false-positive BUG CATCHERS only, so any hit is a real bug to fix,
-    // never suppressed.
+    // Tests and the QA harness get only the bug catchers, without size or type-aware rules.
     files: ['src/test/**/*.{ts,tsx}', 'src/**/*.test.{ts,tsx}', 'src/qa/**/*.{ts,tsx}'],
     languageOptions: {
       parser: tsParser,

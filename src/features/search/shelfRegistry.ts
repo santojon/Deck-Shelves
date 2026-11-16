@@ -1,9 +1,4 @@
 import { devStamp } from "../../runtime/devStamps";
-/* Tiny in-memory index of resolved shelf items so Quick Search can hit
-   EVERY item the user has on screen — including cards waiting to render,
-   virtualised cards, or items below the fold whose DOM nodes haven't
-   mounted yet. Each Shelf component publishes its resolved items here on
-   every items/appIds change; the search provider reads the snapshot. */
 
 export interface RegisteredItem { appid: number; name: string }
 export interface RegisteredShelf {

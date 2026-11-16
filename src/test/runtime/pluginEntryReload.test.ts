@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
-// Every install the start makes into Steam is inert here and counted.
 const edge = vi.hoisted(() => {
   const calls: Record<string, number> = {}
   const uninstalls: Record<string, number> = {}
@@ -36,7 +35,6 @@ vi.mock('../../runtime/cloudSync', async (importOriginal) => ({ ...(await import
 vi.mock('../../core/pluginApi', async (importOriginal) => ({ ...(await importOriginal<object>()), installPluginApi: edge.counted('pluginApi') }))
 vi.mock('../../core/steamOSVersion', async (importOriginal) => ({ ...(await importOriginal<object>()), prefetchSteamOSVersion: async () => null }))
 vi.mock('../../core/userPaths', async (importOriginal) => ({ ...(await importOriginal<object>()), prewarmUserPaths: async () => {} }))
-vi.mock('../../runtime/devNavHooks', async (importOriginal) => ({ ...(await importOriginal<object>()), installDevNavHooks: () => () => {} }))
 vi.mock('../../runtime/safeMode', async (importOriginal) => ({ ...(await importOriginal<object>()), evaluateBootOutcome: () => false }))
 vi.mock('../../runtime/bootPhases', async (importOriginal) => ({
   ...(await importOriginal<object>()),
@@ -64,7 +62,6 @@ function loaderServerApi() {
   return { routerHook: { addRoute: vi.fn(), removeRoute: vi.fn() } }
 }
 
-// One evaluation of the plugin: a loader reloading the same build calls this same export again.
 async function loadPlugin(): Promise<Run> {
   vi.resetModules()
   const mod = await import('../../index')
@@ -82,8 +79,6 @@ const expectEveryUninstall = (times: number) => {
   for (const name of ALL_INSTALLS) expect([name, edge.uninstalls[name] ?? 0]).toEqual([name, times])
 }
 
-// The first load transforms the whole plugin, which takes seconds on a busy machine: done once,
-// outside each test's time limit (the tests then load it again, fresh).
 beforeAll(async () => { await import('../../index') }, 60_000)
 
 beforeEach(() => {
@@ -122,7 +117,6 @@ describe('plugin entry, the loader reloading the same build', () => {
     expect(second?.titleView).toBeDefined()
     expect(typeof second?.onDismount).toBe('function')
     expectEveryInstall(2)
-    // The new instance is live: nothing it installed was taken down by the boot.
     expectEveryUninstall(1)
     expect(secondApi.routerHook.addRoute).toHaveBeenCalledTimes(firstApi.routerHook.addRoute.mock.calls.length)
     expect(scope().__DECK_SHELVES_INSTANCES__.decky.dispose).toBe(second?.onDismount)

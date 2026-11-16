@@ -1,9 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 
-/* The conditions and sorts that read the client's own records: store tags by name or id,
-   the friends' libraries, the achievement counts, Family Sharing and the dynamic collections. */
-
 const TAG_NAMES: Record<number, string> = { 1: "RPG", 2: "Gráficos Pixelados", 3: "Casual" };
 
 function overview(appid: number, extra: Record<string, unknown> = {}) {

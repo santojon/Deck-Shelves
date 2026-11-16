@@ -8,29 +8,21 @@ import { flattenItems } from "./filterEval";
 import { loadAchievements } from "./achievements";
 import { loadFriendsOwned } from "./friendsOwned";
 
-/* Helpers several source resolvers share: the online-feature gate, catalog-data prefetch for catalog filters, meta enrichment for meta sorts, non-Steam duplicate removal, composite merging and the resolved-total report. */
-
 function isOnlineFeaturesEnabledRaw(): boolean {
   try {
     const raw = (globalThis as any).localStorage?.getItem?.("deck-shelves-settings-cache-v3");
     if (!raw) return false;
     const data = JSON.parse(raw);
-    // Offline mode overrides every online toggle while active so no
-    // resolver in this file fans out a request when it's on.
     if (data?.offlineModeEnabled === true) return false;
     return data?.onlineFeaturesEnabled === true;
   } catch { return false; }
 }
 
-// Online resolvers (wishlist / store) gate on this. Offline mode wins
-// over every other toggle; otherwise honour the live setting, then the
-// localStorage-cached raw value as a fallback.
 export function isOnlineEnabledForSettings(s: Settings | null | undefined): boolean {
   if (s?.offlineModeEnabled === true) return false;
   return s?.onlineFeaturesEnabled ?? isOnlineFeaturesEnabledRaw();
 }
 
-// Every condition of the group at any depth, to pre-warm the data they read before evaluation.
 export function collectFilterGroupItemsFlat(group: FilterGroup): FilterItem[] {
   return flattenItems(group?.items);
 }
@@ -51,8 +43,7 @@ function indexAppsToPlatform(c: SteamCollectionLike, platform: string, groups: M
   }
 }
 
-// Each Unifideck game keyed by ALL its "[Unifideck] …" collections, so a store is never
-// overwritten by "Installed" / "All Games" and no translated collection name is matched.
+// Keyed by every "[Unifideck] …" collection so no translated collection name is matched.
 let platformCache: { map: Map<number, string>; ts: number } | null = null;
 
 function buildNonSteamPlatformMap(): Map<number, string> {
@@ -61,7 +52,7 @@ function buildNonSteamPlatformMap(): Map<number, string> {
   const map = new Map<number, string>();
   try {
     const groups = new Map<number, string[]>();
-    // Raw storage map, not the `userCollections` computed (MobX-unsafe).
+    // Raw storage map; the `userCollections` computed is MobX-unsafe.
     for (const c of readCollectionList(steamCollectionStore())) {
       const platform = readUnifideckPlatformLabel(c);
       if (platform) indexAppsToPlatform(c, platform, groups);
@@ -92,9 +83,7 @@ export function deduplicateNonSteam(ids: number[], all: AppOverview[]): number[]
   });
 }
 
-// Pure merge for composite child results. Round-robin union ensures
-// the final overShootLimit slice keeps items from every child instead
-// of being dominated by the longest one.
+// Round-robin so the final slice keeps items from every child.
 export function mergeCompositeResults(childResults: ReadonlyArray<ReadonlyArray<number>>, combine: "union" | "intersection"): number[] {
   if (childResults.length === 0) return [];
   if (combine === "intersection") {
@@ -110,8 +99,6 @@ export function mergeCompositeResults(childResults: ReadonlyArray<ReadonlyArray<
     advanced = false;
     for (let i = 0; i < childResults.length; i++) {
       const arr = childResults[i];
-      // Skip past already-merged ids (de-dupe) until this child yields a
-      // fresh entry or exhausts its list.
       while (cursors[i] < arr.length && seen.has(arr[cursors[i]])) cursors[i]++;
       if (cursors[i] < arr.length) {
         const id = arr[cursors[i]++];
@@ -124,16 +111,11 @@ export function mergeCompositeResults(childResults: ReadonlyArray<ReadonlyArray<
   return merged;
 }
 
-// Report a resolver's pre-limit match count without spreading an optional-call
-// branch across every resolver that opts in.
 export function emitResolvedTotal(ctx: ResolverContext, total: number): void {
   const cb = ctx.reportTotal;
   if (cb) cb(total);
 }
 
-/* Sort keys whose data (metacritic / review% / release date) is often absent
-   from the local overview — non-Steam and uninstalled titles. When selected we
-   optionally fetch it online first (gated + bounded + cached in enrichApps). */
 const META_SORT_KEYS: ReadonlySet<string> = new Set(["metacritic", "review_score", "release_date"]);
 const ACHIEVEMENT_SORT_KEYS: ReadonlySet<string> = new Set(["completion_percent", "closest_to_completion"]);
 const FRIENDS_OWNED_SORT_KEYS: ReadonlySet<string> = new Set(["most_friends_owning", "trending_among_friends"]);
@@ -151,9 +133,6 @@ function sortNeedsData(sort: unknown): boolean {
   return sortKeysOf(sort).some((k) => META_SORT_KEYS.has(k) || ACHIEVEMENT_SORT_KEYS.has(k) || FRIENDS_OWNED_SORT_KEYS.has(k));
 }
 
-/* Loads what the sort keys read before the sort runs: online metadata for the
-   score and date keys (gated inside enrichApps), the achievement counts and the
-   friends' libraries. Each is a no-op when its key is absent. */
 export async function enrichAppsForMetaSort(sort: unknown, apps: AppOverview[]): Promise<void> {
   if (!sortNeedsData(sort) || !apps.length) return;
   const keys = sortKeysOf(sort);
@@ -163,7 +142,7 @@ export async function enrichAppsForMetaSort(sort: unknown, apps: AppOverview[]):
   try {
     const { enrichApps } = require("../core/onlineMetadata") as typeof import("../core/onlineMetadata");
     await enrichApps(apps);
-  } catch { /* sort falls back to whatever's local */ }
+  } catch {}
 }
 
 export async function enrichForSort(sort: unknown, ids: number[], all: AppOverview[]): Promise<void> {
@@ -173,17 +152,13 @@ export async function enrichForSort(sort: unknown, ids: number[], all: AppOvervi
   await enrichAppsForMetaSort(sort, ids.map((id) => byId.get(id)).filter(Boolean) as AppOverview[]);
 }
 
-/* genres/categories: the local client never carries these as name strings,
-   even for owned games — always needs the fetch. vrSupport/multiplayerType
-   have a fast local path for owned games (see v3Extensions.ts) and only
-   need the fetch for ids the client has never seen. */
+// The client never has genre or category names, even for owned games.
 const WEB_CATALOG_FILTER_TYPES = new Set(["genres", "categories"]);
 
 const LOCAL_FIRST_CATALOG_FILTER_TYPES = new Set(["vrSupport", "multiplayerType"]);
 
 const ACHIEVEMENT_FILTER_TYPES = new Set(["achievements", "achievementPercentRange", "neverCompleted"]);
 
-// The client's own records some conditions read: achievement counts, the friends' libraries.
 async function prefetchClientData(items: FilterItem[], ids: number[], byId: Map<number, AppOverview>): Promise<void> {
   if (items.some((item) => ACHIEVEMENT_FILTER_TYPES.has(item.type))) {
     await loadAchievements(ids.map((id) => byId.get(id)).filter(Boolean) as AppOverview[]);
@@ -196,8 +171,6 @@ export async function prefetchCatalogFilterData(items: FilterItem[], ids: number
   const needsLocalFirstCatalog = items.some((item) => LOCAL_FIRST_CATALOG_FILTER_TYPES.has(item.type));
   const needsFranchise = items.some((item) => item.type === "franchise");
   if (needsWebCatalog || needsLocalFirstCatalog) {
-    // genres/categories need every id (local never has the data); vrSupport/
-    // multiplayerType only need ids the client has never seen.
     const targetIds = needsWebCatalog ? ids : ids.filter((id) => !byId.has(id));
     if (targetIds.length) {
       const { getCatalogMetaMap } = await import("../core/onlineStore");
@@ -209,9 +182,7 @@ export async function prefetchCatalogFilterData(items: FilterItem[], ids: number
     await prefetchFranchise(ids);
   }
   await prefetchClientData(items, ids, byId);
-  // libraryLocation reads a cache kept warm by deviceState.ts's own event-driven
-  // refresh; only force a fetch here for the very first resolve, before that
-  // refresh has landed — later resolves reuse the already-warm cache.
+  // Only the first resolve, before the event-driven refresh lands, fetches here.
   if (!isLibraryLocationsWarm() && items.some((item) => item.type === "libraryLocation")) {
     await refreshLibraryLocations();
   }

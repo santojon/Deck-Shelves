@@ -1,16 +1,11 @@
 import { type SteamAppDetails, type SteamHostWindow, steamClient } from "./internals";
 import { getSteamWindows } from "./steamAccess";
 
-/* Publisher and developer names per app, read from Steam's app details and cached (the developer cache persists across restarts). */
-
-// Developer / Publisher data (from appDetailsStore)
-
 const developerCache = new Map<number, string>();
 
-// Persistent cache in localStorage to survive plugin reloads. Keys: appid -> developer string
 const DEV_CACHE_KEY = 'deck-shelves-dev-cache-v1';
 
-const DEV_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+const DEV_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 let devCacheSaveTimer: number | null = null;
 
@@ -47,11 +42,9 @@ function persistDeveloperCacheToStorage() {
 
 function scheduleDeveloperCachePersist() {
   if (devCacheSaveTimer) return;
-  // debounce write to avoid thrashing
   devCacheSaveTimer = setTimeout(() => { try { persistDeveloperCacheToStorage(); } catch {} }, 1000) as unknown as number;
 }
 
-// Initialize from storage
 try { loadDeveloperCacheFromStorage(); } catch {}
 
 export function clearDeveloperCache(): void {

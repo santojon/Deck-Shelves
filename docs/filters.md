@@ -332,12 +332,62 @@ Any source can be stacked: a collection, a library tab, a filter, a built-in
 list, a smart mode, the wishlist, the store or a plugin's source. A smart mode
 used as a source runs with its default parameters.
 
+### Each source's sort and game limit
+
+Every source of a multi-source shelf has **Sort this source** and **Game limit
+for this source** in the editor (stored as `sort`, `sortReverse` and `limit` on
+the source). The source's sort picks which of its games come first and its
+limit keeps that many. A source left on **Same as the shelf** follows the shelf
+sort, and one with its limit at **All** gives all its games. The shelf sort then
+orders the combined list and the shelf's **Game limit** cuts it. For example,
+the three most played installed games and the two latest pinned ones, listed
+alphabetically:
+
+```json
+{
+  "sort": "alphabetical",
+  "source": {
+    "type": "composite",
+    "combine": "union",
+    "sources": [
+      { "type": "tab", "tab": "installed", "sort": "playtime", "limit": 3 },
+      { "type": "builtin", "sourceId": "pinned_games", "sort": "source_order", "limit": 2 }
+    ]
+  }
+}
+```
+
+A source can also be sorted **Manual**. **Arrange games** under it shows that
+source's games alone in the preview, to be moved the same way as on a shelf with
+a manual sort, and **Done arranging** brings back the whole shelf. The arranged
+games are stored in order as `manualOrder` on the source, up to the last one
+moved; the source's other games follow by name, and the source's limit keeps the
+first ones. Under **Source order** the arranged games keep their places on the
+shelf; under any other shelf sort they only choose which games that source
+gives. For example, four chosen launchers first, then a collection by last
+played, 20 games in all:
+
+```json
+{
+  "sort": "source_order",
+  "limit": 20,
+  "source": {
+    "type": "composite",
+    "combine": "union",
+    "sources": [
+      { "type": "collection", "collectionId": "uc-launchers", "sort": "manual", "limit": 4, "manualOrder": [2001, 2002, 2003, 2004] },
+      { "type": "collection", "collectionId": "uc-metroidvania", "sort": "recent" }
+    ]
+  }
+}
+```
+
 ### Source order
 
 With the shelf sorted by **Source order**, the sources follow each other in the
-order they are listed, and each one can have its own sort (stored as `sort` and
-`sortReverse` on the source; a source without one keeps its own order). For
-example, pinned games first and then recently played games:
+order they are listed, each in its own sort and within its own limit (a source
+without a sort keeps its own order). For example, pinned games first and then
+recently played games:
 
 ```json
 {
@@ -379,6 +429,13 @@ Composite sources may nest (the schema permits it for power users editing JSON d
 
 ## Legacy Filter Format
 
+Older settings may use a flat filter format:
+```json
+{ "installed": true, "favorites": true, "sort": "alphabetical" }
+```
+
+These are converted to the group format at run time by `legacyFilterToGroup()`.
+
 ## Importing from TabMaster
 
 A TabMaster tab imports as a shelf whose conditions are the tab's filters under
@@ -401,13 +458,6 @@ same data (TabMaster 3.1):
 | sd card, install folder | `libraryLocation` by the library's category (an SD card and a folder under `/run/media` are external) |
 
 > **Note:** if you are importing shelves from a backup or from TabMaster, the conversion to the group format happens automatically — you do not need to migrate manually. A TabMaster filter with no equivalent here keeps its own name and imports as an unavailable condition, so the shelf is empty until you change it, instead of matching everything.
-
-Older settings may use a flat filter format:
-```json
-{ "installed": true, "favorites": true, "sort": "alphabetical" }
-```
-
-These are automatically converted to the group format at runtime via `legacyFilterToGroup()`.
 
 ## Implementation
 

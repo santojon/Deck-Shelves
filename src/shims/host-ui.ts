@@ -1,16 +1,9 @@
-// A neutral (non-loader) host injects its runtime as `__SHELVES_HOST__`,
-// exposing the Steam-native components it located as `host.ui` — the
-// sole-host fallback (no loader present to publish `DFL`/`deckyFrontendLib`).
 function getShelvesHost(): any {
   const g = globalThis as any;
   return g.window?.__SHELVES_HOST__ ?? g.__SHELVES_HOST__ ?? null;
 }
 
-/* THE single host-parametric resolver for the whole UI surface: a plugin loader
-   publishes it as a global (`DFL`/`deckyFrontendLib`); a neutral host exposes the
-   same surface on `__SHELVES_HOST__.ui`. Call sites that need the raw lib object
-   go through THIS — don't re-derive the chain inline. Lazy (a function, not a
-   const) so late-injected sole-host UI resolves too. */
+// Lazy so a UI lib injected late by a neutral host still resolves.
 export function getFrontendLib(): any {
   const g = globalThis as any;
   return g.DFL
@@ -35,13 +28,7 @@ const passthroughComponent = (props: any) => props?.children ?? null;
 const passthroughMenu = (props: any) => props?.children ?? null;
 const noop = () => {};
 
-// Decky resolves `Field` via `findModuleExport` against a Steam-internal
-// string ("shift-children-below"). When Steam refactors that source, the
-/* match breaks and `frontendLib.Field` becomes undefined. The previous fallback
-   (`passthroughComponent`) silently dropped `label` and `description`,
-   hiding shelf-list titles and the EditShelfModal title input. This
-   fallback renders both visibly with the standard Decky row layout so
-   the plugin remains usable while Decky catches up. */
+// Field is found by a Steam source string that can break; this fallback still renders label and description.
 import { createElement } from 'react';
 
 function buildLabel(label: any, icon: any) {
@@ -75,11 +62,7 @@ function buildRow(labelEl: any, label: any, children: any, stackChildren: boolea
     labelEl,
     children != null
       ? createElement('div', {
-          /* When there's no label the children container should expand to
-             fill the row — otherwise an inner Focusable with `width: 100%`
-             collapses to the children's natural width and right-aligned items
-             (justify-content: space-between) end up flush against the left
-             buttons. */
+          // Without a label the children fill the row, or right-aligned items collapse to the left.
           style: {
             display: 'flex', alignItems: 'center',
             flexGrow: label != null ? 0 : 1,
@@ -101,10 +84,6 @@ const fieldFallback = (props: any) => {
   return createElement(
     'div',
     {
-      /* Horizontal padding matches Decky's native Field (~16 px each
-         side) so labels and right-aligned children don't touch the QAM
-         scope edges. Without it the shelf-list rows sat flush with the
-         Quick Access panel borders. */
       style: {
         display: 'flex', flexDirection: 'column', gap: 4,
         padding: '8px 16px', marginLeft: indentPx, borderBottom: border,
@@ -128,10 +107,7 @@ export const Dropdown = frontendLib.Dropdown ?? passthroughComponent;
 export const DropdownItem = frontendLib.DropdownItem ?? frontendLib.Dropdown ?? passthroughComponent;
 export const Field = frontendLib.Field ?? fieldFallback;
 export const Focusable = frontendLib.Focusable ?? passthroughComponent;
-/* Runtime enum that Decky exposes via FooterLegend. Required for
-   gamepad-button comparisons in the QAM lists. Fallback keeps
-   the numeric values stable (the loader's FooterLegend enum) so any
-   destructuring still works when Decky's global hasn't initialised yet. */
+// Numeric fallback matches the loader's enum for when its global isn't ready yet.
 export const GamepadButton = frontendLib.GamepadButton ?? {
   INVALID: 0, OK: 1, CANCEL: 2, SECONDARY: 3, OPTIONS: 4,
   BUMPER_LEFT: 5, BUMPER_RIGHT: 6, TRIGGER_LEFT: 7, TRIGGER_RIGHT: 8,
@@ -159,8 +135,7 @@ export const afterPatch = frontendLib.afterPatch ?? ((_target: any, _method: any
 export const findInReactTree = frontendLib.findInReactTree ?? ((_node: any, _cb: any) => null);
 export const findInTree = frontendLib.findInTree ?? ((_node: any, _cb: any, _opts?: any) => null);
 export const findModuleChild = frontendLib.findModuleChild ?? ((_filter: any) => undefined);
-// Same walk (default export first) on hosts without findModule; the loader's
-// findModuleChild warns on every call and is going away, so findModule is preferred.
+// findModule is preferred: the loader's findModuleChild warns on every call.
 const walkWithChildSearch = (filter: (variant: any) => unknown): any => {
   let hit: any;
   frontendLib.findModuleChild?.((variant: any) => {
@@ -207,7 +182,7 @@ export const quickAccessMenuClasses =
 
 export type SingleDropdownOption = {
   data: any;
-  label: any; // string or a React node — Steam dropdowns accept both
+  label: any;
 };
 
 export const SingleDropdownOption = undefined as any;

@@ -1,7 +1,8 @@
 import type { FilterGroup, ShelfFilter, ShelfSource } from '../../../../types'
 import type { SourceType } from './constants'
+import type { DiscountBadgeMode } from '../../../shelf/discountBadge'
 
-export type SourceOrder = { sort?: string | string[]; sortReverse?: boolean | boolean[] }
+export type SourceOrder = { sort?: string | string[]; sortReverse?: boolean | boolean[]; limit?: number; manualOrder?: number[] }
 
 export type EditableShelfState = {
   title: string
@@ -12,15 +13,9 @@ export type EditableShelfState = {
   builtinSourceId: string
   filter: ShelfFilter
   filterGroup: FilterGroup
-  // Multi-key sort: single-key shelves keep `string`, multi-key shelves
-  // hold an array of sort keys + per-key reverse flags (aligned indices).
   sort: string | string[]
   sortReverse: boolean | boolean[]
-  // The first source's own sort inside a composite sorted by "source order".
   primaryOrder?: SourceOrder
-  // Manual base sort accepts a string OR a multi-key chain — when sort
-  // is "manual", `manualOrder` overrides positions of specific games
-  // and the base order falls through to this chain.
   manualBaseSort: string | string[]
   manualBaseSortReverse: boolean | boolean[]
   limit: number
@@ -38,6 +33,8 @@ export type EditableShelfState = {
   logoSize: number
   logoTopOffset: number
   iconVerticalAlign: 'top' | 'center' | 'bottom'
+  discountBadgeMode: DiscountBadgeMode
+  discountBadgeFocusMode: DiscountBadgeMode | null
   shelfTitlePosition: 'left' | 'center' | 'right'
   gameNamePosition: 'left' | 'center' | 'right'
   playtimePosition: 'left' | 'center' | 'right'
@@ -62,7 +59,6 @@ export type EditableShelfState = {
   friendsPlayingOverlayRecent: boolean
   dedupeByExactName: boolean
   hiddenAppIds: number[]
-  // Context-aware shelf behaviours (generic to every shelf, not smart-only).
   autoPin?: any
   autoCollapse?: any
   autoCollapseWhenEmpty?: boolean
@@ -70,16 +66,8 @@ export type EditableShelfState = {
   excludeOwned: boolean
   excludeOwnedNonSteam: boolean
   hideOwnedNonSteamCloud: boolean
-  /* Extra sources stacked on top of the primary. When non-empty, the
-     shelf saves as `{ type: 'composite', combine, sources: [primary, ...additionalSources] }`.
-     Empty means the shelf is single-source (saves as the primary type
-     directly — back-compat with older clients). Forced empty when the
-     primary is `filter` (filter is exclusive — use filter merge instead). */
   compositeCombine: 'union' | 'intersection'
   additionalSources: ShelfSource[]
-  // Synthetic cards. Stored separately from `additionalSources`
-  // — these are decorations / placeholders / gaps interleaved at fixed
-  // slots, not source results.
   syntheticCards: Array<{
     position: number
     image?: string

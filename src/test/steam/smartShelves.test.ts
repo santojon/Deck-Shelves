@@ -116,23 +116,17 @@ describe('resolveSmartShelf', () => {
   })
 })
 
-// ── v2 heuristic templates (shipped in 2.4.0) ─────────────────────────────────
-
 describe('resolveSmartShelf — v2 heuristic templates (round 1)', () => {
   beforeEach(() => invalidateSmartShelfCache())
 
   it('backlog_rescue surfaces installed games with playtime > min and stale last_played', () => {
     const now = Math.floor(Date.now() / 1000)
-    const stale = now - 60 * 24 * 3600 // 60 days ago
+    const stale = now - 60 * 24 * 3600
     const fresh = now - 5 * 24 * 3600
     const apps: AppOverview[] = [
-      // installed + has playtime + stale → eligible
       app({ appid: 1, installed: true, playtime_forever: 120, last_played: stale, deck_compatibility_category: 3 }),
-      // installed but TOO RECENT → excluded
       app({ appid: 2, installed: true, playtime_forever: 120, last_played: fresh }),
-      // never played → excluded
       app({ appid: 3, installed: true, playtime_forever: 0, last_played: 0 }),
-      // not installed → excluded
       app({ appid: 4, installed: false, playtime_forever: 120, last_played: stale }),
     ]
     const ids = resolveSmartShelf('backlog_rescue', apps, 10, undefined, undefined, 's1')
@@ -177,20 +171,14 @@ describe('resolveSmartShelf — v2 heuristic templates (round 1)', () => {
   })
 })
 
-// ── Second-wave heuristic templates ─────────────────────────────────────────
-
 describe('resolveSmartShelf — second-wave heuristic templates', () => {
   beforeEach(() => invalidateSmartShelfCache())
 
   it('short_battery requires installed + small size + low playtime + Deck-friendly', () => {
     const apps: AppOverview[] = [
-      // installed + 2GB + 60min + Deck verified → eligible
       app({ appid: 1, installed: true, deck_compatibility_category: 3, playtime_forever: 60, ...({ size_on_disk: 2 * 1024 * 1024 * 1024 } as any) }),
-      // size too big (10GB > 4GB default) → excluded
       app({ appid: 2, installed: true, deck_compatibility_category: 3, playtime_forever: 60, ...({ size_on_disk: 10 * 1024 * 1024 * 1024 } as any) }),
-      // playtime too high (200min > 120min default) → excluded
       app({ appid: 3, installed: true, deck_compatibility_category: 3, playtime_forever: 200, ...({ size_on_disk: 2 * 1024 * 1024 * 1024 } as any) }),
-      // not installed → excluded
       app({ appid: 4, installed: false, deck_compatibility_category: 3, playtime_forever: 60, ...({ size_on_disk: 2 * 1024 * 1024 * 1024 } as any) }),
     ]
     const ids = resolveSmartShelf('short_battery', apps, 10)
@@ -204,11 +192,9 @@ describe('resolveSmartShelf — second-wave heuristic templates', () => {
     const apps: AppOverview[] = [
       app({ appid: 1, installed: true, deck_compatibility_category: 3, ...({ size_on_disk: 4 * 1024 * 1024 * 1024 } as any) }),
       app({ appid: 2, installed: true, deck_compatibility_category: 3, ...({ size_on_disk: 1 * 1024 * 1024 * 1024 } as any) }),
-      // 30GB > 5GB default → excluded
       app({ appid: 3, installed: true, deck_compatibility_category: 3, ...({ size_on_disk: 30 * 1024 * 1024 * 1024 } as any) }),
     ]
     const ids = resolveSmartShelf('travel_mode', apps, 10)
-    // Smallest first (1GB before 4GB), 3 excluded
     expect(ids).toEqual([2, 1])
   })
 
@@ -218,9 +204,9 @@ describe('resolveSmartShelf — second-wave heuristic templates', () => {
     const sixtyDaysAgo = now - 60 * 24 * 3600
     const apps: AppOverview[] = [
       app({ appid: 1, installed: true, playtime_forever: 0, last_played: 0, ...({ rt_purchased_time: tenDaysAgo } as any) }),
-      app({ appid: 2, installed: true, playtime_forever: 0, last_played: 0, ...({ rt_purchased_time: sixtyDaysAgo } as any) }), // too old
-      app({ appid: 3, installed: false, playtime_forever: 0, last_played: 0, ...({ rt_purchased_time: tenDaysAgo } as any) }), // not installed
-      app({ appid: 4, installed: true, playtime_forever: 30, last_played: 1, ...({ rt_purchased_time: tenDaysAgo } as any) }), // played
+      app({ appid: 2, installed: true, playtime_forever: 0, last_played: 0, ...({ rt_purchased_time: sixtyDaysAgo } as any) }),
+      app({ appid: 3, installed: false, playtime_forever: 0, last_played: 0, ...({ rt_purchased_time: tenDaysAgo } as any) }),
+      app({ appid: 4, installed: true, playtime_forever: 30, last_played: 1, ...({ rt_purchased_time: tenDaysAgo } as any) }),
     ]
     const ids = resolveSmartShelf('recent_hidden_installs', apps, 10)
     expect(ids).toEqual([1])
@@ -237,7 +223,7 @@ describe('resolveSmartShelf — second-wave heuristic templates', () => {
 
 describe('isInVisibilityWindow', () => {
   function at(hour: number, day = 1) {
-    const d = new Date(2026, 4, 4 + day, hour, 30, 0, 0) // base Mon 2026-05-04
+    const d = new Date(2026, 4, 4 + day, hour, 30, 0, 0)
     return d
   }
 
@@ -289,7 +275,6 @@ describe('isInVisibilityWindow', () => {
   })
 
   it('day-of-week filter restricts to listed days', () => {
-    // Monday
     const monday = new Date(2026, 4, 4, 12, 0, 0, 0)
     expect(isInVisibilityWindow(undefined, [1], monday)).toBe(true)
     expect(isInVisibilityWindow(undefined, [0, 6], monday)).toBe(false)
@@ -317,7 +302,6 @@ describe('nextVisibilityBoundary', () => {
   it('returns the next hour boundary when inside the window', () => {
     const now = new Date(2026, 4, 4, 10, 30, 0, 0)
     const next = nextVisibilityBoundary({ start: 9, end: 17 }, undefined, now)
-    // Next flip = 17:00 (out)
     expect(next).not.toBeNull()
     const nextDate = new Date(next!)
     expect(nextDate.getHours()).toBe(17)
@@ -332,7 +316,7 @@ describe('nextVisibilityBoundary', () => {
   })
 
   it('handles wrap-around windows', () => {
-    const now = new Date(2026, 4, 4, 23, 0, 0, 0) // inside 22→6
+    const now = new Date(2026, 4, 4, 23, 0, 0, 0)
     const next = nextVisibilityBoundary({ start: 22, end: 6 }, undefined, now)
     expect(next).not.toBeNull()
     const nextDate = new Date(next!)
@@ -340,9 +324,8 @@ describe('nextVisibilityBoundary', () => {
   })
 })
 
-// --- Visibility Rules v2 ---
-const MON = (h: number) => new Date(2026, 4, 4, h, 30, 0, 0) // base Mon 2026-05-04
-const SUN = (h: number) => new Date(2026, 4, 3, h, 30, 0, 0) // Sunday
+const MON = (h: number) => new Date(2026, 4, 4, h, 30, 0, 0)
+const SUN = (h: number) => new Date(2026, 4, 3, h, 30, 0, 0)
 
 describe('evalVisibilityRules', () => {
   it('no rules = no restriction (true)', () => {
@@ -358,9 +341,9 @@ describe('evalVisibilityRules', () => {
 
   it("'all' mode requires every rule; 'any' requires one", () => {
     const rules = [{ kind: 'timeWindow', start: 9, end: 17 }, { kind: 'dayOfWeek', days: [1] }]
-    expect(evalVisibilityRules({ mode: 'all', rules }, MON(12))).toBe(true)   // Mon + midday
-    expect(evalVisibilityRules({ mode: 'all', rules }, SUN(12))).toBe(false)  // Sun fails dayOfWeek
-    expect(evalVisibilityRules({ mode: 'any', rules }, SUN(12))).toBe(true)   // midday still matches
+    expect(evalVisibilityRules({ mode: 'all', rules }, MON(12))).toBe(true)
+    expect(evalVisibilityRules({ mode: 'all', rules }, SUN(12))).toBe(false)
+    expect(evalVisibilityRules({ mode: 'any', rules }, SUN(12))).toBe(true)
   })
 
   it('unknown rule kind is fail-open (neutral true)', () => {
@@ -370,11 +353,11 @@ describe('evalVisibilityRules', () => {
 
   it('not:true inverts a rule (inverse trigger)', () => {
     const tw = { mode: 'any' as const, rules: [{ kind: 'timeWindow', start: 9, end: 17, not: true }] }
-    expect(evalVisibilityRules(tw, MON(12))).toBe(false) // midday IS in window → inverted
-    expect(evalVisibilityRules(tw, MON(20))).toBe(true)  // evening is NOT → inverted
+    expect(evalVisibilityRules(tw, MON(12))).toBe(false)
+    expect(evalVisibilityRules(tw, MON(20))).toBe(true)
     const dow = { mode: 'any' as const, rules: [{ kind: 'dayOfWeek', days: [1], not: true }] }
-    expect(evalVisibilityRules(dow, MON(12))).toBe(false) // Monday matches → inverted
-    expect(evalVisibilityRules(dow, SUN(12))).toBe(true)  // Sunday doesn't → inverted
+    expect(evalVisibilityRules(dow, MON(12))).toBe(false)
+    expect(evalVisibilityRules(dow, SUN(12))).toBe(true)
   })
 })
 
@@ -392,7 +375,7 @@ describe('evalVisibility (routing)', () => {
 
   it('visibility.rules win over legacy fields', () => {
     const entry = { visibility: { mode: 'any', rules: [{ kind: 'timeWindow', start: 20, end: 22 }] }, visibleHours: [{ start: 9, end: 17 }] }
-    expect(evalVisibility(entry, MON(12))).toBe(false) // legacy would say true, rules say false
+    expect(evalVisibility(entry, MON(12))).toBe(false)
     expect(evalVisibility(entry, MON(21))).toBe(true)
   })
 
@@ -468,7 +451,6 @@ describe('profile triggers act only on evidence', () => {
   })
 
   it('an external-display rule never fires a trigger before the display probe has answered, while shelf visibility still fails open', () => {
-    // deviceState starts with external = null (not probed yet); nothing here refreshes it.
     const docked = { mode: 'any' as const, rules: [{ kind: 'externalDisplay' }] }
     const handheld = { mode: 'any' as const, rules: [{ kind: 'externalDisplay', not: true }] }
     expect(evalProfileTrigger(docked)).toBe(false)

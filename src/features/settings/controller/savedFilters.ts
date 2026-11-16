@@ -38,9 +38,6 @@ export function createSavedFilterActions(deps: SavedFilterDeps) {
       await persist({ ...s, savedFilters: next });
       notify("success", { body: i18next.t("toast_filter_renamed"), area: "filters" });
     },
-    // Mirrors saveFilter / deleteSavedFilter / renameSavedFilter shape so
-    // the QAM list and EditSmartShelfModal can manage the saved-smart-
-    // filter catalogue with the same vocabulary.
     async saveSmartFilter(name: string, payload: Omit<SavedSmartFilter, "id" | "name">): Promise<SavedSmartFilter | null> {
       const s = liveSettings();
       if (!s) return null;

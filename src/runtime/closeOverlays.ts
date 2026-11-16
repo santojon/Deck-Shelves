@@ -2,21 +2,12 @@ import { Navigation } from "./host/decky";
 import { getPreferredSteamDocument } from "./steamHost";
 import { steamTextSelectors } from "../steam/steamText";
 
-// Mutex between Quick Search and Side Nav: when one combo fires, the
-/* other suppresses its own raw-bus trigger for a short window. Without
-   this, holding L1 then quickly pressing R1 can match both L1+R1
-   (search) AND L1+L1 (sidenav) because their matchers share the L1
-   state. Either overlay calls `lockOverlay()` on open; the other reads
-   `isOverlayLocked()` to decide whether to skip its handler. */
+// Holding L1 then pressing R1 can match both combos, so the first overlay to open locks out the other.
 let overlayLockUntil = 0;
 const OVERLAY_LOCK_MS = 600;
 export function lockOverlay(): void { overlayLockUntil = Date.now() + OVERLAY_LOCK_MS; }
 export function isOverlayLocked(): boolean { return Date.now() < overlayLockUntil; }
 
-/* Selectors that flag the presence of an ambient overlay we want gone
-   before opening our own pill / panel. Steam routes QAM / side menus
-   through Navigation.CloseSideMenus(); context menus + modals own their
-   own portals and need a few frames to finish unmounting. */
 const OVERLAY_SELECTORS = [
   '[class*="contextMenu" i]',
   '[class*="ContextMenu" i]',
@@ -38,10 +29,7 @@ function ambientOverlayPresent(doc: Document): boolean {
   return false;
 }
 
-/* Most Steam modals carry a close button labelled with Steam's own "Close" /
-   "Cancel". The English words match inside a longer label; the user's language
-   only as the whole label, so a longer one like "Fechar jogo" (close the game)
-   is never pressed. */
+// Other languages match only the whole label, so a longer "close game" button is never pressed.
 export function dismissButtonSelector(): string {
   return [
     ...steamTextSelectors("closeButton", "aria-label", "contains", "", "english"),
@@ -61,16 +49,7 @@ function clickOverlayDismissButtons(doc: Document, selector: string): void {
   });
 }
 
-/* Best-effort close of QAM, Steam main menu, side menus, context menus
-   and most modal portals. Returns a Promise that resolves after the
-   overlays have finished unmounting (polls up to timeoutMs).
-
-   Important: do NOT synthesise an Escape key here — Steam's gamepad */
-/* layer interprets a bare Escape in BP as "open main menu", which is
-   the opposite of what we want when opening Quick Search / Side Nav.
-   Dismissing via Navigation.CloseSideMenus + clicking visible close
-   buttons covers QAM, Steam main menu, side menus and most context
-   menus without that side effect. */
+// Never synthesise Escape here: in Big Picture a bare Escape opens the main menu.
 export function closeAmbientOverlays(timeoutMs: number = 1200): Promise<void> {
   const doc = getPreferredSteamDocument() ?? document;
   const selector = dismissButtonSelector();

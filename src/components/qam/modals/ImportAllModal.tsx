@@ -13,7 +13,6 @@ import { saveSettings, getCurrentSettings, migrate, createPreImportSnapshot } fr
 import { ImportFileStatus, useImportRead } from "./ImportFileStatus";
 import type { ImportRead } from "../../../features/settings/importFile";
 
-// Why an import of everything cannot run: no file, not an export, or nothing in it (never "failed to save").
 function importAllProblem(read: ImportRead | null): string {
   if (read?.kind === "empty") return "import_error_empty_all";
   return read?.kind === "invalid" ? "import_error_invalid" : "import_error_not_found";
@@ -33,8 +32,6 @@ export function ImportAllModal({ closeModal, controller, initialPath }: { closeM
   const [name, setName] = useState(init.base);
   const path = joinPath(folder, name);
   const [browseBusy, setBrowseBusy] = useState(false);
-  // The picked file, checked on every path change so the toggle list always
-  // reflects what's available in it (and the header says why when nothing is).
   const read = useImportRead(path, "all");
   const payload = read?.kind === "ok" ? read.payload : null;
   const present = useMemo(() => (payload ? detectCategoriesInPayload(payload) : new Set<string>()), [payload]);
@@ -57,7 +54,6 @@ export function ImportAllModal({ closeModal, controller, initialPath }: { closeM
 
   const header = (
     <div style={{ display: "flex", flexDirection: "column", gap: 8, paddingBottom: 8 }}>
-      {/* Picking the file comes first: the name below is only a suggestion. */}
       <DialogButton autoFocus onClick={browse} onOKButton={browse}>{browseBusy ? t("loading") : t("import_choose_file" as any)}</DialogButton>
       <div>
         <div style={{ paddingBottom: 4 }}>{t("file_name")}</div>
@@ -81,8 +77,7 @@ export function ImportAllModal({ closeModal, controller, initialPath }: { closeM
           notify("error", { body: (t as any)(importAllProblem(read), { path }) });
           return;
         }
-        // Safety net before the merge overwrites live settings — best-effort,
-        // never blocks the import itself.
+        // Best-effort snapshot before the merge; it never blocks the import.
         await createPreImportSnapshot();
         const merged = mergeCategoriesIntoSettings(cur, payload, selectedIds);
         const next = migrate(merged);

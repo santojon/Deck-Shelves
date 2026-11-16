@@ -11,7 +11,6 @@ export interface PageHeaderProps {
   title: string;
   onBack: () => void;
   trailing?: React.ReactNode;
-  /** Which route is active — used to dim the matching icon button. */
   active?: "about" | "settings";
 }
 
@@ -37,9 +36,6 @@ function goSettings() {
 }
 
 export function PageHeader({ title, onBack, trailing, active }: PageHeaderProps) {
-  // Update affordance next to the page-switch icons — same flow as the QAM
-  // banner button + the update toast: download the release .zip to ~/Downloads
-  // for manual install. Cached check, so no network hit on a recent probe.
   const [update, setUpdate] = useState<UpdateCheckResult | null>(null);
   useEffect(() => {
     let cancelled = false;

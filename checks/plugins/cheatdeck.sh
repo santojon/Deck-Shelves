@@ -22,8 +22,7 @@ run_checks() {
     ((pass++))
   fi
 
-  # Badge portal uses top stacking via createPortal to <body> — outside
-  # CheatDeck overlay scope. Exempt only that legit usage via 4-line context.
+  # The badge portal renders into <body> outside the overlay scope, so that use is exempt.
   local high_z
   high_z=$(grep -roB4 'zIndex\s*[:=]\s*"?[0-9]\+' "$src" 2>/dev/null \
     | grep -B4 -E 'zIndex\s*[:=]\s*"?[0-9]+' \
@@ -59,9 +58,7 @@ run_checks() {
     ((fail++))
   fi
 
-  # Match `.Apps.` but skip: JSDoc/C-style comment lines (leading whitespace + `*`),
-  # single-line comment lines (`//` before the occurrence), and any line that already
-  # uses optional chaining anywhere (`?.`).
+  # Skip comment lines and lines that already use optional chaining.
   if grep -rn '\.Apps\.' "$src" 2>/dev/null \
       | grep -Ev ':[[:space:]]*\*( |/|\*)' \
       | grep -Ev ':[[:space:]]*//' \

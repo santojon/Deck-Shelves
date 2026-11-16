@@ -7,12 +7,6 @@ import smartShelves from "../fixtures/v2.0.0/smart-shelves.json";
 import manyShelves from "../fixtures/v2.0.0/many-shelves.json";
 import customFilters from "../fixtures/v2.0.0/custom-filters.json";
 
-/* Golden fixtures captured against the real v2.0.0 schema (SettingsSchema at
-   git tag v2.0.0, before `schemaVersion` existed) — a store-upgrade regression
-   test for the exact failure mode that once wiped a user's real shelves (see
-   the settings-wipe incident): a document that parses fine on disk must never
-   lose shelves/smart shelves/saved filters when the CURRENT normalize/migrate
-   pipeline runs on it, no matter how old or unusual its shape. */
 const FIXTURES = {
   minimal,
   complex,

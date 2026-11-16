@@ -1,8 +1,6 @@
 import { type SteamCollectionLike, type SteamCollectionStore, steamCollectionStore } from "./internals";
 import { getSteamWindows } from "./steamAccess";
 
-/* Steam collections, by id only: the list for the editor, a collection's effective apps, and removing an app from one. */
-
 export type SteamCollection = { id: string; name: string; isDynamic: boolean };
 
 export function normalizeText(value: string): string {
@@ -25,7 +23,7 @@ function collectionStores(): SteamCollectionStore[] {
   return [...out];
 }
 
-// Steam builds the system collections after boot; a system getter read before that throws inside the store.
+// Steam builds system collections after boot; reading one earlier throws inside the store.
 function storeReady(cs: SteamCollectionStore): boolean {
   try { return !!(cs.allAppsCollection ?? cs.allGamesCollection)?.apps; } catch { return false; }
 }
@@ -47,7 +45,7 @@ function storageMap(cs: SteamCollectionStore): Map<string, SteamCollectionLike> 
   return m && typeof m.get === "function" ? m : null;
 }
 
-// The id as saved, and decoded when an older save URL-encoded it.
+// Older saves URL-encoded the id.
 function idCandidates(raw: string): string[] {
   const base = String(raw ?? "").trim();
   if (!base) return [];
@@ -75,7 +73,6 @@ function findCollection(rawId: string): SteamCollectionLike | null {
   return null;
 }
 
-// The apps the collection holds now, dynamic ones included; ids the library no longer has are not members.
 function appIdsOf(c: SteamCollectionLike): number[] {
   const apps = c.allApps ?? c.visibleApps ?? [];
   const out = new Set<number>();
@@ -91,7 +88,6 @@ function systemExtras(cs: SteamCollectionStore): SteamCollectionLike[] {
   try { return [cs.localGamesCollection].filter((c): c is SteamCollectionLike => !!c); } catch { return []; }
 }
 
-/** Every collection the client stores, plus the installed-games one, each once. */
 export async function listCollections(): Promise<SteamCollection[]> {
   for (const cs of collectionStores()) {
     const out = new Map<string, SteamCollection>();
@@ -105,7 +101,6 @@ export async function listCollections(): Promise<SteamCollection[]> {
   return [];
 }
 
-/** The apps of every dynamic collection the client stores, together. */
 export function dynamicCollectionAppIds(): Set<number> {
   const out = new Set<number>();
   for (const cs of collectionStores()) {
@@ -116,7 +111,6 @@ export function dynamicCollectionAppIds(): Set<number> {
   return out;
 }
 
-/** The collection's current app ids; null when no store knows the id. */
 export async function getCollectionApps(collectionId: string): Promise<number[] | null> {
   const found = findCollection(collectionId);
   return found ? appIdsOf(found) : null;

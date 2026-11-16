@@ -4,9 +4,6 @@ import type { SettingsController } from '../../../features/settings/controller'
 import { ModalShell } from '../../ui'
 import { textFromDeckyChange } from './modalUtils'
 
-/* One rename dialog for every renameable entity (saved filter, saved smart
-   filter, profile): a title field, Save on OK / Menu, no-op when the name is
-   empty or unchanged. `onRename` receives the trimmed new name. */
 export function RenameModal({ closeModal, controller, title, currentName, onRename }: {
   closeModal?: () => void
   controller: SettingsController

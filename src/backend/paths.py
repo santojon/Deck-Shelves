@@ -40,9 +40,7 @@ def _steam_install_candidates() -> List[str]:
             os.path.expanduser("~/.var/app/com.valvesoftware.Steam/data/Steam"),
         ]
     elif sys.platform == "win32":
-        # Most authoritative: Steam records its install dir in the registry,
-        # so a non-default drive (e.g. D:\Games\Steam) still resolves where
-        # the ProgramFiles guesses below would miss it.
+        # The registry install dir catches a non-default drive the ProgramFiles guesses would miss.
         candidates += _windows_registry_steam_roots()
         for env in ("ProgramFiles(x86)", "ProgramFiles", "ProgramW6432"):
             base = os.environ.get(env)
@@ -53,10 +51,7 @@ def _steam_install_candidates() -> List[str]:
             candidates.append(os.path.join(appdata, "Steam"))
     elif sys.platform == "darwin":
         candidates.append(os.path.expanduser("~/Library/Application Support/Steam"))
-    # Always include the home-relative POSIX fallback as a final attempt
-    # so unconventional layouts still resolve when present.
     candidates.append(os.path.expanduser("~/.local/share/Steam"))
-    # Order-preserving de-dupe so registry/env paths keep their priority.
     seen: set = set()
     out: List[str] = []
     for c in candidates:
@@ -72,7 +67,7 @@ def _windows_registry_steam_roots() -> List[str]:
         return []
     roots: List[str] = []
     try:
-        import winreg  # Windows-only stdlib
+        import winreg
         for hive, sub, val in (
             (winreg.HKEY_CURRENT_USER, r"Software\Valve\Steam", "SteamPath"),
             (winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\WOW6432Node\Valve\Steam", "InstallPath"),
@@ -127,9 +122,7 @@ def _normalize_path(path: Any, *, reject_symlinks: bool = False) -> str:
                 return ""
         except Exception:
             return ""
-    # Confine to the user's home directory. Realpath collapses `..` so a
-    # traversal like `~/../../../etc/passwd` resolves to `/etc/passwd` and
-    # gets rejected here. Absolute system paths fall into the same branch.
+    # Confine to the home directory; realpath collapses .. traversal before the check.
     home = os.path.realpath(os.path.expanduser("~"))
     if resolved != home and not resolved.startswith(home + os.sep):
         return ""
@@ -143,7 +136,7 @@ def _validate_json_export_path(path: Any, allowed_roots: List[str]) -> str:
     `.json`, and must resolve under one of `allowed_roots` (the plugin's
     own settings directory/ies, or a standard user folder such as
     Downloads/Desktop/Documents — never an arbitrary dotfile or config
-    path like `~/.ssh/id_rsa` or `~/.config/autostart/x.desktop`).
+    path such as a key under `~/.ssh` or `~/.config/autostart/x.desktop`).
     Returns "" on any violation."""
     resolved = _normalize_path(path, reject_symlinks=True)
     if not resolved or not resolved.lower().endswith(".json"):

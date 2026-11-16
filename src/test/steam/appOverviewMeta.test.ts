@@ -1,8 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { normalizeAppOverview } from "../../steam/appOverview";
 
-// The client's overview, as read on a Steam Deck: the size is a string, the
-// review percentage a getter, the original release date often 0 with the Steam one set.
 function clientOverview(extra: Record<string, unknown> = {}) {
   const raw: Record<string, unknown> = {
     appid: 440, display_name: "A game", sort_as: "a game", app_type: 1,

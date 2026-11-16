@@ -24,7 +24,7 @@
   "update_installing": "正在安裝更新 {{version}}…",
   "update_installed": "已更新到 {{version}}。",
   "update_install_failed": "安裝失敗 — 正在改為下載。",
-  "update_install_busy": "主機仍在檢查更新 — 請稍後再試。",
+  "update_install_busy": "仍在檢查更新 — 請稍後再試。",
   "update_downloading": "正在下載更新 {{version}}…",
   "update_downloaded": "已儲存至 {{path}} — 請手動安裝。",
   "update_download_failed": "下載失敗 — 改為開啟發佈頁面。",

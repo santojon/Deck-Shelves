@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { readJsonFile } from '../../../settingsStore'
 import { readImportFile, type ImportRead, type ImportScope } from '../../../features/settings/importFile'
 
-// The file an import would read, checked whenever the path changes (null while checking).
 export function useImportRead(path: string, scope: ImportScope): ImportRead | null {
   const [read, setRead] = useState<ImportRead | null>(null)
   useEffect(() => {
@@ -21,7 +20,6 @@ const STATUS_KEY: Record<ImportRead['kind'], string> = {
   empty: 'import_status_empty',
 }
 
-// The full path and whether it can be imported, shown before the user confirms.
 export function ImportFileStatus({ path, read, t }: { path: string; read: ImportRead | null; t: (key: string) => string }) {
   const ok = read?.kind === 'ok'
   const mark = read ? (ok ? '✓' : '✗') : '…'

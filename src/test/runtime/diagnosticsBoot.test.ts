@@ -31,11 +31,10 @@ describe("startup watchdog verdict", () => {
   let uninstall: ReturnType<typeof vi.fn<() => void>>;
   let patch: { uninstall: () => void };
   beforeEach(() => {
-    // Only the timers: a faked performance clock starts at 0, which `measure` reads as "no mark".
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     __resetPerfMetricsForTest();
     markBootStart();
-    recordBootCritical(); // the watchdog's checks run after the critical path
+    recordBootCritical();
     uninstall = vi.fn<() => void>();
     patch = { uninstall };
   });
@@ -50,7 +49,6 @@ describe("startup watchdog verdict", () => {
   it("says so when the only mount it sees belongs to an earlier instance", () => {
     markMountStart();
     recordMountDone();
-    // The plugin is reloaded in the same session and this boot's Home never mounts.
     markBootStart();
     recordBootCritical();
     installStartupWatchdog(patch, null);

@@ -1,12 +1,11 @@
 import { devStamp } from "../../runtime/devStamps";
 import { forwardRef, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Focusable } from "../../runtime/host/decky";
+import { Focusable, findModule } from "../../runtime/host/decky";
 import { getCurrentSettings, subscribeSettings } from "../../settingsStore";
 import { getExternalSideMenuProviders, type SideMenuContext, type SideMenuEntry, type SideMenuProviderDescriptor } from "../../core/pluginApi";
 import type { Settings, Shelf, SmartShelf } from "../../types";
 import { focusElement, focusElementAuto } from "../../core/focusRestore";
-import { subscribeFocusedCard } from "../../runtime/focusedCardTracker";
 import { GamepadButton, dispatchHomeButtonDown, subscribeHomeButton, subscribeHomeKey } from "../../runtime/homeInputBus";
 import { createMatcherState, matchEvent, parseCombo, parseRawCombo, resolveBindings } from "../../runtime/buttonBindings";
 import { resolveKeyboardBindings, parseKeyCombo, matchKeyEvent, createKeyMatcherState, isEditableKeyTarget } from "../../runtime/keyboardBindings";
@@ -25,50 +24,10 @@ type Anchor = {
   focusedAppid: number | null;
 };
 
-// Light mode strips advanced features (battery); the master "enabled" off
-// makes the home behave as if the plugin isn't there. Both suppress the nav.
 function sideNavGate(settings: Settings | null): { lightMode: boolean; enabled: boolean } {
   const s = settings as any;
   const lightMode = s?.lightModeEnabled === true;
   return { lightMode, enabled: s?.enabled === true && !lightMode && s?.sideNavEnabled === true };
-}
-
-// Dev-hook anchor resolution: prefer the explicit args, fall back to the
-// last-focused card, then (for the shelf) the first DS shelf in the DOM.
-function resolveDevSidenavAnchor(
-  shelfId: string | undefined,
-  appid: number | undefined,
-  lastFirstCard: { shelfId: string; appid: number | null } | null,
-): Anchor | null {
-  const sid = shelfId ?? lastFirstCard?.shelfId ?? firstDomShelfId();
-  if (!sid) return null;
-  const aidRaw = appid ?? lastFirstCard?.appid ?? null;
-  return { shelfId: sid, focusedAppid: Number.isFinite(aidRaw as number) ? (aidRaw as number) : null };
-}
-
-function firstDomShelfId(): string | undefined {
-  const doc = getPreferredSteamDocument() ?? document;
-  return doc.querySelector<HTMLElement>(".ds-shelf[data-shelfid]")?.getAttribute("data-shelfid") ?? undefined;
-}
-
-export type LastFocusedCard = { shelfId: string; appid: number | null };
-
-/* The last card focused on any DS shelf, fed by the shared focused-card poll
-   (one timer for every subscriber, held while a game runs) instead of a class
-   observer over the whole Big Picture body. The `gpfocus` read covers a mouse
-   or hover focus the nav tree does not report. */
-export function watchLastFocusedCard(doc: Document, onCard: (card: LastFocusedCard) => void): () => void {
-  const update = (focusedCard: HTMLElement | null) => {
-    const focused = focusedCard?.hasAttribute("data-appid") ? focusedCard : doc.querySelector<HTMLElement>(".gpfocus[data-appid]");
-    if (!focused) return;
-    const appidAttr = focused.getAttribute("data-appid");
-    const appid = appidAttr ? Number(appidAttr) : null;
-    const shelfId = focused.closest<HTMLElement>("[data-shelfid]")?.getAttribute("data-shelfid") ?? null;
-    if (!shelfId) return;
-    onCard({ shelfId, appid: Number.isFinite(appid) ? appid : null });
-  };
-  update(null);
-  return subscribeFocusedCard(update);
 }
 
 function readGamepadButton(evt: any): number | null {
@@ -79,9 +38,7 @@ function safeInvoke(obj: any, method: string): void {
   try { obj?.[method]?.(); } catch {}
 }
 
-/* Absorb the event so Steam's NavTree doesn't ALSO process it and scroll
-   the background mount. preventDefault alone isn't enough — Steam's
-   listener runs in capture; stopImmediate blocks the rest of the chain. */
+// Steam's listener runs in capture, so preventDefault alone doesn't stop the NavTree.
 function absorbGamepadEvent(evt: any): void {
   safeInvoke(evt, "preventDefault");
   safeInvoke(evt, "stopPropagation");
@@ -95,7 +52,6 @@ function currentSidenavFocusedElement(panelDoc: Document | null | undefined): HT
   return panelDoc?.querySelector<HTMLElement>(".ds-sidenav-overlay .gpfocus") ?? (panelDoc?.activeElement as HTMLElement | null) ?? null;
 }
 
-// Which row (by index in `keys`) currently holds focus, or -1.
 function findFocusedRowIndex(keys: string[], rowRefs: Map<string, HTMLDivElement>, focused: HTMLElement | null): number {
   for (let i = 0; i < keys.length; i++) {
     const el = rowRefs.get(keys[i]);
@@ -109,9 +65,7 @@ function wrapFocusToRow(rowRefs: Map<string, HTMLDivElement>, keys: string[], ta
   if (el) { focusElement(el); absorb(); }
 }
 
-/* DPAD up/down at the panel's boundaries naturally tries to escape into the
-   home tree, stranding the user — wrap focus back to the other end instead.
-   Interior presses still absorb so the home mount doesn't auto-scroll. */
+// Wrap at the ends instead of letting focus escape into the Home.
 function handleVerticalBoundaryWrap(dir: number | null, rowRefs: Map<string, HTMLDivElement>, panelDoc: Document | null | undefined, absorb: () => void): void {
   if (dir !== GamepadButton.DIR_DOWN && dir !== GamepadButton.DIR_UP) return;
   const keys = Array.from(rowRefs.keys());
@@ -123,22 +77,17 @@ function handleVerticalBoundaryWrap(dir: number | null, rowRefs: Map<string, HTM
 }
 
 export function ShelfSideNav() {
-  try { (globalThis as any).__ds_sidenav_mounted = (((globalThis as any).__ds_sidenav_mounted ?? 0) + 1); } catch {}
   const [anchor, setAnchor] = useState<Anchor | null>(null);
   const [settings, setSettings] = useState<Settings | null>(() => getCurrentSettings());
 
   useEffect(() => subscribeSettings(setSettings), []);
 
-  // Home stays mounted while a game runs (no route change) — suspend the
-  // body-wide focus observer and the open-chord listeners entirely during
-  // that window, same signal the home-reconcile path already uses.
+  // The Home stays mounted while a game runs, so the listeners pause then.
   const [gameRunning, setGameRunning] = useState(() => getSessionState().gameRunning);
   useEffect(() => subscribeSessionState(() => setGameRunning(getSessionState().gameRunning)), []);
 
-  // Light mode / master-off both hide the side nav (see sideNavGate).
   const { enabled } = sideNavGate(settings);
 
-  const lastFirstCardRef = useRef<{ shelfId: string; appid: number | null } | null>(null);
   const lastOpenAtRef = useRef(0);
   const priorFocusRef = useRef<HTMLElement | null>(null);
   const enabledRef = useRef<boolean>(enabled);
@@ -162,40 +111,6 @@ export function ShelfSideNav() {
   };
 
   useEffect(() => {
-    if (!enabled || gameRunning) return;
-    const doc = getPreferredSteamDocument() ?? document;
-    // Track the LAST focused card on any DS shelf so the side menu can
-    // remember which shelf the user was browsing when they triggered it.
-    return watchLastFocusedCard(doc, (card) => { lastFirstCardRef.current = card; });
-  }, [enabled, gameRunning]);
-
-  /* Dev-only screenshot hook: opens the side nav without a real gamepad
-     chord (SteamClient.Input can't be driven over CDP). Resolves the anchor
-     from the last-focused card, an explicit shelfId arg, or the first DS
-     shelf in the DOM. Stripped from release builds via `if (!__DEV__)`. */
-  useEffect(() => {
-    if (!__DEV__) return;
-    const g = globalThis as any;
-    const open = (shelfId?: string, appid?: number) => {
-      const next = resolveDevSidenavAnchor(shelfId, appid, lastFirstCardRef.current);
-      if (!next) return false;
-      setAnchor(next);
-      return true;
-    };
-    const closeHook = () => setAnchor(null);
-    g.__ds_dev_open_sidenav = open;
-    g.__ds_dev_close_sidenav = closeHook;
-    // A remounted Home registers before the old root's cleanup runs; only remove our own.
-    return () => {
-      try {
-        if (g.__ds_dev_open_sidenav === open) delete g.__ds_dev_open_sidenav;
-        if (g.__ds_dev_close_sidenav === closeHook) delete g.__ds_dev_close_sidenav;
-      } catch {}
-    };
-  }, []);
-
-  useEffect(() => {
-    try { (globalThis as any).__ds_sidenav_enabled = enabled; } catch {}
     if (!enabled || gameRunning) return;
     const tryOpen = () => {
       if (anchor || !isHomeRoute()) return;
@@ -223,18 +138,13 @@ export function ShelfSideNav() {
         tryOpen();
       }
     });
-    /* Parallel raw stream so the combo fires regardless of where focus
-       sits (QAM, Steam menu, context menu, native recents). Decky's
-       home-button bus only fires when a DS card holds focus; the raw bus
-       listens globally. `tryOpen` debounces so the two paths can both
-       fire without double-opening. */
+    // Decky's button bus only fires while one of our cards has focus, so also listen to the raw stream.
     const unsubRaw = subscribeControllerInput((e) => {
       if (!enabledRef.current || !e.pressed) return;
       const navSideNav = resolveBindings(getCurrentSettings()?.buttonBindings as any, (getCurrentSettings() as any)?.buttonBindingsDisabled).navSideNav;
       if (!navSideNav) return;
       if (matchEvent({ button: e.button }, parseRawCombo(navSideNav), rawMatcherState)) tryOpen();
     });
-    // Keyboard equivalent — independent trigger, same debounce via tryOpen.
     const keyMatcherState = createKeyMatcherState();
     const unsubKey = subscribeHomeKey((e) => {
       if (!enabledRef.current || isEditableKeyTarget(e.tag)) return;
@@ -246,8 +156,7 @@ export function ShelfSideNav() {
   }, [anchor, enabled, gameRunning]);
 
   if (!enabled || !anchor || !settings) return null;
-  // Inline render (no portal) keeps the overlay inside Steam's NavTree
-  // so B closes it via `onCancelButton`.
+  // Rendered inline (no portal) so B closes it through the NavTree.
   return (
     <SideNavShell
       anchor={anchor}
@@ -259,10 +168,6 @@ export function ShelfSideNav() {
 
 interface UnifiedShelf { id: string; title: string }
 
-/* Resolve which shelf the sidenav should anchor to, based on the
-   currently-focused element. DS card → its shelf; native recents card →
-   NATIVE_RECENTS_ID; nothing focused → first visible shelf (DOM, then
-   settings fallback). */
 function shelfIdForFocused(doc: Document, focused: HTMLElement): string | null {
   const card = focused.closest<HTMLElement>(".ds-card");
   const shelfEl = (card ?? focused).closest<HTMLElement>(".ds-shelf[data-shelfid]");
@@ -307,12 +212,7 @@ function firstVisibleShelfFromSettings(): string | null {
   return visibleSmart.length > 0 ? visibleSmart[0].id : null;
 }
 
-// Settings-derived shelf list, used when the BP DOM isn't readable yet.
-/* Mirrors the home's interleave / normal-first ordering.
-   BTakeFocus registers with Steam's NavTree but scrolls the home (the
-   sidenav Focusables are indexed in the home scroll container even though
-   the panel is position:fixed). Save + restore scroll (sync + rAF) so the
-   home viewport stays put. */
+// BTakeFocus scrolls the Home even for the fixed panel, so restore the scroll position.
 function focusRowPreservingScroll(el: HTMLElement, isCancelled: () => boolean): void {
   const doc = el.ownerDocument;
   const savedTop = doc?.documentElement?.scrollTop ?? 0;
@@ -346,18 +246,11 @@ function shelvesFromSettings(settings: Settings): UnifiedShelf[] {
 function SideNavShell({ anchor, settings, onClose }: { anchor: Anchor; settings: Settings; onClose: () => void }) {
   const { t } = useTranslation();
 
-  /* Source of truth: the actual rendered DOM. Sorting by visual `top`
-     honours CSS `order` (interleave), and the data-shelfid filter limits
-     us to DS shelves currently mounted on the home — so we list EXACTLY
-     what the user sees, in the order they see it. Falls back to a
-     settings-derived list if the BP DOM isn't readable yet. */
+  // Sorting by on-screen top honours CSS `order`.
   const computedShelves = useMemo(() => {
     const doc = getPreferredSteamDocument();
-    // Gate on hideRecents: when the user explicitly hid the native
-    // recents row, don't show it regardless of what the DOM contains.
-    const nativeEntry = settings.hideRecents === true
-      ? null
-      : readNativeRecentsEntry(doc, t("sidenav_recents_fallback_label"));
+    // Steam's row is listed whenever it is on screen: its own recent games, or a shelf shown there instead.
+    const nativeEntry = readNativeRecentsEntry(doc, t("sidenav_recents_fallback_label"));
     const fromDom = readVisibleShelvesFromDom();
     const base = fromDom.length > 0 ? fromDom : shelvesFromSettings(settings);
     return nativeEntry ? [nativeEntry, ...base] : base;
@@ -368,13 +261,10 @@ function SideNavShell({ anchor, settings, onClose }: { anchor: Anchor; settings:
     settings.smartShelvesEnabled,
     settings.smartShelvesAtBottom,
     settings.hideRecents,
+    settings.recentsReplaceSource,
   ]);
 
-  /* Freeze the row list at first paint so async shelf re-resolves
-     (composite online sources that finish loading after sidenav open)
-     don't shuffle row positions under the user's focus. Captures the
-     first non-empty list and never updates within a single sidenav
-     session. */
+  // Frozen at first paint so late shelves don't shuffle rows under focus.
   const frozenShelvesRef = useRef<UnifiedShelf[] | null>(null);
   if (frozenShelvesRef.current == null && computedShelves.length > 0) {
     frozenShelvesRef.current = computedShelves;
@@ -385,22 +275,10 @@ function SideNavShell({ anchor, settings, onClose }: { anchor: Anchor; settings:
   const [pluginEntries, setPluginEntries] = useState<SideMenuEntry[]>([]);
   const [focusedKey, setFocusedKey] = useState<string | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
-  /* Map of shelfId → row element. A callback ref attached to every row
-     populates this; the focus effect looks up by anchor.shelfId. Robust
-     when the current shelf IS the first (the previous conditional ref
-     double-attribution left firstBtnRef empty in that case). */
   const rowRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const firstShelfIdRef = useRef<string | null>(null);
 
-  /* Push NavTree focus into the user's current shelf row (or the first
-     row as fallback) after Steam settles the new Focusable tree.
-     Drive focus into the target row after the NavTree has indexed the
-     new Focusable children. We use el.focus({ preventScroll: true }) */
-  /* rather than focusElement (BTakeFocus) because BTakeFocus on a
-     position:fixed panel node triggers a home-scroll since Steam
-     translates the viewport rect back to scroll-container coords.
-     Plain .focus() hands control to Decky's Focusable which registers
-     with the gamepad tree without scrolling the parent doc. */
+  // Plain focus() instead of BTakeFocus, which scrolls the Home for a fixed panel.
   useEffect(() => {
     let cancelled = false;
     const targetId = anchor.shelfId;
@@ -422,9 +300,7 @@ function SideNavShell({ anchor, settings, onClose }: { anchor: Anchor; settings:
   useEffect(() => {
     let alive = true;
     const providers = getExternalSideMenuProviders();
-    // A provider's `resolve()` may throw synchronously (not just reject) —
-    // wrapping the call itself, not just its promise, keeps one bad
-    // provider from breaking every entry in the side menu.
+    // resolve() may throw synchronously, not just reject.
     const safeResolve = (p: SideMenuProviderDescriptor): Promise<SideMenuEntry[]> => {
       try { return Promise.resolve(p.resolve(ctx)).catch(() => [] as SideMenuEntry[]); }
       catch { return Promise.resolve([] as SideMenuEntry[]); }
@@ -438,9 +314,7 @@ function SideNavShell({ anchor, settings, onClose }: { anchor: Anchor; settings:
   }, [anchor.shelfId, anchor.focusedAppid]);
 
   const jumpToShelf = (shelfId: string) => {
-    // The home root lives in BP — `document.querySelector` here would
-    // be SharedJSContext's empty document. Walk the preferred Steam
-    // doc to find the real card.
+    // The Home lives in the Big Picture document, not this one.
     const doc = getPreferredSteamDocument() ?? document;
     onClose();
     if (shelfId === NATIVE_RECENTS_ID) {
@@ -455,13 +329,6 @@ function SideNavShell({ anchor, settings, onClose }: { anchor: Anchor; settings:
     }
   };
 
-  // Auto-close after 5s of no user interaction (focus / button / scroll).
-  // Auto-close after 30s of no interaction. The 5s timer was too
-  /* aggressive — it fired before focus settled (especially during the
-     BTakeFocus + scroll-restore window, ~350ms). The drift-close
-     (focusout listener) was even worse: el.focus() at 80ms causes a
-     focusout on the previous element, which fired the 120ms close
-     timer before BTakeFocus at 250ms had a chance to stabilise focus. */
   const idleTimerRef = useRef<number | null>(null);
   const resetIdleTimer = () => {
     if (idleTimerRef.current != null) window.clearTimeout(idleTimerRef.current);
@@ -484,8 +351,6 @@ function SideNavShell({ anchor, settings, onClose }: { anchor: Anchor; settings:
       style={{
         position: "fixed",
         inset: 0,
-        // Deeper black wash with stronger blur so the column sits over
-        // a really dark backdrop — easier to read at any home wallpaper.
         background: "linear-gradient(to right, rgba(0,0,0,0.78) 0%, rgba(0,0,0,0.55) 38%, rgba(0,0,0,0) 62%)",
         backdropFilter: "blur(6px)",
         WebkitBackdropFilter: "blur(6px)",
@@ -511,7 +376,6 @@ function SideNavShell({ anchor, settings, onClose }: { anchor: Anchor; settings:
           resetIdleTimer();
           const absorb = () => absorbGamepadEvent(evt);
           const dir = readGamepadButton(evt);
-          // Right exits the panel — close so the overlay doesn't linger.
           try {
             if (dir === GamepadButton.DIR_RIGHT) { absorb(); onClose(); return; }
           } catch {}
@@ -522,14 +386,12 @@ function SideNavShell({ anchor, settings, onClose }: { anchor: Anchor; settings:
         onSecondaryActionDescription={t("close" as any) || "Close"}
         onClick={(e: any) => e.stopPropagation()}
         style={{
-          // Tighter column anchored to the left. Dimensions in vw / vh
-          // / rem so the panel scales across handheld, docked TV, 4K.
           width: "clamp(180px, 22vw, 280px)",
-          marginLeft: "1vw",
+          marginLeft: 0,
           maxHeight: "78vh",
           display: "flex",
           flexDirection: "column",
-          gap: "0.15rem",
+          gap: 0,
           overflowY: "auto",
           padding: "0.2rem 0",
         }}
@@ -545,12 +407,7 @@ function SideNavShell({ anchor, settings, onClose }: { anchor: Anchor; settings:
                 key={s.id}
                 label={s.title}
                 active={isCurrent}
-                // preferredFocus intentionally OFF — Steam's BTakeFocus
-                /* triggered by preferredFocus scrolls the home viewport
-                   because the sidenav Focusables are indexed relative to
-                   the home scroll container even though the panel is
-                   position:fixed. We drive focus explicitly via the
-                   focus-restore effect (tryAt delays) instead. */
+                // preferredFocus would scroll the Home; the restore effect drives focus instead.
                 preferredFocus={false}
                 focused={focusedKey === s.id}
                 onActivate={() => jumpToShelf(s.id)}
@@ -596,36 +453,48 @@ function SideNavShell({ anchor, settings, onClose }: { anchor: Anchor; settings:
   );
 }
 
-// Dark-tinted focus palette: black gradient + a theme-coloured edge bar
-// (Steam's --gpSystemLighter; falls back to a muted neutral so it still
-// works on themes that don't define the var).
-function buttonRowStyle(focused: boolean, disabled: boolean): React.CSSProperties {
+type PageListClasses = { item: string; scaled: string; title: string; icon: string };
+let pageListClasses: PageListClasses | null | undefined;
+
+// Steam's own Settings list classes: the client draws focus, hover and scale, and themes that restyle that list reach these rows.
+function steamPageListClasses(): PageListClasses | null {
+  if (pageListClasses !== undefined) return pageListClasses;
+  pageListClasses = null;
+  try {
+    const m: any = findModule((mod: any) => typeof mod?.PagedSettingsDialog_PageListItem === "string" && typeof mod?.ScaledChildren === "string" && "EnterActive" in mod);
+    if (m) pageListClasses = { item: m.PagedSettingsDialog_PageListItem, scaled: m.ScaledChildren, title: m.PageListItem_Title ?? "", icon: m.PageListItem_Icon ?? "" };
+  } catch {}
+  return pageListClasses;
+}
+
+// Without the client's classes, the same look inline: the accent fading from the left edge with a 2 px bar.
+function fallbackRowStyle(focused: boolean): React.CSSProperties {
   return {
-    display: "flex",
-    alignItems: "center",
-    gap: "0.5em",
-    padding: "0.55em 0.9em 0.55em 1em",
-    borderRadius: 6,
-    background: focused
-      ? "linear-gradient(to right, rgba(0,0,0,0.70) 0%, rgba(0,0,0,0.35) 55%, rgba(0,0,0,0) 100%)"
-      : "transparent",
-    boxShadow: focused
-      ? "inset 4px 0 0 0 var(--gpSystemLighter, rgba(180,190,210,0.55)), -10px 0 24px -4px rgba(0,0,0,0.55)"
-      : undefined,
-    transform: focused ? "translateX(0) scale(1.04)" : "translateX(0) scale(1)",
-    transformOrigin: "left center",
-    transition: "transform 180ms cubic-bezier(0.2,0.85,0.3,1.2), background 180ms ease, box-shadow 180ms ease",
+    padding: "10px calc(12px + 1.4vw)",
+    color: focused ? "white" : "rgb(184, 188, 191)",
+    borderLeft: `2px solid ${focused ? "rgb(26, 159, 255)" : "transparent"}`,
+    background: focused ? "linear-gradient(90deg, rgba(26, 159, 255, 0.4) 0%, rgba(26, 159, 255, 0) 100%)" : "transparent",
+  };
+}
+
+function buttonRowStyle(focused: boolean, disabled: boolean, steamClasses: boolean): React.CSSProperties {
+  return {
+    ...(steamClasses ? {} : fallbackRowStyle(focused)),
     opacity: disabled ? 0.45 : 1,
     cursor: disabled ? "default" : "pointer",
   };
 }
 
-function buttonLabelStyle(focused: boolean, active: boolean): React.CSSProperties {
+function buttonContentStyle(focused: boolean, steamClasses: boolean): React.CSSProperties {
+  const scale = !steamClasses && focused ? { transform: "scale(1.1)", transformOrigin: "12% 50%" } : {};
+  return { display: "flex", alignItems: "center", gap: "0.5em", minWidth: 0, ...scale };
+}
+
+// The shelf on screen only reads brighter and heavier; the accent belongs to the focused row.
+function buttonLabelStyle(active: boolean): React.CSSProperties {
   return {
-    fontWeight: focused ? 700 : (active ? 600 : 500),
-    fontSize: "clamp(15px, 1.9vw, 19px)",
-    color: focused ? "white" : (active ? "white" : "rgba(255,255,255,0.88)"),
-    textShadow: focused ? "0 1px 4px rgba(0,0,0,0.7)" : undefined,
+    fontWeight: active ? 700 : undefined,
+    color: active ? "white" : undefined,
     whiteSpace: "nowrap",
     overflow: "hidden",
     textOverflow: "ellipsis",
@@ -645,6 +514,7 @@ const ShelfButton = forwardRef<HTMLDivElement, {
 }>(function ShelfButton({ label, active, focused, preferredFocus, disabled, icon, onActivate, onFocusChange, hoverFocusTimeoutMs }, ref) {
   const handle = disabled ? () => undefined : onActivate;
   const timerRef = useRef<number | null>(null);
+  const steam = steamPageListClasses();
   const armTimer = () => {
     onFocusChange?.(true);
     if (!hoverFocusTimeoutMs || disabled) return;
@@ -658,22 +528,24 @@ const ShelfButton = forwardRef<HTMLDivElement, {
       timerRef.current = null;
     }
   };
-  // All focus visuals inline so they render with the overlay — DeckQAMStyles
-  // is only mounted in the QAM Settings tree, never on the home.
+  // Inline because the QAM stylesheet isn't mounted on the Home.
   return (
     <Focusable
       ref={ref}
       noFocusRing
+      className={steam?.item}
       preferredFocus={preferredFocus}
       onClick={handle}
       onOKButton={handle}
       onActivate={handle}
       onGamepadFocus={armTimer}
       onGamepadBlur={clearTimer}
-      style={buttonRowStyle(!!focused, !!disabled)}
+      style={buttonRowStyle(!!focused, !!disabled, !!steam)}
     >
-      {icon ? <span style={{ display: "inline-flex" }}>{icon as React.ReactNode}</span> : null}
-      <span style={buttonLabelStyle(!!focused, active)}>{label}</span>
+      <div className={steam?.scaled} style={buttonContentStyle(!!focused, !!steam)}>
+        {icon ? <span className={steam?.icon} style={{ display: "inline-flex" }}>{icon as React.ReactNode}</span> : null}
+        <span className={steam?.title} style={buttonLabelStyle(active)}>{label}</span>
+      </div>
     </Focusable>
   );
 });
@@ -691,16 +563,11 @@ function Hint({ text }: { text: string }) {
 }
 
 function cssEscape(value: string): string {
-  // CSS.escape is widely available in the Steam Chromium runtime; the
-  // fallback covers any environment without it (e.g. test harness).
   const g = globalThis as unknown as { CSS?: { escape?: (s: string) => string } };
   if (typeof g.CSS?.escape === "function") return g.CSS.escape(value);
   return value.replace(/["\\]/g, "\\$&");
 }
 
-// Synthetic id used for the native Steam "Recents" row when it's visible
-// on the home. Picked here (not in settings) so it can't collide with a
-// real user-defined shelf id and so callers can recognise it.
 const NATIVE_RECENTS_ID = "__ds_native_recents__";
 
 function getClassMap(): Record<string, string> {
@@ -747,9 +614,7 @@ function isNativeCandidateSN(el: HTMLElement, root: HTMLElement | null, homeRoot
 }
 
 export function findNativeRecentsEl(doc: Document): HTMLElement | null {
-  // Native recents lives outside `.deck-shelves-root`. DS REUSES the
-  // same `nativeShelfContainer` hashed class for its own wrappers, so
-  // we filter inside-DS-root candidates out and require native cards.
+  // Our wrappers reuse the native container class, so skip those inside our root.
   const root = doc.querySelector<HTMLElement>(".deck-shelves-root");
   const homeRoot = doc.getElementById("deck-shelves-home-root");
   const map = getClassMap();
@@ -771,8 +636,6 @@ function readVisibleShelvesFromDom(): UnifiedShelf[] {
   if (!doc) return [];
   const root = doc.querySelector<HTMLElement>(".deck-shelves-root");
   const scope = root ?? doc;
-  // `[data-shelfid]` also lives on every card; scope to the shelf
-  // wrapper (`.ds-shelf`) so we only count one entry per shelf.
   const all = Array.from(scope.querySelectorAll<HTMLElement>(".ds-shelf[data-shelfid]"));
   const visible = all.filter((el) => {
     if (!el.isConnected) return false;
@@ -797,13 +660,8 @@ function readVisibleShelvesFromDom(): UnifiedShelf[] {
 function readNativeRecentsEntry(doc: Document | null, fallbackLabel: string): UnifiedShelf | null {
   if (!doc) return null;
   const el = findNativeRecentsEl(doc);
-  if (!el) return null;
-  // The actual section title is the row-level heading element. The
-  /* `nativeLabelInner` / `nativeLabelOuter` hashed classes target the
-     PER-CARD label (focused-card info like "Blasphemous 2 - 30h") and
-     would surface the wrong string. When the override is on, the
-     recents replacement writes the source shelf title into this heading
-     — reading it here keeps both cases correct. */
+  if (!el || el.offsetParent === null || el.getBoundingClientRect().height <= 4) return null;
+  // The hashed label classes hold the per-card label, so read the row heading.
   const text = el.querySelector<HTMLElement>('h1, h2, h3')?.textContent?.trim() ?? "";
   return { id: NATIVE_RECENTS_ID, title: text && text.length > 0 ? text : fallbackLabel };
 }
@@ -822,8 +680,7 @@ function findFirstNativeCard(el: HTMLElement, map: Record<string, string>): HTML
   return null;
 }
 
-// `auto`: an automatic landing stays off a Home a game or another page owns;
-// the user's own pick from the side nav always moves.
+// With `auto`, don't take over a Home owned by a game or another page.
 export function focusNativeRecentsFirstCard(doc: Document | null, auto = true): boolean {
   if (!doc) return false;
   const el = findNativeRecentsEl(doc);
@@ -833,4 +690,10 @@ export function focusNativeRecentsFirstCard(doc: Document | null, auto = true): 
   try { card.scrollIntoView({ block: "center", inline: "center", behavior: "instant" as ScrollBehavior }); } catch {}
   try { (auto ? focusElementAuto : focusElement)(card); } catch {}
   return card.classList.contains("gpfocus") || card === card.ownerDocument?.activeElement;
+}
+
+export function nativeRecentsHoldsFocus(doc: Document): boolean {
+  const focused = doc.querySelector<HTMLElement>(".gpfocus") ?? (doc.activeElement as HTMLElement | null);
+  if (!focused || focused === doc.body) return false;
+  return !!findNativeRecentsEl(doc)?.contains(focused);
 }

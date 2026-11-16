@@ -1,19 +1,9 @@
-/* Live session-state snapshot for Visibility Rules v2 session kinds.
-   Event-driven (Steam app-lifetime notifications) — no polling; reads are cached
-   synchronous values. The home is only visible between games, so the useful
-   session signals are "what you last played" (persists across the session) and
-   "a game is running" (suspended in the background). */
-
-// Non-Steam shortcuts carry this app_type; their appids are also high 32-bit.
 const NON_STEAM_APP_TYPE = 1073741824;
 
 const _listeners = new Set<() => void>();
 let _lastApp: number | null = null;
 let _lastNonSteam = false;
-/* Apps seen starting (and not yet stopping) through the lifetime
-   notifications. The running-apps store can briefly list an app a failed
-   launch never started — with no stop notification to follow — so anything
-   that *suspends itself* on "a game is running" must require this too. */
+// The running-apps store can list a failed launch that never sends a stop event, so check this too.
 const _runningByEvent = new Set<number>();
 export function isGameRunningByEvent(): boolean { return _runningByEvent.size > 0; }
 
@@ -26,7 +16,6 @@ export function subscribeSessionState(cb: () => void): () => void {
   return () => { _listeners.delete(cb); };
 }
 
-// Called with the app id on every app start, for features that log launches.
 const _startListeners = new Set<(appid: number) => void>();
 export function subscribeAppStart(cb: (appid: number) => void): () => void {
   _startListeners.add(cb);
@@ -38,7 +27,7 @@ function isNonSteam(appid: number): boolean {
     const ov = (globalThis as any).appStore?.GetAppOverviewByAppID?.(appid);
     if (ov) return ov.app_type === NON_STEAM_APP_TYPE || ov.is_non_steam === true;
   } catch {}
-  return appid > 0x7fffffff; // non-Steam shortcut appids are high 32-bit
+  return appid > 0x7fffffff;
 }
 
 function gameRunning(): boolean {
@@ -77,9 +66,6 @@ function noteLifetime(n: any): void {
 }
 
 export function installSessionState(): () => void {
-  // App-lifetime notifications fire on start/stop with { unAppID, bRunning };
-  // a start records the last-played app + its source, any change re-notifies so
-  // gameRunning re-evaluates. Event-driven — no polling.
   let unregister: (() => void) | null = null;
   try {
     const reg = (globalThis as any).SteamClient?.GameSessions?.RegisterForAppLifetimeNotifications?.((n: any) => {
@@ -91,9 +77,7 @@ export function installSessionState(): () => void {
   return () => { if (unregister) { unregister(); unregister = null; } };
 }
 
-/* Evaluate one session-state VisibilityRule. Unknown kinds (and unknown state)
-   fail open (return true). Kinds: lastGameSource (value 'steam' | 'nonSteam'),
-   gameRunning. */
+/** Unknown kinds and state fail open. */
 export function evalSessionRule(rule: any): boolean {
   switch (String(rule?.kind || '')) {
     case 'lastGameSource': {

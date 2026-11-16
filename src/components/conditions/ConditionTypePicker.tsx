@@ -18,7 +18,7 @@ function allowed(type: FilterItemType, gates: TypeGates): boolean {
   return true
 }
 
-/** The types to offer, sorted by name in the interface language; the current one always stays, so a stored condition still reads right. */
+// The current type always stays on offer so a stored condition still reads right.
 export function offeredTypes(current: string, gates: TypeGates, language = i18n.language): { type: string; name: string }[] {
   const types: string[] = ALL_FILTER_TYPES.filter((type) => type === current || allowed(type, gates))
   if (!types.includes(current)) types.push(current)

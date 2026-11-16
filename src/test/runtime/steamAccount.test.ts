@@ -8,7 +8,6 @@ vi.mock("../../store/settingsStore", () => ({
 vi.mock("../../runtime/logger", () => ({
   logInfo: (...args: unknown[]) => { edge.logs.push(JSON.stringify(args)); },
 }));
-// The backend's salt file: the first valid salt it is offered stays; down means it cannot answer.
 const backend = vi.hoisted(() => ({ salt: "", up: true, calls: 0 }));
 vi.mock("../../runtime/host/decky", () => ({
   call: async (name: string, arg: { salt?: string }) => {
@@ -31,7 +30,6 @@ async function load() {
   return import("../../runtime/steamAccount");
 }
 
-// One start of the plugin with these account readings (one per check).
 async function start(readings: Array<string | null>, onKnown?: () => void) {
   const mod = await load();
   const onSwitch = vi.fn();
@@ -64,7 +62,7 @@ describe("watching the signed-in Steam account", () => {
     expect(edge.snapshots).toEqual([]);
     expect(stored().last).toMatch(/^[0-9a-f]{16}$/);
     expect([...storage.values()].join("")).not.toContain(A);
-    expect(edge.saves).toBe(0); // nothing reaches the settings file
+    expect(edge.saves).toBe(0);
   });
 
   it("the same account again changes nothing", async () => {
@@ -101,7 +99,6 @@ describe("watching the signed-in Steam account", () => {
     expect(mod.readSteamId()).toBe(A);
     vi.stubGlobal("App", { GetCurrentUser: () => ({ strSteamID: "12345" }) });
     expect(mod.readSteamId()).toBeNull();
-    // Account 0, reported at start before anyone is signed in, is no account.
     vi.stubGlobal("App", { GetCurrentUser: () => ({ strSteamID: "76561197960265728" }) });
     expect(mod.readSteamId()).toBeNull();
     vi.stubGlobal("App", { GetCurrentUser: () => ({ strSteamID: "76561197960265729" }) });
@@ -137,7 +134,7 @@ describe("watching the signed-in Steam account", () => {
     await start([A, A]);
     expect(stored().salt).toMatch(/^[0-9a-f]{32}$/);
     expect(backend.salt).toBe(stored().salt);
-    expect(edge.saves).toBe(0); // never in the settings file, so never synced, exported or reported
+    expect(edge.saves).toBe(0);
     expect(edge.logs.join("")).not.toContain(stored().salt);
   });
 
@@ -192,7 +189,7 @@ describe("watching the signed-in Steam account", () => {
     expect(stored().salt).toMatch(/^[0-9a-f]{32}$/);
     expect(mod.currentAccountKey()).toBe(await mod.accountKey(A, stored().salt));
     await vi.waitFor(() => expect(backend.salt).toBe(stored().salt));
-    expect(backend.calls).toBe(3); // two tries at start, one after it
+    expect(backend.calls).toBe(3);
   });
 
   it("a key depends on the device's salt", async () => {

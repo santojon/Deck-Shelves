@@ -7,11 +7,6 @@ import { evaluateFilterGroup } from "../../steam/filterEval";
 import type { AppOverview } from "../../steam";
 import smartShelvesFixture from "../fixtures/v2.0.0/smart-shelves.json";
 
-/* Smart shelves made before the hidden-games default have no `hidden` filter
-   item, so Steam-hidden games keep surfacing on them. migrate() appends the
-   same item a new smart shelf gets, once per document: a later removal by the
-   user sticks, and the migrated copy wins a cloud-sync merge against the old one. */
-
 const HIDDEN_EXCLUDE = createHiddenGamesExcludeItem();
 const INSTALLED = { type: "installed", inverted: false, params: {} };
 const FAVORITES = { type: "favorites", inverted: false, params: {} };
@@ -70,7 +65,6 @@ describe("migrate(): hidden-games filter on old smart shelves", () => {
   });
 
   it("runs once: a document already at the current version keeps a shelf without the item", () => {
-    // The user removed the condition and saved — it must stay removed on the next load.
     const edited = smart("edited", { updatedAt: 1234, filterGroup: { mode: "and", items: [INSTALLED] } });
     const out = migrate(doc([edited], { schemaVersion: SCHEMA_VERSION }));
     expect(smartOf(out, "edited")).toEqual(edited);

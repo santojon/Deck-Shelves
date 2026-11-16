@@ -1,10 +1,4 @@
-/* Pure shelf/card statistics derivations for the Statistics tab. No I/O — the
-   resolver-cache reads (localStorage) and the app-overview lookup are injected
-   as callbacks, so these stay side-effect free and unit-testable. Defensive
-   against malformed settings: missing / non-array fields, sources without a
-   type, and deeply / cyclically nested composites (depth-capped). */
-
-const MAX_SOURCE_DEPTH = 8; // composite-nesting guard, mirrors the resolver cap
+const MAX_SOURCE_DEPTH = 8;
 
 export interface CompositionSlice { key: string; label: string; value: number }
 
@@ -20,9 +14,6 @@ function allShelves(settings: any): any[] {
   return [...asArray(settings?.shelves), ...asArray(settings?.smartShelves)];
 }
 
-/* Online (store / wishlist) source types anywhere in a shelf's source tree.
-   Online sources are often nested inside a composite (e.g. "wishlist ∩ discount"
-   + "store ∩ discount"), so a top-level check misses them — recurse, capped. */
 export function onlineSourceTypes(source: any, depth = 0): string[] {
   if (!source || depth > MAX_SOURCE_DEPTH) return [];
   if (source.type === "store" || source.type === "wishlist") return [source.type];
@@ -32,13 +23,10 @@ export function onlineSourceTypes(source: any, depth = 0): string[] {
   return [];
 }
 
-// Shelf count by kind — regular shelves vs smart shelves.
 export function shelfTypeBreakdown(settings: any): Record<string, number> {
   return { normal: asArray(settings?.shelves).length, smart: asArray(settings?.smartShelves).length };
 }
 
-// Count a source by its type; a composite also counts each of its children in
-// their own subtype (recursively, depth-capped) so nested sources surface.
 function countSource(src: any, out: Record<string, number>, depth: number): void {
   if (!src || typeof src.type !== "string" || depth > MAX_SOURCE_DEPTH) return;
   out[src.type] = (out[src.type] ?? 0) + 1;
@@ -55,10 +43,6 @@ export function shelfSourceBreakdown(settings: any): Record<string, number> {
   return out;
 }
 
-/* Card-type composition from the cards in the user's shelves (not launches), so
-   store / wishlist cards count by presence. Online cards are attributed via the
-   source tree (composites split their resolved count across the online types
-   they hold); the rest are game / non-Steam via `isNonSteam`. */
 export function cardTypeComposition(settings: any, resolvedIds: ResolvedIds, isNonSteam: IsNonSteam): Record<string, number> {
   const out: Record<string, number> = { game: 0, nonsteam: 0, store: 0, wishlist: 0 };
   for (const sh of allShelves(settings)) {
@@ -76,18 +60,12 @@ export function cardTypeComposition(settings: any, resolvedIds: ResolvedIds, isN
   return out;
 }
 
-/* Featured (highlighted) card count for one shelf: highlightAll → the whole
-   resolved count (or the highlight list when unknown); otherwise the highlights
-   that fall within the resolved count, plus one for highlightFirst. */
 function featuredCount(sh: any, count: number | null): number {
   const highlighted = asArray(sh?.highlightedAppIds).length;
   if (sh?.highlightAll) return count ?? highlighted;
   return Math.min(highlighted, count ?? Number.MAX_SAFE_INTEGER) + (sh?.highlightFirst ? 1 : 0);
 }
 
-/* Card-composition snapshot by display state: normal (regular game cards),
-   featured (highlights), decorative (synthetic cards) and hidden. Normal /
-   featured use the injected resolved per-shelf card count. */
 export function cardComposition(settings: any, resolvedCount: ResolvedCount): CompositionSlice[] {
   let normal = 0, featured = 0, decorative = 0, hidden = 0;
   for (const sh of allShelves(settings)) {

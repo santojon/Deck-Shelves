@@ -68,13 +68,12 @@ function attach(): boolean {
   root.addEventListener("focusout", onFocusOut, true);
   teardowns.push(() => root.removeEventListener("focusin", onFocusIn, true));
   teardowns.push(() => root.removeEventListener("focusout", onFocusOut, true));
-  // Seed with whatever is currently focused.
   const seed = root.querySelector(".ds-card.gpfocus, .ds-card:focus") as HTMLElement | null;
   setCurrent(readFromCard(seed));
   return true;
 }
 
-// Home root not in DOM yet — retry for a while (30 s); the next API call starts over.
+// Home root not mounted yet: retry for up to 30 s.
 const INSTALL_RETRY_MAX = 150;
 function detachListeners(): void {
   for (const fn of teardowns) { try { fn(); } catch {} }
@@ -104,7 +103,6 @@ export function getFocusedCard(): FocusedCardInfo | null {
 export function subscribeFocusedCard(cb: (info: FocusedCardInfo | null) => void): () => void {
   ensureInstalled();
   listeners.add(cb);
-  // Immediate fire so the subscriber gets the current state.
   try { cb(current); } catch {}
   return () => { listeners.delete(cb); };
 }

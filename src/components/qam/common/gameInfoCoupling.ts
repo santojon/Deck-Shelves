@@ -1,10 +1,5 @@
 import { confirmAction } from '../modals/ConfirmActionModal'
 
-/* Coupling between "show game info above the cards" (gameInfoAbove) and
-   "hide shelf title": enabling info-above also hides the title; turning the
-   title back on while info-above is on turns info-above off. Both go through
-   a confirmation; callers pass their own getters/setters. */
-
 type T = (k: string) => string
 
 export function applyGameInfoAboveToggle(opts: {

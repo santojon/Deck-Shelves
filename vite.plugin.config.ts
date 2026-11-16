@@ -10,13 +10,7 @@ export default defineConfig(({ mode }) => {
       "process.env.NODE_ENV": JSON.stringify(isProd ? "production" : "development"),
       __DECK_SHELVES_ENABLE_HOME_PATCH__: JSON.stringify(true),
       __DEV__: JSON.stringify(!isProd),
-      // Build stamp injected per build so `window.__ds_build` always reflects the
-      // actually-loaded bundle (a hardcoded string silently went stale for weeks).
-      __BUILD_ID__: JSON.stringify(
-        `${new Date().toISOString().slice(0, 16).replace("T", " ")} ${isProd ? "rel" : "dev"}`,
-      ),
       __QA_FIRST_RUN__: JSON.stringify(!isProd && process.env.DS_QA_FORCE_FIRST_RUN === "1"),
-      __QA_FORCE_DEVICE__: JSON.stringify(!isProd ? (process.env.DS_QA_FORCE_DEVICE ?? "") : ""),
       __QA_QAM_ERROR__: JSON.stringify(!isProd && process.env.DS_QA_FORCE_QAM_ERROR === "1"),
       __QA_SHELF_ERROR__: JSON.stringify(!isProd && process.env.DS_QA_FORCE_SHELF_ERROR === "1"),
       __QA_ALL_SHELVES_HIDE_RECENTS__: JSON.stringify(!isProd && process.env.DS_QA_FORCE_ALL_SHELVES_HIDE_RECENTS === "1"),
@@ -33,18 +27,8 @@ export default defineConfig(({ mode }) => {
       __QA_FORCE_HOME_CRASH__: JSON.stringify(!isProd && process.env.DS_QA_FORCE_HOME_CRASH === "1"),
       __QA_FORCE_REPLACE_FAILED__: JSON.stringify(!isProd && process.env.DS_QA_FORCE_REPLACE_FAILED === "1"),
       __QA_UPDATE_AVAILABLE__: JSON.stringify(!isProd && process.env.DS_QA_UPDATE_AVAILABLE === "1"),
-      __QA_UPDATE_DISMISSED__: JSON.stringify(!isProd && process.env.DS_QA_UPDATE_DISMISSED === "1"),
-      __QA_UPDATE_OFFLINE__: JSON.stringify(!isProd && process.env.DS_QA_UPDATE_OFFLINE === "1"),
-      __QA_COLLECTION_EMPTY__: JSON.stringify(!isProd && process.env.DS_QA_COLLECTION_EMPTY === "1"),
-      __QA_COLLECTION_INVERTED__: JSON.stringify(!isProd && process.env.DS_QA_COLLECTION_INVERTED === "1"),
-      __QA_SOURCES_FIXTURE__: JSON.stringify(!isProd && process.env.DS_QA_SOURCES_FIXTURE === "1"),
-      __QA_TEMPLATES_FIXTURE__: JSON.stringify(!isProd && process.env.DS_QA_TEMPLATES_FIXTURE === "1"),
-      __QA_DECORATION_FIXTURE__: JSON.stringify(!isProd && process.env.DS_QA_DECORATION_FIXTURE === "1"),
       __QA_STRESS_FIXTURE__: JSON.stringify(!isProd && process.env.DS_QA_STRESS_FIXTURE === "1"),
-      __QA_VIDEO_FIXTURE__: JSON.stringify(!isProd && process.env.DS_QA_VIDEO_FIXTURE === "1"),
-      __QA_SCREENSHOTS_FIXTURE__: JSON.stringify(!isProd && process.env.DS_QA_SCREENSHOTS_FIXTURE === "1"),
       __QA_FRESH_INSTALL__: JSON.stringify(!isProd && process.env.DS_QA_FRESH_INSTALL === "1"),
-      __QA_PERF_MATRIX__: JSON.stringify(!isProd && process.env.DS_QA_PERF_MATRIX === "1"),
     },
     resolve: {
       alias: [

@@ -1,23 +1,14 @@
-/* Machine-readable catalogue of the built-in visibility / profile-trigger rule
-   kinds, grouped by category. Pure data (no UI/icons) so both the rule editor
-   and the public plugin API can read it from one place. The editor maps icons
-   onto these ids; the API exposes it via listTriggerCatalog(). Keep in sync with
-   the editor's CATALOG (VisibilityRulesEditor.tsx). */
-
 type TriggerCategoryId =
   | "time" | "session" | "power" | "connectivity" | "display" | "perf" | "peripherals" | "device";
 
 type TriggerKindEntry = {
   kind: string;
-  /** Default params seeded when the rule is added. */
   defaults?: Record<string, unknown>;
-  /** True when the kind can be inverted (kind ⇄ its negation). */
   invertible?: boolean;
 };
 
 export type TriggerCategory = {
   id: TriggerCategoryId;
-  /** i18n key for the category label. */
   titleKey: string;
   entries: TriggerKindEntry[];
 };
@@ -64,6 +55,5 @@ export const TRIGGER_CATALOG: readonly TriggerCategory[] = [
   ] },
 ];
 
-/** Flat list of every built-in trigger kind id. */
 export const TRIGGER_KINDS: readonly string[] =
   TRIGGER_CATALOG.flatMap((c) => c.entries.map((e) => e.kind));

@@ -57,9 +57,6 @@ describe('cacheRegistry', () => {
     const { invalidateSmartShelfCache } = await import('../../steam/smartShelves')
     localStorage.setItem('ds-smart-shelf-cache-v1', JSON.stringify({ 'x:quick_play:10::3600000': { ts: Date.now(), ids: [1, 2, 3] } }))
     clearGroup(CACHE_GROUPS.find((g) => g.id === 'smart_shelves')!)
-    // invalidateSmartShelfCache() persists the now-empty in-memory cache back
-    // out, so the key ends up holding an empty object rather than vanishing —
-    // either way, nothing from before the clear should survive.
     const raw = localStorage.getItem('ds-smart-shelf-cache-v1')
     expect(raw == null || Object.keys(JSON.parse(raw)).length === 0).toBe(true)
     expect(invalidateSmartShelfCache).toBeTypeOf('function')

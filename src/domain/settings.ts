@@ -29,7 +29,6 @@ export function addShelfToSettings(settings: Settings, shelf: Shelf, afterId?: s
       return { ...settings, shelves };
     }
   }
-  // Default: insert at the top
   return {
     ...settings,
     shelves: [shelf, ...settings.shelves],
@@ -47,8 +46,6 @@ export function moveShelf(settings: Settings, id: string, direction: -1 | 1): Se
   return { ...settings, shelves };
 }
 
-// Boolean/enum flag filters (installed / favorites / nonSteam / hidden /
-// updatePending) as FilterItems, in legacy order.
 function legacyFlagItems(filter: ShelfFilter): FilterItem[] {
   const items: FilterItem[] = [];
   if (filter.installed !== undefined) {
@@ -72,7 +69,6 @@ function legacyFlagItems(filter: ShelfFilter): FilterItem[] {
   return items;
 }
 
-// Range/compat filters (deck compatibility / recent play / playtime range).
 function legacyRangeItems(filter: ShelfFilter): FilterItem[] {
   const items: FilterItem[] = [];
   if (filter.deckCompatibility && filter.deckCompatibility.length > 0) {
@@ -94,7 +90,6 @@ function legacyRangeItems(filter: ShelfFilter): FilterItem[] {
   return items;
 }
 
-// Name-matching filters (substring / regex).
 function legacyNameItems(filter: ShelfFilter): FilterItem[] {
   const items: FilterItem[] = [];
   if (filter.nameIncludes) {

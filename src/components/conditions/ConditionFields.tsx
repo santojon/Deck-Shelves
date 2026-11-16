@@ -26,8 +26,7 @@ interface OptCtx {
   onlineFeaturesOn: boolean;
 }
 
-// Mirror Steam's EAppType — see the resolver's `shortcutType` branch. Ordered
-// roughly by how often a user would actually pick each kind.
+// Mirrors Steam's EAppType.
 const SHORTCUT_KINDS = [
   "game", "software", "tool", "demo", "dlc",
   "music", "video", "comic", "guide",
@@ -41,8 +40,6 @@ const dimHint = (text: string) => (
   <div style={{ padding: "6px 0", color: "var(--ds-text-dim, #8b9ab5)", fontSize: 12, lineHeight: 1.4 }}>{text}</div>
 );
 
-// The identical toggle-set pattern shared by deckCompatibility / shortcutType /
-// appStatus: one toggle per key, backed by an array param.
 function toggleSet(keys: readonly string[], current: string[], labelFor: (k: string) => string, commit: (next: string[]) => void): ReactNode {
   const set = new Set(current);
   return (
@@ -65,7 +62,6 @@ function toggleSet(keys: readonly string[], current: string[], labelFor: (k: str
   );
 }
 
-// A single dropdown option row (remotePlayLocation / hidden pattern).
 function dropdownRow(label: string, description: string | undefined, options: { data: string; label: string }[], selected: string, commit: (v: string) => void): ReactNode {
   return (
     <div>
@@ -81,7 +77,6 @@ function dropdownRow(label: string, description: string | undefined, options: { 
   );
 }
 
-// A single labelled text field (nameIncludes / nameRegex / storeTag / appIdList).
 function textRow(label: string, description: string | undefined, value: string, commit: (raw: string) => void): ReactNode {
   return (
     <div>
@@ -102,7 +97,6 @@ function daysSlider(label: string, days: number, min: number, max: number, commi
   );
 }
 
-// Comma-separated text → trimmed, de-blanked string list (genres / tags / …).
 const splitList = (raw: string): string[] => raw.split(",").map((s) => s.trim()).filter(Boolean);
 
 // A min/max pair; a max of 0 means no upper bound.
@@ -116,14 +110,12 @@ function rangeRows(t: Tfn, min: number, max: any, lo: number, hi: number, step: 
   );
 }
 
-// Any or all of the listed values (store tags, store categories).
 function matchModeRow(t: Tfn, p: Record<string, any>, patchParams: (patch: Record<string, any>) => void): ReactNode {
   return dropdownRow(t("filter_match_label"), undefined,
     [{ data: "any", label: t("filter_group_mode_or") }, { data: "all", label: t("filter_group_mode_and") }],
     String(p.mode ?? "any"), (v) => patchParams({ mode: v }));
 }
 
-// A date in seconds, edited as YYYY-MM-DD, on or after / on or before it, or unknown.
 function dateRows(t: Tfn, p: Record<string, any>, patchParams: (patch: Record<string, any>) => void): ReactNode {
   const toStr = (ts: any) => { const n = Number(ts ?? 0); if (!n) return ""; try { return new Date(n * 1000).toISOString().slice(0, 10); } catch { return ""; } };
   const toTs = (raw: string) => { const ms = Date.parse((raw || "").trim()); return Number.isFinite(ms) ? Math.floor(ms / 1000) : 0; };
@@ -206,8 +198,6 @@ function playtimeRange(ctx: OptCtx): ReactNode {
   );
 }
 
-// type → renderer. Absent types (installed / favorites / nonSteam / …) render
-// nothing. Each entry is its own function so the dispatcher stays trivial.
 const RENDERERS: Record<string, (c: OptCtx) => ReactNode> = {
   remotePlayLocation: ({ t, p, patchParams }) => dropdownRow(
     t("filter_type_remote_play"), t("filter_remote_play_hint"),
@@ -242,7 +232,6 @@ const RENDERERS: Record<string, (c: OptCtx) => ReactNode> = {
   steamosCompatibility: ({ t, p, patchParams }) => toggleSet(COMPAT_LEVELS, Array.isArray(p.levels) ? p.levels : [], (k) => t(`compat_${k}`), (next) => patchParams({ levels: next })),
   machineCompatibility: ({ t, p, patchParams }) => toggleSet(COMPAT_LEVELS, Array.isArray(p.levels) ? p.levels : [], (k) => t(`compat_${k}`), (next) => patchParams({ levels: next })),
   frameCompatibility: ({ t, p, patchParams }) => toggleSet(COMPAT_LEVELS, Array.isArray(p.levels) ? p.levels : [], (k) => t(`compat_${k}`), (next) => patchParams({ levels: next })),
-  // VR in three values: a headset wants "only" + "supported", a flat setup wants "none".
   vrSupport: ({ t, p, patchParams }) => toggleSet(VR_LEVELS, Array.isArray(p.levels) ? p.levels : [], (k) => t(`vr_${k}` as any), (next) => patchParams({ levels: next })),
   shortcutType: ({ t, p, patchParams }) => toggleSet(SHORTCUT_KINDS, Array.isArray(p.kinds) ? p.kinds : ["game"], (k) => t(`shortcut_kind_${k}` as any), (next) => patchParams({ kinds: next })),
   appStatus: ({ t, p, patchParams }) => toggleSet(APP_STATUS_GROUP_KEYS, Array.isArray(p.groups) ? p.groups : ["downloading", "queued"], (g) => t(`app_status_${g}` as any), (next) => patchParams({ groups: next })),
@@ -287,7 +276,6 @@ const RENDERERS: Record<string, (c: OptCtx) => ReactNode> = {
   ),
   releaseDate: ({ t, p, patchParams }) => dateRows(t, p, patchParams),
   purchaseDate: ({ t, p, patchParams }) => dateRows(t, p, patchParams),
-  // ---- Filter v3 parameterized editors ------------------------------------
   genres: ({ t, p, patchParams }) => textRow(t("filter_type_genres"), t("filter_comma_hint"), (Array.isArray(p.genres) ? p.genres : []).join(", "), (raw) => patchParams({ genres: splitList(raw) })),
   categories: ({ t, p, patchParams }) => textRow(t("filter_type_categories"), t("filter_comma_hint"), (Array.isArray(p.categories) ? p.categories : []).join(", "), (raw) => patchParams({ categories: splitList(raw) })),
   franchise: ({ t, p, patchParams }) => textRow(t("filter_type_franchise"), undefined, String(p.franchise ?? ""), (raw) => patchParams({ franchise: raw })),

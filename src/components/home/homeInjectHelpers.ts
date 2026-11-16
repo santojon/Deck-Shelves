@@ -2,21 +2,12 @@ import type { Settings, Shelf, SmartShelf } from "../../types";
 import { getModeVisibilityWindows, evalVisibility } from "../../steam/smartShelves";
 import { getRecentsReplaceActiveShelfId } from "../../runtime/recentsReplace";
 
-/* When replace-source is actively injecting (toggle on + app ids resolved +
-   not killed), the injected shelf already renders inside the native recents
-   slot — skip it here to avoid a visual duplicate. If injection isn't
-   happening (failed, not resolved yet), keep every shelf. */
 export function computeNormalShelves(visibleShelves: Shelf[], replaceInjecting: boolean, replaceKillSwitch: boolean): Shelf[] {
   if (!replaceInjecting || replaceKillSwitch) return visibleShelves;
   const activeId = getRecentsReplaceActiveShelfId();
   return activeId ? visibleShelves.filter((s) => s.id !== activeId) : visibleShelves.slice(1);
 }
 
-/* Placement: unifiedListEnabled emits shelves in the user's explicit
-   `allShelvesOrder` (unlisted fall to the end), skipping the interleave/
-   order-css path entirely. Otherwise: normalFirst picks normal-then-smart
-   vs smart-then-normal (DOM order; CSS `order` restores the visual
-   interleave separately when hideRecents + !atBottom). */
 export function computeShelvesOrder(params: { unifiedOn: boolean; allShelvesOrder: string[]; normalShelves: Shelf[]; smartShelves: Shelf[]; normalFirst: boolean }): Shelf[] {
   const { unifiedOn, allShelvesOrder, normalShelves, smartShelves, normalFirst } = params;
   if (!unifiedOn) {
@@ -29,14 +20,10 @@ export function computeShelvesOrder(params: { unifiedOn: boolean; allShelvesOrde
     const found = byId.get(id);
     if (found) { ordered.push(found); byId.delete(id); }
   }
-  // Append anything the user has but hasn't placed yet (new shelves).
   for (const remaining of byId.values()) ordered.push(remaining);
   return ordered;
 }
 
-// Visual interleave: hiding recents without smartShelvesAtBottom (and not
-// replace-injecting) renders [normal, smart] in the DOM but presents
-// [promoted normal, smart, rest] via flex `order`. Off in unified mode.
 export function computeInterleaveSmart(params: { unifiedOn: boolean; settings: Settings; replaceInjecting: boolean; replaceKillSwitch: boolean }): boolean {
   const { unifiedOn, settings, replaceInjecting, replaceKillSwitch } = params;
   if (unifiedOn) return false;
@@ -44,7 +31,6 @@ export function computeInterleaveSmart(params: { unifiedOn: boolean; settings: S
   return !(replaceInjecting && !replaceKillSwitch);
 }
 
-// An unset global stays undefined so each shelf keeps its own value.
 function resolvePositionSetting(value: unknown): 'left' | 'center' | 'right' | undefined {
   return value === 'left' || value === 'center' || value === 'right' ? value : undefined;
 }
@@ -53,9 +39,6 @@ function resolveClampedSize(value: unknown, min: number, max: number): number | 
   return typeof value === 'number' ? Math.max(min, Math.min(max, value)) : undefined;
 }
 
-/* The handful of ShelvesContainer props that are actually DERIVED (ternary/
-   &&/|| logic), as opposed to the many plain `settings.x === true`
-   passthroughs left inline at the call site. */
 export function computeDerivedGlobalFlags(params: { settings: Settings; replaceInjecting: boolean; replaceKillSwitch: boolean }) {
   const { settings, replaceInjecting, replaceKillSwitch } = params;
   const s = settings as any;
@@ -79,14 +62,8 @@ function buildSmartShelfSource(s: SmartShelf): Shelf['source'] {
     filterGroup: raw.filterGroup,
     smartParams: raw.smartParams,
     refreshIntervalMinutes: raw.refreshIntervalMinutes,
-    // Composite source mixing — forwarded so the resolver can union /
-    // intersect multiple smart-mode candidate sets for a composite shelf.
     compositeModes: raw.compositeModes,
     compositeCombine: raw.compositeCombine,
-    /* friends_playing may surface games the user doesn't own (friends
-       currently playing OR seen playing in the last 14 days) — this flag
-       tells Shelf.tsx to fall back to the Store API for names/covers on
-       non-owned appids, the same path wishlist/store shelves use. */
     includesNonOwned: s.mode === 'friends_playing' || (Array.isArray(raw.compositeModes) && raw.compositeModes.includes('friends_playing')),
   } as any;
 }
@@ -103,7 +80,6 @@ function smartShelfHideFlags(raw: any) {
   };
 }
 
-// Game names, the install indicator and the trailing See more / refresh cards.
 function smartShelfCardHideFlags(raw: any) {
   return {
     hideGameNames: raw.hideGameNames ?? false,
@@ -113,7 +89,6 @@ function smartShelfCardHideFlags(raw: any) {
   };
 }
 
-// The logo, description and layout options the smart-shelf editor saves (the visual tab both editors share).
 function smartShelfOverlayFields(raw: any) {
   return {
     highlightRandom: raw.highlightRandom,
@@ -149,9 +124,6 @@ function smartShelfDisplayFlags(raw: any) {
   };
 }
 
-// Convert one enabled smart shelf into a Shelf-compatible object for
-// ShelfView. `sortReverse`/`manualBaseSortReverse` forward alongside
-// `sort`/`manualBaseSort` so a descending order reaches Home, not just preview.
 function smartShelfToShelf(s: SmartShelf): Shelf {
   const raw = s as any;
   return {
@@ -165,7 +137,6 @@ function smartShelfToShelf(s: SmartShelf): Shelf {
     ...(raw.heroEnabled ? { heroEnabled: true } : {}),
     gameInfoAbove: raw.gameInfoAbove,
     dedupeByExactName: raw.dedupeByExactName,
-    // The Display tab's pin and collapse rules, read by the Home's ordering and collapse.
     autoPin: raw.autoPin,
     autoCollapse: raw.autoCollapse,
     autoCollapseWhenEmpty: raw.autoCollapseWhenEmpty,
@@ -199,9 +170,6 @@ export function dispatchHideRecentsDisabled(disabled: boolean): void {
   globalThis.dispatchEvent(new CustomEvent('deck-shelves-hideRecents-disabled', { detail: { disabled } }));
 }
 
-// Resolves every visible shelf's app ids in parallel (best-effort — a
-// failing resolver counts as empty) and reports whether ANY has items, to
-// decide whether hiding recents would leave the user with nothing to see.
 export async function anyShelfHasItems(visible: Shelf[], resolveShelfAppIds: (source: unknown, limit: number) => Promise<number[]>): Promise<boolean> {
   const resolved = await Promise.all(visible.map((sh) => resolveShelfAppIds(sh.source, sh.limit).catch(() => [])));
   return resolved.some((r) => Array.isArray(r) && r.length > 0);
@@ -211,8 +179,7 @@ export function teardownObservers(observers: MutationObserver[]): void {
   for (const o of observers) { try { o.disconnect(); } catch {} }
 }
 
-// Only restore history.pushState/replaceState if nothing else re-patched
-// them after us (a later effect's own patch should win, not get clobbered).
+// Restore only if nothing re-patched history after us.
 export function teardownHistoryPatches(hist: any, origPush: unknown, origReplace: unknown): void {
   try { if (origPush && hist.pushState !== origPush) hist.pushState = origPush; } catch {}
   try { if (origReplace && hist.replaceState !== origReplace) hist.replaceState = origReplace; } catch {}
@@ -228,9 +195,6 @@ function hasAnyVisibleShelves(settings: Settings): boolean {
   return visibleShelves.length > 0 || countVisibleSmartShelves(settings) > 0;
 }
 
-// Whether native recents can actually be hidden right now (enabled, toggle
-// on, something to show in its place), and whether recents-replace is the
-// thing keeping the row visible (canHide false, but still needs the margin).
 export function computeCanHideRecents(params: { settings: Settings | null | undefined; replaceKillSwitch: boolean }): { canHide: boolean; replaceActive: boolean } {
   const { settings, replaceKillSwitch } = params;
   if (!settings) return { canHide: false, replaceActive: false };
@@ -241,9 +205,7 @@ export function computeCanHideRecents(params: { settings: Settings | null | unde
   return { canHide, replaceActive };
 }
 
-// When recents are hidden, pull its focusables out of the gamepad nav tree
-// (tabindex -1) so the D-pad skips straight to our shelves — DOM stays
-// intact so native classes/hero images stay readable; restores on un-hide.
+// The hidden row stays in the DOM so its native classes and hero images stay readable.
 export function applyRecentsFocusTrap(recentsEl: HTMLElement, canHide: boolean): void {
   const focusables = recentsEl.querySelectorAll<HTMLElement>('[tabindex], button, a, input, [role="button"]');
   for (const el of Array.from(focusables)) {

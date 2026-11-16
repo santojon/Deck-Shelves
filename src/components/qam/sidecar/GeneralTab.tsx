@@ -1,12 +1,12 @@
 import { useRef, type ReactNode } from 'react'
-import { Dropdown, Field, Focusable, ToggleField } from '../../../runtime/host/decky'
+import { Field, Focusable, ToggleField } from '../../../runtime/host/decky'
 import { hostProvidesNativeTab } from '../../../runtime/host/resolve'
 import { isHomeOwner } from '../../../runtime/host/ownerGuard'
 import { restartSteam } from '../../../runtime/ownQamTab'
 import { takeNavTreeFocus } from '../../../runtime/navFocus'
 import type { SettingsController } from '../../../features/settings/controller'
 import type { Settings } from '../../../types'
-import { CollapsibleSection, DSSliderField, PositionField, useLightMode, type HorizontalPosition } from '../../ui'
+import { CollapsibleSection, DSSliderField, PanelDropdown, PositionField, useLightMode, type HorizontalPosition } from '../../ui'
 import { SlidersIcon, SparkleIcon, WandIcon, PlusCircleIcon, SearchIcon, OnlineIcon, EyeIcon, EyeOffIcon, BookmarkIcon, CloudIcon } from '../../icons'
 import { openManagedModal } from '../common/openManagedModal'
 import { applyGameInfoAboveToggle, applyHideTitleToggle } from '../common/gameInfoCoupling'
@@ -176,7 +176,7 @@ function additionalSection(c: GCtx): ReactNode {
 
 function navigationSection(c: GCtx): ReactNode {
   const { t, settings, actions, row, lightMode } = c
-  if (lightMode) return null // search + side nav are disabled on the home in light mode
+  if (lightMode) return null // Search and side nav are off on the home in light mode.
   return (
     <CollapsibleSection
       id='navigation'
@@ -346,8 +346,7 @@ function screensaverLogoPlacementGroup(c: GCtx): ReactNode {
 
 function ownQamTabGroup(c: GCtx): ReactNode {
   const { t, settings, actions, row } = c
-  // Hidden while a neutral host is present (it shows its own Deck Shelves tab)
-  // and in a copy that does not own the renderer.
+  // Hidden under a neutral host (it has its own tab) and in a copy that doesn't own the renderer.
   if (hostProvidesNativeTab() || !isHomeOwner()) return null
   return (
     row('ownQamTabEnabled', (
@@ -450,7 +449,6 @@ function logoGroup(c: GCtx): ReactNode {
   )
 }
 
-// "Same size and offset on every shelf" and, when on, its sliders.
 function logoSizeRows(c: GCtx): ReactNode {
   const { t, settings, actions, row } = c
   const sized = isGroupSet(settings, LOGO_SIZE_GROUP)
@@ -478,7 +476,8 @@ function iconGroup(c: GCtx): ReactNode {
       ))}
       {settings.globalEnableIcon === true && row('globalIconVerticalAlign', (
         <Field label={t('icon_vertical_align_label' as any)} childrenContainerWidth='min'>
-          <Dropdown
+          <PanelDropdown
+            menuLabel={t('icon_vertical_align_label' as any)}
             rgOptions={[
               { data: 'per_shelf', label: t('per_shelf_option' as any) },
               { data: 'top', label: t('icon_vertical_align_top' as any) },
@@ -518,7 +517,6 @@ function descriptionGroup(c: GCtx): ReactNode {
   )
 }
 
-// Height and gap of a description shown under the logo.
 function descriptionLogoRows(c: GCtx): ReactNode {
   const { t, settings, actions, row } = c
   return (
@@ -617,7 +615,7 @@ function visualGlobalSection(c: GCtx): ReactNode {
           <ToggleField label={t('friends_overlay_recent_label' as any)} checked={settings.globalFriendsPlayingOverlayRecent === true} onChange={(v: boolean) => void (actions as any).setGlobalFriendsPlayingOverlayRecent(v)} />
         </div>
       ))}
-      {/* Logo / icon / description decorations are stripped in light mode. */}
+      {/* Light mode strips decorations on the home. */}
       {!lightMode && (<>
         {logoGroup(c)}
         {iconGroup(c)}
@@ -692,7 +690,7 @@ export function GeneralTab({ controller }: { controller: SettingsController }) {
 
   return (
     <div className='ds-general-tab'>
-      {/* Profiles mirrors the QAM (it sits above Behavior there). */}
+      {/* Same order as the QAM, where Profiles sits above Behavior. */}
       <ProfilesSection
         controller={controller}
         hidden={false}

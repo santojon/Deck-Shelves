@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
-// Mutable state the mocked modules read (hoisted so vi.mock factories can use it).
 const { battery, settings, rpc, libraryRpc, deviceIdentityRpc } = vi.hoisted(() => ({
   battery: { current: null as any },
   settings: { current: {} as any },
@@ -72,7 +71,6 @@ describe('evalDeviceRule', () => {
   })
 
   it('display kinds fail open when state is unknown (no refresh yet)', () => {
-    // _external / _screen start null until a DisplayManager refresh populates them.
     expect(evalDeviceRule({ kind: 'externalDisplay' })).toBe(true)
     expect(evalDeviceRule({ kind: 'resolution', minWidth: 3840 })).toBe(true)
     expect(evalDeviceRule({ kind: 'ultrawide' })).toBe(true)
@@ -84,11 +82,11 @@ describe('evalDeviceRule', () => {
       WindowStore: { GamepadUIMainWindowInstance: { BrowserWindow: { screen: { width: 3440, height: 1440 } } } },
     }
     const cleanup = installDeviceState()
-    await new Promise((r) => setTimeout(r, 0)) // let refreshDisplay's RPC resolve
+    await new Promise((r) => setTimeout(r, 0))
     expect(evalDeviceRule({ kind: 'externalDisplay' })).toBe(true)
     expect(evalDeviceRule({ kind: 'resolution', minWidth: 2560 })).toBe(true)
     expect(evalDeviceRule({ kind: 'resolution', minWidth: 3840 })).toBe(false)
-    expect(evalDeviceRule({ kind: 'ultrawide' })).toBe(true) // 3440/1440 ≈ 2.39 ≥ 2.0
+    expect(evalDeviceRule({ kind: 'ultrawide' })).toBe(true)
     const st = getDeviceState()
     expect(st.external).toBe(true)
     expect(st.screen).toEqual({ w: 3440, h: 1440 })
@@ -108,8 +106,8 @@ describe('evalDeviceRule', () => {
     rpc.current = { external: false, supported: false }
     const cleanup = installDeviceState()
     await new Promise((r) => setTimeout(r, 0))
-    expect(evalDeviceRule({ kind: 'externalDisplay' })).toBe(true) // null → fail open
-    expect(deviceRuleHasData({ kind: 'externalDisplay' })).toBe(false) // but a trigger has no evidence
+    expect(evalDeviceRule({ kind: 'externalDisplay' })).toBe(true)
+    expect(deviceRuleHasData({ kind: 'externalDisplay' })).toBe(false)
     cleanup()
   })
 
@@ -137,15 +135,12 @@ describe('evalDeviceRule', () => {
     const g = globalThis as any
     const prev = g.ControllerStore
     try {
-      // Built-in only → no external
       g.ControllerStore = { GetControllers: () => [{}], GetUnboundControllers: () => [] }
       installDeviceState()()
       expect(evalDeviceRule({ kind: 'controllerConnected' })).toBe(false)
-      // A second bound controller → external present
       g.ControllerStore = { GetControllers: () => [{}, {}], GetUnboundControllers: () => [] }
       installDeviceState()()
       expect(getDeviceState().controllerConnected).toBe(true)
-      // An unbound (freshly connected) controller → external present
       g.ControllerStore = { GetControllers: () => [{}], GetUnboundControllers: () => [{}] }
       installDeviceState()()
       expect(evalDeviceRule({ kind: 'controllerConnected' })).toBe(true)
@@ -159,10 +154,8 @@ describe('evalDeviceRule', () => {
       g.ControllerStore = { GetControllers: () => [{}], GetUnboundControllers: () => [] }
       const cleanup = installDeviceState()
       expect(getDeviceState().controllerConnected).toBe(false)
-      // Simulate a controller having connected with no event firing (as if
-      // during sleep) — only a forced re-read should notice it.
       g.ControllerStore = { GetControllers: () => [{}, {}], GetUnboundControllers: () => [] }
-      expect(getDeviceState().controllerConnected).toBe(false) // still stale
+      expect(getDeviceState().controllerConnected).toBe(false)
       refreshControllerState()
       expect(getDeviceState().controllerConnected).toBe(true)
       cleanup()
@@ -251,8 +244,8 @@ describe('libraryAvailable / library locations', () => {
     await refreshLibraryLocations()
     const libs = getLibraries()
     expect(libs).toHaveLength(1)
-    expect(libs[0].category).toBe('external') // unknown category normalizes to external
-    expect(getLibraryCategoryOf(5)).toBeNull() // non-string value dropped
+    expect(libs[0].category).toBe('external')
+    expect(getLibraryCategoryOf(5)).toBeNull()
   })
 })
 
@@ -365,7 +358,7 @@ describe('device + inputMode visibility rules and the developer simulator', () =
     const unsub = subscribeDeviceState(cb)
     setSimulatedDevice('desktop')
     expect(cb).toHaveBeenCalledTimes(1)
-    setSimulatedDevice('desktop') // same value — no-op, no extra notify
+    setSimulatedDevice('desktop')
     expect(cb).toHaveBeenCalledTimes(1)
     setSimulatedInputMode('pointer')
     expect(cb).toHaveBeenCalledTimes(2)

@@ -6,7 +6,6 @@ import type { FilterGroup, FilterItem } from '../../../types'
 
 const host = vi.hoisted(() => ({ focused: [] as HTMLElement[] }))
 
-// Plain elements for the client components; buttons expose their A hint.
 vi.mock('../../../runtime/host/decky', async (importOriginal) => {
   const { createElement: el } = await import('react')
   return {

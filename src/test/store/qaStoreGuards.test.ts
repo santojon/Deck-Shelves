@@ -5,7 +5,6 @@ const backend = vi.hoisted(() => ({ call: vi.fn() }));
 const qa = vi.hoisted(() => ({ active: false }));
 
 vi.mock("../../runtime/host/decky", () => ({ call: backend.call }));
-// A QA flag whose override leaves the payload untagged (forced errors, update states, a faked device).
 vi.mock("../../qa/harness", () => ({
   get qaOverrideActive() { return qa.active; },
   applyQASettingsOverride: (s: any) => s,
@@ -68,7 +67,6 @@ describe("settings store and QA builds", () => {
     const loaded = await store.refreshSettings();
     expect((loaded as any).__dsQaOverride).toBeUndefined();
     expect((store.getCurrentSettings() as any).__dsQaOverride).toBeUndefined();
-    // e.g. a profile snapshot written by an older QA build, applied by a trigger
     await store.saveSettings({ ...defaultSettings(), enabled: false, shelves: [], __dsQaOverride: true } as any);
     const sent = backend.call.mock.calls.filter((c) => c[0] === "set_settings").map((c) => (c[1] as any).settings);
     expect(sent.length).toBeGreaterThan(0);

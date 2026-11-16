@@ -13,7 +13,6 @@ export type PlatformAppMeta = {
   installed?: boolean;
   isSteam?: boolean;
   deckCompatCategory?: number;
-  // Steam Machine / Steam Frame compatibility (same 0–3 scale as the Deck one).
   machineCompatCategory?: number;
   frameCompatCategory?: number;
   controllerSupport?: number;
@@ -36,6 +35,5 @@ export interface PlatformApi {
   getAppMetaBatch?(appids: number[]): Promise<Map<number, PlatformAppMeta>>;
   navigateToApp(appid: number): void;
   navigateToShelfSource?(source: ShelfSource, title?: string): void;
-  /** Optional host/OS information a host may expose. */
   getOSVersion?(): string;
 }

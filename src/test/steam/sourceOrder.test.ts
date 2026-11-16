@@ -67,4 +67,48 @@ describe("source order", () => {
     const shelf = { type: "composite", combine: "union", sources: [{ ...pinned, sort: "recent" }, { type: "builtin", sourceId: "history_source" }] } as ShelfSource;
     expect(await resolveShelfAppIds(shelf, 10, "alphabetical")).toEqual([2, 4, 3, 1, 5]);
   });
+
+  it("takes each source's top games by its own sort and limit, then orders them all by the shelf sort", async () => {
+    const shelf = {
+      type: "composite", combine: "union", sources: [
+        { ...pinned, sort: "alphabetical", limit: 2 },
+        { type: "collection", collectionId: "c", sort: "recent", limit: 2 },
+      ],
+    } as ShelfSource;
+    expect(await resolveShelfAppIds(shelf, 10, "alphabetical")).toEqual([2, 4, 3, 5]);
+  });
+
+  it("keeps each source's own limit under source order", async () => {
+    const shelf = { type: "composite", combine: "union", sources: [{ ...pinned, limit: 2 }, { type: "builtin", sourceId: "history_source", limit: 1 }] } as ShelfSource;
+    expect(await resolveShelfAppIds(shelf, 10, "source_order")).toEqual([1, 4, 5]);
+  });
+});
+
+describe("a source ordered by hand", () => {
+  const collection = (over: Record<string, unknown>) => ({ type: "collection", collectionId: "c", sort: "manual", ...over });
+
+  it("puts its placed games first, then the rest by name, within its own limit", async () => {
+    const shelf = { type: "composite", combine: "union", sources: [collection({ manualOrder: [5, 3], limit: 3 }), pinned] } as ShelfSource;
+    expect(await resolveShelfAppIds(shelf, 10, "source_order")).toEqual([5, 3, 2, 1, 4]);
+  });
+
+  it("reads the source past its limit to reach the games placed there", async () => {
+    const shelf = { type: "composite", combine: "union", sources: [collection({ manualOrder: [5, 2, 4, 3, 1], limit: 2 })] } as ShelfSource;
+    expect(await resolveShelfAppIds(shelf, 10, "source_order")).toEqual([5, 2]);
+  });
+
+  it("drops a placed game the source no longer has", async () => {
+    const shelf = { type: "composite", combine: "union", sources: [collection({ manualOrder: [99, 3], limit: 2 })] } as ShelfSource;
+    expect(await resolveShelfAppIds(shelf, 10, "source_order")).toEqual([3, 2]);
+  });
+
+  it("under another shelf sort, only chooses which of its games come in", async () => {
+    const shelf = { type: "composite", combine: "union", sources: [collection({ manualOrder: [5, 1, 2, 4, 3], limit: 2 }), { ...pinned, limit: 1 }] } as ShelfSource;
+    expect(await resolveShelfAppIds(shelf, 10, "alphabetical")).toEqual([2, 1, 5]);
+  });
+
+  it("lists its games by name before any is placed", async () => {
+    const shelf = { type: "composite", combine: "union", sources: [collection({ limit: 3 })] } as ShelfSource;
+    expect(await resolveShelfAppIds(shelf, 10, "source_order")).toEqual([2, 4, 3]);
+  });
 });

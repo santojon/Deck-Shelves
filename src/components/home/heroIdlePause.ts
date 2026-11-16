@@ -1,10 +1,6 @@
 import { useEffect } from "react";
 
-/* Hero zoom only while the Home is being used: Steam's own hero does not
-   animate on an idle Home, and a continuous screen-wide scale costs ~3 pp of a
-   core per fps. After HERO_IDLE_MS without any input the mount gets `ds-idle`
-   (CSS pauses the zoom); the next input lifts it. One timer, re-armed per
-   input, no polling. */
+// A continuous screen-wide zoom is costly, so it only runs while the Home is in use.
 const HERO_IDLE_MS = 60_000;
 const HERO_IDLE_CLASS = "ds-idle";
 const INPUT_EVENTS = ["vgp_ondirection", "vgp_onok", "vgp_onmenubutton", "keydown", "pointerdown", "pointermove", "wheel"];
@@ -23,7 +19,6 @@ export function useHeroIdlePause(mountEl: HTMLElement | null): void {
       timer = win.setTimeout(() => {
         timer = null;
         mountEl.classList.add(HERO_IDLE_CLASS);
-        if (__DEV__) { try { (globalThis as any).__ds_hero_idle = true; } catch {} }
       }, HERO_IDLE_MS);
     };
     const onInput = () => {
@@ -33,7 +28,6 @@ export function useHeroIdlePause(mountEl: HTMLElement | null): void {
       if (timer != null) win.clearTimeout(timer);
       if (mountEl.classList.contains(HERO_IDLE_CLASS)) {
         mountEl.classList.remove(HERO_IDLE_CLASS);
-        if (__DEV__) { try { (globalThis as any).__ds_hero_idle = false; } catch {} }
       }
       arm();
     };

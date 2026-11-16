@@ -1,8 +1,5 @@
 import { uniqNumbers } from "./steamAccess";
 
-/* Generic walkers over Steam's object graph: map/set detection and the deep app-id extraction the library and collection readers share. */
-
-// Any object the Steam graph walkers descend into (stores, maps, arrays, MobX nodes).
 type Walkable = Record<string | symbol, any>;
 
 export function isMapLike(obj: unknown): boolean {
@@ -94,7 +91,6 @@ function collectIdsFromCollectionValue(val: unknown): number[] {
 export function extractCollectionAppIds(raw: unknown): number[] {
   if (!raw || typeof raw !== "object") return [];
   const idsFromValue = (val: unknown): number[] => collectIdsFromCollectionValue(val);
-  // Try direct well-known fields first (depth-0 only = no cross-contamination)
   for (const key of ["apps", "added", "m_rgApps", "rgApps", "appids", "allApps", "visibleApps"]) {
     const val = (raw as Walkable)[key];
     if (val) {
@@ -102,6 +98,5 @@ export function extractCollectionAppIds(raw: unknown): number[] {
       if (ids.length) return ids;
     }
   }
-  // Bounded fallback — depth 3 avoids traversing into sibling collection objects
   return extractAppIdsDeep(raw, 3);
 }

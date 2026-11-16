@@ -37,7 +37,7 @@ Missing entries always fall back to the defaults — partial overrides are valid
 Smart shelves whose result can change between two clicks of the trailing card get a **Refresh** card instead of "view more in library":
 
 - **`REFRESHABLE_SMART_MODES`** (in `src/components/shelf/types.ts`): `random_pick`, `time_of_day`, `spare_time`, `recently_played`. Clicking the refresh card invalidates the resolver cache and re-resolves only that shelf.
-- **Deterministic modes** (the remaining 11) drop the trailing card entirely — view-more would mislead (smart resolvers can't be opened in the library directly), and refresh would be a no-op against stable app data.
+- **Every other mode** drops the trailing card entirely — view-more would mislead (smart resolvers can't be opened in the library directly), and refresh would be a no-op against stable app data.
 
 ### Visibility window
 
@@ -422,7 +422,7 @@ A smart shelf can combine multiple modes into a single result via the **Combine 
   - **Intersection** — `all of` semantics. Result is appids that appear in every child's output.
 - **filterGroup + sort + limit** apply once after the merge (same way they do for a single-mode shelf).
 - **Cache:** each composite child's resolver result is cached under `${shelfId}:${childMode}`. Refreshing the shelf via the UI invalidates every branch at once.
-- **Per-child smartParams** is a follow-up; for now all children share the parent's tuning.
+- All children share the parent's `smartParams`; there is no per-child tuning.
 
 ---
 
@@ -445,7 +445,7 @@ When **Surprise Me** is enabled (sub-toggle under Smart Shelves in the QAM), the
 
 > **Note:** the count is the **maximum** number of shelves, not a guarantee. Templates that return no games for your library follow the normal null-render path and simply don't appear — the actual number of visible shelves may be lower.
 
-**Selection:** the 15 surprise modes are shuffled with the daily seed. The first `count` entries from the shuffled list are used. Templates that return no games still follow the natural null-render path and disappear from the home screen — the count is the maximum, not a guarantee.
+**Selection:** the 15 game-focused modes (from Daily Pick to Forgotten in the list above) are shuffled with the daily seed, and the first `count` are used.
 
 **Reset time:** the seed is derived from the local calendar date (`YYYYMMDD`). The selection resets at **local midnight** — when the device clock rolls over to a new day.
 

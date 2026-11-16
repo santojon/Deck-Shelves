@@ -1,8 +1,3 @@
-/* Which cards of a horizontal row to mount: the visible span plus an overscan
-   on each side, widened to include an anchor index (a pending focus-restore
-   target) so the card the user returns to always exists. With `isWide`,
-   featured cards count at `wideSlotW`, so several of them can't push the
-   window past the cards actually on screen. */
 export type CardWindow = { start: number; end: number };
 
 export function computeCardWindow(p: {
@@ -37,7 +32,6 @@ function flatSpan(p: SpanInput, count: number, slot: number): Span {
   return { first, past: first + Math.ceil(Math.max(0, p.viewportW) / slot) + 1 };
 }
 
-// Card by card, so wide and regular cards each move the offset by their own width.
 function walkedSpan(p: SpanInput, count: number, slot: number): Span {
   const left = Math.max(0, p.scrollLeft);
   const right = left + Math.max(0, p.viewportW);

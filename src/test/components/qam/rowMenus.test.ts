@@ -39,7 +39,6 @@ vi.mock('../../../steam', () => ({ invalidateRandomSortCache: vi.fn() }))
 vi.mock('../../../steam/smartShelves', () => ({ invalidateSmartShelfCache: vi.fn() }))
 vi.mock('../../../core/shelfRefresh', () => ({ triggerShelfRefresh: vi.fn() }))
 vi.mock('../../../core/userPaths', () => ({ joinDownloads: (name: string) => `/downloads/${name}` }))
-// The list only needs to hand each item to renderActions here.
 vi.mock('../../../components/qam/common/ReorderableShelfList', () => ({
   ReorderableShelfList: ({ items, renderActions }: any) => h('div', null, items.map((item: any) => h('div', { key: item.id }, renderActions(item)))),
 }))

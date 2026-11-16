@@ -19,15 +19,12 @@ import { createProfileActions } from "./controller/profiles";
 
 const OWN_KEY_PREFIXES = ['ds-', 'ds_', 'deck-shelves-'];
 
-// The Steam account record keys the settings kept per account; a reset keeps it, like those settings.
 const KEPT_BY_RESET = new Set(["deck-shelves-account-v1"]);
 
 function isOwnKey(k: string | null): k is string {
   return !!k && !KEPT_BY_RESET.has(k) && OWN_KEY_PREFIXES.some((prefix) => k.startsWith(prefix));
 }
 
-// The plugin's own localStorage keys go with a full reset. A QA build resets only its in-memory
-// settings: the device's own lists, stats and records stay.
 export function clearOwnLocalStorage(): void {
   if (qaOverrideActive) return;
   try {
@@ -49,10 +46,7 @@ export function useSettingsController() {
   
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [collections, setCollections] = useState<PlatformCollection[]>([]);
-  /* Initialise tabs from the localStorage cache so the shelf editor shows the
-     correct tab list instantly on every QAM open (the QAM remounts each time,
-     so useState([]) would show an empty dropdown for the 200–500ms while the
-     async listLibraryTabs() IPC round-trip completes). */
+  // The QAM remounts on every open, so start from the cached tabs instead of an empty list.
   const [tabs, setTabs] = useState<PlatformTab[]>(() => {
     try {
       const raw = localStorage.getItem('ds-tabs-cache-v1');
@@ -62,12 +56,7 @@ export function useSettingsController() {
   });
 
   useEffect(() => {
-    // The 5 native library tabs Steam exposes by default. Used whenever the
-    /* discovery chain in `listLibraryTabs` returns nothing — covers both
-       promise rejection (unhandled throw inside one of the integrations)
-       AND the legit-resolved-but-empty case (no TabMaster, no fiber ctx,
-       no DOM tabs). Without this the EditShelfModal's tab dropdown ends up
-       empty whenever the host-window-walk hits a Proxy that throws. */
+    // Fallback for when tab discovery returns nothing or throws.
     const NATIVE_DEFAULT_TABS: PlatformTab[] = [
       { id: "all",       name: "All Games" },
       { id: "favorites", name: "Favorites" },
@@ -81,9 +70,6 @@ export function useSettingsController() {
       try {
         p = platform.listLibraryTabs();
       } catch (e) {
-        // `listLibraryTabs` is async so this only fires if the function
-        // ref itself is missing (broken platform wiring). Swallow and
-        // surface defaults.
         logError("SETTINGS", "refreshTabs sync throw", String(e));
         setTabs((current) => current.length ? current : NATIVE_DEFAULT_TABS);
         return;
@@ -100,8 +86,6 @@ export function useSettingsController() {
           return now === next ? current : finalTabs;
         });
       }).catch((error) => {
-        // Never zero out — keep the previous list if we had one, else
-        // fall back to native defaults so the picker is always usable.
         setTabs((current) => current.length ? current : NATIVE_DEFAULT_TABS);
         logError("SETTINGS", "refreshTabs failed", String(error));
         logDiagnostic("error", "Failed to load tabs", String(error));
@@ -113,13 +97,7 @@ export function useSettingsController() {
       setSelectedId((current) => current ?? next.shelves[0]?.id ?? null);
     });
     refreshSettings().catch((error) => logDiagnostic("error", "Failed to load settings", String(error)));
-    // Collection refresh — same shape as tabs. Steam's collectionStore is
-    // a MobX store that races plugin boot: a single call at mount time
-    /* sometimes returned [] (computed not ready), leaving the Edit Shelf
-       modal's collection picker permanently empty. The periodic refresh
-       fills the picker as soon as Steam exposes the data, and survives
-       QAM hot-reloads / settings round-trips. The setter no-ops when the
-       new list matches the current one so React doesn't churn. */
+    // Steam's collection store can be empty at mount, so this refreshes again later.
     const refreshCollections = () => {
       platform.listCollections().then((next) => {
         setCollections((current) => {
@@ -128,16 +106,12 @@ export function useSettingsController() {
           return a === b ? current : next;
         });
       }).catch((error) => {
-        // Keep the previous list if any — never zero out a working picker.
         logDiagnostic("error", "Failed to load collections", String(error));
       });
     };
     refreshCollections();
     refreshTabs();
-    /* Bounded poll (NOT perpetual): the pickers only need to catch Steam's
-       collectionStore hydrating on cold boot (up to ~80s). Cap the probing at a
-       few ticks, then stop — integrations are optional/additive, so we never keep
-       hammering get_tabmaster_tabs / listCollections in the background. */
+    // Bounded: stop after a few ticks once Steam's collection store has had time to hydrate.
     let tabPolls = 0;
     let colPolls = 0;
     const MAX_POLLS = 6;
@@ -158,7 +132,6 @@ export function useSettingsController() {
 
   const shelves = settings?.shelves ?? [];
 
-  // Always read the most recent settings, even if this closure is stale.
   const liveSettings = () => getCurrentSettings() ?? settings;
 
   const persist = async (next: Settings) => {
@@ -178,19 +151,12 @@ export function useSettingsController() {
     return ok;
   };
 
-  // Extracted action slices — composed into the final `actions` object
-  // below so every call site keeps working through the same name.
   const savedFilterActions = createSavedFilterActions({ liveSettings, persist });
   const smartShelfActions = createSmartShelfActions({ liveSettings, persist, t });
   const onlineActions = createOnlineActions({ liveSettings, persist });
   const globalVisualActions = createGlobalVisualActions({ liveSettings, persist });
   const shelfActions = createShelfActions({ liveSettings, persist, setSelectedId, selectedId, collections, tabs, shelves, t });
   const profileActions = createProfileActions({ liveSettings, persist });
-
-  /* Profile auto-switch triggers run in a boot-installed module
-     (`runtime/profileTriggers`) so they fire in the BACKGROUND on the home — this
-     controller only mounts while the QAM/settings panel is open, so the effect
-     used to never run there. The controller just exposes the write actions. */
 
   const actions = {
     persist,
@@ -222,9 +188,6 @@ export function useSettingsController() {
       const s = liveSettings();
       if (!s || ((s as any).notificationsDisabled ?? false) === notificationsDisabled) return;
       const next: any = { ...s, notificationsDisabled };
-      // Areas come checked ("don't notify this flow") the first time the
-      // master is switched on, so the per-area toggles start consistent
-      // with it — an existing customization is left alone.
       if (notificationsDisabled && !(s as any).notificationsDisabledAreas?.length) {
         next.notificationsDisabledAreas = [...NOTIFICATION_AREAS];
       }
@@ -240,19 +203,14 @@ export function useSettingsController() {
       if (!s) return;
       const cur: string[] = (s as any).notificationsDisabledAreas ?? [];
       const isDisabled = cur.includes(area);
-      if ((!enabled) === isDisabled) return; // already in the desired state
+      if ((!enabled) === isDisabled) return;
       const next = enabled ? cur.filter((a) => a !== area) : [...cur, area];
       await persist({ ...s, notificationsDisabledAreas: next.length ? next : undefined } as any);
     },
     async setUpdateNotifyEnabled(updateNotifyEnabled: boolean) {
       const s = liveSettings();
       if (!s || (s.updateNotifyEnabled ?? true) === updateNotifyEnabled) return;
-      // Re-enabling the toggle clears the "dismissed version" pin so the
-      /* banner / toast can surface again — otherwise a user who dismissed
-         a release (or accidentally hit dismiss) had no way to make the
-         notification reappear short of editing localStorage. The OFF → ON
-         edge is the closest natural signal we have to "I want to see
-         update notifications again". */
+      // Turning it back on clears the dismissed version so notifications can show again.
       const next = updateNotifyEnabled
         ? { ...s, updateNotifyEnabled, updateNotifyDismissedVersion: undefined }
         : { ...s, updateNotifyEnabled };
@@ -261,8 +219,6 @@ export function useSettingsController() {
     async setBetaChannelEnabled(betaChannelEnabled: boolean) {
       const s = liveSettings();
       if (!s || (s as any).betaChannelEnabled === betaChannelEnabled) return;
-      // Switching channel invalidates the cached check + the dismissed pin so
-      // the correct channel's latest release surfaces immediately.
       try { __resetUpdateCheckCache(); } catch {}
       await persist({ ...s, betaChannelEnabled, updateNotifyDismissedVersion: undefined } as any);
     },
@@ -274,12 +230,7 @@ export function useSettingsController() {
     async setHideRecents(hideRecents: boolean) {
       const s = liveSettings();
       if (!s || s.hideRecents === hideRecents) return;
-      // Only the hard "no shelves at all" case blocks — without this the
-      /* user would lock themselves out of the home with nothing on screen.
-         We deliberately do NOT resolve every shelf's appIds here anymore:
-         online sources (wishlist / store) and composite sources can return
-         `[]` while their price/store caches warm, and that transient state
-         was making the toggle bounce back to OFF when the user enabled it. */
+      // Only block when there are no shelves at all; online shelves can be empty while their caches warm.
       if (hideRecents) {
         const visible = (s.shelves ?? []).filter((sh) => sh.enabled && !sh.hidden);
         if (!visible.length) {
@@ -323,9 +274,6 @@ export function useSettingsController() {
       if (hidden === has) return;
       const next = hidden ? [...current, key] : current.filter((k: string) => k !== key);
       const updated = { ...s, qamHiddenToggles: next } as any;
-      // Skip the JSON.stringify diff inside `persist` — these lists are
-      // small and we want the UI to respond on the same tick. Sync local
-      // state immediately; fire-and-forget the backend save.
       setSettings(updated);
       void saveSettings(updated);
     },
@@ -488,7 +436,6 @@ export function useSettingsController() {
     async resetAll() {
       const empty: Settings = { enabled: false, hideRecents: false, recentsReplaceSource: false, hideHomeTabs: false, shelfHeroBackground: false, gameContextMenuEnabled: true, globalMatchNativeSize: false, globalHighlightFirst: false, globalHighlightAll: false, globalHideStatusLine: false, globalHideNewBadge: false, globalHideDiscountBadge: false, globalHideCompatIcons: false, globalHideNonSteamBadge: false, globalHideShelfTitle: false, globalHideGameNames: false, globalHideInstallIndicator: false, globalHideSeeMore: false, globalHideRefreshCard: false, globalDedupeByName: false, shelves: [], smartShelvesEnabled: false, smartShelvesAtBottom: false, smartShelves: [], smartSurpriseMe: false, smartSurpriseMeCount: 0, savedFilters: [], savedSmartFilters: [], updateNotifyEnabled: true, onlineFeaturesEnabled: false, onlineWishlistEnabled: true, onlinePriceSortEnabled: true, onlinePrivacyAccepted: false, onlineMetadataEnabled: false, onlineHideOwnedGames: false, onlineHideOwnedNonSteam: false, onlineHideOwnedNonSteamCloud: false, forceCssLoaderThemes: false, ownQamTabEnabled: false, showcaseModeEnabled: false, showcaseStartAfterSeconds: 60, showcaseDwellSeconds: 10, showcaseRandomize: false, showcaseStopOnInteraction: true, showcaseShelfIds: [], showcasePanCards: false, showcaseCardsPerShelf: 5, showcaseCardDwellSeconds: 4, globalHeroEnabled: false, globalGameInfoAbove: false, globalFriendsPlayingOverlay: false, globalFriendsPlayingOverlayRecent: false, qamHiddenToggles: [], qamHiddenSections: [], unifiedListEnabled: false, allShelvesOrder: [], lightModeEnabled: false, advancedModeEnabled: false, templateSuggestionsEnabled: false, offlineModeEnabled: false, featureToggles: {}, profiles: [], integrationsEnabled: {}, cardActionShortcutsEnabled: true, buttonBindings: {}, buttonBindingsDisabled: [], keyboardBindings: {}, keyboardBindingsDisabled: [], screensaverShelvesEnabled: false, screensaverShelvesIncludeScreenshots: false, screensaverOnlineScreenshotsEnabled: false, screensaverIdleBackupAcSec: null, screensaverIdleBackupBatterySec: null, screensaverStartAfterSeconds: 60, screensaverDwellSeconds: 8, screensaverLogoEnabled: true, screensaverLogoSize: 100, screensaverLogoPosition: 'left', screensaverLogoAtTop: false, screensaverLogoOffset: 8, screensaverLogoOnScreenshots: true, screensaverShelfBatchSize: 5, screensaverDescriptionEnabled: false, screensaverDescriptionAboveLogo: false, screensaverDescriptionLogoGap: 10, cloudSyncEnabled: false, cloudSyncLastSyncedAt: null };
       clearOwnLocalStorage();
-      // The other Steam accounts' settings on this device are not this reset's to clear.
       const accounts = (liveSettings() as any)?.accountSettings;
       await persist(accounts ? { ...empty, accountSettings: accounts } as Settings : empty);
       notify("reset", { body: t("toast_settings_reset") });

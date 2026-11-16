@@ -1,13 +1,4 @@
-/* Local-image cache: maps a local filesystem path (e.g. `/home/deck/
-   Pictures/foo.jpg`) to a `data:image/...;base64,...` URL the home
-   shelf's `<img>` can actually load. CEF blocks bare absolute paths
-   and `file://` URLs from the Big Picture context for security, so we
-   route the read through the Python backend which returns base64. */
-/*
-   Cache is module-scoped + bounded: keeps the last ~24 entries (more
-   than any reasonable shelf row can carry). Decoration card images
-   rarely change between resolves, so this avoids re-issuing the RPC
-   every render. */
+// CEF blocks absolute paths and file:// URLs in Big Picture, so local images are read as base64 through the backend.
 import { call } from "../runtime/host/decky";
 
 interface ReadImageResult { ok: boolean; dataUrl?: string; }
@@ -25,12 +16,9 @@ export function resolveLocalImage(value: string | undefined | null): string | nu
   const raw = String(value).trim();
   if (!raw) return null;
   if (/^https?:\/\//i.test(raw) || raw.startsWith("data:")) return raw;
-  if (!isAbsolutePosixPath(raw)) return raw; // not local, hand back as-is
+  if (!isAbsolutePosixPath(raw)) return raw;
   const cached = CACHE.get(raw);
   if (cached) return cached;
-  // Kick off a fetch if none in flight. Promise resolves the cache
-  // entry; the caller polls via the subscribe path or re-renders on
-  // its own state cadence.
   if (!PENDING.has(raw)) {
     const p = (call("read_image_b64", raw) as Promise<ReadImageResult>)
       .then((r) => {

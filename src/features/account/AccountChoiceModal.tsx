@@ -7,9 +7,6 @@ import { applyAccountChoice, type AccountQuestion } from "../../runtime/accountS
 
 const t = (key: string) => i18next.t(key);
 
-/* Whose settings a Steam account gets on this device: keep what is shown (the
-   device's earlier settings, or a copy of the previous account's) or start fresh.
-   "Decide later" changes nothing; the cloud sync keeps waiting until a choice. */
 export function AccountChoiceModal({ closeModal, question }: { closeModal?: () => void; question: AccountQuestion }) {
   const legacy = question === "ask-legacy";
   const choose = (choice: "keep" | "fresh") => {

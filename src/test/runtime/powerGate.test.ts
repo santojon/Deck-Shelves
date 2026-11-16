@@ -6,11 +6,6 @@ import {
 } from "../../runtime/powerGate";
 import { installSessionState } from "../../runtime/sessionState";
 
-/* A Steam client reduced to the signals the gate wires: app lifetime (with the
-   running-apps store the session state reads), suspend / resume, the
-   compositor's focus events, and the Big Picture window with its router. The
-   Big Picture document is its own object: the plugin realm's `document` is
-   the shared context, whose visibility means the screen. */
 const steam = {
   lifetime: null as null | ((n: any) => void),
   suspend: null as null | (() => void),
@@ -73,7 +68,6 @@ function navigate(path: string): void {
   for (const cb of steam.routeListeners) cb();
 }
 
-// Windows as the compositor lists them: Steam's own and a non-Steam game's.
 const steamWindow = { appid: 769, pid: 100, windowid: 1, strExeName: "steamwebhelper" };
 const gameWindow = { appid: 2147841299, pid: 200, windowid: 2, strExeName: "game.exe" };
 
@@ -128,7 +122,7 @@ describe("powerGate", () => {
     installPowerGate();
     const task = { start: vi.fn(), stop: vi.fn() };
     registerPeriodic("t", { runIn: ["active"], ...task });
-    steam.lifetime!({ unAppID: 1, bRunning: true }); // the store has not caught up yet
+    steam.lifetime!({ unAppID: 1, bRunning: true });
     expect(getPowerState()).toBe("active");
     steam.running = [1];
     expect(getPowerState()).toBe("in-game");
@@ -176,7 +170,6 @@ describe("powerGate", () => {
   it("reads the Home's visibility from the Big Picture document's events only", () => {
     setHidden(bp.doc, true);
     installPowerGate();
-    // Hidden from the start is not trusted (an offscreen document reports that).
     expect(getPowerState()).toBe("active");
     bp.doc.dispatchEvent(new Event("visibilitychange"));
     expect(getPowerState()).toBe("home-hidden");
@@ -194,7 +187,6 @@ describe("powerGate", () => {
     bp.doc.dispatchEvent(new Event("visibilitychange"));
     expect(getPowerState()).toBe("active");
     expect(task.stop).not.toHaveBeenCalled();
-    // The renderer came back with a new document: its events count again.
     const fresh = newBpDocument();
     bp.win.document = fresh;
     expect(getPowerState()).toBe("active");
@@ -270,10 +262,8 @@ describe("powerGate — a game window in the foreground (shortcut, third-party l
     expect(getPowerState()).toBe("in-game");
     expect(task.stop).toHaveBeenCalledTimes(1);
     expect(getPowerGateStats().signals).toMatchObject({ gameByStore: false, gameByEvent: false, focusedGame: true, gameWindowListed: true });
-    // The Steam menu opens over the game: Steam has the focus, the game window is still there.
     steam.focusChange!({ focusedApp: steamWindow, rgFocusable: [steamWindow, gameWindow] });
     expect(getPowerState()).toBe("in-game");
-    // The game closes: only Steam's window is left.
     steam.focusChange!({ focusedApp: steamWindow, rgFocusable: [steamWindow] });
     expect(getPowerState()).toBe("active");
     expect(task.start).toHaveBeenCalledTimes(2);
@@ -306,7 +296,6 @@ describe("powerGate — a game window in the foreground (shortcut, third-party l
 
   it("the automatic focus paths see the foreground game through the gate", async () => {
     const { focusElementAuto } = await import("../../core/focusRestore");
-    // A native element: outside the gate's hold, focusElement falls back to DOM focus.
     const button = document.createElement("button");
     document.body.appendChild(button);
     const focus = vi.spyOn(button, "focus");

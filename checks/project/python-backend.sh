@@ -59,9 +59,7 @@ run_checks() {
     ((pass++))
   fi
 
-  # Every backend helper module (perf_probe / display_state / css_themes /
-  # sanitizer / storage / …) must compile — main.py imports them at load, so a
-  # syntax error there breaks the whole plugin just as hard.
+  # main.py imports every backend module at load, so each one must compile.
   local mod_fail=0
   local mod_count=0
   for pyf in "$root"/*.py "$root"/src/backend/*.py; do
@@ -82,8 +80,7 @@ run_checks() {
     ((fail += mod_fail))
   fi
 
-  # New backend /proc + /sys probes must be READ-ONLY (never open a system path
-  # for writing) — Decky store review + SteamOS safety.
+  # /proc and /sys probes must be read-only (store review and SteamOS safety).
   if grep -rnE "open\([^)]*/(proc|sys)[^)]*['\"][wa]" "$root"/*.py "$root"/src/backend/*.py 2>/dev/null | grep -q .; then
     echo "  ❌ A backend module opens /proc or /sys for writing"
     ((fail++))

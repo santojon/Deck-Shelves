@@ -27,7 +27,7 @@ vi.mock('../../core/focusedCardTracker', () => ({
   getFocusedCard: () => h.focusedInfo,
   subscribeFocusedCard: (cb: (info: FocusInfo) => void) => {
     h.focusListeners.add(cb)
-    cb(h.focusedInfo) // matches the real tracker's immediate-fire-on-subscribe semantics
+    cb(h.focusedInfo)
     return () => { h.focusListeners.delete(cb) }
   },
 }))
@@ -103,7 +103,7 @@ describe('subscribeContextInvalidation — debounce', () => {
     setFocus({ appid: 3, shelfId: null })
     vi.advanceTimersByTime(50)
     setFocus({ appid: 4, shelfId: null })
-    vi.advanceTimersByTime(300) // past the debounce window
+    vi.advanceTimersByTime(300)
 
     expect(cb).toHaveBeenCalledOnce()
     off()
@@ -168,12 +168,12 @@ describe('resolveContextAwareShelf — cancellation', () => {
     setFocus({ appid: 1, shelfId: 's_1' })
     let firstSignal: AbortSignal | null = null
     h.resolveImpl = async (_id, _limit, _params, _context, signal) => {
-      if (!firstSignal) { firstSignal = signal ?? null; return new Promise(() => {}) } // never resolves
+      if (!firstSignal) { firstSignal = signal ?? null; return new Promise(() => {}) }
       return [42]
     }
-    void resolveContextAwareShelf('src', 'shelf-1', 10, undefined) // request #1, left in-flight forever
+    void resolveContextAwareShelf('src', 'shelf-1', 10, undefined)
     await new Promise((r) => setTimeout(r, 0))
-    await resolveContextAwareShelf('src', 'shelf-1', 10, undefined) // request #2 supersedes it
+    await resolveContextAwareShelf('src', 'shelf-1', 10, undefined)
     expect(firstSignal).not.toBeNull()
     expect((firstSignal as unknown as AbortSignal).aborted).toBe(true)
   })

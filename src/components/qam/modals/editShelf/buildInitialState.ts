@@ -1,10 +1,8 @@
-// Initial form-state derivation for EditShelfModal. Extracted from
-// the component body to keep the file under 1000 lines and to make
-// the shape inspectable independently of React.
 import type { Shelf, FilterGroup } from '../../../../types';
 import { normalizeFilter, getEffectiveFilterGroup } from '../../../../domain/settings';
 import type { EditableShelfState, SourceOrder } from './types';
 import { V3_SOURCE_OPTIONS, type SourceType } from './constants';
+import { DISCOUNT_BADGE_MODES, isDiscountBadgeMode } from '../../../shelf/discountBadge';
 
 type Ctx = {
   shelf: Shelf;
@@ -14,11 +12,7 @@ type Ctx = {
   externalSources: ReadonlyArray<{ id: string }>;
 };
 
-/* Composite shelves load by promoting `sources[0]` into the primary
-   fields; remaining children populate `additionalSources`. Older saves
-   carried a single composite-level childFilter slot — when present,
-   propagate it onto each online child so the per-child editor matches
-   what the resolver actually applies. */
+// Older saves had one composite-level childFilter; copy it onto each online child.
 function hydrateCompositeChildren(shelf: Shelf): any[] {
   if (shelf.source.type !== 'composite') return [];
   const compositeChildren: any[] = Array.isArray((shelf.source as any).sources)
@@ -97,15 +91,14 @@ function readHideFlags(shelf: Shelf): Record<typeof HIDE_FLAG_KEYS[number], bool
   return out;
 }
 
-// A built-in source with no saved sort already keeps the order the list gives.
 function keepsSourceOrder(shelf: Shelf): boolean {
   return shelf.source.type === 'builtin';
 }
 
 function readPrimaryOrder(shelf: Shelf, primarySource: any): SourceOrder | undefined {
   if (shelf.source.type !== 'composite') return undefined;
-  const { sort, sortReverse } = primarySource ?? {};
-  return sort === undefined && sortReverse === undefined ? undefined : { sort, sortReverse };
+  const { sort, sortReverse, limit, manualOrder } = primarySource ?? {};
+  return sort === undefined && sortReverse === undefined && !limit ? undefined : { sort, sortReverse, limit: limit || undefined, manualOrder };
 }
 
 function readSortFields(shelf: Shelf) {
@@ -130,12 +123,10 @@ function readOwnedToggles(primarySource: any) {
 const POS3 = ['left', 'center', 'right'] as const;
 const ALIGN3 = ['top', 'center', 'bottom'] as const;
 
-// Keep `v` if it's one of `allowed`, else fall back to `def`.
 function pickOr<T extends string>(v: any, allowed: readonly T[], def: T): T {
   return (allowed as readonly string[]).includes(v) ? (v as T) : def;
 }
 
-// A finite number clamped to [min, max], else `def`.
 function numOr(v: any, min: number, max: number, def: number): number {
   return typeof v === 'number' ? Math.max(min, Math.min(max, v)) : def;
 }
@@ -157,6 +148,8 @@ function readVisualFlags(shelf: Shelf) {
     logoSize: numOr(s.logoSize, 50, 200, 100),
     logoTopOffset: numOr(s.logoTopOffset, -50, 100, 20),
     iconVerticalAlign: pickOr(s.iconVerticalAlign, ALIGN3, 'top'),
+    discountBadgeMode: pickOr(s.discountBadgeMode, DISCOUNT_BADGE_MODES, 'percent'),
+    discountBadgeFocusMode: isDiscountBadgeMode(s.discountBadgeFocusMode) ? s.discountBadgeFocusMode : null,
     shelfTitlePosition: pickOr(s.shelfTitlePosition, POS3, 'left'),
     gameNamePosition: pickOr(s.gameNamePosition, POS3, 'left'),
     playtimePosition: pickOr(s.playtimePosition, POS3, 'left'),

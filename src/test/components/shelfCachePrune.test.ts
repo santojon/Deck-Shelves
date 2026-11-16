@@ -3,8 +3,6 @@ import { pruneShelfCaches, SHELF_CACHE_PREFIX, SHELF_CACHE_TTL_MS } from "../../
 
 const NOW = 1_800_000_000_000;
 
-/* Minimal Storage stand-in: the prune reads `globalThis.localStorage` and only
-   uses length/key/getItem/removeItem, and this environment provides no real one. */
 function makeStore(): Storage & { map: Map<string, string> } {
   const map = new Map<string, string>();
   return {
@@ -50,7 +48,6 @@ describe("pruneShelfCaches", () => {
     expect(pruneShelfCaches(NOW)).toBe(2);
   });
 
-  // The real-world leak: throwaway benchmark shelves nothing ever reads again.
   it("clears stale benchmark keys while leaving other plugin keys untouched", () => {
     for (let i = 0; i < 5; i++) {
       put(`${SHELF_CACHE_PREFIX}qa_perf_${i}-alphabetical`, { ts: NOW - SHELF_CACHE_TTL_MS * 2, ids: [i] });

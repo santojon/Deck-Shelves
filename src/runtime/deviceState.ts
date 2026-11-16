@@ -9,21 +9,14 @@ function isOfflineModeOn(): boolean {
   return (getCurrentSettings() as any)?.offlineModeEnabled === true;
 }
 
-/* Live device-state snapshot for Visibility Rules v2 device kinds. Reads are
-   synchronous cached values; updates are event-driven — no polling. Battery /
-   charging / offline come from the battery subscription + settings. */
-/* Display signals (external-display / resolution / ultrawide) refresh only when
-   DisplayManager reports a change (fires once on register then only on real
-   changes), debounced + change-gated so a dock/undock never storms re-renders.
-   External-display uses the Linux DRM backend (fail-soft off SteamOS); resolution
-   /ultrawide read the Big-Picture window's real screen dims (SJC reports 1). */
+// Screen size comes from the Big Picture window; the shared context reports 1.
 
 const ULTRAWIDE_RATIO = 2.0;
 
 const _listeners = new Set<() => void>();
 
 let _screen: { w: number; h: number } | null = null;
-let _external: boolean | null = null; // external display / docked; null = unknown
+let _external: boolean | null = null;
 
 function notify(): void {
   for (const l of _listeners) { try { l(); } catch {} }
@@ -52,7 +45,7 @@ async function fetchExternal(): Promise<boolean | null> {
     if (res && (res as any).supported === false) return null;
     return !!(res && (res as any).external === true);
   } catch {
-    return _external; // keep previous cached value on RPC failure
+    return _external;
   }
 }
 
@@ -62,10 +55,7 @@ function screenChanged(a: { w: number; h: number } | null, b: { w: number; h: nu
   return aw !== bw || ah !== bh;
 }
 
-/* Exported so a system-resume handler can force a fresh read: display-change
-   events don't fire for anything that happened while suspended (nothing runs
-   during sleep), so a dock/undock while asleep leaves `_external` stale until
-   something else re-checks it. */
+// Display events don't fire for changes made while suspended, so resume forces a read.
 export async function refreshDisplay(): Promise<void> {
   const nextScreen = readBpScreen();
   const nextExternal = await fetchExternal();
@@ -83,8 +73,7 @@ function subscribeDisplayManager(): void {
     const dm = (globalThis as any).SteamClient?.System?.DisplayManager;
     const reg = dm?.RegisterForStateChanges?.(() => {
       if (_displayDebounce) clearTimeout(_displayDebounce);
-      // Dock/undock also re-checks removable-library mount state — no
-      // hotplug event exists here, so this piggybacks on one that fires.
+      // No hotplug event exists for library mounts, so dock/undock re-checks them.
       _displayDebounce = setTimeout(() => { _displayDebounce = null; void refreshDisplay(); void refreshLibraryLocations(); }, 600);
     });
     if (reg && typeof reg.unregister === 'function') {
@@ -93,11 +82,6 @@ function subscribeDisplayManager(): void {
   } catch {}
 }
 
-/* Steam Library Location — reads `libraryfolders.vdf` via the backend
-   (filesystem-level, so it can't run in the renderer) to know which library
-   (Internal / External / Network) each installed app lives in, and whether
-   each library is currently mounted. Powers the `libraryLocation` filter
-   (steam/index.ts) and the `libraryAvailable` trigger/visibility kind below. */
 export type LibraryEntry = {
   id: string;
   label: string;
@@ -160,7 +144,6 @@ export async function refreshLibraryLocations(): Promise<void> {
       _libraryFetchedOnce = true;
       if (changed) notify();
     } catch {
-      // keep previous cached state on RPC failure
     } finally {
       _libraryInFlight = null;
     }
@@ -168,17 +151,11 @@ export async function refreshLibraryLocations(): Promise<void> {
   return _libraryInFlight;
 }
 
-/** True once `refreshLibraryLocations` has completed at least once — lets a
- *  one-off caller (the `libraryLocation` filter's shelf-resolve prefetch)
- *  skip an extra RPC call when `installDeviceState`'s own refresh already
- *  warmed the cache, instead of re-fetching on every resolve. */
 export function isLibraryLocationsWarm(): boolean {
   return _libraryFetchedOnce;
 }
 
-/** Synchronous — reads whatever `refreshLibraryLocations` has already
- *  cached. Never fetches; callers that need a fresh read must await
- *  `refreshLibraryLocations` first. */
+/** Never fetches; await `refreshLibraryLocations` first for a fresh read. */
 export function getLibraries(): LibraryEntry[] {
   return _libraries;
 }
@@ -189,28 +166,20 @@ export function getLibraryCategoryOf(appid: number): LibraryEntry['category'] | 
   return _libraries.find((l) => l.id === libId)?.category ?? null;
 }
 
-/** The specific library id (not just category) an app is installed in —
- *  powers the `libraryLocation` filter's multi-library selection, so a
- *  shelf can mix e.g. "this SD card" + "that USB drive" instead of only
- *  the coarser internal/external/network bucket. */
 export function getLibraryIdOf(appid: number): string | null {
   return _appLibrary.get(appid) ?? null;
 }
 
 function evalLibraryAvailable(rule: any): boolean {
-  if (!_librarySupported) return true; // fail open — unsupported platform/read failure
+  if (!_librarySupported) return true;
   const libraryId = rule?.libraryId ? String(rule.libraryId) : null;
   const category = String(rule?.category ?? 'external');
   const matches = libraryId ? _libraries.filter((l) => l.id === libraryId) : _libraries.filter((l) => l.category === category);
-  if (!matches.length) return false; // configured library/category doesn't exist right now
+  if (!matches.length) return false;
   return matches.some((l) => l.mounted);
 }
 
-/* External controller ("controller connected", invertible). Device-agnostic so
-   it works on every handheld, not just the Deck: the built-in gamepad is always
-   the single primary entry, so any EXTRA bound controller — or any unbound
-   (freshly connected, not yet assigned) one — means an external pad. Event-driven
-   off SteamClient.Input register callbacks — no polling. */
+// The built-in gamepad is the single primary entry, so any extra or unbound controller is external.
 let _externalController = false;
 const _controllerUnsub: Array<() => void> = [];
 
@@ -235,9 +204,7 @@ function refreshController(): void {
   if (next !== _externalController) { _externalController = next; notify(); }
 }
 
-/* Exported for the same reason as refreshDisplay: a controller connecting or
-   disconnecting while suspended fires no event (nothing runs during sleep),
-   so a resume handler needs to force this live, synchronous read itself. */
+// Connections made while suspended fire no event, so resume forces this read.
 export function refreshControllerState(): void {
   refreshController();
 }
@@ -253,10 +220,7 @@ function subscribeControllers(): void {
   refreshController();
 }
 
-/* Device kind + arch/model. Only `deck` is classified with confidence today —
-   the other kinds have no confirmed detection signal yet (only one reference
-   unit was available to test), so they stay `unknown` rather than guess
-   wrong. Primed once at boot, not re-fetched per rule evaluation. */
+// Only `deck` is classified with confidence; other kinds stay `unknown` rather than guess.
 export type DeviceKind = 'deck' | 'machine' | 'frame' | 'desktop' | 'handheld-arm' | 'unknown';
 
 export interface DeviceIdentity {
@@ -306,9 +270,6 @@ export async function primeDeviceIdentity(): Promise<void> {
   notify();
 }
 
-/* Prefer the host's handshake device when it reports a concrete kind — the host
-   sees hardware signals the bundle can't — otherwise keep the bundle's own
-   detection. arch/model fill from the handshake only where present. */
 function resolvedIdentity(): DeviceIdentity {
   const hs = getHostHandshake()?.device;
   if (!hs) return _identity;
@@ -316,15 +277,11 @@ function resolvedIdentity(): DeviceIdentity {
   return { device, arch: strOrNull(hs.arch) ?? _identity.arch, model: strOrNull(hs.model) ?? _identity.model };
 }
 
-/** Real identity, or a Developer-mode simulated device kind when set. */
 export function getDeviceIdentity(): DeviceIdentity {
   const base = resolvedIdentity();
   return _simulatedDevice ? { ...base, device: _simulatedDevice } : base;
 }
 
-/** Developer-only override for testing hardware-specific features without
-    owning every device kind — in-memory only, never persisted, resets on
-    reload. Re-notifies so Visibility Rules/triggers react immediately. */
 export function setSimulatedDevice(kind: DeviceKind | null): void {
   if (kind === _simulatedDevice) return;
   _simulatedDevice = kind;
@@ -334,10 +291,7 @@ export function getSimulatedDevice(): DeviceKind | null {
   return _simulatedDevice;
 }
 
-/* Input mode: gamepad vs pointer. No Steam-provided "current input mode"
-   getter exists — tracked off real input events instead: any controller
-   button (the existing controllerInput bridge) flips to 'gamepad', any real
-   pointer event flips to 'pointer'. Event-driven only, no polling. */
+// Steam has no current-input-mode getter, so it's tracked from real input events.
 export type InputMode = 'gamepad' | 'pointer';
 
 let _inputMode: InputMode = 'gamepad';
@@ -365,7 +319,6 @@ function subscribeInputMode(): () => void {
   };
 }
 
-/** Real mode, or a Developer-mode simulated input mode when set. */
 export function getInputMode(): InputMode {
   return _simulatedInputMode ?? _inputMode;
 }
@@ -381,25 +334,7 @@ export function getSimulatedInputMode(): InputMode | null {
 
 let _inputModeUnsub: (() => void) | null = null;
 
-const DEVICE_KINDS: readonly DeviceKind[] = ['deck', 'machine', 'frame', 'desktop', 'handheld-arm'];
-
-/* QA builds: `DS_QA_FORCE_DEVICE=frame|machine|deck|…` fakes the device kind
-   from boot (the Developer simulator's own path), so Frame/Machine logic can be
-   exercised in the harness and on a Deck without the hardware. */
-function applyQaDeviceOverride(): void {
-  if (!__DEV__) return;
-  try {
-    const forced = typeof __QA_FORCE_DEVICE__ === 'string' ? __QA_FORCE_DEVICE__ : '';
-    if (forced && (DEVICE_KINDS as readonly string[]).includes(forced)) setSimulatedDevice(forced as DeviceKind);
-    (globalThis as any).__ds_device_profile = getDeviceProfile;
-  } catch {}
-}
-
 export function installDeviceState(): () => void {
-  applyQaDeviceOverride();
-  // Battery changes re-notify listeners so battery/charging rules re-evaluate
-  // (subscribeBattery is fed by batteryState's own Steam subscription — no
-  // polling). Display changes come through DisplayManager, debounced.
   const unsubBattery = subscribeBattery(notify);
   subscribeDisplayManager();
   subscribeControllers();
@@ -420,13 +355,12 @@ export type DeviceState = {
   batteryLevel: number | null; // 0–1, null when no battery
   charging: boolean;
   offline: boolean;
-  external: boolean | null; // external display / docked; null = unknown (non-Linux)
-  screen: { w: number; h: number } | null; // real display dims, null = unknown
-  controllerConnected: boolean; // an external gamepad beyond the built-in one
+  external: boolean | null;
+  screen: { w: number; h: number } | null;
+  controllerConnected: boolean;
 };
 
-/* Explicit family / architecture / capabilities view (domain/deviceProfile):
-   family from identity signals only, never from the CPU architecture. */
+// Family comes from identity signals only, never from the CPU architecture.
 export function getDeviceProfile(): DeviceProfile {
   const b = getBatteryState();
   return deriveDeviceProfile(getDeviceIdentity(), {
@@ -454,8 +388,7 @@ function evalResolution(rule: any, width: number): boolean {
   return Number.isFinite(min) ? width >= min : true;
 }
 
-/* Display-signal kinds. Unknown state (and unknown kinds) fail open — return
-   true — so a signal this platform can't answer never wrongly hides a shelf. */
+// Unknown state fails open so an unanswerable signal never hides a shelf.
 function evalDisplayRule(rule: any): boolean {
   const st = getDeviceState();
   const kind = String(rule && rule.kind || '');
@@ -479,11 +412,7 @@ function evalInputModeRule(rule: any): boolean {
   return getInputMode() === String(rule?.value ?? 'pointer');
 }
 
-/* Evaluate one device-state VisibilityRule. Unknown kinds fail open (return true)
-   so a rule an older build can't answer never wrongly hides a shelf. Kinds:
-   battery (below %, default 20), charging, offline, externalDisplay, resolution
-   (minWidth), ultrawide, device (deck/machine/frame/desktop/handheld-arm/unknown),
-   inputMode (gamepad/pointer). */
+/** Unknown kinds fail open. */
 export function evalDeviceRule(rule: any): boolean {
   const kind = String(rule && rule.kind || '');
   if (kind === 'battery') return evalBattery(rule);
@@ -493,13 +422,10 @@ export function evalDeviceRule(rule: any): boolean {
   if (kind === 'libraryAvailable') return evalLibraryAvailable(rule);
   if (kind === 'device') return evalDeviceKindRule(rule);
   if (kind === 'inputMode') return evalInputModeRule(rule);
-  return evalDisplayRule(rule); // externalDisplay/resolution/ultrawide + unknown→true
+  return evalDisplayRule(rule);
 }
 
-/* Trigger evidence for the display kinds: `externalDisplay` has data only once
-   the display probe has answered (null = not probed yet, or a host that cannot
-   tell). Shelf visibility keeps failing open above; a trigger must not switch
-   profiles on a guess. */
+// A trigger must not switch profiles on a guess, so this needs a real probe answer.
 export function deviceRuleHasData(rule: any): boolean {
   if (String(rule?.kind ?? '') === 'externalDisplay') return getDeviceState().external != null;
   return true;

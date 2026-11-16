@@ -3,11 +3,6 @@ import { SettingsSchema, ShelfSourceSchema } from "../types";
 import { evaluateFilterGroup, type AppOverview } from "../steam";
 
 describe("SettingsSchema — Python sanitizer compatibility", () => {
-  // Reproduces the bug report: "after the changes nothing saves anymore,
-  // shelves on home get deactivated". Root cause was Zod rejecting `null`
-  // for the new `updateNotify*` fields (main.py emits `null` when unset),
-  // failing the entire safeParse and falling back to defaults — wiping the
-  // user's shelves on every load.
   it("accepts null for updateNotifyEnabled (sanitizer default)", () => {
     const parsed = SettingsSchema.safeParse({
       enabled: true, shelves: [], smartShelves: [],
@@ -16,7 +11,6 @@ describe("SettingsSchema — Python sanitizer compatibility", () => {
     });
     expect(parsed.success).toBe(true);
     if (parsed.success) {
-      // The schema transforms null → true so callers always see a boolean.
       expect(parsed.data.updateNotifyEnabled).toBe(true);
       expect(parsed.data.updateNotifyDismissedVersion).toBeNull();
     }
@@ -66,9 +60,6 @@ describe("Collection filter — Bazzite #55 fix", () => {
   ];
 
   it("excludes everything when collectionId is non-empty but lookup is missing", () => {
-    // Repro of #55: previously, a missing/empty lookup result silently
-    // passed every app through, making the shelf appear to leak the entire
-    // library. Now: empty lookup → exclude all.
     const result = evaluateFilterGroup(
       { mode: "and", items: [{ type: "collection", inverted: false, params: { collectionId: "uc-rpg" } }] },
       apps,
@@ -115,8 +106,6 @@ describe("Collection filter — Bazzite #55 fix", () => {
 });
 
 describe("Update notifier — semver compare", () => {
-  // Pinning the compareSemver behavior because the update banner's hasUpdate
-  // logic depends on it; an off-by-one here would either spam or hide updates.
   it("ignores leading 'v', compares numeric core, and is pre-release aware", async () => {
     const { compareSemver } = await import("../core/updateNotifier");
     expect(compareSemver("v2.2.0", "2.1.1")).toBe(1);
@@ -124,15 +113,12 @@ describe("Update notifier — semver compare", () => {
     expect(compareSemver("2.1.0", "2.1.0")).toBe(0);
     expect(compareSemver("3.0.0", "2.99.99")).toBe(1);
     expect(compareSemver("2.10.0", "2.9.0")).toBe(1);
-    // Pre-release precedence (drives the beta channel): a release outranks a
-    // pre-release of the same core, and alpha < beta < rc < release.
     expect(compareSemver("2.1.0-beta.1", "2.1.0")).toBe(-1);
     expect(compareSemver("3.0.0", "3.0.0-rc.1")).toBe(1);
     expect(compareSemver("3.0.0-beta.2", "3.0.0-beta.1")).toBe(1);
     expect(compareSemver("3.0.0-rc.1", "3.0.0-beta.5")).toBe(1);
     expect(compareSemver("3.0.0-alpha.1", "3.0.0-beta.1")).toBe(-1);
     expect(compareSemver("3.0.0-beta.2", "3.0.0-beta.2")).toBe(0);
-    // Build metadata (`+sha`) is ignored.
     expect(compareSemver("3.0.0-beta.2+abc1234", "3.0.0-beta.2")).toBe(0);
   });
 });
@@ -149,7 +135,7 @@ describe("Connectivity helper — TTL cache", () => {
       const b = await mod.isOnline();
       expect(a).toBe(true);
       expect(b).toBe(true);
-      expect(calls).toBe(1); // single-flight + TTL cache
+      expect(calls).toBe(1);
     } finally {
       (globalThis as any).fetch = realFetch;
       mod.__resetConnectivityCache();
@@ -172,24 +158,12 @@ describe("Connectivity helper — TTL cache", () => {
 });
 
 describe("Online sort/filter gating", () => {
-  // Pins the `requiresOnline` flag on the TRUE online-only sorts —
-  // price/discount need DS's online-store fetch. The friends-signal v3
-  // sorts were pinned here too until they were found to gate friend-based
-  // sorting off of every non-online (library/filter/collection) shelf,
-  // even though they read Steam's local friend list, not DS's online
-  // features — same source the "friends playing" home overlay already
-  // uses without requiring online features. Un-pinned so they're always
-  // offered. The two sorts over the friends' libraries fetch them from
-  // Steam, so those follow the online toggle.
   it("online-only sorts carry requiresOnline=true", async () => {
     const { SORT_OPTIONS } = await import("../components/qam/modals/editShelf/constants");
     const online = SORT_OPTIONS.filter((o) => (o as any).requiresOnline).map((o) => o.value).sort();
     expect(online).toEqual(["discount_high", "most_friends_owning", "original_price_high", "price_low", "trending_among_friends"]);
   });
 
-  // Mirror check for the filter side — only price/discount are gated as
-  // online; friendsPlayingNow/friendsPlayedRecently read the local friend
-  // list and are always offered (see the sort-side note above).
   it("isOnlineFilterType returns true only for discount/priceRange", async () => {
     const { isOnlineFilterType } = await import("../components/conditions/utils");
     expect(isOnlineFilterType("discount" as any)).toBe(true);
@@ -201,9 +175,6 @@ describe("Online sort/filter gating", () => {
     expect(isOnlineFilterType("playtimeRange" as any)).toBe(false);
   });
 
-  // genres/categories/franchise need Online Features on any source (no
-  // usable local data at all — see v3Extensions.ts) — a different gate than
-  // isOnlineFilterType's source-type check above, so it's a separate flag.
   it("isOnlineFeatureFilterType returns true only for genres/categories/franchise", async () => {
     const { isOnlineFeatureFilterType } = await import("../components/conditions/utils");
     expect(isOnlineFeatureFilterType("genres" as any)).toBe(true);
@@ -217,8 +188,6 @@ describe("Online sort/filter gating", () => {
 });
 
 describe("ShelfSourceSchema — online sources accept excludeOwned", () => {
-  // Pins the per-shelf "exclude owned games" toggle for wishlist/store
-  // sources. The flag is optional; absent/false fields are interchangeable.
   it("wishlist source accepts excludeOwned=true", () => {
     const parsed = ShelfSourceSchema.safeParse({ type: "wishlist", excludeOwned: true });
     expect(parsed.success).toBe(true);

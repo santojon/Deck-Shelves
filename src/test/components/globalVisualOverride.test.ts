@@ -1,10 +1,12 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest'
 
-vi.mock('../../store/settingsStore', async (orig) => ({ ...(await orig<any>()), getCurrentSettings: () => ({ lightModeEnabled: false }) }))
+const live = vi.hoisted(() => ({ settings: { lightModeEnabled: false } as Record<string, unknown> }))
+vi.mock('../../store/settingsStore', async (orig) => ({ ...(await orig<any>()), getCurrentSettings: () => live.settings }))
 
 import { computeDerivedGlobalFlags } from '../../components/home/homeInjectHelpers'
 import { computeEffectiveShelfDisplayProps } from '../../components/Shelf'
+import { buildInitialShelfState } from '../../components/qam/modals/editShelf/buildInitialState'
 
 const flags = (s: Record<string, unknown>) => computeDerivedGlobalFlags({ settings: s as any, replaceInjecting: false, replaceKillSwitch: false })
 const globals = (over: Record<string, unknown> = {}) => ({
@@ -34,5 +36,23 @@ describe('global visual settings override shelves only when set', () => {
     const shelf = { enableLogo: true, enableIcon: false, enableDescription: true }
     expect(computeEffectiveShelfDisplayProps(shelf, false, globals())).toMatchObject({ effectiveEnableLogo: true, effectiveEnableIcon: false, effectiveEnableDescription: true })
     expect(computeEffectiveShelfDisplayProps({}, false, globals({ enableIcon: true }))).toMatchObject({ effectiveEnableLogo: false, effectiveEnableIcon: true })
+  })
+
+  it("the discount badge follows the shelf's own mode while the global one is per shelf, and a set global one wins", () => {
+    live.settings = { lightModeEnabled: false, discountBadgeMode: null }
+    expect(computeEffectiveShelfDisplayProps({ discountBadgeMode: 'price' }, false, globals()).effectiveDiscountBadgeMode).toBe('price')
+    expect(computeEffectiveShelfDisplayProps({}, false, globals()).effectiveDiscountBadgeMode).toBe('percent')
+    live.settings = { lightModeEnabled: false, discountBadgeMode: 'both' }
+    expect(computeEffectiveShelfDisplayProps({ discountBadgeMode: 'price' }, false, globals()).effectiveDiscountBadgeMode).toBe('both')
+    live.settings = { lightModeEnabled: false }
+  })
+
+  it("the shelf editor loads the shelf's own discount badge mode, the percentage when unset", () => {
+    const ctx = { mode: 'edit' as const, collections: [], platformTabs: [], externalSources: [] }
+    const shelf = (over: Record<string, unknown>) => ({ id: 'w', title: 'W', enabled: true, limit: 10, source: { type: 'wishlist' }, ...over }) as any
+    expect(buildInitialShelfState({ ...ctx, shelf: shelf({ discountBadgeMode: 'both' }) }).discountBadgeMode).toBe('both')
+    expect(buildInitialShelfState({ ...ctx, shelf: shelf({}) }).discountBadgeMode).toBe('percent')
+    expect(buildInitialShelfState({ ...ctx, shelf: shelf({ discountBadgeFocusMode: 'percent_price' }) }).discountBadgeFocusMode).toBe('percent_price')
+    expect(buildInitialShelfState({ ...ctx, shelf: shelf({}) }).discountBadgeFocusMode).toBeNull()
   })
 })

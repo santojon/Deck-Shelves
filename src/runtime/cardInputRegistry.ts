@@ -3,11 +3,6 @@ import { subscribeHomeKey, type KeyEvent } from "./homeInputBus";
 import { getLastFocusedElement } from "../core/focusRestore";
 import { subscriptionCreated, subscriptionDisposed } from "../core/perfMetrics";
 
-/* One raw-controller + one keyboard subscription for the whole Home, dispatched
-   to the card that holds gamepad focus — instead of one pair per card, each
-   checking its own `.gpfocus` on every press (O(cards) callbacks per input).
-   Handlers are keyed by element and the subscriptions exist only while a card
-   is registered; Decky's per-card `onButtonDown` (the native adapter) stays. */
 export type CardInputHandlers = {
   raw?: (e: ControllerEvent) => void;
   key?: (e: KeyEvent) => void;
@@ -23,7 +18,7 @@ function focusedCardEl(): HTMLElement | null {
     const card = active ? (active.closest(".ds-card") as HTMLElement | null) : null;
     if (card && handlers.has(card)) return card;
   } catch {}
-  // Fallback for hosts where the tracked element lags: the class Decky applies.
+  // The tracked element can lag on some hosts, so fall back to the focus class.
   for (const el of handlers.keys()) if (el.classList.contains("gpfocus")) return el;
   return null;
 }
@@ -49,7 +44,6 @@ function syncSubscriptions(): void {
     if (unsubRaw) { unsubRaw(); unsubRaw = null; subscriptionDisposed(); }
     if (unsubKey) { unsubKey(); unsubKey = null; subscriptionDisposed(); }
   }
-  if (__DEV__) { try { (globalThis as any).__ds_card_input_registry = { cards: handlers.size, raw: !!unsubRaw, key: !!unsubKey }; } catch {} }
 }
 
 export function registerCardInput(el: HTMLElement, h: CardInputHandlers): () => void {
@@ -65,7 +59,6 @@ export function registeredCardCount(): number {
   return handlers.size;
 }
 
-// Test-only reset — keeps vitest cases isolated from module-level state.
 export function __resetCardInputRegistryForTest(): void {
   handlers.clear();
   syncSubscriptions();

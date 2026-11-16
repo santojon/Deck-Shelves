@@ -1,6 +1,6 @@
 # Shelf Templates
 
-Shelf templates are preset configurations available in the template picker when creating a new shelf. Each template has a predefined source (library tab or filter) and a suggested title. The user can rename and edit any shelf after creation — templates are just starting points.
+Shelf templates are the presets in the picker you see when creating a shelf. Each has a predefined source (library tab or filter) and a suggested title; the shelf it creates can be renamed and edited like any other.
 
 <p align="center">
   <img src="../assets/screenshots/shelf-create.png" alt="Create shelf — template picker (Standard tab)" width="640">
@@ -50,7 +50,7 @@ Shows games the user has marked as favorites in the Steam library. Ordering foll
 
 **Source:** filter — sort by `recent` (most recently played first)
 
-Shows the most recently played games. The template uses a filter source rather than the legacy `tab=recent` (which was never exposed by `listLibraryTabs()` and would silently fall back to the first tab in the dropdown). Existing shelves created from older versions are migrated automatically the first time the plugin loads.
+Shows the most recently played games. Shelves from older versions that used a `recent` library tab are moved to this filter automatically when the plugin loads.
 
 ---
 
@@ -168,9 +168,7 @@ over the network.
 
 > **Tip:** if none of the templates fit your use case, choose **Start blank** — it opens the edit modal directly so you can configure the source and filters from scratch without any preset defaults getting in the way.
 
-> **Note:** tab-based templates (`favorites`, `recent`, `installed`) delegate ordering entirely to Steam. The sort option in the shelf editor has no effect on these — the order is determined by Steam's own internal list. Only the limit (max number of cards) applies.
-
 - The template picker shows **Start blank** first, followed by all templates in a 2-column grid grouped by category (status / time / platform). Starting blank opens the Edit modal immediately.
-- Tab-based templates (`favorites`, `installed`) delegate ordering entirely to Steam. The shelf limit still applies — only the first N games from the tab are shown.
-- Filter-based templates (`recent`, `most_played`, `recently_added`, `awaiting_update`, `non_steam`, `long_session`, `steam_cloud`, `deck_verified`, `top_reviewed`) use the plugin's own resolver and support all per-shelf display options (highlight first, match native size, hide game names, etc.).
+- Tab-based templates (`favorites`, `installed`) take their order from Steam's own list; the sort option has no effect on them, only the limit applies.
+- Every other template is filter-based and uses the plugin's own resolver and support all per-shelf display options (highlight first, match native size, hide game names, etc.).
 - All templates produce fully editable shelves. Source type, sort order, limit, and display options can all be changed after creation.

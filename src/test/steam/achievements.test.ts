@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 
-// The client's own achievement list per app: `result` 1 with the list, 2 for an app without achievements.
 function client(lists: Record<string, Array<{ bAchieved: boolean }>>) {
   const calls: string[] = [];
   return {

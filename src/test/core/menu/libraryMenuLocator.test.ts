@@ -11,7 +11,6 @@ const host = vi.hoisted(() => ({
   read: new Set<string>(),
 }));
 
-// Only the adapter exports the module may use; the mock records every export read.
 vi.mock("../../../runtime/host/decky", () => {
   const exports = {
     get MenuItem() { return host.MenuItem; },
@@ -31,8 +30,6 @@ import { isGameMenuItemList, locateLibraryMenuClass } from "../../../core/menu/l
 
 const { MenuItem, MenuGroup } = host;
 
-// ---------------------------------------------------------------- locator
-
 const calls: string[] = [];
 const log: string[] = [];
 const rendered: unknown[] = [];
@@ -47,7 +44,6 @@ class OtherMenu {
   render() { calls.push("OtherMenu.render"); return null; }
 }
 
-// Shape of the exported component that renders the menu class.
 function menuRenderer(props: object) {
   calls.push("menuRenderer");
   return { type: LibraryMenu, props: { navigator: null, instance: null, ...props } };
@@ -58,7 +54,6 @@ function otherRenderer(props: object) {
   return { type: OtherMenu, props: { navigator: null, instance: null, ...props } };
 }
 
-// Decoys: each misses one part of the signature.
 function twoParams(props: object, extra: unknown) {
   calls.push("twoParams");
   return { navigator: props, instance: extra };
@@ -114,7 +109,6 @@ const fixtureFunctions = [
   LibraryMenu, OtherMenu, menuRenderer, otherRenderer, twoParams, arrowRenderer, PropsHolder,
   plainComponent, withStatic, longRenderer, withMethods, swappedPrototype,
 ];
-// Freezing a prototype object leaves the function's own prototype property writable.
 for (const fn of fixtureFunctions) {
   Object.seal(fn);
   Object.freeze(fn.prototype);
@@ -295,8 +289,6 @@ describe("locateLibraryMenuClass", () => {
   });
 });
 
-// ---------------------------------------------------------------- check
-
 const ELEMENT = Symbol.for("react.transitional.element");
 const FRAGMENT = Symbol.for("react.fragment");
 const noop = () => {};
@@ -305,7 +297,6 @@ function el(type: unknown, props: Record<string, unknown> = {}, key: string | nu
   return { $$typeof: ELEMENT, type, key, props };
 }
 
-// Stand-ins for Steam's inner components, by role.
 function Icon() { return null; }
 function Separator() { return null; }
 function AppsEntry(_props: unknown) { return null; }
@@ -324,7 +315,6 @@ const addToList = () => [
 const removeFromList = () => [
   el(MenuItem, { onSelected: noop, className: "c", children: "entry" }, "remove-from-uc-1"),
 ];
-// The manage submenu; an installed game's adds a fragment with one more entry.
 const manageList = (overview: object, installed = false) => [
   false, false, false, false, false, false, false, false, false,
   el(MenuItem, { onSelected: noop, children: "entry" }),
@@ -336,7 +326,6 @@ const manageList = (overview: object, installed = false) => [
 
 type Layout = { inCollection?: boolean; installed?: boolean; apps?: object[]; extra?: unknown[] };
 
-// The gamepad menu's top-level list, as the class renders it.
 function topList(overview: object, opts: Layout = {}) {
   const apps = opts.apps ?? [overview];
   return [
@@ -357,7 +346,6 @@ function topList(overview: object, opts: Layout = {}) {
 const withoutAppsEntries = (list: unknown[]) =>
   list.map((e) => (e && typeof e === "object" && "type" in e && e.type === AppsEntry ? false : e));
 
-// The menu's inner class nests the list with a header and footer.
 const containerOf = (top: unknown[]) => [
   top,
   el("div", { id: "label", style: {}, children: "title" }),
@@ -376,7 +364,6 @@ const otherPluginEntries = () => [
   el(MenuItem, { onSelected: noop, children: "entry" }, "other-plugin-b"),
 ];
 
-// Another plugin's submenu that nests a submenu next to an entry.
 const otherPluginNested = () => el(MenuGroup, {
   label: "group",
   children: [
@@ -390,7 +377,6 @@ const pluginEntries = () => [
   el(FRAGMENT, { children: [el(MenuGroup, { label: "group", children: [] })] }, "ds-wrap"),
 ];
 
-// The plugin's own fallback game menu: plain-keyed actions, then its keyed entries.
 const pluginMenu = (actions: string[]) => [
   ...actions.map((key) => el(MenuItem, { onSelected: noop, children: "entry" }, key)),
   el(Separator, {}, "ds-sep"),
@@ -409,7 +395,6 @@ function deepFreeze<T>(value: T, seen = new Set<unknown>()): T {
   return Object.freeze(value);
 }
 
-// Every array reachable from a render output, as a depth-first finder meets them.
 function arraysIn(node: unknown, out: unknown[][] = []): unknown[][] {
   if (Array.isArray(node)) {
     out.push(node);

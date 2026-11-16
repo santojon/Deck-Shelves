@@ -4,7 +4,6 @@ import { confirmAction } from "../../components/qam/modals/ConfirmActionModal";
 import { openSnapshotPicker } from "../../components/qam/modals/RestoreSnapshotModal";
 import { isCloudSyncHeldForAccount } from "../../runtime/steamAccount";
 
-// Explains the switch (settings belong to the device) and leads to the snapshots.
 function openAccountSwitchDialog(): void {
   const body = i18next.t("account_switch_body");
   confirmAction({

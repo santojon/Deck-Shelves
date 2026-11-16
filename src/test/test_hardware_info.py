@@ -31,7 +31,7 @@ def test_device_identity_reflects_dmi(monkeypatch):
 
 
 def test_external_disks_linux_finds_mounted_volumes(tmp_path, monkeypatch):
-    monkeypatch.setattr(hardware_info, "_home_dev", lambda: -1)  # never matches
+    monkeypatch.setattr(hardware_info, "_home_dev", lambda: -1)
     user_dir = tmp_path / "run_media" / "deck"
     (user_dir / "SD_CARD").mkdir(parents=True)
     (user_dir / "not_a_dir.txt").write_text("x")
@@ -48,8 +48,6 @@ def test_external_disks_linux_excludes_the_home_device(tmp_path, monkeypatch):
     real_home_dev = hardware_info._home_dev()
     monkeypatch.setattr(hardware_info, "_home_dev", lambda: real_home_dev)
     user_dir = tmp_path / "run_media" / "deck"
-    # tmp_path is on the same filesystem as home in this test environment,
-    # so this mount's st_dev matches home's and must be excluded.
     (user_dir / "SAME_FS").mkdir(parents=True)
 
     found = hardware_info._external_disks_linux(roots=(str(tmp_path / "run_media"),))

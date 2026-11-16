@@ -27,7 +27,6 @@ describe("reparentNavTreeNodes on a root the tree walk cannot reach", () => {
     const scrollerNode = node(scroller, 1, rootNode);
     const recentsNode = node(recents, 0, scrollerNode);
     const tabsNode = node(tabs, 1, scrollerNode);
-    // The wrapper's node exists, points at a parent that does not list it.
     const stray = node(document.createElement("div"), 0, rootNode);
     const wrapperNode: Node = { m_element: wrapper, m_rgChildren: [], m_Parent: stray, m_Tree: tree, GetLayout: () => 1 };
     fiberNode(wrapper, wrapperNode);
@@ -37,7 +36,6 @@ describe("reparentNavTreeNodes on a root the tree walk cannot reach", () => {
     expect(reparentNavTreeNodes(mount)).toBe(1);
     expect(scrollerNode.m_rgChildren).toEqual([recentsNode, wrapperNode, tabsNode]);
     expect(wrapperNode.m_Parent).toBe(scrollerNode);
-    // Settled: a second pass changes nothing.
     expect(reparentNavTreeNodes(mount)).toBe(0);
     expect(scrollerNode.m_rgChildren).toEqual([recentsNode, wrapperNode, tabsNode]);
   });
@@ -75,7 +73,6 @@ describe("releaseDetachedNavNodes when the Home leaves the document", () => {
     expect(navTree.TransferFocus).toHaveBeenCalledWith(2, null);
     expect(parent.RemoveChild).toHaveBeenCalledTimes(1);
     expect(parent.m_rgChildren).toEqual([]);
-    // Already out: nothing more to do.
     expect(releaseDetachedNavNodes(mount)).toBe(0);
   });
 

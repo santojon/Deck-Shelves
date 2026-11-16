@@ -3,7 +3,7 @@ import type { FilterGroup, FilterItem, ShelfSource } from "../types";
 import type { LooseSource, ResolverContext } from "./resolverContext";
 import { type SteamCollectionLike, steamCollectionStore } from "./internals";
 import { type TabMasterTab, findTabMasterContextValue, getTabAppIdsFromStore, listLibraryTabs, slugifyTab, tabIdFrom, tabNameFrom } from "./libraryTabs";
-import { applySortToIds, sortPoolLookup } from "./sorting";
+import { applySortToIds, applySourceManualOrder, manualResolveLimit, sortPoolLookup } from "./sorting";
 import { dedupeAppIdsByName } from "./dedupe";
 import { evaluateFilterGroup } from "./filterEval";
 import { extractAppIdsDeep, extractCollectionAppIds } from "./steamGraph";
@@ -21,12 +21,11 @@ import { _resolveSmart } from "./smartResolver";
 import { unavailableReason } from "./availability";
 import { SOURCE_V3_RESOLVERS } from "./v3Extensions";
 
-// Moved into sibling modules by concern; re-exported so every importer keeps its path.
 export { compareByAdded, normalizeAppOverview } from "./appOverview";
 export type { AppOverview } from "./appOverview";
 export { clearDeveloperCache, getAppDeveloperCached, getAppPublisherCached, getUniqueDevelopers, getUniquePublishers, preloadDeveloperData, preloadPublisherData } from "./publisherDeveloper";
 export { evaluateFilterGroup, evaluateFilterItem } from "./filterEval";
-export { applyManualOrder, applySortToIds, invalidateRandomSortCache } from "./sorting";
+export { applyManualOrder, applySortToIds, applySourceManualOrder, invalidateRandomSortCache, manualResolveLimit } from "./sorting";
 export { findTabMasterContextValue, getTabAppIdsFromStore, listLibraryTabs } from "./libraryTabs";
 export { getLocalLibraryAppIds, getUnifideckCloudPlaySet, resolveAppInstalledState } from "./localLibrary";
 export { enrichAppStateFlags, getAllAppOverviews, invalidateAppOverviewCache } from "./library";
@@ -80,7 +79,7 @@ function getCustomFiltersAppsForContainer(tabId: string): number[] {
   return tabContainer ? extractAppIdsFromContainer(tabContainer) : [];
 }
 
-// The client's own favorites collection (id "favorite" on every client).
+// Id "favorite" on every client.
 function favoritesFromCollectionStore(): number[] {
   for (const win of getSteamWindows()) {
     try {
@@ -105,8 +104,6 @@ function resolveFavoritesTab(all: AppOverview[]): AppOverview[] {
 }
 
 function resolveInstalledTab(all: AppOverview[]): AppOverview[] {
-  // Mirror native "installed" tab: drop non-Steam shortcuts + non-game
-  // app types (Proton, runtime, tools).
   return all.filter((a) =>
     isInstalledOf(a) && !isNonSteamOf(a) && (a.app_type === undefined || a.app_type === 1),
   );
@@ -181,7 +178,6 @@ async function resolveDynamicTab(tab: string, all: AppOverview[]): Promise<AppOv
   return resolveFromCollectionStoreRaw(tab, id, all) ?? byTab;
 }
 
-// Composite recursion bound — beyond this, returns [].
 const MAX_COMPOSITE_DEPTH = 4;
 
 function makeNativeInstalledFilter(tabSlug: string, all: AppOverview[]): (ids: number[]) => number[] {
@@ -297,9 +293,7 @@ async function _resolveTab(ctx: ResolverContext): Promise<number[]> {
   return finish(applyChildFilterTab(ids.slice(0, overShootLimit)));
 }
 
-// Built-in tabs whose semantics map cleanly to a legacy flat filter. When
-// Steam's tab store returns empty (boot-time race, theme weirdness) we route
-// through the filter resolver so the template still produces results.
+// Steam's tab store can be empty at boot, so these tabs go through the filter resolver.
 async function tryBuiltInTabFallback(ctx: ResolverContext, rawTab: string): Promise<number[] | null> {
   const slug = slugifyTab(rawTab);
   if (slug !== "installed") return null;
@@ -308,7 +302,6 @@ async function tryBuiltInTabFallback(ctx: ResolverContext, rawTab: string): Prom
       ...ctx,
       source: { type: "filter", filter: { installed: true } } as any,
     });
-    // Same contents as the native Installed tab: no shortcuts, no Proton / runtimes / tools.
     const result = makeNativeInstalledFilter(slug, ctx.all)(viaFilter);
     if (result.length) {
       logInfo("STEAM", "resolveShelfAppIds(tab) using installed-filter fallback", { tab: rawTab, count: result.length });
@@ -350,26 +343,38 @@ function rebuildCompositeChildSources(rawChildSources: LooseSource[], compositeI
   });
 }
 
-/* Each child sorts + truncates to its own limit before the union is merged
-   and re-sorted — a candidate outside one branch's own cutoff never reaches
-   the final ranking, even if it belonged in the true combined top-N (the
-   editor preview avoids this via its own much larger request). Cheap to
-   raise: local evaluation is synchronous, and enrichApps caps + caches its own lookups regardless of pool size. */
+// Each child truncates to its own limit before the merge, so give it room.
 function compositeChildLimit(overShootLimit: number): number {
   return Math.min(Math.max(overShootLimit * 4, 200), 600);
 }
+
+// The source's own game limit, set in the editor.
+function ownLimitOf(child: LooseSource): number | undefined {
+  const n = Number(child?.limit);
+  return Number.isFinite(n) && n >= 1 ? Math.min(Math.floor(n), 100) : undefined;
+}
+
+const hasOwnPick = (child: LooseSource): boolean => child?.sort !== undefined || ownLimitOf(child) !== undefined;
 
 const primaryKeyOf = (sort: string | string[] | undefined) => (Array.isArray(sort) ? sort[0] : sort);
 
 type ChildOrder = { source: LooseSource; sort: string | string[] | undefined; sortReverse: boolean | boolean[] | undefined };
 
-/* Under "source order" each source keeps its own sort (none = the source's own order);
-   a filter carries it inside the filter, like a filter shelf. Otherwise the shelf sort applies. */
+const manualOrderOf = (child: LooseSource): number[] | undefined =>
+  (primaryKeyOf(child?.sort) === "manual" && Array.isArray(child?.manualOrder) ? child.manualOrder : undefined);
+
+// A source ordered by hand is read by name; its placed games are moved to the front afterwards.
+function ownOrderOf(child: LooseSource): Pick<ChildOrder, "sort" | "sortReverse"> {
+  if (primaryKeyOf(child?.sort) === "manual") return { sort: "alphabetical", sortReverse: undefined };
+  return { sort: child?.sort ?? "source_order", sortReverse: child?.sortReverse };
+}
+
+// A source's own sort picks its games under any shelf sort; without one it follows the shelf.
 function childOrderOf(child: LooseSource, ctx: ResolverContext): ChildOrder {
-  if (primaryKeyOf(ctx.sort) !== "source_order") return { source: child, sort: ctx.sort, sortReverse: ctx.sortReverse };
-  const sort = child?.sort ?? "source_order";
-  const sortReverse = child?.sortReverse;
-  if (child?.type === "filter" && child.sort !== undefined) {
+  const ownSort = child?.sort !== undefined;
+  if (!ownSort && primaryKeyOf(ctx.sort) !== "source_order") return { source: child, sort: ctx.sort, sortReverse: ctx.sortReverse };
+  const { sort, sortReverse } = ownOrderOf(child);
+  if (child?.type === "filter" && ownSort) {
     return { source: { ...child, filter: { ...child.filter, sort, sortReverse } }, sort, sortReverse };
   }
   return { source: child, sort, sortReverse };
@@ -378,25 +383,22 @@ function childOrderOf(child: LooseSource, ctx: ResolverContext): ChildOrder {
 async function resolveCompositeChildren(childSources: LooseSource[], ctx: ResolverContext): Promise<number[][]> {
   const { shelfId, options, depth: _depth, overShootLimit } = ctx;
   const childLimit = compositeChildLimit(overShootLimit);
-  /* Ceiling per child (15s max) so a single hung online source can't park
-     the parent composite resolve forever; a misbehaving child just resolves
-     `[]`. The actual bound is learned per source type (adaptiveTimeout) — a
-     local collection and a network wishlist/store call have very different
-     natural latencies, so each type keeps its own rolling estimate. */
+  // Per-child ceiling so one hung online source can't stall the composite.
   return Promise.all(
     childSources.map((child) => {
       const timeoutKey = `composite-child:${child?.type ?? "unknown"}`;
       const ms = getAdaptiveTimeout(timeoutKey, { floor: 2000, ceiling: 15000, fallback: 15000 });
       const startedAt = Date.now();
-      /* Cancel the ceiling timer once the child settles. Left running it fires
-         anyway after a SUCCESSFUL resolve — logging a bogus "timed out" that
-         hides which children really are slow — and leaks one pending timer per
-         child per resolve, which adds up fast across home remounts. */
+      // Clear the timer once the child settles, or it logs a false timeout and leaks.
       let timer: ReturnType<typeof setTimeout> | null = null;
       const clear = () => { if (timer !== null) { clearTimeout(timer); timer = null; } };
       const order = childOrderOf(child, ctx);
-      const inner = resolveShelfAppIds(order.source as ShelfSource, childLimit, order.sort, shelfId, order.sortReverse, options, _depth + 1)
-        .then((r) => { recordDuration(timeoutKey, Date.now() - startedAt); clear(); return r; });
+      const own = ownLimitOf(child);
+      const placed = manualOrderOf(child);
+      // Placed games can sit past the limit in name order, so the source is read that far.
+      const readLimit = own ? Math.min(manualResolveLimit(own, placed), childLimit) : childLimit;
+      const inner = resolveShelfAppIds(order.source as ShelfSource, readLimit, order.sort, shelfId, order.sortReverse, options, _depth + 1)
+        .then((r) => { recordDuration(timeoutKey, Date.now() - startedAt); clear(); const picked = applySourceManualOrder(r, placed); return own ? picked.slice(0, own) : picked; });
       const fallback = new Promise<number[]>((resolve) => {
         timer = setTimeout(() => {
           timer = null;
@@ -410,11 +412,16 @@ async function resolveCompositeChildren(childSources: LooseSource[], ctx: Resolv
   );
 }
 
-async function resortCompositeMerged(merged: number[], all: AppOverview[], ctx: ResolverContext): Promise<number[]> {
+// Children resolved in random order already carry it, unless a source picked its games another way.
+function keepsMergedOrder(primary: string | undefined, picked: boolean): boolean {
+  return !primary || primary === "manual" || primary === "source_order" || (primary === "random" && !picked);
+}
+
+async function resortCompositeMerged(merged: number[], all: AppOverview[], ctx: ResolverContext, picked: boolean): Promise<number[]> {
   const { sort, shelfId, sortReverse } = ctx;
   const sortKeys: string[] = Array.isArray(sort) ? sort : (sort ? [sort] : []);
   const primary = sortKeys[0];
-  if (merged.length <= 1 || !primary || primary === "manual" || primary === "random" || primary === "source_order") return merged;
+  if (merged.length <= 1 || keepsMergedOrder(primary, picked)) return merged;
   try {
     const hasPriceKey = sortKeys.some((k) => PRICE_SORT_KEYS.has(k));
     const priceMap = hasPriceKey ? await (await import("../core/onlineStore")).getPriceMap(merged) : undefined;
@@ -436,25 +443,20 @@ async function _resolveComposite(ctx: ResolverContext): Promise<number[]> {
   const compositeItems = compositeChildFilterItems(source);
   const childSources = rebuildCompositeChildSources(rawChildSources, compositeItems);
   const childResults = await resolveCompositeChildren(childSources, ctx);
-  // "Source order" lists each source after the one before it; otherwise the union interleaves them.
   const inSourceOrder = combine === "union" && primaryKeyOf(ctx.sort) === "source_order";
   let merged = inSourceOrder ? [...new Set(childResults.flat())] : mergeCompositeResults(childResults, combine);
-  merged = await resortCompositeMerged(merged, all, ctx);
+  merged = await resortCompositeMerged(merged, all, ctx, childSources.some(hasOwnPick));
   logInfo("STEAM", "resolveShelfAppIds(composite) resolved", { combine, children: childSources.length, count: merged.length, hasChildFilter: !!(source as any).childFilter });
   return finish(merged.slice(0, overShootLimit));
 }
 
-// A child filter item that asks for Steam-hidden games (same reading as evalHidden).
 function asksForHiddenGames(item: FilterItem): boolean {
   if (item.type !== "hidden") return false;
   const mode = item.params?.mode ?? "exclude";
   return item.inverted ? mode === "exclude" : mode === "only";
 }
 
-/* The native library never lists a Steam-hidden game on a tab or inside a
-   collection, so tab and collection shelves drop them here, in one place.
-   Only the Hidden tab itself and a shelf whose child filter asks for hidden
-   games keep them; filter and smart shelves keep their own `hidden` item. */
+// The native library never lists Steam-hidden games on a tab or in a collection.
 function keepsSteamHidden(source: LooseSource): boolean {
   if (source.type === "tab" && tabIdFromPath(String(source.tab ?? "").trim()) === "hidden") return true;
   const cf = source.childFilter as FilterGroup | undefined;
@@ -473,25 +475,21 @@ function withoutSteamHidden(resolve: SourceResolver): SourceResolver {
     const ids = await resolve({
       ...ctx,
       all: ctx.all.filter((a) => !hidden.has(appIdOf(a))),
-      // Ids read straight from Steam (tab store, collections) still carry the
-      // hidden games: widen the resolver's own cut so dropping them keeps the shelf full.
+      // Widen the cut so dropping hidden games still fills the shelf.
       overShootLimit: ctx.overShootLimit + hidden.size,
       finish: (raw) => {
         const kept = raw.filter((id) => !hidden.has(id));
         dropped = raw.length - kept.length;
         return ctx.finish(kept);
       },
-      // A resolver reports its See-more total before `finish`: pass it on minus the games dropped there.
       reportTotal: ctx.reportTotal && ((n) => { total = n; }),
     });
     if (total !== undefined) ctx.reportTotal?.(total - dropped);
-    // A path that returns without `finish` (the TabMaster filter fallback) is caught here.
+    // Paths that return without `finish` are caught here.
     return ids.filter((id) => !hidden.has(id));
   };
 }
 
-// Dispatcher table keyed by `source.type`. Each entry runs in its own
-// function above so the dispatcher itself stays at complexity ~3.
 const SOURCE_RESOLVERS: Record<string, (ctx: ResolverContext) => Promise<number[]>> = {
   collection: withoutSteamHidden(_resolveCollection),
   tab: withoutSteamHidden(_resolveTab),
@@ -504,15 +502,12 @@ const SOURCE_RESOLVERS: Record<string, (ctx: ResolverContext) => Promise<number[
 };
 
 function computeOvershootLimit(source: { type: string }, limit: number, hiddenSet: Set<number> | undefined): number {
-  // Overshoot for render-time filters: hidden*2 for the picker, plus
-  // max(10, 50% of limit) for online owned/name matches. Capped at 3x.
   const isOnlineShelf = source.type === "wishlist" || source.type === "store";
   const ownedOvershoot = isOnlineShelf ? Math.max(10, Math.ceil(limit * 0.5)) : 0;
   const hiddenOvershoot = hiddenSet ? hiddenSet.size * 2 : 0;
   return Math.min(limit + hiddenOvershoot + ownedOvershoot, limit * 3);
 }
 
-// A built-in source projects from the loaded library (`{ type: "builtin", sourceId }`).
 async function resolveBuiltinSource(
   source: LooseSource,
   all: AppOverview[],
@@ -533,7 +528,7 @@ async function resolveBuiltinSource(
 
 const unavailableLogged = new Set<string>();
 
-// Logged once per shelf and reason, so a refresh loop does not repeat it.
+// Logged once per shelf and reason, so a refresh loop doesn't repeat it.
 function logUnavailable(shelfId: string | undefined, reason: string, type: string): void {
   const key = `${shelfId ?? type}:${reason}`;
   if (unavailableLogged.has(key)) return;
@@ -561,7 +556,7 @@ export async function resolveShelfAppIds(
   const overShootLimit = computeOvershootLimit(source, limit, hiddenSet);
 
   let all = await getAllAppOverviews();
-  // Startup readiness: if Steam hasn't loaded app data yet, retry once after a short delay
+  // Steam may not have loaded app data yet at startup: retry once.
   if (!all.length) {
     await new Promise((r) => setTimeout(r, 2000));
     all = await getAllAppOverviews();

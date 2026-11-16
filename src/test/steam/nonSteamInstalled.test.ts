@@ -30,7 +30,7 @@ describe('installed state of non-Steam shortcuts', () => {
   it('without an explicit flag, other shortcuts keep their own signals (manual, Heroic, emulators)', () => {
     expect(isInstalledOf(shortcut(20, { ...localClient(), rt_last_time_locally_played: 1700000000 }))).toBe(true)
     expect(isInstalledOf(shortcut(21, { size_on_disk: '0', rt_last_time_locally_played: 0 }))).toBe(false)
-    expect(isInstalledOf(shortcut(22, { installed: true }))).toBe(true) // normalized entry, raw fields gone
+    expect(isInstalledOf(shortcut(22, { installed: true }))).toBe(true)
     expect(isInstalledOf(shortcut(23, { installed: false }))).toBe(false)
   })
 

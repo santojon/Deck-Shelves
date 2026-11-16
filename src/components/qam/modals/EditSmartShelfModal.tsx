@@ -17,7 +17,7 @@ import type { SettingsController } from '../../../features/settings/controller'
 import type { SmartShelf, SmartShelfMode } from '../../../types'
 import { ConditionEditor } from '../../conditions/ConditionEditor'
 import { FieldContainer, DSSliderField} from '../../ui'
-import { resolveShelfAppIds, invalidateRandomSortCache } from '../../../steam'
+import { resolveShelfAppIds, invalidateRandomSortCache, manualResolveLimit } from '../../../steam'
 import { isNonSteamBadgesAvailable } from '../../../integrations'
 import { usePlatform } from '../../../runtime/platformContext'
 import { SMART_MODE_OPTIONS, SORT_OPTIONS } from './editShelf/constants'
@@ -27,8 +27,6 @@ import { DisplayTabContent } from './editShelf/DisplayTabContent'
 import { VisibilityRulesEditor } from './editShelf/VisibilityRulesEditor'
 import type { PlatformAppMeta } from '../../../runtime/platform'
 import { PreviewPanel } from './editShelf/PreviewPanel'
-// SmartShelfModal also supports a modal-driven `create` mode that persists
-// only on Save (opened by the create picker in CreateShelfModal).
 import { EditShelfFrame } from './editShelf/EditShelfFrame'
 import { FunnelIcon, EyeIcon, SparkleIcon, OnlineIcon } from '../../icons'
 import { TabLabel } from './editShelf/TabLabel'
@@ -45,9 +43,6 @@ import { visualFlagsOf, applyVisualPatch, previewHideFlags, removableTail } from
 
 type Tab = 'source' | 'smart_filters' | 'overrides' | 'filters' | 'visual' | 'display'
 
-// First element of a multi-key value (or the scalar itself), falling back
-// when absent — used when applying a saved smart filter whose sort fields
-// may be single or multi-key.
 function firstOr<T>(v: T | T[] | undefined, fallback: T): T {
   return ((Array.isArray(v) ? v[0] : v) ?? fallback)
 }
@@ -56,25 +51,16 @@ function firstOr<T>(v: T | T[] | undefined, fallback: T): T {
 
 export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edit' }: { closeModal?: () => void; controller: SettingsController; shelf: SmartShelf; mode?: 'create' | 'edit' }) {
   const { t, actions, settings } = controller
-  // Matches EditShelfModal's source-gating semantics exactly (not the
-  // resolver's offlineModeEnabled-aware check) — genres/categories/franchise
-  // need it the same way wishlist/store sources already do.
   const onlineOn = (settings as { onlineFeaturesEnabled?: boolean } | null | undefined)?.onlineFeaturesEnabled === true
   const platform = usePlatform()
   const hasNonSteamBadges = useMemo(() => isNonSteamBadgesAvailable(), [])
   const [activeTab, setActiveTab] = useState<Tab>('source')
   const [state, setState] = useState<EditState>(() => buildInitialSmartState(shelf))
-  // Buffered text representation of the refresh-interval field — keeps the
-  // user free to clear / partially edit the input without immediately
-  // collapsing it back to the default. Committed to numeric state on blur.
+  // Text buffer so the field can be cleared while typing; committed on blur.
   const [refreshDraft, setRefreshDraft] = useState<string>(String((shelf as any).refreshIntervalMinutes ?? DEFAULT_REFRESH_MINUTES))
 
   const paramKeys = useMemo(() => paramKeysForMode(state.mode), [state.mode])
   const setSmartParam = (key: string, value: number) => setState((prev) => ({ ...prev, smartParams: { ...prev.smartParams, [key]: value } }))
-  /* Switching mode resets smartParams + drafts to the new mode's defaults.
-     The mode field on a smart shelf is the "data source" — picking another
-     mode means picking a different candidate-set heuristic, so the previous
-     mode's tuning knobs no longer apply. */
   const handleModeChange = (nextMode: SmartShelfMode) => {
     if (nextMode === state.mode) return
     const nextDefaults = SMART_PARAM_DEFAULTS[nextMode] ?? {}
@@ -85,14 +71,10 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
       ...prev,
       mode: nextMode,
       smartParams: { ...nextDefaults },
-      // Sort default also tracks mode — only reset if the previous sort was
-      // the previous mode's default (i.e. user hadn't overridden it).
+      // Only reset the sort if it was still the previous mode's default.
       sort: prev.sort === DEFAULT_SORT_FOR_MODE[prev.mode] ? (DEFAULT_SORT_FOR_MODE[nextMode] ?? 'alphabetical') : prev.sort,
     }))
   }
-  // Buffered text representations of `kind === 'text'` params (e.g. playtime
-  // minutes). Kept separate from `state.smartParams` so the user can clear /
-  // partially edit the input without committing intermediate values.
   const [paramDrafts, setParamDrafts] = useState<Record<string, string>>(() => {
     const out: Record<string, string> = {}
     for (const k of paramKeys) {
@@ -120,9 +102,6 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
   const effectiveManualOrder = useMemo(() => {
     if (!isManual) return resolvedIds
     const idSet = new Set(resolvedIds)
-    // See EditShelfModal — hidden cards stay in the preview (overlaid
-    // with the ✕ marker by ShelfPreview); home filters them via
-    // applyManualOrder.
     const out: number[] = []
     const tail: number[] = []
     const seen = new Set<number>()
@@ -143,18 +122,14 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
       ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><OnlineIcon size={14} style={{ opacity: 0.7 }} />{t(item.labelKey)}</span>
       : t(item.labelKey)
   ) as any
-  // Smart shelves resolve against the local library — no price cache, so
-  // online-only sorts (price_low, discount_high, original_price_high) are
-  // excluded from both pickers.
+  // Smart shelves read the local library, so price sorts never apply.
   const sortOptions = useMemo<SingleDropdownOption[]>(
     () => SORT_OPTIONS
       .filter((item) => !(item as any).requiresOnline)
       .map((item) => ({ data: item.value, label: sortLabel(item) })),
     [t],
   )
-  // `random` is excluded under a manual sort: re-shuffling the manual order
-  // every render would defeat the user's explicit ordering. Persisted values
-  // stay intact — only the option is hidden from this dropdown.
+  // No random under manual sort: it would reshuffle the user's order on every render.
   const baseSortOptions = useMemo<SingleDropdownOption[]>(
     () => SORT_OPTIONS
       .filter((item) => item.value !== 'manual' && item.value !== 'random' && !(item as any).requiresOnline)
@@ -182,9 +157,7 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
     let cancelled = false
     setPreviewCount(null)
     const timer = setTimeout(() => {
-      // Mirror Shelf.tsx wiring: forward asc/desc inversion to the resolver
-      // and substitute `alphabetical` for an unset sort when reverse is on
-      // (so applySortToIds runs and the reverse flag has somewhere to apply).
+      // An unset sort becomes alphabetical when reversed, so the reverse has an order to flip.
       const isManualSort = primarySortKey === 'manual'
       const previewReverse: boolean | boolean[] = isManualSort
         ? !!state.manualBaseSortReverse
@@ -196,7 +169,7 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
         .then((ids) => {
           if (cancelled) return
           setPreviewCount(ids.length)
-          setResolvedIds(ids.slice(0, state.limit))
+          setResolvedIds(ids.slice(0, isManualSort ? manualResolveLimit(state.limit, state.manualOrder) : state.limit))
         })
         .catch(() => {
           if (cancelled) return
@@ -205,7 +178,7 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
         })
     }, 500)
     return () => { cancelled = true; clearTimeout(timer) }
-  }, [previewSource, state.limit, state.sort, state.manualBaseSort, state.sortReverse, state.manualBaseSortReverse, previewRefreshNonce])
+  }, [previewSource, state.limit, state.manualOrder.length, state.sort, state.manualBaseSort, state.sortReverse, state.manualBaseSortReverse, previewRefreshNonce])
 
   useEffect(() => {
     let cancelled = false
@@ -220,10 +193,6 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
     return () => { cancelled = true }
   }, [platform, resolvedIds.join(',')])
 
-  /* Meta for menu-added games (state.manualOrder entries NOT in
-     resolvedIds — see EditShelfModal for the rationale). Without this
-     the preview's `meta.get(tailId)` returns undefined and menu-added
-     cards never render in non-source tabs. */
   useEffect(() => {
     const resolvedSet = new Set(resolvedIds)
     const tail = state.manualOrder.filter((id) => !resolvedSet.has(id) && id > 0)
@@ -265,10 +234,6 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
     </Focusable>
   )
 
-  /* Preview card-selection wiring — the preview doubles as the highlight
-     picker (Visual tab) and the hidden picker (Display tab). Which mode is
-     active, its current set, and the per-card toggle are derived together
-     from the open picker so the modal render stays flat. */
   const previewSel = (() => {
     const mode: 'highlight' | 'hidden' | undefined =
       activeTab === 'visual' && highlightPickerOpen ? 'highlight'
@@ -313,11 +278,6 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
                   title: t('edit_tab_source'),
                   content: (() => (
                     <FieldContainer scrollable>
-                      {/* Smart-mode picker + inline saved-smart-filter dropdown.
-                          The mode IS the smart shelf's "data source"; saved
-                          smart filters are full configurations the user has
-                          previously stored. Both live side-by-side per the
-                          Source-tab UX. */}
                       <Field label={t('smart_mode')}>
                         <Focusable {...flowChildrenProps('horizontal')} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           <div style={{ flex: 1, minWidth: 0 }}>
@@ -332,10 +292,6 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
                           </div>
                         </Focusable>
                       </Field>
-                      {/* Composite mode mixing — optional. When at least one
-                          additional mode is added, the resolver evaluates each
-                          mode and merges (union / intersection). Same mental
-                          model as regular shelves' composite source. */}
                       <Field label={t('smart_composite_label' as any)} description={t('smart_composite_desc' as any)} bottomSeparator='standard'>
                         <Focusable style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -381,9 +337,6 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
                           )}
                         </Focusable>
                       </Field>
-                      {/* Saved smart filter picker — applies a previously-saved
-                          full configuration (mode + smartParams + filterGroup +
-                          sort + limit + visibility) to the current shelf. */}
                       <SavedSmartFiltersBar
                         controller={controller}
                         currentPayload={{
@@ -481,8 +434,7 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
                               value={refreshDraft}
                               onChange={(value: unknown) => {
                                 const text = textFromDeckyChange(value)
-                                // Strip any non-digit so the input stays purely numeric on
-                                // gamepad/touch keyboards that allow letters through.
+                                // Gamepad and touch keyboards can let letters through.
                                 const digits = text.replace(/[^0-9]/g, '')
                                 setRefreshDraft(digits)
                                 if (digits === '') return
@@ -490,8 +442,6 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
                                 setState((prev) => ({ ...prev, refreshIntervalMinutes: n }))
                               }}
                               onBlur={() => {
-                                // Normalize empty / out-of-range input back to the default
-                                // when the user leaves the field.
                                 const n = parseInt(refreshDraft, 10)
                                 const clamped = Number.isFinite(n) ? Math.max(1, Math.min(43200, n)) : DEFAULT_REFRESH_MINUTES
                                 setRefreshDraft(String(clamped))

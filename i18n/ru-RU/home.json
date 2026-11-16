@@ -24,7 +24,7 @@
   "update_installing": "Установка обновления {{version}}…",
   "update_installed": "Обновлено до версии {{version}}.",
   "update_install_failed": "Ошибка установки — переход к загрузке.",
-  "update_install_busy": "Хост ещё проверяет обновления — повторите попытку чуть позже.",
+  "update_install_busy": "Проверка обновлений ещё идёт — повторите попытку чуть позже.",
   "update_downloading": "Загрузка обновления {{version}}…",
   "update_downloaded": "Сохранено в {{path}} — установите вручную.",
   "update_download_failed": "Ошибка загрузки — открывается страница выпуска.",

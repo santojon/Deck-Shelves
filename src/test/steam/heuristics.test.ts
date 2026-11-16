@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { weightedRank, multiFactorRank, timeDecayScore, applyCooldown, rotateWindow } from "../../steam/heuristics";
 
-// heuristic primitives. Pure helpers; cooldown carries a
-// per-shelf LRU but the test scopes shelfKeys per case so entries
-// never collide between assertions.
-
 const ovr = (appid: number, fields: Record<string, any> = {}): any => ({ appid, ...fields });
 
 describe("weightedRank", () => {

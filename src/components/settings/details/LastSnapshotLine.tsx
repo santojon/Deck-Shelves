@@ -4,7 +4,6 @@ import { listBackups } from "../../../store/settingsStore";
 
 const UNITS: Array<[Intl.RelativeTimeFormatUnit, number]> = [["day", 86400], ["hour", 3600], ["minute", 60]];
 
-// "3 hours ago" in the UI language, from a snapshot's time (seconds).
 export function snapshotAge(mtimeSec: number, nowMs = Date.now(), lang = i18n.language): string {
   const diff = Math.max(0, nowMs / 1000 - mtimeSec);
   const fmt = new Intl.RelativeTimeFormat(lang || "en", { numeric: "auto" });
@@ -12,8 +11,6 @@ export function snapshotAge(mtimeSec: number, nowMs = Date.now(), lang = i18n.la
   return fmt.format(0, "minute");
 }
 
-/* "Last snapshot: 3 hours ago" (or that there is none yet). `version` refreshes it
-   after the list changes. */
 export function LastSnapshotLine({ t, version = 0 }: { t: (key: string) => string; version?: number }) {
   const [newest, setNewest] = useState<number | null | undefined>(undefined);
   useEffect(() => {

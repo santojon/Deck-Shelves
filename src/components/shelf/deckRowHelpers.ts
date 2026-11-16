@@ -4,21 +4,14 @@ import { logInfo } from "../../runtime/logger";
 import { CARD_W, CARD_ART_H, CARD_GAP } from "./types";
 import { clampCardGap } from "./shelfStyles";
 
-/* Pure, zero-side-effect helpers extracted from DeckRow.tsx — CSS/layout
-   math and DOM-scan sub-steps, kept separate so the stateful focus/scroll
-   imperative logic in the component stays untouched. */
-
 type EffectiveDims = { w: number; h: number; gap: number; featW: number; featH: number; artH: number; featArtH: number };
 
 function computeDefaultDims(): EffectiveDims {
   const w = CARD_W;
   const h = CARD_ART_H;
-  // Clamped both ways (min 8px so TiltedHome's skew never fully merges
-  // adjacent cards, max half the card width so a bad native measurement
-  // can never blow up into a huge visible gap) — see clampCardGap.
+  // At least 8px so a skewed theme never merges cards, at most half a card against bad measurements.
   const gap = clampCardGap(CARD_GAP, w);
-  // Default featured: ~3.21x portrait width (matches base native 430px
-  // featured card at 134px portrait width, measured via CDP on the Deck).
+  // The native featured card is 430px wide next to a 134px portrait.
   const featW = Math.round(w * 3.21);
   return { w, h, gap, featW, featH: h, artH: h, featArtH: h };
 }
@@ -28,9 +21,6 @@ function computeNativeDims(nd: NativeCardDims): EffectiveDims {
   const h = nd.height;
   const gap = clampCardGap(nd.gap, w);
   const featW = nd.featuredWidth ? nd.featuredWidth : Math.round(w * 3.21);
-  // A featured card differs from its row-mates only in WIDTH — its height
-  // (and art height) always match the regular cards, never Steam's
-  // separately measured landscape-card height.
   const artH = nd.imgHeight ? nd.imgHeight : h;
   return { w, h, gap, featW, featH: h, artH, featArtH: artH };
 }
@@ -44,8 +34,6 @@ export function computeVisuallyForced(forceExpanded: boolean, forceLayoutAsRecen
   return forceExpanded || forceLayoutAsRecents;
 }
 
-// 100vh layout fires for BOTH real recents-replacement (forceExpanded) and
-// per-shelf full-page intent (fullPageLayoutOnly).
 export function computeFullPageLayoutActive(forceExpanded: boolean, fullPageLayoutOnly: boolean, pinScrollTop: boolean): boolean {
   return (forceExpanded || fullPageLayoutOnly) && !pinScrollTop;
 }
@@ -58,8 +46,6 @@ export function computeCollapsed(visuallyForced: boolean, collapsedState: boolea
   return visuallyForced ? false : (collapsedState || autoCollapsed);
 }
 
-// Space the logo + (below-logo) description banner needs, reserved either
-// above (default) or below (logoBelowShelf) the cards.
 export function computeLogoBandPx(params: { enableLogo: boolean; logoSize: number; logoTopOffset: number; enableDescription: boolean; descriptionBelowLogo: boolean }): number {
   const { enableLogo, logoSize, logoTopOffset, enableDescription, descriptionBelowLogo } = params;
   if (!enableLogo) return 0;
@@ -75,16 +61,11 @@ function computeShelfRootPaddingTop(params: { fullPageLayoutActive: boolean; inf
   return logoBand + labelBand + 2;
 }
 
-// Full-page shelves (recents-replacement / per-shelf fullPageShelf) anchor
-// cards at the bottom via flex so the hero composes inside the shelf's own
-// 100vh bounds.
 function computeFullPageFlexStyle(fullPageLayoutActive: boolean): {
   minHeight: string | undefined; boxSizing: 'border-box' | undefined; display: 'flex' | undefined; flexDirection: 'column' | undefined; justifyContent: 'flex-end' | undefined;
 } {
   if (!fullPageLayoutActive) return { minHeight: undefined, boxSizing: undefined, display: undefined, flexDirection: undefined, justifyContent: undefined };
-  /* border-box: the first shelf's hero band (a top padding from the stylesheet)
-     stays inside the 100vh, so that shelf is as tall as the others and its row
-     lands at the same place when centered. */
+  // border-box keeps the first shelf's hero padding inside the 100vh.
   return { minHeight: '100vh', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' };
 }
 
@@ -113,13 +94,10 @@ export function shouldRenderHero(params: { heroEnabled: boolean; heroLabelMount:
   return params.heroEnabled || params.heroLabelMount || params.enableLogo || params.enableDescription || params.infoAbove;
 }
 
-// A boolean prop surfaced as a data-attribute: present ('true') or absent.
 export function boolAttr(value: boolean): 'true' | undefined {
   return value ? 'true' : undefined;
 }
 
-// When a shelf is locked into its promoted (recents-replacement) layout,
-// the title loses its collapse affordance entirely.
 export function computeLockedTitleProps(visuallyForced: boolean, toggleCollapse: () => void): {
   extraClass: string; onClick: (() => void) | undefined; cursor: 'default' | 'pointer'; pointerEvents: 'none' | undefined;
 } {
@@ -133,14 +111,7 @@ export function resolveTitleJustifyContent(position: 'left' | 'center' | 'right'
   return 'flex-start';
 }
 
-// --- DOM-imperative focus/scroll helpers (side-effecting, but with no
-// branching/timing changes vs. the inline code they replace) ---
-
-/* A deferred re-center pass can outlive the focus that scheduled it (a rapid
-   lateral-navigation burst keeps re-arming a verify timer; by the time it
-   fires, focus may have already moved to a different row entirely). True iff
-   a card inside `el` is still genuinely focused — checks both real DOM focus
-   and GamepadUI's own `gpfocus` class. */
+// A deferred re-center can outlive the focus that scheduled it.
 export function isFocusStillWithin(el: HTMLElement): boolean {
   const active = el.ownerDocument?.activeElement;
   return (active != null && el.contains(active)) || !!el.querySelector('.gpfocus');
@@ -173,8 +144,6 @@ export function scrollShelfIntoView(outer: HTMLElement | null, pinToTop: boolean
   });
 }
 
-// Centers `el` inside `container` by scrolling container's top — shared by
-// both vertical-fallback paths (ancestor scroll container, Steam viewport).
 function centerElementInContainer(container: HTMLElement, el: HTMLElement, pinToTop: boolean): void {
   if (pinToTop) {
     try { container.scrollTo({ top: 0, behavior: 'smooth' }); } catch { container.scrollTop = 0; }
@@ -216,8 +185,6 @@ function scanForViewport(spDoc: Document): HTMLElement | null {
   return null;
 }
 
-// Steam's home uses a separate BrowserWindow document — find its scroll
-// viewport, preferring the theme-map token, falling back to a DOM scan.
 export function findScrollViewport(spDoc: Document): HTMLElement | null {
   return findViewportByThemeMap(spDoc) ?? scanForViewport(spDoc);
 }
@@ -230,10 +197,7 @@ export function findGpfocusDsCardMutation(mutations: MutationRecord[]): HTMLElem
   return null;
 }
 
-/* GLOBAL sync cleanup: remove gpfocus from every DS card in every known
-   Steam document except `keep` — without this, gpfocus from a previously
-   visited shelf's row persists and cross-document focus queries pick the
-   wrong card. */
+// gpfocus left on another row's card would otherwise persist.
 export function clearGpfocusOnOtherDocs(keep: HTMLElement): void {
   try {
     for (const doc of getAllSteamDocuments()) {

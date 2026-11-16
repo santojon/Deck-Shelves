@@ -13,13 +13,11 @@ import json
 import re
 from typing import Any, Dict, List, Optional
 
-# Forward-compat bounds for unknown (newer-version) fields kept by
-# `_preserve_unknown` — cap count + per-value serialized size so a malformed or
-# hostile document can't bloat the settings file.
+# Caps for unknown newer-build fields so a hostile document can't bloat the settings file.
 _MAX_UNKNOWN_KEYS = 64
 _MAX_UNKNOWN_BYTES = 64 * 1024
 
-# The sort keys the frontend offers (editShelf/constants.ts); any other key is dropped on save.
+# Sort keys the frontend offers; any other key is dropped on save.
 _VALID_SORTS = {
     "alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score",
     "added", "random", "manual", "price_low", "discount_high", "original_price_high",
@@ -62,14 +60,13 @@ def _preserve_unknown(raw: Dict[str, Any], known: Dict[str, Any], recognized: Op
     return known
 
 
-# Every shelf field name the sanitizer loop below reads via `s.get(...)` —
-# used so `_preserve_unknown` can tell "recognized but omitted because the
-# sanitized value is empty" (e.g. `visibility` with no valid rules) apart
-# from a genuinely unknown, newer-build-only field.
+_DISCOUNT_BADGE_MODES = ("percent", "price", "both", "percent_price")
+
+# Shelf fields the loop below reads, so an empty recognized field isn't mistaken for an unknown newer one.
 _RECOGNIZED_SHELF_FIELDS = {
     "autoCollapse", "autoCollapseWhenEmpty", "autoPin", "dedupeByExactName",
     "descriptionBelowLogo", "descriptionHeight", "descriptionLogoGap",
-    "descriptionPosition", "descriptionScale", "enableDescription", "enableIcon",
+    "descriptionPosition", "descriptionScale", "discountBadgeFocusMode", "discountBadgeMode", "enableDescription", "enableIcon",
     "enableLogo", "enabled", "friendsPlayingOverlay", "friendsPlayingOverlayRecent",
     "fullPageShelf", "gameInfoAbove", "gameNamePosition", "heroEnabled", "hidden",
     "hiddenAppIds", "hideCompatIcons", "hideDiscountBadge", "hideGameNames",
@@ -82,7 +79,6 @@ _RECOGNIZED_SHELF_FIELDS = {
     "syntheticCards", "title", "visibility",
 }
 
-# Same idea as `_RECOGNIZED_SHELF_FIELDS`, for the smart-shelf loop.
 _RECOGNIZED_SMART_SHELF_FIELDS = {
     "autoCollapse", "autoCollapseWhenEmpty", "autoPin", "compositeCombine",
     "compositeModes", "descriptionHeight", "descriptionLogoGap",
@@ -246,12 +242,7 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:  # noqa: C90
         if title == "[object Object]":
             title = "Shelf"
         source = s.get("source") if isinstance(s.get("source"), dict) else {"type": "tab", "tab": "all"}
-        # Migrate stale "Recently Played" template shelves: an earlier version
-        # of the template emitted source = {type:"tab", tab:"recent"}, but the
-        # runtime tab list does not include "recent" — the edit modal can't
-        # match the dropdown option and the shelf appears unconfigured. The
-        # filter-source equivalent (sort by recent activity) round-trips
-        # cleanly through the modal and produces the same result on the home.
+        # Old Recently Played templates used a tab source that no longer exists; rewrite them as a filter source.
         if isinstance(source, dict) and source.get("type") == "tab" and source.get("tab") == "recent":
             source = {"type": "filter", "filter": {"sort": "recent"}}
         try:
@@ -265,11 +256,7 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:  # noqa: C90
         highlight_first = bool(s.get("highlightFirst", False))
         highlight_all = bool(s.get("highlightAll", False))
         highlight_random = bool(s.get("highlightRandom", False))
-        # Tri-state per-shelf: preserve True/False explicitly; None means
-        # "follow global". Bool coerce would have collapsed False to None
-        # on output (see below), so per-shelf opt-out never round-tripped
-        # and the home logo / icon / description toggle silently snapped
-        # back to the global default.
+        # Tri-state: True/False are explicit, None follows the global setting.
         enable_logo_raw = s.get("enableLogo")
         enable_icon_raw = s.get("enableIcon")
         enable_description_raw = s.get("enableDescription")
@@ -288,6 +275,8 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:  # noqa: C90
         logo_top_offset = max(-50, min(100, int(logo_top_offset_raw))) if isinstance(logo_top_offset_raw, (int, float)) else None
         full_page_shelf = bool(s.get("fullPageShelf", False))
         icon_vertical_align = s.get("iconVerticalAlign") if s.get("iconVerticalAlign") in ("top", "center", "bottom") else None
+        discount_badge_mode = s.get("discountBadgeMode") if s.get("discountBadgeMode") in _DISCOUNT_BADGE_MODES else None
+        discount_badge_focus_mode = s.get("discountBadgeFocusMode") if s.get("discountBadgeFocusMode") in _DISCOUNT_BADGE_MODES else None
         shelf_title_position = s.get("shelfTitlePosition") if s.get("shelfTitlePosition") in ("left", "center", "right") else None
         game_name_position = s.get("gameNamePosition") if s.get("gameNamePosition") in ("left", "center", "right") else None
         playtime_position = s.get("playtimePosition") if s.get("playtimePosition") in ("left", "center", "right") else None
@@ -310,11 +299,7 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:  # noqa: C90
         friends_playing_overlay = bool(s.get("friendsPlayingOverlay", False))
         friends_playing_overlay_recent = bool(s.get("friendsPlayingOverlayRecent", False))
         valid_sorts = _VALID_SORTS
-        # Sort may be a single string (back-compat) OR an array of keys
-        # for primary + tiebreakers. Plain `str(s.get("sort"))` would
-        # have flattened the array to `"['recent', 'alphabetical']"`,
-        # failing the valid_sorts check and dropping the field silently
-        # — which is why multi-key sort wasn't reaching the resolver.
+        # Sort is a single key or a list of keys (primary plus tiebreakers).
         raw_sort = s.get("sort")
         shelf_sort: Any = ""
         if isinstance(raw_sort, list):
@@ -387,8 +372,6 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:  # noqa: C90
             shelf_entry["friendsPlayingOverlayRecent"] = True
         if highlight_random:
             shelf_entry["highlightRandom"] = True
-        # Emit when the user has an explicit preference (True OR False).
-        # `None` falls back to global so we omit the key entirely.
         if enable_logo is not None:
             shelf_entry["enableLogo"] = enable_logo
         if enable_icon is not None:
@@ -413,6 +396,10 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:  # noqa: C90
             shelf_entry["fullPageShelf"] = True
         if icon_vertical_align:
             shelf_entry["iconVerticalAlign"] = icon_vertical_align
+        if discount_badge_mode:
+            shelf_entry["discountBadgeMode"] = discount_badge_mode
+        if discount_badge_focus_mode:
+            shelf_entry["discountBadgeFocusMode"] = discount_badge_focus_mode
         if shelf_title_position:
             shelf_entry["shelfTitlePosition"] = shelf_title_position
         if game_name_position:
@@ -424,9 +411,7 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:  # noqa: C90
         if description_logo_gap is not None:
             shelf_entry["descriptionLogoGap"] = description_logo_gap
         if isinstance(shelf_sort, list):
-            # Multi-key array passes through unchanged; client + resolver
-            # accept unknown strings for forward-compat (registered
-            # external sort options).
+            # Unknown sort strings pass through so externally registered sort options survive.
             shelf_entry["sort"] = shelf_sort
         elif shelf_sort and shelf_sort in valid_sorts:
             shelf_entry["sort"] = shelf_sort
@@ -438,10 +423,7 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:  # noqa: C90
             shelf_entry["dedupeByExactName"] = True
         if manual_ids:
             shelf_entry["manualOrder"] = manual_ids
-        # manualBaseSort accepts either a single key or a multi-key
-        # chain (list of strings). Unknown strings are passed through so
-        # external sort plugins survive a round-trip; "manual" is
-        # rejected (would be circular).
+        # "manual" is rejected as a base sort since it would be circular.
         raw_base = s.get("manualBaseSort")
         if isinstance(raw_base, list):
             cleaned_base = [str(k) for k in raw_base if isinstance(k, str) and k and k != "manual"]
@@ -449,9 +431,6 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:  # noqa: C90
                 shelf_entry["manualBaseSort"] = cleaned_base
         elif isinstance(raw_base, str) and raw_base and raw_base != "manual":
             shelf_entry["manualBaseSort"] = raw_base
-        # Asc/desc invert flags. Persisted only when explicitly true to keep
-        # storage minimal; resolver treats absence as false. Array form
-        # mirrors the `sort` array's per-key direction.
         raw_reverse = s.get("sortReverse")
         if isinstance(raw_reverse, list):
             cleaned_rev = [bool(b) for b in raw_reverse]
@@ -459,8 +438,6 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:  # noqa: C90
                 shelf_entry["sortReverse"] = cleaned_rev
         elif bool(raw_reverse):
             shelf_entry["sortReverse"] = True
-        # Same shape for manualBaseSortReverse — accepts boolean or
-        # boolean[] aligned with the multi-key base.
         raw_base_rev = s.get("manualBaseSortReverse")
         if isinstance(raw_base_rev, list):
             cleaned_base_rev = [bool(b) for b in raw_base_rev]
@@ -468,9 +445,7 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:  # noqa: C90
                 shelf_entry["manualBaseSortReverse"] = cleaned_base_rev
         elif bool(raw_base_rev):
             shelf_entry["manualBaseSortReverse"] = True
-        # synthetic cards. Trust the client schema's
-        # superRefine for rule enforcement; here just clamp types,
-        # positions, and sizes so a malformed write can't crash boot.
+        # Types, positions and sizes are clamped so a malformed write can't crash boot.
         raw_synth = s.get("syntheticCards")
         if isinstance(raw_synth, list) and raw_synth:
             cleaned_synth = []
@@ -498,14 +473,8 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:  # noqa: C90
                         entry_c["alpha"] = a
                 if c.get("placeholder") is True:
                     entry_c["placeholder"] = True
-                # Optional hero image — when set, the synthetic card
-                # exposes `data-ds-hero-url` and the per-shelf hero
-                # backdrop reads it on focus. Stripped on empty.
                 if isinstance(c.get("heroImage"), str) and c["heroImage"]:
                     entry_c["heroImage"] = c["heroImage"][:1024]
-                # Optional shadow mode — only meaningful for focusable
-                # (linked) cards; the editor strips it for non-focusable
-                # cards on save. Accept only the three known values.
                 sm = c.get("shadowMode")
                 if sm in ("onFocus", "always"):
                     entry_c["shadowMode"] = sm
@@ -523,18 +492,13 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:  # noqa: C90
             shelf_entry["autoCollapse"] = _col_s
         if s.get("autoCollapseWhenEmpty") is True:
             shelf_entry["autoCollapseWhenEmpty"] = True
-        # Same reasoning as the root-level `_preserve_unknown` call below: a
-        # newer frontend build's shelf-level field (added after this backend
-        # version shipped) must round-trip rather than silently vanish on
-        # the next save — mirrors the schema's own `.passthrough()`.
+        # Unknown newer-build fields round-trip instead of vanishing on the next save.
         sanitized.append(_preserve_unknown(s if isinstance(s, dict) else {}, shelf_entry, _RECOGNIZED_SHELF_FIELDS))
-    # Sanitize smart shelves
     raw_smart = settings.get("smartShelves", [])
     if not isinstance(raw_smart, list):
         raw_smart = []
     sanitized_smart = []
-    # Same set as `SmartShelfModeSchema` in src/types.ts, retired modes included:
-    # a mode missing here drops the shelf on save.
+    # Retired modes stay listed: a mode missing here drops the shelf on save.
     valid_modes = {
         "quick_play", "not_started", "deck_picks", "rediscover", "best_unplayed",
         "interrupted", "time_of_day", "daily_pick", "on_deck", "recently_played",
@@ -567,8 +531,6 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:  # noqa: C90
         entry: Dict[str, Any] = {"id": ss_id, "title": ss_title, "mode": ss_mode, "enabled": ss_enabled, "hidden": ss_hidden}
         if ss.get("limit") is not None:
             entry["limit"] = ss_limit
-        # Optional user overrides on top of the mode's natural output.
-        # Multi-key sort: same array passthrough as regular shelves.
         raw_ss_sort = ss.get("sort")
         if isinstance(raw_ss_sort, list):
             cleaned_keys = [str(k) for k in raw_ss_sort if isinstance(k, str) and k]
@@ -581,7 +543,6 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:  # noqa: C90
         ss_base = str(ss.get("manualBaseSort") or "")
         if ss_base and ss_base in valid_sorts and ss_base != "manual":
             entry["manualBaseSort"] = ss_base
-        # Asc/desc invert flags. Same minimal-storage convention as regular shelves.
         raw_ss_rev = ss.get("sortReverse")
         if isinstance(raw_ss_rev, list):
             cleaned_rev = [bool(b) for b in raw_ss_rev]
@@ -606,7 +567,6 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:  # noqa: C90
         ss_filter_group = ss.get("filterGroup")
         if isinstance(ss_filter_group, dict):
             entry["filterGroup"] = ss_filter_group
-        # Visual overrides mirrored from regular shelves.
         for bool_key in ("matchNativeSize", "highlightFirst", "highlightAll", "highlightRandom", "enableLogo", "enableIcon", "enableDescription", "descriptionBelowLogo", "logoBelowShelf", "fullPageShelf", "hideStatusLine", "hideNewBadge", "hideDiscountBadge", "hideCompatIcons", "hideNonSteamBadge", "hideShelfTitle", "hideGameNames", "hideInstallIndicator", "hideSeeMore", "hideRefreshCard", "heroEnabled", "gameInfoAbove", "friendsPlayingOverlay", "friendsPlayingOverlayRecent"):
             if bool_key in ss:
                 entry[bool_key] = bool(ss.get(bool_key, False))
@@ -649,8 +609,6 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:  # noqa: C90
                     continue
             if ss_highlighted_ids:
                 entry["highlightedAppIds"] = ss_highlighted_ids
-        # `hiddenAppIds`: per-shelf exclusion list. Mirrors the regular shelf
-        # field — only positive integers persist.
         raw_ss_hidden = ss.get("hiddenAppIds")
         if isinstance(raw_ss_hidden, list):
             ss_hidden_ids: list = []
@@ -663,9 +621,6 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:  # noqa: C90
                     continue
             if ss_hidden_ids:
                 entry["hiddenAppIds"] = ss_hidden_ids
-        # refreshIntervalMinutes: optional positive int in [1, 43200] (= 30 days).
-        # Missing / unparseable / out-of-range values fall back to the resolver's
-        # default 60-minute TTL.
         try:
             ri = ss.get("refreshIntervalMinutes")
             if ri is not None:
@@ -674,8 +629,6 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:  # noqa: C90
                     entry["refreshIntervalMinutes"] = ri_num
         except Exception:
             pass
-        # smartParams: dict of string -> finite number. Only persist keys whose
-        # value is a real number (filters out NaN / strings / nested objects).
         raw_params = ss.get("smartParams")
         if isinstance(raw_params, dict):
             cleaned: dict = {}
@@ -691,10 +644,7 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:  # noqa: C90
                     continue
             if cleaned:
                 entry["smartParams"] = cleaned
-        # visibleHours: optional list of { start, end } ranges (each int in [0, 23]).
-        # OR-combined at runtime — shelf is visible if current hour falls in ANY
-        # range. Wrap-around (start > end) supported per range. Backwards-compat:
-        # a single { start, end } object is migrated into a one-element list.
+        # A legacy single { start, end } object becomes a one-element list.
         raw_window = ss.get("visibleHours")
         ranges_in: list = []
         if isinstance(raw_window, dict):
@@ -711,9 +661,6 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:  # noqa: C90
                     we = int(r.get("end"))
                     if 0 <= ws <= 23 and 0 <= we <= 23:
                         cleaned_range: Dict[str, Any] = {"start": ws, "end": we}
-                        # Per-range day restriction (the editor's "day overrides"
-                        # tab) — dropping this here silently turned an override
-                        # into a plain always-on range on the very next save.
                         if isinstance(r.get("days"), list):
                             days = [int(d) for d in r["days"] if isinstance(d, (int, float)) and 0 <= int(d) <= 6]
                             if days:
@@ -723,11 +670,7 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:  # noqa: C90
                     continue
             if cleaned_ranges:
                 entry["visibleHours"] = cleaned_ranges
-        # visibleDaysOfWeek: optional list of distinct ints in [0, 6]. The
-        # field is preserved verbatim when present (even empty list) — `[]`
-        # explicitly means "never visible". When the field is absent (None),
-        # the resolver applies no day restriction. Sanitizer dedupes / clamps
-        # / sorts; bad entries are silently skipped.
+        # An empty list means never visible; a missing field means no day restriction.
         raw_days = ss.get("visibleDaysOfWeek")
         if isinstance(raw_days, list):
             cleaned_days: list = []
@@ -752,9 +695,6 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:  # noqa: C90
             entry["autoCollapse"] = _col_ss
         if ss.get("autoCollapseWhenEmpty") is True:
             entry["autoCollapseWhenEmpty"] = True
-        # compositeModes / compositeCombine: optional source-mixing fields.
-        # compositeModes is a list of mode strings; compositeCombine is
-        # either "union" or "intersection". Both are dropped when invalid.
         raw_cmodes = ss.get("compositeModes")
         if isinstance(raw_cmodes, list):
             cleaned_cmodes = [str(m)[:64] for m in raw_cmodes if isinstance(m, str) and m][:5]
@@ -763,8 +703,6 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:  # noqa: C90
         raw_ccombine = ss.get("compositeCombine")
         if raw_ccombine in ("union", "intersection"):
             entry["compositeCombine"] = raw_ccombine
-        # Same as the regular-shelf loop above: preserve a newer build's
-        # smart-shelf field this backend version doesn't know about yet.
         sanitized_smart.append(_preserve_unknown(ss if isinstance(ss, dict) else {}, entry, _RECOGNIZED_SMART_SHELF_FIELDS))
 
     try:
@@ -772,7 +710,6 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:  # noqa: C90
         surprise_count = max(0, min(5, surprise_count))
     except Exception:
         surprise_count = 0
-    # Sanitize savedFilters: list of { id, name, group }
     raw_saved = settings.get("savedFilters", [])
     if not isinstance(raw_saved, list):
         raw_saved = []
@@ -787,8 +724,6 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:  # noqa: C90
         if not sf_id or not sf_name or sf_group is None:
             continue
         sanitized_saved.append(_with_clock({"id": sf_id, "name": sf_name, "group": sf_group}, sf))
-    # saved smart filter groups. Schema mirrors SavedSmartFilter
-    # in src/types.ts; client-side Zod is the authoritative validator.
     raw_saved_smart = settings.get("savedSmartFilters", [])
     if not isinstance(raw_saved_smart, list):
         raw_saved_smart = []
@@ -827,8 +762,6 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:  # noqa: C90
                 entry_ss["limit"] = max(1, min(int(sf["limit"]), 100))
         except Exception:
             pass
-        # visibleHours: array of { start, end, days? } ranges (mirrors
-        # SmartShelf.visibleHours so saved entries round-trip cleanly).
         if isinstance(sf.get("visibleHours"), list):
             cleaned_hours = []
             for r in sf["visibleHours"]:
@@ -861,11 +794,9 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:  # noqa: C90
     qam_hidden_toggles = [str(x)[:64] for x in qam_hidden_toggles_raw if isinstance(x, str)] if isinstance(qam_hidden_toggles_raw, list) else []
     qam_hidden_sections_raw = settings.get("qamHiddenSections")
     qam_hidden_sections = [str(x)[:64] for x in qam_hidden_sections_raw if isinstance(x, str)] if isinstance(qam_hidden_sections_raw, list) else []
-    # Unified list — order persists across mode flips.
     unified_list_enabled = bool(settings.get("unifiedListEnabled", False))
     all_shelves_order_raw = settings.get("allShelvesOrder")
     all_shelves_order = [str(x)[:64] for x in all_shelves_order_raw if isinstance(x, str)] if isinstance(all_shelves_order_raw, list) else []
-    # Light / advanced mode, feature toggles, profiles.
     light_mode_enabled = bool(settings.get("lightModeEnabled", False))
     advanced_mode_enabled = bool(settings.get("advancedModeEnabled", False))
     template_suggestions_enabled = bool(settings.get("templateSuggestionsEnabled", False))
@@ -891,18 +822,10 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:  # noqa: C90
                 entry["hidden"] = True
             if p.get("linkShelves") is True:
                 entry["linkShelves"] = True
-            # VisibilityRule predicate, round-tripped verbatim. The
-            # dict-check guards against bad client writes without
-            # enforcing the rule shape here.
             if isinstance(ptrigger, dict):
                 entry["trigger"] = ptrigger
             sanitized_profiles.append(_with_clock(entry, p))
-    # Trigger predicate for the synthetic Default profile (kept as a visibility
-    # tree; None when unset).
     factory_profile_trigger = _sanitize_visibility(settings.get("factoryProfileTrigger"))
-    # Per-integration enable map. Keys are descriptor ids registered
-    # through the public Plugin API; value `false` opts the user out of
-    # seeing that integration's contributions.
     integrations_enabled_raw = settings.get("integrationsEnabled")
     integrations_enabled = {str(k)[:64]: bool(v) for k, v in integrations_enabled_raw.items() if isinstance(k, str)} if isinstance(integrations_enabled_raw, dict) else {}
     bb_disabled_raw = settings.get("buttonBindingsDisabled")
@@ -915,9 +838,7 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:  # noqa: C90
     button_bindings_raw = settings.get("buttonBindings")
     button_bindings: Dict[str, Any] = {}
     if isinstance(button_bindings_raw, dict):
-        # Only emit keys that are EXPLICITLY present in the input so the
-        # round-trip preserves shape. Without this, "{}" expands to
-        # "{5 nulls}" and breaks settingsStore's post-save verification.
+        # Only keys present in the input are emitted, so "{}" round-trips unchanged.
         for key in ("cardHideRemove", "cardHighlightToggle", "cardQuickLaunch", "navSearch", "navSideNav", "navSidecarOpen", "navSidecarClose"):
             if key not in button_bindings_raw:
                 continue
@@ -937,8 +858,6 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:  # noqa: C90
     keyboard_bindings_raw = settings.get("keyboardBindings")
     keyboard_bindings: Dict[str, Any] = {}
     if isinstance(keyboard_bindings_raw, dict):
-        # Same explicit-keys-only rule as button_bindings above — preserves
-        # round-trip shape instead of expanding "{}" into all-null.
         for key in ("cardHideRemove", "cardHighlightToggle", "cardQuickLaunch", "navSearch", "navSideNav", "navSidecarOpen", "navSidecarClose"):
             if key not in keyboard_bindings_raw:
                 continue
@@ -946,8 +865,7 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:  # noqa: C90
             if v is None:
                 keyboard_bindings[key] = None
             elif isinstance(v, str):
-                # Keyboard tokens are KeyboardEvent.code values (e.g. "KeyF",
-                # "ControlLeft") — case-sensitive, unlike gamepad tokens.
+                # Keyboard tokens are KeyboardEvent.code values and case-sensitive, unlike gamepad tokens.
                 trimmed = v.strip()[:64]
                 keyboard_bindings[key] = trimmed if trimmed else None
-    return _preserve_unknown(settings, {"enabled": bool(settings.get("enabled", False)), "hideRecents": bool(settings.get("hideRecents", False)), "recentsReplaceSource": bool(settings.get("recentsReplaceSource", False)), "hideHomeTabs": bool(settings.get("hideHomeTabs", False)), "shelfHeroBackground": bool(settings.get("shelfHeroBackground", False)), "gameContextMenuEnabled": bool(settings.get("gameContextMenuEnabled", True)), "forceCssLoaderThemes": bool(settings.get("forceCssLoaderThemes", False)), "globalMatchNativeSize": bool(settings.get("globalMatchNativeSize", False)), "globalHighlightFirst": bool(settings.get("globalHighlightFirst", False)), "globalHighlightAll": bool(settings.get("globalHighlightAll", False)), "globalHighlightRandom": bool(settings.get("globalHighlightRandom", False)), "globalEnableLogo": bool(settings.get("globalEnableLogo", False)), "globalEnableIcon": bool(settings.get("globalEnableIcon", False)), "globalEnableDescription": bool(settings.get("globalEnableDescription", False)), "globalDescriptionScale": (max(100, min(200, int(settings["globalDescriptionScale"]))) if isinstance(settings.get("globalDescriptionScale"), (int, float)) else None), "globalDescriptionBelowLogo": bool(settings.get("globalDescriptionBelowLogo", False)), "globalLogoBelowShelf": bool(settings.get("globalLogoBelowShelf", False)), "globalLogoPosition": (settings.get("globalLogoPosition") if settings.get("globalLogoPosition") in ("left", "center", "right") else None), "globalDescriptionPosition": (settings.get("globalDescriptionPosition") if settings.get("globalDescriptionPosition") in ("left", "center", "right") else None), "globalLogoSize": (max(50, min(200, int(settings["globalLogoSize"]))) if isinstance(settings.get("globalLogoSize"), (int, float)) else None), "globalLogoTopOffset": (max(-50, min(100, int(settings["globalLogoTopOffset"]))) if isinstance(settings.get("globalLogoTopOffset"), (int, float)) else None), "globalFullPageShelf": bool(settings.get("globalFullPageShelf", False)), "globalIconVerticalAlign": (settings.get("globalIconVerticalAlign") if settings.get("globalIconVerticalAlign") in ("top", "center", "bottom") else None), "globalShelfTitlePosition": (settings.get("globalShelfTitlePosition") if settings.get("globalShelfTitlePosition") in ("left", "center", "right") else None), "globalGameNamePosition": (settings.get("globalGameNamePosition") if settings.get("globalGameNamePosition") in ("left", "center", "right") else None), "globalPlaytimePosition": (settings.get("globalPlaytimePosition") if settings.get("globalPlaytimePosition") in ("left", "center", "right") else None), "globalDescriptionHeight": (max(1, min(3, int(settings["globalDescriptionHeight"]))) if isinstance(settings.get("globalDescriptionHeight"), (int, float)) else None), "globalDescriptionLogoGap": (max(-40, min(80, int(settings["globalDescriptionLogoGap"]))) if isinstance(settings.get("globalDescriptionLogoGap"), (int, float)) else None), "contextSearchEnabled": None if settings.get("contextSearchEnabled") is None else bool(settings.get("contextSearchEnabled", False)), "contextSearchKeyboardEnabled": None if settings.get("contextSearchKeyboardEnabled") is None else bool(settings.get("contextSearchKeyboardEnabled", True)), "contextSearchOnEnter": None if settings.get("contextSearchOnEnter") is None else bool(settings.get("contextSearchOnEnter", False)), "sideNavEnabled": None if settings.get("sideNavEnabled") is None else bool(settings.get("sideNavEnabled", False)), "globalHideStatusLine": bool(settings.get("globalHideStatusLine", False)), "globalHideNewBadge": bool(settings.get("globalHideNewBadge", False)), "globalHideDiscountBadge": bool(settings.get("globalHideDiscountBadge", False)), "discountBadgeMode": settings.get("discountBadgeMode") if settings.get("discountBadgeMode") in ("percent", "price", "both") else "percent", "globalHideCompatIcons": bool(settings.get("globalHideCompatIcons", False)), "globalHideNonSteamBadge": bool(settings.get("globalHideNonSteamBadge", False)), "globalHideShelfTitle": bool(settings.get("globalHideShelfTitle", False)), "globalHideGameNames": bool(settings.get("globalHideGameNames", False)), "globalHideInstallIndicator": bool(settings.get("globalHideInstallIndicator", False)), "globalHideSeeMore": bool(settings.get("globalHideSeeMore", False)), "globalHideRefreshCard": bool(settings.get("globalHideRefreshCard", False)), "globalDedupeByName": bool(settings.get("globalDedupeByName", False)), "globalHeroEnabled": bool(settings.get("globalHeroEnabled", False)), "globalGameInfoAbove": bool(settings.get("globalGameInfoAbove", False)), "globalFriendsPlayingOverlay": bool(settings.get("globalFriendsPlayingOverlay", False)), "globalFriendsPlayingOverlayRecent": bool(settings.get("globalFriendsPlayingOverlayRecent", False)), "shelves": sanitized, "smartShelvesEnabled": bool(settings.get("smartShelvesEnabled", False)), "smartShelvesAtBottom": bool(settings.get("smartShelvesAtBottom", False)), "smartShelves": sanitized_smart, "smartSurpriseMe": bool(settings.get("smartSurpriseMe", False)), "smartSurpriseMeCount": surprise_count, "savedFilters": sanitized_saved, "savedSmartFilters": sanitized_saved_smart, "updateNotifyEnabled": bool(settings.get("updateNotifyEnabled", True)), "betaChannelEnabled": bool(settings.get("betaChannelEnabled", False)), "verboseLoggingEnabled": bool(settings.get("verboseLoggingEnabled", False)), "devModeEnabled": bool(settings.get("devModeEnabled", False)), "debugOverlayEnabled": bool(settings.get("debugOverlayEnabled", False)), "debugOverlayCorner": (settings.get("debugOverlayCorner") if settings.get("debugOverlayCorner") in ("tl", "tr", "bl", "br") else None), "debugOverlayVertical": bool(settings.get("debugOverlayVertical", True)), "debugOverlayFps": bool(settings.get("debugOverlayFps", True)), "debugOverlayStats": bool(settings.get("debugOverlayStats", True)), "debugOverlayPerShelf": bool(settings.get("debugOverlayPerShelf", True)), "debugOverlayOutlines": bool(settings.get("debugOverlayOutlines", False)), "debugOverlayFocus": bool(settings.get("debugOverlayFocus", False)), "debugOverlayTransparent": bool(settings.get("debugOverlayTransparent", False)), "updateNotifyDismissedVersion": update_dismissed, "onlineFeaturesEnabled": None if settings.get("onlineFeaturesEnabled") is None else bool(settings.get("onlineFeaturesEnabled", False)), "onlineWishlistEnabled": None if settings.get("onlineWishlistEnabled") is None else bool(settings.get("onlineWishlistEnabled", True)), "onlinePriceSortEnabled": None if settings.get("onlinePriceSortEnabled") is None else bool(settings.get("onlinePriceSortEnabled", True)), "onlinePrivacyAccepted": None if settings.get("onlinePrivacyAccepted") is None else bool(settings.get("onlinePrivacyAccepted", False)), "onlineMetadataEnabled": None if settings.get("onlineMetadataEnabled") is None else bool(settings.get("onlineMetadataEnabled", False)), "onlineHideOwnedGames": None if settings.get("onlineHideOwnedGames") is None else bool(settings.get("onlineHideOwnedGames", False)), "onlineHideOwnedNonSteam": None if settings.get("onlineHideOwnedNonSteam") is None else bool(settings.get("onlineHideOwnedNonSteam", False)), "onlineHideOwnedNonSteamCloud": None if settings.get("onlineHideOwnedNonSteamCloud") is None else bool(settings.get("onlineHideOwnedNonSteamCloud", False)), "qamHiddenToggles": qam_hidden_toggles, "qamHiddenSections": qam_hidden_sections, "unifiedListEnabled": unified_list_enabled, "allShelvesOrder": all_shelves_order, "lightModeEnabled": light_mode_enabled, "advancedModeEnabled": advanced_mode_enabled, "templateSuggestionsEnabled": template_suggestions_enabled, "removalSuggestionsEnabled": bool(settings.get("removalSuggestionsEnabled", False)), "offlineModeEnabled": offline_mode_enabled, "featureToggles": feature_toggles, "profileTriggersEnabled": bool(settings.get("profileTriggersEnabled", False)), "factoryProfileTrigger": factory_profile_trigger, "autoCollapseEnabled": bool(settings.get("autoCollapseEnabled", False)), "notificationsDisabled": bool(settings.get("notificationsDisabled", False)), "notificationsDisabledAreas": ([str(x)[:32] for x in settings["notificationsDisabledAreas"] if isinstance(x, str)][:16] if isinstance(settings.get("notificationsDisabledAreas"), list) else []), "showcaseSeen": bool(settings.get("showcaseSeen", False)), "setupWizardSeen": bool(settings.get("setupWizardSeen", False)), "lastSetupApply": _sanitize_setup_apply(settings.get("lastSetupApply")), "hubConfig": _sanitize_hub_config(settings.get("hubConfig")), "activeProfileName": active_profile_name, "profiles": sanitized_profiles, "integrationsEnabled": integrations_enabled, "cardActionShortcutsEnabled": bool(settings.get("cardActionShortcutsEnabled", True)), "buttonBindings": button_bindings, "buttonBindingsDisabled": button_bindings_disabled, "keyboardBindings": keyboard_bindings, "keyboardBindingsDisabled": keyboard_bindings_disabled, "screensaverShelvesEnabled": None if settings.get("screensaverShelvesEnabled") is None else bool(settings.get("screensaverShelvesEnabled", False)), "screensaverShelvesIncludeScreenshots": None if settings.get("screensaverShelvesIncludeScreenshots") is None else bool(settings.get("screensaverShelvesIncludeScreenshots", False)), "screensaverOnlineScreenshotsEnabled": None if settings.get("screensaverOnlineScreenshotsEnabled") is None else bool(settings.get("screensaverOnlineScreenshotsEnabled", False)), "screensaverIdleBackupAcSec": (int(settings["screensaverIdleBackupAcSec"]) if isinstance(settings.get("screensaverIdleBackupAcSec"), (int, float)) else None), "screensaverIdleBackupBatterySec": (int(settings["screensaverIdleBackupBatterySec"]) if isinstance(settings.get("screensaverIdleBackupBatterySec"), (int, float)) else None), "screensaverStartAfterSeconds": (max(15, min(600, int(settings["screensaverStartAfterSeconds"]))) if isinstance(settings.get("screensaverStartAfterSeconds"), (int, float)) else None), "screensaverDwellSeconds": (max(3, min(120, int(settings["screensaverDwellSeconds"]))) if isinstance(settings.get("screensaverDwellSeconds"), (int, float)) else None), "screensaverLogoEnabled": None if settings.get("screensaverLogoEnabled") is None else bool(settings.get("screensaverLogoEnabled", True)), "screensaverLogoSize": (max(50, min(200, int(settings["screensaverLogoSize"]))) if isinstance(settings.get("screensaverLogoSize"), (int, float)) else None), "screensaverLogoPosition": (settings.get("screensaverLogoPosition") if settings.get("screensaverLogoPosition") in ("left", "center", "right") else None), "screensaverLogoAtTop": None if settings.get("screensaverLogoAtTop") is None else bool(settings.get("screensaverLogoAtTop", False)), "screensaverLogoOffset": (max(0, min(50, int(settings["screensaverLogoOffset"]))) if isinstance(settings.get("screensaverLogoOffset"), (int, float)) else None), "screensaverLogoOnScreenshots": None if settings.get("screensaverLogoOnScreenshots") is None else bool(settings.get("screensaverLogoOnScreenshots", True)), "screensaverShelfBatchSize": (max(1, min(20, int(settings["screensaverShelfBatchSize"]))) if isinstance(settings.get("screensaverShelfBatchSize"), (int, float)) else None), "screensaverDescriptionEnabled": None if settings.get("screensaverDescriptionEnabled") is None else bool(settings.get("screensaverDescriptionEnabled", False)), "screensaverDescriptionAboveLogo": None if settings.get("screensaverDescriptionAboveLogo") is None else bool(settings.get("screensaverDescriptionAboveLogo", False)), "screensaverDescriptionLogoGap": (max(-40, min(80, int(settings["screensaverDescriptionLogoGap"]))) if isinstance(settings.get("screensaverDescriptionLogoGap"), (int, float)) else None), "cloudSyncEnabled": None if settings.get("cloudSyncEnabled") is None else bool(settings.get("cloudSyncEnabled", False)), "cloudSyncLastSyncedAt": (float(settings["cloudSyncLastSyncedAt"]) if isinstance(settings.get("cloudSyncLastSyncedAt"), (int, float)) else None), "ownQamTabEnabled": None if settings.get("ownQamTabEnabled") is None else bool(settings.get("ownQamTabEnabled", False)), "accountSettings": _sanitize_account_settings(settings.get("accountSettings")), "showcaseModeEnabled": None if settings.get("showcaseModeEnabled") is None else bool(settings.get("showcaseModeEnabled", False)), "showcaseStartAfterSeconds": (max(15, min(600, int(settings["showcaseStartAfterSeconds"]))) if isinstance(settings.get("showcaseStartAfterSeconds"), (int, float)) else None), "showcaseDwellSeconds": (max(3, min(120, int(settings["showcaseDwellSeconds"]))) if isinstance(settings.get("showcaseDwellSeconds"), (int, float)) else None), "showcaseRandomize": None if settings.get("showcaseRandomize") is None else bool(settings.get("showcaseRandomize", False)), "showcaseStopOnInteraction": None if settings.get("showcaseStopOnInteraction") is None else bool(settings.get("showcaseStopOnInteraction", True)), "showcaseShelfIds": ([str(x)[:64] for x in settings["showcaseShelfIds"] if isinstance(x, str)][:64] if isinstance(settings.get("showcaseShelfIds"), list) else []), "showcasePanCards": None if settings.get("showcasePanCards") is None else bool(settings.get("showcasePanCards", True)), "showcaseCardsPerShelf": (max(1, min(20, int(settings["showcaseCardsPerShelf"]))) if isinstance(settings.get("showcaseCardsPerShelf"), (int, float)) else None), "showcaseCardDwellSeconds": (max(1, min(60, int(settings["showcaseCardDwellSeconds"]))) if isinstance(settings.get("showcaseCardDwellSeconds"), (int, float)) else None)})
+    return _preserve_unknown(settings, {"enabled": bool(settings.get("enabled", False)), "hideRecents": bool(settings.get("hideRecents", False)), "recentsReplaceSource": bool(settings.get("recentsReplaceSource", False)), "hideHomeTabs": bool(settings.get("hideHomeTabs", False)), "shelfHeroBackground": bool(settings.get("shelfHeroBackground", False)), "gameContextMenuEnabled": bool(settings.get("gameContextMenuEnabled", True)), "forceCssLoaderThemes": bool(settings.get("forceCssLoaderThemes", False)), "globalMatchNativeSize": bool(settings.get("globalMatchNativeSize", False)), "globalHighlightFirst": bool(settings.get("globalHighlightFirst", False)), "globalHighlightAll": bool(settings.get("globalHighlightAll", False)), "globalHighlightRandom": bool(settings.get("globalHighlightRandom", False)), "globalEnableLogo": bool(settings.get("globalEnableLogo", False)), "globalEnableIcon": bool(settings.get("globalEnableIcon", False)), "globalEnableDescription": bool(settings.get("globalEnableDescription", False)), "globalDescriptionScale": (max(100, min(200, int(settings["globalDescriptionScale"]))) if isinstance(settings.get("globalDescriptionScale"), (int, float)) else None), "globalDescriptionBelowLogo": bool(settings.get("globalDescriptionBelowLogo", False)), "globalLogoBelowShelf": bool(settings.get("globalLogoBelowShelf", False)), "globalLogoPosition": (settings.get("globalLogoPosition") if settings.get("globalLogoPosition") in ("left", "center", "right") else None), "globalDescriptionPosition": (settings.get("globalDescriptionPosition") if settings.get("globalDescriptionPosition") in ("left", "center", "right") else None), "globalLogoSize": (max(50, min(200, int(settings["globalLogoSize"]))) if isinstance(settings.get("globalLogoSize"), (int, float)) else None), "globalLogoTopOffset": (max(-50, min(100, int(settings["globalLogoTopOffset"]))) if isinstance(settings.get("globalLogoTopOffset"), (int, float)) else None), "globalFullPageShelf": bool(settings.get("globalFullPageShelf", False)), "globalIconVerticalAlign": (settings.get("globalIconVerticalAlign") if settings.get("globalIconVerticalAlign") in ("top", "center", "bottom") else None), "globalShelfTitlePosition": (settings.get("globalShelfTitlePosition") if settings.get("globalShelfTitlePosition") in ("left", "center", "right") else None), "globalGameNamePosition": (settings.get("globalGameNamePosition") if settings.get("globalGameNamePosition") in ("left", "center", "right") else None), "globalPlaytimePosition": (settings.get("globalPlaytimePosition") if settings.get("globalPlaytimePosition") in ("left", "center", "right") else None), "globalDescriptionHeight": (max(1, min(3, int(settings["globalDescriptionHeight"]))) if isinstance(settings.get("globalDescriptionHeight"), (int, float)) else None), "globalDescriptionLogoGap": (max(-40, min(80, int(settings["globalDescriptionLogoGap"]))) if isinstance(settings.get("globalDescriptionLogoGap"), (int, float)) else None), "contextSearchEnabled": None if settings.get("contextSearchEnabled") is None else bool(settings.get("contextSearchEnabled", False)), "contextSearchKeyboardEnabled": None if settings.get("contextSearchKeyboardEnabled") is None else bool(settings.get("contextSearchKeyboardEnabled", True)), "contextSearchOnEnter": None if settings.get("contextSearchOnEnter") is None else bool(settings.get("contextSearchOnEnter", False)), "sideNavEnabled": None if settings.get("sideNavEnabled") is None else bool(settings.get("sideNavEnabled", False)), "globalHideStatusLine": bool(settings.get("globalHideStatusLine", False)), "globalHideNewBadge": bool(settings.get("globalHideNewBadge", False)), "globalHideDiscountBadge": bool(settings.get("globalHideDiscountBadge", False)), "discountBadgeMode": settings.get("discountBadgeMode") if settings.get("discountBadgeMode") in _DISCOUNT_BADGE_MODES else None, "discountBadgeFocusMode": settings.get("discountBadgeFocusMode") if settings.get("discountBadgeFocusMode") in _DISCOUNT_BADGE_MODES else None, "globalHideCompatIcons": bool(settings.get("globalHideCompatIcons", False)), "globalHideNonSteamBadge": bool(settings.get("globalHideNonSteamBadge", False)), "globalHideShelfTitle": bool(settings.get("globalHideShelfTitle", False)), "globalHideGameNames": bool(settings.get("globalHideGameNames", False)), "globalHideInstallIndicator": bool(settings.get("globalHideInstallIndicator", False)), "globalHideSeeMore": bool(settings.get("globalHideSeeMore", False)), "globalHideRefreshCard": bool(settings.get("globalHideRefreshCard", False)), "globalDedupeByName": bool(settings.get("globalDedupeByName", False)), "globalHeroEnabled": bool(settings.get("globalHeroEnabled", False)), "globalGameInfoAbove": bool(settings.get("globalGameInfoAbove", False)), "globalFriendsPlayingOverlay": bool(settings.get("globalFriendsPlayingOverlay", False)), "globalFriendsPlayingOverlayRecent": bool(settings.get("globalFriendsPlayingOverlayRecent", False)), "shelves": sanitized, "smartShelvesEnabled": bool(settings.get("smartShelvesEnabled", False)), "smartShelvesAtBottom": bool(settings.get("smartShelvesAtBottom", False)), "smartShelves": sanitized_smart, "smartSurpriseMe": bool(settings.get("smartSurpriseMe", False)), "smartSurpriseMeCount": surprise_count, "savedFilters": sanitized_saved, "savedSmartFilters": sanitized_saved_smart, "updateNotifyEnabled": bool(settings.get("updateNotifyEnabled", True)), "betaChannelEnabled": bool(settings.get("betaChannelEnabled", False)), "verboseLoggingEnabled": bool(settings.get("verboseLoggingEnabled", False)), "devModeEnabled": bool(settings.get("devModeEnabled", False)), "debugOverlayEnabled": bool(settings.get("debugOverlayEnabled", False)), "debugOverlayCorner": (settings.get("debugOverlayCorner") if settings.get("debugOverlayCorner") in ("tl", "tr", "bl", "br") else None), "debugOverlayVertical": bool(settings.get("debugOverlayVertical", True)), "debugOverlayFps": bool(settings.get("debugOverlayFps", True)), "debugOverlayStats": bool(settings.get("debugOverlayStats", True)), "debugOverlayPerShelf": bool(settings.get("debugOverlayPerShelf", True)), "debugOverlayOutlines": bool(settings.get("debugOverlayOutlines", False)), "debugOverlayFocus": bool(settings.get("debugOverlayFocus", False)), "debugOverlayTransparent": bool(settings.get("debugOverlayTransparent", False)), "updateNotifyDismissedVersion": update_dismissed, "onlineFeaturesEnabled": None if settings.get("onlineFeaturesEnabled") is None else bool(settings.get("onlineFeaturesEnabled", False)), "onlineWishlistEnabled": None if settings.get("onlineWishlistEnabled") is None else bool(settings.get("onlineWishlistEnabled", True)), "onlinePriceSortEnabled": None if settings.get("onlinePriceSortEnabled") is None else bool(settings.get("onlinePriceSortEnabled", True)), "onlinePrivacyAccepted": None if settings.get("onlinePrivacyAccepted") is None else bool(settings.get("onlinePrivacyAccepted", False)), "onlineMetadataEnabled": None if settings.get("onlineMetadataEnabled") is None else bool(settings.get("onlineMetadataEnabled", False)), "onlineHideOwnedGames": None if settings.get("onlineHideOwnedGames") is None else bool(settings.get("onlineHideOwnedGames", False)), "onlineHideOwnedNonSteam": None if settings.get("onlineHideOwnedNonSteam") is None else bool(settings.get("onlineHideOwnedNonSteam", False)), "onlineHideOwnedNonSteamCloud": None if settings.get("onlineHideOwnedNonSteamCloud") is None else bool(settings.get("onlineHideOwnedNonSteamCloud", False)), "qamHiddenToggles": qam_hidden_toggles, "qamHiddenSections": qam_hidden_sections, "unifiedListEnabled": unified_list_enabled, "allShelvesOrder": all_shelves_order, "lightModeEnabled": light_mode_enabled, "advancedModeEnabled": advanced_mode_enabled, "templateSuggestionsEnabled": template_suggestions_enabled, "removalSuggestionsEnabled": bool(settings.get("removalSuggestionsEnabled", False)), "offlineModeEnabled": offline_mode_enabled, "featureToggles": feature_toggles, "profileTriggersEnabled": bool(settings.get("profileTriggersEnabled", False)), "factoryProfileTrigger": factory_profile_trigger, "autoCollapseEnabled": bool(settings.get("autoCollapseEnabled", False)), "notificationsDisabled": bool(settings.get("notificationsDisabled", False)), "notificationsDisabledAreas": ([str(x)[:32] for x in settings["notificationsDisabledAreas"] if isinstance(x, str)][:16] if isinstance(settings.get("notificationsDisabledAreas"), list) else []), "showcaseSeen": bool(settings.get("showcaseSeen", False)), "setupWizardSeen": bool(settings.get("setupWizardSeen", False)), "lastSetupApply": _sanitize_setup_apply(settings.get("lastSetupApply")), "hubConfig": _sanitize_hub_config(settings.get("hubConfig")), "activeProfileName": active_profile_name, "profiles": sanitized_profiles, "integrationsEnabled": integrations_enabled, "cardActionShortcutsEnabled": bool(settings.get("cardActionShortcutsEnabled", True)), "buttonBindings": button_bindings, "buttonBindingsDisabled": button_bindings_disabled, "keyboardBindings": keyboard_bindings, "keyboardBindingsDisabled": keyboard_bindings_disabled, "screensaverShelvesEnabled": None if settings.get("screensaverShelvesEnabled") is None else bool(settings.get("screensaverShelvesEnabled", False)), "screensaverShelvesIncludeScreenshots": None if settings.get("screensaverShelvesIncludeScreenshots") is None else bool(settings.get("screensaverShelvesIncludeScreenshots", False)), "screensaverOnlineScreenshotsEnabled": None if settings.get("screensaverOnlineScreenshotsEnabled") is None else bool(settings.get("screensaverOnlineScreenshotsEnabled", False)), "screensaverIdleBackupAcSec": (int(settings["screensaverIdleBackupAcSec"]) if isinstance(settings.get("screensaverIdleBackupAcSec"), (int, float)) else None), "screensaverIdleBackupBatterySec": (int(settings["screensaverIdleBackupBatterySec"]) if isinstance(settings.get("screensaverIdleBackupBatterySec"), (int, float)) else None), "screensaverStartAfterSeconds": (max(15, min(600, int(settings["screensaverStartAfterSeconds"]))) if isinstance(settings.get("screensaverStartAfterSeconds"), (int, float)) else None), "screensaverDwellSeconds": (max(3, min(120, int(settings["screensaverDwellSeconds"]))) if isinstance(settings.get("screensaverDwellSeconds"), (int, float)) else None), "screensaverLogoEnabled": None if settings.get("screensaverLogoEnabled") is None else bool(settings.get("screensaverLogoEnabled", True)), "screensaverLogoSize": (max(50, min(200, int(settings["screensaverLogoSize"]))) if isinstance(settings.get("screensaverLogoSize"), (int, float)) else None), "screensaverLogoPosition": (settings.get("screensaverLogoPosition") if settings.get("screensaverLogoPosition") in ("left", "center", "right") else None), "screensaverLogoAtTop": None if settings.get("screensaverLogoAtTop") is None else bool(settings.get("screensaverLogoAtTop", False)), "screensaverLogoOffset": (max(0, min(50, int(settings["screensaverLogoOffset"]))) if isinstance(settings.get("screensaverLogoOffset"), (int, float)) else None), "screensaverLogoOnScreenshots": None if settings.get("screensaverLogoOnScreenshots") is None else bool(settings.get("screensaverLogoOnScreenshots", True)), "screensaverShelfBatchSize": (max(1, min(20, int(settings["screensaverShelfBatchSize"]))) if isinstance(settings.get("screensaverShelfBatchSize"), (int, float)) else None), "screensaverDescriptionEnabled": None if settings.get("screensaverDescriptionEnabled") is None else bool(settings.get("screensaverDescriptionEnabled", False)), "screensaverDescriptionAboveLogo": None if settings.get("screensaverDescriptionAboveLogo") is None else bool(settings.get("screensaverDescriptionAboveLogo", False)), "screensaverDescriptionLogoGap": (max(-40, min(80, int(settings["screensaverDescriptionLogoGap"]))) if isinstance(settings.get("screensaverDescriptionLogoGap"), (int, float)) else None), "cloudSyncEnabled": None if settings.get("cloudSyncEnabled") is None else bool(settings.get("cloudSyncEnabled", False)), "cloudSyncLastSyncedAt": (float(settings["cloudSyncLastSyncedAt"]) if isinstance(settings.get("cloudSyncLastSyncedAt"), (int, float)) else None), "ownQamTabEnabled": None if settings.get("ownQamTabEnabled") is None else bool(settings.get("ownQamTabEnabled", False)), "accountSettings": _sanitize_account_settings(settings.get("accountSettings")), "showcaseModeEnabled": None if settings.get("showcaseModeEnabled") is None else bool(settings.get("showcaseModeEnabled", False)), "showcaseStartAfterSeconds": (max(15, min(600, int(settings["showcaseStartAfterSeconds"]))) if isinstance(settings.get("showcaseStartAfterSeconds"), (int, float)) else None), "showcaseDwellSeconds": (max(3, min(120, int(settings["showcaseDwellSeconds"]))) if isinstance(settings.get("showcaseDwellSeconds"), (int, float)) else None), "showcaseRandomize": None if settings.get("showcaseRandomize") is None else bool(settings.get("showcaseRandomize", False)), "showcaseStopOnInteraction": None if settings.get("showcaseStopOnInteraction") is None else bool(settings.get("showcaseStopOnInteraction", True)), "showcaseShelfIds": ([str(x)[:64] for x in settings["showcaseShelfIds"] if isinstance(x, str)][:64] if isinstance(settings.get("showcaseShelfIds"), list) else []), "showcasePanCards": None if settings.get("showcasePanCards") is None else bool(settings.get("showcasePanCards", True)), "showcaseCardsPerShelf": (max(1, min(20, int(settings["showcaseCardsPerShelf"]))) if isinstance(settings.get("showcaseCardsPerShelf"), (int, float)) else None), "showcaseCardDwellSeconds": (max(1, min(60, int(settings["showcaseCardDwellSeconds"]))) if isinstance(settings.get("showcaseCardDwellSeconds"), (int, float)) else None)})

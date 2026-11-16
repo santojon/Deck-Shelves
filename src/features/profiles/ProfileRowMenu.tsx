@@ -10,7 +10,6 @@ import { RenameProfileModal } from './RenameProfileModal'
 
 type ProfileRowMenuProps = { controller: SettingsController; profile: ProfileRecord & { hidden?: boolean } }
 
-// Same file name the settings page gives a single-profile export.
 function exportPath(name: string): string {
   return joinDownloads(`profile-${name}.json`.replace(/\s+/g, '-').toLowerCase())
 }

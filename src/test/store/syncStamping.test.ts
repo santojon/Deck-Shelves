@@ -21,8 +21,8 @@ describe("saveSettings sync-stamping (stampChanges)", () => {
     const out = stampChanges(prev, next) as any;
     const a = out.shelves.find((s: any) => s.id === "a");
     const b = out.shelves.find((s: any) => s.id === "b");
-    expect(a.updatedAt).toBeGreaterThan(100); // changed → bumped
-    expect(typeof b.updatedAt).toBe("number"); // new → stamped
+    expect(a.updatedAt).toBeGreaterThan(100);
+    expect(typeof b.updatedAt).toBe("number");
     expect(out.syncTombstones).toEqual({});
   });
 

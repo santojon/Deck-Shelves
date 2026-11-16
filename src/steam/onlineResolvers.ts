@@ -7,8 +7,6 @@ import { getLocalLibraryAppIds } from "./localLibrary";
 import { logInfo, logWarn } from "../runtime/logger";
 import { isOnlineEnabledForSettings, prefetchCatalogFilterData } from "./resolveShared";
 
-/* The wishlist and store sources: owned-game hiding, child filters (price, catalog) and price sorts over the online results. */
-
 async function applyPriceSort(ids: number[], sort: "price_low" | "discount_high" | "original_price_high", reverse?: boolean): Promise<number[]> {
   try {
     const { getPriceMap } = await import("../core/onlineStore");
@@ -59,8 +57,6 @@ function computeWishlistHideFlags(source: LooseSource | null | undefined, s: Set
 
 export const PRICE_SORT_KEYS = new Set(["price_low", "discount_high", "original_price_high"]);
 
-// Pure catalog/store metadata (not personal play-history) — meaningful for
-// any appid, owned or not, once fetched via getCatalogMetaMap.
 const CATALOG_FILTER_TYPES = new Set(["genres", "categories", "franchise", "vrSupport", "multiplayerType"]);
 
 async function applyWishlistChildFilter(ids: number[], childFilter: FilterGroup | null | undefined, all: AppOverview[]): Promise<number[]> {
@@ -75,9 +71,7 @@ async function applyWishlistChildFilter(ids: number[], childFilter: FilterGroup 
   return ids.filter((id) => matchesWishlistChildFilter(childFilter, id, byId.get(id)));
 }
 
-/* Same and/or as the library's groups. A personal condition says nothing about a store game the
-   user does not own, so it neither passes nor fails it: only the conditions that apply count, and a
-   group where none applies keeps the game. */
+// A personal condition says nothing about an unowned store game, so only conditions that apply count.
 export function matchesWishlistChildFilter(group: FilterGroup, id: number, app: AppOverview | undefined): boolean {
   const results = group.items.map((item) => evaluateWishlistChildItem(item, id, app)).filter((r): r is boolean => r !== null);
   if (results.length === 0) return true;
@@ -85,12 +79,8 @@ export function matchesWishlistChildFilter(group: FilterGroup, id: number, app: 
 }
 
 function evaluateWishlistChildItem(item: FilterItem, id: number, app: AppOverview | undefined): boolean | null {
-  // Price-cache filters (discount / priceRange) only need the appid, so a store
-  // game absent from the local library must still be checked against the cache —
-  // never waved through, or unowned/free titles leak past a price bound.
+  // Price filters only need the appid; unowned games must still be checked or they leak past a price bound.
   if (item.type === "discount" || item.type === "priceRange") return evaluateFilterItem(item, { appid: id } as any, undefined);
-  // Catalog filters read v3Extensions' rawField, which falls back to fetched
-  // Store metadata for ids not in `all` — a bare `{ appid }` is enough.
   if (CATALOG_FILTER_TYPES.has(item.type)) return evaluateFilterItem(item, (app ?? { appid: id }) as any, undefined);
   if (!app) return null;
   return evaluateFilterItem(item, app, undefined);
@@ -109,8 +99,6 @@ async function applyWishlistSort(
     const reverse = Array.isArray(sortReverse) ? !!sortReverse[0] : sortReverse;
     return applyPriceSort(ids, sort as "price_low" | "discount_high" | "original_price_high", reverse);
   }
-  // Multi-key / single non-price: sort the local subset, leave remote
-  // ids at the tail in wishlist order. Pre-fetch prices only if needed.
   const sortKeys: string[] = Array.isArray(sort) ? sort : [sort];
   const hasPriceKey = sortKeys.some((k) => PRICE_SORT_KEYS.has(k));
   const localPriceMap = hasPriceKey ? await getPriceMap(ids) : undefined;
@@ -119,9 +107,7 @@ async function applyWishlistSort(
   return applySortToIds(ids, sort, pool, shelfId, sortReverse, localPriceMap);
 }
 
-/* An empty wishlist shelf always says why, at warn level so it reaches the
-   diagnostics log: one line per resolve, except inside a fetch backoff window,
-   which is reported once (every refresh re-resolves until the fetch succeeds). */
+// Reported once per backoff window, since every refresh re-resolves until the fetch works.
 let warnedBackoffUntil = 0;
 
 function warnWishlistEmpty(why: { reason: string; backoffUntil?: number } | null): void {
@@ -133,7 +119,6 @@ function warnWishlistEmpty(why: { reason: string; backoffUntil?: number } | null
   logWarn("STEAM", "resolveShelfAppIds(wishlist) empty", reason);
 }
 
-// The setting that keeps the wishlist from being fetched at all, or null when none does.
 function wishlistSettingsGate(s: Settings | null | undefined): string | null {
   if (!isOnlineEnabledForSettings(s)) return s?.offlineModeEnabled === true ? "offline mode" : "online off";
   if (s?.onlineWishlistEnabled === false) return "wishlist off";

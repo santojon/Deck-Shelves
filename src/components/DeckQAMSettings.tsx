@@ -43,6 +43,7 @@ import { MountCrashBanner } from './qam/modals/MountCrashBanner'
 import { SafeModeSlot } from './qam/modals/SafeModeBanner'
 import { RecentsReplaceErrorBanner } from './qam/modals/RecentsReplaceErrorBanner'
 import { getRecentsReplaceFailed, getRecentsReplaceError, subscribeRecentsReplaceFailed } from '../runtime/recentsReplace'
+import { isReplaceFailedForced } from '../qa/harness'
 import { ResetAllModal } from './qam/modals/ResetAllModal'
 import { RegularShelfList } from './qam/list/RegularShelfList'
 import { SmartShelfList } from './qam/list/SmartShelfList'
@@ -58,9 +59,9 @@ import { confirmAction } from './qam/modals/ConfirmActionModal'
 import { ProfilesSection } from '../features/profiles/ProfilesSection'
 import { VisualGlobalSection } from './qam/sections/VisualGlobalSection'
 import { getQamWindow, useQamCompositorSync, useIsActiveQamTab, shouldRenderSidecar } from './qam/sidecarActiveTab'
-import { SidecarPanel, useDpadExpandBridge, fireQamExpand, traceSidecarCollapse } from './qam/sidecar/SidecarPanel'
+import { SidecarPanel, useDpadExpandBridge, fireQamExpand } from './qam/sidecar/SidecarPanel'
+import { useSidecarMenu } from './qam/sidecar/sidecarMenu'
 
-// Dev-only module-load stamps (the hot-swap diagnosis reads them over the debugger).
 if (__DEV__) {
   try {
     (globalThis as unknown as Record<string, unknown>).__ds_module_loaded__ = 'DeckQAMSettings@' + Date.now();
@@ -71,16 +72,10 @@ if (__DEV__) {
   } catch {}
 }
 
-// Temporary diagnostic: remapped sidecar-open ("R2") reportedly doesn't
-// work — records raw controller events, read back via CDP as
-// globalThis.__ds_input_trace, instead of guessing again.
 function traceRawInput(button: number, pressed: boolean): void {
   devTrace("__ds_input_trace", { t: Date.now(), button, pressed }, 40);
 }
 
-// Parent → sub-toggle map used both for hiding sub-toggles from the QAM
-// when the parent is hidden, and for sidecar UI consistency. Order matters
-// only for resolution: walking up via `parent` must terminate.
 const TOGGLE_PARENTS: Record<string, string> = {
   shelfHeroBackground: 'hideRecents',
   recentsReplaceSource: 'hideRecents',
@@ -176,79 +171,34 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
   const platform = usePlatform();
   const lightMode = useLightMode();
   const [disableHideRecents, setDisableHideRecents] = useState(false);
-  // Experimental opt-in: ask Steam to render the QAM in the wide layout
-  /* so we can show a sidecar to the right of the DS plugin tab. Drives a
-     postMessage to the SharedJSContext (window.opener of the QAM) using
-     the native Friends & Chat protocol. Dpad-right on the rightmost
-     focusable triggers the expand; dpad-left from inside the sidecar
-     collapses back. */
   const [qamExpanded, setQamExpanded] = useQamExpanded();
   const dsScopeRef = useRef<HTMLDivElement>(null);
-  // Sidecar management (input, compositor expansion, polling) is a singleton
-  // over shared state — only the on-screen instance should drive it (see
-  // useIsActiveQamTab above) so two mounted panels never fight over it.
+  // Only the on-screen instance drives the sidecar, so two mounted panels never fight over it.
   const isActiveTab = useIsActiveQamTab(dsScopeRef);
   useQamCompositorSync(qamExpanded, isActiveTab);
   useDpadExpandBridge(dsScopeRef, setQamExpanded, isActiveTab);
-  /* Close the sidecar the way the dpad-left / Steam-menu paths do — narrow the
-     compositor via fireQamExpand (not just setQamExpanded) so it never leaves a
-     stale-wide empty panel. Shared by the B button (onCancelButton) below. */
   const closeSidecar = useCallback(() => {
-    // Use the sidecar's OWN window (as the working dpad-left / Steam-return paths
-    // do) so the QamFriendsHidden narrow actually reaches the compositor —
-    // getQamWindow() can resolve a window whose opener doesn't post through.
+    // getQamWindow() can resolve a window whose opener doesn't post through to the compositor.
     const win = dsScopeRef.current?.ownerDocument?.defaultView ?? getQamWindow();
     fireQamExpand(win, false, setQamExpanded);
   }, [setQamExpanded]);
-  /* The button under the master toggle takes the same open/close path as the
-     dpad-right chord and the B button, so the compositor widens or narrows
-     together with the store flag (the flag alone leaves the panel off-screen). */
+  const openSidecar = useCallback(() => {
+    fireQamExpand(dsScopeRef.current?.ownerDocument?.defaultView ?? getQamWindow(), true, setQamExpanded);
+  }, [setQamExpanded]);
+  const inlineSidecar = useSidecarMenu({ scopeRef: dsScopeRef, open: shouldRenderSidecar(isActiveTab, qamExpanded), controller, onCollapse: closeSidecar, onOpen: openSidecar });
   const toggleSidecar = useCallback(() => {
     const win = dsScopeRef.current?.ownerDocument?.defaultView ?? getQamWindow();
     fireQamExpand(win, !qamExpanded, setQamExpanded);
   }, [qamExpanded, setQamExpanded]);
-  /* Hard reset on mount: wipe both the live ref and the sessionStorage
-     flag so a freshly-mounted DS QAM tab never inherits a stale expanded
-     state. Doing this OUTSIDE the React setter avoids racing the
-     useQamExpanded hook's initial read; setQamExpanded(false) on unmount
-     still fires the event for any concurrent listeners. */
   useEffect(() => {
     if (!isActiveTab) return;
     resetQamExpanded();
-    /* Not just setQamExpanded(false): a neutral host's NATIVE tab unmounts and
-       remounts across QAM cycles (a loader's tab stays mounted), and on
-       remount the compositor can still be stale-WIDE while the store resets
-       to closed. Narrow it explicitly — idempotent, a no-op if already narrow. */
+    // A host's own tab can remount while the compositor is still wide, so narrow it explicitly.
     const win = dsScopeRef.current?.ownerDocument?.defaultView ?? getQamWindow();
     fireQamExpand(win, false, setQamExpanded);
     return () => setQamExpanded(false);
   }, [setQamExpanded, isActiveTab]);
-  // First-run feature showcase (opens once; replayable from the AboutPage).
   useFirstRunShowcase(settings, actions, controller);
-  /* Dev-only screenshot hook: opens/closes the sidecar the same way a
-     dpad-right chord does (`fireQamExpand` widens the QAM compositor window
-     via the opener postMessage AND flips the store) — the store flag alone
-     doesn't widen the window, so the panel would render off-screen. Gamepad
-     input can't be driven over CDP. Stripped from release via `if (!__DEV__)`. */
-  useEffect(() => {
-    if (!__DEV__ || !isActiveTab) return;
-    const g = globalThis as any;
-    const open = () => { fireQamExpand(getQamWindow(), true, setQamExpanded); return true; };
-    const closeHook = () => { fireQamExpand(getQamWindow(), false, setQamExpanded); };
-    g.__ds_dev_open_sidecar = open;
-    g.__ds_dev_close_sidecar = closeHook;
-    return () => {
-      try {
-        if (g.__ds_dev_open_sidecar === open) delete g.__ds_dev_open_sidecar;
-        if (g.__ds_dev_close_sidecar === closeHook) delete g.__ds_dev_close_sidecar;
-      } catch {}
-    };
-  }, [setQamExpanded, isActiveTab]);
-  /* Remappable open / close sidecar shortcuts. The defaults (dpad-right ×2 to
-     open, dpad-left to close) are served by the nav-aware positional handler
-     in `handleDpadInput`. This raw-stream listener only kicks in when the user
-     remaps a side away from its dpad default, firing that custom combo globally
-     — so the default dpad navigation stays untouched. */
   const openMatcherRef = useRef(createMatcherState());
   const closeMatcherRef = useRef(createMatcherState());
   useEffect(() => {
@@ -268,10 +218,6 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
       }
     });
   }, [setQamExpanded, isActiveTab]);
-  /* Keyboard equivalent of the pair above — an independent trigger, not a
-     replacement for the gamepad one. A real keydown reaches this window's
-     own document normally (unlike controller input, which needs the raw
-     SteamClient.Input bridge), so no bus/bridge is needed here. */
   const openKeyMatcherRef = useRef(createKeyMatcherState());
   const closeKeyMatcherRef = useRef(createKeyMatcherState());
   useEffect(() => {
@@ -282,9 +228,6 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
       const close = !open && !!kb.navSidecarClose && matchKeyEvent(code, parseKeyCombo(kb.navSidecarClose), closeKeyMatcherRef.current, now, held);
       return { open, close };
     };
-    // Same window resolution as closeSidecar/the reset effect above —
-    // getQamWindow() alone can resolve a window whose opener doesn't
-    // post through to the compositor.
     const resolveQamWin = () => dsScopeRef.current?.ownerDocument?.defaultView ?? getQamWindow();
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.repeat || isEditableKeyTarget((e.target as HTMLElement | null)?.tagName)) return;
@@ -294,71 +237,36 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
       if (!open && !close) return;
       fireQamExpand(resolveQamWin(), open, setQamExpanded);
     };
-    /* deck-shelves: bound-combo match only, never preventDefault/stopPropagation.
-       Real key events only land on the QAM's own document (ownerDocument of
-       this scope) — this component's code runs in SharedJSContext, and bare
-       `document` there is SJC's own document, which never receives them. */
+    // Key events only reach the QAM's own document; never preventDefault or stopPropagation here.
     const doc = dsScopeRef.current?.ownerDocument ?? document;
     doc.addEventListener('keydown', onKeyDown, true);
     return () => doc.removeEventListener('keydown', onKeyDown, true);
   }, [setQamExpanded, isActiveTab]);
-  /* Decky keeps the plugin tab mounted across QAM open/close cycles, so
-     without explicit hooks the sidecar stays expanded when the user opens
-     a Steam overlay (Steam menu, friends, etc) and comes back to the QAM.
-     None of the available signals fires reliably on every path Steam can
-     hide the QAM through — listen to all of them. */
+  // The tab stays mounted across QAM open/close and no single signal covers every way Steam hides it.
   useEffect(() => {
     if (!isActiveTab) return;
     const scope = dsScopeRef.current;
     const doc = scope?.ownerDocument ?? document;
     const win = doc.defaultView ?? window;
-    const trace = (label: string) => {
-      devTrace("__ds_sidecar_signals", { t: Date.now(), label, hidden: doc.hidden, hasFocus: doc.hasFocus?.() }, 40);
-    };
-    /* Genuine hide signals (doc hidden / pagehide / freeze) collapse outright.
-       The return-side signals (focus / resume) fire on focus GAIN, which Steam
-       raises spuriously while the QAM is still visible — they act only while the
-       doc is still flagged hidden, so they never collapse the sidecar under the
-       user. The m_eOpenSideMenu poll below is the authoritative leave-detector. */
-    /* The leave (Steam overlaying the QAM) fires NO event and m_eOpenSideMenu stays
-       QuickAccess (see __ds_sidecar_signals); the reliable RETURN signal is focus /
-       resume regained while the doc is still flagged hidden. Do NOT collapse on
-       `visibilitychange:visible` — that fed a compositor⇄visibility loop (collapse →
-       notifyCompositor → visible again) that pegged the renderer; focus doesn't. */
-    const collapse = (label: string) => { trace(label); setQamExpanded(false); };
-    /* On RETURN, re-assert the NARROW via fireQamExpand (posts QamFriendsHidden
-       unconditionally): the poll already set qamExpanded=false when the Steam
-       menu opened, but that narrow was dropped while the QAM hid, so it re-shows
-       stale-WIDE with no content ("open + empty"). setQamExpanded(false) is a
-       no-op here; fireQamExpand always posts. On `focus` — no resize re-fire. */
-    const collapseOnReturn = (label: string) => { trace(label); if (doc.hidden) fireQamExpand(win, false, setQamExpanded); };
-    const onVis = () => { if (doc.hidden) collapse("visibilitychange:hidden"); else trace("visibilitychange:visible"); };
+    // Collapsing on visibilitychange feeds a compositor loop, so the return signal is focus while hidden.
+    const collapse = () => setQamExpanded(false);
+    const collapseOnReturn = () => { if (doc.hidden) fireQamExpand(win, false, setQamExpanded); };
+    const onVis = () => { if (doc.hidden) collapse(); };
     doc.addEventListener("visibilitychange", onVis);
-    const onFocus = () => collapseOnReturn("window.focus");
-    win.addEventListener("focus", onFocus);
-    const onPageHide = () => collapse("pagehide");
-    win.addEventListener("pagehide", onPageHide);
-    const onFreeze = () => collapse("freeze");
-    const onResume = () => collapseOnReturn("resume");
-    doc.addEventListener("freeze", onFreeze);
-    doc.addEventListener("resume", onResume);
+    win.addEventListener("focus", collapseOnReturn);
+    win.addEventListener("pagehide", collapse);
+    doc.addEventListener("freeze", collapse);
+    doc.addEventListener("resume", collapseOnReturn);
     return () => {
       doc.removeEventListener("visibilitychange", onVis);
-      win.removeEventListener("focus", onFocus);
-      win.removeEventListener("pagehide", onPageHide);
-      doc.removeEventListener("freeze", onFreeze);
-      doc.removeEventListener("resume", onResume);
+      win.removeEventListener("focus", collapseOnReturn);
+      win.removeEventListener("pagehide", collapse);
+      doc.removeEventListener("freeze", collapse);
+      doc.removeEventListener("resume", collapseOnReturn);
     };
   }, [setQamExpanded, isActiveTab]);
 
-  // Authoritative signal for "QAM is no longer the active side menu":
-  // `SteamUIStore.WindowStore.GamepadUIMainWindowInstance.m_MenuStore
-  // .m_eOpenSideMenu`. This MobX-backed enum flips between None / MainMenu
-  /* / QuickAccess when Steam opens overlays on top of the QAM. Polling at
-     300 ms is cheap (a property read), only runs while the sidecar is
-     expanded, and stops as soon as we collapse. Captures the value seen
-     at mount as the "active QAM" reference value — anything different
-     afterwards means the QAM lost focus to another overlay. */
+  // m_eOpenSideMenu changes when Steam opens an overlay over the QAM; polled only while expanded.
   useEffect(() => {
     if (!isActiveTab || !qamExpanded) return;
     const doc = dsScopeRef.current?.ownerDocument ?? document;
@@ -372,12 +280,6 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
     };
     const refValue = getMenuState();
     let lastTick = Date.now();
-    try {
-      const g = globalThis as any;
-      if (!Array.isArray(g.__ds_sidecar_signals)) g.__ds_sidecar_signals = [];
-      g.__ds_sidecar_signals.push({ t: lastTick, label: "poll-start", ref: refValue, focus: doc.hasFocus?.() });
-      if (g.__ds_sidecar_signals.length > 40) g.__ds_sidecar_signals.shift();
-    } catch {}
     const id = window.setInterval(() => {
       try {
         const now = Date.now();
@@ -385,14 +287,9 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
         lastTick = now;
         const menuState = getMenuState();
         const menuChanged = refValue !== null && menuState !== null && menuState !== refValue;
-        /* `doc.hasFocus()` is unusable in GamepadUI — the QAM popup document never
-           holds DOM focus even while its sidecar is in use, so the old `noFocus`
-           term collapsed on the first tick (~300 ms after open; see
-           __ds_sidecar_signals). m_eOpenSideMenu is the authoritative signal —
-           keep it + the background-resume guard (>1.5 s gap while non-visible). */
+        // doc.hasFocus() is useless here: the QAM document never holds DOM focus in GamepadUI.
         const resumedFromBackground = gap > 1500 && doc.visibilityState !== "visible";
         if (menuChanged || resumedFromBackground) {
-          traceSidecarCollapse(now, menuChanged, false, refValue, menuState, gap);
           setQamExpanded(false);
           window.clearInterval(id);
         }
@@ -412,9 +309,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
   const [hasCloudSync] = useState(() => {
     try { return hasCloudSyncSupport(); } catch { return false; }
   })
-  // CSS Loader presence — the force-themes toggle only shows when at least
-  // one CSS Loader theme is loaded. Re-check shortly after mount in case
-  // the panel opens before CSS Loader has injected its stylesheets.
+  // CSS Loader can inject its stylesheets after the panel opens.
   const [hasCssLoader, setHasCssLoader] = useState(() => {
     try { return isCssLoaderActive(); } catch { return false; }
   });
@@ -430,8 +325,6 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, []);
 
-  // Force re-render when external plugins (un)register import descriptors
-  // so the ImportMenuButton picks up the change without a full QAM remount.
   const [importsBump, setImportsBump] = useState(0)
   useEffect(() => {
     const bump = () => setImportsBump((v) => v + 1)
@@ -451,17 +344,15 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
     sync()
     return unsub
   }, [])
-  const [replaceFailed, setReplaceFailed] = useState(() => getRecentsReplaceFailed())
+  const [replaceFailed, setReplaceFailed] = useState(() => getRecentsReplaceFailed() || isReplaceFailedForced())
   const [replaceError, setReplaceError] = useState<string | null>(() => getRecentsReplaceError())
   useEffect(() => {
-    const sync = () => { setReplaceFailed(getRecentsReplaceFailed()); setReplaceError(getRecentsReplaceError()) }
+    const sync = () => { setReplaceFailed(getRecentsReplaceFailed() || isReplaceFailedForced()); setReplaceError(getRecentsReplaceError()) }
     const unsub = subscribeRecentsReplaceFailed(sync)
     sync()
     return unsub
   }, [])
 
-  // Register TabMaster import as a first-party entry on the public registry.
-  // The hook always runs; body bails when TabMaster isn't present.
   useEffect(() => {
     if (!hasTabMaster) return
     const unsub = registerInternalImportType({
@@ -474,11 +365,6 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
     return unsub
   }, [hasTabMaster, t, controller])
 
-  /* Compute whether the "hide recents" and "hero background" toggles should be
-     inactive.  They become disabled when there are no visible shelves or none of
-     the visible shelves resolve to results.  This runs regardless of the current
-     toggle value so that the UI accurately reflects the shelf state.
-     IMPORTANT: we never force-change the toggle values — only disable interaction. */
   useEffect(() => {
     let alive = true;
     const compute = async () => {
@@ -498,13 +384,9 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
     return () => { alive = false; globalThis.removeEventListener('deck-shelves-hideRecents-disabled', onEvent); };
   }, [shelves, platform]);
 
-  // Hooks must all be above this early return so call order stays stable
-  // across renders (settings flips from undefined → loaded after the first
-  // controller hydration tick).
+  // All hooks stay above this early return.
   if (!settings) return <div style={{ padding: 16 }}>{t('loading')}</div>
   const isFirstRun = shelves.length === 0 && !settings.enabled
-  // Always use the unified Create modal (Standard + Smart tabs) so
-  // users can create either type regardless of the unified-list flag.
   const handleAdd = () => openManagedModal((close) => (
     <CreateShelfModal closeModal={close} controller={controller} />
   ))
@@ -515,7 +397,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
   const handleImportAll = () => openManagedModal((close) => <ImportModal closeModal={close} controller={controller} initialPath={joinDownloads('deck-shelves.json')} scope='all' />)
   const handleExportAll = () => openManagedModal((close) => <ExportModal closeModal={close} controller={controller} folderPath={getUserDownloadsDir()} scope='all' />)
   const buildImportEntries = (target: 'shelves' | 'smart_shelves'): ImportEntry[] => {
-    void importsBump // re-evaluate on registry changes
+    void importsBump
     return getExternalImportTypesForTarget(target).map((d) => ({
       id: d.id,
       label: descriptorName(t, d),
@@ -546,8 +428,6 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
         disabled={mountCrashed}
         onChange={(value: boolean) => actions.setEnabled(value)}
       />
-      {/* Compact action row (the standalone host's "View status" row style):
-          icon + label, transparent, focus tint from DeckQAMStyles. */}
       <Focusable
         className='deck-shelves-qam-sidecar-row'
         noFocusRing
@@ -565,8 +445,6 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
       ))()}
       <SafeModeSlot controller={controller} />
 
-      {/* Profiles section sits ABOVE Behavior; the component hides itself
-          when the user has zero shelves (regular + smart combined). */}
       <ProfilesSection controller={controller} hidden={isSecHid('profiles')} />
 
       {(() => {
@@ -951,7 +829,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
       </QamToolbar>
       <VersionFooter />
       </Focusable>
-      {shouldRenderSidecar(isActiveTab, qamExpanded) && (
+      {inlineSidecar && (
         <SidecarPanel controller={controller} onCollapse={closeSidecar} />
       )}
       </Focusable>

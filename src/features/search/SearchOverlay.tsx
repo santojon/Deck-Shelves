@@ -21,7 +21,6 @@ const DEBOUNCE_MS = 1200;
 const PAUSE_BEFORE_MOVE_MS = 800;
 const MEMORY_TTL_MS = 30_000;
 
-// Session memory: last typed query lives MEMORY_TTL_MS, then resets.
 let lastSessionQuery = "";
 let lastSessionAt = 0;
 
@@ -48,8 +47,6 @@ function tryOpenSteamKeyboard(): void {
   }
 }
 
-/* Blur the focused text input across every Steam doc — that closes an
-   input-tied on-screen keyboard. */
 function blurActiveTextInputs(): void {
   try {
     for (const doc of getAllSteamDocuments()) {
@@ -63,8 +60,6 @@ function blurActiveTextInputs(): void {
 
 const inputApiOf = (owner: any) => owner?.SteamClient?.Input;
 
-// Every candidate `SteamClient.Input` this realm can reach (a repeated
-// dismiss call on the same object is harmless, so no dedup).
 function candidateInputApis(): any[] {
   const g = globalThis as any;
   const view = g.SteamUIStore?.WindowStore?.GamepadUIMainWindowInstance?.BrowserWindow;
@@ -74,11 +69,7 @@ function candidateInputApis(): any[] {
 const KEYBOARD_DISMISS_METHODS = ["ModalKeyboardDismissed", "StandaloneKeyboardDismissed", "DismissGamepadKeyboard", "CloseGamepadKeyboard", "HideGamepadKeyboard"];
 
 function dismissSteamKeyboard(): void {
-  /* On a match there's no physical B press to close the OSK natively, and
-     ModalKeyboardDismissed is only a notification — it doesn't close the OSK the
-     `OpenGamepadKeyboard` call popped. So (1) blur the focused text input
-     (closes an input-tied OSK) and (2) fire every known dismiss/close method
-     on every candidate Input object. */
+  // ModalKeyboardDismissed only notifies and doesn't close the keyboard, so blur and call every dismiss method.
   blurActiveTextInputs();
   try {
     for (const Input of candidateInputApis()) {
@@ -93,9 +84,7 @@ function steamKeyboardManager(): any {
   try { return (globalThis as any).SteamUIStore?.WindowStore?.GamepadUIMainWindowInstance?.m_VirtualKeyboardManager ?? null; } catch { return null; }
 }
 
-/* Steam's on-screen keyboard injects its keys natively, and those keystrokes
-   never reach this overlay's input. Steam checks a text-entered override
-   before injecting, so while the pill is open its keys are routed here. */
+// Steam injects on-screen keyboard keys natively; its text-entered override routes them here instead.
 function routeVirtualKeyboard(input: HTMLInputElement, onValue: (v: string) => void, onEnter: () => void): () => void {
   const m = steamKeyboardManager();
   if (typeof m?.SetVRKeyboardOnTextEnteredOverride !== "function") return () => {};
@@ -123,8 +112,7 @@ function prepareSearchInput(input: HTMLInputElement): void {
   } catch {}
 }
 
-/* A synthetic touch tap on the input: Steam pops the on-screen keyboard for
-   pointer-initiated focus, not for programmatic focus. */
+// Steam only pops the keyboard for pointer-initiated focus.
 function tapInputForKeyboard(input: HTMLInputElement): void {
   try {
     const r = input.getBoundingClientRect();
@@ -152,15 +140,11 @@ function publishSearchFocusDiag(input: HTMLInputElement, n: number, kb: boolean)
 
 export function SearchOverlay() {
   devCount("__ds_search_mounted");
-  // Light mode strips advanced features for simplicity / battery — the
-  // Quick Search pill is one of them. User toggle stays untouched.
   const [enabled, setEnabled] = useState(() => {
     const s = getCurrentSettings() as any;
     return s?.enabled === true && s?.contextSearchEnabled === true && s?.lightModeEnabled !== true;
   });
-  // Virtual-keyboard default is ON; opt-out via the new toggle.
   const [kbEnabled, setKbEnabled] = useState(() => (getCurrentSettings() as any)?.contextSearchKeyboardEnabled !== false);
-  // Enter-only default is OFF (debounce mode).
   const [onEnter, setOnEnter] = useState(() => (getCurrentSettings() as any)?.contextSearchOnEnter === true);
   useEffect(() => subscribeSettings((s) => {
     setEnabled((s as any)?.enabled === true && (s as any)?.contextSearchEnabled === true && (s as any)?.lightModeEnabled !== true);
@@ -183,9 +167,7 @@ export function SearchOverlay() {
       lastSessionQuery = query;
       lastSessionAt = Date.now();
     }
-    // Dismiss keyboard WHILE input is still mounted. ModalKeyboardDismissed
-    // needs the keyboard to be "active" to work; calling it after unmount
-    // has no target to dismiss.
+    // Dismiss while the input is still mounted; after unmount there is nothing to dismiss.
     dismissSteamKeyboard();
     setOpen(false);
     setQuery("");
@@ -200,28 +182,16 @@ export function SearchOverlay() {
     const prior = priorFocusRef.current;
     priorFocusRef.current = null;
     if (restorePrior && prior) {
-      // Same delay as the match path — overlay unmounts, NavTree drops
-      // the input node, THEN we land focus on the prior card. Without
-      // the delay the input still wins the focus race.
+      // Wait for the overlay to unmount, or the input wins the focus race.
       window.setTimeout(() => {
         try { if (prior.isConnected) focusElement(prior); } catch {}
       }, 180);
     }
   }, [query]);
 
-  // Runner used by both debounce path AND the Enter-only path. Picks
-  // the top hit across all providers and navigates to it (or closes
-  // silently if nothing matched).
   const runQuery = useCallback(async (q: string) => {
     if (q.trim().length < MIN_CHARS) return;
     const myToken = ++searchAbort.current;
-    // The built-in Quick Search provider is registered through the
-    // public Plugin API (`internalRegistry.ts`) so it lives in the
-    /* same `getExternalSearchProviders()` list as third-party
-       providers. Ordering is by `priority` desc — the built-in's
-       priority of 100 keeps it first when ties on hit score appear.
-       — drop providers the user explicitly disabled in
-       the Integrations detail panel (`integrationsEnabled[id] === false`). */
     const integrationsEnabled = (getCurrentSettings() as any)?.integrationsEnabled ?? {};
     const providers = getExternalSearchProviders().filter((p) => integrationsEnabled[p.id] !== false);
     const settled = await Promise.allSettled(
@@ -241,17 +211,11 @@ export function SearchOverlay() {
     merged.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
     const first = merged[0];
     if (first) {
-      // Close FIRST so React unmounts SearchPill and cleanup runs
-      /* (sets cancelled=true, removes the reclaim focusout listener).
-         Without this, onActivate() → BTakeFocus on card → input loses
-         focus → reclaim() fires → re-focuses input → card never gets
-         focus. After close() + one rAF (enough for React unmount), the
-         reclaim listener is gone and BTakeFocus lands cleanly. */
+      // Close first so the focus-reclaim listener is gone before the card takes focus.
       close({ restorePrior: false, clearSession: true });
       requestAnimationFrame(() => {
         try { first.onActivate?.(); } catch {}
-        // Re-assert after focus lands on the card — the OSK can outlive the
-        // input's unmount/blur, so a second dismiss here closes the straggler.
+        // The keyboard can outlive the input, so dismiss it again.
         dismissSteamKeyboard();
       });
     } else {
@@ -259,15 +223,11 @@ export function SearchOverlay() {
     }
   }, [close]);
 
-  // Open trigger driven by the configured navSearch combo. When OPEN,
-  // any single CANCEL/L1/R1 closes (the close legend stays fixed so the
-  // user always has a graceful out).
   const matcherStateRef = useRef(createMatcherState());
   const rawMatcherStateRef = useRef(createMatcherState());
   const lastOpenAtRef = useRef(0);
   const openSearch = useCallback(() => {
-    // Same gate as the side nav: the Home's route can stay current behind a
-    // running game, where L1+R1 must not pop the overlay and keyboard.
+    // The Home route can stay current behind a running game.
     if (!isHomeRoute() || getSessionState().gameRunning) return;
     if (isOverlayLocked()) return;
     const now = Date.now();
@@ -287,29 +247,6 @@ export function SearchOverlay() {
       window.setTimeout(tryOpenSteamKeyboard, 60);
     })();
   }, []);
-  /* Dev-only screenshot hook: opens the search pill (and optionally seeds a
-     query) without the Steam gamepad keyboard, which can't be driven over
-     CDP. The pill + results render into the BP DOM regardless of the OSK.
-     Stripped from release via `if (!__DEV__)`. */
-  useEffect(() => {
-    if (!__DEV__) return;
-    const g = globalThis as any;
-    const open = (q?: string) => {
-      setOpen(true);
-      if (typeof q === "string") setQuery(q);
-      return true;
-    };
-    const closeHook = () => close({ restorePrior: false });
-    g.__ds_dev_open_search = open;
-    g.__ds_dev_close_search = closeHook;
-    // A remounted Home registers before the old root's cleanup runs; only remove our own.
-    return () => {
-      try {
-        if (g.__ds_dev_open_search === open) delete g.__ds_dev_open_search;
-        if (g.__ds_dev_close_search === closeHook) delete g.__ds_dev_close_search;
-      } catch {}
-    };
-  }, []);
   useEffect(() => {
     if (!enabled) return;
     devStamp("__ds_search_enabled", enabled);
@@ -327,11 +264,7 @@ export function SearchOverlay() {
       openSearch();
     });
   }, [enabled, open, close, openSearch]);
-  /* Parallel raw-stream trigger so the combo fires regardless of where
-     focus sits (QAM, Steam menu, context menu, native recents). Decky's
-     home-button bus only fires when a DS card holds focus; the raw bus
-     listens globally. `openSearch` debounces so the two paths can both
-     fire without double-opening. */
+  // Decky's button bus only fires while one of our cards has focus, so also listen to the raw stream.
   useEffect(() => {
     if (!enabled || open) return;
     return subscribeControllerInput((e) => {
@@ -343,7 +276,6 @@ export function SearchOverlay() {
       openSearch();
     });
   }, [enabled, open, openSearch]);
-  // Keyboard equivalent — independent trigger, same debounce via openSearch.
   const keyMatcherStateRef = useRef(createKeyMatcherState());
   useEffect(() => {
     if (!enabled || open) return;
@@ -356,9 +288,6 @@ export function SearchOverlay() {
     });
   }, [enabled, open, openSearch]);
 
-  // While the pill is open, listen on the BP-polled controller bus
-  // directly — it fires regardless of which element holds gpfocus, so
-  // L1, R1 and B close even when the input has the NavTree focus.
   useEffect(() => {
     if (!open) return;
     return subscribeControllerInput((e) => {
@@ -371,7 +300,6 @@ export function SearchOverlay() {
     });
   }, [open, close]);
 
-  // Auto-debounce path — only when the user did NOT opt into Enter-only.
   useEffect(() => {
     if (!open) return;
     if (onEnter) return;
@@ -397,9 +325,6 @@ export function SearchOverlay() {
   );
 }
 
-/* One focus attempt on the pill's input: focus it, pop the keyboard on the
-   first try, and select a query kept from the last session so typing
-   replaces it and Enter re-runs it. */
 function focusSearchInput(input: HTMLInputElement, n: number, keyboardEnabled: boolean, first: boolean): void {
   prepareSearchInput(input);
   try { input.focus(); } catch {}
@@ -418,16 +343,10 @@ function SearchPill({ query, onChange, keyboardEnabled, onEnter }: {
   const onField = (e: React.ChangeEvent<HTMLInputElement>) => {
     onChange(e?.target?.value ?? "");
   };
-  // Latest callbacks for the on-screen keyboard route (bound once the input exists).
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
   const onEnterRef = useRef(onEnter);
   onEnterRef.current = onEnter;
-  /* Kick HTML focus + add the HTML5 attrs Steam Deck's on-screen
-     keyboard looks for. Synthetic pointer sequence ONLY when the
-     virtual-keyboard toggle is on — that's the trigger that pops the
-     Deck's keyboard. Cleanup blurs + fires Steam's dismissed
-     notifications so the keyboard exits with the overlay. */
   useEffect(() => {
     let cancelled = false;
     let captured: HTMLInputElement | null = null;
@@ -445,18 +364,12 @@ function SearchPill({ query, onChange, keyboardEnabled, onEnter }: {
       if (n > 0) window.setTimeout(() => tryFocus(n - 1), 120);
     };
     tryFocus(8);
-    /* Steam occasionally steals focus back to the previously-focused
-       node (native recents card) a few hundred ms after the pill mounts
-       — especially when the pill is opened from outside DS shelves. A
-       delegated focusout listener re-claims focus on the input so the
-       user can keep typing. Stops when the pill unmounts. */
+    // Steam sometimes steals focus back shortly after the pill opens.
     const reclaim = (e: FocusEvent) => {
       if (cancelled) return;
       const host = hostRef.current;
       const input = host?.querySelector<HTMLInputElement>("input");
       if (!input) return;
-      // Only react when focus leaves OUR input and lands on body /
-      // doc / a DS card (i.e. NOT another control inside the pill).
       const next = (e.relatedTarget as HTMLElement | null) ?? input.ownerDocument?.activeElement as HTMLElement | null;
       if (next && host?.contains(next)) return;
       try { input.focus({ preventScroll: true }); } catch {}
@@ -472,8 +385,6 @@ function SearchPill({ query, onChange, keyboardEnabled, onEnter }: {
     };
   }, [keyboardEnabled]);
 
-  // Enter handler (only when caller passed `onEnter` — i.e. when the
-  // user opted into the "search only on Enter" toggle).
   useEffect(() => {
     if (!onEnter) return;
     const input = hostRef.current?.querySelector<HTMLInputElement>("input");
@@ -487,15 +398,10 @@ function SearchPill({ query, onChange, keyboardEnabled, onEnter }: {
     input.addEventListener("keydown", handler);
     return () => { input.removeEventListener("keydown", handler); };
   }, [onEnter]);
-  // Width grows with the typed string, in ch units so it scales with
-  // the (vw-clamped) font-size. Floor keeps a sensible empty width;
-  // ceil prevents runaway growth on long queries.
   const chars = Math.max(8, Math.min(40, query.length + 3));
   return (
     <>
-      {/* The styles below live inline because DeckQAMStyles only mounts
-          in the QAM Settings tree, never on the home. The dark backdrop
-          sits ONLY on the input itself — nothing wraps the field. */}
+      {/* Inline because the QAM stylesheet isn't mounted on the Home. */}
       <style>{`
         .ds-search-pill-host { background: transparent !important; border: none !important; padding: 0 !important; margin: 0 !important; box-shadow: none !important; width: 100%; }
         .ds-search-pill-host > div, .ds-search-pill-host > div > div { background: transparent !important; border: none !important; padding: 0 !important; margin: 0 !important; box-shadow: none !important; width: 100% !important; }

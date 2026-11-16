@@ -35,7 +35,7 @@ describe('installSystemEvents — suspend/resume', () => {
     const cleanup = installSystemEvents()
     handler?.({ bSuspending: true })
     expect(calls.pause).toBe(1)
-    expect(calls.refreshDisplay).toBe(0) // not on suspend — only resume needs a re-check
+    expect(calls.refreshDisplay).toBe(0)
     expect(calls.refreshController).toBe(0)
     expect(calls.refreshBattery).toBe(0)
     handler?.({ bSuspending: false })

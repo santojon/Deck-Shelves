@@ -12,9 +12,7 @@ import { confirmAction } from "../../qam/modals/ConfirmActionModal";
 import { absorbCancelButton } from "../../qam/sidecarCancel";
 import { flowChildrenProps } from "../../../core/steamOSVersion";
 
-// Maps the raw controller event button id (from `controllerInput`) to
-// the token name used by the bindings parser. Required because this
-// settings route doesn't host the home-input bus.
+// This route doesn't host the home input bus, so raw button ids are mapped here.
 const RAW_TO_TOKEN: Record<number, string> = {
   [RawBtn.X]: "X",
   [RawBtn.Y]: "Y",
@@ -48,7 +46,6 @@ interface BindingRow {
   nullable: boolean;
 }
 
-// Two parts: per-card shortcuts and home-navigation shortcuts.
 const CARD_ROWS: BindingRow[] = [
   { key: "cardHideRemove",      labelKey: "binding_card_hide_remove",  nullable: true },
   { key: "cardHighlightToggle", labelKey: "binding_card_highlight",    nullable: true },
@@ -61,10 +58,6 @@ const NAV_ROWS: BindingRow[] = [
   { key: "navSidecarClose",     labelKey: "binding_nav_sidecar_close", nullable: false },
 ];
 
-/* Quick gamepad-button glyph. Renders a small bordered chip with the
-   token name. Steam doesn't expose a per-controller button icon API we
-   can call from inside the plugin, so we use the literal token name
-   (VIEW / MENU / X / Y / L1 / R1 / …) as a stable label. */
 function ButtonGlyph({ token }: { token: string }) {
   const t = token.toUpperCase();
   const styleBase: React.CSSProperties = {
@@ -97,9 +90,6 @@ function renderCombo(raw: string | null | undefined): React.ReactNode {
   );
 }
 
-// Keyboard combos render as one chip with the formatted label (e.g. "CTRL
-// + F") rather than per-token glyphs — there's no fixed token set to give
-// each key its own recognizable shape the way gamepad buttons have.
 function renderKeyCombo(raw: string | null | undefined): React.ReactNode {
   const label = formatKeyComboForDisplay(raw);
   if (!label) return null;
@@ -117,16 +107,11 @@ export function ButtonBindingsDetail({ controller, t }: ButtonBindingsDetailProp
   const collisionTokens = new Set(collisions.flat());
   const keyDisabledList: string[] = ((settings as any).keyboardBindingsDisabled ?? []) as string[];
   const rawKeyBindings: KeyboardBindings = (settings as any).keyboardBindings ?? {};
-  // Only surface a navigation shortcut whose feature is actually enabled — a
-  // Quick Search / Side Nav binding is meaningless when that feature is off.
-  // The sidecar (the QAM panel) is always available, so its rows always show.
   const searchOn = (settings as any).contextSearchEnabled === true;
   const sidenavOn = (settings as any).sideNavEnabled === true;
   const navRows = NAV_ROWS.filter((r) =>
     r.key === "navSearch" ? searchOn : r.key === "navSideNav" ? sidenavOn : true,
   );
-  // Reset only the bindings in one scope (card actions OR navigation) back to
-  // their defaults — mirrors the per-row reset (default value + re-enable).
   const resetScope = (rows: BindingRow[]) => confirmAction({
     title: t("binding_reset_scope"),
     body: t("settings_confirm_irreversible"),
@@ -276,22 +261,16 @@ function BindingRowButtons({
   );
 }
 
-/* While capturing, the focused capture button takes Steam's cancel (B, or Escape on a
-   keyboard, which Steam turns into cancel before the page sees it) and ends the capture,
-   so the press never reaches the page's back handler. */
+// Steam turns B and Escape into cancel before the page sees them, so the capture button handles cancel.
 const cancelOnButtonDown = (capturing: boolean, cancel: () => void) =>
   capturing ? (evt: any) => absorbCancelButton(evt, cancel) : undefined;
 
 const CAPTURE_WINDOW_MS = 300;
 const CAPTURE_MAX_TOKENS = 3;
-// A capture nobody finishes ends by itself, leaving the binding unchanged.
 const CAPTURE_IDLE_CANCEL_MS = 10000;
 
 type CaptureBuffer = { tokens: string[]; lastAt: number };
 
-/* Shared by the gamepad and keyboard captures: collects up to three presses,
-   each within 300 ms of the previous one, and commits at once on the third,
-   else 300 ms after the last ("X", "L1+R1", "L1+L1", "L4+R4+Y"). */
 function advanceCaptureBuffer(
   token: string,
   now: number,
@@ -307,11 +286,6 @@ function advanceCaptureBuffer(
   timerRef.current = window.setTimeout(() => commit(buf.tokens.join("+")), CAPTURE_WINDOW_MS);
 }
 
-/* Keyboard capture — a second, independent slot per row. Structurally the
-   same double-tap/chord buffer as the gamepad capture in BindingRowView,
-   but reading real keydown events off this row's own document instead of
-   the controller bus. Pulled into its own hook (rather than inlined in
-   BindingRowView) purely to keep that component's complexity down. */
 function useKeyCaptureSlot(
   containerRef: React.RefObject<HTMLDivElement | null>,
   rawKeyValue: string | null,
@@ -379,9 +353,6 @@ function useKeyCaptureSlot(
 
 type KeyCaptureSlot = ReturnType<typeof useKeyCaptureSlot>;
 
-// Keyboard capture row — mirrors BindingStatus + BindingRowButtons' split
-// for the gamepad row, kept as its own component (not inlined into
-// BindingRowView) so its branching has its own complexity budget.
 function KeyBindingRow({ keyState, rawKeyValue, keyDisabled, t }: {
   keyState: KeyCaptureSlot;
   rawKeyValue: string | null;
@@ -416,7 +387,6 @@ function KeyBindingRow({ keyState, rawKeyValue, keyDisabled, t }: {
   );
 }
 
-// What the row shows under its controls while capturing, and the last capture error.
 function CaptureNotes({ capturing, keyCapturing, lastRawId, error, t }: {
   capturing: boolean;
   keyCapturing: boolean;
@@ -463,9 +433,6 @@ function BindingRowView({
   const buffer = useRef<CaptureBuffer>({ tokens: [], lastAt: 0 });
   const timerRef = useRef<number | null>(null);
   const captureStartedAtRef = useRef<number>(0);
-  // External state changes (Reset all / Delete from a different row) bring
-  // a fresh `rawValue` in via props. Drop any locally-captured combo so the
-  // chip mirrors the persisted value instead of the last capture attempt.
   useEffect(() => { setCaptured(null); setError(null); }, [rawValue, disabled]);
 
   const startCapture = () => {
@@ -493,7 +460,6 @@ function BindingRowView({
       // 250ms grace — eats the A press that activated Capture itself.
       if (now - captureStartedAtRef.current < 250) return;
       if (!token) return;
-      // Reserved-button rejection (A/B/Menu/Steam/Screenshot).
       const validation = validateCombo(token);
       if (!validation.ok && validation.reason === "reserved") {
         setError("reserved");
@@ -507,7 +473,6 @@ function BindingRowView({
       // B cancels (it can never be bound); A reaches the capture button, which cancels too.
       if (e.button === RawBtn.B) { stopCapture(); return; }
       const token = RAW_TO_TOKEN[e.button] ?? null;
-      // Surface the raw id so the user can see what an unmapped button emits.
       setLastRawId({ id: e.button, token });
       handle(token);
     });

@@ -4,13 +4,6 @@ import type { AppOverview } from '../../steam'
 import { SmartShelfModeSchema, FilterItemTypeSchema } from '../../types'
 import { SHELF_TEMPLATES, ONLINE_SHELF_TEMPLATES } from '../../domain/templates'
 
-/* Template audit (feature request): guarantees every smart-shelf mode resolves
-   without throwing, and pins down which modes are DATA-dependent — i.e. they
-   only surface games when review/metacritic/achievement metadata is present.
-   Those are exactly the ones users report as "no games match" when the score
-   isn't in the local overview (non-Steam, or uninstalled Steam titles). The
-   online-metadata enrichment feeds them the data they need. */
-
 const NOW = Math.floor(Date.now() / 1000)
 const DAY = 86400
 
@@ -18,7 +11,6 @@ function app(o: Partial<AppOverview> & { appid: number }): AppOverview {
   return { display_name: `App ${o.appid}`, ...o } as AppOverview
 }
 
-// A diverse library covering the criteria of the deterministic modes.
 function diverseLibrary(): AppOverview[] {
   return [
     app({ appid: 1, installed: true, deck_compatibility_category: 3, playtime_forever: 30, last_played: NOW - 3 * DAY }),
@@ -30,9 +22,9 @@ function diverseLibrary(): AppOverview[] {
     app({ appid: 7, playtime_forever: 90, last_played: NOW - 40 * DAY }),
     app({ appid: 8, playtime_forever: 200, last_played: NOW - 5 * DAY }),
     app({ appid: 9, playtime_forever: 400, last_played: NOW - 2 * DAY }),
-    app({ appid: 10, app_type: 8192 } as any), // soundtrack
-    app({ appid: 11, app_type: 2048 } as any), // video
-    app({ appid: 12, app_type: 8, last_played: NOW - DAY } as any), // demo
+    app({ appid: 10, app_type: 8192 } as any),
+    app({ appid: 11, app_type: 2048 } as any),
+    app({ appid: 12, app_type: 8, last_played: NOW - DAY } as any),
   ]
 }
 

@@ -1,13 +1,7 @@
 import type { FilterGroup, FilterItem, Settings, ShelfSource, SmartShelfMode } from "../types";
 
-/* Ids retired in 3.4.2 that have an exact equivalent are rewritten here when the
-   settings load, so a saved shelf keeps working. Ids without an equivalent stay as
-   saved: the shelf is unavailable until it is edited (steam/availability.ts).
-   Every function returns its input object when it has nothing to rewrite. */
-
 type Loose = Record<string, any>;
 
-// Sort keys and the key they duplicated; `flip` reverses the direction.
 const SORT_ALIASES: Record<string, { key: string; flip?: boolean }> = {
   newest_purchased: { key: "added" },
   largest_install: { key: "size_on_disk" },
@@ -23,7 +17,6 @@ const MODE_ALIASES: Record<string, { mode: SmartShelfMode; params?: Record<strin
   seasonal_rotation: { mode: "weekly_rotation", params: { rotateEveryDays: 90 } },
 };
 
-// Built-in sources and the filter that produces the same games.
 const BUILTIN_ALIASES: Record<string, FilterGroup> = {
   dlc_source: { mode: "and", items: [{ type: "shortcutType", inverted: false, params: { kinds: ["dlc"] } }] },
   soundtrack_source: { mode: "and", items: [{ type: "shortcutType", inverted: false, params: { kinds: ["soundtrack"] } }] },
@@ -34,7 +27,6 @@ function reverseAt(reverse: unknown, i: number): boolean {
   return Array.isArray(reverse) ? !!reverse[i] : !!reverse;
 }
 
-// `sort` and `sortReverse` under `sortKey`/`reverseKey`, rewritten when a key is an alias.
 function migrateSortFields(obj: Loose, sortKey: string, reverseKey: string): Loose {
   const sort = obj[sortKey];
   const keys: unknown[] = Array.isArray(sort) ? sort : [sort];
@@ -59,7 +51,6 @@ function mergeOf(item: FilterItem, mode: "and" | "or", items: FilterItem[]): Fil
   return { type: "merge", inverted: !!item.inverted, params: { mode, items } };
 }
 
-// One rewrite per retired condition type that has an equivalent.
 const ITEM_REWRITES: Record<string, (item: FilterItem, p: Loose) => FilterItem> = {
   demo: (item) => ({ ...item, type: "shortcutType", params: { kinds: ["demo"] } }),
   installedNeverPlayed: (item) => mergeOf(item, "and", [cond("installed", {}), cond("playtimeRange", { maxHours: 0 })]),
@@ -71,7 +62,6 @@ const ITEM_REWRITES: Record<string, (item: FilterItem, p: Loose) => FilterItem> 
   hiddenLauncherShortcuts: (item) => mergeOf(item, "and", [cond("nonSteam", {}), cond("hidden", { mode: "only" })]),
 };
 
-// A rewrite, or the same item with the conditions inside it (merge, composites) rewritten.
 function migrateItem(item: FilterItem): FilterItem {
   const p: Loose = item.params ?? {};
   const rewrite = ITEM_REWRITES[item.type];
@@ -99,7 +89,6 @@ function migrateGroup<T>(group: T): T {
   return (items === g.items ? group : { ...g, items }) as T;
 }
 
-// Returns `obj` itself unless one of the fields changed.
 function patch(obj: Loose, fields: Loose): Loose {
   const changed = Object.keys(fields).some((k) => fields[k] !== obj[k]);
   return changed ? { ...obj, ...fields } : obj;
@@ -153,7 +142,6 @@ function migrateShelf(shelf: Loose): Loose {
   out = migrateSortFields(out, "manualBaseSort", "manualBaseSortReverse");
   const source = migrateSource(shelf.source) as Loose;
   if (source === shelf.source) return out;
-  // A built-in source that became a filter keeps its order inside the filter.
   const carriesOrder = shelf.source?.type === "builtin" && source.type === "filter" && out.sort;
   return { ...out, source: carriesOrder ? { ...source, filter: { ...source.filter, sort: out.sort, sortReverse: out.sortReverse } } : source };
 }
@@ -192,14 +180,12 @@ function migrateProfile(profile: Loose): Loose {
   return patch(profile, { snapshot });
 }
 
-/** The settings with every retired id that has an equivalent rewritten; the same object when none was found. */
 export function migrateRetiredIds(settings: Settings): Settings {
   const doc = settings as unknown as Loose;
   const out = patch(migrateDocument(doc), { profiles: migrateList(doc.profiles, migrateProfile) });
   return out as unknown as Settings;
 }
 
-/** The equivalent of one shelf source, for callers that build a source from saved data. */
 export function migrateRetiredSource(source: ShelfSource): ShelfSource {
   return migrateSource(source) as ShelfSource;
 }

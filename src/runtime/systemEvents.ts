@@ -26,20 +26,16 @@ export function installSystemEvents(): () => void {
     isSuspended = false;
     logInfo('RUNTIME', 'system resume detected — invalidating cache and resuming refresh');
     invalidateAppOverviewCache();
-    resumeShelfRefresh(); // triggers immediate refresh of all subscribed shelves
-    // None of these fire an event for a change that happened while asleep —
-    // force fresh reads so profile triggers see reality, not pre-sleep state.
+    resumeShelfRefresh();
+    // None of these fire for changes made while asleep, so force fresh reads.
     void refreshDisplay();
     refreshControllerState();
     forceBatteryRefresh();
-    // Bluetooth has no native change-event (see deviceHistoryTracker.ts) — a
-    // device paired/connected while asleep needs this same forced check.
+    // Bluetooth has no change event either.
     requestPeripheralsRefresh();
   };
 
-  // Primary: SteamClient.System.RegisterForSuspendResumeEvents
-  // The event object shape varies across SteamOS versions; we detect suspend
-  // by the presence of bSuspending, eSuspendType, or type === 'suspend'.
+  // The event shape varies across SteamOS versions.
   try {
     const client = getSteamClient();
     const reg = client?.System?.RegisterForSuspendResumeEvents?.((event: any) => {
@@ -60,8 +56,6 @@ export function installSystemEvents(): () => void {
     }
   } catch {}
 
-  // Fallback: Page Visibility API (fires when device screen turns off/on)
-  // Less reliable than the Steam API but works without it.
   try {
     const handleVisibility = () => {
       if (document.visibilityState === 'hidden') {
@@ -76,7 +70,6 @@ export function installSystemEvents(): () => void {
 
   return () => {
     for (const fn of cleanups) fn();
-    // Ensure refresh is resumed on dismount so no dangling paused state
     if (isSuspended) resumeShelfRefresh();
   };
 }

@@ -3,9 +3,6 @@ import { findModule } from "./host/decky";
 import { steamClient, steamReact, steamUIStore } from "../steam/internals";
 import { logError, logInfo, logWarn } from "./logger";
 
-/* Role options are optional; left out, each takes the plugin's value: yield to the neutral
-   host's tab, no marker fields, this component's own key, no first-draw report, and the
-   plugin's guard key. */
 export type OwnQamTabOptions = {
   title: string;
   icon: ReactNode;
@@ -79,9 +76,6 @@ type SessionMarker = { sid: string };
 
 type Phase = "waiting" | "quiet" | "paused" | "starting" | "working" | "stopped";
 
-// What an entry tells other copies of the same role: when its copy was installed, how to ask
-// that copy to take its changes out of Steam, what one of its wrappers wraps and which wrapper
-// it made for a function, and how to hand an older copy's wrappers over to it.
 type Badge = {
   readonly since: number;
   readonly stepDown: () => void;
@@ -148,8 +142,6 @@ type Located = {
 
 let current: Installation | null = null;
 
-// ---- globals of the shared context ----
-
 function hostWindow(): any {
   const g = globalThis as any;
   return g.window ?? g;
@@ -192,8 +184,6 @@ function ensureMarker(inst: Installation): SessionMarker {
   return created;
 }
 
-// ---- reports ----
-
 function reportOnce(inst: Installation, id: string, level: "info" | "warn", message: string, context?: unknown): void {
   if (inst.reported.has(id)) return;
   inst.reported.add(id);
@@ -213,8 +203,6 @@ function reportError(inst: Installation, where: string, err: unknown): void {
   inst.errorLines += 1;
   try { logError("RUNTIME", `Quick Access tab: ${where} failed`, text); } catch {}
 }
-
-// ---- crash guard ----
 
 function storage(): Storage | null {
   try {
@@ -259,14 +247,12 @@ function endPause(record: GuardRecord): void {
   record.k = 0;
 }
 
-// A clock set back before the pause began also ends it.
 function pauseEnds(record: GuardRecord, on: boolean): boolean {
   const age = now() - record.p;
   return age < 0 || age >= PAUSE_EXPIRY_MS || (on && record.o > 0);
 }
 
-// Reads the record once the activation is known; true when the component stays paused. A
-// session whose last draw failed continues the count its completed draws had cleared.
+// A session whose last draw failed continues the count its completed draws had cleared.
 function evaluateGuard(inst: Installation, on: boolean): boolean {
   const record = readRecord(inst.o.guardKey);
   const sid = ensureMarker(inst).sid;
@@ -282,7 +268,6 @@ function evaluateGuard(inst: Installation, on: boolean): boolean {
   return paused;
 }
 
-// Notes that this session is drawing the entry; false when the session cannot be told apart.
 function arm(inst: Installation): boolean {
   const marker = readMarker(inst);
   if (!marker) return false;
@@ -333,8 +318,6 @@ function watchDraw(inst: Installation, lists: TabList[]): void {
   queueMicrotask(() => confirmDraw(inst));
 }
 
-// ---- the entry ----
-
 function makeTabMark(inst: Installation): AnyFn {
   const steam = steamReact();
   const layout: AnyFn | null = steam && typeof steam.useLayoutEffect === "function" ? steam.useLayoutEffect : null;
@@ -376,8 +359,6 @@ function ensureEntry(inst: Installation): Entry | null {
   return inst.entry;
 }
 
-// ---- one tab list ----
-
 function isRoleEntry(inst: Installation, e: unknown): boolean {
   return !!e && typeof e === "object" && (e as any)[inst.roleMark] !== undefined;
 }
@@ -404,8 +385,7 @@ function newerCopy(inst: Installation, list: TabList): Badge | null {
   return null;
 }
 
-// Once a newer copy of this role drew its entry, this copy hands its wrappers over to it and
-// steps down after the render.
+// A newer copy drew its entry: hand the wrappers over and step down after the render.
 function supersededBy(inst: Installation, list: TabList): boolean {
   if (inst.superseded) return true;
   const newer = newerCopy(inst, list);
@@ -416,8 +396,7 @@ function supersededBy(inst: Installation, list: TabList): boolean {
   return true;
 }
 
-// Steam's root has already picked the tab it shows from a list that holds the entry: this render
-// keeps the list, and the entry leaves before the root renders at the next opening.
+// Steam's root already picked its tab from a list with the entry, so keep it until the next opening.
 function heldBack(inst: Installation, list: TabList, others: TabList): TabList {
   return inst.entry && list.includes(inst.entry) ? list : others;
 }
@@ -453,7 +432,6 @@ function rememberList(inst: Installation, list: TabList): void {
   if (inst.lists.length > LIST_REF_LIMIT) inst.lists.shift();
 }
 
-// Brings one list to what is due; true when it holds the entry afterwards.
 function reconcileList(inst: Installation, list: TabList): boolean {
   const desired = desiredList(inst, list);
   const holds = !!inst.entry && desired.includes(inst.entry);
@@ -481,8 +459,6 @@ function removeOwnEntries(inst: Installation): void {
   }
   inst.lists = [];
 }
-
-// ---- walking rendered output ----
 
 function isObject(v: unknown): v is Record<string, any> {
   return !!v && typeof v === "object";
@@ -517,7 +493,6 @@ function pushValues(stack: Array<[unknown, number]>, values: unknown[], depth: n
   }
 }
 
-// Visits element-like nodes of a render result; every node taken counts toward the limit.
 function walkOutput(out: unknown, visit: (node: Record<string, any>) => boolean): void {
   const stack: Array<[unknown, number]> = [[out, 0]];
   for (let visited = 0; stack.length && visited < OUTPUT_VISIT_LIMIT; visited++) {
@@ -552,8 +527,6 @@ function rootElementsIn(out: unknown): Array<Record<string, any>> {
   return found;
 }
 
-// ---- wrappers placed in Steam's panel ----
-
 function isPlainFunction(t: unknown): t is AnyFn {
   return typeof t === "function" && !(t.prototype && t.prototype.isReactComponent);
 }
@@ -572,8 +545,7 @@ function hostEntryIn(inst: Installation, list: TabList): boolean {
   return list.some((e) => isObject(e) && !!e.__shelvesTab && !isRoleEntry(inst, e));
 }
 
-// Runs before the root renders: once the neutral host's tab shows, the entry leaves the lists
-// first, so that the root picks the tab it shows from lists without it.
+// Runs before the root renders, so it picks its tab from lists without the entry.
 function clearBeforeRoot(inst: Installation): void {
   if (!inst.o.yieldToHostTab || !inst.lists.length) return;
   const held = inst.lists.map((ref) => ref.deref()).filter((l): l is TabList => !!l);
@@ -594,7 +566,6 @@ function adaptHostOutput(inst: Installation, out: unknown): void {
   try { clearBeforeRoot(inst); } catch (err) { reportError(inst, "tab list", err); }
 }
 
-// One wrapper per function found; a function that is already this installation's stays as it is.
 function wrapperFor(
   inst: Installation,
   made: WeakMap<AnyFn, AnyFn>,
@@ -614,8 +585,7 @@ function wrapperFor(
   return wrapped;
 }
 
-// The wrapper already made for a function, directly or around the wrappers that older copies
-// handed over, so that a hand-over does not change the types Steam renders.
+// Reuses the wrapper made for a function, so a hand-over doesn't change the types Steam renders.
 function madeFor(inst: Installation, made: WeakMap<AnyFn, AnyFn>, found: AnyFn): AnyFn | undefined {
   let v: AnyFn | undefined = found;
   for (let hops = 0; v && hops < LIST_REF_LIMIT; hops++) {
@@ -628,7 +598,6 @@ function madeFor(inst: Installation, made: WeakMap<AnyFn, AnyFn>, found: AnyFn):
   return undefined;
 }
 
-// A value as it was before the copies that handed their wrappers over to this one.
 function seeThrough<T>(inst: Installation, value: T): T {
   let v: unknown = value;
   for (let hops = 0; hops < LIST_REF_LIMIT; hops++) {
@@ -691,8 +660,7 @@ function hookRootFiber(inst: Installation, fiber: Fiber): void {
   inst.undo.push(() => restoreRootFiber(ref.deref(), wrapped, seeThrough(inst, prevType), seeThrough(inst, prevElementType)));
 }
 
-// Puts back each field that still holds this wrapper. When only the element type goes back,
-// Steam's next render keeps the mounted instance on the function that replaced this one.
+// When only the element type goes back, Steam keeps the mounted instance on the replacement.
 function restoreRootFiber(fiber: Fiber | undefined, wrapped: AnyFn, prevType: AnyFn, prevElementType: unknown): void {
   for (const f of fiber ? [fiber, fiber.alternate] : []) {
     if (!f) continue;
@@ -700,8 +668,6 @@ function restoreRootFiber(fiber: Fiber | undefined, wrapped: AnyFn, prevType: An
     if (f.elementType === wrapped) f.elementType = prevElementType;
   }
 }
-
-// ---- locating Steam's panel ----
 
 function mainDocument(): Document | null {
   const doc = steamUIStore()?.WindowStore?.GamepadUIMainWindowInstance?.BrowserWindow?.document;
@@ -718,7 +684,6 @@ function fiberOf(node: Node): Fiber | null {
   return null;
 }
 
-// The first node from the body down that carries a React record, among a bounded number.
 function firstFiber(doc: Document): Fiber | null {
   const body = doc.body;
   if (!body) return null;
@@ -776,7 +741,6 @@ function isKeyTable(v: unknown): v is Record<string, unknown> {
 function scanModules(known: Set<object>): { memos: object[]; table: Record<string, unknown> } | null {
   let memos: object[] | null = null;
   let table: Record<string, unknown> | null = null;
-  // A module that throws while being read is skipped.
   const visit = (mod: unknown): boolean => {
     try {
       if (!isObject(mod)) return false;
@@ -808,8 +772,6 @@ function locate(inst: Installation): Located | null {
   return { pairs, memos: scanned.memos, perfKey, keyNamed: scanned.table[inst.o.key] !== undefined };
 }
 
-// ---- copies of one role ----
-
 function badgeOf(inst: Installation, e: unknown): Badge | null {
   try {
     const b = (e as any)[inst.roleMark];
@@ -819,7 +781,6 @@ function badgeOf(inst: Installation, e: unknown): Badge | null {
   }
 }
 
-// Visits a bounded number of records below one, breadth first, until the visitor says stop.
 function walkBelow(start: Fiber, visit: (f: Fiber) => boolean): void {
   const queue: Fiber[] = start.child ? [start.child] : [];
   for (let i = 0; i < queue.length && i < LIST_SEARCH_LIMIT; i++) {
@@ -830,7 +791,6 @@ function walkBelow(start: Fiber, visit: (f: Fiber) => boolean): void {
   }
 }
 
-// The list a mounted root last passed down, read from the props of the records below it.
 function listBelow(root: Fiber): TabList | null {
   let found: TabList | null = null;
   walkBelow(root, (f) => {
@@ -852,7 +812,6 @@ function otherCopies(inst: Installation, found: Located): Badge[] {
   return badges;
 }
 
-// A copy of this role whose entry Steam drew steps down for this one, unless it is newer.
 function takeOver(inst: Installation, found: Located): boolean {
   const others = otherCopies(inst, found);
   if (others.some((b) => b.since > inst.badge.since)) {
@@ -874,8 +833,6 @@ function stepDown(inst: Installation): void {
   restoreSteam(inst);
   reportOnce(inst, "stepped-down", "info", "Quick Access tab: a newer copy took over");
 }
-
-// ---- start-up ----
 
 function keyProblem(inst: Installation, found: Located): string | null {
   const key = inst.o.key;
@@ -951,8 +908,6 @@ function scheduleStart(inst: Installation): void {
   inst.timer = { idle: false, id: setTimeout(() => attempt(inst), FIRST_TIMER_MS) };
 }
 
-// ---- activation ----
-
 function readActivation(inst: Installation): boolean | undefined {
   try {
     return inst.o.isEnabled() === true;
@@ -978,7 +933,6 @@ function begin(inst: Installation, on: boolean): void {
 }
 
 function changed(inst: Installation, on: boolean): void {
-  // Off before the start-up work ran: nothing in Steam for the rest of this start.
   if (!on && inst.phase === "starting") {
     clearTimer(inst);
     inst.phase = "quiet";
@@ -1006,8 +960,6 @@ function onActivation(inst: Installation): void {
   inst.active = on;
   changed(inst, on);
 }
-
-// ---- install and uninstall ----
 
 function resolve(options: OwnQamTabOptions): Resolved {
   const guardKey = typeof options.guardKey === "string" && options.guardKey ? options.guardKey : DEFAULT_GUARD_KEY;

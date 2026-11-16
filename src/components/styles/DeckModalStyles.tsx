@@ -1,11 +1,6 @@
 import { gamepadDialogClasses } from '../../runtime/host/decky'
 
-// Last-known fallback values for the QAM panel classes. `quickAccessControlsClasses`
-/* is undefined in SharedJSContext (where this style block renders), so we read
-   the live tokens from localStorage — written by `DeckQAMStyles` on module
-   load (QAM context HAS the classes). When the user has never opened the QAM,
-   we still need a working CSS string, so the constants below are the seed.
-   They will drift on Steam updates; the QAM-side bridge keeps them current. */
+// quickAccessControlsClasses is undefined in SharedJSContext, so read the tokens the QAM saved.
 const FALLBACK_PANEL_SECTION = '_10BxjeNEe7t7ZWYcnl3-J6'
 const FALLBACK_PANEL_SECTION_ROW = 'JAewWdUpiV3X2NTJykahD'
 const FALLBACK_PANEL_SECTION_TITLE = '_321l150NTQBTsPZ9NnzZIz'
@@ -35,18 +30,13 @@ export function DeckModalStyles() {
   const { section: _panelSection, row: _panelSectionRow, title: _panelSectionTitle } = getPanelClasses()
   return (
     <style>{`
-      /* Title-less dialogs (the first-run tour): the native header still renders
-         an empty 28 px band when no title is given — collapse it. */
       .deck-shelves-dialog .ds-tour-modal .DialogHeader {
         display: none;
       }
-      /* The title starts where our dialog content does. */
       .deck-shelves-dialog .DialogHeader {
         padding-inline-start: var(--ds-pad-row, 16px);
       }
 
-      /* Toggle rows: re-skin the native Decky slate to the themed row surface
-         (matches the config/Shortcuts rows) and drop the native separator. */
       .deck-shelves-dialog .${gamepadDialogClasses.Field}:has([role="checkbox"]) {
         background: var(--ds-surface, rgba(255, 255, 255, 0.04)) !important;
         border: 1px solid var(--ds-border, rgba(255, 255, 255, 0.06));
@@ -56,8 +46,6 @@ export function DeckModalStyles() {
         display: none;
       }
 
-      /* The client's line under a field row stops short of both ends; draw it
-         across the whole row instead (toggle rows keep the card look above). */
       .deck-shelves-dialog .${gamepadDialogClasses.Field}:is(.${gamepadDialogClasses.WithBottomSeparatorStandard}, .${gamepadDialogClasses.WithBottomSeparatorThick})::after {
         display: none;
       }
@@ -68,14 +56,11 @@ export function DeckModalStyles() {
         box-shadow: inset 0 -2px 0 var(--ds-border-strong, rgba(255, 255, 255, 0.1));
       }
 
-      /* In the editors the client's edge-to-edge field box gives way to the
-         container's own side padding; rows keep our inset inside it. */
       .deck-shelves-dialog .deck-shelves-editor-fields .${gamepadDialogClasses.Field} {
         margin-inline: 0;
         width: auto;
         padding-inline: var(--ds-pad-row, 16px);
       }
-      /* The name field: our inset on the block, none on the client's row. */
       .deck-shelves-dialog .deck-shelves-title-input {
         padding-inline: var(--ds-pad-row, 16px);
         margin-block: var(--ds-gap-sm, 6px);
@@ -86,9 +71,6 @@ export function DeckModalStyles() {
         padding-inline: 0;
       }
 
-      /* Collapsible sections (filter conditions, visibility rule groups): a card
-         each, and a ring around the header row that holds the focus, since the
-         client draws none on it. */
       .deck-shelves-dialog .ds-collapsible-box {
         margin-top: var(--ds-gap-sm, 6px);
         background: var(--ds-surface, rgba(255, 255, 255, 0.04));
@@ -148,7 +130,6 @@ export function DeckModalStyles() {
         box-sizing: border-box;
       }
 
-      /* Reduce the save/cancel button footer so tab content has more room. */
       .deck-shelves-dialog .${gamepadDialogClasses.BottomButtons} {
         padding-top: 4px;
         padding-bottom: 4px;

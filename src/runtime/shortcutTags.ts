@@ -1,10 +1,6 @@
 import { call } from "./host/decky";
 import { triggerShelfRefresh } from "../core/shelfRefresh";
-
-/* Tags the tools that add non-Steam shortcuts (ROM managers, launcher
-   integrations) write into Steam's shortcuts file, read by the backend and
-   used by the Parser categories filter. Fetched only while a configuration
-   uses that filter (see featureDemand), at idle and then every 15 min. */
+import { readSteamId } from "./steamAccount";
 
 const TTL_MS = 15 * 60 * 1000;
 const KEY = "__ds_shortcut_tags_v1";
@@ -16,7 +12,7 @@ export function shortcutTagsFor(appid: number): string[] {
 
 async function refreshShortcutTags(): Promise<void> {
   try {
-    const res: any = await call("get_shortcut_tags", {});
+    const res: any = await call("get_shortcut_tags", { steamid: readSteamId() ?? undefined });
     if (!res?.ok || !res.tags || typeof res.tags !== "object") return;
     const before = JSON.stringify((globalThis as any)[KEY] ?? null);
     (globalThis as any)[KEY] = res.tags;

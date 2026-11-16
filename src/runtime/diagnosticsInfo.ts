@@ -1,7 +1,3 @@
-/* Read-only runtime detection for the Advanced → Diagnostics panel. Every probe
-   observes (version strings, active theme, co-loaded plugins) and never mutates
-   Steam or plugin state. Advanced-mode only. */
-
 import pkg from "../../package.json";
 import { call } from "./host/decky";
 import { getSteamOSVersion } from "../core/steamOSVersion";
@@ -25,8 +21,6 @@ export interface RuntimeInfo {
   tabMaster: boolean;
   unifiDeck: boolean;
   nonSteamBadges: boolean;
-  /** From the host's optional `handshake()` — null on a host that doesn't
-   *  implement it (e.g. Decky), not just an empty/missing value. */
   hostHandshake: {
     hostKind: string; hostVersion: string; hostApiVersion: string; capabilities: string[];
     device?: { kind: string; arch: string; model?: string | null };
@@ -42,7 +36,6 @@ function deckyLoader(): unknown {
   } catch { return null; }
 }
 
-/** Names of every plugin the Decky loader currently has loaded (deduped, sorted). */
 export function listCoLoadedPlugins(): string[] {
   try {
     const raw = (deckyLoader() as any)?.plugins ?? (deckyLoader() as any)?.pluginList;
@@ -54,9 +47,7 @@ export function listCoLoadedPlugins(): string[] {
 
 function activeTheme(): string | null {
   if (!isCssLoaderActive()) return null;
-  // Prefer the ACTUAL active theme names from the backend (read off disk); the
-  // style-node ids are UUIDs and can't be named client-side. Falls back to the
-  // DS-relevant home themes we structurally detect until the fetch resolves.
+  // Theme style-node ids are UUIDs, so names come from the backend; structural detection fills in until then.
   const names = getActiveCssLoaderThemes();
   if (names.length) return names.join(", ");
   const parts = activeThemeLabels();
@@ -70,14 +61,10 @@ export interface SystemInfo {
   machine?: string | null;
   isSteamOS?: boolean;
   distroId?: string | null;
-  /** "Stable" or the raw branch name (Beta/Preview/…) — SteamOS only; null
-   *  wherever `SteamClient.Updates.GetCurrentOSBranch` doesn't exist (desktop). */
   steamBranch?: string | null;
 }
 
-/* SteamOS's own branch selector (Settings > System > System Updates) also
-   picks which Steam client build ships — "main"/"rel" are the stable
-   default, everything else (beta/bc/preview/pc/rc) is a pre-release channel. */
+// The SteamOS branch also picks the Steam client build; "main" and "rel" are stable.
 const STABLE_BRANCH_NAMES = new Set(["main", "rel"]);
 
 function branchLabel(rawName: string): string {
@@ -112,8 +99,7 @@ function uaOsName(ua: string): string | null {
 
 function fromSystemInfo(info: any, out: SystemInfo): void {
   if (!info) return;
-  // Fill only gaps — the backend host identity (below) is authoritative for the
-  // OS name/version, so Steam's sparse GetSystemInfo never clobbers it.
+  // The backend identity is authoritative for the OS, so only fill gaps.
   out.osName ??= strOrNull(info.sOSName) ?? strOrNull(info.sOSType);
   out.osVersion ??= strOrNull(info.sOSVersionId) ?? strOrNull(info.sKernelVersion);
   out.steamVersion ??= strOrNull(info.sSteamUIVersion) ?? strOrNull(info.nSteamVersion) ?? strOrNull(info.sClientVersion);
@@ -128,41 +114,32 @@ function fromHostOs(host: any, out: SystemInfo): void {
   out.distroId = strOrNull(host.distroId);
 }
 
-/** Steam client + OS detection (async, cross-OS — not SteamOS-only). Prefers the
-    backend host identity (Python `platform` + os-release, authoritative on every
-    OS), then fills gaps from SteamClient.System.GetSystemInfo and the user agent. */
 export async function collectSystemInfo(): Promise<SystemInfo> {
   const out: SystemInfo = { steamVersion: null, osName: null, osVersion: null };
   try {
     fromHostOs(await call("get_host_os"), out);
-  } catch { /* backend unavailable — fall back to the frontend sources below */ }
+  } catch {}
   try {
     const sc: any = (globalThis as any).SteamClient;
     fromSystemInfo(await sc?.System?.GetSystemInfo?.(), out);
-  } catch { /* not available */ }
+  } catch {}
   try {
     const ua = (globalThis as any).navigator?.userAgent as string | undefined;
     if (ua && !out.osName) out.osName = uaOsName(ua);
-  } catch { /* no navigator */ }
+  } catch {}
   out.steamBranch = await collectSteamBranch();
   return out;
 }
 
-/* Cached "is this SteamOS / a Steam Deck" flag. The host OS never changes within
-   a session, so it is collected once (async) and read back synchronously — e.g.
-   by the card compat badge, which shows Deck compatibility on SteamOS and
-   controller support on desktop. `undefined` until primed (callers default safe). */
 let _isSteamOS: boolean | undefined;
 
-/** Kick off the one-time SteamOS detection; safe to call more than once. */
 export function primeSystemPlatform(): void {
   if (_isSteamOS !== undefined) return;
   void collectSystemInfo()
     .then((s) => { if (typeof s.isSteamOS === "boolean") _isSteamOS = s.isSteamOS; })
-    .catch(() => { /* leave undefined; callers default safe */ });
+    .catch(() => {});
 }
 
-/** The cached SteamOS flag, or `undefined` until `primeSystemPlatform` resolves. */
 export function isSteamOSCached(): boolean | undefined {
   return _isSteamOS;
 }
@@ -201,8 +178,6 @@ function parseExternalDisks(raw: unknown): ExternalDisk[] {
   return out;
 }
 
-/** Static machine specs from the backend probe (Deck model, CPU, RAM, GPU,
-    storage). Fail-soft: null when the backend is unavailable or unsupported. */
 export async function collectHardwareInfo(): Promise<HardwareInfo | null> {
   try {
     const h: any = await call("get_hardware_info");
@@ -217,8 +192,6 @@ export async function collectHardwareInfo(): Promise<HardwareInfo | null> {
   } catch { return null; }
 }
 
-/** Human byte size up to TB, for RAM/disk specs (cacheRegistry's formatBytes
-    caps at MB). Whole GB for RAM-scale sizes, one decimal below 8 GB / for TB. */
 export function formatSize(bytes: number | null): string {
   if (!bytes || bytes <= 0) return "—";
   const gb = bytes / 1024 ** 3;
@@ -244,20 +217,15 @@ export function hwExternalDiskText(d: ExternalDisk): string {
 }
 
 export interface SeededCacheStats {
-  /** Per-shelf id lists persisted in localStorage (what a cold boot paints from). */
   ids: number;
-  /** Their card-meta twins. */
   meta: number;
-  /** Stored JSON length — close enough to bytes for this ASCII-heavy data. */
   bytes: number;
 }
 
-/* Same prefix as the shelf id cache (shelfViewHelpers' SHELF_CACHE_PREFIX) —
-   spelled out here so this read-only probe stays off the Home module graph. */
+// Spelled out so this probe stays off the Home module graph.
 const SHELF_CACHE_KEY_PREFIX = "ds-shelf-cache-";
 const SHELF_META_SUFFIX = "-meta";
 
-/** Size of the per-shelf cache a boot seeds its first paint from. Read-only. */
 export function collectSeededCacheStats(): SeededCacheStats {
   const out: SeededCacheStats = { ids: 0, meta: 0, bytes: 0 };
   try {
@@ -269,7 +237,7 @@ export function collectSeededCacheStats(): SeededCacheStats {
       if (key.endsWith(SHELF_META_SUFFIX)) out.meta++; else out.ids++;
       out.bytes += String(ls.getItem(key) ?? "").length;
     }
-  } catch { /* storage unavailable */ }
+  } catch {}
   return out;
 }
 
@@ -294,10 +262,6 @@ function approxKb(bytes: number): string {
   return bytes < 1024 ? `${bytes} B` : `~${Math.round(bytes / 1024)} KB`;
 }
 
-/* The Boot block of the diagnostics dump: origin, the boot phases as
-   "+start/duration" after boot start, the startup watchdog's verdict, the
-   long tasks (all / over 200 ms) and the seeded shelf cache. English tokens,
-   like the configuration summary; "—" where the boot never got there. */
 export function collectBootInfo(snap: PerfSnapshot = getPerfSnapshot(), cache: SeededCacheStats = collectSeededCacheStats()): BootInfo {
   return {
     origin: snap.bootOrigin ?? "—",
@@ -332,7 +296,6 @@ export function collectRuntimeInfo(): RuntimeInfo {
 
 const onOff = (v: any) => (v ? "on" : "off");
 
-// Global-visual on/off toggles surfaced in the config summary: [settings key, label].
 const VISUAL_ENABLED_FLAGS: Array<[string, string]> = [
   ["globalMatchNativeSize", "match-native"],
   ["globalHighlightFirst", "highlight-first"],
@@ -351,7 +314,6 @@ const VISUAL_ENABLED_FLAGS: Array<[string, string]> = [
   ["globalDedupeByName", "dedupe-by-name"],
 ];
 
-// Global-visual "hide element" toggles.
 const VISUAL_HIDE_FLAGS: Array<[string, string]> = [
   ["globalHideStatusLine", "status-line"],
   ["globalHideNewBadge", "new-badge"],
@@ -365,13 +327,10 @@ const VISUAL_HIDE_FLAGS: Array<[string, string]> = [
   ["globalHideRefreshCard", "refresh-card"],
 ];
 
-// The QAM "Additional features" section (matches the `additional` section's toggles).
 function featureLine(s: any): string {
   return `Features: Update notify ${onOff(s.updateNotifyEnabled !== false)} (beta ${onOff(s.betaChannelEnabled)}) · Quick Search ${onOff(s.contextSearchEnabled)} · Side Nav ${onOff(s.sideNavEnabled)} · Online ${onOff(s.onlineFeaturesEnabled)} · Force CSS themes ${onOff(s.forceCssLoaderThemes)}`;
 }
 
-// Global visual: the enabled toggles, the hidden elements, and the numeric /
-// position values (— when unset, so it falls back to the built-in default).
 function visualLines(s: any): string[] {
   const on = VISUAL_ENABLED_FLAGS.filter(([k]) => s[k]).map(([, l]) => l);
   const hidden = VISUAL_HIDE_FLAGS.filter(([k]) => s[k]).map(([, l]) => l);
@@ -383,11 +342,7 @@ function visualLines(s: any): string[] {
   ];
 }
 
-/* Compact human-readable summary of the user's currently-active Deck Shelves
-   configuration — counts, core toggles, the Additional-features section and the
-   Global-visual toggles + values — for the System information panel (and its
-   copyable dump). Read-only; tolerant of missing fields. Labels stay in English
-   so a copied dump reads the same regardless of UI language. */
+// Labels stay in English so a copied dump reads the same in any UI language.
 export function summarizeConfig(settings: any): string[] {
   const s = settings ?? {};
   const count = (v: any) => (Array.isArray(v) ? v.length : 0);

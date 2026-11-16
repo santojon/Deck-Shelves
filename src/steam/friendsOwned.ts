@@ -1,6 +1,3 @@
-/* Which friends own each app, from the client's friend store: one fetch per friend,
-   cached by the client. Loaded before a query that reads it and kept for a while. */
-
 const REFRESH_MS = 30 * 60 * 1000;
 let owners = new Map<number, Set<number>>();
 let loadedAt = 0;
@@ -33,14 +30,12 @@ async function fetchAll(): Promise<void> {
   loadedAt = Date.now();
 }
 
-/** Loads every friend's owned games unless a recent load is still good. */
 export function loadFriendsOwned(): Promise<void> {
   if (Date.now() - loadedAt < REFRESH_MS) return Promise.resolve();
   if (!loading) loading = fetchAll().finally(() => { loading = null; });
   return loading;
 }
 
-/** How many friends own the app; with `among`, only those account ids count. */
 export function friendsOwningCount(appid: number, among?: number[]): number {
   const set = owners.get(appid);
   if (!set) return 0;

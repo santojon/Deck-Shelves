@@ -7,9 +7,7 @@ run_checks() {
   local fail=0
   local src="$root/src"
 
-  # Find potential references but ignore our own ds-compat classes and our
-  # own feature flag names (hide_compat_icons / hideCompatIcons / HideCompatIcons
-  # are the user-facing toggle keys, not theme-specific coupling).
+  # The ds-compat classes and the hide-compat-icons setting keys aren't theme coupling.
   local matches
   matches=$(grep -RInE "compatibility\\s*icon|compat[-_]icon|colored[-_ ]compat" "$src" --exclude-dir=__pycache__ 2>/dev/null \
     | grep -v 'ds-compat' \

@@ -1,7 +1,6 @@
 name: "Release · Pre-release"
 
-# Pre-release from the current HEAD: version = next `bump` + `-<channel>.<N>`, written in the
-# runner only. Beta testers get it through the plugin's Beta channel.
+# Pre-release from HEAD: the next bump plus -<channel>.<N>, written in the runner only; testers get it on the Beta channel.
 
 on:
   workflow_dispatch:
@@ -91,17 +90,7 @@ jobs:
       - name: Extract [Unreleased] notes
         id: notes
         run: |
-          # Prefer the user-facing RELEASE_NOTES.md; fall back to the
-          # technical CHANGELOG.md when [Unreleased] is missing there.
-          # (Same source of truth as the stable release.yml body.)
-          NOTES=""
-          if [[ -f "RELEASE_NOTES.md" ]]; then
-            NOTES=$(awk '/^## \[Unreleased\]/{found=1; next} /^## \[/{if(found) exit} found{print}' RELEASE_NOTES.md | sed '/^$/N;/^\n$/d')
-          fi
-          if [[ -z "$NOTES" && -f "CHANGELOG.md" ]]; then
-            echo "RELEASE_NOTES.md had no [Unreleased] section — falling back to CHANGELOG.md"
-            NOTES=$(awk '/^## \[Unreleased\]/{found=1; next} /^## \[/{if(found) exit} found{print}' CHANGELOG.md | sed '/^$/N;/^\n$/d')
-          fi
+          NOTES=$(awk '/^## \[Unreleased\]/{found=1; next} /^## \[/{if(found) exit} found{print}' RELEASE_NOTES.md | sed '/^$/N;/^\n$/d')
           {
             echo "body<<BODY_EOF"
             printf '%s\n' "$NOTES"
@@ -129,7 +118,7 @@ jobs:
           set -euo pipefail
           REPO="${{ github.repository }}"
           REL_URL="https://github.com/${REPO}/releases/tag/${TAG}"
-          SECTION=$(awk '/^## \[Unreleased\]/{found=1; next} /^## \[/{if(found) exit} found{print}' CHANGELOG.md)
+          SECTION=$(for f in RELEASE_NOTES.md CHANGELOG.md; do awk '/^## \[Unreleased\]/{found=1; next} /^## \[/{if(found) exit} found{print}' "$f"; done)
           ISSUES=$(echo "$SECTION" | grep -oE '#[0-9]+' | tr -d '#' | sort -un || true)
           if [ -z "${ISSUES}" ]; then echo "No issue references in [Unreleased] — nothing to comment."; exit 0; fi
           for n in $ISSUES; do

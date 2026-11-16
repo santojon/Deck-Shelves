@@ -1,34 +1,17 @@
-// Pure helpers for ordering shelves on the home — extracted from
-// `HomeInject.tsx` so the algorithms can be unit-tested independently of
-// the React tree, MutationObserver, and the Big Picture document.
-
 type ShelfLike = { id: string; source?: { type?: string } } | null | undefined;
 
 export function pickFirstVisibleShelfId(
   shelves: readonly ShelfLike[],
   renderedIds: ReadonlySet<string>,
 ): string | null {
-  /* First shelf in CONFIG order that has rendered — regardless of source.
-     Online (wishlist/store) and smart shelves are eligible for the promoted
-     first slot, so a config-first shelf wins once it resolves. Only the
-     native-recents *replacement* (recentsReplace.tsx) excludes online sources,
-     since the native row can't host async network appids. */
   for (const sh of shelves ?? []) {
     if (sh && renderedIds.has(sh.id)) return sh.id;
   }
   return null;
 }
 
-/* Shelves resolve progressively — committing `firstVisibleId` to whichever
-   renders FIRST flashes the wrong per-shelf hero as an earlier-config shelf
-   catches up (confirmed live, 2026-10-07). Hold the commit until every
-   configured shelf has rendered once, or a bounded timeout elapses (a shelf
-   that never resolves shouldn't block promotion forever). */
-/* `stableForMs` = how long `renderedCount` has held steady. A shelf that
-   resolves to nothing never renders at all (no friends playing, an empty
-   smart-shelf match), so an exact count match can be UNREACHABLE — waiting for
-   it stalled the reveal for the entire timeout on every load. A count that has
-   stopped growing, with something on screen, is settled. */
+// Wait for every shelf (or a timeout) before picking the first, or the hero flashes while earlier shelves catch up.
+// Empty shelves never render, so a count that stopped growing is treated as settled.
 export const SHELF_SET_QUIESCE_MS = 700;
 
 export function isShelfSetSettled(
@@ -42,11 +25,6 @@ export function isShelfSetSettled(
   return renderedCount > 0 && (stableForMs ?? 0) >= SHELF_SET_QUIESCE_MS;
 }
 
-/* Progressive reveal in final order: the leading run of shelves that have
-   already rendered, skipping shelves that resolved to nothing (they never
-   render) and stopping at the first one still loading. Nothing is ever
-   inserted above a shelf that is already on screen, so there is no reorder;
-   a slow shelf holds back only what follows it. */
 export function revealableInOrder(orderedIds: readonly string[], renderedIds: ReadonlySet<string>, resolvedIds: ReadonlySet<string> = renderedIds): string[] {
   const out: string[] = [];
   for (const id of orderedIds) {
@@ -56,10 +34,7 @@ export function revealableInOrder(orderedIds: readonly string[], renderedIds: Re
   return out;
 }
 
-/* Auto-pin: stable partition that floats every shelf whose `autoPin` predicate
-   currently matches to the front, preserving relative order within each group.
-   Returns the SAME array reference when nothing is pinned, so a home with no
-   auto-pinned shelves is byte-for-byte unchanged (opt-in, zero regression). */
+// Returns the same array when nothing is pinned.
 export function applyAutoPin<T>(shelves: readonly T[], isPinned: (s: T) => boolean): readonly T[] {
   const pinned: T[] = [];
   const rest: T[] = [];

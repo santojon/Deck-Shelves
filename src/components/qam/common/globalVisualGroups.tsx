@@ -6,9 +6,6 @@ import { resetCategoriesInSettings } from '../../../features/settings/settingsCa
 import { saveSettings, getCurrentSettings } from '../../../settingsStore'
 import { defaultSettings } from '../../../domain/defaults'
 
-/* The global slider groups switch between "same on every shelf" (values set)
-   and per shelf (all null). Turning a group on writes what its sliders show. */
-
 type T = (k: string) => string
 type Values = Record<string, number>
 
@@ -28,7 +25,6 @@ export function groupPatch(settings: unknown, group: Values, on: boolean): Recor
   return patch
 }
 
-// Back to defaults: every global toggle off and every global value per shelf.
 export function confirmResetGlobalVisual(t: T): void {
   confirmAction({
     title: t('reset_global_visual'),

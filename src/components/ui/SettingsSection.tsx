@@ -8,14 +8,9 @@ export interface SettingsSectionProps {
   icon?: React.ReactNode;
   trailing?: React.ReactNode;
   children: React.ReactNode;
-  // When set, the whole section becomes a Focusable container so gamepad nav
-  // can step into rows.
   vertical?: boolean;
 }
 
-// Themable card-style section. Visual tokens come from `.ds-settings-section`
-// in `DeckQAMStyles` so CSS Loader themes can override them, matching the
-// way `CollapsibleSection` is themed.
 export function SettingsSection({ title, description, icon, trailing, children, vertical = true }: SettingsSectionProps) {
   const header = (title || description || trailing) ? (
     <div className="ds-settings-section__header">

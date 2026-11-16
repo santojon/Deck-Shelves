@@ -18,8 +18,6 @@ function memoryStorage() {
   };
 }
 
-// The settings file and the local copy disagree: the file has the newer value (the local cache
-// reaches disk lazily, so a Steam restart right after a change can leave it behind).
 const file = () => ({ ...defaultSettings(), enabled: true, shelves: [], ownQamTabEnabled: true });
 const stale = () => ({ ...file(), ownQamTabEnabled: false });
 
@@ -47,7 +45,6 @@ describe("a save made as the plugin starts, before the settings file is read", (
     delete (globalThis as any)[SHARED_STATE_KEY];
   });
 
-  // Like the profile triggers: the first time settings show up, apply a profile and save.
   async function startWithBootWriter() {
     const store = await import("../../store/settingsStore");
     let applied = false;
@@ -62,7 +59,7 @@ describe("a save made as the plugin starts, before the settings file is read", (
   it("keeps the file's newer values: only the fields the save changed are laid over the file", async () => {
     storage.setItem(CACHE_KEY, JSON.stringify(stale()));
     const store = await startWithBootWriter();
-    await store.refreshSettings(); // shows the cached copy, reads the file in the background
+    await store.refreshSettings();
     await vi.waitFor(() => expect(store.getCurrentSettings()?.activeProfileName).toBe("Handheld"));
     await vi.waitFor(() => expect(writes.length).toBeGreaterThan(0));
     expect(writes.every((w) => w.ownQamTabEnabled === true)).toBe(true);
@@ -124,8 +121,6 @@ describe("a save made as the plugin starts, before the settings file is read", (
       return null;
     });
     const store = await import("../../store/settingsStore");
-    // Like a profile trigger, which acts on a change only once: a save that switches to one profile
-    // is answered by the profile the trigger picks.
     let answered = false;
     store.subscribeSettings((s) => {
       if (answered || s.activeProfileName !== "Desk") return;
@@ -185,20 +180,20 @@ describe("a save made as the plugin starts, before the settings file is read", (
       return null;
     });
     const store = await import("../../store/settingsStore");
-    store.requestSettingsFileRead(); // the own tab, at start
-    const refreshing = store.refreshSettings(); // the Home, with nothing cached
+    store.requestSettingsFileRead();
+    const refreshing = store.refreshSettings();
     await vi.waitFor(() => expect(pending).toHaveLength(2));
     pending[0]();
     await vi.waitFor(() => expect(store.isSettingsFileRead()).toBe(true));
     await store.saveSettings({ ...store.getCurrentSettings()!, activeProfileName: "Handheld" } as any);
-    pending[1](); // the Home's read, answered with the file from before the save
+    pending[1]();
     await refreshing;
     expect(store.getCurrentSettings()?.activeProfileName).toBe("Handheld");
     expect(writes.at(-1).activeProfileName).toBe("Handheld");
   });
 
   it("a background read sent while an early save waited, answered after the file was read, does not undo it", async () => {
-    storage.setItem(CACHE_KEY, JSON.stringify(file())); // the local copy matches the file
+    storage.setItem(CACHE_KEY, JSON.stringify(file()));
     const pending: Array<() => void> = [];
     backend.call.mockImplementation(async (method: string, args: any) => {
       if (method === "get_settings") { const doc = file(); await new Promise<void>((r) => pending.push(r)); return doc; }
@@ -206,7 +201,7 @@ describe("a save made as the plugin starts, before the settings file is read", (
       return null;
     });
     const store = await import("../../store/settingsStore");
-    expect(store.getCurrentSettings()).not.toBeNull(); // read when the store loads
+    expect(store.getCurrentSettings()).not.toBeNull();
     const saved = store.saveSettings({ ...store.getCurrentSettings()!, activeProfileName: "Handheld" } as any);
     await store.refreshSettings();
     await vi.waitFor(() => expect(pending).toHaveLength(2));

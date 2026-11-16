@@ -1,10 +1,5 @@
 import type { PlatformAppMeta } from "../../runtime/platform";
 
-/* Last resolved state per shelf, kept in module scope so it outlives the
-   React subtree: Home unmounts on every route-away (that keeps Steam's nav
-   tree honest) and rebuilds on return, and seeding from here lets the
-   rebuild paint complete shelves on its first commit instead of re-running
-   the resolver + metadata round-trips. Data only — never DOM/fiber/nav refs. */
 export type ShelfWarmEntry = {
   appIds: number[];
   sourceIds: number[] | null;
@@ -32,16 +27,11 @@ export function clearShelfWarmEntry(shelfId: string): void {
   entries.delete(shelfId);
 }
 
-// True when every listed shelf already has warm data — a return to Home
-// can then reveal on its first commit instead of waiting to settle.
 export function allShelvesWarm(shelfIds: readonly string[]): boolean {
   if (!shelfIds.length) return false;
   return shelfIds.every((id) => getShelfWarmEntry(id) !== null);
 }
 
-/* Shelves whose resolver has finished at least once this session — including
-   the ones that resolved to nothing and therefore never render. The ordered
-   reveal needs this to tell "empty, skip it" from "still loading, wait". */
 const resolved = new Set<string>();
 const resolvedListeners = new Set<() => void>();
 

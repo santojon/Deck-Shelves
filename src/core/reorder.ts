@@ -87,7 +87,6 @@ export function useContainerDragReorder<T extends string | number>(opts: Contain
       const id = getItemId(itemEl);
       if (id == null) return;
 
-      // Reset any prior session before starting a new one.
       if (holdTimer) clearTimeout(holdTimer);
       held = false;
       capturedId = id;
@@ -135,7 +134,6 @@ export function useContainerDragReorder<T extends string | number>(opts: Contain
       doc.removeEventListener("pointercancel", onPointerUpOrCancel);
       if (holdTimer) clearTimeout(holdTimer);
     };
-    // Only re-install if the container identity or primary selector changes.
   }, [containerRef, itemSelector, axis, holdMs, moveThresholdPx]);
 
   return { grabbedId };

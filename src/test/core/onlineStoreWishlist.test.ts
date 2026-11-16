@@ -1,17 +1,17 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
-const rpc = vi.hoisted(() => ({ delayMs: 0, resp: null as any, calls: 0 }))
+const rpc = vi.hoisted(() => ({ delayMs: 0, resp: null as any, calls: 0, args: null as any }))
 vi.mock('../../shims/host-api', () => ({
-  call: (method: string) => {
+  call: (method: string, args: unknown) => {
     if (method !== 'get_wishlist') return Promise.resolve(null)
     rpc.calls++
+    rpc.args = args
     return new Promise((resolve) => setTimeout(() => resolve(rpc.resp), rpc.delayMs))
   },
 }))
 vi.mock('../../runtime/logger', () => ({ logInfo: () => {}, logWarn: () => {} }))
+vi.mock('../../runtime/steamAccount', () => ({ readSteamId: () => '76561198000000042' }))
 
-/* A standalone host can take well over 6 s on the first wishlist call (cold
-   backend, one call at a time); that used to time out and back off 10 min. */
 describe('wishlist fetch through the backend', () => {
   beforeEach(() => {
     vi.resetModules()
@@ -33,6 +33,7 @@ describe('wishlist fetch through the backend', () => {
     const p = getWishlistIds()
     await vi.advanceTimersByTimeAsync(20001)
     await expect(p).resolves.toEqual([10, 20, 30])
+    expect(rpc.args).toMatchObject({ steamid: '76561198000000042' })
   })
 
   it('after a real timeout, retries within minutes rather than ten', async () => {

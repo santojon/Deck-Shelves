@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { flowChildrenProps } from "../../core/steamOSVersion";
 
-// Values Steam's Focusable maps; anything else asserts "Unhandled flow-children".
 const HANDLED = new Set(["column", "column-reverse", "row", "row-reverse", "grid", "geometric"]);
 
 const ATTR = /flow-children\s*=\s*\{?\s*(["'`])([^"'`]*)\1/g;

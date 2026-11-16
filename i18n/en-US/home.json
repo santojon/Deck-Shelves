@@ -24,7 +24,7 @@
   "update_installing": "Installing update {{version}}…",
   "update_installed": "Updated to {{version}}.",
   "update_install_failed": "Install failed — falling back to download.",
-  "update_install_busy": "The host is still checking for updates — try again in a moment.",
+  "update_install_busy": "Still checking for updates — try again in a moment.",
   "update_downloading": "Downloading update {{version}}…",
   "update_downloaded": "Saved to {{path}} — install it manually.",
   "update_download_failed": "Download failed — opening the release page instead.",

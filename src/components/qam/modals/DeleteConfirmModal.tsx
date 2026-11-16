@@ -2,8 +2,6 @@ import { ConfirmModal, Focusable } from '../../../runtime/host/decky'
 import type { SettingsController } from '../../../features/settings/controller'
 import type { Shelf } from '../../../types'
 
-/* Destructive confirm shared by the regular and smart shelf delete dialogs:
-   the shelf title as the body, Delete on OK / Menu. */
 export function DeleteShelfConfirm({ closeModal, controller, title, onConfirm }: { closeModal?: () => void; controller: SettingsController; title: string; onConfirm: () => unknown }) {
   const { t } = controller
   const confirm = () => { closeModal?.(); void onConfirm() }

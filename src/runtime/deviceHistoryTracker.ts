@@ -1,16 +1,10 @@
-/* Bumps a device-history counter on each FALSE -> TRUE transition (never on
-   level, never polling), reusing the event-driven device/peripherals
-   modules. Bluetooth has no native change-event, so it's opportunistic —
-   piggybacking on whatever already refreshes peripherals, fine for a
-   "how often" counter even if one connection is missed between checks. */
+// Bluetooth has no change event, so its counter only moves when peripherals refresh.
 
 import { getDeviceState, subscribeDeviceState } from "./deviceState";
 import { getBluetoothConnected, subscribePeripheralsState } from "./peripheralsState";
 import { isLowBattery } from "./batteryState";
 import { trackDeviceSignal } from "./deviceHistoryTracking";
 
-// Matches the "recurring battery < 20%" threshold already used for reactive
-// suggestions (a later surface) — one shared, honest default.
 const BATTERY_LOW_THRESHOLD = 0.2;
 
 let prevExternal = false;

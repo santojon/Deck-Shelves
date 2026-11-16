@@ -26,7 +26,6 @@ function titleKeyFor(scope: ImportScope): string {
   return 'import_settings'
 }
 
-// Merges the file's part for this scope, after a safety snapshot of the current settings.
 async function applyImport(controller: SettingsController, payload: Record<string, unknown>, scope: ImportScope): Promise<boolean> {
   const cur = getCurrentSettings()
   if (!cur) return false
@@ -54,7 +53,6 @@ async function importFrom(controller: SettingsController, path: string, scope: I
   notify('error', { body: (t as any)(key, { path }) })
 }
 
-// The file the user named is not there, but another export in that folder holds what they wanted.
 function offerAlternative(controller: SettingsController, missing: string, found: string, scope: ImportScope): void {
   const { t } = controller
   confirmAction({
@@ -117,7 +115,6 @@ export function ImportModal({ closeModal, controller, initialPath, scope = 'all'
         }}
       >
         <Focusable>
-          {/* Picking the file comes first: the name below is only a suggestion. */}
           <DialogButton autoFocus onClick={browse} onOKButton={browse}>{browseBusy ? t('loading') : t('import_choose_file' as any)}</DialogButton>
           <TitleField label={t('file_name')} value={name} onChange={setName} />
           {handlerId ? null : <ImportFileStatus path={joinPath(folder, name)} read={read} t={t as any} />}

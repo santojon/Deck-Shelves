@@ -1,9 +1,5 @@
 import { devStamp } from "./devStamps";
-/* Deck Shelves' own idle screensaver: replaces Steam's native one (idle
-   timer disabled/restored via steamSettingsWriter, never left altered)
-   with a slideshow of everything the home screen shows (native Recents +
-   shelf games) and, opt-in, local screenshots filtered the same way
-   Steam's own screensaver setting would. Experimental, off by default. */
+// Replaces Steam's idle screensaver; the native timer is always restored, never left altered.
 
 import { readIdleTimeoutSec, writeIdleTimeoutSec } from "./steamSettingsWriter";
 import { activeFirstShelf } from "./recentsReplace";
@@ -14,14 +10,10 @@ import { getStoreScreenshots } from "../core/onlineStore";
 import { qaOverrideActive } from "../qa/harness";
 import type { Settings, Shelf } from "../types";
 
-/* Scales with enabled-shelf count so each can reach its own `limit` — used
-   to flat-cap at a total regardless of shelf count, so 2+ shelves could
-   never individually reach it (confirmed live: 20-per-shelf never showed
-   20). Ceiling below bounds memory/perf with many shelves. */
+// Scales with shelf count so each shelf can reach its own limit, with a ceiling for memory.
 const MAX_SHELF_APPS_CEILING = 300;
 const MAX_SCREENSHOTS = 30;
-// Content-descriptor ids Steam's own "General" screenshot filter excludes
-// (confirmed live against the screensaver settings module).
+// Content descriptors Steam's "General" screenshot filter excludes.
 const MATURE_CONTENT_DESCRIPTOR_IDS = [3, 4];
 
 export type ScreensaverItem =
@@ -32,11 +24,7 @@ function isFeatureEnabled(settings: Settings | null): boolean {
   return (settings as any)?.screensaverShelvesEnabled === true;
 }
 
-/* Gates on the generic SteamOS idle-timeout keys, not
-   `screensaver_current_id` (specific to this beta's screensaver-type
-   picker, which we never touch — we replace the native screensaver
-   outright). Likely holds beyond just this beta, though only verified
-   live against it so far. */
+// Gates on the generic idle-timeout keys; Steam's screensaver-type picker is never touched.
 function hasIdleTimeoutSupport(): boolean {
   const cs = (globalThis as any).settingsStore?.clientSettings;
   return !!cs && "system_idle_screensaver_ac_sec" in cs;
@@ -56,8 +44,7 @@ export function isScreensaverSupportDetected(): boolean {
   } catch { return false; }
 }
 
-// Deck Shelves' own idle/dwell timing — independent of Steam's value
-// (which we only read once, to cache+restore, not to drive our own timer).
+// Independent of Steam's idle value, which is only read to back it up and restore it.
 export function getStartAfterSeconds(settings: Settings | null): number {
   const v = (settings as any)?.screensaverStartAfterSeconds;
   return typeof v === "number" && v > 0 ? v : 60;
@@ -68,8 +55,6 @@ export function getDwellSeconds(settings: Settings | null): number {
   return typeof v === "number" && v > 0 ? v : 8;
 }
 
-// How many apps to draw per shelf per round-robin round (see
-// resolveShelfAppPool) before moving to the next shelf.
 function getShelfBatchSize(settings: Settings | null): number {
   const v = (settings as any)?.screensaverShelfBatchSize;
   return typeof v === "number" && v > 0 ? v : 5;
@@ -81,15 +66,14 @@ function getMenuStore(): any {
   } catch { return null; }
 }
 
-// QAM/menu are a separate OS-level window — no CSS z-index can appear
-// above them, so they're closed (CloseSideMenus) on idle-trigger instead.
+// The QAM and menus are a separate OS window no z-index can cover, so they're closed instead.
 export function isQamOrMenuOpen(): boolean {
   const ms = getMenuStore();
   return typeof ms?.m_eOpenSideMenu === "number" && ms.m_eOpenSideMenu !== 0;
 }
 
 export function closeQamOrMenu(): void {
-  try { getMenuStore()?.CloseSideMenus?.(); } catch { /* best-effort */ }
+  try { getMenuStore()?.CloseSideMenus?.(); } catch {}
 }
 
 function getFocusableShelves(settings: Settings | null): Shelf[] {
@@ -97,11 +81,7 @@ function getFocusableShelves(settings: Settings | null): Shelf[] {
   return shelves.filter((s) => s?.enabled !== false && s?.hidden !== true);
 }
 
-/* Round-robins across shelves in batches (default 5 apps per shelf per
-   round, `screensaverShelfBatchSize`) instead of filling the cap from
-   shelf order — a sequential fill let an early shelf starve every shelf
-   after it out of the pool entirely. `maxTotal` scales with shelf count
-   (see resolveShelfAppPool) so every shelf can reach its own `limit`. */
+// Round-robin so an early shelf can't starve the later ones out of the pool.
 function interleaveShelfBatches(perShelfIds: number[][], batchSize: number, maxTotal: number): number[] {
   const seen = new Set<number>();
   const ids: number[] = [];
@@ -125,10 +105,8 @@ async function resolveShelfAppPool(settings: Settings | null): Promise<number[]>
   for (const shelf of shelves) {
     try {
       perShelfIds.push(await resolveShelfAppIds(shelf.source as any, shelf.limit ?? DEFAULT_SHELF_LIMIT, shelf.sort, shelf.id, shelf.sortReverse as any));
-    } catch { perShelfIds.push([]); /* one bad shelf source shouldn't drop the rest */ }
+    } catch { perShelfIds.push([]); }
   }
-  // Enough room for every enabled shelf to reach its own limit, bounded for
-  // memory/perf once there are many shelves.
   const maxTotal = Math.min(SHELF_LIMIT_MAX * Math.max(1, shelves.length), MAX_SHELF_APPS_CEILING);
   return interleaveShelfBatches(perShelfIds, getShelfBatchSize(settings), maxTotal);
 }
@@ -141,11 +119,6 @@ function resolveNativeRecentAppIds(): number[] {
   } catch { return []; }
 }
 
-/* Whatever's actually shown in the "recents" slot on Home right now:
-   native Recents when displayed as-is, the promoted shelf's own games
-   when hideRecents + recentsReplaceSource are both on (reusing the exact
-   resolver the real replacement uses, not a re-derived guess), or
-   nothing when recents are simply hidden with no override. */
 async function resolveRecentsSlotAppIds(settings: Settings | null): Promise<number[]> {
   if ((settings as any)?.hideRecents !== true) return resolveNativeRecentAppIds();
   const shelf = activeFirstShelf();
@@ -164,8 +137,7 @@ function getScreenshotFilterMode(): "all" | "general" | "none" {
   } catch { return "all"; }
 }
 
-// content descriptors live on the overview as a real Set (confirmed live:
-// `m_setContentDescriptors`), not a plain array.
+// Steam keeps content descriptors in a Set, not an array.
 function appHasMatureContent(appid: number): boolean {
   try {
     const overview = (globalThis as any).appStore?.GetAppOverviewByAppID?.(appid);
@@ -179,8 +151,6 @@ function toDisplayUrl(strUrl: string): string {
   return strUrl.startsWith("https://") ? strUrl : `https://steamloopback.host/${strUrl}`;
 }
 
-// One raw screenshot row -> a pool item, or null when it's filtered out
-// (bad shape, or a mature-content app under "general" mode).
 function screenshotRowToItem(row: any, filterMode: "all" | "general" | "none"): ScreensaverItem | null {
   if (!row?.strUrl || typeof row.nAppID !== "number") return null;
   if (filterMode === "general" && appHasMatureContent(row.nAppID)) return null;
@@ -220,8 +190,6 @@ async function resolveScreenshotPool(): Promise<ScreensaverItem[]> {
   } catch { return []; }
 }
 
-// Per app, so one heavily-screenshotted game can't crowd out the rest —
-// bounded by MAX_SCREENSHOTS overall, same as the local-capture pool.
 const ONLINE_SCREENSHOTS_PER_APP = 2;
 
 function pushOnlineScreenshotsForApp(out: ScreensaverItem[], appid: number, urls: string[]): void {
@@ -231,9 +199,6 @@ function pushOnlineScreenshotsForApp(out: ScreensaverItem[], appid: number, urls
   }
 }
 
-// Store screenshots for apps already in the pool (never the whole
-// library) — opt-in, requires `onlineFeaturesEnabled` too (see
-// buildScreensaverPool). Same mature-content filter as local screenshots.
 async function resolveOnlineScreenshotPool(appIds: number[]): Promise<ScreensaverItem[]> {
   if (!appIds.length) return [];
   const filterMode = getScreenshotFilterMode();
@@ -250,9 +215,6 @@ async function resolveOnlineScreenshotPool(appIds: number[]): Promise<Screensave
   } catch { return []; }
 }
 
-// Always the full mix of whatever's shown on the home screen — shelf
-// games and whatever's actually in the recents slot (native, promoted
-// shelf, or nothing) — no "ours only" distinction.
 export async function buildScreensaverPool(settings: Settings | null): Promise<ScreensaverItem[]> {
   const includeScreenshots = (settings as any)?.screensaverShelvesIncludeScreenshots === true;
   const includeOnlineScreenshots = (settings as any)?.onlineFeaturesEnabled === true
@@ -282,17 +244,11 @@ export async function buildScreensaverPool(settings: Settings | null): Promise<S
   return pool;
 }
 
-// ---- native idle-timer disable/restore ----
-
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/* `saveSettings` replaces the whole document from whatever snapshot the
-   caller read — no locking, so racing it against a concurrent user save
-   can silently lose either side's write (confirmed live: how a prior
-   version of this function lost the real Steam idle-timeout backup).
-   Retry against the latest snapshot and verify the write landed. */
+// `saveSettings` replaces the whole document, so retry against the latest snapshot and verify the write.
 async function patchSettingsVerified(patch: Partial<Settings>, verify: (s: Settings) => boolean, attempts = 5): Promise<boolean> {
   for (let i = 0; i < attempts; i++) {
     const s = getCurrentSettings();
@@ -310,7 +266,7 @@ async function disableNativeIdleScreensaver(): Promise<void> {
   const alreadyBackedUp = (before as any)?.screensaverIdleBackupAcSec != null
     && (before as any)?.screensaverIdleBackupBatterySec != null;
   if (!alreadyBackedUp) {
-    // A QA build cannot persist the backup, so it never turns Steam's own timer off without one.
+    // QA builds can't persist the backup, so they never turn Steam's timer off.
     if (qaOverrideActive) return;
     const ac = readIdleTimeoutSec("system_idle_screensaver_ac_sec");
     const battery = readIdleTimeoutSec("system_idle_screensaver_battery_sec");
@@ -352,8 +308,7 @@ export function installScreensaverInject(): () => void {
 
   return () => {
     try { unsubSettings(); } catch {}
-    // Never leave Steam's own idle timer permanently overridden, even if
-    // the plugin itself is being disabled/removed while the toggle is on.
+    // Never leave Steam's idle timer overridden, even when the plugin is being disabled.
     if (isFeatureEnabled(getCurrentSettings())) void restoreNativeIdleScreensaver();
   };
 }

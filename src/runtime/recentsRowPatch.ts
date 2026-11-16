@@ -1,8 +1,4 @@
-/* Shows the games the kept half chooses in Steam's own recent-games row on the gamepad Home.
-   A route patch finds the Home component and the Home's render finds the row component; both are
-   wrapped in place. RowShell draws the row's output, applies the content on every render and can be
-   re-rendered alone. A row mounted before the first install stays Steam's until it mounts again.
-   Assumes only the gamepad Home draws these two components. */
+// A row mounted before the first install stays Steam's until it mounts again.
 import { Component, createElement, isValidElement } from "react";
 import { afterPatch } from "./host/decky";
 
@@ -45,11 +41,7 @@ const ROW_UNPATCHED = "Recents row component could not be wrapped";
 const ROW_MISS = "Recents row output lacks the tile list or the heading";
 const ROW_UNREACHABLE = "Recents row is on screen but cannot be rendered again";
 
-/* `window.__ds_recentsRow`, shared by every copy of this module in one Steam session: `owner` is
-   the newest installed copy, which every wrapper and shell defers to; `shells` holds the mounted
-   RowShell instances; `slots` records the wrappers of every copy, which the owner's uninstall
-   restores; `patched` holds the components whose `type` slot carries a wrapper of any copy, so a
-   later copy never stacks a second one. */
+// Shared by every copy of this module in a Steam session; the newest installed copy owns it.
 const SHARED_KEY = "__ds_recentsRow";
 
 type Render = (output: any) => any;
@@ -92,30 +84,24 @@ function isActive(state: State): boolean {
   return state.active && shared()?.owner === state.owner;
 }
 
-// ── Element shapes ───────────────────────────────────────────────────────────
-
 function isMemo(type: any): boolean {
   return !!type && typeof type === "object" && type.$$typeof === MEMO_TYPE && typeof type.type === "function";
 }
 
-// Steam's Home element: a memo component drawn with no props.
 function isHomeElement(node: any): boolean {
   return isMemo(node.type) && !("children" in (node.props ?? {}));
 }
 
-// The Home draws the row as a memo component with these two switches.
 function isRowElement(node: any): boolean {
   const props = node.props ?? {};
   return isMemo(node.type) && typeof props.showBackground === "boolean" && typeof props.autoFocus === "boolean";
 }
 
-// The tile list: Steam's list of games, a focus callback and the large-first-tile switch.
 function isTileList(node: any): boolean {
   const props = node.props ?? {};
   return Array.isArray(props.games) && typeof props.onItemFocus === "function" && typeof props.showFeaturedItem === "boolean";
 }
 
-// The element the kept half writes the title into: its only child is a non-blank string.
 function isTextElement(node: any): boolean {
   const text = node.props?.children;
   return typeof text === "string" && text.trim() !== "";
@@ -129,7 +115,6 @@ function copyElement(node: any, changes: Record<string, unknown>): any {
   return { ...node, props: { ...node.props, ...changes } };
 }
 
-// Depth first through `props.children` only, bounded in depth and in nodes visited.
 function findElement(root: any, match: (node: any) => boolean, maxDepth: number): any {
   let budget = WALK_BUDGET;
   const visit = (node: any, depth: number): any => {
@@ -149,8 +134,6 @@ function findElement(root: any, match: (node: any) => boolean, maxDepth: number)
   return visit(root, 0);
 }
 
-// ── Hooks and reports ────────────────────────────────────────────────────────
-
 function readContent(state: State): Read {
   try {
     return { content: state.hooks.getContent() ?? null, failed: false, error: null };
@@ -165,7 +148,7 @@ function wanted(state: State): boolean {
 
 function report(state: State, value: RecentsRowReport): void {
   if (!isActive(state)) return;
-  try { state.hooks.onReport(value); } catch { /* ignored by contract */ }
+  try { state.hooks.onReport(value); } catch {}
 }
 
 function notFound(detail: string): RecentsRowReport {
@@ -176,8 +159,6 @@ function failure(error: unknown): RecentsRowReport {
   const message = error instanceof Error ? error.message : String(error);
   return { kind: "error", detail: (message || "Unexpected error").slice(0, DETAIL_MAX) };
 }
-
-// ── Wrapped slots ────────────────────────────────────────────────────────────
 
 function patchSlot(obj: any, handler: (args: unknown[], output: any) => any): boolean {
   const registry = shared();
@@ -193,11 +174,10 @@ function patchSlot(obj: any, handler: (args: unknown[], output: any) => any): bo
   return true;
 }
 
-// Restores a slot that still holds its wrapper; one under another wrapper, or one that can no
-// longer be written, stays as a pass-through.
+// A slot under another wrapper, or one that can't be written anymore, stays as a pass-through.
 function restoreSlot(registry: Shared, patch: SlotPatch): void {
   if (patch.obj.type !== patch.wrapper) return;
-  try { patch.result?.unpatch?.(); } catch { /* restored below */ }
+  try { patch.result?.unpatch?.(); } catch {}
   try {
     if (patch.obj.type === patch.wrapper) patch.obj.type = patch.original;
   } catch {
@@ -215,8 +195,7 @@ function homeHandler(_args: unknown[], output: any): any {
   }
 }
 
-// Always the same shell around the row's output, so a mounted row never changes its child's type.
-// The output stays in `children`, where other patches' tree searches still reach it.
+// Always the same shell, so a mounted row never changes its child's type.
 function rowHandler(_args: unknown[], output: any): any {
   return createElement(RowShell, { children: output });
 }
@@ -239,11 +218,9 @@ class RowShell extends Component<{ children?: any }> {
 
 function rerender(registry: Shared): void {
   for (const shell of Array.from(registry.shells)) {
-    try { shell.forceUpdate(); } catch { /* a shell on its way out */ }
+    try { shell.forceUpdate(); } catch {}
   }
 }
-
-// ── Route: find the Home component ───────────────────────────────────────────
 
 function onRoute(state: State, props: any): any {
   if (!isActive(state) || !props || typeof props !== "object") return props;
@@ -298,8 +275,6 @@ function onProbe(state: State, output: any): any {
   return output;
 }
 
-// ── Home: find the row component ─────────────────────────────────────────────
-
 function onHome(state: State, output: any): any {
   if (!isActive(state)) return output;
   const read = readContent(state);
@@ -325,8 +300,6 @@ function reportHome(state: State, read: Read, row: unknown): void {
   else if (state.unreachable) report(state, notFound(ROW_UNPATCHED));
 }
 
-// ── Row: apply the content ───────────────────────────────────────────────────
-
 function onRow(state: State, output: any): any {
   if (!isActive(state)) return output;
   const read = readContent(state);
@@ -349,12 +322,12 @@ function applyAndReport(state: State, output: any, content: RecentsRowContent): 
     report(state, notFound(ROW_MISS));
     return output;
   }
-  try { state.hooks.writeTitle(applied.scope, content.title); } catch { /* the games stay applied */ }
+  try { state.hooks.writeTitle(applied.scope, content.title); } catch {}
   report(state, { kind: "applied" });
   return applied.output;
 }
 
-// Copies every element on the way to what changes; Steam's own objects are never written to.
+// Steam's own objects are never written to.
 function applyContent(state: State, output: any, content: RecentsRowContent): { output: any; scope: any } | null {
   const list = findElement(output, isTileList, ROW_DEPTH);
   if (!list) return null;
@@ -429,14 +402,13 @@ function focusRelay(state: State, original: unknown, games: number[]): AnyFn {
     const result = typeof original === "function" ? original.apply(this, args) : undefined;
     const appId = tileAppId(args[0], games);
     if (appId !== null && isActive(state)) {
-      try { state.hooks.onTileFocus(appId); } catch { /* the kept half handles its own errors */ }
+      try { state.hooks.onTileFocus(appId); } catch {}
     }
     return result;
   };
 }
 
-// Not observed yet: the list may pass an app id, an object carrying an app overview's `appid`, or
-// a position in the list. A number that is one of the games is read as an app id.
+// The list may pass an app id, an overview carrying `appid`, or a position.
 function tileAppId(value: unknown, games: number[]): number | null {
   const id = typeof value === "number" ? value : (value as any)?.appid;
   if (typeof id !== "number") return null;
@@ -444,8 +416,6 @@ function tileAppId(value: unknown, games: number[]): number | null {
   const index = typeof value === "number" && Number.isInteger(value) ? value : -1;
   return index >= 0 && index < games.length ? games[index] : null;
 }
-
-// ── Handle ───────────────────────────────────────────────────────────────────
 
 function requestRender(state: State): boolean {
   if (!isActive(state)) return false;
@@ -463,7 +433,7 @@ function uninstall(state: State): void {
   state.active = false;
   state.last = null;
   if (installed === state) installed = null;
-  try { state.routerHook.removePatch(HOME_PATH, state.registered); } catch { /* host already gone */ }
+  try { state.routerHook.removePatch(HOME_PATH, state.registered); } catch {}
   // A superseded copy leaves every wrapper to the owner, whose uninstall restores them all.
   const registry = shared();
   if (!registry || registry.owner !== state.owner) return;
@@ -471,8 +441,6 @@ function uninstall(state: State): void {
   registry.owner = null;
   rerender(registry);
 }
-
-// ── Install ──────────────────────────────────────────────────────────────────
 
 function hasRoutePatches(routerHook: any): boolean {
   return !!routerHook && typeof routerHook.addPatch === "function" && typeof routerHook.removePatch === "function";
@@ -484,14 +452,13 @@ function isComplete(hooks: Partial<RecentsRowHooks> | null | undefined): hooks i
   return [getContent, writeTitle, onTileFocus, onReport].every((hook) => typeof hook === "function");
 }
 
-// The host's helper must wrap a plain function slot; without it nothing here can work.
 function canWrap(): boolean {
   const holder = { type: function slot() { return null; } };
   const original = holder.type;
   try {
     const result: any = afterPatch(holder, "type", (_args: unknown[], output: unknown) => output);
     const wrapped = typeof holder.type === "function" && holder.type !== original;
-    try { result?.unpatch?.(); } catch { /* the holder is dropped anyway */ }
+    try { result?.unpatch?.(); } catch {}
     return wrapped;
   } catch {
     return false;
@@ -513,7 +480,7 @@ function addRoutePatch(state: State): boolean {
     state.registered = typeof added === "function" ? added : state.routePatch;
     return true;
   } catch {
-    try { state.routerHook.removePatch(HOME_PATH, state.routePatch); } catch { /* nothing registered */ }
+    try { state.routerHook.removePatch(HOME_PATH, state.routePatch); } catch {}
     return false;
   }
 }
@@ -529,7 +496,6 @@ function install(routerHook: any, hooks: Partial<RecentsRowHooks> | null | undef
   }
   installed = state;
   registry.owner = state.owner;
-  // A row already on screen from an earlier copy draws again through this one.
   rerender(registry);
   return state.handle;
 }

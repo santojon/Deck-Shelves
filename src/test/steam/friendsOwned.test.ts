@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 
-// The client's friend store: a friend list and one fetch per friend returning the apps they own.
 function friendStore(owned: Record<number, number[]>, failing: number[] = []) {
   const fetches: number[] = [];
   return {

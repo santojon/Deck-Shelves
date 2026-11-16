@@ -2,24 +2,15 @@ import { getAllSteamDocuments } from "../../runtime/steamHost";
 import { gamepadUIMainWindowStore } from "../../steam/internals";
 import { buildDeckShelvesMenuItems as buildDeckShelvesMenuItemsBase } from "./itemBuilders";
 
-/* Shared state and lookups of the game-menu injection: which shelf card the
-   menu was opened for (set when a DS card opens it, cleared shortly after),
-   the shelf-id resolution every render patch uses, the DS menu-item keys, and
-   the dev-only logging. One module so the menu patches share one copy. */
-
 let _activeShelfIdForMenu: string | null = null;
 let _activeAppIdForMenu: number = 0;
 let _activeCardIndexForMenu: number = -1;
 
-// The appid the menu was opened for (0 when no DS card opened it).
+// 0 when the menu wasn't opened from a shelf card.
 export function getActiveAppIdForMenu(): number {
   return _activeAppIdForMenu;
 }
 
-/* Thin wrapper around the extracted builder — injects the module-global
-   focused-card context (`_activeAppIdForMenu` / `_activeCardIndexForMenu`)
-   so existing call sites don't have to forward those values. Signature
-   matches the pre-extraction local function. */
 export function buildDeckShelvesMenuItems(shelfId: string, fl: any, R: any, appid?: number): any[] {
   return buildDeckShelvesMenuItemsBase(shelfId, fl, R, appid, _activeAppIdForMenu, _activeCardIndexForMenu);
 }
@@ -100,17 +91,11 @@ export function resolveShelfIdByAppid(appid: number): string | null {
 export const DS_ROOT_KEYS = new Set([
   "ds-deck-shelves", "ds-shelf-root",
   "ds-card-highlight", "ds-card-hide",
-  /* Add/Remove-shelf groups (both the in-shelf and library-card paths).
-     Missing these from the dedup set caused the "Add to shelf" submenu
-     to inject twice on shelves where both the boot-patch render and the
-     shouldComponentUpdate hook fired against the same menu instance. */
+  // Both paths must be in the dedup set or the submenu is injected twice.
   "ds-card-add-shelf", "ds-card-remove-shelf",
   "ds-lib-add-shelf", "ds-lib-remove-shelf",
-  // The Lists group (pinned games, queues, tags) on both paths; a group key
-  // missing here is re-added on every render pass of the menu.
+  // A group key missing here is re-added on every render pass.
   "ds-lists", "ds-lib-lists",
-  // Synthetic-card top-level decoration shortcut (when the user opens
-  // the menu on a decoration card from showSyntheticCardMenu).
   "ds-syn-decoration-top",
   "ds-sep-boot",
 ]);

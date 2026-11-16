@@ -1,7 +1,6 @@
 import type { CSSProperties } from "react";
 
-// Button looks set through the style attribute: Decky's DialogButton doesn't
-// forward className, so its layout has to sit beside its own inline style.
+// DialogButton doesn't forward className, so the layout lives in its inline style.
 
 export const BTN_STYLE: CSSProperties = {
   display: "inline-flex",

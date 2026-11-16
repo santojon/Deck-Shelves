@@ -1,8 +1,4 @@
-/* Explicit device model for Frame / Machine aware features. The family comes
-   from hardware identity signals only (OS variant, vendor/product, the host
-   handshake's kind) — never from the CPU architecture: an ARM64 build on a
-   desktop is still a PC, an x86 Steam Machine is still a Machine. Unknown
-   capabilities stay `null` so rules fail open instead of hiding content. */
+// The family comes from hardware identity, never the CPU architecture; unknown capabilities stay null so rules fail open.
 export type DeviceFamily = "deck" | "frame" | "machine" | "pc" | "handheld" | "unknown";
 export type Architecture = "x86_64" | "aarch64" | "unknown";
 
@@ -37,8 +33,6 @@ export function classifyArchitecture(arch: string | null | undefined): Architect
   return "unknown";
 }
 
-// `xr`: the host reports an XR/headset session (handshake capability) — VR is
-// then available whatever the family says; otherwise the family decides.
 function vrCapability(family: DeviceFamily, xr: boolean | null | undefined): boolean | null {
   if (xr === true) return true;
   return family === "frame" ? true : family === "unknown" ? null : false;
@@ -62,8 +56,6 @@ export function deriveDeviceProfile(
   };
 }
 
-/* Which compatibility category a card should badge on this device: Frame and
-   Machine have their own Steam ratings; everything else keeps the Deck one. */
 export function compatCategoryForFamily(family: DeviceFamily, meta: { deckCompatCategory?: number; machineCompatCategory?: number; frameCompatCategory?: number }): number | undefined {
   if (family === "frame") return meta.frameCompatCategory ?? meta.deckCompatCategory;
   if (family === "machine") return meta.machineCompatCategory ?? meta.deckCompatCategory;

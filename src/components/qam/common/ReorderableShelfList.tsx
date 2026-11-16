@@ -14,11 +14,9 @@ export function ReorderableShelfList<T extends { id: string; title?: string; hid
   emptyText: string
   renderActions: (item: T) => ReactNode
   onReorder: (ids: string[]) => void
-  // Defaults to the shelf nameplate; other lists (e.g. profiles) pass their own.
   renderLabel?: (item: T) => ReactNode
 }) {
   const listRef = useRef<HTMLDivElement>(null)
-  // Touch and mouse hold-drag; the controller grab lives in GrabReorderList.
   const { grabbedId } = useContainerDragReorder<string>({
     containerRef: listRef,
     itemSelector: '[data-ds-shelf-row]',

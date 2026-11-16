@@ -1,11 +1,5 @@
 import { call } from './host/decky';
 
-/* Performance context for Visibility Rules v2, on-demand with NO
-   background timer. `evalPerfRule` reads the last cached snapshot and, when stale
-   (>30 s) with no fetch in flight, kicks one background refresh that updates the
-   cache and notifies (a re-render re-evaluates). No consumer → never called → the
-   backend is never hit. No setInterval; idle home has zero perf cost. */
-
 type PerfSnapshot = { cpuPercent: number | null; memAvailablePercent: number | null; supported: boolean };
 
 const PERF_TTL = 30000;
@@ -30,12 +24,11 @@ async function refreshPerf(): Promise<void> {
     _snap = res;
     _snapAt = Date.now();
     notify();
-  } catch { /* keep the previous snapshot on RPC failure */ } finally {
+  } catch {} finally {
     _inflight = false;
   }
 }
 
-// On-demand trigger: refresh only when stale and nothing is already fetching.
 function ensureFresh(): void {
   if (_inflight) return;
   if (_snap && Date.now() - _snapAt < PERF_TTL) return;
@@ -46,26 +39,21 @@ export function getPerfSnapshot(): PerfSnapshot | null {
   return _snap;
 }
 
-// Dev-overlay readout: populate the snapshot on demand (30 s-cached, same guard).
 export function requestPerfRefresh(): void {
   ensureFresh();
 }
 
 function evalHighCpu(rule: any): boolean {
-  if (!_snap || _snap.cpuPercent == null) return true; // unknown → fail open
+  if (!_snap || _snap.cpuPercent == null) return true;
   return _snap.cpuPercent >= Number(rule?.above ?? 80);
 }
 
 function evalLowMemory(rule: any): boolean {
-  if (!_snap || _snap.memAvailablePercent == null) return true; // unknown → fail open
+  if (!_snap || _snap.memAvailablePercent == null) return true;
   return _snap.memAvailablePercent <= Number(rule?.below ?? 15);
 }
 
-/* Frame budget: a client-side rAF sampler (median of the last N frame deltas)
-   that runs ONLY while a lowFrameBudget rule is being evaluated — the eval re-arms
-   `_lastFrameEvalAt`, and the loop self-stops once no eval requested it for
-   FRAME_STOP_AFTER (> the 30 s refresh, so it stays alive while such a shelf is on
-   the home). Uses the Big-Picture window's rAF; pauses when a game runs. */
+// The rAF sampler runs only while a lowFrameBudget rule is evaluated and stops itself afterwards.
 const FRAME_RING = 30;
 const FRAME_STOP_AFTER = 45000;
 let _frameDeltas: number[] = [];
@@ -116,25 +104,21 @@ function evalLowFrameBudget(rule: any): boolean {
   _lastFrameEvalAt = Date.now();
   startFrameSampler();
   const ms = medianFrameMs();
-  if (ms == null || ms <= 0) return true; // warming up → fail open
+  if (ms == null || ms <= 0) return true;
   const belowFps = Number(rule?.belowFps);
   return 1000 / ms < (Number.isFinite(belowFps) ? belowFps : 45);
 }
 
-/* Evaluate one performance VisibilityRule. Reading kicks an on-demand refresh
-   when stale. Unknown kinds/state fail open. Kinds: highCpu (above %, default 80),
-   lowMemory (available below %, default 15). */
+/** Unknown kinds and state fail open. */
 export function evalPerfRule(rule: any): boolean {
   const kind = String(rule?.kind || '');
-  if (kind === 'lowFrameBudget') return evalLowFrameBudget(rule); // client-side rAF, no backend
+  if (kind === 'lowFrameBudget') return evalLowFrameBudget(rule);
   ensureFresh();
   if (kind === 'highCpu') return evalHighCpu(rule);
   if (kind === 'lowMemory') return evalLowMemory(rule);
   return true;
 }
 
-/* Whether a perf rule has real data behind it yet (profile triggers act only on
-   evidence; shelf visibility keeps failing open). Reading kicks the same refresh. */
 export function perfRuleHasData(rule: any): boolean {
   const kind = String(rule?.kind || '');
   if (kind === 'lowFrameBudget') { _lastFrameEvalAt = Date.now(); startFrameSampler(); return medianFrameMs() != null; }

@@ -1,5 +1,4 @@
-/* Steam's EDisplayStatus: the per-client status of an app (`per_client_data[].display_status`),
-   with the values of the client's own enum. */
+// Values match the client's own enum.
 export const EAppDisplayStatus = {
   Invalid:          0,
   Launching:        1,
@@ -25,14 +24,12 @@ export const EAppDisplayStatus = {
 } as const;
 export type EAppDisplayStatus = typeof EAppDisplayStatus[keyof typeof EAppDisplayStatus];
 
-// Bytes moving or being checked.
 export const UPDATE_ACTIVE_STATUSES: ReadonlyArray<number> = [
   EAppDisplayStatus.Updating,
   EAppDisplayStatus.Downloading,
   EAppDisplayStatus.Validating,
 ];
 
-// Waiting in the download queue, queued or paused.
 export const UPDATE_QUEUED_STATUSES: ReadonlyArray<number> = [
   EAppDisplayStatus.UpdateQueued,
   EAppDisplayStatus.UpdatePaused,
@@ -40,7 +37,6 @@ export const UPDATE_QUEUED_STATUSES: ReadonlyArray<number> = [
   EAppDisplayStatus.DownloadPaused,
 ];
 
-// An installed app with an update that has not finished.
 export const UPDATE_PENDING_STATUSES: ReadonlyArray<number> = [
   EAppDisplayStatus.Updating,
   EAppDisplayStatus.UpdatePaused,
@@ -50,12 +46,12 @@ export const UPDATE_PENDING_STATUSES: ReadonlyArray<number> = [
 ];
 
 export const APP_STATUS_GROUPS = {
-  // Coarse groups — back-compat with existing saved filters.
+  // Coarse groups kept for existing saved filters.
   downloading: UPDATE_ACTIVE_STATUSES,
   queued:      UPDATE_QUEUED_STATUSES,
   installing:  [EAppDisplayStatus.Installing] as ReadonlyArray<number>,
   running:     [EAppDisplayStatus.Running, EAppDisplayStatus.Launching] as ReadonlyArray<number>,
-  // Fine-grained groups. Steam reports an update's reconfigure, stage and commit steps as Updating.
+  // Steam reports an update's reconfigure, stage and commit steps as Updating.
   launching:        [EAppDisplayStatus.Launching] as ReadonlyArray<number>,
   reconfiguring:    [EAppDisplayStatus.Updating] as ReadonlyArray<number>,
   validating:       [EAppDisplayStatus.Validating] as ReadonlyArray<number>,
@@ -71,14 +67,7 @@ export const APP_STATUS_GROUPS = {
 export type AppStatusGroup = keyof typeof APP_STATUS_GROUPS;
 export const APP_STATUS_GROUP_KEYS = Object.keys(APP_STATUS_GROUPS) as AppStatusGroup[];
 
-// First-item action Steam's native menu shows for the focused card. The
-// View-button quick-launch hint and the click target both mirror it.
-//   not_installed  → Install
-/*   running        → Resume (raise the running window)
-     pause          → Pause (updating / downloading)
-     update         → Update or Resume (queued, required, paused or failed update / download)
-     uninstalling   → Uninstall (allow cancel)
-     play           → Play (idle, installed) */
+// Mirrors the first item of Steam's own menu for the card.
 export type QuickLaunchAction =
   | 'not_installed'
   | 'running'
@@ -87,7 +76,7 @@ export type QuickLaunchAction =
   | 'uninstalling'
   | 'play';
 
-// Steam's first item is Update, Resume or Download here: all three resume the app's update.
+// Steam's first item is Update, Resume or Download here; all three resume the update.
 const RESUME_UPDATE_STATUSES: ReadonlyArray<number> = [
   ...UPDATE_QUEUED_STATUSES,
   EAppDisplayStatus.UpdateRequired,
@@ -96,15 +85,13 @@ const RESUME_UPDATE_STATUSES: ReadonlyArray<number> = [
   EAppDisplayStatus.DownloadFailed,
 ];
 
-// Not Terminating (36): that is a game being stopped, for which Steam offers no first action.
+// Terminating is left out: Steam offers no first action while a game stops.
 const UNINSTALLING_STATUSES: ReadonlyArray<number> = [EAppDisplayStatus.Uninstalling];
 
 export function resolveQuickLaunchAction(input: {
   installed: boolean;
   displayStatus: number;
-  /** `per_client_data[0].status_percentage` (0–100), for the validating and
-   * installing steps: only `> 0` (bytes moving) maps to "Pause"; omit when
-   * unknown. */
+  // Only a value above 0 (bytes moving) maps to Pause.
   statusPercentage?: number;
 }): QuickLaunchAction {
   if (!input.installed) return 'not_installed';
@@ -115,16 +102,13 @@ export function resolveQuickLaunchAction(input: {
   return inProgressAction(ds, input.statusPercentage) ?? 'play';
 }
 
-// An update, download, check or install under way.
 function inProgressAction(ds: number, statusPercentage?: number): QuickLaunchAction | null {
   if (ds === EAppDisplayStatus.Updating || ds === EAppDisplayStatus.Downloading) return 'pause';
   if (ds === EAppDisplayStatus.Validating) return progressing(statusPercentage) ? 'pause' : 'update';
-  // Fresh install in flight: "Pause" unless it hasn't started yet (pct 0).
   if (ds === EAppDisplayStatus.Installing) return statusPercentage === 0 ? 'update' : 'pause';
   return null;
 }
 
-// True only when a transfer is actively moving bytes (status_percentage > 0).
 function progressing(statusPercentage?: number): boolean {
   return typeof statusPercentage === 'number' && statusPercentage > 0;
 }
@@ -134,13 +118,11 @@ function perClientEntries(overview: any): any[] {
   return Array.isArray(overview?.local_per_client_data) ? overview.local_per_client_data : [];
 }
 
-// Installed on this device: client "0" is the local one (another client's copy can only be streamed).
+// Client "0" is the local one; another client's copy can only be streamed.
 function installedHere(overview: any, entries: any[], local: any): boolean {
   return entries.length > 0 ? !!local?.installed : overview?.installed === true;
 }
 
-/* The first-item action for this device's copy of an app, and the client id Steam's own
-   update actions take, from its overview: for menus the plugin builds itself. */
 export function localQuickLaunchAction(overview: any): { action: QuickLaunchAction; clientId: unknown } {
   const entries = perClientEntries(overview);
   const local = entries.find((c: any) => String(c?.clientid) === "0");

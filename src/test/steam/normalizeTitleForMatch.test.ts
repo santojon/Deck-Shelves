@@ -20,7 +20,6 @@ describe('normalizeTitleForMatch — cross-source title matching', () => {
   })
 
   it('punctuation does not affect the match (the KCD regression case)', () => {
-    // The local non-Steam shortcut name vs the Steam wishlist title.
     expect(normalizeTitleForMatch('Kingdom Come Deliverance'))
       .toBe(normalizeTitleForMatch('Kingdom Come: Deliverance'))
   })
@@ -40,7 +39,6 @@ describe('normalizeTitleForMatch — cross-source title matching', () => {
   })
 
   it('keeps accented letters distinct from their unaccented form', () => {
-    // Locale-specific titles are not over-aggressively normalised.
     expect(normalizeTitleForMatch('Hadès'))
       .not.toBe(normalizeTitleForMatch('Hades'))
   })

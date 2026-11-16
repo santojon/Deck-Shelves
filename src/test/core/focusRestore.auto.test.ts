@@ -4,8 +4,6 @@ import { focusElement, focusElementAuto, startFocusFirstPoll } from "../../core/
 import { installPowerGate, getPowerGateStats, __resetPowerGateForTest } from "../../runtime/powerGate";
 import { installSessionState } from "../../runtime/sessionState";
 
-/* A DS card whose React fiber carries Steam's nav node the way a mounted
-   Focusable does: a ref hook whose `current` has `m_Tree`. */
 function cardWithNavNode() {
   const card = document.createElement("div");
   card.className = "ds-card";
@@ -34,7 +32,6 @@ function installSteamGlobals(): void {
     WindowStore: { GamepadUIMainWindowInstance: { BrowserWindow: window, m_history: { get location() { return { pathname: steam.route }; } } } },
   };
 }
-// Both signals: the lifetime event and the running-apps store.
 function startGame(): void { steam.running = [620]; steam.lifetime?.({ unAppID: 620, bRunning: true }); }
 function stopGame(): void { steam.running = []; steam.lifetime?.({ unAppID: 620, bRunning: false }); }
 
@@ -68,7 +65,6 @@ describe("focusElementAuto — the automatic focus paths never grab focus outsid
     expect(focusElementAuto(card)).toBe(false);
     expect(node.BTakeFocus).not.toHaveBeenCalled();
     expect(ctx.SetActive).not.toHaveBeenCalled();
-    // The user's own moves still work (Home opened over the game).
     expect(focusElement(card)).toBe(true);
   });
 

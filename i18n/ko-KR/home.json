@@ -24,7 +24,7 @@
   "update_installing": "업데이트 {{version}} 설치 중…",
   "update_installed": "{{version}}(으)로 업데이트됨.",
   "update_install_failed": "설치 실패 — 다운로드로 전환합니다.",
-  "update_install_busy": "호스트가 아직 업데이트를 확인하는 중입니다 — 잠시 후 다시 시도하세요.",
+  "update_install_busy": "아직 업데이트를 확인하는 중입니다 — 잠시 후 다시 시도하세요.",
   "update_downloading": "업데이트 {{version}} 다운로드 중…",
   "update_downloaded": "{{path}}에 저장됨 — 수동으로 설치하세요.",
   "update_download_failed": "다운로드 실패 — 릴리스 페이지를 엽니다.",

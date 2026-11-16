@@ -67,8 +67,7 @@ export function ExportAllModal({ closeModal, controller, folderPath }: { closeMo
         const s = getCurrentSettings();
         if (!s) return;
         const payload = pickCategoriesFromSettings(s, selectedIds);
-        // Never write an empty export (no categories selected) — that produced
-        // a `{ "state": {} }` file that looked broken to the user.
+        // Never write an empty export.
         if (Object.keys(payload).length === 0) {
           notify("error", { body: t("toast_failed_export") });
           return;

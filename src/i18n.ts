@@ -1,9 +1,7 @@
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
 
-// Locales are sliced into i18n/<locale>/<area>.json; the loader merges
-// every area file per locale. en-US ships eagerly (first-paint labels);
-// other locales stay lazy chunks, fetched + merged for the detected lang.
+// en-US ships eagerly for first-paint labels; other locales load lazily.
 const EN_MODULES = import.meta.glob("../i18n/en-US/*.json", { eager: true, import: "default" });
 const enUS: Record<string, string> = Object.assign({}, ...Object.values(EN_MODULES));
 
@@ -24,9 +22,7 @@ async function loadLocaleDict(locale: string): Promise<Record<string, string>> {
   return Object.assign({}, ...dicts);
 }
 
-// Ordered prefix → locale map; the first matching prefix wins, so more
-// specific variants (pt-pt, es-es, fr-ca, zh-tw/zh-hant, en-gb) precede their
-// broader language prefix.
+// First match wins, so specific variants come before their language prefix.
 const LOCALE_PREFIXES: ReadonlyArray<readonly [string, string]> = [
   ["pt-pt", "pt-PT"], ["pt", "pt-BR"],
   ["es-es", "es-ES"], ["es", "es-419"],
@@ -51,7 +47,6 @@ export function initI18n() {
   const lang = ((typeof navigator !== "undefined" && (navigator as any)?.language) ? (navigator as any).language : "en-US").toLowerCase();
   const target = pickLocale(lang);
 
-  // Initialise synchronously with en-US so the first render has labels.
   void i18n.use(initReactI18next).init({
     resources: { "en-US": { translation: enUS } },
     lng: "en-US",
@@ -59,9 +54,6 @@ export function initI18n() {
     interpolation: { escapeValue: false },
   });
 
-  // Asynchronously load + switch to the detected locale. Boot keeps
-  // happening; the language flips when the chunks arrive (i18next's
-  // changeLanguage triggers a re-render of <Trans> / hook consumers).
   if (target !== "en-US") {
     loadLocaleDict(target).then((dict) => {
       if (!dict || Object.keys(dict).length === 0) return;
@@ -70,30 +62,10 @@ export function initI18n() {
     }).catch(() => {});
   }
 
-  // Release-screenshot hook: force the UI to a specific locale so captures are
-  // deterministic (the pipeline forces en-US, whose bundle is always loaded
-  // eagerly). Harmless in normal use — it only flips the display language.
-  try {
-    (globalThis as any).__dsSetLocale = (loc?: string) => {
-      const l = loc || "en-US";
-      const apply = () => { try { void i18n.changeLanguage(l); } catch {} };
-      if (l !== "en-US" && !i18n.hasResourceBundle(l, "translation")) {
-        loadLocaleDict(l).then((dict) => {
-          if (dict && Object.keys(dict).length) i18n.addResourceBundle(l, "translation", dict, true, true);
-          apply();
-        }).catch(apply);
-      } else {
-        apply();
-      }
-    };
-  } catch { /* no globalThis */ }
-
   return i18n;
 }
 
-// Runtime i18n for external integrations — they register strings in
-// onMount(api), no PR needed. overwrite:false protects built-in keys;
-// authors should namespace theirs (`acme.*`) to avoid plugin collisions.
+// overwrite: false protects built-in keys.
 export function registerTranslations(locale: string, dict: Record<string, string>): void {
   if (!locale || !dict) return;
   try { i18n.addResourceBundle(locale, "translation", dict, true, false); } catch {}

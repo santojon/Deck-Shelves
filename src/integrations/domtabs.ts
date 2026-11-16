@@ -12,9 +12,7 @@ function tabLabel(el: Element): string {
 export function getTabsFromDOM(): PlatformTab[] {
   try {
     const doc = getPreferredSteamDocument();
-    // Steam renders library tabs with data-tab-id attribute — this generic
-    // selector already covers UnifiDeck's own "unifideck-*" tab ids, so a
-    // UnifiDeck-specific variant isn't needed (one existed, was unused, removed).
+    // The generic data-tab-id selector also covers UnifiDeck's own tab ids.
     const tabEls = doc.querySelectorAll('[data-tab-id]');
     const tabs: PlatformTab[] = [];
     const seen = new Set<string>();

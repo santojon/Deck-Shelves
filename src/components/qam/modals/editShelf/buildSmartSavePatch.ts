@@ -1,7 +1,3 @@
-/* Save-patch builder for the smart-shelf modal, extracted from
-   EditSmartShelfModal to keep that file's component function under the
-   complexity cap. Pure derivation from the editor state — the inverse of
-   buildInitialSmartState. Grouped sub-builders keep each under the cap. */
 import type { SmartShelf } from '../../../../types'
 import type { SettingsController } from '../../../../features/settings/controller'
 import { SMART_PARAM_DEFAULTS } from '../../../../steam/smartParams'
@@ -99,13 +95,10 @@ function patchPickers(state: EditState, highlightPickerOpen: boolean, hiddenPick
 }
 
 function patchSmart(state: EditState, paramKeys: string[]): Patch {
-  // Only persist when the user diverged from the default cadence; otherwise
-  // omit so the shelf inherits whatever the resolver default ends up being.
   const refreshIntervalMinutes = (state.refreshIntervalMinutes > 0 && state.refreshIntervalMinutes !== DEFAULT_REFRESH_MINUTES)
     ? state.refreshIntervalMinutes
     : undefined
-  // Only persist params that diverge from the mode's defaults — keeps the
-  // settings JSON minimal and lets future default tweaks reach existing shelves.
+  // Only non-default params are saved, so later default changes reach existing shelves.
   const defaults = SMART_PARAM_DEFAULTS[state.mode] ?? {}
   const overrides: Record<string, number> = {}
   for (const k of paramKeys) {
@@ -129,9 +122,7 @@ function patchSchedule(state: EditState): Patch {
   ]
   return {
     visibleHours: (state.visibleHoursEnabled && allRanges.length > 0) ? allRanges : undefined,
-    // Days: drop the field entirely when all 7 are selected (no restriction);
-    // otherwise persist the (possibly empty) array. Empty array = never
-    // visible, distinct from undefined = always visible.
+    // All 7 days means no restriction; an empty array means never visible.
     visibleDaysOfWeek: state.visibleDaysOfWeek.length === 7 ? undefined : state.visibleDaysOfWeek.slice().sort(),
   }
 }
@@ -139,7 +130,6 @@ function patchSchedule(state: EditState): Patch {
 function patchVisibility(state: EditState): Patch {
   const s = state as any
   return {
-    // Visibility Rules v2 — an empty/undefined tree persists as no restriction.
     visibility: (state.visibility && Array.isArray(state.visibility.rules) && state.visibility.rules.length > 0) ? state.visibility : undefined,
     autoCollapseWhenEmpty: s.autoCollapseWhenEmpty ? true : undefined,
   }
@@ -148,9 +138,7 @@ function patchVisibility(state: EditState): Patch {
 function patchAutoRules(state: EditState): Patch {
   const s = state as any
   return {
-    // Auto-pin predicate — same shape; empty = never pinned.
     autoPin: (s.autoPin && Array.isArray(s.autoPin.rules) && s.autoPin.rules.length > 0) ? s.autoPin : undefined,
-    // Auto-collapse predicate.
     autoCollapse: (s.autoCollapse && Array.isArray(s.autoCollapse.rules) && s.autoCollapse.rules.length > 0) ? s.autoCollapse : undefined,
   }
 }

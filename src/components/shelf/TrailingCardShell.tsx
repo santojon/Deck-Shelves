@@ -5,11 +5,6 @@ import { CARD_W, CARD_ART_H } from "./types";
 import { getCachedCardRadius } from "./shelfStyles";
 import { resolveNativeCardClass, retryWithIntervals } from "./cardUtils";
 
-/* The shell shared by the trailing cards (See more, Refresh): native card
-   class resolution, card-sized container off the per-shelf --ds-eff-* vars,
-   the unclassed first-child wrapper theme rules target (TiltedHome's
-   perspective lands on it, mirroring the native card structure — see
-   GameCard), and the interactive / illustrative render split. */
 export function TrailingCardShell({ cardW = CARD_W, cardH = CARD_ART_H, interactive = true, onActivate, artClassName, artStyle, onNativeClass, children }: {
   cardW?: number;
   cardH?: number;
@@ -17,7 +12,6 @@ export function TrailingCardShell({ cardW = CARD_W, cardH = CARD_ART_H, interact
   onActivate: () => void;
   artClassName?: string;
   artStyle?: React.CSSProperties;
-  // Runs once the native card class resolved, with the card element.
   onNativeClass?: (doc: Document | null, card: HTMLElement | null) => void;
   children: ReactNode;
 }) {
@@ -37,8 +31,6 @@ export function TrailingCardShell({ cardW = CARD_W, cardH = CARD_ART_H, interact
 
   const cachedCardRadius = getCachedCardRadius();
 
-  // Size off the per-shelf --ds-eff-* vars so a native-dims change reflows
-  // through CSS with no re-render; the prop is the fallback.
   const cssW = `var(--ds-eff-card-w, ${cardW}px)`;
   const cssH = `var(--ds-eff-card-h, ${cardH}px)`;
   const containerStyle: React.CSSProperties = {
@@ -79,9 +71,6 @@ export function TrailingCardShell({ cardW = CARD_W, cardH = CARD_ART_H, interact
   );
   const className = `ds-card${nativeCardClass ? ` ${nativeCardClass}` : ''}`;
 
-  /* Non-interactive variant — the modal preview, where the card is purely
-     illustrative: a plain div skips Focusable so gamepad nav never lands on
-     it and no A press is wasted on a no-op handler. */
   if (!interactive) {
     return (
       <div ref={cardRef as any} className={className} style={containerStyle}>

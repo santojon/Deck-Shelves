@@ -3,11 +3,6 @@ import { DialogButton, Focusable, TextField, ToggleField, DropdownItem } from '.
 import { pickImageFile } from '../../../../core/imagePicker'
 import { resolveLocalImage, subscribeLocalImage } from '../../../../core/localImage'
 
-/* Synthetic-card editor — horizontal carousel of card configs (master/detail).
-   Nav: Tabs ↓ → first block; L/R between blocks; trailing `[+]` creates a card;
-   ↓ from a block → preview below; A selects a block (expands, focus → first
-   field, ↑/↓ walks fields); B collapses. Per-row: text XOR image; link/
-   heroImage/shadowMode only with base content; position via the manual grid. */
 type SyntheticCardInput = {
   position: number
   image?: string
@@ -24,13 +19,7 @@ export interface DecorationTabProps {
   t: (k: any) => string
   cards: SyntheticCardInput[]
   setCards: (next: SyntheticCardInput[]) => void
-  // Position the next "+ Add decoration" should land at — driven by
-  // the preview's focused-slot tracker. Falls back to the end of the
-  // row when no slot is focused.
   defaultPosition: number
-  // Called once when the user inserts the first decoration so the
-  // outer modal can auto-switch the shelf to manual sort + inherit
-  // the current resolved order.
   onFirstCardAdded?: () => void
 }
 
@@ -49,10 +38,6 @@ function shadowOptions(t: (k: any) => string) {
   ]
 }
 
-/* Inline preview thumb — uses the same backend image resolver as the
-   home card so local file:// paths render via the base64 cache.
-   Subscribes to the cache so the thumbnail appears as soon as the RPC
-   returns (first render is null while the read is in flight). */
 function ImagePreview({ src, label, size = 64 }: { src: string | undefined; label: string; size?: number }) {
   const [, setTick] = useState(0)
   useEffect(() => subscribeLocalImage(() => setTick((n) => n + 1)), [])
@@ -80,10 +65,6 @@ function ImagePreview({ src, label, size = 64 }: { src: string | undefined; labe
   )
 }
 
-/* Collapsed summary card — single Focusable, no nested fields. Shows
-   a compact preview (image thumb / text / "empty"), the card number,
-   and a couple of status badges so the user can tell decorations
-   apart at a glance. Activate enters edit mode. */
 function CardSummary({
   t,
   card,
@@ -130,13 +111,7 @@ function CardSummary({
           </span>
         )}
       </div>
-      {/* Preview body — text-only cards show the text large + centred
-          (no empty thumb to waste space); image / mixed / empty cards
-          show the thumb with the picked image or an "empty" placeholder. */}
       {isTextOnly ? (
-        // Same outer wrapper shape as ImagePreview (4 px vertical
-        // padding) so text and image card summaries occupy identical
-        // height in the carousel row.
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0' }}>
           <div style={{
             width: 140, height: 140,
@@ -186,7 +161,6 @@ function decoHasContent(c: SyntheticCardInput): boolean {
   return (typeof c.image === 'string' && (c.image ?? '').length > 0) || (typeof c.text === 'string' && (c.text ?? '').length > 0)
 }
 
-/* "Browse…" row + thumbnail, shared by the card image and the hero image. */
 function ImagePickRow({ t, value, hint, previewLabel, picking, onBrowse }: {
   t: (k: any) => string
   value: string | undefined
@@ -210,7 +184,6 @@ function ImagePickRow({ t, value, hint, previewLabel, picking, onBrowse }: {
   )
 }
 
-// Size, placeholder, link and shadow — the options between the content and the hero.
 function DecoCardOptions({ t, c, idx, updateCard, hasContent, isFocusable, linkUrl, setLinkUrl }: {
   t: (k: any) => string
   c: SyntheticCardInput
@@ -248,8 +221,6 @@ function DecoCardOptions({ t, c, idx, updateCard, hasContent, isFocusable, linkU
   )
 }
 
-/* Expanded card (selected): the fields are nested focusables walked with ↑/↓;
-   B (cancel) or Done collapses it back to the summary. */
 function ExpandedDecorationCard({ t, c, idx, updateCard, removeCard, onBrowseImage, pickingImageIdx, pickingHeroIdx, onDone }: {
   t: (k: any) => string
   c: SyntheticCardInput
@@ -338,10 +309,6 @@ function ExpandedDecorationCard({ t, c, idx, updateCard, removeCard, onBrowseIma
 export function DecorationTab({ t, cards, setCards, defaultPosition, onFirstCardAdded }: DecorationTabProps) {
   const [pickingImageIdx, setPickingImageIdx] = useState<number | null>(null)
   const [pickingHeroIdx, setPickingHeroIdx] = useState<number | null>(null)
-  /* Master/detail state — `null` keeps every card collapsed (summary view,
-     single focusable, L/R nav between them + [+]). Setting it expands
-     the targeted card so its fields become focusable in vertical order;
-     B (cancel) on the expanded card collapses back to summary view. */
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null)
   const updateCard = (idx: number, patch: Partial<SyntheticCardInput>) => {
     const next = cards.slice()
@@ -359,7 +326,6 @@ export function DecorationTab({ t, cards, setCards, defaultPosition, onFirstCard
     const wasEmpty = cards.length === 0
     setCards([...cards, { position: defaultPosition, size: 'normal' }])
     if (wasEmpty) onFirstCardAdded?.()
-    // Auto-open the new card so the user can configure it immediately.
     setSelectedIdx(cards.length)
   }
   const onBrowseImage = async (idx: number, kind: 'image' | 'hero') => {
@@ -375,10 +341,6 @@ export function DecorationTab({ t, cards, setCards, defaultPosition, onFirstCard
 
   return (
     <div style={{ padding: '4px 0 12px' }}>
-      {/* Focus visual + horizontal-flow hint scoped to this tab. The .gpfocus
-          glow makes selection obvious on dark cards (Steam's default ring is
-          suppressed on DS cards elsewhere in the modal). Per-row flow comes from
-          the Focusable wrapper below; inline CSS reinforces it for mouse/touch. */}
       <style>{`
         .ds-deco-tab-row > .Focusable.gpfocus,
         .ds-deco-tab-row > .Focusable:focus,
@@ -396,11 +358,7 @@ export function DecorationTab({ t, cards, setCards, defaultPosition, onFirstCard
       <div style={{ padding: '4px 0 8px', fontSize: 12, opacity: 0.7, lineHeight: 1.4 }}>
         {t('decoration_intro')}
       </div>
-      {/* Horizontal carousel. Wrapped in a Focusable so Steam's gamepad
-          nav tree recognises the row as a horizontal flow (children laid
-          out left-to-right). Without the wrapper, the parent FieldContainer
-          treats every nested Focusable as vertical-flow, and D-pad ↑/↓
-          (not L/R) ended up walking the cards. */}
+      {/* Focusable wrapper so gamepad nav reads the carousel as a horizontal row. */}
       <Focusable
         className="ds-deco-tab-row"
         style={{
@@ -417,10 +375,6 @@ export function DecorationTab({ t, cards, setCards, defaultPosition, onFirstCard
             ? <CardSummary key={idx} t={t} card={c} idx={idx} onSelect={setSelectedIdx} />
             : <ExpandedDecorationCard key={idx} t={t} c={c} idx={idx} updateCard={updateCard} removeCard={removeCard} onBrowseImage={onBrowseImage} pickingImageIdx={pickingImageIdx} pickingHeroIdx={pickingHeroIdx} onDone={() => setSelectedIdx(null)} />
         ))}
-        {/* Compact `[+]` — small square that's reliably reachable as the
-            last item in the row. Activating creates + auto-selects a new
-            card, which the carousel auto-scrolls into via the surrounding
-            flex layout. */}
         <Focusable
           focusClassName="gpfocus"
           onActivate={addCard}

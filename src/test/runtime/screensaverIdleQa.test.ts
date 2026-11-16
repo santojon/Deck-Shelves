@@ -9,7 +9,6 @@ const { store, listeners, writes, qa } = vi.hoisted(() => ({
 
 vi.mock("../../store/settingsStore", () => ({
   getCurrentSettings: () => store.current,
-  // A QA build's save stays in memory; a normal one would also reach the backend.
   saveSettings: async (next: any) => { store.current = next; return true; },
   subscribeSettings: (fn: () => void) => { listeners.push(fn); return () => {}; },
 }));
@@ -24,7 +23,6 @@ vi.mock("../../core/onlineStore", () => ({ getStoreScreenshots: async () => new 
 
 import { installScreensaverInject } from "../../runtime/screensaverInject";
 
-// The verified backup save waits 200 ms per attempt.
 async function settle(): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, 300));
 }

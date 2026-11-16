@@ -1,8 +1,3 @@
-/* resolveHost — the ONE place in the bundle that knows a concrete host exists.
-   The core depends only on `HostApi`; adding a host is a branch here plus its
-   adapter file. Selection is by launch signal, not brand: a plugin loader hands
-   us a serverApi / router hook, a neutral host injects a runtime global. Loader
-   wins on a dual-install — the bundle uses the host that launched THIS instance. */
 import { createDeckyHostApi } from "./decky";
 import { createShelvesHubHostApi } from "./shelveshub";
 import { getPlatform } from "../platformContext";
@@ -13,16 +8,11 @@ function injectedHostRuntime(): any {
   return g.window?.__SHELVES_HOST__ ?? g.__SHELVES_HOST__ ?? null;
 }
 
-/** Cooperative force: the neutral host was forced to own AND its runtime is
-    present, so the bundle binds to it even when a loader launched us (the loader
-    keeps the renderer + its other plugins; Deck Shelves runs on the neutral host). */
 export function shouldUseForcedHost(): boolean {
   return isForcedOwner() && !!getInjectedHost();
 }
 
-/** Wait (bounded) for the neutral host to publish `__SHELVES_HOST__`. Under
-    cooperative force the loader may boot the bundle before the host is injected;
-    this lets boot defer host selection until the host appears rather than racing. */
+/** Under cooperative force the loader can boot the bundle before the host is injected. */
 export function awaitInjectedHost(timeoutMs = 8000): Promise<HostApi | null> {
   const current = () => getInjectedHost();
   const ready = current();
@@ -39,9 +29,6 @@ export function awaitInjectedHost(timeoutMs = 8000): Promise<HostApi | null> {
   });
 }
 
-/* True when a neutral host is present: its Quick Access bridge, or its runtime
-   before the bridge appears. That host shows its own Deck Shelves tab, so the
-   plugin's own-tab option is hidden and the tab is not installed. */
 export function hostProvidesNativeTab(): boolean {
   const g = globalThis as any;
   try {
@@ -51,11 +38,7 @@ export function hostProvidesNativeTab(): boolean {
   }
 }
 
-/* Build the HostApi from the injected neutral-host runtime. A conforming runtime
-   (signalled by `notifications.toast`) supplies host mechanics directly, but
-   `platform` is renderer-side Deck Shelves domain logic that must stay plugin-side
-   — compose ours over the runtime's minimal OS platform. An older runtime shape
-   falls back to the interim adapter. */
+// `platform` stays plugin-side, composed over the runtime's minimal OS platform.
 function injectedHostApi(): HostApi {
   const injected = injectedHostRuntime();
   return typeof injected?.notifications?.toast === "function"
@@ -64,12 +47,9 @@ function injectedHostApi(): HostApi {
 }
 
 export function resolveHost(serverApi: unknown, routerHook: unknown): HostApi {
-  // Cooperative force: bind to the injected (neutral) host even when a loader
-  // launched us — the user chose the neutral host as Deck Shelves' host/backend.
   if (shouldUseForcedHost()) return injectedHostApi();
 
-  // A plugin loader launched us (it passed a serverApi, or left a router hook) —
-  // use the Decky legacy bridge even if an injected host global also exists.
+  // The launching loader wins even if an injected host global also exists.
   if (serverApi || routerHook) return createDeckyHostApi(routerHook);
 
   if (injectedHostRuntime()) return injectedHostApi();

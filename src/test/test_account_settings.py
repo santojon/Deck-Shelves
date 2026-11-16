@@ -21,16 +21,16 @@ B = "bbbbbbbbbbbbbbbb"
 
 
 def test_kept_with_its_shape_checked():
-    big = [{"id": f"s{i}", "title": "x" * 200} for i in range(400)]  # far past the 64 KiB unknown-field cap
+    big = [{"id": f"s{i}", "title": "x" * 200} for i in range(400)]
     out = sanitizer._sanitize_settings({"enabled": True, "accountSettings": {
         "owner": A, "mode": "shared",
         "buckets": {B: {"shelves": big, "theme": "dark"}, "legacy": {"profiles": []}, "76561198000000001": {"shelves": []}, "../x": {}},
     }})
     acc = out["accountSettings"]
     assert acc["owner"] == A and acc["mode"] == "shared"
-    assert set(acc["buckets"]) == {B, "legacy"}          # an account id or a path is never a key
-    assert len(acc["buckets"][B]["shelves"]) == 400      # nothing dropped by the size cap
-    assert "theme" not in acc["buckets"][B]              # only an account's own fields
+    assert set(acc["buckets"]) == {B, "legacy"}
+    assert len(acc["buckets"][B]["shelves"]) == 400
+    assert "theme" not in acc["buckets"][B]
 
 
 def test_bad_values_are_dropped():
@@ -66,10 +66,10 @@ def _one_dir(monkeypatch, tmp_path):
 
 def test_salt_first_kept_stays(monkeypatch, tmp_path):
     d = _one_dir(monkeypatch, tmp_path)
-    assert storage.keep_account_salt("nope") == ""                 # only a 32-hex salt is kept
+    assert storage.keep_account_salt("nope") == ""
     assert not os.path.exists(os.path.join(d, storage.ACCOUNT_FILE))
     assert storage.keep_account_salt(SALT) == SALT
-    assert storage.keep_account_salt(OTHER) == SALT                # never replaced
+    assert storage.keep_account_salt(OTHER) == SALT
     with open(os.path.join(d, storage.ACCOUNT_FILE), encoding="utf-8") as f:
         assert json.load(f) == {"salt": SALT}
 
@@ -90,7 +90,7 @@ def test_salt_found_in_the_other_settings_folder(monkeypatch, tmp_path):
     monkeypatch.setenv("DECKY_PLUGIN_SETTINGS_DIR", str(loader))
     storage._write_salt(str(loader), SALT)
     assert storage.keep_account_salt(OTHER) == SALT
-    assert storage._read_salt(str(canonical)) == SALT              # copied where it was missing
+    assert storage._read_salt(str(canonical)) == SALT
 
 
 def test_salt_never_in_settings_snapshots_or_export(monkeypatch, tmp_path):
@@ -111,4 +111,4 @@ def test_salt_never_in_settings_snapshots_or_export(monkeypatch, tmp_path):
                 continue
             with open(os.path.join(root, name), encoding="utf-8") as f:
                 assert SALT not in f.read(), name
-    assert storage._read_salt(d) == SALT                            # a reset keeps it
+    assert storage._read_salt(d) == SALT

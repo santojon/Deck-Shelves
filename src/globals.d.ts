@@ -1,13 +1,8 @@
 declare const __DECK_SHELVES_ENABLE_HOME_PATCH__: boolean;
 declare const __DEV__: boolean;
-declare const __BUILD_ID__: string;
-/* Vite ships an ESM bundle, so `require` is undefined at runtime — but a
-   handful of dev-only QA harness loaders use `try { require(...) } catch {}`
-   as a guarded import that's silently no-op'd in production. The ambient
-   declaration keeps `tsc --noEmit` happy without pulling in `@types/node`. */
+// Dev-only loaders guard `require` in try/catch; this avoids pulling in @types/node.
 declare const require: any;
 declare const __QA_FIRST_RUN__: boolean;
-declare const __QA_FORCE_DEVICE__: string;
 declare const __QA_QAM_ERROR__: boolean;
 declare const __QA_SHELF_ERROR__: boolean;
 declare const __QA_ALL_SHELVES_HIDE_RECENTS__: boolean;
@@ -24,18 +19,8 @@ declare const __QA_SMART_SURPRISE_ME__: boolean;
 declare const __QA_FORCE_HOME_CRASH__: boolean;
 declare const __QA_FORCE_REPLACE_FAILED__: boolean;
 declare const __QA_UPDATE_AVAILABLE__: boolean;
-declare const __QA_UPDATE_DISMISSED__: boolean;
-declare const __QA_UPDATE_OFFLINE__: boolean;
-declare const __QA_COLLECTION_EMPTY__: boolean;
-declare const __QA_COLLECTION_INVERTED__: boolean;
-declare const __QA_SOURCES_FIXTURE__: boolean;
-declare const __QA_TEMPLATES_FIXTURE__: boolean;
-declare const __QA_DECORATION_FIXTURE__: boolean;
 declare const __QA_STRESS_FIXTURE__: boolean;
-declare const __QA_VIDEO_FIXTURE__: boolean;
-declare const __QA_SCREENSHOTS_FIXTURE__: boolean;
 declare const __QA_FRESH_INSTALL__: boolean;
-declare const __QA_PERF_MATRIX__: boolean;
 
 interface Window {
   SP_REACT?: any;

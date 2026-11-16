@@ -1,12 +1,6 @@
-/* Button-binding parser + matcher used by every gamepad-driven trigger
-   (card hide/highlight/quick-launch, side-nav open, quick-search toggle).
-   Tokens are uppercase strings; combos are `+`-joined, e.g. "L1+R1".
-   Repeated single tokens model double-taps, e.g. "L1+L1". */
-
 import type { ButtonBindings } from "../types";
 
-// GamepadButton enum mirrored from @host/ui (see src/shims/host-ui.ts).
-// Inlined to keep this module side-effect free.
+// Mirrors the host's GamepadButton enum, inlined so this module stays side-effect free.
 export const BTN = {
   OK: 1, CANCEL: 2, SECONDARY: 3, OPTIONS: 4,
   L1: 5, R1: 6, L2: 7, R2: 8,
@@ -14,10 +8,7 @@ export const BTN = {
   VIEW: 13, START: 14, LSTICK: 15, RSTICK: 16,
 } as const;
 
-/* Token → numeric id. Aliases (A/X/Y/B/VIEW/MENU) accepted on parse.
-   L4/L5/R4/R5 don't have Decky equivalents and DPad/A/B aren't relayed by
-   the home-input bus either; the raw matcher (parseRawCombo + matchEvent
-   against `{ button: rawId }`) covers anything the Decky bus doesn't see. */
+// L4/L5/R4/R5 have no Decky ids, so the raw matcher covers what the Decky bus doesn't see.
 const TOKEN_TO_BTN: Record<string, number> = {
   A: BTN.OK, B: BTN.CANCEL, X: BTN.SECONDARY, Y: BTN.OPTIONS,
   L1: BTN.L1, R1: BTN.R1, L2: BTN.L2, R2: BTN.R2,
@@ -30,9 +21,7 @@ const TOKEN_TO_BTN: Record<string, number> = {
   L4: -104, L5: -105, R4: -204, R5: -205,
 };
 
-// Raw button IDs as emitted by SteamClient.Input.RegisterForControllerInputMessages.
-// Verified live on a Steam Deck via the in-app capture diagnostic. These are
-// completely separate from the Decky home-button bus ids in BTN above.
+// Raw ids from Steam's controller input messages; a separate id space from BTN.
 const TOKEN_TO_RAW: Record<string, number> = {
   A: 0, B: 1, X: 2, Y: 3,
   L1: 30, R1: 31,
@@ -46,8 +35,7 @@ const TOKEN_TO_RAW: Record<string, number> = {
   LSTICK: 25, RSTICK: 41,
 };
 
-// Reserved at any position — the system fires the native action even
-// in chord, so trying to bind these results in a stuck-state risk.
+// The system still fires these in a chord, so binding them risks a stuck state.
 const RESERVED = new Set<string>(["A", "B", "MENU", "START", "STEAM", "SCREENSHOT"]);
 
 export type Combo =
@@ -74,10 +62,7 @@ export function parseCombo(raw: string | null | undefined): Combo | null {
   return parseComboWith(raw, TOKEN_TO_BTN);
 }
 
-/* Build a Combo whose `btn` values are RAW controller IDs. Use this with
-   `matchEvent({ button: rawId }, combo, state)` driven by
-   `subscribeControllerInput`, which is the only stream that surfaces the
-   back-grip buttons (L4/L5/R4/R5) and exposes a complete id space. */
+// Raw controller input is the only stream that includes the back-grip buttons.
 export function parseRawCombo(raw: string | null | undefined): Combo | null {
   return parseComboWith(raw, TOKEN_TO_RAW);
 }
@@ -102,15 +87,12 @@ export function validateCombo(raw: string | null | undefined, opts?: { allowNull
   if (!tokens.length) return { ok: false, reason: "empty" };
   const issue = comboTokenIssue(tokens);
   if (issue) return { ok: false, reason: issue };
-  // Two identical tokens are a double-tap; a repeat inside a longer chord is not.
   if (tokens.length > 2 && new Set(tokens).size !== tokens.length) {
     return { ok: false, reason: "duplicate" };
   }
   return { ok: true };
 }
 
-// Per-binding state — tracks last-press timestamps for double-tap and
-// currently-held buttons for chord matching. One state object per call site.
 export interface MatcherState {
   lastPress: Map<number, number>;
   held: Set<number>;
@@ -126,7 +108,6 @@ function extractButtonId(evt: any): number | null {
   return null;
 }
 
-// Call on every button-down event. Returns true when the combo fires.
 export function matchEvent(
   evt: { detail?: { button?: number } } | { button?: number } | any,
   combo: Combo | null,
@@ -146,8 +127,6 @@ export function matchEvent(
     state.lastPress.set(btn, now);
     return last > 0 && (now - last) <= combo.windowMs;
   }
-  // chord: every member must have been pressed within a small window
-  // (200ms) and the last-pressed must complete the set.
   state.lastPress.set(btn, now);
   if (!combo.btns.includes(btn)) return false;
   return combo.btns.every((b) => {
@@ -156,7 +135,6 @@ export function matchEvent(
   });
 }
 
-// Same press, same key: aliases resolved, chord order ignored ("R1+L1" = "L1+R1").
 const TOKEN_ALIAS: Record<string, string> = { SELECT: "VIEW", START: "MENU", L3: "LSTICK", R3: "RSTICK" };
 function canonicalCombo(raw: string): string {
   const tokens = tokenizeCombo(raw).map((t) => TOKEN_ALIAS[t] ?? t);
@@ -164,7 +142,6 @@ function canonicalCombo(raw: string): string {
   return (isDouble ? tokens : [...tokens].sort()).join("+");
 }
 
-// Collision detector — used by the UI to flag duplicate bindings.
 export function findCollisions(b: ButtonBindings): string[][] {
   const seen = new Map<string, string[]>();
   const fields: Array<keyof ButtonBindings> = [
@@ -181,8 +158,6 @@ export function findCollisions(b: ButtonBindings): string[][] {
   return Array.from(seen.values()).filter((arr) => arr.length > 1);
 }
 
-// Defaults — referenced by both runtime (when settings haven't loaded yet)
-// and the UI's "reset" buttons.
 export const DEFAULT_BINDINGS: Required<ButtonBindings> = {
   cardHideRemove: "X",
   cardHighlightToggle: "Y",
@@ -193,8 +168,6 @@ export const DEFAULT_BINDINGS: Required<ButtonBindings> = {
   navSidecarClose: "DPAD_LEFT",
 };
 
-// Render a stored combo string for display in user-facing hints.
-// "L1+L1" → "L1 ×2"; "L1+R1" → "L1 + R1"; "X" → "X"; null → "" (caller decides).
 export function formatComboForDisplay(combo: string | null | undefined): string {
   if (!combo) return "";
   const tokens = String(combo).split("+").map((t) => t.trim().toUpperCase()).filter(Boolean);

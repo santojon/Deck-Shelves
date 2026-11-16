@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 
 vi.mock('../../shims/host-api', () => ({ call: async () => null }))
 vi.mock('../../runtime/logger', () => ({ logInfo: () => {}, logWarn: () => {} }))
+vi.mock('../../runtime/steamAccount', () => ({ readSteamId: () => null }))
 
 function installLocalStorageStub(): void {
   const store = new Map<string, string>()
@@ -33,9 +34,9 @@ describe('getStoreScreenshots', () => {
     const { getStoreScreenshots } = await import('../../core/onlineStore')
     const result = await getStoreScreenshots([111, 222])
 
-    expect(urls.length).toBe(1) // one request covers both ids (batched)
+    expect(urls.length).toBe(1)
     expect(result.get(111)).toEqual(['https://cdn/1.jpg', 'https://cdn/2.jpg'])
-    expect(result.get(222)).toEqual([]) // no screenshots is a real, cached answer
+    expect(result.get(222)).toEqual([])
   })
 
   it('caches results — a second call for the same ids issues no new requests', async () => {
@@ -51,7 +52,7 @@ describe('getStoreScreenshots', () => {
     await getStoreScreenshots([333])
     expect(calls).toBe(1)
     await getStoreScreenshots([333])
-    expect(calls).toBe(1) // served from cache
+    expect(calls).toBe(1)
   })
 
   it('a 429 response backs off without throwing', async () => {

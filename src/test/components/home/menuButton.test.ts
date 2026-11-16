@@ -25,7 +25,6 @@ function el(id: string): HTMLElement {
   return document.getElementById(id) as HTMLElement;
 }
 
-// The Home: Steam's tabs, the Recents row, then the plugin's mount right after the row.
 function buildHome(): void {
   document.body.innerHTML = `
     <div id="home">
@@ -98,7 +97,6 @@ describe("menu button: a plugin card focused", () => {
       state.injecting = injecting;
       state.focusedAppId = 222;
       state.firstAppId = 333;
-      // The plugin's rows record a card as it takes focus.
       (globalThis as any).__ds_last_focused_card = el("card");
       setNavFocus("card");
       pressMenu();

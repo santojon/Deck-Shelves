@@ -21,9 +21,9 @@ DRM_ROOT = "/sys/class/drm"
 def _external_via_drm(drm_root: str) -> Optional[bool]:
     paths = glob.glob(os.path.join(drm_root, "*", "status"))
     if not paths:
-        return None  # not a DRM system → let the per-OS fallback answer
+        return None
     for path in paths:
-        name = os.path.basename(os.path.dirname(path)).lower()  # e.g. "card0-dp-1"
+        name = os.path.basename(os.path.dirname(path)).lower()
         if "edp" in name or "writeback" in name:
             continue
         try:
@@ -45,8 +45,7 @@ def _monitors_windows() -> Optional[bool]:
 
 
 def _monitors_macos() -> Optional[bool]:
-    # Precise like the Linux DRM path: external = any ACTIVE display that is not
-    # the built-in panel (CGDisplayIsBuiltin), not merely "more than one".
+    # External means any active display that isn't the built-in panel, not merely more than one.
     try:
         import ctypes
         cg = ctypes.CDLL("/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics")

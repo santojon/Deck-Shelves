@@ -1,7 +1,4 @@
-/* Cached copy of the host's optional `handshake()` result — read once at
-   boot (see index.tsx, right after resolveHost()) and shared read-only from
-   here so diagnostics/bug-report avoid a direct HostApi import (circular
-   through the settings UI tree). null on a host without handshake(). */
+// Kept apart from the host API so readers don't pull in a circular import.
 import type { HostHandshake } from "./host/contract";
 
 let _handshake: HostHandshake | null = null;

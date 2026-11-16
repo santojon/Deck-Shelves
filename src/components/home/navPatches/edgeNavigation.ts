@@ -21,18 +21,14 @@ function homeTabsVisible(doc: Document): boolean {
   return !!tabs && tabs.getBoundingClientRect().height > 0;
 }
 
-/* The last *.ds-shelf* directly — :last-child fails when Steam re-injects an
-   empty-state div as the trailing sibling of our shelves inside
-   .deck-shelves-root, leaving no shelf as the literal last child. */
+// :last-child fails when Steam appends an empty-state div after the shelves.
 function focusInLastShelf(mount: HTMLElement, focused: HTMLElement): boolean {
   const shelves = mount.querySelectorAll<HTMLElement>(".ds-shelf");
   const lastShelf = shelves[shelves.length - 1];
   return !!lastShelf && lastShelf.contains(focused);
 }
 
-/* DOWN on the last DS shelf when the native tab bar is hidden (hideHomeTabs)
-   wraps focus to the top and visually tilts the view. Consume the event so
-   focus stays put — there is no target past the last shelf. */
+// With the tab bar hidden, DOWN on the last shelf would wrap focus to the top.
 function shouldSwallowDownAtLastShelf(): boolean {
   try {
     const doc = getPreferredSteamDocument();

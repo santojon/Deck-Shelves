@@ -1,7 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { appIdOfRow, hasAnyMethod } from "../../steam/steamAccess";
 
-// The inline expressions the helper replaced, kept here as the reference behaviour.
 const legacy = {
   appid: (x: any) => Number(x?.appid ?? x),
   appidOrAppId: (x: any) => Number(x?.appid ?? x?.appId ?? x),

@@ -37,7 +37,6 @@ SSH_OPTS=(-o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" -o "Lo
 SSH_OPTS_STR="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR"
 SSH_ALIVE=(-o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" -o "LogLevel ERROR" -o "ServerAliveInterval 10" -o "ServerAliveCountMax 6")
 
-# A failed build stops the deploy.
 BUILD_LOG="$(mktemp)"
 if [[ "$RELEASE" == "1" ]]; then BUILD_CMD="build"; else BUILD_CMD="build:dev"; fi
 if ! pnpm run "$BUILD_CMD" > "$BUILD_LOG" 2>&1; then
@@ -52,7 +51,6 @@ rm -f "$BUILD_LOG"
 rm -rf .deploy
 mkdir -p "${STAGE_DIR}/dist"
 cp plugin.json package.json main.py "${STAGE_DIR}/"
-# Every backend module, where main.py looks for it in a repo layout.
 mkdir -p "${STAGE_DIR}/src/backend"
 for pyf in src/backend/*.py; do
   cp "$pyf" "${STAGE_DIR}/src/backend/"

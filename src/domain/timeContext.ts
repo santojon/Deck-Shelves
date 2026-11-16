@@ -1,6 +1,3 @@
-// Pure time-context predicates for Visibility Rules v2. No side
-// effects, no I/O — evaluated during render like the other visibility kinds.
-
 type Rule = { kind?: string } & Record<string, any>;
 
 export const TIME_CONTEXT_KINDS = ['weekend', 'timeOfDayPeriod', 'season', 'holiday'] as const;
@@ -9,7 +6,6 @@ export function isTimeContextKind(kind: string): boolean {
   return (TIME_CONTEXT_KINDS as readonly string[]).includes(kind);
 }
 
-// Hour ranges per period [start, end); "night" wraps past midnight.
 const PERIODS: Record<string, [number, number]> = {
   morning: [5, 12],
   afternoon: [12, 17],
@@ -26,8 +22,6 @@ function matchesPeriod(period: unknown, hour: number): boolean {
   return range ? inRange(hour, range[0], range[1]) : true;
 }
 
-// Meteorological seasons by month (0 = Jan); the southern hemisphere is offset
-// by six months.
 function seasonOf(month: number, hemisphere: unknown): string {
   const m = hemisphere === 'south' ? (month + 6) % 12 : month;
   if (m >= 2 && m <= 4) return 'spring';
@@ -36,9 +30,7 @@ function seasonOf(month: number, hemisphere: unknown): string {
   return 'winter';
 }
 
-/* A holiday range is { start:'MM-DD', end:'MM-DD' } recurring yearly; `end` may
-   wrap past year-end (e.g. 12-27 → 01-02). Lexical MM-DD compare works because
-   the format is zero-padded and fixed-width. */
+// Zero-padded MM-DD compares correctly as strings; `end` may wrap past year-end.
 function inHolidayRange(mmdd: string, start: string, end: string): boolean {
   return start <= end ? mmdd >= start && mmdd <= end : mmdd >= start || mmdd <= end;
 }
@@ -60,9 +52,7 @@ function matchesSeason(rule: Rule, now: Date): boolean {
   return rule?.season ? seasonOf(now.getMonth(), rule?.hemisphere) === String(rule.season) : true;
 }
 
-/* Evaluate one time-context VisibilityRule. Unknown kinds fail open (return true).
-   Kinds: weekend (value 'weekend'|'weekday'), timeOfDayPeriod (period), season
-   (season + hemisphere), holiday (ranges of MM-DD). */
+// Unknown kinds fail open.
 export function evalTimeContextRule(rule: Rule, now: Date = new Date()): boolean {
   switch (String(rule?.kind || '')) {
     case 'weekend':

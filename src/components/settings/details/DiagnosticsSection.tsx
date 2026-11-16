@@ -21,7 +21,7 @@ import { notify } from "../../notify";
 import { flowChildrenProps } from "../../../core/steamOSVersion";
 
 const DASH = "—";
-const NOOP = () => { /* leaf — focus only */ };
+const NOOP = () => {};
 type Tr = (key: string) => string;
 interface Integration { key: string; icon: ReactNode; active: boolean }
 
@@ -41,8 +41,6 @@ function hostLine(handshake: RuntimeInfo["hostHandshake"]): string {
   return s;
 }
 
-/** A titled, tinted block — one per System-information section, for a uniform
-    card look across Hardware / Software / Integrations / Configuration. */
 function SectionCard({ title, icon, children }: { title: string; icon: ReactNode; children: ReactNode }) {
   return (
     <div style={{ background: "rgba(255,255,255,0.035)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, padding: "8px 8px 10px", marginBottom: 8 }}>
@@ -52,7 +50,6 @@ function SectionCard({ title, icon, children }: { title: string; icon: ReactNode
   );
 }
 
-/** Spec tile — uppercase caption over a bold value (device-spec look). */
 function SpecTile({ label, value }: { label: string; value: string }) {
   return (
     <Focusable onActivate={NOOP} focusWithinClassName="gpfocuswithin"
@@ -73,7 +70,6 @@ function KVRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-/** Accent chip: an icon + a count, for the configuration summary. */
 function IconStat({ icon, value }: { icon: ReactNode; value: number }) {
   return (
     <Focusable onActivate={NOOP} focusWithinClassName="gpfocuswithin"
@@ -183,9 +179,6 @@ function ConfigBlock({ stats, version, config, t }: { stats: Array<{ icon: React
   );
 }
 
-/** Advanced → System information: read-only runtime + hardware detection in four
-    blocks (Hardware, Software, Integrations, Deck Shelves configuration).
-    Refresh re-reads the live probes; Copy dumps the whole readout as text. */
 export function DiagnosticsSection({ t }: { t: Tr }) {
   const [tick, setTick] = useState(0);
   const [themesTick, setThemesTick] = useState(0);
@@ -253,7 +246,6 @@ export function DiagnosticsSection({ t }: { t: Tr }) {
     return lines;
   };
 
-  // How this session booted: origin, phase timings, watchdog verdict, long tasks, seeded cache.
   const bootCopyLines = (): string[] => {
     const boot = collectBootInfo();
     return [

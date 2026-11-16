@@ -48,9 +48,6 @@ describe('pickFirstVisibleShelfId', () => {
   })
 
   it('promotes the first rendered shelf in config order during a cold restart', () => {
-    // Config order is [local, online, local]; the earlier-config local shelf
-    // has not resolved yet, so the next rendered shelf in config order (the
-    // online one) is promoted until the local shelf renders and reclaims it.
     const shelves = [filter('local1'), wishlist('w'), tab('local2')]
     expect(pickFirstVisibleShelfId(shelves, new Set(['w', 'local2']))).toBe('w')
   })
@@ -127,8 +124,6 @@ describe('isShelfSetSettled', () => {
     expect(isShelfSetSettled(6, 5, 0, 3000)).toBe(true)
   })
 
-  /* A shelf that resolves to nothing never renders, so an exact match can be
-     unreachable — a count that stopped growing counts as settled. */
   it('is settled when the rendered count has stopped growing, even below the configured total', () => {
     expect(isShelfSetSettled(5, 7, 500, 5000, SHELF_SET_QUIESCE_MS)).toBe(true)
   })

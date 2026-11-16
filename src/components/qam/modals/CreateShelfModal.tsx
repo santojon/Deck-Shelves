@@ -99,8 +99,6 @@ function StandardPanel({ controller, closeModal }: { controller: SettingsControl
   const grouped = TPL_CATEGORY_ORDER
     .map((cat) => ({ cat, items: allTemplates.filter((x) => x.category === cat) }))
     .filter((g) => g.items.length > 0);
-  // Stats-derived suggestions at the top — only when the user opted in
-  // (Statistics tab toggle), contextual, never duplicating an existing shelf.
   const [suggestedIds, setSuggestedIds] = useState<string[]>([]);
   useEffect(() => {
     if ((settings as any)?.templateSuggestionsEnabled !== true) { setSuggestedIds([]); return; }
@@ -202,8 +200,6 @@ function SmartPanel({ controller, closeModal }: { controller: SettingsController
   const grouped = SMART_CATEGORY_ORDER
     .map((cat) => ({ cat, items: visibleTemplates.filter((x: any) => x.category === cat) }))
     .filter((g) => g.items.length > 0);
-  // Stats-derived smart-shelf suggestions at the top — same opt-in as the
-  // Standard tab, but restricted to smart modes the user doesn't have yet.
   const [suggestedModes, setSuggestedModes] = useState<string[]>([]);
   useEffect(() => {
     if ((settings as any)?.templateSuggestionsEnabled !== true) { setSuggestedModes([]); return; }

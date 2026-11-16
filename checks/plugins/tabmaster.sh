@@ -24,12 +24,9 @@ run_checks() {
   fi
 
   local tab_files
-  # Only consider files where TabMaster appears outside of comment lines.
-  # Exclude the QA harness (src/qa/) and tests (src/test/, *.test.*) — their
-  # forceTabMaster flag / mocks are build-time or test scaffolding, not runtime
-  # access to the TabMaster globals.
+  # Comment lines, re-exports, the QA harness and tests are ignored; only runtime access counts.
   tab_files=$(grep -rln "TabMasterStore\|TabMaster" "$src" 2>/dev/null | grep -v '\.d\.ts$' | grep -v '/qa/' | grep -v '/test/' | grep -v '\.test\.' | while IFS= read -r f; do
-    if grep -v '^\s*[/*]' "$f" 2>/dev/null | grep -q "TabMasterStore\|TabMaster"; then echo "$f"; fi
+    if grep -v '^\s*[/*]' "$f" 2>/dev/null | grep -v '^\s*export .* from ' | grep -q "TabMasterStore\|TabMaster"; then echo "$f"; fi
   done)
   local all_guarded=true
   for f in $tab_files; do
@@ -48,7 +45,7 @@ run_checks() {
     ((fail++))
   fi
 
-  # Exclude our own integrations/ directory — importing from integrations/tabmaster.ts is intentional
+  # Imports from the integrations/ directory are intentional.
   if grep -rq "from.*tabmaster\|require.*tabmaster\|import.*tabmaster" "$src" 2>/dev/null \
       | grep -v "integrations/" | grep -q .; then
     echo "  ❌ Hard dependency on TabMaster (import/require outside integrations/)"

@@ -7,7 +7,6 @@ run_checks() {
   local fail=0
   local src="$root/src"
 
-  # 1. Detection helper present.
   if [[ -f "$src/core/cssLoaderDetect.ts" ]]; then
     echo "  ✅ cssLoaderDetect helper present"
     ((pass++))
@@ -16,8 +15,6 @@ run_checks() {
     ((fail++))
   fi
 
-  # 2. Helper exposes the two probes used by the rest of the codebase (as
-  # re-exports of the theme adapters under src/themes since the facade split).
   if grep -q 'isCssLoaderActive' "$src/core/cssLoaderDetect.ts" 2>/dev/null \
      && grep -q 'isArtHeroActive' "$src/core/cssLoaderDetect.ts" 2>/dev/null; then
     echo "  ✅ Detection helper exports isCssLoaderActive + isArtHeroActive"
@@ -27,9 +24,6 @@ run_checks() {
     ((fail++))
   fi
 
-  # 3. HeroBackground gated in HomeInject — overlay-injecting skips
-  # `shelfHeroBackground=true`; overlay-off hides native hero so ours
-  # paints (inherits native hero classes via discovery → ArtHero mask).
   if grep -q 'replaceInjecting' "$src/components/HomeInject.tsx" 2>/dev/null \
      && grep -q 'shelfHeroBackground' "$src/components/HomeInject.tsx" 2>/dev/null; then
     echo "  ✅ HeroBackground render gated by replaceInjecting (no duplicate hero)"
@@ -39,7 +33,6 @@ run_checks() {
     ((fail++))
   fi
 
-  # 4. HomeInject promotes the first ds-shelf into the recents slot when CSS Loader is active.
   if grep -q 'data-ds-recents-slot' "$src/components/HomeInject.tsx" 2>/dev/null; then
     echo "  ✅ First ds-shelf promoted to recents slot when CSS Loader active"
     ((pass++))
@@ -48,7 +41,6 @@ run_checks() {
     ((fail++))
   fi
 
-  # 5. The class promotion is additive (must not strip ds-* classes).
   if grep -q 'classList.add(' "$src/components/HomeInject.tsx" 2>/dev/null \
      && ! grep -q "classList.remove\(.*'ds-" "$src/components/HomeInject.tsx" 2>/dev/null; then
     echo "  ✅ Class promotion is additive (does not strip ds-*)"
@@ -58,7 +50,6 @@ run_checks() {
     ((fail++))
   fi
 
-  # 6. Discovery uses the previous sibling, not a hardcoded class token.
   if grep -q 'getNativeRecentsClassName' "$src/components/HomeInject.tsx" 2>/dev/null; then
     echo "  ✅ Native recents class read from runtime DOM (no hardcoded token)"
     ((pass++))
@@ -67,8 +58,6 @@ run_checks() {
     ((fail++))
   fi
 
-  # 7. ArtHero detection probes css-loader-style tags (the public CSS Loader
-  # marker) — the shared detector lives in src/themes/detect.ts.
   if grep -rq "css-loader-style" "$src/themes" "$src/core/cssLoaderDetect.ts" 2>/dev/null; then
     echo "  ✅ Detection probes <style class=\"css-loader-style\"> tags"
     ((pass++))
@@ -77,9 +66,6 @@ run_checks() {
     ((fail++))
   fi
 
-  # 7b. ArtHero detection uses the structural signature (heroInner + mask-image
-  # rule) rather than relying on theme-name attributes — those don't exist in
-  # most CSS Loader builds. Verified live on a Deck running the ArtHero theme.
   if grep -q "heroToken" "$src/themes/adapters/artHero.ts" 2>/dev/null \
      && grep -q "mask-image" "$src/themes/adapters/artHero.ts" 2>/dev/null; then
     echo "  ✅ ArtHero detected by structural signature (heroInner + mask-image)"
@@ -89,10 +75,7 @@ run_checks() {
     ((fail++))
   fi
 
-  # 8. INVARIANT 1: Promotion gated on hideRecentsSetting (hero-wrapper themes
-  # can't leak with native recents visible). Allows `forceCssLoaderThemes` opt-in.
-  if grep -q 'INVARIANT 1' "$src/components/HomeInject.tsx" 2>/dev/null \
-     && grep -q 'if (!hideRecentsSetting && !forceCssLoaderThemes) return' "$src/components/HomeInject.tsx" 2>/dev/null; then
+  if grep -q 'if (!hideRecentsSetting && !forceCssLoaderThemes) return' "$src/components/HomeInject.tsx" 2>/dev/null; then
     echo "  ✅ Invariant 1: promotion requires hideRecentsSetting"
     ((pass++))
   else
@@ -100,10 +83,7 @@ run_checks() {
     ((fail++))
   fi
 
-  # 9. INVARIANT 2: Promotion is scoped to the FIRST visible shelf only via the
-  # data-shelfid selector — never to all .ds-shelf nor to the second/third shelf.
-  if grep -q 'INVARIANT 2' "$src/components/HomeInject.tsx" 2>/dev/null \
-     && grep -q '.ds-shelf\[data-shelfid="\${CSS.escape(firstVisibleId)}' "$src/components/HomeInject.tsx" 2>/dev/null; then
+  if grep -q '.ds-shelf\[data-shelfid="\${CSS.escape(firstVisibleId)}' "$src/components/HomeInject.tsx" 2>/dev/null; then
     echo "  ✅ Invariant 2: promotion targets only the first visible shelf"
     ((pass++))
   else
@@ -111,11 +91,7 @@ run_checks() {
     ((fail++))
   fi
 
-  # 10. INVARIANT 3: Promotion gated on isCssLoaderActive — without a theme
-  # there's no value in adding the wrapper class, and the no-op risks ds-card
-  # cascading rules from leaking into hero-wrapper-styled selectors.
-  if grep -q 'INVARIANT 3' "$src/components/HomeInject.tsx" 2>/dev/null \
-     && grep -q 'if (!isCssLoaderActive()) return' "$src/components/HomeInject.tsx" 2>/dev/null; then
+  if grep -q 'if (!isCssLoaderActive()) return' "$src/components/HomeInject.tsx" 2>/dev/null; then
     echo "  ✅ Invariant 3: promotion requires CSS Loader active"
     ((pass++))
   else
@@ -123,9 +99,6 @@ run_checks() {
     ((fail++))
   fi
 
-  # 11. HeroBackground render gated on hideRecents — universal-card themes
-  # don't fight a stacked hero on every render. The derivation moved from an
-  # inline HomeInject.tsx prop expression into a shared helper.
   if grep -q 'shelfHeroBackground: settings.hideRecents === true' "$src/components/home/homeInjectHelpers.ts" 2>/dev/null; then
     echo "  ✅ HeroBackground only renders when hideRecents is true"
     ((pass++))

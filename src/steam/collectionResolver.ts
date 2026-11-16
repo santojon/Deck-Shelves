@@ -9,8 +9,6 @@ import { logInfo, logWarn } from "../runtime/logger";
 import { resolveContextAwareShelf } from "../core/contextAwareShelves";
 import { collectFilterGroupItemsFlat, deduplicateNonSteam, emitResolvedTotal, enrichForSort, prefetchCatalogFilterData } from "./resolveShared";
 
-/* The collection and external sources: a Steam collection's current apps, found by id, and a plugin-provided source. */
-
 async function applyCollectionChildFilter(ids: number[], source: LooseSource, all: AppOverview[]): Promise<number[]> {
   const cf = source.childFilter as FilterGroup | undefined;
   if (!cf || !Array.isArray(cf.items) || cf.items.length === 0) return ids;
@@ -21,7 +19,6 @@ async function applyCollectionChildFilter(ids: number[], source: LooseSource, al
   return evaluateFilterGroup(cf, candidates).map((a) => appIdOf(a)).filter(Number.isFinite);
 }
 
-// A missing collection and an empty one are told apart in the log; both render nothing.
 export async function _resolveCollection(ctx: ResolverContext): Promise<number[]> {
   const { source, all, sort, shelfId, sortReverse, finish, overShootLimit } = ctx;
   const collectionId = String(source.collectionId ?? "").trim();
@@ -39,10 +36,6 @@ export async function _resolveExternal(ctx: ResolverContext): Promise<number[]> 
   const { source, all, sort, shelfId, sortReverse, finish, overShootLimit, limit } = ctx;
     const sourceId = String(source.sourceId ?? "");
     try {
-      /* Context-aware sources resolve through a dedicated orchestrator
-         (focus context, cancellation, a short cache — debounced
-         invalidation lives at the shelf-subscription level); everything
-         else about resolution (sort, dedupe, overshoot) is shared. */
       let ids = isContextAwareSource(sourceId)
         ? await resolveContextAwareShelf(sourceId, shelfId ?? sourceId, limit, undefined)
         : await resolveExternalSource(sourceId, limit);

@@ -15,8 +15,7 @@ run_checks() {
     return 1
   fi
 
-  # i18n is sliced per locale into i18n/<locale>/<area>.json; the runtime
-  # loader merges the areas. en-US is the base locale.
+  # Locales are split into i18n/<locale>/<area>.json and merged at runtime; en-US is the base.
   if [[ ! -d "$i18n_dir/en-US" ]]; then
     echo "  ❌ en-US base locale directory missing"
     echo ""
@@ -44,8 +43,7 @@ run_checks() {
     ((pass++))
   fi
 
-  # Merge a locale's area slices into one sorted key list, flagging any
-  # cross-area key collision (the loader would silently overwrite).
+  # Cross-area key collisions are flagged since the loader would silently overwrite them.
   local merge_keys
   merge_keys() {
     python3 - "$1" <<'PY'

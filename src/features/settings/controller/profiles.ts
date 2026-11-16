@@ -23,22 +23,15 @@ export interface ProfileRecord {
   createdAt: string;
   snapshot: Record<string, unknown>;
   trigger?: unknown;
-  // When true, switching to this profile also swaps the displayed shelves;
-  // otherwise the current shelves are kept and only the rest is applied.
   linkShelves?: boolean;
 }
 
-// Settings fields that make up "the shelves shown on the home". Kept out of a
-// profile switch unless the profile is shelf-linked (and out of a factory reset
-// unless the user opts in).
 const SHELF_LINK_FIELDS = ["shelves", "smartShelves", "allShelvesOrder"] as const;
 
 export function keepShelfFields(next: Settings, from: Settings): void {
   for (const f of SHELF_LINK_FIELDS) (next as any)[f] = (from as any)[f];
 }
 
-// Dev/debug tooling + the per-device QAM tab (DEVICE_LOCAL_FIELDS): a profile
-// switch or factory reset must never touch them, same reasoning as shelves.
 export function keepDeviceLocalFields(next: Settings, from: Settings): void {
   for (const f of DEVICE_LOCAL_FIELDS) (next as any)[f] = (from as any)[f];
 }
@@ -47,29 +40,20 @@ function randomProfileId(): string {
   return `prof_${Math.random().toString(36).slice(2, 10)}`;
 }
 
-/* `showcaseSeen` is an installation-level flag, not a per-profile one — a
-   profile saved before the tour was completed would otherwise re-trigger it
-   on every later switch. DEVICE_LOCAL_FIELDS excluded for the same reason
-   (`keepDeviceLocalFields` restores them on apply). Exported for the cloud
-   sync, which folds what it adopts into the active profile the same way. */
+// `showcaseSeen` is per install, so it stays out of profile snapshots.
 export function takeSnapshot(s: Settings): Record<string, unknown> {
   const { profiles: _p, activeProfileName: _n, showcaseSeen: _s, ...rest } = s as any;
   for (const f of DEVICE_LOCAL_FIELDS) delete (rest as any)[f];
   return rest as Record<string, unknown>;
 }
 
-/* Sticky true: once the tour has been seen anywhere (current live state or
-   the profile being applied), no switch — including to the factory profile
-   — un-sees it. Only a genuinely fresh install has neither source set.
-   Exported so runtime/profileTriggers (auto-switch, outside the controller)
-   applies the same rule instead of a snapshot's missing key wiping it. */
+// Sticky: once seen in either source, it stays seen.
 export function stickyShowcaseSeen(live: Settings, incoming?: Record<string, unknown>): boolean | undefined {
   if ((live as any)?.showcaseSeen === true) return true;
   if ((incoming as any)?.showcaseSeen === true) return true;
   return (live as any)?.showcaseSeen;
 }
 
-// A profile switch that changes anything saves a safety snapshot of the state it replaces first.
 function snapshotBeforeSwitch(next: Settings, current: Settings): void {
   if (JSON.stringify(next) !== JSON.stringify(current)) snapshotOnNextSave("profile");
 }
@@ -80,8 +64,6 @@ function isNameTaken(profiles: ProfileRecord[], name: string): boolean {
   return profiles.some((p) => p.name.trim().toLowerCase() === lc);
 }
 
-// Validate + de-duplicate one imported profile entry into a ProfileRecord;
-// null when the entry is malformed. Appends the chosen name to `seenNames`.
 function normalizeImportedProfile(p: any, seenNames: Set<string>): ProfileRecord | null {
   if (!p || typeof p !== "object") return null;
   if (typeof p.name !== "string" || !p.name.trim()) return null;
@@ -104,8 +86,6 @@ function normalizeImportedProfile(p: any, seenNames: Set<string>): ProfileRecord
   };
 }
 
-// Build the imported profile list (deduped against current) + the next settings
-// payload for the chosen merge/replace mode.
 function applyProfileImport(s: Settings, incoming: any[], mode: "merge" | "replace"): { added: ProfileRecord[]; next: Settings } {
   const current: ProfileRecord[] = mode === "replace" ? [] : ((s as any).profiles ?? []);
   const seenNames = new Set(current.map((p) => p.name.trim().toLowerCase()));
@@ -155,19 +135,14 @@ export function createProfileActions(deps: ProfilesDeps) {
         ...(profile.snapshot as any),
         profiles,
         activeProfileName: profile.name,
-        // Sticky: once seen, no profile switch un-sees it — a profile saved
-        // before the tour was completed (or a factory reset just before
-        // this switch) must not resurface it via either source.
         showcaseSeen: stickyShowcaseSeen(s, profile.snapshot),
       };
-      // Shelf-link opt-in: unlinked profiles change everything BUT the shelves.
       if (!profile.linkShelves) keepShelfFields(next, s);
       keepDeviceLocalFields(next, s);
       snapshotBeforeSwitch(next, s);
       await persist(next);
       return true;
     },
-    // Linking can be turned on or off after the profile was saved.
     async setProfileLinkShelves(id: string, linkShelves: boolean): Promise<boolean> {
       const s = liveSettings();
       if (!s) return false;
@@ -189,7 +164,6 @@ export function createProfileActions(deps: ProfilesDeps) {
       const target = profiles.find((p) => p.id === id);
       if (!target) return false;
       const nextProfiles = profiles.filter((p) => p.id !== id);
-      // Clear `activeProfileName` if the deleted profile was active.
       const wasActive = (s as any).activeProfileName === target.name;
       await persist({
         ...s,
@@ -205,7 +179,6 @@ export function createProfileActions(deps: ProfilesDeps) {
       const profiles: ProfileRecord[] = (s as any).profiles ?? [];
       const source = profiles.find((p) => p.id === id);
       if (!source) return null;
-      // Suffix with a unique counter so duplicates of duplicates work.
       const copyWord = i18next.t("profile_duplicate_suffix");
       let name = `${source.name} (${copyWord})`.slice(0, 64);
       let n = 2;
@@ -255,8 +228,6 @@ export function createProfileActions(deps: ProfilesDeps) {
       notify("success", { body: i18next.t("toast_profile_saved"), area: "profiles" });
       return true;
     },
-    // Set (or clear) a profile's Visibility Rules v2 trigger predicate. An
-    // empty/undefined tree clears the trigger (the profile stops auto-applying).
     async setProfileTrigger(id: string, trigger: unknown): Promise<boolean> {
       const s = liveSettings();
       if (!s) return false;
@@ -264,8 +235,6 @@ export function createProfileActions(deps: ProfilesDeps) {
       const clean = (t && Array.isArray(t.rules) && t.rules.length > 0)
         ? { mode: t.mode === "all" ? "all" : "any", rules: t.rules }
         : undefined;
-      // The Default (factory) profile is synthetic — its trigger lives in a
-      // dedicated settings field instead of the profiles array.
       if (id === FACTORY_PROFILE_ID) {
         await persist({ ...s, factoryProfileTrigger: clean } as Settings);
         return true;
@@ -276,7 +245,6 @@ export function createProfileActions(deps: ProfilesDeps) {
       await persist({ ...s, profiles: nextProfiles } as Settings);
       return true;
     },
-    // Toggle a profile's hidden flag (still listed, omitted from the dropdown).
     async toggleProfileHidden(id: string): Promise<void> {
       const s = liveSettings();
       if (!s) return;
@@ -285,7 +253,6 @@ export function createProfileActions(deps: ProfilesDeps) {
       const nextProfiles = profiles.map((p) => p.id === id ? { ...p, hidden: !(p as any).hidden } : p);
       await persist({ ...s, profiles: nextProfiles } as Settings);
     },
-    // Reorder the profiles array (drives both the list and the dropdown order).
     async setProfilesOrder(ids: string[]): Promise<void> {
       const s = liveSettings();
       if (!s) return;
@@ -296,7 +263,6 @@ export function createProfileActions(deps: ProfilesDeps) {
       if (reordered.length !== profiles.length) return;
       await persist({ ...s, profiles: reordered } as Settings);
     },
-    // Settings per Steam account on or off; turning it on gives what is shown to the signed-in account.
     async setPerAccountSettings(perAccount: boolean): Promise<void> {
       const s = liveSettings();
       if (!s || isPerAccount(s) === perAccount) return;
@@ -308,8 +274,6 @@ export function createProfileActions(deps: ProfilesDeps) {
       if ((s as any).activeProfileName == null) return;
       await persist({ ...s, activeProfileName: null } as Settings);
     },
-    // unified shelf list toggle. Order array is preserved
-    // across flips (sanitizer/schema guarantee).
     async setUnifiedListEnabled(unifiedListEnabled: boolean) {
       const s = liveSettings();
       if (!s || (s as any).unifiedListEnabled === unifiedListEnabled) return;
@@ -323,8 +287,6 @@ export function createProfileActions(deps: ProfilesDeps) {
       if (cur.length === cleaned.length && cur.every((v, i) => v === cleaned[i])) return;
       await persist({ ...s, allShelvesOrder: cleaned } as Settings);
     },
-    // light mode + per-feature toggles. Light and advanced are mutually
-    // exclusive — enabling one disables the other.
     async setLightModeEnabled(lightModeEnabled: boolean) {
       const s = liveSettings();
       if (!s || (s as any).lightModeEnabled === lightModeEnabled) return;
@@ -406,18 +368,14 @@ export function createProfileActions(deps: ProfilesDeps) {
     async applyFactoryProfile(resetShelves = false) {
       const s = liveSettings();
       if (!s) return;
-      // Import here to avoid a circular dependency at module load.
+      // Imported lazily to avoid a circular dependency.
       const { defaultSettings } = await import("../../../domain/defaults");
       const defaults = defaultSettings();
-      // Reset config to defaults but keep the plugin ON (master toggle) and
-      // preserve saved profiles. Shelves stay unless the user opts to reset them.
       const next = {
         ...defaults,
         enabled: true,
         profiles: (s as any).profiles ?? [],
         activeProfileName: null,
-        // Sticky — see stickyShowcaseSeen: a factory reset must not
-        // resurface the first-run tour once it's already been seen.
         showcaseSeen: stickyShowcaseSeen(s, defaults as any),
       } as Settings;
       if (!resetShelves) keepShelfFields(next, s);
@@ -425,14 +383,11 @@ export function createProfileActions(deps: ProfilesDeps) {
       snapshotBeforeSwitch(next, s);
       await persist(next);
     },
-    // per-integration enable. Stored only when the user
-    // explicitly opts out; `undefined` means enabled.
+    // Only an opt-out is stored; a missing key means enabled.
     async setIntegrationEnabled(id: string, value: boolean) {
       const s = liveSettings();
       if (!s) return;
       const current = (s as any).integrationsEnabled ?? {};
-      // `value === true` is the default — drop the key instead of
-      // storing `true` so the persisted map stays small.
       const next = { ...current };
       if (value) delete next[id];
       else next[id] = false;
@@ -459,7 +414,6 @@ export function createProfileActions(deps: ProfilesDeps) {
     async resetButtonBindings() {
       const s = liveSettings();
       if (!s) return;
-      // Restore defaults for every key + clear disabled list.
       await persist({
         ...s,
         buttonBindings: { ...DEFAULT_BINDINGS } as any,

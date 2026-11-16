@@ -12,7 +12,6 @@ import shutil
 import string
 from typing import Any, Dict, List, Optional, Tuple
 
-# Valve DMI product_name -> friendly Steam Deck model.
 _DECK_MODELS = {
     "jupiter": "Steam Deck (LCD)",
     "galileo": "Steam Deck (OLED)",
@@ -44,8 +43,7 @@ def _model() -> Tuple[Optional[str], Optional[str]]:
 
 
 def _cpu() -> Optional[str]:
-    # /proc/cpuinfo "model name" is the human string on Linux; platform.processor()
-    # is usually empty there but populated on Windows/macOS.
+    # platform.processor() is usually empty on Linux, so /proc/cpuinfo comes first.
     try:
         with open("/proc/cpuinfo", encoding="utf-8", errors="ignore") as fh:
             for line in fh:
@@ -61,7 +59,7 @@ def _mem_linux() -> Optional[int]:
         with open("/proc/meminfo", encoding="utf-8", errors="ignore") as fh:
             for line in fh:
                 if line.startswith("MemTotal:"):
-                    return int(line.split()[1]) * 1024  # kB -> bytes
+                    return int(line.split()[1]) * 1024
     except (OSError, ValueError):
         pass
     return None
@@ -99,8 +97,6 @@ def _mem_total_bytes() -> Optional[int]:
 
 
 def _gpu() -> Optional[str]:
-    # Best-effort DRM card label; unknown GPUs show a dash (no PCI-id database, to
-    # stay dependency-free).
     for card in ("card0", "card1"):
         label = _read("/sys/class/drm/" + card + "/device/label")
         if label:
@@ -139,9 +135,7 @@ def _disk_entry(path: str, label: str, seen: set) -> Optional[Dict[str, Any]]:
 
 
 def _external_disks_linux(roots: Tuple[str, ...] = ("/run/media", "/media")) -> List[Dict[str, Any]]:
-    # SD cards / USB drives / external SSDs auto-mount here on SteamOS and
-    # most desktop Linux (udisks2); each is its own subdirectory per user.
-    # `roots` is overridable so tests can point at a fake mount layout.
+    # Removable drives auto-mount under these roots on SteamOS and most desktop Linux (udisks2).
     out: List[Dict[str, Any]] = []
     seen = {_home_dev()} - {None}
     for root in roots:

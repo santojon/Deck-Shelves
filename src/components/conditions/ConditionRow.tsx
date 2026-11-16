@@ -13,7 +13,6 @@ import ConditionFields from './ConditionFields'
 import { ConditionTypePicker } from './ConditionTypePicker'
 import { getTypeLabel, startingOptions, isConditionComplete } from './utils'
 
-// Where the grouping types keep the conditions inside them.
 const INNER_LIST: Partial<Record<string, 'items' | 'children'>> = {
   merge: 'items',
   weightedFilter: 'children',
@@ -22,7 +21,6 @@ const INNER_LIST: Partial<Record<string, 'items' | 'children'>> = {
 }
 const GROUPING_TYPES = Object.keys(INNER_LIST) as FilterItemType[]
 
-// The options worth showing beside the type while the condition is closed.
 const SHOWN_VALUE: Partial<Record<string, (p: Record<string, any>) => unknown>> = {
   nameIncludes: (p) => p.text,
   nameRegex: (p) => p.pattern,
@@ -37,10 +35,8 @@ const SHOWN_VALUE: Partial<Record<string, (p: Record<string, any>) => unknown>> 
   appIdList: (p) => p.appIds,
 }
 
-// Lined up with the field rows, which carry the dialog's row inset.
 const HINT_STYLE: CSSProperties = { padding: '2px var(--ds-pad-row, 16px) 6px', fontSize: 12, lineHeight: 1.4, color: 'var(--ds-text-dim, #8b9ab5)' }
 const ACTIONS_STYLE: CSSProperties = { display: 'flex', gap: 8, padding: '6px var(--ds-pad-row, 16px) 4px' }
-// The accent tells, on the button too, that the condition is negated.
 const NEGATED_STYLE: CSSProperties = { ...BTN_ICON_STYLE, color: 'var(--ds-accent, #4a9eff)' }
 
 function innerConditions(item: FilterItem): FilterItem[] {
@@ -49,8 +45,6 @@ function innerConditions(item: FilterItem): FilterItem[] {
   return Array.isArray(list) ? list : []
 }
 
-// The new type's own options, keeping the negation and, when both types
-// group, the conditions inside.
 function withType(item: FilterItem, type: FilterItemType): FilterItem {
   const params = startingOptions(type)
   const key = INNER_LIST[type]
@@ -67,7 +61,6 @@ function shownValue(item: FilterItem, collections: readonly PlatformCollection[]
   return Array.isArray(value) ? value.join(', ') : String(value ?? '')
 }
 
-/** What a closed condition reads: its type, whether it is negated and, for some types, its value. */
 export function describeCondition(item: FilterItem, collections: readonly PlatformCollection[] = []): string {
   const name = getTypeLabel(item.type)
   const title = item.inverted ? i18n.t('filter_condition_negated', { type: name }) : name
@@ -75,7 +68,6 @@ export function describeCondition(item: FilterItem, collections: readonly Platfo
   return value ? `${title} · ${value}` : title
 }
 
-// The state stays readable as text for assistive tools.
 function CompletenessMark({ complete }: { complete: boolean }) {
   const label = i18n.t(complete ? 'filter_condition_complete' : 'filter_condition_incomplete')
   return (

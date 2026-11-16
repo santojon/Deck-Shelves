@@ -7,10 +7,6 @@ import { getSteamClient, getSteamWindows } from "./steamAccess";
 import { mark, measure } from "../core/perf";
 import { getAllAppOverviews } from "./library";
 
-/* Per-app card metadata: name, art, playtime, update-pending state and descriptions, single and batched. */
-
-// Per-client display_status + byte counters covering Steam's "update in
-// progress" indicators. Returns true when ANY signal is present.
 function checkUpdatePendingFromPcd(raw: SteamAppOverviewRaw | null | undefined): boolean {
   try {
     const pcd = (raw as any).per_client_data;
@@ -25,8 +21,6 @@ function checkUpdatePendingFromPcd(raw: SteamAppOverviewRaw | null | undefined):
   } catch { return false; }
 }
 
-// Flag + byte fields the various Steam runtimes have used historically.
-// Flat list keeps `checkUpdatePendingFromFlags` at one for-loop.
 const UPDATE_FLAG_KEYS = [
   "m_bUpdateRunning", "update_running",
   "m_bUpdateAvailable", "update_available",
@@ -44,8 +38,6 @@ function checkUpdatePendingFromFlags(raw: SteamAppOverviewRaw | null | undefined
   return false;
 }
 
-// Method-style accessors exposed by some Steam runtimes (BIsUpdate*,
-// BNeedsUpdate, BHasUpdate).
 const UPDATE_FLAG_METHODS = ["BIsUpdateRunning", "BIsUpdateAvailable", "BNeedsUpdate", "BHasUpdate"];
 
 function checkUpdatePendingFromMethods(raw: SteamAppOverviewRaw | null | undefined): boolean {
@@ -58,9 +50,6 @@ function checkUpdatePendingFromMethods(raw: SteamAppOverviewRaw | null | undefin
   return false;
 }
 
-// Walks the prototype chain looking for any m_bUpdate*/m_bNeedsUpdate*/
-// update_pending* property — catches MobX-derived stores that hang
-// flags off the prototype rather than instance fields.
 function checkUpdatePendingFromProto(raw: SteamAppOverviewRaw | null | undefined): boolean {
   try {
     let proto = Object.getPrototypeOf(raw);
@@ -168,12 +157,7 @@ type EnrichmentExtras = {
 };
 
 function readAppDetailsEnrichment(appid: number): EnrichmentExtras {
-  // Reads from our in-memory description cache only — never touches
-  /* `appDetailsStore.GetDescriptions/GetAppDetails` here. Those getters
-     can trigger Steam to internally fetch data lazily, and calling them
-     for every appid in every shelf at mount time froze the boot.
-     Consumers that need fresh descriptions should call
-     `preloadAppDescriptions(appid)` on-demand (focus, tooltip, etc.). */
+  // Cache only: Steam's description getters fetch lazily and froze the boot when called per card.
   const cached = _getAppDescriptions(appid);
   if (!cached) return {};
   return {
@@ -196,11 +180,6 @@ function readOverviewExtras(overview?: AppOverview): { releaseTimestamp?: number
   };
 }
 
-/* Derived straight from the RAW overview (not the possibly-unnormalized
-   `overview` a caller passes) so this works from every `buildMetaFromOverview`
-   call site — `getAppMetaBatch`'s catalog walk never runs raw entries through
-   `normalizeAppOverview`. undefined (no per-client data) defers to the
-   top-level flag as before. */
 function deriveLocalInstalled(raw: SteamAppOverviewRaw | null | undefined): boolean | undefined {
   const pcd: SteamPerClientData[] = Array.isArray(raw?.per_client_data) ? raw.per_client_data : [];
   if (pcd.length === 0) return undefined;
@@ -219,9 +198,7 @@ function buildMetaFromOverview(appid: number, overview?: AppOverview, raw?: Stea
     name: String(overview?.display_name ?? `App ${appid}`),
     heroUrl,
     portraitUrl,
-    // Steam can report the top-level `installed` flag true from a Remote
-    // Play source on another client alone, with nothing local at all — a
-    // real per-client check (when we have one) overrides that.
+    // Steam can set `installed` from another client's Remote Play copy alone.
     installed: localInstalled !== undefined ? localInstalled : overview?.installed,
     isSteam,
     deckCompatCategory: overview?.deck_compatibility_category,
@@ -306,9 +283,7 @@ export async function getAppName(appid: number): Promise<string> {
   return meta.name;
 }
 
-// Shared per-catalog id→overview map. Cached across concurrent shelves
-// so a 19-shelf home doesn't pay 19× the catalogue-walk cost on first
-// paint. Invalidates on catalog identity change.
+// Shared across shelves so the catalog is walked once per catalog change.
 let _byIdCache: { catalog: AppOverview[]; map: Map<number, AppOverview> } | null = null;
 
 function getByIdMap(catalog: AppOverview[]): Map<number, AppOverview> {
@@ -340,8 +315,6 @@ export async function getAppMetaBatch(appids: number[]): Promise<Map<number, Pla
       missing.push(appid);
     }
   }
-  // Per-id fallback only for the residual — typically online-only items
-  // (wishlist / store / friends_playing) that aren't in the local catalogue.
   if (missing.length) {
     const fallbacks = await Promise.all(
       missing.map(async (id) => [id, await getAppMeta(id)] as const),

@@ -3,8 +3,6 @@ import { DialogButton } from "../../runtime/host/decky";
 import { confirmAction } from "../../components/qam/modals/ConfirmActionModal";
 import { isCloudSyncHeldForAccount, onCloudSyncResumed, resumeCloudSyncForAccount } from "../../runtime/steamAccount";
 
-/* Under the cloud sync status: after a Steam account switch the sync waits until
-   the user agrees to sync this device's settings with this account's cloud copy. */
 export function CloudSyncAccountHold({ t, indent }: { t: (key: string) => string; indent: number }) {
   const [held, setHeld] = useState(isCloudSyncHeldForAccount);
   useEffect(() => onCloudSyncResumed(() => setHeld(false)), []);

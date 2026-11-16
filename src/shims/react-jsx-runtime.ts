@@ -1,4 +1,3 @@
-// See src/shims/react.ts — same sole-host fallback.
 function getShelvesHost(): any {
   const g = globalThis as any;
   return g.window?.__SHELVES_HOST__ ?? g.__SHELVES_HOST__ ?? null;

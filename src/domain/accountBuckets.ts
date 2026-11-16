@@ -1,21 +1,13 @@
 import type { Settings } from "../types";
 import { defaultSettings } from "./defaults";
 
-/* Settings per Steam account. The top level always holds one account's settings (the
-   owner's), so an older version, a neutral host and a downgrade still read a plain
-   document. The other accounts' own fields wait in `accountSettings.buckets`, under the
-   salted key the account watch uses (the salt is never in the settings file, so the
-   file cannot lead back to an account). */
+// The salt never goes into the settings file, so it can't be traced back to an account.
 
-// What belongs to an account: what its shelves and lists are made of. Everything
-// else (look, behaviour, device fields) stays with the device.
 export const ACCOUNT_FIELDS = [
   "shelves", "smartShelves", "allShelvesOrder", "savedFilters", "savedSmartFilters",
   "profiles", "activeProfileName", "syncTombstones", "showcaseShelfIds",
 ] as const;
 
-// The settings that were on the device before they were kept per account, when
-// the first account seen chose to start fresh.
 export const LEGACY_BUCKET = "legacy";
 
 export interface AccountSettings {
@@ -41,14 +33,11 @@ export function otherAccountCount(s: Settings | null): number {
   return Object.keys(acc.buckets ?? {}).filter((k) => k !== acc.owner).length;
 }
 
-/* What to do when `key` is signed in. `previous` is the account this device last
-   saw before this start (from the account watch), if any. */
 export function decideAccount(s: Settings | null, key: string, previous: string | undefined): AccountDecision {
   if (!s || !isPerAccount(s)) return "none";
   const acc = accountSettingsOf(s);
   if (acc.owner === key) return "none";
-  // Settings from before they were kept per account: take them only when this
-  // device was last used by this same account, else ask (they may be another's).
+  // Older settings may belong to someone else; take them only if this account used the device last.
   if (!acc.owner) return previous === key ? "assign" : "ask-legacy";
   return acc.buckets?.[key] ? "restore" : "ask-new";
 }
@@ -74,8 +63,6 @@ export function assignOwner(s: Settings, key: string): Settings {
   return withAccount(s, { ...accountSettingsOf(s), owner: key });
 }
 
-/* `key` signs in and its own settings are waiting: the owner's settings go to its
-   bucket, and `key`'s come out of theirs. */
 export function restoreAccount(s: Settings, key: string): Settings {
   const acc = accountSettingsOf(s);
   const buckets = { ...(acc.buckets ?? {}) };
@@ -85,9 +72,6 @@ export function restoreAccount(s: Settings, key: string): Settings {
   return withAccount(fill(s, mine), { ...acc, owner: key, buckets });
 }
 
-/* The user's answer for an account with nothing of its own yet: keep what is shown
-   (a copy for this account; the previous owner keeps its own) or start fresh (what
-   is shown is put away for its owner, or as the device's earlier settings). */
 export function chooseForAccount(s: Settings, key: string, choice: AccountChoice): Settings {
   const acc = accountSettingsOf(s);
   const buckets = { ...(acc.buckets ?? {}) };
@@ -97,7 +81,6 @@ export function chooseForAccount(s: Settings, key: string, choice: AccountChoice
   return withAccount(next, { ...acc, owner: key, buckets });
 }
 
-// Sharing one set of settings between accounts (the behaviour before 3.4.1), or not.
 export function setPerAccount(s: Settings, perAccount: boolean, currentKey: string | null): Settings {
   const acc = { ...accountSettingsOf(s) };
   if (perAccount) {

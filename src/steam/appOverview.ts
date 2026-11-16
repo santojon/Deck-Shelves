@@ -1,8 +1,6 @@
 import { EAppDisplayStatus, UPDATE_PENDING_STATUSES } from "./appDisplayStatus";
 import { steamCollectionStore, type SteamAppOverviewRaw, type SteamCollectionLike, type SteamCollectionStore, type SteamPerClientData } from "./internals";
 
-/* The plugin's view of a library entry: the `AppOverview` shape, its normalization from Steam's raw overview, and the small field readers every resolver shares. */
-
 export function uniqApps(list: AppOverview[]): AppOverview[] {
   const map = new Map<number, AppOverview>();
   for (const item of list) {
@@ -33,7 +31,6 @@ export function isNonSteamOf(a: SteamAppOverviewRaw): boolean {
   return !!(a?.is_non_steam) || a?.is_steam === false || a?.m_eAppType === 1073741824 || a?.app_type === 1073741824 || a?.app_type === "shortcut";
 }
 
-// Collection entries can be overview objects or bare ids (number or string).
 export function pushAppIdsFromCollection(c: SteamCollectionLike, out: Set<number>): void {
   const apps = c?.allApps ?? c?.m_rgApps ?? [];
   for (const a of apps) {
@@ -53,8 +50,7 @@ export function isFavoriteOf(a: SteamAppOverviewRaw): boolean {
 }
 
 export function isHiddenOf(a: SteamAppOverviewRaw): boolean {
-  // SteamOS 3.x marks hidden via `visible_in_game_list === false`; older
-  // bool fields aren't populated there.
+  // SteamOS only sets `visible_in_game_list`.
   if (a?.visible_in_game_list === false) return true;
   return hiddenByOldFlags(a) || hiddenInCollectionStore(a?.appid);
 }
@@ -63,7 +59,7 @@ function hiddenByOldFlags(a: SteamAppOverviewRaw): boolean {
   return !!(a?.is_hidden ?? a?.hidden ?? a?.m_bHidden ?? a?.bHidden);
 }
 
-// The overview flag lags a game hidden during the session; the collection store answers at once.
+// The overview flag lags a game hidden this session; the collection store is current.
 function hiddenInCollectionStore(appid: unknown): boolean {
   const id = Number(appid);
   if (!(id > 0)) return false;
@@ -81,7 +77,7 @@ function rawInstallSignals(a: any): boolean {
   return Number.isFinite(lp) && lp > 0;
 }
 
-// Steam's own flag on the local client entry; tools like Unifideck write the real state there.
+// Tools like Unifideck write the real state to Steam's local client flag.
 function localClientInstalled(a: any): boolean | undefined {
   const pcd = a?.per_client_data;
   const local = Array.isArray(pcd) ? pcd.find((c: any) => String(c?.clientid) === "0") : undefined;
@@ -91,7 +87,6 @@ function localClientInstalled(a: any): boolean | undefined {
 function isNonSteamInstalled(a: any): boolean {
   const local = localClientInstalled(a);
   if (local !== undefined) return local;
-  // No explicit flag: the raw overview's signals, or what normalization derived from them.
   if (hasRawInstallSignals(a)) return rawInstallSignals(a);
   return a?.installed === true;
 }
@@ -135,19 +130,12 @@ export type AppOverview = {
   app_type?: number;
   cloud_available?: boolean;
   controller_support?: number;
-  // Copied from the client's overview for the sorts and the date and score filters.
   rt_original_release_date?: number;
   size_on_disk?: number | string;
   metacritic_score?: number;
   review_percentage?: number;
-  // Whether the app runs on the CURRENT platform (from the local client's
-  // per_client_data). undefined when there's no client data (e.g. non-Steam).
   available_on_current_platform?: boolean;
-  // Whether THIS client (clientid "0") has the app installed. Absent for
-  // non-Steam (no per_client_data) — `installed` is authoritative there.
   installed_local?: boolean;
-  // Whether the app is installed on any REMOTE client (Remote Play source).
-  // undefined for non-Steam (no per_client_data); false when no remote install.
   installed_remote?: boolean;
 };
 
@@ -198,8 +186,7 @@ function pcdUpdatePending(clientData: SteamPerClientData | null | undefined): bo
   return pcdHasDownloadBytes(clientData);
 }
 
-/* An installed app in this device's download queue has an update coming, even when its status
-   hides it (Steam can report an installed game on the Deck as "invalid platform" while it updates). */
+// Steam can report an updating game as "invalid platform", so check the download queue.
 function inLocalDownloadQueue(appid: number, installed: boolean | undefined): boolean {
   try {
     if (installed !== true) return false;
@@ -226,18 +213,13 @@ function deriveDisplayStatus(node: SteamAppOverviewRaw): number | undefined {
 }
 
 function deriveControllerSupport(node: SteamAppOverviewRaw): number | undefined {
-  // `xbox_controller_support` is what current clients expose on desktop (macOS /
-  // Windows / desktop Linux); the older fields cover other builds. 0/1/2 = none /
-  // partial / full — the same scale the controller-support filter uses.
+  // Current desktop clients expose `xbox_controller_support`; the other fields cover older builds.
   const raw = node?.nControllerSupport ?? node?.controller_support
     ?? node?.n_controller_support ?? node?.xbox_controller_support;
   const n = Number(raw);
   return Number.isFinite(n) ? n : undefined;
 }
 
-// Pick the first defined / non-zero value from a list of alias fields.
-// Replaces the inline `?? ?? ?? ?? 0 || undefined` chains the field
-// accessors below used to carry, keeping each accessor at complexity 1-2.
 function firstNumber(...values: unknown[]): number {
   for (const v of values) {
     const n = Number(v);
@@ -251,8 +233,6 @@ function firstString(...values: unknown[]): string {
   return "";
 }
 
-// Builders alias `node` to `n = node ?? {}` so field reads don't count
-// as branches each — keeps each builder under the complexity cap.
 function buildIdentityFields(node: SteamAppOverviewRaw, appid: number) {
   const n = node ?? {};
   const name = appNameOf(node);
@@ -303,11 +283,7 @@ function buildTimestampFields(node: SteamAppOverviewRaw) {
   };
 }
 
-/* Confirmed live: current clients expose `steam_deck_compat_category` /
-   `steam_os_compat_category` directly, already unpacked (plus two more for
-   Steam Machine/Frame). `steam_hw_compat_category_packed` packs four 2-bit
-   fields — bits 0-1 deck, 2-3 unused, 4-5 os, 6-7 machine, 8-9 frame — the
-   fallback below only matters for clients too old for the named getters. */
+// Packed fallback for old clients: 2-bit fields, deck 0-1, os 4-5, machine 6-7, frame 8-9.
 export function deckCompatCategory(n: SteamAppOverviewRaw): number {
   return Number(n.steam_deck_compat_category ?? n.deck_compatibility_category ?? n.m_eDeckCompatibilityCategory
     ?? ((Number(n.steam_hw_compat_category_packed ?? 0) & 0x3) || 0));
@@ -318,8 +294,6 @@ function steamosCompatCategory(n: SteamAppOverviewRaw): number {
     ((((Number(n.steam_hw_compat_category_packed ?? 0) >> 4) & 0x3)) || 0));
 }
 
-// Steam Machine / Steam Frame categories: named getters first, else the
-// confirmed packed layout (machine = bits 6–7, frame = bits 8–9).
 export function machineCompatCategory(n: SteamAppOverviewRaw): number {
   return Number(n.steam_machine_compat_category ?? n.machine_compatibility_category ??
     ((((Number(n.steam_hw_compat_category_packed ?? 0) >> 6) & 0x3)) || 0));
@@ -330,7 +304,7 @@ export function frameCompatCategory(n: SteamAppOverviewRaw): number {
     ((((Number(n.steam_hw_compat_category_packed ?? 0) >> 8) & 0x3)) || 0));
 }
 
-// What the size, date and score sorts and filters read; the client keeps the size as a string.
+// The client keeps the size as a string.
 function buildMetaFields(node: SteamAppOverviewRaw) {
   const n = node ?? {};
   const size = Number(n.size_on_disk ?? n.m_nSizeOnDisk ?? 0);
@@ -354,18 +328,12 @@ function buildTypeFields(node: SteamAppOverviewRaw) {
   };
 }
 
-// Whether a per-client-data entry itself reports the app as installed —
-// distinct from the overview's top-level `installed` flag, which Steam can
-// set true purely from a Remote Play source on ANOTHER client.
+// Unlike the top-level flag, which Remote Play on another client can set.
 export function pcdEntryInstalled(entry: SteamPerClientData): boolean {
   return !!(entry?.installed ?? (Number(entry?.display_status) === EAppDisplayStatus.ReadyToLaunch));
 }
 
-/* Per-client signals for the system-compatibility + Remote Play filters: the
-   local client (clientid "0") reports platform availability; any remote client
-   with an "Installed" status makes the app a Remote Play source. Absent client
-   data (non-Steam) → both undefined so those filters pass/skip rather than
-   mis-classify such apps. */
+// No client data (non-Steam) leaves both undefined so those filters skip the app.
 function buildClientFields(node: SteamAppOverviewRaw) {
   const n = node ?? {};
   const pcd: SteamPerClientData[] = Array.isArray(n.per_client_data) ? n.per_client_data : [];

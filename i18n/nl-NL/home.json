@@ -24,7 +24,7 @@
   "update_installing": "Update {{version}} wordt geïnstalleerd…",
   "update_installed": "Bijgewerkt naar {{version}}.",
   "update_install_failed": "Installatie mislukt — terugvallen op downloaden.",
-  "update_install_busy": "De host controleert nog op updates — probeer het zo opnieuw.",
+  "update_install_busy": "Er wordt nog op updates gecontroleerd — probeer het zo opnieuw.",
   "update_downloading": "Update {{version}} wordt gedownload…",
   "update_downloaded": "Opgeslagen in {{path}} — installeer het handmatig.",
   "update_download_failed": "Downloaden mislukt — de release-pagina wordt geopend.",

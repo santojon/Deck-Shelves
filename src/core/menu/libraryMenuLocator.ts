@@ -1,12 +1,8 @@
-/* Locates Steam's library context-menu class and recognises the top-level
-   entry list of a game's context menu. */
 import { MenuGroup, MenuItem, fakeRenderComponent, findModule } from "../../runtime/host/decky";
 
 type GameMenuCheckContext = { props?: unknown; appid?: number; menuClass?: unknown };
 
-/* The class is not exported. Steam exports a small function component that
-   renders it, adding two props of its own; that component is found by its
-   shape and by those two prop names in its short source. */
+// The class isn't exported; it's found through the small wrapper component Steam exports, by its shape and prop names.
 const RENDERER_MAX_SOURCE = 300;
 const RENDERER_FRAGMENTS = ["navigator:", "instance:"] as const;
 
@@ -27,7 +23,6 @@ function isMenuRenderer(value: unknown): boolean {
   return source.length <= RENDERER_MAX_SOURCE && RENDERER_FRAGMENTS.every((part) => source.includes(part));
 }
 
-// A module variant is its default export or its export object.
 function scanVariant(variant: unknown, scan: RegistryScan): void {
   if (typeof variant === "function") {
     if (isMenuRenderer(variant)) scan.renderers.add(variant);
@@ -55,7 +50,6 @@ function scanRegistry(): RegistryScan {
   return scan;
 }
 
-// Reads only the element's type.
 function menuClassOf(element: unknown): any {
   if (!element || typeof element !== "object") return null;
   const type: unknown = (element as { type?: unknown }).type;
@@ -99,7 +93,6 @@ function addApp(scan: AppScan, appid: number | null): void {
   if (appid !== null) scan.apps.add(appid);
 }
 
-// The apps a props object names: an overview or a list of apps.
 function addAppsOf(props: unknown, scan: AppScan): void {
   if (!props || typeof props !== "object") return;
   const p = props as AppProps;

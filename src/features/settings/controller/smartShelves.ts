@@ -10,9 +10,6 @@ export interface SmartShelfDeps {
   t: (key: string) => string;
 }
 
-/* Merge an imported settings/export JSON (raw or `{state}`-wrapped) onto the
-   current settings, copying only the smart-shelf fields that are present and
-   well-typed; null on parse error. */
 function applyImportedSmartShelves(s: Settings, raw: string): Settings | null {
   let parsed: any;
   try { parsed = JSON.parse(raw); } catch { return null; }

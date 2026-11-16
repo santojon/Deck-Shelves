@@ -1,9 +1,4 @@
 // @vitest-environment jsdom
-/* React's own renderer models Steam's panel, so React supplies the rules the component relies on:
-   a mounted memo keeps the inner function it mounted with, a changed element type mounts anew,
-   a memoized list keeps its identity while its inputs are equal, and a render that throws
-   unmounts its tree with its layout cleanups before the commit ends (E4, E12). The strip stays
-   mounted while the panel is closed (E2); changeable elements are plain objects (E12). */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import * as React from "react";
 import { act, createElement, Fragment, memo, useEffect, useLayoutEffect, useMemo, useState } from "react";
@@ -22,7 +17,6 @@ vi.mock("../../runtime/logger", () => {
   return { logInfo: at("info"), logWarn: at("warn"), logError: at("error") };
 });
 
-// Many head elements come before the body: the panel must still be found from the body down.
 for (let i = 0; i < 400; i++) document.head.appendChild(document.createElement("meta"));
 
 type Mod = typeof import("../../runtime/ownQamTab");
@@ -33,15 +27,12 @@ type Draw = { list: AnyEntry[]; keys: number[]; entries: AnyEntry[] };
 const ELEMENT = Symbol.for("react.transitional.element");
 const STEAM_FIELDS = new Set(["key", "tab", "title", "strTitle", "panel", "vrPopupSize", "vrLocation", "className", "eFeature", "allowInKioskMode"]);
 const TABLE_NAMES = ["Notifications", "RemotePlayTogetherControls", "VoiceChat", "Friends", "Settings", "Perf", "Help", "Soundtrack", "VRBatteries"];
-// The component's limit on the records it reads while locating the panel.
 const WALK_CAP = 40000;
 
-// A plain element object that the component may change (Steam's production elements are not frozen).
 function el(type: unknown, props: Record<string, unknown>, key: string | null = null): any {
   return { $$typeof: ELEMENT, type, key, ref: null, props, _owner: null, _store: { validated: 1 } };
 }
 
-// The tab lists in a render result, as another party would find them.
 function findLists(out: unknown): AnyEntry[][] {
   const [found, seen] = [new Set<AnyEntry[]>(), new Set<unknown>()];
   const isList = (v: any) => Array.isArray(v) && v.length > 0 && typeof v[0]?.key === "number" && "panel" in v[0];
@@ -54,7 +45,6 @@ function findLists(out: unknown): AnyEntry[][] {
   return [...found];
 }
 
-// A fixture error boundary: a draw that throws leaves an empty strip while Steam keeps running.
 class Boundary extends React.Component<{ children?: React.ReactNode }, { failed: boolean }> {
   state = { failed: false };
   static getDerivedStateFromError() { return { failed: true }; }
@@ -79,7 +69,6 @@ function makeSteam(win: any) {
     const vrLocation = key === 2 ? "dashboard-bar" : "quick-access-menu";
     return { key, tab: createElement("i", { "data-steam-icon": key }), title, strTitle: text(key), panel: createElement(Content, { k: key }), vrPopupSize: { width: 400, height: 600 }, vrLocation, ...extra };
   }
-  // Steam's order, each optional tab only while its flag is on (E4, E5).
   function buildList(flags: Flags): AnyEntry[] {
     const wanted: Array<[unknown, number, boolean?, Record<string, unknown>?]> = [
       [flags.voice, 2, true], [flags.rpt, 1, true], [flags.notifications !== false, 0], [flags.friends !== false, 3, true], [true, 4],
@@ -107,7 +96,6 @@ function makeSteam(win: any) {
       "aria-selected": e.key === selected, disabled: blocked(e), onFocus: () => fx.select(e.key),
     }, e.tab)));
   }
-  // Keeps a tab's panel mounted once it was shown (the keep-alive time, E8).
   const Item = memo(function Item({ entry: e, shown, visible }: { entry: AnyEntry; shown: boolean; visible: boolean }) {
     const [kept, setKept] = useState(false);
     if (shown && visible && !kept) setKept(true);
@@ -138,7 +126,6 @@ function makeSteam(win: any) {
   }
   function noop() {}
   const rootProps = () => ({ active: fx.open, visible: fx.open, expanded: false, showHeaderAndFooter: true, onFocusNavActivated: noop, onFocusNavDeactivated: noop });
-  // The view that renders the root through a portal into the panel's own document, and an inline one (E2, E3).
   const PanelView = memo(function PanelView(props: any) {
     return el("div", { className: "panel-view", children: [el("span", { children: "view" }, "s"), createPortal(el(fx.rootType ?? Root, props), fx.panelDoc.body, "p")] });
   });
@@ -172,7 +159,6 @@ function makeSteam(win: any) {
   fx.selectTab = (key: number) => act(() => { fx.select(key); });
   fx.setFlags = (flags: Flags) => act(() => { fx.flags = { ...fx.flags, ...flags }; for (const f of fx.forceRoot) f(); });
   fx.lastDraw = (): Draw => fx.draws[fx.draws.length - 1];
-  // Another party that puts its entry into every list the root builds (the loader model of E6, E10).
   fx.addParty = (party: any, afterPerf = false) => {
     const base = fx.rootType ?? Root;
     fx.rootType = function OtherParty(props: any) {
@@ -182,7 +168,6 @@ function makeSteam(win: any) {
     };
   };
   fx.installLoader = () => fx.addParty(fx.loaderEntry = { key: 999, tab: createElement("b", null, "L"), panel: createElement("div", null, "loader"), loaderField: 1 });
-  // The neutral host's model: its entry after performance, its stamp written when it inserts it.
   fx.installHost = (mode: "root" | "strip") => {
     const host: any = { stopped: false, entry: { key: 900, tab: createElement("i", null, "H"), title: createElement(Fragment), strTitle: "Deck Shelves", panel: createElement("div", null, "host panel"), vrLocation: "quick-access-menu", __shelvesTab: true, hostField: 1 } };
     host.snapshot = { ...host.entry };
@@ -224,9 +209,6 @@ function memoryStorage() {
   };
 }
 
-
-// ---- sessions ----
-
 let fx: any;
 let win: any;
 let store: ReturnType<typeof memoryStorage>;
@@ -237,7 +219,6 @@ async function freshModule(): Promise<Mod> {
   vi.resetModules(); return await import("../../runtime/ownQamTab");
 }
 
-// The work queued after a draw has run long before Steam stops; a simulated restart lets it run.
 async function flush(): Promise<void> {
   for (let i = 0; i < 3; i++) await Promise.resolve();
 }
@@ -255,14 +236,12 @@ async function newSession(opts: { mount?: boolean } = {}): Promise<void> {
 
 const icon = createElement("svg", { "data-icon": "deck-shelves" });
 
-// The host role's values (the neutral host's key and marker); rows run again in it through asHost.
 const HOST_KEY = 900;
 const HOST_GUARD = "test-host:qam-tab-guard";
 let role: "plugin" | "host" = "plugin";
 let firstDrawReports = 0;
 const hostRole = () => ({ yieldToHostTab: false, markerFields: { __shelvesTab: true }, key: HOST_KEY, onFirstDraw: () => { firstDrawReports += 1; }, guardKey: HOST_GUARD });
 const asHost = (row: () => Promise<void>) => async () => { role = "host"; try { await row(); } finally { role = "plugin"; } };
-// A row that runs in both roles: once as the plugin, then again as the host.
 const inBothRoles = (name: string, row: () => Promise<void>, timeout?: number) => { it(name, row, timeout); it(`${name}, in the host role`, asHost(row), timeout); };
 
 function install(s: Settings, panel = pluginPanel(), extra: Record<string, unknown> = {}, m: Mod = mod) {
@@ -298,7 +277,6 @@ function changedValues() {
   return { viewType: fx.panelView.type, inlineType: fx.inlineView.type, viewFiberType: view.type, viewAltType: view.alternate?.type, rootType: root.type, rootElementType: root.elementType, rootAltType: root.alternate?.type };
 }
 
-// React's records are reached only through the record keys on the nodes; reads of those are counted.
 function countRecordReads(reads: { records: number }): void {
   for (const node of new Set([fx.container, ...document.body.querySelectorAll("*"), ...fx.panelDoc.body.querySelectorAll("*")])) {
     for (const name of Object.keys(node).filter((k) => k.startsWith("__reactFiber$") || k.startsWith("__reactContainer$"))) {
@@ -308,7 +286,6 @@ function countRecordReads(reads: { records: number }): void {
   }
 }
 
-// Records which fibers have their props read while `on` is set.
 function watchFiberReads(): { on: boolean; fibers: Set<object> } {
   const seen = { on: true, fibers: new Set<object>() };
   for (const f of allFibers()) {
@@ -433,7 +410,6 @@ describe("ownQamTab — the entry and its place", () => {
     begin(); cycle(1); fx.openPanel();
     noOwnEntryDrawn();
     expect([fx.lastDraw().entries.includes(other), count("warn")]).toEqual([true, 1]);
-    // A given key that is the loader's, or in the plugin role the neutral host's, is refused.
     for (const given of role === "host" ? [999] : [999, 900]) {
       await newSession(); logs.length = 0; begin(on(), { key: given }); cycle(2);
       noOwnEntryDrawn(); expect(count("warn")).toBe(1);
@@ -491,7 +467,6 @@ describe("ownQamTab — activation, the neutral host and copies", () => {
     fx.openPanel(); const first = mine()[0];
     fx.closePanel(); s.set(false); fx.openPanel(); expect(mine()).toHaveLength(0);
     fx.closePanel(); s.set(true); fx.openPanel(); expect(mine()[0]).toBe(first);
-    // Notifications that change nothing, with the tab shown: the drawn list keeps its items until a render.
     fx.selectTab(first.key); const [reads, items, drawn] = [steamReads(), fx.lastList.slice(), fx.lastList];
     for (let i = 0; i < 5; i++) s.notify();
     expect([steamReads(), drawn.length, drawn.every((e: AnyEntry, i: number) => e === items[i]), items.includes(first)]).toEqual([reads, items.length, true, true]);
@@ -555,7 +530,6 @@ describe("ownQamTab — activation, the neutral host and copies", () => {
   inBothRoles("two copies: every list holds the last-installed copy's entry; both uninstalled leave Steam as it was", async () => {
     const first = await shown();
     fx.closePanel();
-    // The global object holds one session marker, kept as it is, with only the session's id.
     const markers = () => Reflect.ownKeys(win).filter((k) => k !== "document" && k !== "SteamUIStore").map((k) => win[k]), marker = markers();
     const s2 = on();
     const second = install(s2, pluginPanel(), {}, await freshModule());
@@ -567,7 +541,6 @@ describe("ownQamTab — activation, the neutral host and copies", () => {
     s2.set(false); fx.openPanel();
     expect(mine()).toHaveLength(0);
 
-    // Hot-swap order: the first copy is uninstalled after the second one started, then the second.
     await newSession(); cycle(1);
     const [before, mounts] = [changedValues(), fx.rootMounts];
     const a = begin();
@@ -579,8 +552,6 @@ describe("ownQamTab — activation, the neutral host and copies", () => {
     expect(changedValues()).toEqual(before);
     expect([fx.rootMounts, mine().length]).toEqual([mounts, 0]);
 
-    // An older copy whose start-up finds the panel after a newer copy started leaves the tab to it,
-    // with and without a render in between.
     for (const drawnFirst of [true, false]) {
       await newSession();
       fx.withPanelView = false; fx.renderApp(); install(on()); vi.advanceTimersByTime(1000);
@@ -591,8 +562,6 @@ describe("ownQamTab — activation, the neutral host and copies", () => {
       s.set(false); cycle(1); expect(mine()).toHaveLength(0);
     }
 
-    // The older copy's entry was not drawn when the newer one started: off, yielding, not drawn yet,
-    // and a copy never uninstalled. Both gone, Steam is as it was and the root did not mount again.
     for (const older of ["off", "yielding", "undrawn", "kept"]) {
       await newSession(); cycle(1);
       const [before, mounts, s1] = [changedValues(), fx.rootMounts, on()];
@@ -625,7 +594,6 @@ describe("ownQamTab — uninstall and errors", () => {
     expect(mine()).toHaveLength(0);
     expect(changedValues()).toEqual(before);
 
-    // The root mounted again under the loader's change while installed: after uninstall it keeps its instance.
     await newSession(); const again = begin(); fx.installLoader(); cycle(1);
     const mounts = fx.rootMounts; again.uninstall(); cycle(2); fx.renderRoot();
     expect([fx.rootMounts, rootFiber().type, rootFiber().elementType, mine().length]).toEqual([mounts, fx.rootType, fx.rootType, 0]);
@@ -668,7 +636,6 @@ describe("ownQamTab — uninstall and errors", () => {
     noOwnEntryDrawn();
     expect([factoryCalls, count("error")]).toEqual([1, 1]);
 
-    // The reader throws on its first call only: that call counts as not known, and the next one as on.
     let readerCalls = 0;
     const reader = { isEnabled: () => { readerCalls += 1; if (readerCalls === 1) throw new Error("reader"); return true; } };
     for (const bad of [reader, { subscribe: () => { throw new Error("subscribe"); } }]) {
@@ -684,14 +651,11 @@ describe("ownQamTab — uninstall and errors", () => {
       expect(() => un()).not.toThrow();
     }
 
-    // A marker field that throws while the entry is built: the factory is not called again.
     await newSession(); logs.length = 0;
     const marked = begin(on(), { markerFields: Object.defineProperty({}, "boom", { enumerable: true, get: () => { throw new Error("marker"); } }) });
     cycle(3); noOwnEntryDrawn();
     expect([marked.panel.stats.calls, count("error")]).toEqual([1, 1]);
 
-    // The component's own work throws: in the plugin role on reading the stamp, first a value with no
-    // text and then errors whose text changes (at most three lines); in the host role on reading Steam's entries.
     await newSession({ mount: role !== "host" });
     if (role === "host") { fx.symbolReadThrows = true; fx.mount(); }
     logs.length = 0;
@@ -709,7 +673,6 @@ describe("ownQamTab — uninstall and errors", () => {
     expect(caught instanceof AggregateError ? caught.errors[0] : caught).toBe(steamError);
     fx.rootThrows = null;
 
-    // A sealed list: adding the entry throws, and the list stays as Steam built it.
     await newSession({ mount: false }); fx.sealLists = true; fx.mount(); logs.length = 0;
     const sealed = fx.lastList.slice(), drawsBefore = fx.draws.length; begin(); expect(() => cycle(3)).not.toThrow();
     for (const d of fx.draws as Draw[]) { expect(d.list).toBe(fx.lastList); expect(d.entries).toHaveLength(sealed.length); d.entries.forEach((e, i) => expect(e).toBe(sealed[i])); }
@@ -746,7 +709,6 @@ describe("ownQamTab — start-up", () => {
   });
 
   inBothRoles("install returns at once; the first Steam read within 5 s", async () => {
-    // The busy UI runs the work only when a timeout given to it elapses.
     const busy = (cb: () => void, o?: { timeout?: number }) => (typeof o?.timeout === "number" ? setTimeout(cb, o.timeout) : 0);
     const idles: Array<null | ((cb: () => void, o?: { timeout?: number }) => unknown)> = [(cb) => setTimeout(cb, 0), busy, null];
     for (const idle of idles) {
@@ -807,7 +769,6 @@ describe("ownQamTab — crash guard", () => {
     return steamReads() === 0;
   }
 
-  // One record, under the host's guard key in the host role and under another key in the plugin role.
   function expectRoleGuardKey(keys: string[]): void {
     expect([new Set(keys).size, keys[0] === HOST_GUARD]).toEqual([1, role === "host"]);
   }
@@ -835,8 +796,6 @@ describe("ownQamTab — crash guard", () => {
     recordSizes();
     expect(await startIsPaused()).toBe(true);
 
-    // A completed first draw, then at every start a draw that crashes on a later list (voice chat
-    // starts), or on the same list once the tab is selected.
     for (const later of [true, false]) {
       store.clear();
       for (let i = 0; i < 2; i++) {
@@ -849,7 +808,6 @@ describe("ownQamTab — crash guard", () => {
   });
 
   inBothRoles("no failure without a broken draw", async () => {
-    // A reload during a draw; a kept old copy's work is taken over before its draw's confirmation runs.
     const reload = async (stopOld = true) => {
       const first = begin();
       const next = await freshModule();
@@ -867,7 +825,6 @@ describe("ownQamTab — crash guard", () => {
       () => { begin(); },
       ...(role === "host" ? [] : [() => { begin(settingsSource(false)); fx.openPanel(); }, () => { fx.installHost("root"); begin(); cycle(1); fx.openPanel(); }]),
       () => { begin().uninstall(); fx.openPanel(); },
-      // Stopped with no new copy, during a draw or before the draw's confirmation.
       () => { const r = begin(); fx.beforeStrip.push((l: AnyEntry[]) => { if (ownEntries(l).length) r.uninstall(); }); fx.openPanel(); },
       () => { const r = begin(); fx.openPanel(); r.uninstall(); },
       reload, () => reload(false),
@@ -892,7 +849,6 @@ describe("ownQamTab — crash guard", () => {
     expect(await startIsPaused()).toBe(false);
     expect(mine()).toHaveLength(1);
     recordSizes();
-    // A clock set back before the pause began ends it as well.
     store.clear();
     for (let i = 0; i < 2; i++) await crashingStart();
     expect(await startIsPaused()).toBe(true);
@@ -1006,11 +962,7 @@ describe("ownQamTab — structure, cost and reports", () => {
     check(0, 1);
   });
 
-  /* React keeps the root's two fibers and the lists memoized on them. Its development build also
-     keeps a call stack per element for the first ten thousand it creates each second, and sets
-     Error.stackTraceLimit itself to take it, so the frames hold the lists they ran over: an accessor
-     in that property's place keeps the engine from taking any frames while this runs.
-     Nothing else that Steam replaced may stay. */
+  /* React's dev build keeps element stacks that would hold the lists alive; the stackTraceLimit accessor prevents that. */
   async function survivors(): Promise<{ alive: object[]; tracked: number }> {
     await newSession();
     install(on()); runDeferred(); fx.openPanel();
@@ -1068,8 +1020,6 @@ describe("ownQamTab — structure, cost and reports", () => {
     }
   });
 
-  // The setting off, the owner stamp set, or the host's entry put into the same memoized list in the
-  // root's render before the component's work. No opening draws a strip with no tab selected.
   it("Steam's remembered tab on the plugin's key falls back to Steam's first tab", async () => {
     const hostEntry = { key: HOST_KEY, tab: createElement("i"), panel: createElement("div"), vrLocation: "quick-access-menu", __shelvesTab: true };
     const selected = () => fx.panelDoc.querySelectorAll('[role="tab"][aria-selected="true"]').length;
@@ -1086,7 +1036,6 @@ describe("ownQamTab — structure, cost and reports", () => {
 
   inBothRoles("Steam's key table is not changed; the loader library's table is never read or written", async () => {
     await newSession();
-    // A separate library table with names of its own (E9); the component never touches it.
     const [touched, names] = [[] as string[], ["Alder", "Birch", "Cedar", "Elm", "Fir", "Hazel", "Larch", "Maple"]];
     const libTable = Object.fromEntries([...names.flatMap((n, i) => [[n, i], [i, n]]), [900, "HostTab"], ["HostTab", 900], [999, "LoaderTab"], ["LoaderTab", 999]]);
     const traps = ["get", "set", "has", "ownKeys", "defineProperty", "deleteProperty", "getOwnPropertyDescriptor"];

@@ -1,12 +1,6 @@
 import { call } from './host/decky';
 import { logInfo } from './logger';
 
-/* Bluetooth + audio-output context for Visibility Rules, on-demand with NO
-   background timer (mirrors perfState). `evalPeripheralRule` reads the last
-   cached snapshot and, when stale (>30 s) with no fetch in flight, kicks one
-   background refresh that updates the cache and notifies (a re-render
-   re-evaluates). No consumer → never called → the backend is never hit. */
-
 export type BtDevice = { mac: string; name: string };
 type BtState = { paired: BtDevice[]; connected: string[]; supported: boolean };
 type AudioState = { headphones: boolean; supported: boolean };
@@ -38,33 +32,28 @@ async function refresh(): Promise<void> {
     if (bt) _bt = bt;
     if (audio) _audio = audio;
     if (!bt && !audio) {
-      // Both RPCs failed — surface once (deduped) so a broken peripheral signal
-      // shows in verbose diagnostics / bug reports without spamming on-demand.
       if (!_loggedFail) { _loggedFail = true; logInfo('RUNTIME', 'peripherals backend unreachable (bluetooth/audio RPC)'); }
     } else {
       _loggedFail = false;
     }
     _at = Date.now();
     notify();
-  } catch { /* keep previous snapshot on RPC failure */ } finally {
+  } catch {} finally {
     _inflight = false;
   }
 }
 
-// On-demand: refresh only when stale and nothing is already fetching.
 function ensureFresh(): void {
   if (_inflight) return;
   if (_bt && _audio && Date.now() - _at < TTL) return;
   void refresh();
 }
 
-/** Paired devices for the rule editor's per-device picker. */
 export function getBluetoothPaired(): BtDevice[] {
   ensureFresh();
   return _bt?.paired ?? [];
 }
 
-/** Currently-connected device MACs (subset of paired) — e.g. for history tracking. */
 export function getBluetoothConnected(): string[] {
   ensureFresh();
   return _bt?.connected ?? [];
@@ -77,20 +66,18 @@ export function requestPeripheralsRefresh(): void {
 function evalBluetooth(rule: any): boolean {
   ensureFresh();
   const mac = String(rule?.mac ?? '').toUpperCase();
-  if (!mac) return true;                       // unconfigured → fail open
-  if (!_bt || !_bt.supported) return true;     // unknown platform → fail open
+  if (!mac) return true;
+  if (!_bt || !_bt.supported) return true;
   return _bt.connected.some((m) => String(m).toUpperCase() === mac);
 }
 
 function evalHeadphones(): boolean {
   ensureFresh();
-  if (!_audio || !_audio.supported) return true; // unknown → fail open
+  if (!_audio || !_audio.supported) return true;
   return _audio.headphones;
 }
 
-/* Evaluate one peripheral VisibilityRule. Unknown state fails open (true) so a
-   signal a platform can't answer never wrongly hides a shelf. Kinds:
-   bluetoothConnected (mac param), headphonesConnected. */
+/** Unknown state fails open so an unanswerable signal never hides a shelf. */
 export function evalPeripheralRule(rule: any): boolean {
   const kind = String(rule?.kind ?? '');
   if (kind === 'bluetoothConnected') return evalBluetooth(rule);
@@ -98,8 +85,6 @@ export function evalPeripheralRule(rule: any): boolean {
   return true;
 }
 
-/* Whether a peripheral rule has a real answer yet (profile triggers act only on
-   evidence; shelf visibility keeps failing open). Reading kicks the same refresh. */
 export function peripheralRuleHasData(rule: any): boolean {
   ensureFresh();
   const kind = String(rule?.kind ?? '');

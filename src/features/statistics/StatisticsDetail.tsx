@@ -40,10 +40,6 @@ const STATS_STYLE = `
 .ds-chart-block-title{font-size:12px;font-weight:600;opacity:.85;margin-bottom:4px}
 `;
 
-/* Stats areas reuse the shared CollapsibleSection (the same component
-   Integrations uses) so collapse/expand looks identical across screens.
-   `actions` maps to its `headerExtra` slot — any top-right control (e.g. the
-   icon-only clear-usage button). */
 function CollapsibleArea({ title, icon, actions, defaultCollapsed, children }: { title: string; icon?: React.ReactNode; actions?: React.ReactNode; defaultCollapsed?: boolean; children: React.ReactNode }) {
   return (
     <CollapsibleSection id={`stat-${title}`} title={title} count={0} icon={icon} initialOpen={!defaultCollapsed} headerExtra={actions}>
@@ -62,8 +58,6 @@ function UsageBlock({ title, rows }: { title: string; rows: Array<[string, numbe
   );
 }
 
-// Built-in stat ids carry a `stat_<id>` translation; external providers
-// supply their own (already-localized) label, so fall back to it.
 function localizeLabel(t: (k: string) => string, e: StatisticsEntry): string {
   const key = `stat_${e.id}`;
   const v = t(key);
@@ -91,8 +85,7 @@ const CELL_STYLE: React.CSSProperties = {
   borderRadius: 8,
 };
 
-// Gamepad nav skips passive Focusables — read-only cells need an
-// activation handler to become focus stops the page can scroll to.
+// Gamepad nav skips passive Focusables, so read-only cells get a no-op handler.
 const NOOP = () => {};
 
 function StatCell({ t, entry }: { t: (k: string) => string; entry: StatisticsEntry }) {
@@ -136,9 +129,6 @@ function LibKpi({ title, value, unit }: { title: string; value: number; unit?: s
   );
 }
 
-/* Library trends: a KPI row + composition charts (donuts + bar charts) built
-   from the library provider's live counts. Snapshot data — the plugin doesn't
-   track library history — presented in the same style as the shelf trends. */
 function LibraryTrendsSection({ t, groups }: { t: (k: string) => string; groups: ProviderGroup[] | null }) {
   const lib = useMemo(() => (groups ?? []).find((g) => g.id.includes("library")) ?? null, [groups]);
   const byId = useMemo(() => {
@@ -181,13 +171,9 @@ function LibraryTrendsSection({ t, groups }: { t: (k: string) => string; groups:
 export function StatisticsDetail({ controller, t }: StatisticsDetailProps) {
   const [groups, setGroups] = useState<ProviderGroup[] | null>(null);
 
-  // Resolve each registered provider, grouped so every one renders its
-  // own area. Same registry the public API exposes; once on mount.
   useEffect(() => {
     let cancelled = false;
-    // Defer the heavy provider resolution (getAllAppOverviews library DOM walk)
-    // off the mount commit so the tab paints immediately instead of freezing on
-    // open; the stats render once resolved.
+    // Deferred off the mount commit; the provider walk blocks the main thread.
     const timer = setTimeout(() => {
       const providers = getExternalStatisticsProviders();
       void Promise.all(
@@ -229,20 +215,15 @@ function UsageRows({ rows }: { rows: Array<[string, number]> }) {
 }
 
 const PIE_COLORS = ["#1a9fff", "#9c6ade", "#43c06d", "#ffa23a", "#ef5777", "#26c6da"];
-// Launch-tracked content card types (mutually exclusive, one per launch).
 const CONTENT_CARD_TYPES = ["game", "nonsteam", "store", "wishlist"] as const;
-// Fixed colours per composition slice so the legend stays stable as slices
-// drop in and out.
 const COMPOSITION_COLORS: Record<string, string> = {
   normal: "#1a9fff", featured: "#ffa23a", decorative: "#9c6ade", hidden: "#ef5777",
 };
-// Raw-vs-percent toggle choice, persisted so it survives re-opening the page.
 const PCT_MODE_KEY = "ds-stats-pct-mode";
 const SHELFTYPE_KEY: Record<string, string> = {
   normal: "settings_statistics_shelftype_normal",
   smart: "settings_statistics_shelftype_smart",
 };
-// Source-type labels reuse the edit-modal `source_*` keys.
 const SOURCE_KEY: Record<string, string> = {
   collection: "source_collection", tab: "source_tab", filter: "source_filter",
   external: "source_external", wishlist: "source_wishlist", store: "source_store",
@@ -274,9 +255,6 @@ const FEATURE_KEY: Record<string, string> = {
   export: "settings_statistics_feature_export",
 };
 
-/* Resolved card ids for a shelf — read from the per-shelf resolver cache the
-   Shelf component already writes to localStorage (`ds-shelf-cache-<id>-…`).
-   Excludes hidden cards (the resolver filters them). null when no cache yet. */
 function resolvedShelfIds(shelfId: string): number[] | null {
   try {
     const prefix = `ds-shelf-cache-${shelfId}-`;
@@ -287,7 +265,7 @@ function resolvedShelfIds(shelfId: string): number[] | null {
         if (Array.isArray(ids)) return ids as number[];
       }
     }
-  } catch { /* best-effort */ }
+  } catch {}
   return null;
 }
 
@@ -296,7 +274,6 @@ function resolvedShelfCount(shelfId: string): number | null {
   return ids ? ids.length : null;
 }
 
-// Bound the pure breakdowns to this device's resolver cache + app overviews.
 const isNonSteamApp = (appId: number): boolean =>
   (globalThis as any).appStore?.GetAppOverviewByAppID?.(appId)?.is_non_steam === true;
 const cardTypeComposition = (settings: any) => cardTypeCompositionPure(settings, resolvedShelfIds, isNonSteamApp);
@@ -313,8 +290,6 @@ function ChartBlock({ title, subtitle, span, children }: { title: string; subtit
   );
 }
 
-// Trend-only block: a big current-period number with the previous period as
-// reference and a direction arrow (UsageCharts.TrendKpi). 4-up on a row.
 function KpiCard({ title, subtitle, value, refValue }: { title: string; subtitle: string; value: number; refValue: number }) {
   return (
     <Focusable className="ds-chart-block span-kpi" focusWithinClassName="gpfocuswithin" onActivate={() => {}} noFocusRing={false} style={{ outline: "none" }}>
@@ -325,8 +300,6 @@ function KpiCard({ title, subtitle, value, refValue }: { title: string; subtitle
   );
 }
 
-// A donut chart + legend in a ChartBlock, shown only when the data has a
-// non-zero total (covers both empty sets and all-zero catalogues).
 function DonutBlock({ title, data, mode }: { title: string; data: Array<{ label: string; value: number; color: string }>; mode: "raw" | "pct" }) {
   if (data.reduce((a, d) => a + d.value, 0) <= 0) return null;
   return (
@@ -339,18 +312,11 @@ function DonutBlock({ title, data, mode }: { title: string; data: Array<{ label:
   );
 }
 
-// All the derived series/breakdowns the Trends section renders from — kept out
-// of the component body so its complexity stays low.
 function deriveBreakdowns(controller: StatisticsDetailProps["controller"], summary: any, t: (k: string) => string) {
   const hasData = summary.totalCardLaunches > 0 || summary.totalShelfViews > 0 || summary.totalFeatureUse > 0;
-  // Every shelf (existing only — deleted ones drop out so the chart never shows
-  // raw ids), with its view count, zeros included so the full set is visible.
   const allShelves = [...((controller.settings as any)?.shelves ?? []), ...((controller.settings as any)?.smartShelves ?? [])].filter((s: any) => s?.id);
   const topShelves = allShelves.map((s: any) => [String(s.title || s.id), summary.shelfViews[s.id] ?? 0] as [string, number])
     .sort((a, b) => b[1] - a[1]);
-  // Show the full catalog (every known feature / content card type), counts
-  // included even at zero, so the "other" ones the user hasn't triggered yet
-  // still appear rather than dropping out of a top-N.
   const featureKeys = Array.from(new Set([...Object.keys(FEATURE_KEY), ...Object.keys(summary.featureUse)]));
   const topFeatures = featureKeys.map((k) => [FEATURE_KEY[k] ? t(FEATURE_KEY[k]) : k, summary.featureUse[k] ?? 0] as [string, number])
     .sort((a, b) => b[1] - a[1]);
@@ -385,7 +351,6 @@ function TrendsSection({ t, controller }: { t: (k: string) => string; controller
     { label: t("settings_statistics_usage_features"), color: SERIES_COLORS.features },
   ];
 
-  // Recent half vs the half before it → the KPI cards' direction/percentage.
   const half = Math.floor(series.length / 2) || 1;
   const sumOf = (pts: typeof series, k: "launches" | "views" | "features") => pts.reduce((a, p) => a + p[k], 0);
   const totalOf = (pts: typeof series) => pts.reduce((a, p) => a + p.launches + p.views + p.features, 0);
@@ -446,8 +411,6 @@ function TrendsSection({ t, controller }: { t: (k: string) => string; controller
   );
 }
 
-// All entries of a count map as [label, value] rows, sorted high→low (no cap —
-// the usage section is the full breakdown). Deleted shelves (null label) drop.
 function allRows(rec: Record<string, number>, label: (k: string) => string | null): Array<[string, number]> {
   return Object.entries(rec)
     .sort((a, b) => b[1] - a[1])
@@ -473,7 +436,6 @@ function UsageSection({ t, controller }: { t: (k: string) => string; controller:
     onConfirm: () => { clearUsage(); setTick((x) => x + 1); },
   });
 
-  // Config-derived breakdowns (don't need usage) → label/value rows.
   const sourceCounts = shelfSourceBreakdown(settings);
   const sourceRows = SOURCE_ORDER.filter((k) => (sourceCounts[k] ?? 0) > 0).map((k) => [SOURCE_KEY[k] ? t(SOURCE_KEY[k]) : k, sourceCounts[k]] as [string, number]);
   const typeRows = allRows(shelfTypeBreakdown(settings), (k) => SHELFTYPE_KEY[k] ? t(SHELFTYPE_KEY[k]) : k);

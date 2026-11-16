@@ -1,7 +1,3 @@
-// Pure, zero-side-effect helpers extracted from PerShelfHero.tsx — CSS
-// geometry math and DOM-scan sub-steps, kept separate so the stateful
-// hero-swap/debounce logic in the component stays untouched.
-
 function topFadeStops(opaqueTop: boolean, bPx: number): string[] {
   if (opaqueTop) return ['  black 0,'];
   const p = (f: number) => `${(bPx * f).toFixed(0)}px`;
@@ -24,11 +20,6 @@ function bottomFadeOffsets(treatAsFirst: boolean, bPx: number): { black: number;
   return { black: bPx, mid: Math.round(bPx * 0.64), trans: Math.round(bPx * 0.16) };
 }
 
-/* The hero's mask-image gradient and height — top fade eases in over the
-   inter-shelf bleed (opaque while this shelf is "selected" under
-   forceLayoutAsRecents, or always for the genuine first shelf), bottom
-   fade mirrors ArtHero's own native values. See PerShelfHero.tsx for the
-   visual rationale; this is pure math with no component state. */
 export function computeHeroVisualGeometry(params: { isFirstShelf: boolean; isPromoted: boolean; topBleed: number; forceLayoutAsRecents: boolean; isShelfSelected: boolean }): { heroHeight: string; maskVal: string } {
   const { isFirstShelf, isPromoted, topBleed, forceLayoutAsRecents, isShelfSelected } = params;
   const treatAsFirst = isFirstShelf || isPromoted;
@@ -48,23 +39,16 @@ export function computeHeroVisualGeometry(params: { isFirstShelf: boolean; isPro
 
 export type HorizontalPosition = 'left' | 'center' | 'right';
 
-// The logo/description overlay anchors left/right/center — shared by both
-// its container (left/right/transform) and its inner alignment.
 export function resolveOverlayPositionStyle(position: HorizontalPosition): { left: string | number; right: string | number; transform: string | undefined; alignItems: 'flex-start' | 'flex-end' | 'center' } {
   if (position === 'right') return { left: 'auto', right: 24, transform: undefined, alignItems: 'flex-end' };
   if (position === 'center') return { left: '50%', right: 'auto', transform: 'translateX(-50%)', alignItems: 'center' };
   return { left: 24, right: 'auto', transform: undefined, alignItems: 'flex-start' };
 }
 
-// Logo/description top-vs-bottom offset: full-page shelves scale in vh,
-// regular shelves in px — same formula, different unit.
 export function resolveOverlayOffset(logoTopOffset: number, isFullPage: boolean): string | number {
   return isFullPage ? `${(logoTopOffset * 0.08).toFixed(2)}vh` : Math.round(logoTopOffset * 0.32);
 }
 
-// A card counts as visible for the "first visible card" fallback when it
-// has real layout (not display:none / zero height) and isn't hidden by an
-// ancestor (offsetParent null) or CSS visibility.
 function isCardVisible(c: HTMLElement): boolean {
   if (c.offsetHeight <= 0 || c.offsetParent === null) return false;
   const cs = getComputedStyle(c);

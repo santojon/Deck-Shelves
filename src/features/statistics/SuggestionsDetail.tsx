@@ -13,7 +13,6 @@ import { subscribeShelfRefresh } from "../../core/shelfRefresh";
 import { isSuggestionNew, markSuggestionsSeen } from "../../runtime/suggestionNotifier";
 import { flowChildrenProps } from "../../core/steamOSVersion";
 
-// How long the tab waits after a library/usage signal before re-deriving.
 const REACT_DEBOUNCE_MS = 1500;
 
 export interface SuggestionsDetailProps {
@@ -39,8 +38,6 @@ function entriesFor(groups: ProviderGroup[], id: string): StatisticsEntry[] {
   return groups.find((g) => g.id === id)?.entries ?? [];
 }
 
-// Prefer the shelf/smart template's own line icon (monochrome, follows
-// text colour); fall back to a generic glyph only when none is mapped.
 function suggestionIcon(sg: StatSuggestion): React.ReactNode {
   if (sg.removeShelfId) return <TrashIcon size={24} />;
   const tplIcon = sg.templateId ? SHELF_TPL_ICON[sg.templateId] : sg.smartMode ? SMART_TPL_ICON[sg.smartMode] : undefined;
@@ -49,8 +46,6 @@ function suggestionIcon(sg: StatSuggestion): React.ReactNode {
   return <Fallback size={26} />;
 }
 
-/* Derive the display name + the apply/done i18n keys for one suggestion
-   (template shelf, smart shelf, or a remove-shelf action). */
 function suggestionLabels(t: (k: string) => string, sg: StatSuggestion) {
   const tpl = sg.templateId ? SHELF_TEMPLATES.find((x) => x.id === sg.templateId) : undefined;
   const name = tpl ? t(tpl.titleKey) : sg.smartMode ? t(`smart_template_${sg.smartMode}`) : sg.removeShelfId ? String(sg.params.name ?? "") : "";
@@ -102,10 +97,6 @@ function SuggestionList({ t, items, applied, fresh, whyOf, onApply }: {
   );
 }
 
-/* Re-derive while the tab is open: the library (overview changes, installs,
-   collection edits) and the usage ledger move under it, so a library/usage
-   signal re-resolves the providers after a short debounce. Nothing runs once
-   the tab unmounts. */
 function useReactiveTick(): number {
   const [tick, setTick] = useState(0);
   useEffect(() => {
@@ -123,19 +114,12 @@ export function SuggestionsDetail({ controller, t }: SuggestionsDetailProps) {
   const [groups, setGroups] = useState<ProviderGroup[] | null>(null);
   const [applied, setApplied] = useState<Set<string>>(() => new Set());
   const tick = useReactiveTick();
-  // Which suggestions were new when the tab opened — frozen for the visit, so a
-  // chip does not vanish under the user's eyes; the ledger is updated on close.
+  // Frozen for the visit so a chip doesn't vanish while it is shown.
   const [fresh] = useState<Set<string>>(() => new Set());
 
-  // Resolve the built-in stat providers on mount and again after a library /
-  // usage signal — they feed the suggestion heuristics (library composition +
-  // per-shelf usage).
   useEffect(() => {
     let cancelled = false;
-    /* The library provider runs a heavy library enumeration (getAllAppOverviews
-       DOM walk) that blocks the main thread. Defer it off the mount commit so
-       opening the tab paints immediately instead of freezing; suggestions
-       populate a moment later. */
+    // Deferred off the mount commit; the library walk blocks the main thread.
     const timer = setTimeout(() => {
       void Promise.all(
         getExternalStatisticsProviders().map(async (p) => {
@@ -149,7 +133,7 @@ export function SuggestionsDetail({ controller, t }: SuggestionsDetailProps) {
 
   const suggestions = useMemo<StatSuggestion[]>(() => {
     if (!groups) return [];
-    const seed = Math.floor(Date.now() / 86_400_000); // day index → daily rotation
+    const seed = Math.floor(Date.now() / 86_400_000);
     const smartEnabled = (controller.settings as any)?.smartShelvesEnabled === true;
     const exclude = coveredTemplateIds(
       (controller.settings as any)?.shelves ?? [],
@@ -162,8 +146,6 @@ export function SuggestionsDetail({ controller, t }: SuggestionsDetailProps) {
     );
   }, [groups, controller]);
 
-  // Usage-derived "remove this unused shelf" suggestions — opt-in, only once
-  // there's enough tracked usage to tell "unused" from "no data yet".
   const removalSuggestions = useMemo<StatSuggestion[]>(() => {
     if (!groups || (controller.settings as any)?.removalSuggestionsEnabled !== true) return [];
     flushUsage();
@@ -201,8 +183,6 @@ export function SuggestionsDetail({ controller, t }: SuggestionsDetailProps) {
     return (controller.t as unknown as (k: string, o?: any) => string)(sg.messageKey, sg.params);
   }, [controller]);
 
-  // New = never notified or shown before; everything shown this visit is
-  // recorded as seen when the tab closes.
   useEffect(() => {
     for (const sg of suggestions) if (isSuggestionNew(sg.id)) fresh.add(sg.id);
   }, [suggestions, fresh]);

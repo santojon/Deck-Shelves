@@ -20,9 +20,9 @@ def test_github_asset_url_allowed():
 
 
 def test_non_github_or_insecure_url_rejected():
-    assert not main._is_github_asset_url("http://github.com/x.zip")          # not https
-    assert not main._is_github_asset_url("https://evil.example.com/x.zip")   # wrong host
-    assert not main._is_github_asset_url("https://github.com.evil.com/x.zip")  # suffix trick
+    assert not main._is_github_asset_url("http://github.com/x.zip")
+    assert not main._is_github_asset_url("https://evil.example.com/x.zip")
+    assert not main._is_github_asset_url("https://github.com.evil.com/x.zip")
     assert not main._is_github_asset_url("")
     assert not main._is_github_asset_url("file:///etc/passwd")
 
@@ -90,5 +90,5 @@ def test_download_enforces_the_size_cap(tmp_path, monkeypatch):
 def test_release_download_url_is_this_project_only():
     assert main._is_release_download_url("https://github.com/santojon/Deck-Shelves/releases/download/v3.4.0/deck-shelves-v3.4.0.zip")
     assert not main._is_release_download_url("https://github.com/someone/else/releases/download/v1/x.zip")
-    assert not main._is_release_download_url("https://objects.githubusercontent.com/foo/bar.zip")  # redirect target only
+    assert not main._is_release_download_url("https://objects.githubusercontent.com/foo/bar.zip")
     assert not main._is_release_download_url("http://github.com/santojon/Deck-Shelves/releases/download/v1/x.zip")

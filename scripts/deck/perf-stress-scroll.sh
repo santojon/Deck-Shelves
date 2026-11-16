@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # On-device stress test — drives gamepad nav via CDP to scroll shelves continuously.
 # Usage: `perf-stress-scroll.sh [minutes]` (default 5). Needs .env DECK_HOST/DECK_CDP_PORT + plugin live on home.
-# Pair with `perf-test.sh --compare` to measure CPU/battery impact under sustained load.
 
 set -euo pipefail
 
@@ -44,7 +43,6 @@ echo ""
 
 DURATION_S=$(( DURATION_MIN * 60 ))
 
-# Minimal CDP helper — evaluates JS and prints the returned value.
 cdp_eval() {
   local expr="$1"
   python3 - "$WS" "$expr" <<'PY'
@@ -68,8 +66,7 @@ ws.close()
 PY
 }
 
-# Run the stress loop inside the device — one round-trip only, no CDP
-# traffic in the hot loop. DIR_RIGHT=12, DIR_LEFT=11, DIR_DOWN=10.
+# The loop runs on the device in one round-trip; DIR_RIGHT=12, DIR_LEFT=11, DIR_DOWN=10.
 cdp_eval "(async () => {
   const ctrl = globalThis.FocusNavController
     ?? globalThis.GamepadNavTree?.m_context?.m_controller;

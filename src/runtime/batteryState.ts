@@ -12,8 +12,6 @@ let _state: BatteryState | null = null;
 let _cleanup: (() => void) | null = null;
 const _listeners = new Set<() => void>();
 
-/* Notify on battery change so device-state visibility rules re-evaluate
-   promptly (no polling — driven by the Steam battery event). */
 export function subscribeBattery(cb: () => void): () => void {
   _listeners.add(cb);
   return () => { _listeners.delete(cb); };
@@ -50,10 +48,7 @@ export function installBatteryState(): () => void {
     const reg = client?.System?.RegisterForBatteryStateChanges?.((event: any) => {
       try {
         const next = normalize(event);
-        /* The Steam battery event also churns on `nSecondsRemaining` every tick;
-           only notify listeners on a MEANINGFUL change (charge-state flip or a
-           ≥5% level bucket) so device-state visibility rules don't re-render on
-           every tick. */
+        // The event also fires on every remaining-time tick, so only notify on a real change.
         const prev = _state;
         const meaningful = !prev
           || prev.state !== next.state
@@ -84,10 +79,7 @@ export function getBatteryState(): BatteryState | null {
   return _state;
 }
 
-/* There's no one-shot "get current battery state" call — only the
-   subscription. Re-registering fires the callback immediately with the
-   current state (confirmed live), so this is how a resume handler forces a
-   fresh read after a stale-during-sleep event. */
+// There is no one-shot read: re-registering fires the callback with the current state.
 export function forceBatteryRefresh(): void {
   installBatteryState();
 }

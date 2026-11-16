@@ -1,15 +1,10 @@
 import { DialogButton, Dropdown, Field, Focusable, type SingleDropdownOption } from '../../../../runtime/host/decky'
 import i18n from '../../../../i18n'
+import { FOLLOW_SHELF_SORT } from './constants'
 import { SortDirectionButton } from './SortDirectionButton'
 import { optionData } from './utils'
 
-/* Normalise the sort/reverse props (single value or array) into the derived
-   state the field renders from. Secondary keys exclude `manual` (invalidates
-   manualOrder) and `random` (non-deterministic tiebreaker); a secondary key
-   can only be added when multi-key is allowed and the primary isn't one of
-   those two. */
-// Keys that order the whole list on their own, never as a tiebreaker.
-const SINGLE_ONLY: ReadonlySet<string> = new Set(['manual', 'random', 'source_order'])
+const SINGLE_ONLY: ReadonlySet<string> = new Set(['manual', 'random', 'source_order', FOLLOW_SHELF_SORT])
 
 function deriveSortState(
   sort: string | string[],
@@ -22,7 +17,6 @@ function deriveSortState(
   const primary = sortArr[0] ?? ''
   const primaryReverse = reverseArr[0] ?? false
   const isMulti = sortArr.length > 1
-  // A saved key no build offers any more stays selectable, named as unavailable.
   const offered = withUnavailable(options, sortArr)
   const secondaryOptions = offered.filter((o) => !SINGLE_ONLY.has(String(o.data)))
   const canAddSecondary = allowMultiKey && !SINGLE_ONLY.has(primary)
@@ -59,7 +53,6 @@ export function SortField({
   const { sortArr, reverseArr, primary, primaryReverse, isMulti, secondaryOptions, canAddSecondary } =
     deriveSortState(sort, reverse, options, allowMultiKey)
 
-  // If user picks manual/random as primary, secondary keys are stripped.
   const setPrimary = (next: string) => {
     if (SINGLE_ONLY.has(next)) {
       onSortChange(next)
@@ -117,10 +110,6 @@ export function SortField({
     }
   }
 
-  /* When the user has 2+ sort keys, the chain shows a one-time description
-     above explaining that earlier rows dominate (mirrors the smart-shelf
-     composite picker's "combine modes" Field-with-description treatment).
-     Single-key shelves skip the description to avoid noise. */
   return (
     <>
       {isMulti && (

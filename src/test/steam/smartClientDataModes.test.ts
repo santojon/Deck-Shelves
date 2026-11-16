@@ -1,9 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 
-/* The smart modes that read the client's records: the store categories (couch, co-op, party)
-   and the achievement counts (almost finished). */
-
 const CATEGORIES: Record<number, number[]> = { 1: [39], 2: [9], 3: [24, 37], 4: [] };
 
 let smart: typeof import("../../steam/smartShelves");

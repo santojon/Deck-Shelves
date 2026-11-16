@@ -23,10 +23,7 @@ function isRandomOrSmart(shelf: Shelf): boolean {
 function refreshShelfCache(shelf: Shelf): void {
   if (isOnlineSource(shelf.source)) clearOnlineShelfCache()
   if ((shelf.source as any)?.type === 'smart') invalidateSmartShelfCache(shelf.id)
-  /* Always clear random-sort cache for THIS shelf so refresh genuinely
-     re-shuffles; the previous code only ran this branch on offline,
-     non-smart shelves, so a wishlist/store/smart shelf using random sort
-     stayed in the same order until the 24h TTL expired. */
+  // Clear this shelf's random-sort cache so a refresh really reshuffles.
   invalidateRandomSortCache(shelf.id)
   try { triggerShelfRefresh({ manual: true, shelfId: shelf.id }) } catch {}
 }
@@ -53,7 +50,6 @@ export function showComposeConfirm(controller: SettingsController, source: Shelf
 type ShelfRowMenuProps = {
   controller: SettingsController
   shelf: Shelf
-  // The row's place in the list it is shown in, and how that list moves it.
   index: number
   count: number
   onMove: (dir: -1 | 1) => void

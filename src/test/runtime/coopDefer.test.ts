@@ -3,7 +3,6 @@ import { compareVersions, shouldDeferToHost, publishDeferSignal, readDeferSignal
 
 const hs = (caps: Record<string, boolean>, bundleVersion?: string): any => ({ hostKind: "shelveshub", hostVersion: "0.6.0", hostApiVersion: "1.4.0", capabilities: caps, bundleVersion });
 
-// The renderer's storage, where the host leaves its offer (the test runtime has none).
 const stored = new Map<string, string>();
 (globalThis as any).localStorage = {
   getItem: (k: string) => stored.get(k) ?? null,
@@ -17,7 +16,6 @@ describe("coopDefer — the loader copy stands down for a newer-or-equal host bu
   it("compares versions by semver precedence, ignoring a v prefix", () => {
     expect(compareVersions("3.4.0", "3.3.4")).toBeGreaterThan(0);
     expect(compareVersions("v3.4.0", "3.4.0")).toBe(0);
-    // A stable release outranks a pre-release of the same core; the contract once ignored the tail.
     expect(compareVersions("3.4.0-beta.1", "3.4.0")).toBeLessThan(0);
     expect(compareVersions("3.4.0-beta.2", "3.4.0-beta.1")).toBeGreaterThan(0);
     expect(compareVersions("3.3.10", "3.3.9")).toBeGreaterThan(0);
@@ -57,7 +55,6 @@ describe("coopDefer — the loader copy stands down for a newer-or-equal host bu
       const base = { loaderLaunched: true, forced: true, handshake: hs({ coopBundle: true }, "3.5.0"), ownVersion: "3.4.0", onFallback: fallback };
       expect(mod.tryDeferToHost(base)).toBe(true);
       expect(mod.readDeferSignal()?.hostBundleVersion).toBe("3.5.0");
-      // A second call in the same session never defers again (the fallback boot re-enters here).
       expect(mod.tryDeferToHost(base)).toBe(false);
       vi.advanceTimersByTime(DEFER_FALLBACK_MS);
       expect(fallback).toHaveBeenCalledTimes(1);
@@ -75,7 +72,6 @@ describe("coopDefer — the loader copy stands down for a newer-or-equal host bu
       const base = { loaderLaunched: true, forced: false, handshake: null, ownVersion: "3.4.0", onFallback: fallback };
       expect(mod.tryDeferToHost(base)).toBe(true);
       expect(mod.readDeferSignal()?.hostBundleVersion).toBe("v3.4.0");
-      // The stored offer waits the longer, cold-start window.
       vi.advanceTimersByTime(DEFER_FALLBACK_MS);
       expect(fallback).not.toHaveBeenCalled();
       vi.advanceTimersByTime(mod.OFFER_FALLBACK_MS - DEFER_FALLBACK_MS);

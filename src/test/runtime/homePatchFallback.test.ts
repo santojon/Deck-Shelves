@@ -95,7 +95,6 @@ describe("homePatch fallback poll under the power gate", () => {
     expect(tryRender).toHaveBeenCalledTimes(before + 1);
     vi.advanceTimersByTime(1);
     expect(tryRender).toHaveBeenCalledTimes(before + 2);
-    // A game that interrupts the fast phase: the return is idle too.
     poll.wake();
     vi.advanceTimersByTime(FALLBACK_FAST_MS * 2);
     const mid = tryRender.mock.calls.length;

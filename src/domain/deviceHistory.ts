@@ -1,8 +1,3 @@
-/* Pure device/context-history model. No side effects, no I/O — the
-   persistence layer (deviceHistoryTracking.ts) reads/writes localStorage and
-   calls these. Counters + last-seen only (not day-bucketed like
-   usageStats.ts) — tracks how OFTEN a condition occurs, not daily trends. */
-
 export type DeviceHistorySignal =
   | "externalDisplay"
   | "batteryLow"
@@ -24,7 +19,6 @@ export function emptyDeviceHistory(): DeviceHistory {
   return { v: 1, signals: {} };
 }
 
-/** Bump one signal's counter + last-seen timestamp. Immutable update. */
 export function bumpSignal(h: DeviceHistory, signal: DeviceHistorySignal, nowMs: number): DeviceHistory {
   const prev = h.signals[signal];
   return {

@@ -3,16 +3,10 @@ import type { Settings } from "../../types";
 export interface SettingsCategory {
   id: string;
   labelKey: string;
-  /** Top-level Settings keys this category owns. Used to slice / merge /
-   *  reset that subset without touching unrelated fields. */
   keys: ReadonlyArray<string>;
 }
 
-/* Categories the Export / Import / Reset modals expose as user-selectable
-   toggles (order = UI order). Every top-level `Settings` field must live in
-   exactly one category — "Export All" is just every category selected, so
-   a field missing from all of them silently never exports/imports/resets.
-   `settingsCategories.test.ts` asserts full coverage. */
+// Every top-level Settings field must belong to exactly one category, or it never exports.
 export const SETTINGS_CATEGORIES: ReadonlyArray<SettingsCategory> = [
   { id: "shelves",          labelKey: "settings_category_shelves",          keys: ["shelves", "allShelvesOrder"] },
   { id: "smart",            labelKey: "settings_category_smart",            keys: ["smartShelves", "smartShelvesEnabled", "smartShelvesAtBottom", "smartSurpriseMe", "smartSurpriseMeCount"] },
@@ -22,7 +16,7 @@ export const SETTINGS_CATEGORIES: ReadonlyArray<SettingsCategory> = [
   { id: "integrations",     labelKey: "settings_category_integrations",     keys: ["integrationsEnabled", "featureToggles"] },
   { id: "visual_global",    labelKey: "settings_category_visual_global",    keys: [
     "globalMatchNativeSize", "globalHighlightFirst", "globalHighlightAll", "globalHighlightRandom",
-    "globalHideStatusLine", "globalHideNewBadge", "globalHideDiscountBadge", "discountBadgeMode", "globalHideCompatIcons",
+    "globalHideStatusLine", "globalHideNewBadge", "globalHideDiscountBadge", "discountBadgeMode", "discountBadgeFocusMode", "globalHideCompatIcons",
     "globalHideNonSteamBadge", "globalHideShelfTitle", "globalHideGameNames", "globalHideInstallIndicator",
     "globalHideSeeMore", "globalHideRefreshCard", "globalDedupeByName", "globalHeroEnabled",
     "globalEnableLogo", "globalEnableIcon", "globalEnableDescription", "globalDescriptionBelowLogo",
@@ -66,18 +60,14 @@ export const SETTINGS_CATEGORIES: ReadonlyArray<SettingsCategory> = [
   ] },
 ];
 
-/* Fields no export, import or reset category takes: the settings kept for the other
-   Steam accounts on this device stay on it. */
 export const NOT_EXPORTED_FIELDS: ReadonlyArray<string> = ["accountSettings"];
 
 const CATEGORY_BY_ID: Readonly<Record<string, SettingsCategory>> = Object.freeze(
   Object.fromEntries(SETTINGS_CATEGORIES.map((c) => [c.id, c])),
 );
 
-/** All category ids — handy default when the caller wants "everything". */
 export const ALL_CATEGORY_IDS: ReadonlyArray<string> = SETTINGS_CATEGORIES.map((c) => c.id);
 
-/** Returns a sliced object containing only the selected categories' keys. */
 export function pickCategoriesFromSettings(s: Settings | null, selected: ReadonlyArray<string> | Set<string>): Record<string, unknown> {
   if (!s) return {};
   const sel = selected instanceof Set ? selected : new Set(selected);
@@ -92,9 +82,6 @@ export function pickCategoriesFromSettings(s: Settings | null, selected: Readonl
   return out;
 }
 
-/** Merges the selected categories from `imported` into `current`. Unselected
- *  categories keep `current`'s values. Unknown / unselected keys in
- *  `imported` are dropped. */
 export function mergeCategoriesIntoSettings(current: Settings, imported: Record<string, unknown>, selected: ReadonlyArray<string> | Set<string>): Settings {
   const sel = selected instanceof Set ? selected : new Set(selected);
   const out: any = { ...current };
@@ -108,8 +95,6 @@ export function mergeCategoriesIntoSettings(current: Settings, imported: Record<
   return out as Settings;
 }
 
-/** Replaces the selected categories in `current` with their values from
- *  `defaults`. Unselected categories stay untouched. */
 export function resetCategoriesInSettings(current: Settings, selected: ReadonlyArray<string> | Set<string>, defaults: Settings): Settings {
   const sel = selected instanceof Set ? selected : new Set(selected);
   const out: any = { ...current };
@@ -124,10 +109,6 @@ export function resetCategoriesInSettings(current: Settings, selected: ReadonlyA
   return out as Settings;
 }
 
-/** Detects which categories are populated in an imported payload. A
- *  category is "present" when at least one of its keys exists in the
- *  payload (regardless of value). Accepts both the bare-object shape
- *  (`{ key: value, ... }`) and the legacy wrapper (`{ state: {...} }`). */
 export function detectCategoriesInPayload(payload: unknown): Set<string> {
   const present = new Set<string>();
   if (!payload || typeof payload !== "object") return present;
@@ -142,10 +123,6 @@ export function detectCategoriesInPayload(payload: unknown): Set<string> {
   return present;
 }
 
-/* "Export All" wrapper. `unwrapPayload` /
-   `detectCategoriesInPayload` only ever look at `state`, so a pre-wrapper
-   export (bare `{ state: {...} }`, no format/version fields) still imports
-   unchanged through the same path. */
 const EXPORT_FORMAT = "deck-shelves-settings";
 const EXPORT_FORMAT_VERSION = 1;
 
@@ -165,8 +142,6 @@ export function buildExportPayload(
   };
 }
 
-/** Normalises a payload that may wrap settings under `state`. Returns
- *  the raw key/value map used by `mergeCategoriesIntoSettings`. */
 export function unwrapPayload(payload: unknown): Record<string, unknown> {
   if (!payload || typeof payload !== "object") return {};
   const root = (payload as any).state && typeof (payload as any).state === "object"

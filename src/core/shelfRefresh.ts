@@ -10,9 +10,7 @@ type RefreshListener = (opts?: RefreshOptions) => void;
 
 const listeners = new Set<RefreshListener>();
 let pollId: ReturnType<typeof setTimeout> | null = null;
-// `suspended` is the suspend/resume pause (systemEvents); `gated` is the
-// power gate holding the emitter outside the active Home. Either drops the
-// automatic emits; a user's manual refresh passes the gate.
+// Either flag drops automatic emits; a manual refresh still passes.
 let suspended = false;
 let gated = false;
 function held(opts?: RefreshOptions): boolean {
@@ -21,29 +19,21 @@ function held(opts?: RefreshOptions): boolean {
 
 import { mark, measure } from './perf';
 
-/* Battery-aware pacing: on battery the burst window and the fallback poll
-   stretch, so idle-on-battery costs fewer resolves (plugged in = unchanged). */
 function onBattery(): boolean {
   try { const b = getBatteryState(); return !!b && b.hasBattery && b.state === 'discharging'; } catch { return false; }
 }
 function coalesceWindowMs(): number { return onBattery() ? 2000 : EMIT_COALESCE_MS; }
 function pollIntervalMs(): number { return onBattery() ? 60000 : 30000; }
 
-/* Global emit coalescing. Steam fires overview/download-tick events in bursts,
-   and re-resolving shelves can itself provoke more of them — without a floor
-   the resolver storms (dozens of re-resolves/sec, metadata refetches, visible
-   flicker). Non-manual emits coalesce to at most one per window with a trailing
-   emit so the final state always lands; manual (user) refreshes fire at once. */
+// Steam fires overview events in bursts and re-resolving can trigger more,
+// so automatic emits coalesce to one per window with a trailing emit.
 const EMIT_COALESCE_MS = 700;
 let lastEmitAt = 0;
 let coalesceTimer: ReturnType<typeof setTimeout> | null = null;
 
 const STAGGER_CHUNK = 2;
 
-/* Non-manual emits fan out two listeners per task: each shelf's resolve then
-   runs in its own task instead of every shelf's filter/sort pass landing in
-   one long task (measured 280–360 ms per shelf at boot). Manual refreshes
-   stay synchronous so the user's click is answered at once. */
+// Automatic emits fan out two listeners per task so each shelf resolves in its own task.
 function runEmit(opts?: RefreshOptions): void {
   if (held(opts)) return;
   const list = Array.from(listeners);
@@ -104,9 +94,7 @@ export function resumeShelfRefresh(): void {
 }
 
 export function triggerShelfRefresh(opts?: RefreshOptions): void {
-  /* A user-driven refresh must bypass the online (wishlist/store) stale-while-
-     revalidate cache, otherwise "Refresh" would just re-serve what's cached.
-     Lazy import avoids a core/ ↔ steam/ circular dep. */
+  // A manual refresh must bypass the online cache. Lazy import avoids a circular dependency.
   if (opts?.manual) {
     import("../steam").then(({ invalidateOnlineResolveCache }) => {
       try { invalidateOnlineResolveCache(); } catch {}
@@ -115,9 +103,7 @@ export function triggerShelfRefresh(opts?: RefreshOptions): void {
   emit(opts);
 }
 
-// AppOverviewChanges throttle (5 s leading + 1 trailing). Steam fires this
-// on every download tick — without the throttle, a long download flooded
-// the resolver.
+// Steam fires this on every download tick.
 function installOverviewChangesThrottle(): (() => void) | null {
   try {
     const client = (globalThis as any).SteamClient ?? (window as any).SteamClient;
@@ -148,8 +134,7 @@ function installOverviewChangesThrottle(): (() => void) | null {
   } catch { return null; }
 }
 
-// GameActionStart debounce: Steam fires multiple events per launch
-// (initiated → started → ready). Coalesce to one invalidate + emit.
+// Steam fires several events per launch; coalesce them into one.
 function installGameActionStartDebounce(): (() => void) | null {
   try {
     const client = (globalThis as any).SteamClient ?? (window as any).SteamClient;
@@ -158,8 +143,7 @@ function installGameActionStartDebounce(): (() => void) | null {
       if (gameActionTimer !== null) clearTimeout(gameActionTimer);
       gameActionTimer = setTimeout(() => {
         gameActionTimer = null;
-        // Lazy import avoids a core/↔steam/ circular dep; invalidate
-        // so the next read sees the live display_status.
+        // Lazy import avoids a circular dependency.
         import("../steam").then(({ invalidateAppOverviewCache }) => {
           try { invalidateAppOverviewCache(); } catch {}
           emit({ deps: ['session', 'overviews'] });
@@ -174,8 +158,6 @@ function installGameActionStartDebounce(): (() => void) | null {
   } catch { return null; }
 }
 
-// First window whose collectionStore also exposes an `.on` subscribe
-// method (a store present but without `.on` doesn't count — keep looking).
 function findSubscribableCollectionStore(): any {
   const hostWindows: any[] = [
     window,
@@ -188,8 +170,6 @@ function findSubscribableCollectionStore(): any {
   return null;
 }
 
-// Subscribe to collection store changes (favorites, user collections).
-// collectionStore may expose a MobX-style reaction or onChange callback.
 function installCollectionStoreSubscription(): (() => void) | null {
   try {
     const store = findSubscribableCollectionStore();
@@ -203,17 +183,14 @@ function installCollectionStoreSubscription(): (() => void) | null {
 export function installShelfRefreshEmitter(): () => void {
   const cleanups: Array<() => void> = [];
 
-  // Single global fallback poll (30 s plugged in, 60 s on battery) — untagged,
-  // so it still reaches every shelf and bounds any staleness the tags miss.
+  // Untagged so it reaches every shelf and bounds staleness the tags miss.
   const schedulePoll = () => {
     pollId = setTimeout(() => { pollId = null; emit(); schedulePoll(); }, pollIntervalMs());
   };
   const clearPoll = () => {
     if (pollId !== null) { clearTimeout(pollId); pollId = null; }
   };
-  /* Poll and event-driven emits run only while the Home is active: a game,
-     another page, the screen off or a suspend holds them, and the return
-     gets one refresh. */
+  // Polling and event emits run only while the Home is active; returning gets one refresh.
   gated = true;
   const unregister = registerPeriodic('shelfRefresh', {
     runIn: ['active'],

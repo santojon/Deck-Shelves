@@ -1,5 +1,6 @@
 import { useRef, useMemo, memo } from "react";
-import { discountBadgeText, type DiscountBadgeMode } from './discountBadge';
+import type { DiscountBadgeMode } from './discountBadge';
+import { DiscountBadgePill } from './DiscountBadgePill';
 import { Focusable } from "../../runtime/host/decky";
 import { getAppAssetCacheKey } from "../../core/steamAssets";
 import i18n from "../../i18n";
@@ -23,8 +24,6 @@ import {
   useNativeCardClassInjection, useCardImageFallback, useCardAssetDecoration,
 } from "./gameCardHooks";
 
-// Master switch for cardHideRemove/cardHighlightToggle/cardQuickLaunch —
-// gates resolveBindings() below regardless of the per-binding disabled list.
 function cardActionsEnabled(): boolean {
   return getCurrentSettings()?.cardActionShortcutsEnabled !== false;
 }
@@ -84,8 +83,6 @@ function computeCardActionFlags(params: { appid: number | undefined; removableSe
   };
 }
 
-// Build a {buttonId: label} map for Decky's Focusable `actionDescriptionMap`.
-// Only single-button bindings get a legend; chords/doubles silently drop.
 function buildActionDescriptionMap(args: ActionDescriptionArgs): Record<number, string> | undefined {
   const b = resolveBindings(getCurrentSettings()?.buttonBindings as any, (getCurrentSettings() as any)?.buttonBindingsDisabled, cardActionsEnabled());
   if (args.previewMode || !args.appid) return undefined;
@@ -112,26 +109,15 @@ function computeHighlightPatch(shelf: any, appid: number): Record<string, any> {
   return patch;
 }
 
-/* Y-button quick-action: toggle a per-card highlight (entry in
-   `highlightedAppIds`). When the card was being highlighted via the
-   shelf-level highlightAll / highlightFirst flags, this clears the
-   shelf-level source instead so the user gets a predictable visual "off".
-   Mirrors the context-menu "Highlight this game" path. */
 export function toggleCardHighlight(shelfId: string | undefined, appid: number): void {
   if (!shelfId || !appid) return;
   const s = getCurrentSettings();
   if (!s) return;
   try { trackFeature("highlight"); } catch {}
-  // Smart shelves carry their own settings array — fall back to it when the
-  // id doesn't match a regular shelf so Y-button toggle works on
-  // friends_playing / spare_time / etc cards too.
   const target = findHighlightTarget(s, shelfId);
   if (!target) return;
   const patch = computeHighlightPatch(target.shelf, appid);
-  /* saveSettings triggers a Shelf re-render that may unmount/remount the
-     card and lose focus. Mirror the context-menu "Highlight" path: save the
-     focus target + start the restore loop so the card stays focused across
-     the settings → React reconcile cycle. */
+  // Saving can remount the card, so keep focus on it across the re-render.
   try { saveFocusTarget(appid, shelfId); beginFocusRestoreLoop(); } catch {}
   if (target.isSmart) {
     const updated = target.smart.map((sh: any) => sh.id === shelfId ? { ...sh, ...patch } : sh);
@@ -184,9 +170,7 @@ const xCircleSvg = (
   </svg>
 );
 
-// Native Steam input glyphs (viewBox 0 0 36 36), reproduced verbatim so the
-// desktop compat badge matches the native library exactly: a gamepad for
-// controller support, keyboard + mouse otherwise. `.ds-compat svg` sizes them.
+// Steam's own input glyphs, so the badge matches the native library.
 const nativeControllerSvg = (
   <svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
     <path fill="currentColor" d="M31.5,9.6c-0.3-0.3-0.7-0.6-1.1-1V8.4c0,0,0-0.6-0.6-1.1s-3.9-1.7-5.1-1.7c-0.7,0-0.9,0.2-1.2,0.4c-0.2,0.1-0.3,0.2-0.5,0.2H12.9c-0.2,0-0.4-0.1-0.5-0.2c-0.2-0.2-0.5-0.4-1.2-0.4c-1.1,0-4.5,1.1-5.1,1.7S5.6,8.4,5.6,8.4v0.1c-0.4,0.3-0.8,0.7-1.1,1C3.4,10.7,0,20.2,0,25.3s3.4,5.6,3.4,5.6c0.9,0,2.3-1.8,3.7-3.5c1.2-1.5,2.3-3,3.1-3.2c1.7-0.6,14.1-0.6,15.8,0c0.8,0.3,1.9,1.7,3.1,3.2c1.4,1.7,2.8,3.5,3.7,3.5c0,0,3.4-0.6,3.4-5.6S32.6,10.7,31.5,9.6z M8.4,14.6c-1.2,0-2.2-1-2.2-2.2s1-2.2,2.2-2.2s2.2,1,2.2,2.2S9.7,14.6,8.4,14.6z M15.8,18.8c0,0.3-0.3,0.6-0.6,0.6h-0.8v0.8c0,0.3-0.3,0.6-0.6,0.6h-1.1c-0.3,0-0.6-0.3-0.6-0.6v-0.8h-0.8c-0.3,0-0.6-0.3-0.6-0.6v-1.1c0-0.3,0.3-0.6,0.6-0.6h0.8v-0.8c0-0.3,0.3-0.6,0.6-0.6h1.1c0.3,0,0.6,0.3,0.6,0.6v0.8h0.8c0.3,0,0.6,0.3,0.6,0.6V18.8z M27.6,8.7c0.8,0,1.4,0.6,1.4,1.4s-0.6,1.4-1.4,1.4s-1.4-0.6-1.4-1.4S26.8,8.7,27.6,8.7z M23.1,20.2c-1.2,0-2.2-1-2.2-2.2s1-2.2,2.2-2.2s2.2,1,2.2,2.2S24.3,20.2,23.1,20.2z M25,14.1c-0.8,0-1.4-0.6-1.4-1.4c0-0.8,0.6-1.4,1.4-1.4s1.4,0.6,1.4,1.4C26.4,13.4,25.8,14.1,25,14.1z M27.6,16.6c-0.8,0-1.4-0.6-1.4-1.4s0.6-1.4,1.4-1.4s1.4,0.6,1.4,1.4S28.3,16.6,27.6,16.6z M30.1,14.1c-0.8,0-1.4-0.6-1.4-1.4c0-0.8,0.6-1.4,1.4-1.4s1.4,0.6,1.4,1.4C31.5,13.4,30.9,14.1,30.1,14.1z" />
@@ -199,13 +183,6 @@ const nativeKbmSvg = (
   </svg>
 );
 
-/* The card compat badge mirrors what native Steam shows for the current
-   device: Deck compatibility on SteamOS, controller support everywhere else
-   (macOS / Windows / desktop Linux, known synchronously; Linux decides from
-   the cached SteamOS flag, defaulting to Deck until primed). */
-// Owned-library app ids, memoized briefly — the compat/input badge only shows
-// for owned games (store / wishlist cards, resolved from online sources, are
-// not in the library and get no badge, matching the native library).
 let _ownedSet: Set<number> | null = null;
 let _ownedAt = 0;
 function ownedLibraryAppIds(): Set<number> {
@@ -220,7 +197,7 @@ function ownedLibraryAppIds(): Set<number> {
 function showsControllerCompat(): boolean {
   const plat = currentPlatformKey();
   if (plat === "mac" || plat === "windows") return true;
-  primeSystemPlatform(); // idempotent — Linux needs the async SteamOS flag
+  primeSystemPlatform();
   return isSteamOSCached() === false;
 }
 
@@ -244,9 +221,6 @@ function isCompatSuppressed(params: { hideCompatIcons: boolean; hideNonSteamBadg
 function resolveCompatClass(params: { suppressCompat: boolean; useControllerCompat: boolean; compat: number }): string {
   if (params.suppressCompat) return "";
   if (params.useControllerCompat) {
-    // Desktop clients show an input glyph on every card — controller for
-    // controller support, keyboard + mouse otherwise. Neutral colour, one
-    // icon (`ds-compat--controller` narrows the pill, neutralises the tint).
     return "ds-compat ds-compat--controller";
   }
   if (params.compat === 3) return "ds-compat ds-compat-verified";
@@ -266,10 +240,7 @@ type CardArtImageProps = {
   featured: boolean; compatClass: string; useControllerCompat: boolean; controllerSupport: number; compat: number;
 };
 
-/* Transform-target div — mirrors native card structure where theme CSS
-   targets `_1HIFNGSxh4-jOhPiDynR4C > div:first-child` (TiltedHome tilt,
-   ArtHero, etc). The Focusable above wears nativeCardWrapper (via
-   resolveNativeCardClass) so "wrapper > div" themes land here. */
+// Mirrors the native card's first-child div that themes target.
 function CardArtImage(props: CardArtImageProps) {
   const { cssArtH, imgRef, firstUrl, alt, imgLoaded, setImgLoaded, onImgError, onImgLoad, featured, compatClass, useControllerCompat, controllerSupport, compat } = props;
   return (
@@ -278,11 +249,6 @@ function CardArtImage(props: CardArtImageProps) {
         <img
           ref={(el) => {
             imgRef.current = el;
-            /* Eager-load detection: a hot blob URL / HTTP-cache hit means
-               the browser already decoded the image, so el.complete +
-               naturalWidth > 0 is true the same tick the ref fires — mark
-               loaded synchronously to skip the opacity-gate flash. Cold
-               loads stay gated and flip via onLoad below. */
             if (el && el.complete && (el.naturalWidth || 0) > 0 && !imgLoaded) {
               setImgLoaded(true);
             }
@@ -292,11 +258,7 @@ function CardArtImage(props: CardArtImageProps) {
           onError={onImgError}
           onLoad={onImgLoad}
           decoding="async"
-          /* opacity-gated — `onError` swaps src through the fallback chain
-             (/customimages/* → CDN), and each failing URL would otherwise
-             flash the browser's broken-image glyph. The ref callback above
-             covers cached images, so this is instant-for-cached /
-             glyph-free-for-cold. */
+          // Hidden until loaded so the fallback chain never flashes a broken-image glyph.
           style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", opacity: imgLoaded ? 1 : 0 }}
           loading={featured ? "eager" : "lazy"}
           fetchPriority="high"
@@ -312,9 +274,6 @@ function CardArtImage(props: CardArtImageProps) {
   );
 }
 
-// Icon only renders when there's *some* text below the card — name, status
-// row, or description. Sits to the left of the text column, vertically
-// centred.
 function cardIconVisible(params: { hideGameName: boolean; hideStatusLine: boolean; isLibraryGame: boolean; enableDescription: boolean; description: string | null; logoOwnsDescription: boolean }): boolean {
   const hasName = !params.hideGameName;
   const hasStatus = !params.hideStatusLine && params.isLibraryGame;
@@ -339,13 +298,8 @@ function FriendsStatusRow({ friendsLabel }: { friendsLabel: string }) {
   );
 }
 
-// Mirrors the native menu's install/update/play state machine for the
-// status line's icon + label — one clear case per (installed × hasUpdate ×
-// hasPlaytime) combination, same branches the old inline IIFE had.
 type InstallStatusContent = { icon: typeof downloadIcon; labelKey: string; labelOpts?: Record<string, unknown> };
 
-// Mirrors the native menu's install/update/play state machine — one case
-// per (installed × hasUpdate × hasPlaytime) combination.
 function resolveInstallStatusContent(params: { isInstalled: boolean; updatePending: boolean; hasPlaytime: boolean; playtime: string | null }): InstallStatusContent {
   const { isInstalled, updatePending, hasPlaytime, playtime } = params;
   if (!isInstalled) {
@@ -368,8 +322,6 @@ function InstallStatusRow({ isInstalled, updatePending, hasPlaytime, playtime, h
   return <div className="ds-card-status">{!hideInstallIndicator && icon}<span>{t(labelKey, labelOpts)}</span></div>;
 }
 
-// Avatar pixels are drawn by the global FriendsAvatarOverlay (portaled above
-// the focus ring); the card just advertises the friend avatar URLs.
 function computeFriendsDisplay(overlayFriends: { avatar?: string }[], t: (...args: any[]) => any): { friendsLabel: string; friendAvatarAttr: string | undefined } {
   if (overlayFriends.length === 0) return { friendsLabel: "", friendAvatarAttr: undefined };
   const friendsLabel = overlayFriends.length === 1
@@ -395,11 +347,6 @@ function labelAlignItems(iconVerticalAlign: 'top' | 'center' | 'bottom'): 'cente
   return 'flex-start';
 }
 
-/* Size off the per-shelf --ds-eff-* vars (set by DeckRow when
-   matchNativeSize is on) so a native-dims change reflows via CSS, no
-   re-render; the prop is the fallback. Art height that already covers the
-   whole card sizes off the card's own box (100%) instead of the
-   --ds-eff-*-art-h var, which can end up shorter and leave a gap. */
 function computeCardCssDims(params: { featured: boolean; cardW: number; cardH: number; artH: number }): { cssW: string; cssH: string; cssArtH: string } {
   const { featured, cardW, cardH, artH } = params;
   const cssW = `var(${featured ? "--ds-eff-feat-w" : "--ds-eff-card-w"}, ${cardW}px)`;
@@ -418,11 +365,6 @@ function selectionMarkBoxShadow(mark: NonNullable<DeckRowItem['selectionMark']>)
   return '0 0 0 2px #4caf50';
 }
 
-/* Editor picker markers — siblings of the art / label, anchored to the
-   Focusable's positioned wrapper. The colored ring reuses the native focus
-   ring's box-shadow (shelfStyles.ts: `box-shadow: 0 0 0 2px ...`) so it sits
-   at the card's OUTSIDE edge across every preview tab. Dim layer + corner
-   icon stay inside the art for hidden-state readability. */
 function CardSelectionMarkOverlay({ mark, cssArtH }: { mark: DeckRowItem['selectionMark']; cssArtH: string }) {
   if (!mark) return null;
   return (
@@ -430,16 +372,9 @@ function CardSelectionMarkOverlay({ mark, cssArtH }: { mark: DeckRowItem['select
       aria-hidden='true'
       style={{
         position: 'absolute',
-        // Confine to the art rectangle (top:0 + cssArtH) — the label area
-        // sits at top:100% with absolute positioning outside this overlay,
-        // so it stays unobscured.
         top: 0, left: 0, right: 0, height: cssArtH,
         pointerEvents: 'none',
         borderRadius: 'var(--ds-card-radius, 0)',
-        /* Outset ring at the SAME offset Steam's focus ring uses — 2px
-           outside the card edge. The colored ring lives on this container's
-           box-shadow so themes (Round / Outrun) keep the corner curve and
-           the line never crosses into the art interior. */
         boxShadow: selectionMarkBoxShadow(mark),
         zIndex: 4,
       }}
@@ -448,25 +383,17 @@ function CardSelectionMarkOverlay({ mark, cssArtH }: { mark: DeckRowItem['select
         <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.45)', borderRadius: 'inherit' }} />
       )}
       {mark === 'highlight' && (
-        // Match the legacy `CheckIcon` exactly (14px, viewBox 24x24, stroke
-        // #4caf50 width 2.5, polyline `20 6 9 17 4 12`).
         <svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='#4caf50' strokeWidth='2.5' strokeLinecap='round' strokeLinejoin='round' style={{ position: 'absolute', top: 4, left: 4 }}>
           <polyline points='20 6 9 17 4 12' />
         </svg>
       )}
       {mark === 'hidden' && (
-        // Mirror the CheckIcon style: line-only X (no filled circle). Same
-        // 14px / viewBox 24x24 / strokeWidth 2.5 grammar so check + X read
-        // as a coherent pair.
         <svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='#f44336' strokeWidth='2.5' strokeLinecap='round' style={{ position: 'absolute', top: 4, left: 4 }}>
           <line x1='18' y1='6' x2='6' y2='18' />
           <line x1='6' y1='6' x2='18' y2='18' />
         </svg>
       )}
       {mark === 'added' && (
-        // Same line-art grammar as check / X — 14px, viewBox 24x24,
-        // strokeWidth 2.5. Blue (#2196f3) marks "manually added to shelf"
-        // (in manualOrder but not in the resolved source).
         <svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='#2196f3' strokeWidth='2.5' strokeLinecap='round' style={{ position: 'absolute', top: 4, left: 4 }}>
           <line x1='12' y1='5' x2='12' y2='19' />
           <line x1='5' y1='12' x2='19' y2='12' />
@@ -486,9 +413,7 @@ export function CardBadgeHost({ hasBadge, showDiscountBadge, showNewBadge, disco
     >
       {showDiscountBadge && (
         <div className="ds-new-badge-band">
-          <div className="ds-new-badge" style={{ background: '#2a7f2a' }}>
-            {discountBadgeText(mode, priceText, t('badge_discount', { count: discount }) ?? `${discount}% off`)}
-          </div>
+          <DiscountBadgePill mode={mode} discount={discount ?? 0} priceText={priceText} percentText={t('badge_discount', { count: discount }) ?? `${discount}% off`} />
         </div>
       )}
       {showNewBadge && !showDiscountBadge && (
@@ -508,17 +433,12 @@ type CardLabelBlockProps = {
   logoOwnsDescription: boolean; descriptionPosition: 'left' | 'center' | 'right';
 };
 
-// Left keeps the long-title spill; centre / right stay inside the card.
 const NAME_STYLE: Record<'left' | 'center' | 'right', React.CSSProperties> = {
   left: { textAlign: 'left', width: '100%' },
   center: { textAlign: 'center', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis' },
   right: { textAlign: 'right', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis' },
 };
 
-/* Non-library items have no meaningful install state — CardStatusLine
-   already hides per card. Description renders below the install/playtime
-   row, unless `descriptionBelowLogo` moved it into the logo overlay
-   instead (PerShelfHero.tsx). */
 function CardLabelBlock(props: CardLabelBlockProps) {
   const { cssW, cssArtH, hideStatusLine, iconVerticalAlign, showIcon, iconSrc, setIconIdx, playtimePosition, hideGameName, gameNamePosition, gameName, statusLine, enableDescription, description, logoOwnsDescription, descriptionPosition } = props;
   return (
@@ -581,18 +501,14 @@ const CARD_DEFAULTS = {
   descriptionPosition: 'left', iconVerticalAlign: 'top', gameNamePosition: 'left', playtimePosition: 'left', previewMode: false,
 } as const satisfies Partial<GameCardProps>;
 
-// The card's appid: the numeric item id, else the appid field (decorations have neither → 0).
 function cardAppid(item: DeckRowItem): number {
   return typeof item.id === "number" ? item.id : Number(item.appid ?? 0);
 }
 
 const numOr0 = (v: number | null | undefined): number => v ?? 0;
 
-// The placeholder card takes over when the image chain failed or never produced a URL.
 const artUnavailable = (imgFailed: boolean, firstUrl: string | null | undefined): boolean => imgFailed || !firstUrl;
 
-// TiltedHome compat CSS uses this to compute the exact zoom scale that covers the
-// skewed parallelogram — featured (landscape) and portrait cards need different factors.
 function cardHWRatioOf(cardH: number, featuredW: number): string {
   return featuredW > 0 ? (cardH / featuredW).toFixed(4) : "1.5";
 }
@@ -618,8 +534,6 @@ function GameCardImpl(props: GameCardProps) {
   const t = i18n.t.bind(i18n);
   if (__DEV__) recordCardRender();
   const cardRef = useRef<HTMLDivElement>(null);
-  // Gates description fetch + icon/logo/cover cache warming to cards near
-  // the visible scroll area — see useNearViewport.
   const isNearViewport = useNearViewport(cardRef, '600px');
   const imgRef = useRef<HTMLImageElement>(null);
   const appid = cardAppid(item);
@@ -627,9 +541,6 @@ function GameCardImpl(props: GameCardProps) {
   const artH = artHProp ?? cardH;
   const { cssW, cssH, cssArtH } = computeCardCssDims({ featured, cardW, cardH, artH });
 
-  /* getFriendsInApp (below) is a plain pull read during render, not a prop —
-     this selected key re-renders the card only when ITS friend set changes
-     (a friends poll no longer re-renders every decorated card). */
   const liveFriends = friendsOverlay && !previewMode;
   useFriendsInAppKey(appid, liveFriends);
 
@@ -640,11 +551,6 @@ function GameCardImpl(props: GameCardProps) {
     cardRef, appid, previewMode, shelfId: item.shelfId, removableSet, onRemoveCard, onHideCard,
     quickLaunch, toggleCardHighlight,
   });
-  /* `isLibraryGame` = appid resolves to an AppOverview in the local Steam
-     store. True for any game the user owns (installed or not, Steam or
-     non-Steam shortcut). False for decorations (no appid), online items
-     (wishlist / store, not owned) and non-owned friends-playing. Gates
-     Options button, View/quick-launch, and install indicator. */
   const isLibraryGame = useMemo(() => {
     if (previewMode || !appid) return false;
     try { return !!(globalThis as any).appStore?.GetAppOverviewByAppID?.(appid); }
@@ -664,24 +570,14 @@ function GameCardImpl(props: GameCardProps) {
   const compat = numOr0(item.deckCompatCategory);
   const playtime = formatPlaytime(item.playtimeMinutes);
   const isNonSteam = item.isSteam === false;
-  // The compat / input badge is only for owned library games (matches
-  // native — store & wishlist cards, resolved from online sources, aren't owned).
   const suppressCompat = isCompatSuppressed({ hideCompatIcons, hideNonSteamBadge, isNonSteam, appid });
-  // Desktop clients (macOS / Windows / desktop Linux) show controller
-  // support instead of Deck compatibility; reuse the badge slot + the
-  // verified/playable colour classes (full → green, partial → amber).
   const useControllerCompat = showsControllerCompat();
   const controllerSupport = numOr0(item.controllerSupport);
   const compatClass = resolveCompatClass({ suppressCompat, useControllerCompat, compat });
   const discount = item.discountPercent;
   const { showNewBadge, showDiscountBadge, hasBadge } = computeBadgeFlags({ hideNewBadge, isNew: item.isNew, hideDiscountBadge, discount });
 
-  // Badge: inline render only here. A single global BadgeFocusOverlay
-  // (mounted by HomeInject) draws the on-focus badge above the focus ring by
-  // reading data-isnew / data-discount from the focused card.
-
-  // Placeholder fallback must be returned AFTER all hooks above so the hook
-  // count stays stable across renders (React error #300 otherwise).
+  // Returned after every hook so the hook count stays stable.
   if (artUnavailable(imgFailed, firstUrl)) {
     return <PlaceholderCard
       item={item}
@@ -713,9 +609,6 @@ function GameCardImpl(props: GameCardProps) {
       role="listitem"
       onActivate={activate}
       onOKButton={activate}
-      /* Menu/Options stays bound for EVERY real card with an onMenuButton —
-         wishlist/store shelves rely on it for Properties/View-store/DS
-         actions. Only View (below) is library-gated. */
       onMenuButton={item.onMenuButton}
       onMenuActionDescription={resolveMenuActionDescription(previewMode, item.onMenuButton)}
       onContextMenu={item.onMenuButton}
@@ -741,8 +634,6 @@ function GameCardImpl(props: GameCardProps) {
         flexShrink: 0,
         padding: 0,
         margin: 0,
-        // Matches .ds-card-art's idle placeholder tone so the reserved
-        // label strip below the art doesn't go fully transparent.
         background: "var(--ds-card-bg, rgba(50, 50, 55, 0.55))",
         cursor: "pointer",
         overflow: "visible",
@@ -789,19 +680,6 @@ function GameCardImpl(props: GameCardProps) {
         logoOwnsDescription={logoOwnsDescription}
         descriptionPosition={descriptionPosition}
       />
-      {/* Logo overlay — composited over the art (top area). When active, the
-          in-label game name is suppressed (`!hideGameName && !enableLogo`
-          above). With `descriptionBelowLogo` and `enableDescription`, the
-          description sits directly below the logo. */}
-      {/* Logo + (optionally) description below it are rendered ONCE per
-          shelf in `PerShelfHero` — tied to the currently focused card — not
-          per card. See `PerShelfHero.tsx` for the focused-card logo +
-          description render path. */}
-      {/* Editor picker markers — siblings of the art / label, anchored to the
-          Focusable's positioned wrapper. The colored ring reuses the native
-          focus ring's box-shadow (shelfStyles.ts: `box-shadow: 0 0 0 2px ...`)
-          so it sits at the card's OUTSIDE edge across every preview tab. Dim
-          layer + corner icon stay inside the art for hidden-state readability. */}
       <CardSelectionMarkOverlay mark={item.selectionMark} cssArtH={cssArtH} />
     </Focusable>
   );

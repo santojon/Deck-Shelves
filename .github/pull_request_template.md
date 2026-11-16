@@ -1,66 +1,17 @@
 <!--
-  PR title MUST start with one of these tags:
-    [FIX]         — Bug fix
-    [ENHANCEMENT] — Small improvement
-    [PERF]        — Performance improvement
-    [QA]          — QA harness / test instrumentation
-    [REFACTOR]    — Refactor/restructure
-    [CLEANUP]     — Code cleanup
-    [FEATURE]     — New feature
-
+  Start the title with a tag; it decides the version bump:
+    patch: [FIX] [ENHANCEMENT] [PERF] [QA]
+    minor: [FEATURE] [CLEANUP]
+    major: [REFACTOR]
   Example: [FIX] Prevent shelf from disappearing on reboot
 -->
 
-## Description
+## What and why
 
-<!-- Describe what this PR does and why. -->
-
-## Related Issues
-
-<!-- Link issues closed or addressed by this PR (one per line, 0 or more). -->
-<!-- Example: Closes #42 -->
-
-## Changelog
-
-<!-- Required. Add entries under ## [Unreleased] in CHANGELOG.md (technical detail). -->
-<!-- Example: "- Fixed shelf disappearing after reboot." -->
-
-## Release Notes
-
-<!-- Required. Add entries under ## [Unreleased] in RELEASE_NOTES.md (user-facing, less jargon). -->
-<!-- Release bodies are extracted from this file at tag time. -->
-<!-- Example: "- Shelves no longer disappear after a reboot." -->
-
-## Type of Change
-
-<!-- Check at least one of the first three rows. -->
-
-- [ ] Refactor / restructure (`[REFACTOR]`)
-- [ ] New feature / Code cleanup (`[FEATURE]`, `[CLEANUP]`)
-- [ ] Bug fix / Enhancement / QA / Performance update (`[FIX]`, `[ENHANCEMENT]`, `[QA]`, `[PERF]`)
-- [ ] Documentation update
-- [ ] i18n / localization
-- [ ] Build / CI change
+<!-- What this PR changes and why. Add "Closes #123" for issues it fixes, and screenshots for UI changes. -->
 
 ## Checklist
 
-<!-- ALL items must be checked. The "i18n keys" line is required only when the
-     "i18n / localization" Type of Change is checked above; otherwise it can be
-     left unchecked and the validator will skip it. -->
-
-- [ ] My PR title starts with `[FIX]`, `[ENHANCEMENT]`, `[PERF]`, `[QA]`, `[REFACTOR]`, `[CLEANUP]`, or `[FEATURE]`.
-- [ ] I added my changes to `CHANGELOG.md` and `RELEASE_NOTES.md` under `## [Unreleased]`.
-- [ ] I have read [CONTRIBUTING.md](../CONTRIBUTING.md).
-- [ ] My code follows the project's code style (2 spaces, semicolons, double quotes).
-- [ ] I ran `pnpm run build` with no errors.
-- [ ] I ran `pnpm run validate:compat` and all checks pass.
-- [ ] I tested on a Steam Deck (or explained why this isn't needed).
-- [ ] If I added i18n keys, I added them to **all** locale files.
-
-## Screenshots / Videos
-
-<!-- If applicable, add screenshots or videos showing the change on Steam Deck. -->
-
-## Additional Notes
-
-<!-- Anything else reviewers should know. -->
+- [ ] Entry under `## [Unreleased]` in `RELEASE_NOTES.md` (and in `CHANGELOG.md` with `(#123)` for a fixed issue or technical detail).
+- [ ] `pnpm run validate:ci` passes.
+- [ ] Tested on a device, or explained why it isn't needed.

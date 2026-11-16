@@ -12,9 +12,6 @@ vi.mock("../../../runtime/logger", () => ({ logInfo: vi.fn() }));
 import { resolveAnchor, findOrCreateMount, ROOT_ID } from "../../../components/home/mountUtils";
 import { STEAM_PT_BR, clearSteamLocalizer, stubSteamLocalizer } from "../../fixtures/steamLocalizer";
 
-/* Native Home as it looks right after boot: a scroll panel (overflow-y auto,
-   nothing to scroll yet) holding only the recents block — title + a wrapper
-   around the virtualized recents grid. */
 function buildEarlyHome(label = "Jogos recentes") {
   document.body.innerHTML = "";
   const panel = document.createElement("div");
@@ -64,8 +61,6 @@ describe("mountUtils — anchor next to recents, never inside it", () => {
 
   it("never anchors inside a recents block a previous instance left hidden", () => {
     const { panel, recents } = buildEarlyHome();
-    // The outgoing instance hid the native rows (hideHomeTabs) and the inner grid
-    // is the first overflow:auto panel the lenient walk would otherwise pick.
     recents.style.display = "none";
     (recents.querySelector(".ReactVirtualized__Grid") as HTMLElement).style.overflowY = "auto";
     const anchor = resolveAnchor(document);

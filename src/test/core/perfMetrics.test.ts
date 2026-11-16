@@ -33,14 +33,11 @@ describe("perfMetrics", () => {
     expect(getPerfSnapshot().mountMs).toBeGreaterThanOrEqual(0);
   });
 
-  /* The startup watchdog keys on this to tell a stuck injection apart from
-     "Home was never opened" — only the former may disable the Home patch. */
   it("reports whether the Home mount ever started, independently of completion", () => {
     expect(hasMountStarted()).toBe(false);
     expect(getPerfSnapshot().mountMs).toBeNull();
 
     markMountStart();
-    // Started but NOT completed — the only state that is a real fault.
     expect(hasMountStarted()).toBe(true);
     expect(getPerfSnapshot().mountMs).toBeNull();
 

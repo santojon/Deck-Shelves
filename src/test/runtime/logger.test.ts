@@ -4,7 +4,7 @@ import { clearDiagnostics, subscribeDiagnostics, type DiagnosticEntry } from "..
 
 function currentEntries(): DiagnosticEntry[] {
   let entries: DiagnosticEntry[] = [];
-  subscribeDiagnostics((e) => { entries = e; })(); // subscribe → immediate snapshot → unsubscribe
+  subscribeDiagnostics((e) => { entries = e; })();
   return entries;
 }
 

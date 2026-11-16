@@ -14,25 +14,15 @@ import { logDiagnostic } from "./diagnostics";
 import { getPerfSnapshot, hasMountStarted, recordBootWatchdog, beginBootPhase, endBootPhase } from "../core/perfMetrics";
 import type { Settings } from "../types";
 
-/* The boot phases the plugin entry runs after the Home patches are in: each
-   installs one concern and returns its teardown, so the entry only orders them. */
-
 type Uninstall = () => void;
 type Patch = { uninstall?: () => void } | null | undefined;
 
-/* Startup watchdog: Home's first mount is expected well under a second; 20 s is
-   generous, not tight. If it never lands, tear down both Home patches — leaving
-   recentsReplace alone would hide the native recents row with nothing behind it,
-   worse than the stuck injection. Both uninstalls are idempotent, so this can
-   safely race a normal dispose. */
-/* Only a STARTED-but-unfinished mount is a fault. If Home hasn't rendered at all
-   yet (Steam restarted onto another view, a game, or a settings panel), re-arm
-   instead of disabling — permanently killing the patch there left the plugin
-   looking dead through no fault of the injection. Bounded re-arms. */
+// Remove both patches: a hidden native recents row with nothing behind it is worse than a stuck mount.
+// Only a started-but-unfinished mount is a fault; if Home never rendered, re-arm instead.
 const WATCHDOG_BUDGET_MS = 20000;
 const MAX_REARMS = 9;
 
-// The mount timing is shared with earlier instances of this session; say so when this boot's Home has not mounted.
+// The mount timing can come from an earlier instance in this Steam session.
 function mountVerdict(rearms: number): string {
   const thisBoot = getPerfSnapshot().bootPhases.some((p) => p.name === "mount" && p.durationMs !== null);
   if (!thisBoot) return "ok (mount from an earlier instance)";
@@ -47,7 +37,6 @@ export function installStartupWatchdog(patch: Patch, recentsReplacePatch: Patch)
     timer = null;
     if (getPerfSnapshot().mountMs !== null) { recordBootWatchdog(mountVerdict(rearms)); return; }
     if (!hasMountStarted()) {
-      // Home still unopened — stop watching, keep the patch
       if (rearms++ >= MAX_REARMS) { recordBootWatchdog("gave up: Home never opened"); return; }
       timer = setTimeout(checkMount, WATCHDOG_BUDGET_MS);
       return;
@@ -61,14 +50,6 @@ export function installStartupWatchdog(patch: Patch, recentsReplacePatch: Patch)
   return () => { if (timer !== null) { clearTimeout(timer); timer = null; } };
 }
 
-/* Phase B (lazy bootstrap): trackers/pollers nothing else in boot reads
-   synchronously — deferred to idle so they don't compete with the critical path
-   (Home injection, routes, state subscriptions). `disposed` + cancel guard the
-   case where dismount happens before idle ever fires. */
-/* Phase C (feature demand): the friends poller and the shortcut-tags poll run
-   only while the configuration can actually use their data — started the moment
-   a settings change introduces such a use, stopped when the last one goes. The
-   settings subscription is the only trigger. */
 function followDemand(current: Uninstall | null, needed: boolean, install: () => Uninstall): Uninstall | null {
   if (needed && !current) return install();
   if (!needed && current) { current(); return null; }
@@ -112,17 +93,12 @@ export function startLazyPhases(): Uninstall {
   };
 }
 
-/* Dev-only update-probe trace. No-ops in release (`if (!__DEV__) return;` is
-   dead-code-eliminated) so `__dsUpdateProbe` never lands on the global in
-   distribution builds. */
 const probe = (patch: Record<string, unknown>, reset = false): void => {
   if (!__DEV__) return;
   const g = globalThis as any;
   g.__dsUpdateProbe = reset ? { ...patch } : Object.assign(g.__dsUpdateProbe || {}, patch);
 };
 
-// Update notifier: the toggle (default ON) gates whether to run at all; cache +
-// dismiss gate whether to fire the toast.
 async function runUpdateProbe(reason: string): Promise<boolean> {
   try {
     probe({ reason, at: Date.now(), step: 'start' }, true);
@@ -160,11 +136,7 @@ async function runUpdateProbe(reason: string): Promise<boolean> {
   }
 }
 
-/* Boot retry: poll for network with backoff until a probe actually runs (online
-   + checked) or we hit the 10-min cap. Steam restart and system reboot both land
-   here; the loop self-terminates on first successful probe so steady-state work
-   is zero. A self-install host already polls this same release feed to update
-   itself and the bundle, owns the check and shows its own notice — never duplicated. */
+// Backs off until the first probe runs, then stops; a self-install host runs its own check instead.
 const UPDATE_BACKOFFS_MS = [3000, 10000, 20000, 40000, 60000, 60000, 60000, 60000, 60000, 60000, 60000, 60000];
 
 export function installUpdateProbes(): Uninstall {
@@ -180,7 +152,6 @@ export function installUpdateProbes(): Uninstall {
     }, delay);
   };
   if (!canSelfInstallUpdate()) scheduleBootProbe();
-  // Re-probe on the upward edge of the notify toggle (OFF → ON).
   let lastToggle = getCurrentSettings()?.updateNotifyEnabled !== false;
   const unsubscribe = subscribeSettings((s) => {
     const now = s?.updateNotifyEnabled !== false;
@@ -193,14 +164,7 @@ export function installUpdateProbes(): Uninstall {
   };
 }
 
-/* Two one-shots. ~18 s after boot (library + stats settled): if the user opted
-   into suggestions and there's one they haven't been told about, a single
-   branded, clickable toast opens the Suggestions tab (self-gated + deduped in
-   `pickNewSuggestions`; no polling). */
-/* ~5 s after boot: the backend flags the moment it recovers settings.json from
-   a `.bak`/backups snapshot after finding the primary file corrupted (truncated
-   write, disk error); reading the flag clears it server-side, so this fires
-   once per actual recovery, never on a normal boot. */
+// Reading the recovery flag clears it on the backend, so this fires once per recovery.
 export function scheduleBootToasts(openSettings: (tab?: string) => void): Uninstall {
   const suggestTimer = setTimeout(() => {
     void pickNewSuggestions().then((fresh) => {
@@ -232,11 +196,10 @@ function steamClient(): any {
   return g.SteamClient ?? g.window?.SteamClient;
 }
 
-// Log system environment for easier support debugging.
 export function logSystemEnvironment(): void {
   const ua = userAgent();
   try {
-    // GetOSType is async in some versions; fire-and-forget with fallback to UA
+    // GetOSType is async on some clients.
     Promise.resolve(steamClient()?.System?.GetOSType?.()).then((osType: any) => {
       logDiagnostic("info", "System environment", JSON.stringify({ ua, osType: osType ?? "unavailable" }));
     }).catch(() => {

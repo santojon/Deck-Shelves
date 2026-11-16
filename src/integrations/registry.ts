@@ -1,6 +1,5 @@
 function isPluginInstalled(name: string): boolean {
-  // SteamOS 3.9 moved the loader off window — try multiple paths.
-  // plugins may be array or Map depending on version.
+  // The loader isn't always on window, and `plugins` may be an array or a Map.
   try {
     const loaders = [
       (window as any).DeckyPluginLoader,

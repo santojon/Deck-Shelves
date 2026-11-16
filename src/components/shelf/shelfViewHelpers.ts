@@ -15,8 +15,6 @@ import { compatCategoryForFamily } from "../../domain/deviceProfile";
 import { getDeviceProfile } from "../../runtime/deviceState";
 import { clearOnlineShelfCache } from "../../core/shelfActions";
 
-// Host-parametric UI lib — resolved by the one central resolver in the host
-// adapter (loader global OR `__SHELVES_HOST__.ui`), aliased locally.
 const resolveFrontendLib = getFrontendLib;
 
 const NEW_GAME_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
@@ -48,9 +46,7 @@ function openSteamStorePage(appid: number): void {
   openSteamStoreUrl(`${STEAM_STORE_BASE}/app/${appid}/`, `steam://store/${appid}`);
 }
 
-// Parsed once per distinct cache string: this is read per online card on
-// every rowItems recompute, and parsing the whole price cache each time
-// measured ~270 ms per Home rebuild on-device.
+// Parsed once per cache string; this runs for every online card on each rebuild.
 let priceCacheRaw: string | null = null;
 let priceCacheParsed: Record<string, any> | null = null;
 function readPriceCache(): Record<string, any> | null {
@@ -76,8 +72,6 @@ function getCachedPriceText(appid: number): string | undefined {
   } catch { return undefined; }
 }
 
-// Small value-normalizing helpers — kept separate so their branches don't
-// count against the caller's own complexity (each is a plain, pure read).
 export function joinOrEmpty(list: unknown[] | null | undefined): string {
   return list?.join(",") ?? "";
 }
@@ -106,9 +100,7 @@ export function computeShelfCacheKey(shelf: Shelf): string {
   return `${SHELF_CACHE_PREFIX}${shelf.id}-${sortPart}-${orEmpty((shelf as any).manualBaseSort)}-${flag01((shelf as any).sortReverse)}-${flag01((shelf as any).manualBaseSortReverse)}`;
 }
 
-/* A shelf's cached id list expires only when that exact key is READ again, so a
-   key whose shelf no longer exists — renamed, deleted, or a throwaway from a
-   benchmark run — is never read and lingers forever (found 52 such keys live). */
+// A cached id list only expires when its key is read again, so orphaned keys never would.
 function shelfCacheStamp(ls: any, key: string): number {
   try { return Number(JSON.parse(ls.getItem(key) || '{}')?.ts) || 0; } catch { return 0; }
 }
@@ -130,9 +122,9 @@ export function pruneShelfCaches(now: number = Date.now()): number {
     const ls = (globalThis as any).localStorage;
     if (!ls) return 0;
     for (const key of expiredShelfCacheKeys(ls, now)) {
-      try { ls.removeItem(key); removed++; } catch { /* quota/private mode */ }
+      try { ls.removeItem(key); removed++; } catch {}
     }
-  } catch { /* storage unavailable */ }
+  } catch {}
   return removed;
 }
 
@@ -148,14 +140,10 @@ export function computeEffectiveSort(shelf: Shelf): { effectiveSort: string | st
   const effectiveSort = shelf.source?.type === "filter"
     ? (((shelf.source as any).filter?.sort as string | string[] | undefined) ?? shelf.sort)
     : shelf.sort;
-  // Multi-key shelves treat the first array entry as primary.
   const primaryEffectiveSort = Array.isArray(effectiveSort) ? effectiveSort[0] : effectiveSort;
   return { effectiveSort, primaryEffectiveSort };
 }
 
-/* Asc/desc inversion. When manual, the base sort's reverse flag applies
-   (also accepts boolean[] aligned with a multi-key chain); otherwise the
-   top-level shelf flag applies. */
 function computeResolveReverse(shelf: Shelf, isManual: boolean): boolean | boolean[] {
   const rawShelfReverse = (shelf as any).sortReverse;
   const rawBaseReverse = (shelf as any).manualBaseSortReverse;
@@ -163,17 +151,12 @@ function computeResolveReverse(shelf: Shelf, isManual: boolean): boolean | boole
   return Array.isArray(rawShelfReverse) ? rawShelfReverse : !!rawShelfReverse;
 }
 
-/* When reverse is on but no explicit sort is persisted (regular shelf
-   default = "alphabetical" stored as undefined), force `alphabetical` so the
-   resolver actually calls `applySortToIds` and the reverse flag has
-   somewhere to apply. */
+// With reverse on and no stored sort, force alphabetical so the resolver still sorts.
 function computeResolveSort(shelf: Shelf, isManual: boolean, baseSort: string | string[], resolveReverse: boolean | boolean[]): string | string[] | undefined {
   if (isManual) return baseSort;
   return shelf.sort ?? (resolveReverse ? "alphabetical" : undefined);
 }
 
-// Filter sources keep their sort inside `source.filter.sort`, so on manual
-// sort the source is cloned with `filter.sort` swapped to the base sort.
 function computeResolveSource(shelf: Shelf, isManual: boolean, baseSort: string | string[]): any {
   if (isManual && shelf.source?.type === "filter") {
     return { ...shelf.source, filter: { ...(shelf.source as any).filter, sort: baseSort } };
@@ -211,7 +194,6 @@ export function startManualRefreshIndicator(
   }, 320);
 }
 
-// Diagnostic: lets CDP inspection confirm a shelf isn't stuck re-resolving.
 export function traceResolveStart(shelfId: string, gen: number, currentGen: number, cancelled: boolean): number {
   const at = Date.now();
   devStampKey("__ds_resolve_trace", shelfId, { state: "started", at, gen, currentGen, cancelled });
@@ -230,9 +212,6 @@ export function bumpResolveGenCounter(shelfId: string): void {
   devCountKey("__ds_resolve_gens", shelfId);
 }
 
-// Composite per-shelf exclude-owned toggles live on the online child —
-// read from the first online child so render-time name-dedup applies to
-// composite shelves with an online child too.
 function findOwnedSourceForToggles(shelf: Shelf, isOnlineShelf: boolean, compositeHasOnlineChild: boolean): any {
   if (isOnlineShelf) return shelf.source as any;
   if (!compositeHasOnlineChild) return null;
@@ -256,9 +235,6 @@ export function computeOnlineSourceFlags(params: { shelf: Shelf; sourceIncludesN
 } {
   const { shelf, sourceIncludesNonOwned } = params;
   const isOnlineShelf = shelf.source.type === 'wishlist' || shelf.source.type === 'store';
-  // Composite source with at least one online child (wishlist / store): the
-  // composite itself isn't `type === 'wishlist'/'store'`, but the appids it
-  // returns include non-owned ones from the online child.
   const compositeHasOnlineChild = shelf.source.type === 'composite' && Array.isArray((shelf.source as any).sources)
     && (shelf.source as any).sources.some((c: any) => c?.type === 'wishlist' || c?.type === 'store');
   const needsExternalNames = isOnlineShelf || sourceIncludesNonOwned || compositeHasOnlineChild;
@@ -299,8 +275,6 @@ export function shouldDropOwnedItem(params: { eligibleForOwnedHide: boolean; sho
   return eligibleForOwnedHide && shouldHideOwned && !!ownedAppIds && ownedAppIds.has(appid);
 }
 
-// Name-based dedup against truly-owned local titles — colon/dash differences
-// between a Steam title and a non-Steam shortcut name don't block the match.
 export function isHiddenByOwnedName(params: {
   shouldHideOwned: boolean; ownedNames: Set<string> | null; isOnlineSource: boolean; eligibleForOwnedHide: boolean;
   item: PlatformAppMeta; isStoreFallback: boolean; storeNames: Map<number, string>; appid: number;
@@ -312,19 +286,14 @@ export function isHiddenByOwnedName(params: {
   return !!itemName && ownedNames.has(itemName);
 }
 
-/* Non-owned game from an online source: decorative card with CDN artwork.
-   Uses the public Akamai CDN (better global availability than the Cloudflare
-   edge for in-client requests); click opens the Steam Store page. */
 export function buildOnlineFallbackRowItem(params: { appid: number; shelfId: string; storeNames: Map<number, string>; t: (key: string) => string }): DeckRowItem {
   const { appid, shelfId, storeNames, t } = params;
   const cdnPortrait = `${STEAM_CDN_AKAMAI}/steam/apps/${appid}/library_600x900.jpg`;
   const cdnHero = `${STEAM_CDN_AKAMAI}/steam/apps/${appid}/header.jpg`;
   const gameName = storeNames.get(appid) ?? `#${appid}`;
   const discountPct = getCachedDiscount(appid);
-  // Online card menu: DS shelf actions only — no native Steam menu.
   const showOnlineMenu = () => {
     try {
-      // Without the host fallback this online-card menu never opened in sole mode.
       const dfl = resolveFrontendLib();
       const R = (globalThis as any).SP_REACT;
       if (!dfl?.showContextMenu || !R || !dfl.MenuItem || !dfl.Menu) return;
@@ -350,8 +319,6 @@ export function buildOnlineFallbackRowItem(params: { appid: number; shelfId: str
 
 export function buildOwnedRowItem(params: { appid: number; item: PlatformAppMeta; shelf: Shelf; platform: any; t: (key: string) => string }): DeckRowItem {
   const { appid, item, shelf, platform, t } = params;
-  // Pass `shelf.id` so the captured native menu gains a `Deck Shelves >
-  // Shelf > […]` submenu via the afterPatch/HOC seam.
   const onMenuButton = () => showGameMenu(appid, shelf.id);
   const addedTs = (item as any).addedTimestamp;
   const addedMs = typeof addedTs === 'number' && addedTs > 0 ? (addedTs < 1e12 ? addedTs * 1000 : addedTs) : 0;
@@ -364,8 +331,6 @@ export function buildOwnedRowItem(params: { appid: number; item: PlatformAppMeta
     heroUrl: item.heroUrl,
     onActivate: () => { saveFocusTarget(appid, shelf.id); platform.navigateToApp(appid); },
     onMenuButton,
-    // The badge shows the rating of the device in use (Frame / Machine have
-    // their own); everything else keeps the Deck rating.
     deckCompatCategory: compatCategoryForFamily(getDeviceProfile().family, item),
     controllerSupport: item.controllerSupport,
     playtimeMinutes: item.playtimeMinutes,
@@ -389,10 +354,7 @@ export function buildRefreshRowItem(params: { shelf: Shelf; isOnlineShelf: boole
     onActivate: () => {
       if (isOnlineShelf) clearOnlineShelfCache();
       else if (isSmart) invalidateSmartShelfCache(shelf.id);
-      // The random order is kept per shelf for a day, so a manual refresh clears it too.
       invalidateRandomSortCache(shelf.id);
-      // Scopes the visual indicator to this shelf; every subscribed shelf
-      // still re-resolves since online cache clears affect them all.
       triggerShelfRefresh({ manual: true, shelfId: shelf.id });
     },
   } as DeckRowItem;
@@ -414,13 +376,9 @@ export function buildMoreRowItem(params: { shelf: Shelf; isOnlineShelf: boolean;
   return { id: `${shelf.id}__more`, name: moreLabel, isMoreLink: true, onActivate: moreActivate } as DeckRowItem;
 }
 
-// Interleaves synthetic cards at their fixed slots, order-preserving: a card
-// with position N lands at index N of the final array (clamped to length).
 export function insertSyntheticCards(base: DeckRowItem[], shelf: Shelf): void {
   const synth = (shelf as any).syntheticCards as Array<any> | undefined;
   if (!synth || !synth.length) return;
-  // Keep the ORIGINAL index alongside so a synthetic card can address its
-  // own entry for X (remove) / Y (toggle size) bindings after splicing.
   const indexed = synth.map((c, origIdx) => ({ c, origIdx }));
   indexed.sort((a, b) => (a.c.position ?? 0) - (b.c.position ?? 0));
   for (const { c, origIdx } of indexed) {

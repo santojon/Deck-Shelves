@@ -19,7 +19,7 @@ beforeEach(() => {
 })
 
 describe('sessionState', () => {
-  // Must run FIRST: module-level _lastApp starts null and later tests populate it.
+  // Must run first: later tests leave a last app behind.
   it('lastGameSource fails open when nothing has been launched yet', () => {
     installSessionState()
     expect(evalSessionRule({ kind: 'lastGameSource', value: 'steam' })).toBe(true)
@@ -27,8 +27,8 @@ describe('sessionState', () => {
   })
 
   it('lastGameSource records Steam vs non-Steam of the last started app', () => {
-    overviews[100] = { app_type: 1 } // Steam game
-    overviews[2147841299] = { app_type: 1073741824 } // non-Steam shortcut
+    overviews[100] = { app_type: 1 }
+    overviews[2147841299] = { app_type: 1073741824 }
     installSessionState()
     lifetimeCb!({ unAppID: 100, bRunning: true })
     expect(evalSessionRule({ kind: 'lastGameSource', value: 'steam' })).toBe(true)
@@ -41,8 +41,8 @@ describe('sessionState', () => {
   it('app stop (bRunning false) does not change the last-played source', () => {
     overviews[100] = { app_type: 1 }
     installSessionState()
-    lifetimeCb!({ unAppID: 100, bRunning: true }) // steam started
-    lifetimeCb!({ unAppID: 100, bRunning: false }) // stopped
+    lifetimeCb!({ unAppID: 100, bRunning: true })
+    lifetimeCb!({ unAppID: 100, bRunning: false })
     expect(evalSessionRule({ kind: 'lastGameSource', value: 'steam' })).toBe(true)
   })
 

@@ -1,8 +1,3 @@
-/* Device-history tracking: thin I/O + debounce over the pure
-   `domain/deviceHistory` model. Fire-and-forget on each tracked transition,
-   no polling. Mirrors `steam/usageTracking.ts`'s persistence shape, kept
-   separate since this tracks device/context conditions, not engagement. */
-
 import {
   type DeviceHistory,
   type DeviceHistorySignal,
@@ -29,13 +24,13 @@ function load(): DeviceHistory {
         return cache;
       }
     }
-  } catch { /* fall through to empty */ }
+  } catch {}
   cache = emptyDeviceHistory();
   return cache;
 }
 
 function scheduleWrite(): void {
-  if (writeTimer) return; // one coalesced write per debounce window
+  if (writeTimer) return;
   writeTimer = setTimeout(() => {
     writeTimer = null;
     try { (globalThis as any)?.localStorage?.setItem(STORAGE_KEY, JSON.stringify(cache)); } catch {}
@@ -61,18 +56,10 @@ export function clearDeviceHistory(): void {
   try { (globalThis as any)?.localStorage?.removeItem(STORAGE_KEY); } catch {}
 }
 
-/* Flush the pending debounced write immediately — call before anything reads
-   a summary so it reflects the latest tracked transition. */
+/** Call before reading a summary so it includes the pending write. */
 export function flushDeviceHistory(): void {
   if (!cache) return;
   if (writeTimer) { clearTimeout(writeTimer); writeTimer = null; }
   try { (globalThis as any)?.localStorage?.setItem(STORAGE_KEY, JSON.stringify(cache)); } catch {}
 }
 
-if (__DEV__) {
-  try {
-    const g = globalThis as any;
-    g.__ds_dev_device_history = () => { flushDeviceHistory(); return load(); };
-    g.__ds_dev_device_history_clear = () => clearDeviceHistory();
-  } catch { /* best-effort */ }
-}

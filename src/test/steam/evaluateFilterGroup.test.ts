@@ -376,16 +376,14 @@ describe('evaluateFilterGroup — appStatus on non-Steam (synthesized display_st
 })
 
 describe('systemCompatibility filter', () => {
-  // Unknown (no data) is kept on the Deck but excluded on desktop, where Steam
-  // never marks a game's platform availability `false` — mirror that here.
   const oneSided = /mac|win/i.test((globalThis as any).navigator?.platform ?? '')
 
   it('honours Steam\'s field, then our store-derived fill, drops incompatible', () => {
     const apps = [
       app({ appid: 1, available_on_current_platform: true } as any),
       app({ appid: 2, available_on_current_platform: false } as any),
-      app({ appid: 3, __ds_available_on_platform: true } as any),  // store-derived
-      app({ appid: 4, __ds_available_on_platform: false } as any), // store-derived
+      app({ appid: 3, __ds_available_on_platform: true } as any),
+      app({ appid: 4, __ds_available_on_platform: false } as any),
     ]
     const g = group([{ type: 'systemCompatibility', params: {} }])
     expect(evaluateFilterGroup(g, apps).map((a) => a.appid)).toEqual([1, 3])
@@ -394,7 +392,7 @@ describe('systemCompatibility filter', () => {
   it('keeps unknown on the Deck, excludes it on desktop', () => {
     const apps = [
       app({ appid: 1, available_on_current_platform: true } as any),
-      app({ appid: 2 } as any), // no data anywhere (non-Steam, no store fill)
+      app({ appid: 2 } as any),
     ]
     const g = group([{ type: 'systemCompatibility', params: {} }])
     const kept = evaluateFilterGroup(g, apps).map((a) => a.appid)
@@ -413,10 +411,10 @@ describe('systemCompatibility filter', () => {
 
 describe('remotePlayLocation filter', () => {
   const apps = () => [
-    app({ appid: 1, installed: true, installed_remote: false } as any),  // local only
-    app({ appid: 2, installed: false, installed_remote: true } as any),  // remote only
-    app({ appid: 3, installed: true, installed_remote: true } as any),   // both
-    app({ appid: 4, installed: false, installed_remote: false } as any), // neither
+    app({ appid: 1, installed: true, installed_remote: false } as any),
+    app({ appid: 2, installed: false, installed_remote: true } as any),
+    app({ appid: 3, installed: true, installed_remote: true } as any),
+    app({ appid: 4, installed: false, installed_remote: false } as any),
   ]
   const run = (mode: string) =>
     evaluateFilterGroup(group([{ type: 'remotePlayLocation', params: { mode } }]), apps()).map((a) => a.appid)
@@ -440,7 +438,7 @@ describe('libraryLocation filter', () => {
       appLibrary: { '1': 'a', '2': 'b' },
     }
     await refreshLibraryLocations()
-    const apps = [app({ appid: 1 }), app({ appid: 2 }), app({ appid: 3 })] // 3: not in any library
+    const apps = [app({ appid: 1 }), app({ appid: 2 }), app({ appid: 3 })]
     const run = (category: string) =>
       evaluateFilterGroup(group([{ type: 'libraryLocation', params: { category } }]), apps).map((a) => a.appid)
     expect(run('internal')).toEqual([1])
@@ -464,14 +462,9 @@ describe('libraryLocation filter', () => {
     const apps = [app({ appid: 1 }), app({ appid: 2 }), app({ appid: 3 }), app({ appid: 4 }), app({ appid: 5 })]
     const run = (libraryIds: string[]) =>
       evaluateFilterGroup(group([{ type: 'libraryLocation', params: { libraryIds } }]), apps).map((a) => a.appid)
-    // Mixes an SD card (external) with the internal drive — categories are
-    // irrelevant once specific libraries are picked.
     expect(run(['a', 'b'])).toEqual([1, 2])
-    // Mixes two external libraries (SD card + USB drive) but not the internal one.
     expect(run(['b', 'c'])).toEqual([2, 3])
-    // A specific network share.
     expect(run(['d'])).toEqual([4])
-    // Empty selection = not yet narrowed down = no restriction.
     expect(run([])).toEqual([1, 2, 3, 4, 5])
   })
 })
@@ -490,7 +483,6 @@ describe('priceRange filter', () => {
   afterEach(() => vi.unstubAllGlobals())
 
   it('keeps games within [min,max] currency units; excludes unpriced', () => {
-    // prices are cents: 5.00 / 25.00 / 99.00 / free
     seedPrices({ 1: { price: 500 }, 2: { price: 2500 }, 3: { price: 9900 }, 4: { unpriced: true } })
     const g = group([{ type: 'priceRange', params: { minPrice: 10, maxPrice: 50 } }])
     const apps = [app({ appid: 1 }), app({ appid: 2 }), app({ appid: 3 }), app({ appid: 4 })]
@@ -532,9 +524,9 @@ describe('neglected filter', () => {
   const now = Math.floor(Date.now() / 1000)
   it('matches played-but-not-in-N-days; never-played never matches', () => {
     const apps = [
-      app({ appid: 1, last_played: now - 60 * 86400 }), // 60 days ago → neglected
-      app({ appid: 2, last_played: now - 5 * 86400 }), // 5 days ago → recent
-      app({ appid: 3, last_played: 0 }), // never played → untouched, not neglected
+      app({ appid: 1, last_played: now - 60 * 86400 }),
+      app({ appid: 2, last_played: now - 5 * 86400 }),
+      app({ appid: 3, last_played: 0 }),
     ]
     const g = group([{ type: 'neglected', params: { days: 30 } }])
     expect(evaluateFilterGroup(g, apps).map((a) => a.appid)).toEqual([1])

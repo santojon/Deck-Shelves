@@ -24,7 +24,7 @@
   "update_installing": "アップデート {{version}} をインストール中…",
   "update_installed": "{{version}} に更新しました。",
   "update_install_failed": "インストールに失敗しました — ダウンロードに切り替えます。",
-  "update_install_busy": "ホストはまだ更新を確認中です — しばらくしてからもう一度お試しください。",
+  "update_install_busy": "まだ更新を確認しています。しばらくしてからもう一度お試しください。",
   "update_downloading": "アップデート {{version}} をダウンロード中…",
   "update_downloaded": "{{path}} に保存しました。手動でインストールしてください。",
   "update_download_failed": "ダウンロードに失敗しました。リリースページを開きます。",

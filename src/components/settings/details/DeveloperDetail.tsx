@@ -21,8 +21,6 @@ export interface DeveloperDetailProps {
   t: (key: string) => string;
 }
 
-/** Live config for the on-home debug overlay: corner, orientation and which
-    parts to render (fps / stats / per-shelf / focus chain / render outlines). */
 function OverlayConfig({ controller, t }: DeveloperDetailProps) {
   const o = (controller.settings ?? {}) as any;
   const setOpt = (key: string, value: boolean | string) => (controller.actions as any).setDebugOverlayOption?.(key, value);
@@ -54,10 +52,6 @@ function OverlayConfig({ controller, t }: DeveloperDetailProps) {
 
 const DEVICE_SIM_OPTIONS = ["real", "deck", "machine", "frame", "desktop", "handheld-arm", "unknown"] as const;
 
-/** Developer-only override for the device kind and input mode the whole
-    plugin reads (Visibility Rules, profile triggers, Packs) — lets
-    hardware-specific behaviour be tested without owning every device kind.
-    In-memory only — resets on reload, never persisted. */
 function DeviceSimulator({ t }: { t: (k: string) => string }) {
   const [device, setDevice] = useState<DeviceKind | null>(() => getSimulatedDevice());
   const [pointer, setPointer] = useState<boolean>(() => getSimulatedInputMode() === "pointer");
@@ -90,15 +84,12 @@ function DeviceSimulator({ t }: { t: (k: string) => string }) {
   );
 }
 
-/** Developer tab (only shown when Developer mode is on): the on-home debug
-    overlay toggle, source resolver, focus tree, and the diagnostic log. */
 export function DeveloperDetail({ controller, t }: DeveloperDetailProps) {
   const [diags, setDiags] = useState<DiagnosticEntry[]>([]);
   useEffect(() => subscribeDiagnostics(setDiags), []);
 
   const copyLogs = () => {
     if (diags.length === 0) return;
-    // Oldest-first so the copied text reads top-to-bottom in chronological order.
     const text = [...diags].reverse().map((e) => {
       const ts = new Date(e.time).toLocaleTimeString(undefined, { hour12: false });
       const scope = e.scope ? ` [${e.scope}]` : "";
@@ -161,7 +152,7 @@ export function DeveloperDetail({ controller, t }: DeveloperDetailProps) {
               {diags.map((entry) => (
                 <Focusable
                   key={entry.id}
-                  onActivate={() => { /* leaf — focus only */ }}
+                  onActivate={() => {}}
                   onOKActionDescription={t("settings_advanced_logs_view")}
                   className="ds-log-row"
                   style={{ display: "flex", gap: 10, padding: "6px 8px", borderRadius: 4, background: "var(--ds-surface-row, rgba(255,255,255,0.03))" }}

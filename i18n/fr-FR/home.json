@@ -24,7 +24,7 @@
   "update_installing": "Installation de la mise à jour {{version}}…",
   "update_installed": "Mis à jour vers {{version}}.",
   "update_install_failed": "Échec de l'installation — retour au téléchargement.",
-  "update_install_busy": "L'hôte vérifie encore les mises à jour — réessayez dans un instant.",
+  "update_install_busy": "Recherche de mises à jour toujours en cours — réessayez dans un instant.",
   "update_downloading": "Téléchargement de la mise à jour {{version}}…",
   "update_downloaded": "Enregistré dans {{path}} — installez-le manuellement.",
   "update_download_failed": "Échec du téléchargement — ouverture de la page de version.",

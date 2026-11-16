@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { STEAM_CDN_AKAMAI } from '../../../../constants';
-import { resolveShelfAppIds, getAllAppOverviews, getLocalLibraryAppIds } from '../../../../steam';
+import { resolveShelfAppIds, getAllAppOverviews, getLocalLibraryAppIds, manualResolveLimit } from '../../../../steam';
 import { getCurrentSettings } from '../../../../store/settingsStore';
 import { fetchGameNames } from '../../../../core/onlineStore';
 import { decodeHtmlEntities } from '../../../../domain/sourceUtils';
@@ -37,16 +37,9 @@ function pickManualSortKey(base: string | string[]): string | string[] {
 function computePreviewSort(state: EditableShelfState): { sort: string | string[] | undefined; reverse: boolean | boolean[] } {
   const isManualSort = state.sort === 'manual' || state.filter.sort === 'manual';
   const reverse = pickPreviewReverse(state, isManualSort);
-  /* A pure filter shelf carries its sort on the source itself, so the shelf-level
-     sort is redundant. Once a filter primary composes with additionalSources
-     (composite), the merged result needs it to reorder the union — dropping it
-     unconditionally left the preview showing the raw round-robin merge order
-     while the saved shelf (via shelfSortForPatch, which already has this guard) sorted correctly. */
+  // A filter primary in a composite still needs the shelf-level sort to order the merge.
   if (state.sourceType === 'filter' && state.additionalSources.length === 0) return { sort: undefined, reverse };
   if (isManualSort) return { sort: pickManualSortKey(state.manualBaseSort), reverse };
-  // Mirrors shelfSortForPatch's `eff` selection: a filter primary keeps its
-  // chosen sort under state.filter.sort even once composed with
-  // additionalSources, not state.sort.
   const eff = state.sourceType === 'filter' ? state.filter.sort : state.sort;
   const hasUserSort = eff && (Array.isArray(eff) ? eff.length : true);
   return { sort: hasUserSort ? eff : (reverse ? 'alphabetical' : undefined), reverse };
@@ -128,7 +121,7 @@ function isOnlineSourceShelf(state: EditableShelfState): boolean {
   return state.additionalSources.some((c: any) => c?.type === 'wishlist' || c?.type === 'store');
 }
 
-function enrichOnlineNames(rawResults: Array<[number, PlatformAppMeta]>): { meta: Map<number, PlatformAppMeta>; toFetch: number[] } {
+export function enrichOnlineNames(rawResults: Array<[number, PlatformAppMeta]>): { meta: Map<number, PlatformAppMeta>; toFetch: number[] } {
   const nameCache = readNameCache();
   const meta = new Map<number, PlatformAppMeta>();
   const toFetch: number[] = [];
@@ -142,7 +135,7 @@ function enrichOnlineNames(rawResults: Array<[number, PlatformAppMeta]>): { meta
   return { meta, toFetch };
 }
 
-async function fetchMetaForIds(platform: PlatformApi, ids: number[]): Promise<Array<[number, PlatformAppMeta]>> {
+export async function fetchMetaForIds(platform: PlatformApi, ids: number[]): Promise<Array<[number, PlatformAppMeta]>> {
   return Promise.all(ids.map(async (id): Promise<[number, PlatformAppMeta]> => {
     try { return [id, await platform.getAppMeta(id)]; }
     catch { return [id, { appid: id, name: `App ${id}` }]; }
@@ -191,7 +184,8 @@ export function usePreviewResolution(props: Props): Result {
         const filteredIds = await resolveFilteredIds({ state, previewSource, previewShelfId, hiddenPickerOpen });
         if (cancelled) return;
         setPreviewCount(filteredIds.length);
-        setResolvedIds(filteredIds.slice(0, state.limit));
+        const isManualSort = state.sort === 'manual' || state.filter.sort === 'manual';
+        setResolvedIds(filteredIds.slice(0, isManualSort ? manualResolveLimit(state.limit, state.manualOrder) : state.limit));
       } catch {
         if (cancelled) return;
         setPreviewCount(0); setResolvedIds([]);
@@ -199,7 +193,7 @@ export function usePreviewResolution(props: Props): Result {
     };
     const timer = setTimeout(() => { void runResolve(); }, 500);
     return () => { cancelled = true; clearTimeout(timer); };
-  }, [previewSource, state.limit, state.sourceType, state.sort, state.filter.sort, state.manualBaseSort, state.sortReverse, state.manualBaseSortReverse, state.dedupeByExactName, state.hiddenAppIds.join(','), hiddenPickerOpen, previewRefreshNonce, state.excludeOwned, state.excludeOwnedNonSteam, state.hideOwnedNonSteamCloud]);
+  }, [previewSource, state.limit, state.manualOrder.length, state.sourceType, state.sort, state.filter.sort, state.manualBaseSort, state.sortReverse, state.manualBaseSortReverse, state.dedupeByExactName, state.hiddenAppIds.join(','), hiddenPickerOpen, previewRefreshNonce, state.excludeOwned, state.excludeOwnedNonSteam, state.hideOwnedNonSteamCloud]);
 
   useEffect(() => {
     let cancelled = false;
@@ -230,9 +224,7 @@ export function usePreviewResolution(props: Props): Result {
     return () => { cancelled = true; };
   }, [platform, resolvedIds.join(','), state.sourceType, state.additionalSources.map((s: any) => s?.type).join(',')]);
 
-  // Meta for menu-added games (appended to manualOrder via context menu).
-  // They're not in resolvedIds so the effect above skips them; without
-  // this merge the preview drops them silently.
+  // Menu-added games aren't in resolvedIds, so fetch their meta here.
   useEffect(() => {
     const resolvedSet = new Set(resolvedIds);
     const tail = state.manualOrder.filter((id) => !resolvedSet.has(id) && id > 0);

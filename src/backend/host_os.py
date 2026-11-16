@@ -29,7 +29,7 @@ def get_host_os() -> Dict[str, Any]:
     """Cross-OS host identity. Never raises — returns best-effort fields with a
     friendly `name`, a raw `system`, the Linux `distroId` (os-release ID) and an
     `isSteamOS` flag the frontend maps to the bug-report OS dropdown."""
-    system = platform.system()  # "Linux" | "Windows" | "Darwin" | ""
+    system = platform.system()
     machine = platform.machine() or None
     distro_id: Optional[str] = None
     pretty: Optional[str] = None
@@ -46,11 +46,11 @@ def get_host_os() -> Dict[str, Any]:
             steamos_version = rel.get("VERSION_ID") or None
             version = steamos_version or platform.release() or None
         elif system == "Windows":
-            rel = platform.win32_ver()  # (release, version, csd, ptype)
+            rel = platform.win32_ver()
             version = rel[0] or platform.release() or None
             pretty = f"Windows {version}" if version else "Windows"
         elif system == "Darwin":
-            mac = platform.mac_ver()  # (version, (...), machine)
+            mac = platform.mac_ver()
             version = mac[0] or platform.release() or None
             pretty = f"macOS {version}" if version else "macOS"
         else:
@@ -70,12 +70,12 @@ def get_host_os() -> Dict[str, Any]:
         name = system or "Unknown"
 
     return {
-        "system": system or None,        # raw platform.system()
-        "name": name,                    # friendly OS name
-        "distroId": distro_id,           # Linux os-release ID (steamos/bazzite/…)
-        "prettyName": pretty,            # PRETTY_NAME / composed label
+        "system": system or None,
+        "name": name,
+        "distroId": distro_id,
+        "prettyName": pretty,
         "version": version,
-        "machine": machine,              # x86_64 / aarch64 / arm64 …
+        "machine": machine,
         "isSteamOS": is_steamos,
         "steamosVersion": steamos_version,
         "supported": True,

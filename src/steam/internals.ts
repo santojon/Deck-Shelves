@@ -1,10 +1,3 @@
-/* Typed access to the Steam client internals the plugin reaches through the
-   renderer's globals. Each accessor returns null when the global is absent, so
-   call sites keep their feature-detection shape; the interfaces list the members
-   the plugin uses and keep an index signature for the rest of Steam's surface —
-   grow them here instead of casting at a call site. */
-
-// A library entry as Steam's `appStore` holds it (fields read beyond the plugin's own `AppOverview`).
 export interface SteamAppOverviewRaw {
   appid: number;
   display_name?: string;
@@ -28,11 +21,11 @@ export interface SteamAppOverviewRaw {
   per_client_data?: SteamPerClientData[] | SteamPerClientData;
   local_per_client_data?: SteamPerClientData[] | SteamPerClientData;
   remote_per_client_data?: SteamPerClientData[];
-  // Steam adds and renames fields across versions; the plugin reads others opportunistically.
+  // Steam adds and renames fields across versions.
   [key: string]: any;
 }
 
-// One entry of an overview's `per_client_data` (the local client is `clientid` "0").
+// The local client is `clientid` "0".
 export interface SteamPerClientData {
   clientid?: string | number;
   installed?: boolean;
@@ -46,7 +39,6 @@ export interface SteamPerClientData {
   [key: string]: any;
 }
 
-// What `SteamClient.Apps.RegisterForAppDetails` hands back.
 export interface SteamAppDetails {
   strPublisherName?: string;
   strDeveloperName?: string;
@@ -61,7 +53,6 @@ export interface SteamAppStore {
   [key: string]: any;
 }
 
-// One of Steam's collections (user or system): the id/name and the apps it holds.
 export interface SteamCollectionLike {
   id?: string;
   displayName?: string;
@@ -111,7 +102,6 @@ export interface GamepadUIMainWindowStoreLike {
   [key: string]: any;
 }
 
-// `SteamClient.*` namespaces are large and version-dependent; the members stay open.
 export interface SteamClientLike {
   System?: Record<string, any>;
   Apps?: Record<string, any>;
@@ -119,7 +109,6 @@ export interface SteamClientLike {
   [key: string]: any;
 }
 
-// A Steam window (or the shared context) with the stores and client it exposes.
 export interface SteamHostWindow {
   SteamClient?: SteamClientLike;
   appStore?: SteamAppStore;
@@ -154,7 +143,6 @@ export function gamepadUIMainWindowStore(): GamepadUIMainWindowStoreLike | null 
   return (scope().GamepadUIMainWindowStore as GamepadUIMainWindowStoreLike | undefined) ?? null;
 }
 
-// Steam's text table: a token in the user's language, or in English from its fallback table.
 export interface SteamLocalizationLike {
   LocalizeString?(token: string): string | null;
   LocalizeStringFromFallback?(token: string): string | null;
@@ -169,7 +157,7 @@ export function steamClient(): SteamClientLike | null {
   return (scope().SteamClient as SteamClientLike | undefined) ?? null;
 }
 
-// Steam's own React and JSX runtime (shared with injected UI so elements are compatible).
+// Shared with injected UI so elements are compatible.
 export function steamReact(): any {
   return scope().SP_REACT;
 }

@@ -1,8 +1,4 @@
-/* Plugin API surface — see docs/plugin-api.md. Exposed at window.deckShelves.
-   Canonical types live in api/src/types.ts (the @deck-shelves/api npm package);
-   this file imports them via the `@deck-shelves/api` specifier (aliased to the
-   api submodule source in vite + tsconfig `paths`) so a single shape governs
-   both the runtime registry and the published consumer contract. */
+// Plugin API exposed at window.deckShelves; its types come from `@deck-shelves/api`.
 
 import type { Settings } from "../types";
 import { registerTranslations } from "../i18n";
@@ -24,9 +20,7 @@ import type {
   IntegrationInfo as ApiIntegrationInfo,
   PublicSettingsSnapshot as ApiPublicSettingsSnapshot,
   EnvironmentInfo as ApiEnvironmentInfo,
-  // Provider/leaf descriptors whose shapes are identical in the public
-  // contract — imported (so they stay in local scope for the API interface
-  // below) and re-exported so `@deck-shelves/api` is their single source.
+  // Shapes identical in the public contract, re-exported so `@deck-shelves/api` stays their single source.
   SearchProviderDescriptor,
   SearchHit,
   SideMenuProviderDescriptor,
@@ -48,9 +42,6 @@ import type {
   ParsedImport,
   PublicFilterGroup,
   PublicFilterItem,
-  // Registry descriptors + public shelf/filter projections — the api is now
-  // the canonical shape (a superset of what the runtime emits/consumes), so
-  // there are no plugin-specific copies.
   ExternalShelfSourceDescriptor,
   SmartShelfSourceDescriptor,
   ContextAwareShelfSourceDescriptor,
@@ -121,9 +112,7 @@ export type {
   DeckShelvesPublicAPI,
 };
 
-// Translates Steam's raw AppOverview into the canonical PublicAppMeta shape.
-// External descriptors registered via @deck-shelves/api receive THIS — the
-// runtime no longer hands them the raw AppOverview cast through `unknown`.
+// External descriptors get this canonical shape, not the raw AppOverview.
 const numOrUndef = (v: unknown): number | undefined => (typeof v === "number" ? v : undefined);
 
 export function toPublicAppMeta(raw: any): PublicAppMeta {
@@ -158,20 +147,8 @@ export function toPublicAppMeta(raw: any): PublicAppMeta {
   };
 }
 
-/* Registry descriptors, shelf/filter projections and the built-in catalogue
-   types (ExternalShelfSource/Sort/Filter/Import/SavedFilter descriptors,
-   Export/Import handlers, PublicShelf/ShelfSource/SmartShelf/SavedFilter/
-   SavedSmartFilter, PublicShelfTemplate) are re-exported from
-   `@deck-shelves/api` near the top of this file — no plugin-local copies. */
-/* DeckShelvesIntegration + DeckShelvesPublicAPI (the umbrella API surface)
-   are re-exported from `@deck-shelves/api` at the top of this file. */
-
 const shelfSources = new Map<string, ExternalShelfSourceDescriptor>();
-/* Context-aware sources are ALSO registered into `shelfSources` above (a
-   structural superset — see `registerContextAwareShelfSource` below) so
-   every existing consumer (the source picker, `getExternalSources()`) sees
-   them without knowing context awareness exists. This map is only for
-   looking up the `context` declaration and the widened `resolve()`. */
+// Context-aware sources are also registered as plain sources; this map only keeps their context and widened resolve().
 const contextAwareShelfSources = new Map<string, ContextAwareShelfSourceDescriptor>();
 const smartSources = new Map<string, SmartShelfSourceDescriptor>();
 const filterTypes = new Map<string, ExternalFilterTypeDescriptor>();
@@ -206,10 +183,7 @@ function addExternal<D extends { id: string }>(map: Map<string, D>, d: D, builtI
   return () => { if (map.get(d.id) === d) map.delete(d.id); };
 }
 
-/* A registered `resolve()` may throw synchronously instead of rejecting — a
-   bare `Promise.resolve(fn()).catch(...)` doesn't catch that, since the
-   throw happens before the promise is even constructed. Wrapping the call
-   itself closes that gap for every resolve() wrapper below. */
+// resolve() may throw synchronously, which a bare Promise.resolve(fn()).catch() would miss.
 function safeResolveIds(fn: () => Promise<number[]> | number[]): Promise<number[]> {
   try {
     return Promise.resolve(fn()).catch(() => []);
@@ -232,10 +206,6 @@ export function hasExternalSource(id: string): boolean {
   return shelfSources.has(id);
 }
 
-/** Whether `sourceId` needs a focused appid to produce results — the signal
- *  the resolver uses to skip `resolve()` while nothing is focused. A source
- *  that didn't declare this still resolves normally, just with
- *  `context`/`signal` also passed through. */
 export function contextAwareSourceRequiresFocus(sourceId: string): boolean {
   return contextAwareShelfSources.get(sourceId)?.context?.requiresFocusedApp === true;
 }
@@ -248,10 +218,7 @@ export function getRegisteredContextAwareShelfSources(): ContextAwareShelfSource
   return Array.from(contextAwareShelfSources.values());
 }
 
-/** Resolves a context-aware external source, passing the live context and
- *  an `AbortSignal` through. Never throws — a provider failure must not be
- *  able to break Home rendering (spec §13); the caller sees an empty result
- *  and the shelf keeps whatever it last had. */
+// Never throws: a provider failure must not break Home rendering.
 export function resolveContextAwareExternalSource(
   sourceId: string,
   limit: number,
@@ -440,9 +407,7 @@ function hasExternalOnlyEntries(): boolean {
     || importTypes.size);
 }
 
-// True when a third-party plugin has registered any provider. External-only
-// registries count any entry; mixed registries count entries not flagged
-// internal. Drives whether the Settings → Integrations tab appears.
+// External-only registries count any entry; mixed ones count entries not flagged internal.
 export function hasExternalIntegrations(): boolean {
   if (hasExternalOnlyEntries()) return true;
   const mixed: Array<[Map<string, unknown>, Set<string>]> = [
@@ -592,9 +557,7 @@ function detectLocale(): string {
   return "en-US";
 }
 
-// Best-effort synchronous host OS from the user agent (the precise backend
-// identity lives behind get_host_os / collectSystemInfo; this is the cheap hint
-// exposed via getEnvironment). undefined when it can't be determined.
+// Cheap user-agent hint; undefined when it can't be determined.
 function detectOs(): string | undefined {
   try {
     const ua = (globalThis as any).navigator?.userAgent as string | undefined;
@@ -654,8 +617,7 @@ export function makeApi(): DeckShelvesPublicAPI {
     getRegisteredSources() { return Array.from(shelfSources.values()); },
 
     registerContextAwareShelfSource(d) {
-      // Also into `shelfSources` (a structural superset) so the source
-      // picker and `getExternalSources()` see it without special-casing.
+      // Also registered as a plain source so the picker sees it without special-casing.
       if (isReservedId(d?.id, internalShelfSourceIds)) return NOOP_UNSUB;
       contextAwareShelfSources.set(d.id, d);
       const unShelf = addExternal(shelfSources, d);
@@ -877,7 +839,7 @@ function drainPendingIntegrations(api: DeckShelvesPublicAPI, register: (i: DeckS
   return offs;
 }
 
-// Indirect binding so internalRegistry.ts can register without importing this module directly.
+// Indirect binding avoids an import cycle with the internal registry.
 let internalBootstrap: (() => () => void) | null = null;
 export function setInternalBootstrap(fn: () => () => void): void { internalBootstrap = fn; }
 
@@ -888,8 +850,7 @@ export function installPluginApi(): () => void {
   const integrationUnsubs: Unsubscribe[] = [];
   const teardownFns: Array<() => void | Promise<void>> = [];
 
-  // One registration per integration object: a queued plugin can arrive twice
-  // (the pending-queue drain and its own ready-event handler).
+  // A queued plugin can arrive twice (the queue drain and its own ready event).
   const registered = new Map<DeckShelvesIntegration, Unsubscribe>();
   const register = (integration: DeckShelvesIntegration): Unsubscribe => {
     const existing = registered.get(integration);

@@ -15,15 +15,15 @@ import time
 from typing import Any, Dict, Optional, Tuple
 
 try:
-    import psutil  # cross-platform CPU/memory
-except Exception:  # psutil absent → per-OS stdlib fallback below
+    import psutil
+except Exception:
     psutil = None  # type: ignore[assignment]
 
 
 def _parse_cpu_line(line: str) -> Tuple[int, int]:
     # "cpu user nice system idle iowait irq softirq steal ..."
     vals = [int(x) for x in line.split()[1:]]
-    idle = vals[3] + (vals[4] if len(vals) > 4 else 0)  # idle + iowait
+    idle = vals[3] + (vals[4] if len(vals) > 4 else 0)
     return idle, sum(vals)
 
 
@@ -50,7 +50,7 @@ def read_mem_available_percent(meminfo_path: str = "/proc/meminfo") -> Optional[
         for line in f:
             if ":" in line:
                 key, rest = line.split(":", 1)
-                info[key.strip()] = int(rest.strip().split()[0])  # value is in kB
+                info[key.strip()] = int(rest.strip().split()[0])
     total = info.get("MemTotal", 0)
     avail = info.get("MemAvailable", info.get("MemFree", 0))
     if total <= 0:
@@ -62,7 +62,7 @@ def _psutil_snapshot() -> Optional[Dict[str, Any]]:
     if psutil is None:
         return None
     try:
-        cpu = psutil.cpu_percent(interval=0.1)  # samples ~100 ms, like the /proc path
+        cpu = psutil.cpu_percent(interval=0.1)
         vm = psutil.virtual_memory()
         total = getattr(vm, "total", 0)
         mem = round(100.0 * vm.available / total, 1) if total else None
@@ -71,7 +71,6 @@ def _psutil_snapshot() -> Optional[Dict[str, Any]]:
         return None
 
 
-# ── No-psutil fallback: per-OS via the stdlib only (fail-soft) ─────────────────
 def _mem_windows() -> Optional[float]:
     try:
         import ctypes
@@ -87,7 +86,7 @@ def _mem_windows() -> Optional[float]:
         st = _MSX()
         st.dwLength = ctypes.sizeof(_MSX)
         if ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(st)):  # type: ignore[attr-defined]
-            return round(100.0 - float(st.dwMemoryLoad), 1)  # available% = 100 − load%
+            return round(100.0 - float(st.dwMemoryLoad), 1)
     except Exception:
         return None
     return None
@@ -136,8 +135,7 @@ def _mem_macos() -> Optional[float]:
 
 
 def _cpu_macos() -> Optional[float]:
-    # No instantaneous per-core % without Mach APIs, so use the 1-minute load
-    # average normalised by core count as a portable "high CPU" proxy.
+    # Without Mach APIs there is no per-core %, so the 1-minute load average per core stands in.
     try:
         n = os.cpu_count() or 1
         return round(min(100.0, 100.0 * os.getloadavg()[0] / n), 1)
@@ -163,8 +161,6 @@ def _fallback_cpu_mem(stat_path: str, meminfo_path: str) -> Tuple[Optional[float
 
 
 def read_perf_snapshot(stat_path: str = "/proc/stat", meminfo_path: str = "/proc/meminfo") -> Dict[str, Any]:
-    # Prefer psutil (uniform across every OS); without it, per-OS stdlib readers
-    # (Linux /proc, Windows ctypes, macOS sysctl/loadavg) keep it multi-OS.
     snap = _psutil_snapshot()
     if snap is not None:
         return snap

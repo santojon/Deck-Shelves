@@ -29,7 +29,6 @@ const freshSettings = () => ({
   smartShelves: [{ id: "smart", title: "Roulette", mode: "random_pick", enabled: true, limit: 10, hiddenAppIds: [] }],
 });
 
-// Walks the built menu tree (groups nest their entries as children) for an entry key.
 function findKey(items: any[], key: string): any {
   for (const item of items) {
     if (!item) continue;

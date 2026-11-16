@@ -10,7 +10,6 @@ function mockFetch(handler: (url: string) => any) {
   return vi.fn(async (url: string) => ({ json: async () => handler(String(url)) }))
 }
 
-// In-memory localStorage stub (the Vitest node env has none).
 const lsStore = new Map<string, string>()
 const localStorageStub = {
   getItem: (k: string) => lsStore.get(k) ?? null,
@@ -40,7 +39,7 @@ describe('onlineMetadata', () => {
     expect(m.releaseTs).toBe(Math.floor(Date.parse('2007-10-10') / 1000))
 
     const before = fetchMock.mock.calls.length
-    await getGameMetadata(620, 'Portal', false) // cached
+    await getGameMetadata(620, 'Portal', false)
     expect(fetchMock.mock.calls.length).toBe(before)
   })
 
@@ -70,7 +69,7 @@ describe('onlineMetadata', () => {
     expect((apps[0] as any).review_percentage).toBe(90)
 
     localStorage.clear()
-    settings = { onlineFeaturesEnabled: false, onlineMetadataEnabled: true } // master off
+    settings = { onlineFeaturesEnabled: false, onlineMetadataEnabled: true }
     const apps2 = [{ appid: 11, display_name: 'Y' }]
     expect(await enrichApps(apps2)).toBe(0)
     expect((apps2[0] as any).metacritic_score).toBeUndefined()

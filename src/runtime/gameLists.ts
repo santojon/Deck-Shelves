@@ -2,11 +2,7 @@ import { subscribeAppStart } from "./sessionState";
 import { triggerShelfRefresh } from "../core/shelfRefresh";
 import { qaOverrideActive } from "../qa/harness";
 
-/* Per-device game lists behind the "Manual" sources and the Custom tags
-   filter: pinned games, play history, the session queue (until Steam restarts),
-   the temporary queue (a game leaves it when launched) and tags per game.
-   Stored in localStorage; the queues and tags also sit on globals another
-   plugin may write, so every read checks the global first. */
+// Another plugin may write the queue and tag globals, so reads check them first.
 
 const PINNED_KEY = "ds-pinned-games-v1";
 const HISTORY_KEY = "ds-history-v1";
@@ -18,7 +14,7 @@ const TAG_MAX_LEN = 40;
 
 const g = (): any => globalThis as any;
 
-// A QA build keeps its list edits in memory: the device's own lists stay as they were.
+// QA builds keep edits in memory so the device's real lists stay untouched.
 const qaLists = new Map<string, string>();
 
 function readJson<T>(key: string, fallback: T): T {
@@ -87,7 +83,6 @@ export function toggleTemporaryQueue(appid: number): void {
   triggerShelfRefresh();
 }
 
-// Trimmed, case-insensitively unique, bounded in count and length.
 export function cleanTags(raw: readonly string[]): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
@@ -110,7 +105,6 @@ export function setCustomTags(appid: number, tags: readonly string[]): void {
   triggerShelfRefresh();
 }
 
-// A launch moves the game to the front of the history and takes it off the temporary queue.
 export function noteLaunch(appid: number): void {
   writeJson(HISTORY_KEY, [appid, ...historyIds().filter((id) => id !== appid)].slice(0, HISTORY_MAX));
   const queue = temporaryQueueIds();

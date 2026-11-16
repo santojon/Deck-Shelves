@@ -22,12 +22,9 @@ def test_non_v10_value_passthrough():
 
 def test_windows_gcm_dispatch(monkeypatch):
     monkeypatch.setattr(main.sys, "platform", "win32")
-    # v10 + nonce(12) + ciphertext(10) + tag(16) — a valid Windows structure.
     ev = b"v10" + b"N" * 12 + b"C" * 10 + b"T" * 16
-    # No DPAPI key available → '' (public fallback), no crypto attempted.
     monkeypatch.setattr(main.Plugin, "_windows_aes_key", staticmethod(lambda: b""))
     assert plugin._decrypt_chromium_cookie(ev) == ""
-    # Key present → GCM path is invoked with the parsed nonce/ct/tag.
     seen = {}
     def fake_gcm(key, nonce, ct, tag):
         seen.update(key=key, nonce=nonce, ct=ct, tag=tag)
@@ -40,7 +37,7 @@ def test_windows_gcm_dispatch(monkeypatch):
 
 def test_windows_short_value_is_safe(monkeypatch):
     monkeypatch.setattr(main.sys, "platform", "win32")
-    assert plugin._decrypt_chromium_cookie(b"v10tooShort") == ""  # < nonce+tag → ''
+    assert plugin._decrypt_chromium_cookie(b"v10tooShort") == ""
 
 
 def test_linux_uses_cbc_with_peanuts_key(monkeypatch):
@@ -51,25 +48,23 @@ def test_linux_uses_cbc_with_peanuts_key(monkeypatch):
         return "LINUX_DECRYPTED"
     monkeypatch.setattr(main.Plugin, "_aes_128_cbc", staticmethod(fake_cbc))
     assert plugin._decrypt_chromium_cookie(b"v10cipher") == "LINUX_DECRYPTED"
-    assert seen["body"] == b"cipher"  # v10 prefix stripped
+    assert seen["body"] == b"cipher"
 
 
 def test_macos_uses_keychain_key_or_falls_back(monkeypatch):
     monkeypatch.setattr(main.sys, "platform", "darwin")
     monkeypatch.setattr(main.Plugin, "_macos_safe_storage_password", staticmethod(lambda: None))
-    assert plugin._decrypt_chromium_cookie(b"v10cipher") == ""  # no keychain → public path
+    assert plugin._decrypt_chromium_cookie(b"v10cipher") == ""
     monkeypatch.setattr(main.Plugin, "_macos_safe_storage_password", staticmethod(lambda: b"pw"))
     monkeypatch.setattr(main.Plugin, "_aes_128_cbc", staticmethod(lambda k, b: "MAC_DECRYPTED"))
     assert plugin._decrypt_chromium_cookie(b"v10cipher") == "MAC_DECRYPTED"
 
 
 def test_redact_secrets_strips_tokens():
-    # An error that stringified the request URL must not leak the token.
     leaked = "<urlopen error https://api.steampowered.com/x?cc=us&access_token=eyJABC.def-GHI>"
     out = main._redact_secrets(leaked)
     assert "eyJABC.def-GHI" not in out
     assert "access_token=REDACTED" in out
-    # Non-secret text is untouched.
     assert main._redact_secrets("HTTP 500 timeout") == "HTTP 500 timeout"
 
 
@@ -78,5 +73,4 @@ def test_decrypt_is_fail_soft(monkeypatch):
     def boom(key, body):
         raise RuntimeError("openssl exploded")
     monkeypatch.setattr(main.Plugin, "_aes_128_cbc", staticmethod(boom))
-    # An exception inside must not propagate — cookie read stays fail-soft.
     assert plugin._decrypt_chromium_cookie(b"v10cipher") == ""

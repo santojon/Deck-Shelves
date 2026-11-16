@@ -1,8 +1,6 @@
 import { type SteamHostWindow, type SteamUIWindowLike, steamUIStore } from "./internals";
 import { getPreferredSteamWindow } from "../runtime/steamHost";
 
-/* Where the Steam windows and clients live, and generic readers for Steam objects. */
-
 export function getSteamClient(): any {
   const hostWindow = getPreferredSteamWindow() as any;
   return hostWindow?.SteamClient ?? (window as any).SteamClient;
@@ -25,14 +23,10 @@ export function getSteamClients(): any[] {
   return Array.from(new Set(getSteamWindows().map((win: SteamHostWindow) => win?.SteamClient).filter(Boolean)));
 }
 
-// An object found on a Steam window or client by duck typing (a store, a map, a tab container).
 export type SteamObject = Record<string, unknown>;
 
 type AppIdKey = "appid" | "appId" | "id";
 
-/* A row of a Steam result list is a bare app id or an object carrying it under one of the
-   usual keys: `Number(row?.k1 ?? row?.k2 ?? … ?? row)` — the first key present wins, else
-   the row itself. */
 export function appIdOfRow(row: unknown, ...keys: AppIdKey[]): number {
   if (row !== null && typeof row === "object") {
     for (const k of keys) {

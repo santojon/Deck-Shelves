@@ -66,7 +66,7 @@ describe("notify — dispatch", () => {
     expect(arg.body).toBe("Reset done");
     expect((arg.icon as any).type).toBe(RefreshIcon);
     expect((arg.logo as any).type).toBe(DeckShelvesLogo);
-    expect(typeof arg.title).toBe("string"); // plugin-name fallback
+    expect(typeof arg.title).toBe("string");
   });
 });
 

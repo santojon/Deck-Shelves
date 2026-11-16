@@ -1,8 +1,3 @@
-/* The Home patch's fallback mount poll as a power-gate task: 500 ms for ~15 s
-   on its first start (cold boot) and on `wake()` (renderer reload), 2 s after
-   that and on every later return to the Home; it stops once the fallback is
-   mounted and whenever the Home is not active, and each return runs one render
-   attempt. The patch's body observer and route signals cover a lost mount. */
 import { registerPeriodic } from "./powerGate";
 import { timerCreated, timerDisposed } from "../core/perfMetrics";
 
@@ -49,8 +44,6 @@ export function installFallbackPoll(tryRender: () => void, mounted: () => boolea
 
   const unregister = registerPeriodic("homePatchFallback", {
     runIn: ["active"],
-    // Only the first start gets the fast phase: a return from a game or
-    // another page resumes at the idle cadence (a bridge-owned Home never mounts here).
     start: () => { allowed = true; tryRender(); if (!timer && !mounted()) start(!started); started = true; },
     stop: () => { allowed = false; stop(); },
   });

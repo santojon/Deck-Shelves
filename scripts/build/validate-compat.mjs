@@ -1,19 +1,5 @@
 #!/usr/bin/env node
-/**
- * Cross-platform wrapper for the bash compatibility checks under
- * `checks/`. The check scripts themselves are bash (each one sources a
- * `run_checks()` function), so this wrapper:
- *   1. Locates `bash` in PATH (Linux / macOS native, Windows via Git Bash
- *      or WSL).
- *   2. If found, runs `bash scripts/build/validate-compat.sh` (preserves
- *      the legacy entry point so CI keeps working).
- *   3. If not found, emits a friendly error explaining the requirement.
- *
- * Future port path: each `checks/**\/*.sh` becomes a `.mjs` companion
- * exporting a `runChecks(rootDir)` function. This wrapper would then
- * dispatch to the JS implementation when available, falling back to
- * bash otherwise. For now the bash scripts remain the source of truth.
- */
+// Runs the bash compatibility checks, with a clear error when bash is missing.
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import path from "node:path";

@@ -1,14 +1,5 @@
-/* DeckyHostApi — the ONLY place `@decky/*` imports may be added.
-   Re-exports every primitive / helper / class-name binding DS source
-   files need, so the rest of the codebase imports from this adapter
-   (`runtime/host/decky`) instead of reaching into `@host/ui`
-   directly. Adding a new symbol? Add it here once and update callers. */
+// The only place `@decky/*` imports may be added.
 import { call, toaster, openFilePicker } from "@host/api";
-/* Re-export the @host/api primitives DS source files need so the
-   adapter is the single import point for both `@host/ui` and
-   `@host/api`. Adding a new symbol? Add it here once and update
-   callers — the only file that should keep an `@host/api` import is
-   `index.tsx` for `definePlugin` (the bundle entry point). */
 export { call, toaster, openFilePicker };
 import {
   ConfirmModal, DialogBody, DialogButton, DialogControlsSection,
@@ -44,8 +35,6 @@ export {
   gamepadDialogClasses,
   quickAccessControlsClasses,
   quickAccessMenuClasses,
-  // THE host-parametric lib-object resolver (lazy). Imperative code that needs
-  // the whole `fl` object imports it from here — never re-derives the chain.
   getFrontendLib,
 };
 export type { SingleDropdownOption };
@@ -55,11 +44,6 @@ import type { PlatformApi } from "../platform";
 import { logInfo } from "../logger";
 
 export function createDeckyHostApi(routerHook: any): HostApi {
-  /* Subscriber sets — `lifecycle.onMount` / `onUnmount` fire callbacks
-     once when the corresponding event occurs. Steam's component
-     lifecycle wires `onMount` at the first home render via index.tsx;
-     `onUnmount` fires when index.tsx's teardown runs (Decky plugin
-     unload OR Steam UI reload). */
   const mountCbs = new Set<() => void>();
   const unmountCbs = new Set<() => void>();
   let registeredPlugin: PluginDescriptor | null = null;
@@ -80,9 +64,6 @@ export function createDeckyHostApi(routerHook: any): HostApi {
     },
     rpc: {
       async call<Req = unknown, Res = unknown>(method: string, args?: Req): Promise<Res> {
-        // `@host/api`'s `call` accepts the args array directly; passing
-        // `args` (object or array) lets the Python backend receive the
-        // same shape callers send. Decky deserialises both shapes.
         return call<any[], Res>(method, args as any);
       },
     },
@@ -103,9 +84,6 @@ export function createDeckyHostApi(routerHook: any): HostApi {
     notifications: {
       toast(opts: ToastOptions) {
         try {
-          // Decky's `toaster.toast` accepts `{ title, body, duration }`.
-          // The contract's `durationMs` maps to that `duration` field;
-          // `title` is optional in both shapes.
           (toaster as any)?.toast?.({
             title: opts.title ?? "",
             body: opts.body,
@@ -115,9 +93,6 @@ export function createDeckyHostApi(routerHook: any): HostApi {
       },
     },
     platform: getPlatform() as PlatformApi,
-    // Internal hooks the Decky bundle's index.tsx invokes at the
-    // corresponding lifecycle moments. NOT part of the HostApi
-    // contract — exposed via TypeScript `as any` cast at the call site.
     ...({
       __fireMount: () => { for (const cb of mountCbs) try { cb(); } catch {} },
       __fireUnmount: () => { for (const cb of unmountCbs) try { cb(); } catch {} },

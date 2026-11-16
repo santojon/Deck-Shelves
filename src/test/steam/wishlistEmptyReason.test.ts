@@ -1,8 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
-/* An empty wishlist shelf must say why: one warn line per resolve naming the
-   reason, and a fetch backoff reported once per window instead of on every refresh. */
-
 const log = vi.hoisted(() => ({ warn: [] as string[], info: [] as string[] }));
 vi.mock("../../runtime/logger", () => ({
   logInfo: (_s: string, m: string, c?: unknown) => { log.info.push(c === undefined ? m : `${m}: ${typeof c === "string" ? c : JSON.stringify(c)}`); },
@@ -21,7 +18,6 @@ vi.mock("../../core/onlineStore", () => ({
 
 vi.mock("../../steam/localLibrary", () => ({ getLocalLibraryAppIds: () => new Set([10, 20]) }));
 
-// The fake backend behind the real `getWishlistIds` (second block below).
 const rpc = vi.hoisted(() => ({ resp: null as any, fail: null as Error | null }));
 vi.mock("../../shims/host-api", () => ({
   call: (method: string) => {
@@ -104,8 +100,6 @@ describe("wishlist shelf resolving empty says why", () => {
   });
 });
 
-/* The fetch side: the reason the resolver reads after a null, through the real
-   `getWishlistIds` with a fake backend. */
 describe("getWishlistIds leaves the reason for a null result", () => {
   beforeEach(() => {
     vi.resetModules();

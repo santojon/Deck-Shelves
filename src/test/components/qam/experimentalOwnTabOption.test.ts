@@ -12,7 +12,6 @@ const edge = vi.hoisted(() => ({
   listeners: new Set<(settings: any) => void>(),
 }))
 
-// Host adapter doubles: plain elements that expose their handlers and props.
 vi.mock('../../../runtime/host/decky', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>()
   const { createElement: el } = await import('react')
@@ -58,7 +57,6 @@ vi.mock('../../../runtime/ownQamTab', () => ({
   restartSteam: edge.restartSteam,
   installOwnQamTab: () => () => {},
 }))
-// Persistence: what the store would write to the backend, and what it hands back.
 vi.mock('../../../store/settingsStore', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   getCurrentSettings: () => edge.stored,
@@ -74,7 +72,6 @@ vi.mock('../../../store/settingsStore', async (importOriginal) => ({
     return true
   },
 }))
-// Environment probes: no theme loader, no screensaver hook, no cloud sync, no badge plugin.
 vi.mock('../../../core/cssLoaderDetect', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   isCssLoaderActive: () => false,
@@ -152,7 +149,6 @@ afterEach(() => {
 
 type Controller = ReturnType<typeof makeController>
 
-// The controller the panels receive: real settings shape, a spy for every action.
 function makeController(patch: Record<string, unknown> = {}) {
   const settings = { ...defaultSettings(), enabled: true, ...patch } as any
   const spies: Record<string, ReturnType<typeof vi.fn>> = {}
@@ -166,7 +162,6 @@ function makeController(patch: Record<string, unknown> = {}) {
   return { t: i18next.t.bind(i18next), settings, shelves: settings.shelves, collections: [], tabs: [], actions, spies }
 }
 
-// Same controller, settings as saved by the last action (what the store hands back).
 const withSettings = (controller: Controller, patch: Record<string, unknown>): Controller =>
   ({ ...controller, settings: { ...controller.settings, ...patch } })
 
@@ -182,7 +177,6 @@ function setSectionOpen(id: string, open: boolean) {
   expect(isOpen(id)).toBe(open)
 }
 const badge = (id: string) => box(id)?.querySelector('.ds-collapsible-badge')?.textContent ?? null
-// Compare the attribute exactly: here a class-plus-attribute selector matches values in any case.
 const withAttr = <T extends Element>(nodes: NodeListOf<T> | undefined, name: string, value: string) =>
   Array.from(nodes ?? []).find((node) => node.getAttribute(name) === value) ?? null
 const toggle = (label = LABEL) =>
@@ -291,7 +285,6 @@ for (const panel of [PANEL, SIDE_PANEL]) {
       act(() => { off.cancel.click() })
       expect(edge.restartSteam).toHaveBeenCalledTimes(1)
       expect(off.entry.closes).toBe(1)
-      // The answer never changes what was saved.
       expect(controller.spies.setOwnQamTabEnabled.mock.calls).toEqual([[true], [false]])
     })
 

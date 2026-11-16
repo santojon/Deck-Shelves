@@ -8,7 +8,6 @@ import json
 import sys
 import types as pytypes
 
-# Mock the decky module before any import of main
 decky_mock = pytypes.ModuleType("decky")
 decky_mock.logger = pytypes.SimpleNamespace(
     error=lambda *a, **kw: None,
@@ -22,8 +21,6 @@ from main import _sanitize_settings, _normalize_path, Plugin, DEFAULT_SETTINGS  
 from paths import _validate_json_export_path  # noqa: E402
 
 
-# ─── _sanitize_settings ────────────────────────────────────────────────────────
-
 def test_sanitize_settings_empty_input():
     result = _sanitize_settings({})
     assert result["enabled"] is False
@@ -36,10 +33,29 @@ def test_sanitize_settings_preserves_enabled_true():
 
 
 def test_sanitize_settings_preserves_verbose_logging():
-    # The sanitizer whitelists top-level keys — a setting missing here is
-    # silently dropped on every save (regression: the verbose-logging toggle).
     assert _sanitize_settings({"verboseLoggingEnabled": True, "shelves": []})["verboseLoggingEnabled"] is True
     assert _sanitize_settings({"shelves": []})["verboseLoggingEnabled"] is False
+
+
+def test_sanitize_settings_discount_badge_mode_global_and_per_shelf():
+    shelf = {"id": "w", "title": "Wishlist", "source": {"type": "wishlist"}, "limit": 10}
+    result = _sanitize_settings({"shelves": [dict(shelf, discountBadgeMode="price"), dict(shelf, id="x", discountBadgeMode="nope")]})
+    assert result["discountBadgeMode"] is None
+    assert result["shelves"][0]["discountBadgeMode"] == "price"
+    assert "discountBadgeMode" not in result["shelves"][1]
+    assert _sanitize_settings({"discountBadgeMode": "both", "shelves": []})["discountBadgeMode"] == "both"
+    assert _sanitize_settings({"discountBadgeMode": "nope", "shelves": []})["discountBadgeMode"] is None
+
+
+def test_sanitize_settings_discount_badge_selected_card_mode_and_both_orders():
+    shelf = {"id": "w", "title": "Wishlist", "source": {"type": "wishlist"}, "limit": 10,
+             "discountBadgeMode": "percent_price", "discountBadgeFocusMode": "both"}
+    result = _sanitize_settings({"discountBadgeFocusMode": "percent_price", "shelves": [shelf, dict(shelf, id="x", discountBadgeFocusMode="nope")]})
+    assert result["discountBadgeFocusMode"] == "percent_price"
+    assert result["shelves"][0]["discountBadgeMode"] == "percent_price"
+    assert result["shelves"][0]["discountBadgeFocusMode"] == "both"
+    assert "discountBadgeFocusMode" not in result["shelves"][1]
+    assert _sanitize_settings({"shelves": []})["discountBadgeFocusMode"] is None
 
 
 def test_sanitize_settings_non_dict_input_treated_as_empty():
@@ -73,12 +89,6 @@ def test_sanitize_settings_valid_shelf_passes_through():
     assert shelf["hidden"] is False
     assert shelf["enabled"] is True
 
-
-# A newer frontend build's field (added after this backend version shipped)
-# must round-trip through `_sanitize_settings` instead of vanishing on the
-# next save — cross-device sync, a downgrade, or a mixed hub/Decky-loader
-# install otherwise silently drops it. Mirrors
-# schemas.test.ts's ".passthrough()" round-trip tests on the TS side.
 
 def test_sanitize_settings_preserves_unknown_root_field():
     result = _sanitize_settings({"futureRootField": "z"})
@@ -157,7 +167,7 @@ def test_sanitize_settings_clamps_limit_to_100():
 
 
 def test_sanitize_settings_clamps_limit_minimum_to_1():
-    # limit=0 is falsy in Python: `int(0 or 12)` → 12, then clamped to max(1,12) = 12
+    # 0 is falsy, so the default 12 applies.
     result = _sanitize_settings({
         "shelves": [{"id": "x", "title": "T", "source": {"type": "tab", "tab": "all"}, "limit": 0}],
     })
@@ -190,15 +200,12 @@ def test_sanitize_settings_multiple_shelves():
     assert result["shelves"][1]["id"] == "b"
 
 
-# ─── _normalize_path ───────────────────────────────────────────────────────────
-
 import os as _os
 
 _HOME = _os.path.realpath(_os.path.expanduser("~"))
 
 
 def test_normalize_path_plain_string():
-    # Path must be under home to be accepted by the security guard.
     p = _os.path.join(_HOME, "Downloads", "file.json")
     result = _normalize_path(p)
     assert result == _os.path.realpath(p)
@@ -230,7 +237,6 @@ def test_normalize_path_strips_surrounding_quotes():
 
 
 def test_normalize_path_rejects_outside_home():
-    # Path traversal / system paths must be blocked.
     assert _normalize_path("/etc/passwd") == ""
     assert _normalize_path("/root/.ssh/id_rsa") == ""
     assert _normalize_path(_HOME + "/../../../etc/passwd") == ""
@@ -241,8 +247,6 @@ def test_normalize_path_non_string_non_dict_returns_empty():
     assert _normalize_path(None) == ""
     assert _normalize_path([]) == ""
 
-
-# ─── _normalize_path(reject_symlinks=True) ─────────────────────────────────────
 
 import tempfile as _tempfile  # noqa: E402
 
@@ -260,8 +264,6 @@ def test_normalize_path_reject_symlinks_rejects_symlinked_file():
             f.write("{}")
         _os.symlink(real, link)
         assert _normalize_path(link, reject_symlinks=True) == ""
-        # Without the flag, the existing (pre-security-audit) behavior —
-        # dereferencing to the real, still-in-home target — is unchanged.
         assert _normalize_path(link) == _os.path.realpath(real)
 
 
@@ -274,8 +276,6 @@ def test_normalize_path_reject_symlinks_rejects_symlinked_ancestor_dir():
         target = _os.path.join(link_dir, "file.json")
         assert _normalize_path(target, reject_symlinks=True) == ""
 
-
-# ─── _validate_json_export_path ────────────────────────────────────────────────
 
 def _roots():
     return [_os.path.join(_HOME, "Downloads"), _os.path.join(_HOME, "Desktop"), _os.path.join(_HOME, "Documents")]
@@ -293,8 +293,6 @@ def test_validate_json_export_path_rejects_non_json_extension():
 
 
 def test_validate_json_export_path_rejects_outside_allowed_roots():
-    # Under home (so `_normalize_path` alone would accept these) but
-    # outside every allowed root — the class of bug this closes.
     assert _validate_json_export_path(_os.path.join(_HOME, ".bashrc"), _roots()) == ""
     assert _validate_json_export_path(_os.path.join(_HOME, ".ssh", "id_rsa"), _roots()) == ""
     assert _validate_json_export_path(_os.path.join(_HOME, ".config", "autostart", "x.desktop"), _roots()) == ""
@@ -302,16 +300,11 @@ def test_validate_json_export_path_rejects_outside_allowed_roots():
 
 
 def test_validate_json_export_path_rejects_json_named_file_outside_roots():
-    # A `.json`-named file is not enough on its own if it's outside every
-    # allowed root (e.g. disguised as `~/.config/autostart/x.desktop.json`).
     p = _os.path.join(_HOME, ".config", "autostart", "x.desktop.json")
     assert _validate_json_export_path(p, _roots()) == ""
 
 
 def test_validate_json_export_path_rejects_symlink_escape():
-    # A bare CI runner has no ~/Downloads yet (unlike a real desktop) — the
-    # temp dir below must nest inside a real allowed root to test the
-    # escape, so ensure it exists rather than assuming it already does.
     downloads = _os.path.join(_HOME, "Downloads")
     _os.makedirs(downloads, exist_ok=True)
     with _tempfile.TemporaryDirectory(dir=downloads) as d:
@@ -325,8 +318,6 @@ def test_validate_json_export_path_rejects_symlink_escape():
                 _os.remove(link)
 
 
-# ─── updateNotify* sanitizer (regression for null-on-load bug) ────────────────
-
 def test_sanitize_settings_updateNotifyEnabled_default_true():
     result = _sanitize_settings({})
     assert result["updateNotifyEnabled"] is True
@@ -338,8 +329,6 @@ def test_sanitize_settings_updateNotifyEnabled_preserved():
 
 
 def test_sanitize_settings_updateNotifyDismissedVersion_unset_returns_null():
-    # The frontend Zod schema must accept null here (covered separately in
-    # the TS regression suite); this just pins the sanitizer's contract.
     result = _sanitize_settings({})
     assert result["updateNotifyDismissedVersion"] is None
 
@@ -357,8 +346,6 @@ def test_sanitize_settings_updateNotifyDismissedVersion_non_string_returns_null(
 
 
 def test_sanitize_settings_round_trip_preserves_shelves_with_updateNotify_null():
-    # Reproduces the user-reported regression: shelves were silently wiped
-    # because the frontend Zod schema rejected the sanitizer's null fields.
     initial = {
         "enabled": True,
         "shelves": [
@@ -368,12 +355,9 @@ def test_sanitize_settings_round_trip_preserves_shelves_with_updateNotify_null()
     sanitized = _sanitize_settings(initial)
     assert len(sanitized["shelves"]) == 1
     assert sanitized["shelves"][0]["id"] == "s1"
-    # Both new fields appear in output and either include real values or null.
     assert "updateNotifyEnabled" in sanitized
     assert "updateNotifyDismissedVersion" in sanitized
 
-
-# ─── heroEnabled sanitizer (regular + smart shelves) ─────────────────────────
 
 def test_sanitize_settings_heroEnabled_regular_shelf():
     result = _sanitize_settings({
@@ -385,7 +369,6 @@ def test_sanitize_settings_heroEnabled_regular_shelf():
 
 
 def test_sanitize_settings_heroEnabled_false_omitted():
-    # False is the default — sanitizer should omit it to keep storage minimal.
     result = _sanitize_settings({
         "shelves": [{"id": "s1", "title": "T", "limit": 10,
                      "source": {"type": "tab", "tab": "favorites"},
@@ -401,8 +384,6 @@ def test_sanitize_settings_heroEnabled_smart_shelf():
     })
     assert result["smartShelves"][0].get("heroEnabled") is True
 
-
-# ─── gameInfoAbove sanitizer (regular + smart + global) ──────────────────────
 
 def test_sanitize_settings_gameInfoAbove_regular_shelf():
     result = _sanitize_settings({
@@ -435,14 +416,11 @@ def test_sanitize_settings_global_gameInfoAbove():
     assert _sanitize_settings({}).get("globalGameInfoAbove") is False
 
 
-# ─── hiddenAppIds in smart shelves ───────────────────────────────────────────
-
 def test_sanitize_settings_hiddenAppIds_smart_shelf():
     result = _sanitize_settings({
         "smartShelves": [{"id": "sm1", "title": "Smart", "mode": "recently_played",
                           "hiddenAppIds": [730, 570, 0, -1, "bad"]}]
     })
-    # Only positive integers survive.
     assert result["smartShelves"][0].get("hiddenAppIds") == [730, 570]
 
 
@@ -454,8 +432,6 @@ def test_sanitize_settings_highlightedAppIds_smart_shelf():
     assert result["smartShelves"][0].get("highlightedAppIds") == [440]
 
 
-# ─── forceCssLoaderThemes sanitizer ──────────────────────────────────────────
-
 def test_sanitize_settings_forceCssLoaderThemes_true():
     result = _sanitize_settings({"forceCssLoaderThemes": True})
     assert result.get("forceCssLoaderThemes") is True
@@ -465,8 +441,6 @@ def test_sanitize_settings_forceCssLoaderThemes_default_false():
     result = _sanitize_settings({})
     assert result.get("forceCssLoaderThemes") is False
 
-
-# ─── sortReverse in context-menu persist path ─────────────────────────────────
 
 def test_sanitize_settings_sortReverse_shelf():
     result = _sanitize_settings({
@@ -484,12 +458,6 @@ def test_sanitize_settings_sortReverse_smart_shelf():
     })
     assert result["smartShelves"][0].get("sortReverse") is True
 
-
-# ─── Multi-key sort persistence (regression) ────────────────────────────────
-# Pre-fix, `str(s.get("sort"))` coerced arrays into their Python repr
-# ("['recent', 'alphabetical']") which failed the valid_sorts check and
-# dropped the field silently. The editor's multi-key chains never reached
-# the JS resolver because of this. These tests pin the array passthrough.
 
 def test_sanitize_settings_sort_multi_key_array_passthrough():
     result = _sanitize_settings({
@@ -511,8 +479,6 @@ def test_sanitize_settings_sortReverse_multi_key_array_passthrough():
 
 
 def test_sanitize_settings_sortReverse_all_false_array_omitted():
-    # `[False, False]` carries no real signal — the sanitizer omits the
-    # field, matching the single-key bool=False omission policy.
     result = _sanitize_settings({
         "shelves": [{"id": "s1", "title": "T", "limit": 10,
                      "source": {"type": "tab", "tab": "all"},
@@ -523,9 +489,6 @@ def test_sanitize_settings_sortReverse_all_false_array_omitted():
 
 
 def test_sanitize_settings_sort_array_with_unknown_string_passes_through():
-    # Unknown sort ids (external sort plugins) ride alongside known
-    # enums in the array. The sanitizer must NOT filter them, since the
-    # registry that knows them lives in the frontend.
     result = _sanitize_settings({
         "shelves": [{"id": "s1", "title": "T", "limit": 10,
                      "source": {"type": "tab", "tab": "all"},
@@ -554,8 +517,6 @@ def test_sanitize_settings_smart_sort_multi_key_array_passthrough():
 
 
 def test_sanitize_settings_single_key_sort_still_works():
-    # Back-compat: single-key string sort behavior unchanged after the
-    # multi-key extension.
     result = _sanitize_settings({
         "shelves": [{"id": "s1", "title": "T", "limit": 10,
                      "source": {"type": "tab", "tab": "all"},
@@ -596,8 +557,6 @@ def test_sanitize_settings_buttonBindings_uppercases_and_trims():
     })
     assert result["buttonBindings"]["cardHideRemove"] == "L1+R1"
 
-
-# ─── Logo / icon / description tri-state preservation ──────────────────────────
 
 def test_sanitize_shelf_enableLogo_true_round_trip():
     result = _sanitize_settings({
@@ -657,8 +616,6 @@ def test_sanitize_shelf_enableIcon_enableDescription_round_trip():
     assert sh.get("enableDescription") is True
 
 
-# ─── Composite source shape ────────────────────────────────────────────────────
-
 def test_sanitize_composite_source_passes_through():
     result = _sanitize_settings({
         "shelves": [{
@@ -697,8 +654,6 @@ def test_sanitize_composite_intersection_passes_through():
     })
     assert result["shelves"][0]["source"]["combine"] == "intersection"
 
-
-# ─── Profiles (snapshot + trigger round-trip) ──────────────────────────────────
 
 def test_sanitize_profiles_round_trip():
     result = _sanitize_settings({
@@ -749,8 +704,6 @@ def test_sanitize_profile_trigger_invalid_dropped():
     assert "trigger" not in p
 
 
-# ─── integrationsEnabled (opt-out only) ────────────────────────────────────────
-
 def test_sanitize_integrationsEnabled_round_trip():
     result = _sanitize_settings({
         "integrationsEnabled": {
@@ -767,8 +720,6 @@ def test_sanitize_integrationsEnabled_default_empty():
     result = _sanitize_settings({})
     assert result.get("integrationsEnabled") == {}
 
-
-# ─── featureToggles + lightMode + unifiedListEnabled ───────────────────────────
 
 def test_sanitize_featureToggles_round_trip():
     result = _sanitize_settings({
@@ -798,8 +749,6 @@ def test_sanitize_allShelvesOrder_non_list_treated_as_empty():
     assert result.get("allShelvesOrder") == []
 
 
-# ─── qamHiddenToggles / qamHiddenSections ──────────────────────────────────────
-
 def test_sanitize_qamHiddenToggles_round_trip():
     result = _sanitize_settings({
         "qamHiddenToggles": ["hideRecents", "shelfHeroBackground"],
@@ -819,8 +768,6 @@ def test_sanitize_qamHiddenToggles_drops_non_strings():
     assert 42 not in qht
     assert None not in qht
 
-
-# ─── Visibility Rules v2 (visibility tree round-trip) ─────────────────────────
 
 _VIS = {"mode": "all", "rules": [
     {"kind": "timeWindow", "start": 19, "end": 23, "days": [5, 6]},
@@ -858,11 +805,6 @@ def test_sanitize_visible_hours_round_trips_plain_range_on_smart_shelf():
 
 
 def test_sanitize_visible_hours_preserves_days_on_smart_shelf():
-    # Regression: the per-day "override hours" editor tags a range with
-    # `days` — the sanitizer used to silently drop it on every save,
-    # turning a Saturday/Sunday override into an indistinguishable
-    # always-on range (and the editor's "allow day overrides" toggle would
-    # then read back as off, since nothing was left carrying `days`).
     result = _sanitize_settings({
         "smartShelves": [{"id": "sm1", "title": "S", "mode": "spare_time", "visibleHours": [
             {"start": 6, "end": 9},
@@ -911,7 +853,6 @@ def test_sanitize_autocollapse_round_trips_on_shelves():
 
 
 def test_sanitize_visibility_empty_rules_omitted():
-    # No usable rules == no restriction: the field is dropped, not persisted empty.
     result = _sanitize_settings({
         "shelves": [{"id": "s1", "title": "T", "source": {"type": "tab", "tab": "all"},
                      "visibility": {"mode": "any", "rules": []}}]
@@ -920,8 +861,6 @@ def test_sanitize_visibility_empty_rules_omitted():
 
 
 def test_sanitize_visibility_forward_compat_unknown_kind_preserved():
-    # A device-state kind (added in a later phase) must round-trip verbatim so an
-    # older backend never drops a rule a newer build wrote.
     vis = {"mode": "any", "rules": [{"kind": "battery", "below": 20, "charging": False}]}
     result = _sanitize_settings({
         "shelves": [{"id": "s1", "title": "T", "source": {"type": "tab", "tab": "all"}, "visibility": vis}]
@@ -950,8 +889,6 @@ def test_sanitize_profile_triggers_enabled_toggle():
     assert _sanitize_settings({})["profileTriggersEnabled"] is False
 
 
-# ─── CSS Loader theme reader (Phase D) ───────────────────────────────────────
-
 def _make_theme(themes_dir, folder, active, name=None):
     import os as _os
     import json as _json
@@ -969,14 +906,14 @@ def test_read_css_loader_themes(tmp_path, monkeypatch):
     themes = tmp_path / "themes"
     themes.mkdir()
     _make_theme(str(themes), "Clean Gameview", True, name="Clean Gameview")
-    _make_theme(str(themes), "MoreRound", True, name="More Round")   # name overrides folder
+    _make_theme(str(themes), "MoreRound", True, name="More Round")
     _make_theme(str(themes), "Disabled Theme", False, name="Disabled")
-    _make_theme(str(themes), "NoNameFolder", True)                    # falls back to folder name
-    (themes / "Default.profile").mkdir()                              # profiles are skipped
+    _make_theme(str(themes), "NoNameFolder", True)
+    (themes / "Default.profile").mkdir()
     monkeypatch.setenv("DECKY_HOME", str(tmp_path))
     out = read_css_loader_themes()
-    assert out["active"] == ["Clean Gameview", "More Round", "NoNameFolder"]  # sorted, disabled excluded
-    assert out["installed"] == 4  # 4 theme folders (profile excluded)
+    assert out["active"] == ["Clean Gameview", "More Round", "NoNameFolder"]
+    assert out["installed"] == 4
 
 
 def test_read_css_loader_themes_missing_dir(tmp_path, monkeypatch):
@@ -993,9 +930,9 @@ def _make_connector(root, name, status):
 
 def test_read_display_state_external_connector(tmp_path):
     from display_state import read_display_state
-    _make_connector(tmp_path, "card0-eDP-1", "connected")       # internal panel
-    _make_connector(tmp_path, "card0-DP-1", "connected")        # external -> docked
-    _make_connector(tmp_path, "card0-Writeback-1", "unknown")   # virtual, ignored
+    _make_connector(tmp_path, "card0-eDP-1", "connected")
+    _make_connector(tmp_path, "card0-DP-1", "connected")
+    _make_connector(tmp_path, "card0-Writeback-1", "unknown")
     out = read_display_state(str(tmp_path))
     assert out == {"external": True, "supported": True}
 
@@ -1003,15 +940,12 @@ def test_read_display_state_external_connector(tmp_path):
 def test_read_display_state_internal_only(tmp_path):
     from display_state import read_display_state
     _make_connector(tmp_path, "card0-eDP-1", "connected")
-    _make_connector(tmp_path, "card0-DP-1", "disconnected")     # external present but unplugged
+    _make_connector(tmp_path, "card0-DP-1", "disconnected")
     out = read_display_state(str(tmp_path))
     assert out == {"external": False, "supported": True}
 
 
 def test_read_display_state_unsupported_when_nothing_detectable(tmp_path, monkeypatch):
-    # No DRM sysfs and an unrecognised platform (no monitor-count fallback):
-    # supported False, never mis-classifies. (Windows/macOS ARE supported via
-    # the monitor-count fallback — that path is exercised on those platforms.)
     import display_state
     monkeypatch.setattr(display_state.platform, "system", lambda: "Linux")
     out = display_state.read_display_state(str(tmp_path / "nope"))
@@ -1019,8 +953,6 @@ def test_read_display_state_unsupported_when_nothing_detectable(tmp_path, monkey
 
 
 def test_read_display_state_monitor_count_fallback(tmp_path, monkeypatch):
-    # No DRM → per-OS monitor-count fallback answers (Windows/macOS): more than
-    # one active display means an external one is attached.
     import display_state
     monkeypatch.setattr(display_state.platform, "system", lambda: "Windows")
     monkeypatch.setattr(display_state, "_monitors_windows", lambda: True)
@@ -1030,10 +962,10 @@ def test_read_display_state_monitor_count_fallback(tmp_path, monkeypatch):
 
 def test_perf_cpu_percent_math():
     from perf_probe import _parse_cpu_line, _cpu_percent
-    a = _parse_cpu_line("cpu 100 0 50 800 50 0 0 0 0 0")  # idle+iowait = 800+50 = 850, total 1000
-    b = _parse_cpu_line("cpu 200 0 100 850 100 0 0 0 0 0")  # idle 950, total 1250 → delta idle 100, total 250
-    assert _cpu_percent(a, b) == 60.0  # 1 - 100/250 = 0.6
-    assert _cpu_percent(a, a) is None  # no delta
+    a = _parse_cpu_line("cpu 100 0 50 800 50 0 0 0 0 0")
+    b = _parse_cpu_line("cpu 200 0 100 850 100 0 0 0 0 0")
+    assert _cpu_percent(a, b) == 60.0
+    assert _cpu_percent(a, a) is None
 
 
 def test_perf_read_mem_available_percent(tmp_path):
@@ -1044,23 +976,12 @@ def test_perf_read_mem_available_percent(tmp_path):
 
 
 def test_perf_snapshot_linux_proc_absent_is_unsupported(tmp_path, monkeypatch):
-    # With psutil unavailable and forced onto the Linux /proc path, absent
-    # /proc files yield an inert (unsupported) snapshot. (psutil / the Windows
-    # + macOS fallbacks keep it supported on their platforms — see test_perf_probe.)
     import perf_probe
     monkeypatch.setattr(perf_probe, "psutil", None)
     monkeypatch.setattr(perf_probe.platform, "system", lambda: "Linux")
     out = perf_probe.read_perf_snapshot(str(tmp_path / "nostat"), str(tmp_path / "nomem"))
     assert out == {"cpuPercent": None, "memAvailablePercent": None, "supported": False}
 
-
-# ─── Plugin._read_state (issue #114) ───────────────────────────────────────────
-# A persisted state with no shelves and the master toggle off is the normal
-# state of a fresh install before the user enables the plugin — not a sign of
-# corruption. `_read_state` used to discard it wholesale in favor of
-# DEFAULT_SETTINGS whenever both were falsy, silently dropping any other
-# field set in the meantime (showcaseSeen in particular) and locking users
-# out behind a first-run tour that could never be marked seen.
 
 def _write_raw_state(settings_dir, state):
     settings_dir.mkdir(parents=True, exist_ok=True)
@@ -1069,10 +990,6 @@ def _write_raw_state(settings_dir, state):
 
 def test_read_state_preserves_showcase_seen_when_not_yet_enabled(tmp_path, monkeypatch):
     monkeypatch.setenv("DECK_SHELVES_SETTINGS_DIR", str(tmp_path))
-    # Also isolate the loader mirror path to the same dir — otherwise the
-    # canonical-store reconcile (storage.reconcile_settings) would pull in
-    # whatever's sitting in the shared /tmp/test-deck-shelves-settings
-    # loader path from an earlier test in this session.
     monkeypatch.setenv("DECKY_PLUGIN_SETTINGS_DIR", str(tmp_path))
     _write_raw_state(tmp_path, {"enabled": False, "shelves": [], "showcaseSeen": True})
     result = Plugin()._read_state()
@@ -1082,10 +999,6 @@ def test_read_state_preserves_showcase_seen_when_not_yet_enabled(tmp_path, monke
 
 def test_read_state_preserves_other_fields_when_empty(tmp_path, monkeypatch):
     monkeypatch.setenv("DECK_SHELVES_SETTINGS_DIR", str(tmp_path))
-    # Also isolate the loader mirror path to the same dir — otherwise the
-    # canonical-store reconcile (storage.reconcile_settings) would pull in
-    # whatever's sitting in the shared /tmp/test-deck-shelves-settings
-    # loader path from an earlier test in this session.
     monkeypatch.setenv("DECKY_PLUGIN_SETTINGS_DIR", str(tmp_path))
     _write_raw_state(tmp_path, {"enabled": False, "shelves": [], "verboseLoggingEnabled": True})
     result = Plugin()._read_state()
@@ -1094,10 +1007,6 @@ def test_read_state_preserves_other_fields_when_empty(tmp_path, monkeypatch):
 
 def test_read_state_returns_defaults_when_file_missing(tmp_path, monkeypatch):
     monkeypatch.setenv("DECK_SHELVES_SETTINGS_DIR", str(tmp_path))
-    # Also isolate the loader mirror path to the same dir — otherwise the
-    # canonical-store reconcile (storage.reconcile_settings) would pull in
-    # whatever's sitting in the shared /tmp/test-deck-shelves-settings
-    # loader path from an earlier test in this session.
     monkeypatch.setenv("DECKY_PLUGIN_SETTINGS_DIR", str(tmp_path))
     result = Plugin()._read_state()
     assert result == dict(DEFAULT_SETTINGS)
@@ -1105,10 +1014,6 @@ def test_read_state_returns_defaults_when_file_missing(tmp_path, monkeypatch):
 
 def test_read_state_trusts_a_populated_state_too(tmp_path, monkeypatch):
     monkeypatch.setenv("DECK_SHELVES_SETTINGS_DIR", str(tmp_path))
-    # Also isolate the loader mirror path to the same dir — otherwise the
-    # canonical-store reconcile (storage.reconcile_settings) would pull in
-    # whatever's sitting in the shared /tmp/test-deck-shelves-settings
-    # loader path from an earlier test in this session.
     monkeypatch.setenv("DECKY_PLUGIN_SETTINGS_DIR", str(tmp_path))
     _write_raw_state(tmp_path, {"enabled": True, "shelves": [{"id": "s1", "title": "Shelf"}]})
     result = Plugin()._read_state()

@@ -2,8 +2,6 @@ import { type SteamAppOverviewRaw, type SteamCollectionLike, type SteamCollectio
 import { appIdOf, isNonSteamOf, pushAppIdsFromCollection, readCollectionList, readOptionalBoolean } from "./appOverview";
 import { getSteamWindows } from "./steamAccess";
 
-/* What the local library holds: owned app ids (Steam, non-Steam, cloud-play shortcuts) and whether an app is installed on this device. */
-
 const INSTALLED_DIRECT_KEYS = ["installed", "is_installed", "m_bInstalled", "bInstalled"];
 
 const INSTALLED_PCD_KEYS = ["per_client_data", "local_per_client_data"];
@@ -72,9 +70,7 @@ export async function resolveAppInstalledState(appid: number): Promise<boolean |
   return null;
 }
 
-// Cloud-play set: Unifideck Microsoft (Xbox Cloud Gaming). Other Unifideck
-// providers (Epic, GOG, Amazon, Ubisoft) are native-install platforms —
-// owning a game there counts as owned even when not installed locally.
+// Only Xbox Cloud Gaming is cloud-play; the other Unifideck stores install natively.
 let _ufCloudCache: { ids: Set<number>; ts: number } | null = null;
 
 const UF_CLOUD_COLLECTION_LABELS = new Set(["microsoft"]);

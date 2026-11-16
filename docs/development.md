@@ -2,175 +2,201 @@
 
 ## Prerequisites
 
-- Node.js 26+, pnpm 12+, Python 3
-- Steam Deck with [Decky Loader](https://decky.xyz) and SSH access
-- CEF Remote Debugging enabled on the Deck
+- Node.js 26+ and pnpm 12+
+- Python 3.9+ with `ruff` and `pytest` (`python3 -m pip install ruff pytest`)
+- For testing on hardware: a Steam Deck (or another device running Steam in
+  Gaming Mode) with [Decky Loader](https://decky.xyz), reachable over SSH
 
-> Dev works on **Windows, macOS, SteamOS, and other Linux** (see
-> [CONTRIBUTING.md § Supported platforms](../CONTRIBUTING.md#supported-platforms)).
-> The `pnpm` scripts invoke Python cross-OS via `scripts/build/py.mjs`; the raw
-> `python3 …` examples below assume `python3` on PATH — on Windows use
-> `python` / `py -3`.
+Development works on Windows, macOS, SteamOS and other Linux distributions; see
+[CONTRIBUTING.md](../CONTRIBUTING.md#setup) for what runs where.
+The `pnpm` scripts find Python on their own through `scripts/build/py.mjs`; the
+raw `python3 …` examples below assume `python3` on PATH (on Windows use
+`python` or `py -3`).
 
 ## Setup
 
 ```bash
 pnpm install
-cp .env.example .env   # Edit with your Deck's IP
-pnpm run deck:setup    # First-time Deck configuration
+cp .env.example .env          # set DECK_HOST and friends, see below
+pnpm run deck:setup           # first time: creates the plugin folder on the Deck
 ```
+
+`deck:setup` takes the host as an argument when `.env` doesn't set it
+(`pnpm run deck:setup steamdeck`). `--hard` empties the plugin folder first.
+
+## Environment variables (`.env`)
+
+```
+DECK_HOST=192.168.1.x      # Deck IP address or hostname, e.g. steamdeck
+DECK_USER=deck             # SSH user
+DECK_SUDO_PASS=            # only to fix plugin-folder ownership and restart the loader;
+                           # leave empty and prefer SSH keys + passwordless sudo
+DECK_CDP_HOST=             # debug endpoint host, defaults to DECK_HOST
+DECK_CDP_PORT=8081         # 8081 for a Deck on the network, 8080 for local Steam
+DECKY_PLUGINS_DIR=         # local Decky plugins folder for deploy:local (default ~/homebrew/plugins)
+```
+
+Every variable is optional: the scripts also take the host (and user) as
+arguments, and an argument wins over `.env`. The debug endpoint is only needed
+for device inspection; see [cdp.md](./cdp.md).
+
+## Commands
+
+### Build and package
+
+| Command | What it does |
+|---|---|
+| `pnpm run build` | Production build (minified, `__DEV__=false`), plus the `py_modules/` and `defaults/` folders the store packer reads. The Decky store runs this |
+| `pnpm run build:dev` | Development build: sourcemaps, `__DEV__=true`, debug logging, QA flags honoured |
+| `pnpm run watch` | Development build on every file change, no deploy |
+| `pnpm run package` | Packs the last `pnpm run build` into `deck-shelves-v<version>.zip` and checks it; refuses a development build |
+| `pnpm run verify:package` | Checks an existing zip without rebuilding it |
+| `pnpm run clean` | Removes build output |
+
+### Deploy to a device
+
+| Command | What it does |
+|---|---|
+| `pnpm run deploy:deck` | Development build, copied to the Deck over SSH |
+| `pnpm run deploy:deck:hard` | The same, then restarts the plugin loader and Steam |
+| `pnpm run deploy:deck:release` | Production build without the debug flag, then restarts: what users get |
+| `pnpm run deploy:deck:win` / `:win:hard` | PowerShell version for Windows (OpenSSH, no rsync or bash) |
+| `pnpm run watch:deck` / `:hard` | Redeploys on every file change |
+| `pnpm run deploy:local` / `:hard` | Installs into this machine's Decky (no SSH; see below) |
+| `pnpm run upload:deckzip` | Copies the packaged zip to the Deck's `~/Downloads`, for testing "Install from zip" |
+
+`:hard` kills Steam without waiting, so give a change you just made in the UI
+a moment to save before running it.
+
+### Device helpers
+
+| Command | What it does |
+|---|---|
+| `pnpm run deck:check` | Tests the SSH connection and shows the Decky folders |
+| `pnpm run fix:deck:perms` | Gives the plugin folder back to `DECK_USER` (after a failed deploy) |
+| `pnpm run restart:steam` | Restarts Steam on the Deck |
+| `pnpm run logs:decky` | Follows the Decky Loader journal on the Deck |
+| `pnpm run deck:debug` | Opens the device's DevTools page list in the browser |
+| `pnpm run deck:perf` | Battery, CPU and sleep-inhibitor test; see [performance.md](./performance.md) |
+| `pnpm run qa:*` | Deploys with a QA flag; see [qa-manual.md](./qa-manual.md#qa-harness-flags) |
 
 ## Run locally (Decky already installed)
 
-To develop **directly on the machine that runs Steam** — a Steam Deck, a Linux
-box, or Windows — that **already has Decky Loader installed**, deploy into the
-local Decky plugin dir instead of over SSH:
+To work directly on the machine that runs Steam (a Deck, a Linux box or
+Windows) that already has Decky Loader:
 
 ```bash
-pnpm run deploy:local        # build + install into THIS machine's Decky plugin dir
-pnpm run deploy:local:hard   # + reload plugin_loader and restart Steam (Linux)
+pnpm run deploy:local        # build + copy into this machine's Decky plugins folder
+pnpm run deploy:local:hard   # + restart the plugin loader and Steam (Linux)
 ```
 
-- It does **not** install Decky — it only copies the plugin into an existing
-  install. Default location is `~/homebrew/plugins`; if Decky lives elsewhere,
-  set `DECKY_PLUGINS_DIR=/path/to/homebrew/plugins` (or `DECKY_HOME=/path/to/homebrew`)
-  in `.env` or the environment.
-- After a plain `deploy:local`, reload from Decky (Developer → Reload
-  deck-shelves) or restart Steam. `:hard` tries to do that for you on Linux
-  (needs passwordless `sudo` or `DECK_SUDO_PASS`).
+It never installs Decky. The default location is `~/homebrew/plugins`; if
+Decky lives elsewhere, set `DECKY_PLUGINS_DIR=/path/to/homebrew/plugins` (or
+`DECKY_HOME=/path/to/homebrew`) in `.env` or the environment. `--no-build`
+reuses the existing `dist/`. After a plain `deploy:local`, reload from Decky
+(Developer → Reload) or restart Steam; `:hard` does that for you on Linux
+(needs passwordless `sudo` or `DECK_SUDO_PASS`).
 
-## Environment Variables (`.env`)
+## The debug flag
 
-```
-DECK_HOST=192.168.1.x     # Steam Deck IP address (or hostname, e.g. steamdeck)
-DECK_USER=deck             # SSH username
-DECK_SUDO_PASS=...        # sudo password for plugin dir ownership
-DECK_CDP_PORT=8081         # CEF Remote Debugging port
-DECK_CDP_HOST=127.0.0.1    # optional: CDP host (defaults to DECK_HOST; use 127.0.0.1 for local Steam / over an SSH tunnel)
-DECKY_PLUGINS_DIR=         # optional: local Decky plugins dir for `deploy:local` (default ~/homebrew/plugins)
-```
+Development deploys add Decky's `debug` flag to the copied `plugin.json`, so
+the loader reloads the plugin on every deploy. The committed `plugin.json`
+never carries it, because the Decky store rejects it; don't add it by hand.
 
-> Local Steam: set `DECK_CDP_HOST=127.0.0.1` + `DECK_CDP_PORT=8080` (Steam's CEF
-> is on `8080` on the same machine; `8081` is the Deck's LAN port).
-
-All variables are optional — each script also accepts command-line arguments
-(e.g. `pnpm run deploy:deck steamdeck`). When both are provided, the CLI
-argument takes precedence.
-
-## Build Commands
-
-| Command | Description |
-|---------|-------------|
-| `pnpm run build` | Production build (minified, `__DEV__=false`), plus the `py_modules/` and `defaults/` folders the store packer reads. The Decky store runs this command |
-| `pnpm run build:dev` | Development build (sourcemaps, `__DEV__=true`) |
-| `pnpm run package` | Pack the last `pnpm run build` into the installable `.zip` and check it |
-
-> **Caution:** `build:dev` includes sourcemaps and enables debug logging — it is for local development only. `pnpm run package` refuses a development build.
-| `pnpm run deploy:deck` | Build + deploy to Deck via SSH |
-| `pnpm run deploy:deck:hard` | Deploy + restart Steam |
-| `pnpm run deploy:local` | Build + install into the **local** Decky (no SSH; Decky must already be installed) |
-| `pnpm run deploy:local:hard` | Local install + reload plugin_loader + restart Steam (Linux) |
-| `pnpm run watch:deck` | Auto-deploy on file changes |
-| `pnpm run package` | Create distributable `.zip` |
-| `pnpm run upload:deckzip` | Upload the zip to the Deck Downloads folder |
-
-> **Caution — `--hard` right after a live save:** `killall steam` can land mid-round-trip of a `saveSettings` call the user just made in the UI. The write itself already landed on disk (confirmed via a reproduction: the backend's pre-save backup snapshot had it), but the frontend's `lastSaveSucceeded` flag can be left `false` if the ack never arrives — and `refreshSettings`'s boot-time "retry unsynced save" then re-pushes whatever `localStorage` cache was current *when the save call started*, which can be older than what's now on disk. If you're deploying `--hard` shortly after the user (or you, live-testing) added/edited something, verify the settings file on disk afterward before assuming it's still there.
-
-## Testing
+## Checks
 
 ```bash
-pnpm test              # Vitest (TypeScript)
-pnpm run validate:ci   # everything CI runs, pytest included
-pnpm run typecheck     # TypeScript type checking
+pnpm run dev:check         # typecheck + lint + unit tests, the quick loop
+pnpm test                  # Vitest only
+python3 -m pytest src/test # backend tests only
+pnpm run validate:compat   # the 40 compatibility checks under checks/
+pnpm run docs:check        # docs against code, see below
+pnpm run validate:ci       # everything CI runs
 ```
 
-## Compatibility Checks
+`validate:ci` runs typecheck, lint (ESLint and ruff), the production build,
+Vitest, pytest, packaging, the compatibility checks, the static build checks
+(`scripts/build/validate.mjs`) and `docs:check`. It needs no device and no
+`.env`, and it is the command CI runs.
 
-```bash
-pnpm run validate:compat
-```
+The compatibility checks are bash scripts (Decky Loader 3.x and store rules,
+SteamOS 3.5–3.10, CSS Loader themes, coexisting plugins, i18n, the Python
+backend, the build output). On Windows they need Git Bash or WSL.
 
-Validates against 23 compatibility targets: Decky Loader versions, SteamOS versions, CSS Loader themes, and coexisting plugins.
+### Docs check
 
-## Docs Check
+`pnpm run docs:check` fails when the docs drift from the code:
 
-```bash
-pnpm run docs:check              # coverage + index + badges
-pnpm run docs:check --no-badges  # skip the test-count collectors
-```
+- **Coverage**: everything the editor offers is documented. Filter types
+  (`ALL_FILTER_TYPES`), sort keys and built-in sources (`SORT_OPTIONS`,
+  `V3_SOURCE_OPTIONS`) in [filters.md](./filters.md), smart-shelf modes
+  (`SmartShelfModeSchema`) in [smart-shelves.md](./smart-shelves.md), templates
+  (`templates.ts`) in [shelf-templates.md](./shelf-templates.md).
+- **Diagrams**: no HTML entities in diagram labels, fences balanced.
+- **Icons**: the logo and tab icon inlined as JSX match `assets/icon.svg` and
+  `assets/tab-icon.svg`.
+- **Shipped text**: the README, changelog, release notes, docs and code
+  comments contain no internal process or tooling words.
 
-Runs in CI and fails the build when the docs drift from the code:
+When you expose a new filter, sort, source, smart mode or template, document it
+in the same change. If an extractor reports `0 ids`, the source moved: update
+the pattern in `scripts/ci/docs-check.mjs` instead of letting the check pass
+empty.
 
-- **Coverage** — every entry the UI exposes is documented: filter types
-  (`ALL_FILTER_TYPES` → [`filters.md`](./filters.md)), sort keys and built-in
-  sources (`SORT_OPTIONS` / `V3_SOURCE_OPTIONS` → `filters.md`), smart-shelf
-  modes (`SmartShelfModeSchema` → [`smart-shelves.md`](./smart-shelves.md)) and
-  shelf templates (`templates.ts` → [`shelf-templates.md`](./shelf-templates.md)).
-- **Diagrams** — no HTML entities in diagram labels, fences balanced.
-- **Icon** — the `DeckShelvesLogo` mark inlined in `icons.tsx` matches
-  `assets/icon.svg` (same rects + fit transform), so the two never drift.
+### Dependency updates
 
-So when you expose a new filter, sort, source, smart mode or template, add it to
-the matching doc in the same change. If an extractor ever reports `0 ids`, the
-source moved — update the regex in `scripts/ci/docs-check.mjs` rather than
-letting the check pass hollow.
+| Command | What it does |
+|---|---|
+| `pnpm run update:check` | Lists outdated dependencies, changes nothing |
+| `pnpm run update:safe` | Applies updates within the current major versions |
+| `pnpm run update:major` | Applies the latest versions, majors included (asks first) |
+| `pnpm run update:pnpm` | Upgrades pnpm itself and the `packageManager` pin |
+| `pnpm run update:verify` | Typecheck, tests and build after an update |
+| `pnpm run update` | All of the above in order, asking before pnpm and major updates |
 
-## Debug Flag
-
-> **Note:** the `debug` flag makes Decky reload the plugin automatically on each deploy — it must be absent from the final `plugin.json` submitted to the store. The deploy script handles this injection automatically; do not add the flag manually to the committed file.
-
-The `plugin.json` ships without the `debug` flag (required for Decky Store). During development, `deploy-deck.sh` automatically injects the flag into the staged copy so Decky reloads the plugin on deploy.
-
-## Validation
-
-```bash
-pnpm validate:ci    # typecheck, lint, build, tests, package, compat
-```
-
-It needs no device or `.env`, and it is what CI runs.
+`--yes` or `YES=1` skips the questions.
 
 ## i18n
 
-Locales are sliced into per-area files: `i18n/<locale>/<area>.json`, where
-`<area>` is one of `home`, `qam`, `about`, `settings`, `integrations`,
-`common`, `setup`. The loader (`src/i18n.ts`) merges every area file per locale into a
-single bundle via `import.meta.glob` — `en-US` ships eagerly (first-paint
-labels), every other locale loads its area chunks lazily for the detected
-language. Adding a locale or a new sub-area is just a new JSON file; no loader
-edit. First-party integrations add `i18n/<locale>/integration-<name>.json`.
+Locales are split into area files, `i18n/<locale>/<area>.json`, where
+`<area>` is `home`, `qam`, `about`, `settings`, `integrations`, `common` or
+`setup`; first-party integrations add `integration-<name>.json`. The loader
+(`src/i18n.ts`) merges a locale's files into one bundle: `en-US` loads with the
+plugin, every other locale loads when it is the active language. A new locale
+or area is a new JSON file; the loader needs no change.
 
-> **Caution:** every new key must exist in all locales with no cross-area
-> collisions — `node scripts/build/validate.mjs` fails if any locale's merged
-> key set differs from `en-US` or a key appears in two area files. Use the
-> English string as the value when a translation isn't ready; never leave a
-> key undefined (the runtime falls back silently and logs a warning).
+- Base locale: `i18n/en-US/`.
+- A key must exist in every locale and live in exactly one area file.
+  `node scripts/build/validate.mjs` (part of `validate:ci`) fails otherwise.
+- When a translation isn't ready, use the English text as the value; never
+  leave a key out.
+- Text that comes from Steam's own UI is not translated here: it is read from
+  the Steam client's localization tokens at run time.
+- Other plugins add their own strings at run time with
+  `window.deckShelves.api.registerTranslations(locale, dict)`.
 
-- Base locale: `i18n/en-US/` (area files)
-- A key must exist in every locale and live in exactly one area file
-- External plugins register their own strings at runtime via
-  `window.deckShelves.api.registerTranslations(locale, dict)` instead of a PR
+## Conventions
 
-## Project Conventions
-
-- 2 spaces indentation, semicolons, double quotes
-- `camelCase` for variables, `PascalCase` for components/types
-- Changelog entries go under `## [Unreleased]` (never manually version)
-- PR titles must start with `[FIX]`, `[ENHANCEMENT]`, `[REFACTOR]`, `[CLEANUP]`, or `[FEATURE]`
+- 2 spaces, semicolons, double quotes; `camelCase` for variables and
+  functions, `PascalCase` for components and types.
+- Changelog and release-notes entries go under `## [Unreleased]`; never set a
+  version by hand.
+- PR titles start with a tag that sets the version bump; the list is in
+  [CONTRIBUTING.md](../CONTRIBUTING.md#pull-requests).
 
 ### Diagrams in docs
 
-Diagrams are written inline in the Markdown so they render on the repository
-page with no build step. Keep them consistent:
+Diagrams are written as Mermaid blocks in the Markdown, so they render on the
+repository page with no build step. Keep them consistent:
 
-- **Quote every label** — `id["Text"]`. Quoting is what lets a label hold `@`,
-  `()`, `/` or `·` safely.
-- **Never use HTML entities** (`&#64;`, `&amp;`). They render literally wherever
-  HTML labels are disabled, which is how the label ends up showing
-  `&#64;deck-shelves/api`. Write the real character inside quotes instead.
-  `docs:check` fails on this.
+- **Quote every label**: `id["Text"]`. Quoting lets a label hold `@`, `()`,
+  `/` or `·`.
+- **No HTML entities** (`&#64;`, `&amp;`). They show up literally wherever HTML
+  labels are disabled. Write the real character inside quotes; `docs:check`
+  fails on entities.
 - `<br/>` for line breaks is fine; keep node text to two short lines.
 - **Colour carries meaning**, and every class pairs a light fill with dark text
-  so it stays legible in both light and dark page themes:
+  so it stays legible in light and dark page themes:
 
   | Class | Meaning | Fill / stroke |
   |---|---|---|
@@ -182,6 +208,6 @@ page with no build step. Keep them consistent:
   | `sensitive` | High-risk modules (thicker stroke) | `#fee2e2` / `#dc2626` |
   | `opt` | Optional / inert | `#f1f5f9` / `#94a3b8` |
 
-- Say what a colour means in prose when it is load-bearing (as the
-  [architecture](./architecture.md) module diagram does for the red group) —
-  colour alone should never be the only signal.
+- Say in the text what a colour means when it matters (as the
+  [architecture](./architecture.md) module diagram does for the red group);
+  colour alone is never the only signal.

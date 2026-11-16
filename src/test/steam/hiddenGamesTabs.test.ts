@@ -2,12 +2,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { FilterGroup, ShelfSource } from "../../types";
 
-/* Tab and collection shelves must mirror the native library: a Steam-hidden
-   game never shows up on them, whichever path produced the ids (the overview
-   list, the tab store, a collection or the TabMaster filter fallback). The
-   Hidden tab and a child filter asking for hidden games are the two
-   exceptions; filter shelves keep their own `hidden` item semantics. */
-
 const stores = vi.hoisted(() => ({
   apps: [] as any[],
   tabStoreIds: [] as number[],
@@ -95,8 +89,6 @@ describe("Steam-hidden games on tab shelves", () => {
   });
 
   it("the TabMaster filter fallback for a tab id leaves them out as well", async () => {
-    // Neither the fiber container nor the tab store knows this id, so the
-    // resolver rebuilds the tab from TabMaster's own filters (a filter resolve).
     const uuid = "123e4567-e89b-12d3-a456-426614174000";
     stores.tabMasterTabs = [{ id: uuid, title: "Installed", position: 0, filtersMode: "and", filters: [{ type: "installed", inverted: false, params: {} }] }];
     const ids = await resolveShelfAppIds(tab(uuid), 20);

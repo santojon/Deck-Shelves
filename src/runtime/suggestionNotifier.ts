@@ -1,8 +1,3 @@
-/* "New shelf suggestions" notification — picks suggestions the user hasn't been
-   notified about before. Pure logic + a localStorage dedup ledger; the boot
-   path fires the actual toast (icon/logo/click live there). Gated on the
-   "suggest on create" opt-in and skipped in light mode (no Suggestions tab to
-   open). One-shot, no polling. */
 import { getExternalStatisticsProviders } from "../core/pluginApi";
 import { deriveSuggestions, type StatSuggestion } from "../domain/statistics";
 import { coveredTemplateIds } from "../domain/templates";
@@ -10,16 +5,16 @@ import { getCurrentSettings } from "../store/settingsStore";
 import { qaOverrideActive } from "../qa/harness";
 
 const NOTIFIED_KEY = "ds-notified-suggestions";
-const NOTIFIED_CAP = 100; // keep the ledger bounded
+const NOTIFIED_CAP = 100;
 
 function loadNotified(): Set<string> {
   try { const raw = localStorage.getItem(NOTIFIED_KEY); return new Set(raw ? JSON.parse(raw) : []); } catch { return new Set(); }
 }
 
 function saveNotified(ids: string[]): void {
-  // A QA build computes suggestions from fixture shelves: the real ledger stays as it was.
+  // QA builds use fixture shelves, so the real ledger is left alone.
   if (qaOverrideActive) return;
-  try { localStorage.setItem(NOTIFIED_KEY, JSON.stringify(ids.slice(-NOTIFIED_CAP))); } catch { /* best-effort */ }
+  try { localStorage.setItem(NOTIFIED_KEY, JSON.stringify(ids.slice(-NOTIFIED_CAP))); } catch {}
 }
 
 async function computeSuggestions(s: any): Promise<StatSuggestion[]> {
@@ -36,9 +31,6 @@ async function computeSuggestions(s: any): Promise<StatSuggestion[]> {
   });
 }
 
-/* The same ledger backs the "New" chip on the Suggestions tab: a suggestion the
-   user has never been notified about or seen in the tab is new; opening the
-   tab marks what it showed. */
 export function isSuggestionNew(id: string): boolean {
   return !loadNotified().has(id);
 }
@@ -51,9 +43,7 @@ export function markSuggestionsSeen(ids: string[]): void {
   if (changed) saveNotified([...notified]);
 }
 
-/* Suggestions the user hasn't been notified about yet (records the current set
-   as notified as a side effect). Empty when the opt-in is off, in light mode,
-   or nothing is new — so the caller fires a toast only when this is non-empty. */
+/** Also marks the returned suggestions as notified. */
 export async function pickNewSuggestions(): Promise<StatSuggestion[]> {
   const s = getCurrentSettings() as any;
   if (!s || s.templateSuggestionsEnabled !== true || s.lightModeEnabled === true) return [];

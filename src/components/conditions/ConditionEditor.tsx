@@ -15,11 +15,8 @@ export interface ConditionEditorProps {
   group: FilterGroup
   onChange: (group: FilterGroup) => void
   controller?: SettingsController
-  // The source is the wishlist or the store, where price and discount apply.
   allowOnlineFilters?: boolean
-  // Online features are on, so the types that need store data are offered.
   onlineFeaturesOn?: boolean
-  // Hides the all/any choice when the rule comes from elsewhere, as in a composite type.
   hideMode?: boolean
 }
 
@@ -42,17 +39,14 @@ function createConditionKeys() {
     }
     return key
   }
-  // An edit makes a new object; it keeps the key of the one it replaces.
   const carry = (from: FilterItem, to: FilterItem) => { byItem.set(to, of(from)) }
   return { of, carry }
 }
 
-// A parent may hand back a fresh array, such as a new empty list, so compare
-// the conditions themselves.
+// A parent may pass a fresh array, so compare the conditions themselves.
 const sameItems = (a: FilterItem[], b: FilterItem[]) => a.length === b.length && a.every((item, i) => item === b[i])
 
-// Steam's focus follows its navigation nodes; ask for it a frame later, once
-// the row that was just drawn is in the tree.
+// Steam's focus follows nav nodes, so focus a frame later, once the new row is in the tree.
 function focusLater(target: HTMLElement | null | undefined): void {
   const win = target?.ownerDocument.defaultView
   if (!target || !win) return
@@ -79,7 +73,6 @@ function MatchChoice({ mode, onChange }: { mode: Mode; onChange: (mode: Mode) =>
   )
 }
 
-/** Edits a filter group: whether all or any of its conditions must match, and the conditions. */
 export function ConditionEditor({ group, onChange, controller, allowOnlineFilters = false, onlineFeaturesOn = false, hideMode = false }: ConditionEditorProps) {
   const [keys] = useState(createConditionKeys)
   const [added, setAdded] = useState<string | null>(null)
@@ -90,8 +83,6 @@ export function ConditionEditor({ group, onChange, controller, allowOnlineFilter
   const rowKeys = items.map(keys.of)
   const addLabel = i18n.t('filter_condition_add')
 
-  // Focus moves only once this editor's own change comes back as the group. A
-  // saved filter applied from the bar replaces the list and leaves focus there.
   useLayoutEffect(() => {
     const request = pendingFocus.current
     if (!request || !sameItems(request.items, items)) return
@@ -115,7 +106,6 @@ export function ConditionEditor({ group, onChange, controller, allowOnlineFilter
     keys.carry(items[index], next)
     send(items.map((item, i) => (i === index ? next : item)))
   }
-  // The condition above takes the focus, else the one below, else the add button.
   const remove = (index: number) => {
     send(items.filter((_, i) => i !== index), rowKeys[index - 1] ?? rowKeys[index + 1] ?? ADD_CONTROL)
   }

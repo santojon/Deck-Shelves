@@ -3,7 +3,6 @@ import { STEAM_EN, STEAM_PT_BR } from "../../fixtures/steamLocalizer";
 
 const host = vi.hoisted(() => ({ read: new Set<string>(), afterPatch: null as unknown }));
 
-// The module needs nothing from the adapter; the mock records every export read.
 vi.mock("../../../runtime/host/decky", () => new Proxy({
   get afterPatch() { return host.afterPatch; },
   MenuItem: function MenuItem() { return null; },
@@ -22,9 +21,8 @@ const ELEMENT = Symbol.for("react.transitional.element");
 const FRAGMENT = Symbol.for("react.fragment");
 const PREFIX = "ds-";
 const noop = () => {};
-const GLOBALS = Object.getOwnPropertyNames(globalThis); // before any test attaches
+const GLOBALS = Object.getOwnPropertyNames(globalThis);
 
-// Plain objects: the test runner's React freezes the elements it creates, Steam's does not (E11).
 const el = (type: unknown, props: Props = {}, key: string | null = null): El => ({ $$typeof: ELEMENT, type, key, ref: null, props });
 
 const isEl = (value: unknown): value is El => !!value && typeof value === "object" && (value as El).$$typeof === ELEMENT;
@@ -33,7 +31,6 @@ const isPlugin = (value: unknown): boolean => keyOf(value)?.startsWith(PREFIX) =
 const sameItems = (a: readonly unknown[], b: readonly unknown[]) => a.length === b.length && a.every((entry, i) => entry === b[i]);
 const hasRender = (type: unknown) => typeof type === "function" && typeof type.prototype?.render === "function";
 
-// Stand-ins for Steam's menu parts: the entry is a class, the others are functions (E10).
 const leafCalls = { count: 0 };
 class MenuItem { constructor() { leafCalls.count++; } render() { leafCalls.count++; return null; } }
 const leaf = () => function leaf() { leafCalls.count++; return null; };
@@ -63,7 +60,6 @@ function frozenExcept(value: unknown, except: unknown, seen = new Set<unknown>()
 const shallowEqual = (a: any, b: any): boolean =>
   a === b || (!!a && !!b && Object.keys(a).length === Object.keys(b).length && Object.keys(a).every((key) => Object.is(a[key], b[key])));
 
-// Records reads below an observed output, by element level (each `children` hop is one level).
 const unwrapped = new WeakMap<object, object>();
 const unwrap = (value: unknown): unknown => (value && typeof value === "object" && unwrapped.get(value)) || value;
 
@@ -102,7 +98,6 @@ function makeSteam(options: SteamOptions = {}) {
   const built = new WeakMap<object, { steam: unknown[]; properties: unknown }>();
   const gameLists = new WeakSet<object>();
 
-  // The observer decorator (E6): a fixed own render on first render, and a shallow update check.
   function observer(cls: { prototype: any }, check = true): void {
     const proto = cls.prototype;
     const original = proto.render;
@@ -118,7 +113,6 @@ function makeSteam(options: SteamOptions = {}) {
     };
   }
 
-  // Steam's slot order (E3); other parties' entries sit before Properties (E5) or after it.
   function listFor(layout: Layout): unknown[] {
     const appid = layout.appid ?? 282800;
     const apps = Array.from({ length: layout.apps ?? 1 }, (_, i) => ({ appid: appid + i }));
@@ -153,7 +147,6 @@ function makeSteam(options: SteamOptions = {}) {
     return layout.recorder.wrap(output);
   }
 
-  // Every game menu class renders through the same menu component and body (E7).
   function gameClass() {
     class GameMenu {
       props: Props; state = null; output: unknown = null;
@@ -167,13 +160,11 @@ function makeSteam(options: SteamOptions = {}) {
   }
   const GameMenu = gameClass();
 
-  // Another party adds its entries on every body render, once, after Steam's last app-list slot.
   function addOthers(list: unknown[], others: unknown[]): void {
     if (others.every((entry) => list.includes(entry))) return;
     list.splice(list.map((entry) => (isEl(entry) ? entry.type : null)).lastIndexOf(AppsEntry) + 1, 0, ...others);
   }
 
-  // The body nests the very list first in a container (gamepad) or as its children (desktop), E7.
   class MenuBody {
     props: Props; state = null; rendered: unknown = null;
     constructor(props: Props) { counters.bodyNew++; this.props = props; }
@@ -189,13 +180,11 @@ function makeSteam(options: SteamOptions = {}) {
   }
 
   function Menu(props: Props) { counters.menuRender++; return el(MenuBody, { ...props, labelId: "menu-label" }); }
-  // Another type that renders Steam's menu component with the same props.
   function OtherMenu(props: Props) { return el(Menu, props); }
 
   observer(MenuBody, options.check !== false);
   if (options.newer) Object.assign(options.newer === "getDerivedStateFromProps" ? MenuBody : MenuBody.prototype, { [options.newer]: () => null });
 
-  // A small stand-in for React: mount, update check, forced update, unmount, fibers.
   function mount(element: unknown, mounted: any[], parent: Fiber | null): Fiber | null {
     if (!isEl(element) || !(hasRender(element.type) || element.type === Menu || element.type === OtherMenu)) return null;
     const fiber: Fiber = { type: element.type, key: element.key, memoizedProps: element.props, stateNode: null, child: null, return: parent, alternate: null };
@@ -207,7 +196,6 @@ function makeSteam(options: SteamOptions = {}) {
     return fiber;
   }
 
-  // Mounts a tree, then commits: componentDidMount runs children first, as in React.
   function mountAll(element: unknown, parent: Fiber | null = null): Fiber | null {
     const mounted: any[] = [];
     const fiber = mount(element, mounted, parent);
@@ -230,7 +218,6 @@ function makeSteam(options: SteamOptions = {}) {
     fiber.child = mountAll(output, fiber);
   }
 
-  // New props consult the update check; forced updates skip it (E6). Will-update runs before each re-render.
   function update(fiber: Fiber, next: Props, forced: boolean): void {
     const force = forced || fiber.pending === true;
     fiber.pending = false;
@@ -256,7 +243,6 @@ function makeSteam(options: SteamOptions = {}) {
     isGameList: (candidate: unknown) => gameLists.has(unwrap(candidate) as object),
     built: (list: unknown) => built.get(unwrap(list) as object)!,
     forceUpdate: (fiber: Fiber) => update(fiber, fiber.memoizedProps!, true),
-    // One render of both: the body gets the fresh list and has its own forced update pending.
     forceBoth: (game: Fiber) => { bodyOf(game).pending = true; update(game, game.memoizedProps!, true); },
     rerender: (fiber: Fiber) => update(fiber, { ...fiber.memoizedProps }, false),
     rerenderMenu: (game: Fiber) => update(menuOf(game), { ...menuOf(game).memoizedProps }, false),
@@ -276,7 +262,7 @@ function makeInputs(steam: Steam, settings: Settings = {}) {
   const events: GameMenuEntriesEvent[] = [];
   const contexts: GameMenuListContext[] = [];
   const provided: (readonly unknown[])[] = [];
-  const receivers = new Set<unknown>(); // the callbacks are methods, as a caller may write them
+  const receivers = new Set<unknown>();
   const state = { entries: (): unknown => pluginEntries(), fail: null as Callback | null };
   const failIf = (name: Callback) => { if (state.fail === name) throw new Error(name); };
   const sink = settings.sink ?? "record";
@@ -315,7 +301,6 @@ function setup(settings: Settings = {}, steamOptions: SteamOptions = {}) {
   return { steam, inputs, handle: attach(inputs.options) };
 }
 
-// One block: the separator (when made) and the entries, contiguous, before Properties or last.
 function expectBlock(list: readonly unknown[], entries: readonly unknown[] | undefined, properties: unknown, withSeparator = true): void {
   const size = (entries?.length ?? 0) + (withSeparator ? 1 : 0);
   const start = list.findIndex(isPlugin);
@@ -328,7 +313,6 @@ function expectBlock(list: readonly unknown[], entries: readonly unknown[] | und
   else expect(start + size).toBe(list.length);
 }
 
-// The rendered list of a game menu holds the latest entries before its Properties slot.
 const expectRendered = (steam: Steam, inputs: Inputs, game: Fiber) =>
   expectBlock(steam.renderedOf(game), inputs.last(), steam.built(steam.listOf(game)).properties);
 
@@ -340,7 +324,6 @@ function expectBlockKeys(list: readonly unknown[], properties: unknown): void {
   expect(list[start + keys.length]).toBe(properties);
 }
 
-// Steam's own elements (and other parties') keep their identity and order.
 const expectSteamKept = (list: readonly unknown[], steam: Steam, source: unknown) =>
   expect(sameItems(list.filter((entry) => !isPlugin(entry)), steam.built(source).steam.filter((entry) => !isPlugin(entry)))).toBe(true);
 
@@ -349,7 +332,6 @@ const steamOnly = (steam: Steam, game: Fiber) => sameItems(steam.renderedOf(game
 const protoSnapshot = (steam: Steam): unknown[] => [steam.GameMenu.prototype, steam.MenuBody.prototype].map((proto) =>
   Object.getOwnPropertyNames(proto).map((name) => ({ name, ...Object.getOwnPropertyDescriptor(proto, name) })));
 
-// The slots the module may change, and what each holds now.
 const slotsOf = (steam: Steam): [Props, string][] => [
   [steam.GameMenu.prototype, "render"], [steam.GameMenu.prototype, "componentDidMount"],
   [steam.MenuBody.prototype, "shouldComponentUpdate"], [steam.MenuBody.prototype, "UNSAFE_componentWillUpdate"], [steam.MenuBody.prototype, "render"],
@@ -358,7 +340,6 @@ const slotValues = (steam: Steam) => slotsOf(steam).map(([owner, name]) => Objec
 
 const firstGroup = (list: unknown[]) => list.find((entry) => isEl(entry) && entry.type === MenuGroup && !isPlugin(entry)) as El;
 
-// One pass of each outcome: placed, rejected, empty, failed.
 function allOutcomes(steam: Steam, inputs: Inputs, lists: unknown[][] = []): void {
   const placed = steam.open(steam.game({ installed: true }));
   const several = steam.open(steam.game({ apps: 2 }));
@@ -370,7 +351,6 @@ function allOutcomes(steam: Steam, inputs: Inputs, lists: unknown[][] = []): voi
   for (const game of [placed, several, empty, failed]) { lists.push(steam.renderedOf(game)); steam.close(game); }
 }
 
-// A working menu (so the body is known), then one failing callback on its update and on a new menu's first render.
 function failingRun(failing: Callback) {
   const steam = makeSteam();
   const inputs = makeInputs(steam);
@@ -391,7 +371,6 @@ function failingRun(failing: Callback) {
   return result;
 }
 
-// The two hosts' patch helpers (E12): one lets handler errors through, one catches them.
 function patchModel(catches: boolean) {
   return (object: Props, name: string, handler: (args: unknown[], result: unknown) => unknown) => {
     const original = object[name];
@@ -403,7 +382,7 @@ function patchModel(catches: boolean) {
   };
 }
 
-// Lets weak references settle (they hold until the current job ends), then forces full collections.
+// Weak references hold until the current job ends, so yield before each collection.
 async function collectGarbage(): Promise<void> {
   const node = (globalThis as { process?: { getBuiltinModule?: (id: string) => any } }).process;
   node?.getBuiltinModule?.("node:v8").setFlagsFromString("--expose-gc");
@@ -411,7 +390,6 @@ async function collectGarbage(): Promise<void> {
   for (let i = 0; i < 3; i++) { await new Promise((resolve) => setTimeout(resolve, 0)); gc(); }
 }
 
-// Ten menus with two passes each; weak references to what they rendered.
 function closedMenus(steam: Steam): WeakRef<object>[] {
   const refs: WeakRef<object>[] = [];
   for (let i = 0; i < 10; i++) {
@@ -805,7 +783,6 @@ describe("installGameMenuEntries", () => {
     expect(installGameMenuEntries(undefined as unknown as GameMenuEntriesOptions)).toBeNull();
     expect(protoSnapshot(steam)).toEqual(before);
     expect(names()).toEqual(fixtures);
-    // A class whose second slot cannot be replaced: the first one is put back.
     class Locked { render() { return null; } }
     Object.defineProperty(Locked.prototype, "componentDidMount", { value: noop, writable: false, configurable: false });
     const descriptors = () => Object.getOwnPropertyNames(Locked.prototype).map((name) => Object.getOwnPropertyDescriptor(Locked.prototype, name));
@@ -847,7 +824,6 @@ describe("installGameMenuEntries", () => {
       for (const game of [open, later]) expect(steam.renderedOf(game).some(isPlugin)).toBe(false);
       expect(types(inputs.events).slice(-1)).toEqual(["uninstalled"]);
     }
-    // Two game classes share the body; detaching in attach order still puts its slots back.
     const steam = makeSteam();
     const before = protoSnapshot(steam);
     const Other = steam.gameClass();
@@ -892,7 +868,6 @@ describe("installGameMenuEntries", () => {
     expectRendered(steam, inputs, game);
     steam.forceUpdate(game);
     expectRendered(steam, inputs, game);
-    // A provider that detaches during a pass gets nothing placed.
     inputs.state.entries = () => { again.uninstall(); return pluginEntries(); };
     steam.forceUpdate(game);
     expect(steam.renderedOf(game).some(isPlugin)).toBe(false);

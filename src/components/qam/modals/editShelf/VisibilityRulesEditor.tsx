@@ -6,11 +6,7 @@ import { ClockIcon, CalendarIcon, GamepadIcon, PlayIcon, SteamIcon, BatteryIcon,
 import { getBluetoothPaired, requestPeripheralsRefresh, subscribePeripheralsState, type BtDevice } from '../../../../runtime/peripheralsState'
 import { optionData } from './utils'
 
-/* Self-contained editor for a Visibility Rules v2 tree
-   ({ mode:'any'|'all', rules:[...] }). Emits a new value via `onChange`
-   (undefined when empty, so a cleared tree persists as "no restriction").
-   Only the time/day kinds are editable; unknown kinds (device rules added
-   later) render read-only so an older editor never drops them. */
+// Unknown rule kinds render read-only so an older editor never drops them.
 
 type Rule = { kind: string } & Record<string, any>
 type Visibility = { mode: 'any' | 'all'; rules: Rule[] }
@@ -229,9 +225,6 @@ function DayOfWeekRow({ rule, onUpdate, t }: { rule: Rule; onUpdate: (p: Partial
   )
 }
 
-// Kind → the extra param editor row (kinds with no params render nothing).
-/* Per-device Bluetooth picker. Paired devices come from the backend on demand
-   (bluetoothctl) — request a refresh on mount and re-render when it lands. */
 function BluetoothRow({ rule, onUpdate, t }: { rule: Rule; onUpdate: (p: Partial<Rule>) => void; t: T }) {
   const [devices, setDevices] = useState<BtDevice[]>(() => getBluetoothPaired())
   useEffect(() => {
@@ -301,10 +294,6 @@ type Glyph = (p: { size?: number }) => any
 type CatEntry = { kind: string; Icon: Glyph; defaults?: Record<string, any>; invertible?: boolean }
 type Cat = { id: string; Icon: Glyph; title: string; entries: CatEntry[] }
 
-/* Add-rule catalogue, grouped by type into collapsible sections (mirrors the
-   shelf-template picker), each entry with its own icon. Invertible kinds render
-   as a paired control (kind ⇄ its inverse); the two share the `kind`, so only
-   one polarity can be added at a time. */
 const CATALOG: Cat[] = [
   { id: 'time', Icon: ClockIcon, title: 'visibility_cat_time', entries: [
     { kind: 'timeWindow', Icon: ClockIcon, defaults: { start: 9, end: 17 } },
@@ -366,10 +355,6 @@ function AddRuleButton({ label, Icon, disabled, onAdd }: { label: string; Icon: 
   )
 }
 
-/* Invertible kinds take their own full-width row: the two polarities side by
-   side with a ⇄ between them, acting as a selector. The active polarity is
-   highlighted; picking the other swaps the existing rule's direction in place
-   (no need to remove and re-add) — picking either when none is set adds it. */
 function InversePair({ entry, active, onPick, t }: { entry: CatEntry; active: 'base' | 'inverse' | null; onPick: (not: boolean) => void; t: T }) {
   const Icon = entry.Icon
   const btn = (label: string, pol: 'base' | 'inverse') => {
@@ -429,11 +414,9 @@ export function VisibilityRulesEditor({ value, onChange, t, idPrefix = 'vis' }: 
 }) {
   const vis: Visibility = value && Array.isArray(value.rules) ? value : { mode: 'any', rules: [] }
   const setRules = (rules: Rule[]) => onChange(rules.length ? { mode: vis.mode, rules } : undefined)
-  // One rule per kind (a kind and its inverse are the SAME rule, just flipped).
+  // A kind and its inverse are the same rule, just flipped.
   const usedKinds = new Set(vis.rules.map((r) => r.kind))
   const addRule = (r: Rule) => { if (!usedKinds.has(r.kind)) setRules([...vis.rules, r]) }
-  // Pick a polarity for an invertible kind: flip the existing rule's direction
-  // in place (no remove/re-add), or add it with the chosen polarity if absent.
   const applyPolarity = (kind: string, defaults: Record<string, any> | undefined, not: boolean) => {
     const idx = vis.rules.findIndex((r) => r.kind === kind)
     if (idx < 0) { setRules([...vis.rules, { kind, ...(defaults ?? {}), ...(not ? { not: true } : {}) }]); return }

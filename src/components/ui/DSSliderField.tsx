@@ -30,9 +30,7 @@ export function DSSliderField({
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'baseline',
-          // Match the SliderField's own inner padding (16 px each side)
-          // so the value column's right edge lines up with the right end
-          // of the slider track immediately below.
+          // Matches the slider's 16px inner padding so the value lines up with the track.
           padding: '6px 16px 0',
         }}
       >

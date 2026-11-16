@@ -20,12 +20,7 @@ import {
   V3_SOURCE_DESCRIPTORS,
 } from "../steam/v3Extensions";
 
-// Built-in smart-shelf modes. Each gets a noop resolve here — the actual
-/* computation lives in `resolveSmartShelf` in `src/steam/smartShelves.ts`
-   and is reached via the resolver's internal-precedence branch in
-   `resolveShelfAppIds`. Plugin authors querying the registry see the id +
-   label; calling `resolve()` on this descriptor returns `[]` because the
-   registry is descriptive, not authoritative. */
+// Descriptive only: the real computation lives in the resolver, so resolve() returns [].
 const INTERNAL_SMART_DESCRIPTORS: SmartShelfSourceDescriptor[] = [
   { id: "quick_play",      displayName: "Quick Play",      category: "time",     resolve: async () => [] },
   { id: "not_started",     displayName: "Not started",     category: "status",   resolve: async () => [] },
@@ -45,9 +40,7 @@ const INTERNAL_SMART_DESCRIPTORS: SmartShelfSourceDescriptor[] = [
   { id: "custom",          displayName: "Custom / Blank",  category: "other",    resolve: async () => [] },
 ];
 
-// Built-in filter types. Each declares the same id `evaluateFilterGroup`
-// dispatches on. The descriptive `evaluate` returns `false` because the
-// internal evaluator never consults the registry for these ids.
+// Descriptive only: the evaluator never consults the registry for these ids.
 const INTERNAL_FILTER_TYPES: ExternalFilterTypeDescriptor[] = [
   "installed", "favorites", "nonSteam", "hidden", "updatePending", "isNew",
   "deckCompatibility", "playedWithinDays", "playtimeRange", "nameIncludes",
@@ -60,8 +53,6 @@ const INTERNAL_FILTER_TYPES: ExternalFilterTypeDescriptor[] = [
   evaluate: () => false,
 }));
 
-// Built-in sort options. `applySortToIds` dispatches on these ids; the
-// descriptive `sort` here is a noop pass-through (returns input order).
 const INTERNAL_SORT_OPTIONS: ExternalSortOptionDescriptor[] = [
   "alphabetical", "recent", "playtime", "release_date", "size_on_disk",
   "metacritic", "review_score", "added", "random", "manual",
@@ -76,23 +67,9 @@ function installInternalRegistry(): () => void {
   for (const d of INTERNAL_SMART_DESCRIPTORS) unsubs.push(registerInternalSmartShelfSource(d));
   for (const d of INTERNAL_FILTER_TYPES) unsubs.push(registerInternalFilterType(d));
   for (const d of INTERNAL_SORT_OPTIONS) unsubs.push(registerInternalSortOption(d));
-  /* Plugin API track — register the built-in Quick Search via
-     the same surface external plugins use. SearchOverlay simply iterates
-     `getExternalSearchProviders()` and gets the built-in first thanks
-     to its priority of 100. */
   unsubs.push(registerInternalSearchProvider(BUILT_IN_SHELF_SEARCH));
-  /* Built-in library statistics — the first authoritative internal
-     provider (its resolve() actually computes, unlike the descriptive
-     noop descriptors above). Registered through the same surface
-     external statistics providers use, so the QAM/About stats view and
-     any third-party consumer read it identically. */
   unsubs.push(registerInternalStatisticsProvider(BUILT_IN_LIBRARY_STATISTICS));
   unsubs.push(registerInternalStatisticsProvider(BUILT_IN_SHELF_STATISTICS));
-  /* register every first-party Filter v3, Sort
-     v3, and Shelf Source v3 entry through the same surface external
-     plugins use. Resolver / evaluator wiring lives in `steam/index.ts`
-     + `steam/v3Extensions.ts`; the registry entries here surface them
-     in the Integrations card + downstream dropdowns. */
   for (const d of V3_FILTER_DESCRIPTORS) {
     const desc: ExternalFilterTypeDescriptor = {
       id: d.id,
@@ -120,6 +97,5 @@ function installInternalRegistry(): () => void {
   return () => { for (const u of unsubs) { try { u(); } catch {} } };
 }
 
-// Wire the bootstrap slot in `pluginApi.ts` at module-load time so
-// `installPluginApi` can call us without forming an import cycle.
+// Wired at module load so the plugin API can call in without an import cycle.
 setInternalBootstrap(installInternalRegistry);

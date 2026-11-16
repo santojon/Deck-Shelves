@@ -18,7 +18,7 @@ const NO_BUILD = process.argv.includes("--no-build");
 loadEnv();
 
 const pluginsDir = resolvePluginsDir();
-const deckyHome = dirname(pluginsDir); // …/homebrew
+const deckyHome = dirname(pluginsDir);
 
 // The homebrew dir stands in for "Decky is installed".
 if (!existsSync(deckyHome)) {

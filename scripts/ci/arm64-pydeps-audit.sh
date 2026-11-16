@@ -1,8 +1,5 @@
 #!/bin/bash
-# ARM64 backend dependency audit: every runtime Python dependency must resolve a
-# Linux aarch64 wheel, so the Deck Shelves backend installs on an ARM64 device
-# (Steam Frame / ARM SteamOS) without a compiler. `pip download --platform` fetches
-# wheels for the target platform from any host, so this runs on an x86 CI runner.
+# Checks that every runtime Python dependency has a Linux aarch64 wheel, so the backend installs on ARM64 without a compiler.
 # Usage: arm64-pydeps-audit.sh [requirements.txt]
 set -euo pipefail
 

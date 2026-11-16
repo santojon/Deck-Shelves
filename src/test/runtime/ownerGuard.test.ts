@@ -23,15 +23,15 @@ describe("ownerGuard", () => {
   });
 
   it("the second instance stands down when another already claimed", () => {
-    expect(claimHomeOwnership("decky")).toBe(true); // first
-    expect(claimHomeOwnership("shelveshub")).toBe(false); // second stands down
+    expect(claimHomeOwnership("decky")).toBe(true);
+    expect(claimHomeOwnership("shelveshub")).toBe(false);
     expect(scope().__DECK_SHELVES_OWNER__).toBe("decky");
   });
 
   it("SHELVES_FORCE_OWNER hands the claim to the neutral host", () => {
     scope().__SHELVES_FORCE_OWNER__ = "shelveshub";
-    expect(claimHomeOwnership("decky")).toBe(false); // loader yields
-    expect(claimHomeOwnership("shelveshub")).toBe(true); // neutral host owns
+    expect(claimHomeOwnership("decky")).toBe(false);
+    expect(claimHomeOwnership("shelveshub")).toBe(true);
     expect(scope().__DECK_SHELVES_OWNER__).toBe("shelveshub");
     expect(getOwnerMetadata()).toMatchObject({ host: "shelveshub", dsVersion: expect.any(String) });
   });

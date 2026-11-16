@@ -7,10 +7,6 @@ run_checks() {
   local fail=0
   local src="$root/src"
 
-  # Clean Game View removes visual clutter and simplifies card appearance.
-  # Our cards must use explicit styles that won't be stripped by the theme.
-
-  # 1. Card art uses explicit dimensions (DeckRow re-exports; canonical defs in shelf/types.ts).
   if grep -rq 'CARD_W\s*=\|CARD_ART_H\s*=' "$src/components/shelf/types.ts" "$src/components/DeckRow.tsx" 2>/dev/null; then
     echo "  ✅ Card dimensions defined as explicit constants"
     ((pass++))
@@ -19,8 +15,6 @@ run_checks() {
     ((fail++))
   fi
 
-  # 2. Card backgrounds are explicit (not inherited from theme).
-  # Accept explicit rgba/# values OR use of our shell CSS variable (--ds-shell-bg / var(--ds-shell-bg)).
   if grep -RInE "background\s*[:=][^\n]*rgba|background\s*[:=][^\n]*#|background-color" "$src" --exclude-dir=__pycache__ 2>/dev/null >/dev/null || \
      grep -RIn "--ds-shell-bg" "$src" --exclude-dir=__pycache__ 2>/dev/null >/dev/null || \
      grep -RIn "var(--ds-shell-bg" "$src" --exclude-dir=__pycache__ 2>/dev/null >/dev/null; then
@@ -31,7 +25,6 @@ run_checks() {
     ((fail++))
   fi
 
-  # 3. No reliance on Steam's native card hover/focus classes that CGV strips
   local steam_hover
   steam_hover=$(grep -rn 'appportrait.*hover\|GameCard.*hover\|appportrait.*focus' "$src" --exclude-dir=__pycache__ 2>/dev/null | grep -v 'detect\|query\|Selector' | head -3)
   if [[ -z "$steam_hover" ]]; then
@@ -42,7 +35,6 @@ run_checks() {
     ((fail++))
   fi
 
-  # 4. Custom focus indicator uses own classes (ds-card, gpfocus)
   if grep -rq '\.ds-card\.gpfocus\|\.ds-card:focus' "$src" --exclude-dir=__pycache__ 2>/dev/null; then
     echo "  ✅ Focus indicator uses scoped .ds-card classes"
     ((pass++))
@@ -51,7 +43,6 @@ run_checks() {
     ((fail++))
   fi
 
-  # 5. Card border-radius uses CSS variable with fallback
   if grep -rq '\-\-ds-card-radius' "$src" --exclude-dir=__pycache__ 2>/dev/null; then
     echo "  ✅ Border-radius uses --ds-card-radius custom property with fallback"
     ((pass++))
@@ -60,7 +51,6 @@ run_checks() {
     ((fail++))
   fi
 
-  # 6. Card shadow is self-defined (not inherited from Steam)
   if grep -rq 'box-shadow.*ds-card\|ds-card.*box-shadow\|\.ds-card-art' "$src" --exclude-dir=__pycache__ 2>/dev/null; then
     echo "  ✅ Card shadow defined on own .ds-card-art class"
     ((pass++))
@@ -69,7 +59,6 @@ run_checks() {
     ((fail++))
   fi
 
-  # 7. Image sizing is explicit (object-fit) — across DeckRow + shelf/* card components.
   if grep -rq 'object-fit\|objectFit' "$src/components/shelf/" "$src/components/DeckRow.tsx" 2>/dev/null; then
     echo "  ✅ Image sizing uses explicit object-fit"
     ((pass++))

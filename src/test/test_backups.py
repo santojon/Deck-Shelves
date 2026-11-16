@@ -22,9 +22,7 @@ from main import Plugin  # noqa: E402
 
 def _use_dir(monkeypatch, tmp_path):
     monkeypatch.setenv("DECKY_PLUGIN_SETTINGS_DIR", str(tmp_path))
-    # Also pin the canonical-store mirror to the same dir — otherwise
-    # Plugin._write_state's mirror sync (storage.sync_mirror) would write a
-    # copy onto this machine's real per-OS app-data path.
+    # Keeps the mirror sync off this machine's real app-data path.
     monkeypatch.setenv("DECK_SHELVES_SETTINGS_DIR", str(tmp_path))
     return str(tmp_path)
 
@@ -49,14 +47,12 @@ def test_rotation_prunes_autos_keeps_manual(monkeypatch, tmp_path):
     for i in range(storage.TOTAL_BACKUP_CAP + 5):
         with open(os.path.join(bdir, f"settings-201801{i:02d}-000000.json"), "w") as f:
             f.write("{}")
-    # Manual + imported snapshots must survive: the total cap trims autos first.
     with open(os.path.join(bdir, "settings-20170101-000000-manual.json"), "w") as f:
         f.write("{}")
     with open(os.path.join(bdir, "settings-20170101-000000-import.json"), "w") as f:
         f.write("{}")
     storage._prune_auto_backups(bdir)
     remaining = os.listdir(bdir)
-    # Total capped; manual + imported kept, autos trimmed to make room.
     assert len(remaining) == storage.TOTAL_BACKUP_CAP
     assert "settings-20170101-000000-manual.json" in remaining
     assert "settings-20170101-000000-import.json" in remaining
@@ -77,9 +73,9 @@ def test_rotation_ages_out_old_autos(monkeypatch, tmp_path):
     os.utime(stale_manual, (old, old))
     storage._prune_auto_backups(bdir)
     remaining = os.listdir(bdir)
-    assert os.path.basename(fresh) in remaining          # recent auto kept
-    assert os.path.basename(stale) not in remaining      # old auto aged out
-    assert os.path.basename(stale_manual) in remaining   # old manual never aged out
+    assert os.path.basename(fresh) in remaining
+    assert os.path.basename(stale) not in remaining
+    assert os.path.basename(stale_manual) in remaining
 
 
 def test_summarize_handles_wrapped_and_bare():
@@ -156,15 +152,12 @@ def test_create_pre_import_backup_ignores_auto_throttle(monkeypatch, tmp_path):
     settings_path = os.path.join(d, "settings.json")
     with open(settings_path, "w", encoding="utf-8") as f:
         json.dump({"state": {"shelves": []}}, f)
-    # An auto snapshot just now would normally block another auto snapshot
-    # for 24h — the pre-import backup must ignore that cooldown entirely.
     storage._write_versioned_backup(settings_path)
     p = Plugin()
     result = asyncio.run(p.create_pre_import_backup())
     assert result["ok"] is True
     names = [b["name"] for b in storage._list_backups()]
     assert any(n.endswith("-pre-import.json") for n in names)
-    # Tagged, so it's excluded from the auto-only pruning/throttle bookkeeping.
     assert not storage._is_auto_backup(next(n for n in names if "pre-import" in n))
 
 
@@ -182,7 +175,7 @@ def test_safety_kinds_map_to_fixed_tags(monkeypatch, tmp_path):
     p = Plugin()
     asyncio.run(p.create_pre_import_backup({"kind": "profile"}))
     asyncio.run(p.create_pre_import_backup({"kind": "account"}))
-    asyncio.run(p.create_pre_import_backup({"kind": "../../evil"}))  # unknown kind: the import tag
+    asyncio.run(p.create_pre_import_backup({"kind": "../../evil"}))
     tags = sorted(storage._backup_tag(b["name"]) for b in storage._list_backups())
     assert tags == ["account-switch", "pre-import", "pre-profile"]
     assert all(".." not in b["name"] and "evil" not in b["name"] for b in storage._list_backups())
@@ -194,7 +187,6 @@ def test_profile_snapshots_keep_a_one_minute_gap(monkeypatch, tmp_path):
     asyncio.run(p.create_pre_import_backup({"kind": "profile"}))
     asyncio.run(p.create_pre_import_backup({"kind": "profile"}))
     assert len(storage._list_backups()) == 1
-    # Other kinds are never held back by it.
     asyncio.run(p.create_pre_import_backup({"kind": "import"}))
     assert len(storage._list_backups()) == 2
 
@@ -212,8 +204,7 @@ def test_a_save_that_switches_a_profile_snapshots_the_file_it_replaces(monkeypat
     pre = [b["name"] for b in storage._list_backups() if storage._backup_tag(b["name"]) == "pre-profile"]
     assert len(pre) == 1
     with open(os.path.join(storage._backups_dir(), pre[0]), encoding="utf-8") as f:
-        assert json.load(f)["state"]["shelves"][0]["id"] == "s1"   # the state before the switch
-    # Unchanged settings write nothing, so nothing is snapshotted; unknown kinds are ignored.
+        assert json.load(f)["state"]["shelves"][0]["id"] == "s1"
     assert asyncio.run(p.set_settings({"settings": switched, "snapshot": "profile"})) is True
     asyncio.run(p.set_settings({"settings": {"enabled": False, "shelves": []}, "snapshot": "../x"}))
     assert [storage._backup_tag(b["name"]) for b in storage._list_backups()].count("pre-profile") == 1
@@ -233,8 +224,8 @@ def test_restore_round_trip(monkeypatch, tmp_path):
     _use_dir(monkeypatch, tmp_path)
     p = Plugin()
     shelf = {"id": "s1", "title": "One", "source": {"type": "tab", "tab": "all"}, "limit": 5, "enabled": True, "hidden": False}
-    p._write_state({"enabled": True, "shelves": [shelf]})   # first save (no prior file → no backup)
-    p._write_state({"enabled": True, "shelves": []})        # second save snapshots the 1-shelf state
+    p._write_state({"enabled": True, "shelves": [shelf]})
+    p._write_state({"enabled": True, "shelves": []})
     backups = storage._list_backups()
     assert len(backups) >= 1
     res = p._restore_backup(backups[0]["name"])

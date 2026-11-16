@@ -13,9 +13,6 @@ function versionFromSteamClient(): string | null {
   return null;
 }
 
-// Routed through the host contract (getPlatform().getOSVersion) instead of a
-// hardcoded Decky global read — a Decky-adapter-internal fallback resolves
-// there (see deckyPlatform.ts), and it's a no-op under any other host.
 function versionFromHostPlatform(): string | null {
   try {
     const v = getPlatform()?.getOSVersion?.();
@@ -33,17 +30,14 @@ function versionFromUserAgent(): string | null {
   return null;
 }
 
-// Sync SteamOS-version sources in priority order (first hit wins).
 function readRawVersionSync(): string | null {
   return versionFromSteamClient() ?? versionFromHostPlatform() ?? versionFromUserAgent();
 }
 
 async function readRawVersionAsync(): Promise<string | null> {
-  // Sync sources first — cheaper.
   const sync = readRawVersionSync();
   if (sync) return sync;
-  // Last resort: GetSystemInfo. Only source available on SteamOS 3.7.x;
-  // also exists on 3.8/3.9 but the sync sources resolve first there.
+  // GetSystemInfo is the only source on SteamOS 3.7.x, so it goes last.
   try {
     const sc: any = (globalThis as any).SteamClient;
     const info = await sc?.System?.GetSystemInfo?.();
@@ -70,7 +64,6 @@ export function getSteamOSVersion(): string | null {
     cachedVersion = sync;
     return cachedVersion;
   }
-  // Kick off async prefetch so subsequent calls hit the cache.
   void prefetchSteamOSVersion();
   return null;
 }
@@ -86,8 +79,7 @@ export function isSteamOS38OrLater(): boolean | null {
   return major > 3 || (major === 3 && minor >= 8);
 }
 
-// Always drops the prop: Steam asserts on values it does not map, and the
-// direction stays at the call site only to document the intended layout.
+// Always dropped: Steam asserts on values it doesn't map.
 export function flowChildrenProps(_direction: "horizontal" | "vertical" | "column"):
   Record<string, never> {
   return {};

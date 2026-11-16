@@ -48,7 +48,6 @@ describe("deviceHistoryTracker", () => {
     deviceState.current = { ...deviceState.current, external: true };
     deviceListener?.();
     expect(tracked).toEqual(["externalDisplay"]);
-    // Still true on a second notify — must not bump again.
     deviceListener?.();
     expect(tracked).toEqual(["externalDisplay"]);
     uninstall();

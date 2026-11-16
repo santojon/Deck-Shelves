@@ -14,10 +14,7 @@ run_checks() {
     ((fail++))
   fi
 
-  # No real @decky/api npm dependency — the host-neutral `@host/api` alias
-  # (vite/tsconfig) resolves to src/shims/host-api.ts, which talks to Decky's
-  # real runtime globals (DFL / deckyFrontendLib / the loader's secret connect
-  # init) directly. Verify that wiring instead of a package.json entry.
+  # No @decky/api dependency: the @host/api alias talks to the loader's runtime globals directly.
   if grep -q 'DFL\|deckyFrontendLib' "$root/src/shims/host-api.ts" 2>/dev/null; then
     echo "  ✅ host-api shim talks to Decky's runtime API (DFL)"
     ((pass++))
@@ -50,9 +47,7 @@ run_checks() {
     ((fail++))
   fi
 
-  # The loader module is imported (try/except) in the host-abstraction module
-  # `plugin_host.py`, not main.py — so the same backend also runs on a neutral
-  # host. Scan the backend .py files rather than main.py alone.
+  # The loader import lives in a host-abstraction module, so every backend file is scanned.
   if grep -q "import decky" "$root"/*.py "$root"/src/backend/*.py 2>/dev/null; then
     echo "  ✅ Uses 'import decky' (v3 style)"
     ((pass++))

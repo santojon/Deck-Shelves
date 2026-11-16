@@ -4,21 +4,13 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { SettingsSchema } from "../types";
 
-// Catches a settings field added to only one side
-// (Zod `SettingsSchema` vs Python's `_sanitize_settings`), the root cause of
-// 4 historical regressions where a field silently worked on one host/build
-// but not another. `EXPECTED_PYTHON_ONLY`/`EXPECTED_ZOD_ONLY` are the only
-// allowed gaps, each with its own justification — anything else fails.
-
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
-// Meta/bookkeeping fields Python intentionally never validates or defaults —
-// they're opaque clocks/maps managed entirely client-side and round-trip via
-// `_preserve_unknown` untouched, unlike every real user-facing setting.
+// Client-side bookkeeping the backend keeps untouched as unknown fields.
 const EXPECTED_ZOD_ONLY = new Set([
-  "schemaVersion",         // stamped by migrate(), Python never needs to touch it
-  "syncTombstones",        // cross-device sync bookkeeping (Record<string, number>)
-  "preferencesUpdatedAt",  // LWW merge clock (settingsMerge.ts), opaque to Python
+  "schemaVersion",
+  "syncTombstones",
+  "preferencesUpdatedAt",
 ]);
 const EXPECTED_PYTHON_ONLY: ReadonlySet<string> = new Set();
 
@@ -50,9 +42,6 @@ describe("Settings parity — Zod SettingsSchema vs Python _sanitize_settings", 
     ).toEqual([]);
   });
 
-  // Guards the exact historical bug (C4): a default that differs between the
-  // two sides means a document that omits the field parses to a different
-  // value on each host, which is itself a silent-divergence class of bug.
   it("enabled defaults to false on both sides", () => {
     const zodDefault = SettingsSchema.parse({}).enabled;
     const pyDefault = dumpPythonSanitizer().enabled;

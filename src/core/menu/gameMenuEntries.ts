@@ -1,8 +1,4 @@
-/* Adds the plugin's entries to Steam's game context menu and keeps them there.
-   A pass runs on each game menu's first render, on new props for a menu body
-   that shows a list a pass accepted, and on a body mounting under a game menu
-   with a list no pass has seen. Each pass finds the list with the caller's
-   check, removes the plugin's elements and places one block before Properties. */
+// Adds the plugin's entries to Steam's game context menu; each pass removes them and places one block before Properties.
 
 export type GameMenuListContext = { list: unknown[]; props: unknown };
 
@@ -43,9 +39,7 @@ type Installation = {
   handle: GameMenuEntriesHandle;
   slots: Slot[];
   accepted: WeakSet<object>;
-  // Lists a pass already offered to the check.
   examined: WeakSet<object>;
-  // Body props the update check already saw.
   checked: WeakSet<object>;
 };
 
@@ -101,8 +95,6 @@ function emit(sink: Sink, event: GameMenuEntriesEvent): void {
   }
 }
 
-// ---------------------------------------------------------------- finding the list
-
 function accepts(inst: Installation, candidate: unknown[], context: { props: unknown }): boolean | null {
   try {
     const check = inst.inputs.isGameMenuList;
@@ -145,8 +137,6 @@ function findList(inst: Installation, source: Source): Search {
   return { list: null, threw };
 }
 
-// ---------------------------------------------------------------- placing the block
-
 function isComponentElement(value: unknown, classComponent: boolean): boolean {
   return isElement(value) && typeof value.type === "function" && hasRender(value.type) === classComponent;
 }
@@ -188,8 +178,6 @@ function place(inst: Installation, list: unknown[], props: unknown): Outcome {
   return { type: "placed", entries: count };
 }
 
-// ---------------------------------------------------------------- passes
-
 function passOver(inst: Installation, source: Source): Outcome {
   const search = findList(inst, source);
   if (!search.list) return { type: search.threw ? "failed" : "rejected" };
@@ -225,7 +213,6 @@ function isAccepted(inst: Installation, list: unknown): boolean {
   return isObject(list) && inst.accepted.has(list);
 }
 
-// The list a body shows now and the one its next props bring.
 function listsOf(self: unknown, next: object): [unknown, unknown] {
   try {
     return [childrenOf(propsOf(self)), childrenOf(next)];
@@ -244,7 +231,6 @@ function isUnderGameMenu(inst: Installation, self: object): boolean {
   return false;
 }
 
-// The props of a body mounting under a game menu with a list no pass has seen.
 function freshMountProps(inst: Installation, self: unknown): object | null {
   try {
     const props = propsOf(self);
@@ -255,8 +241,6 @@ function freshMountProps(inst: Installation, self: unknown): object | null {
     return null;
   }
 }
-
-// ---------------------------------------------------------------- slots
 
 function previousOf(slot: Slot, self: unknown): unknown {
   const before = slot.before;
@@ -361,11 +345,7 @@ function bodyRender(inst: Installation): (slot: Slot) => Method {
   };
 }
 
-// ---------------------------------------------------------------- the menu body
-
-/* React keeps a mounted instance's fiber in `_reactInternals`. The body is the
-   class a few children below the game menu whose children prop is a list this
-   installation accepted. */
+// React keeps a mounted instance's fiber in `_reactInternals`.
 function bodyClassOf(inst: Installation, fiber: unknown): unknown {
   let node: unknown = isObject(fiber) ? (fiber as FiberLike).child : undefined;
   for (let hop = 0; hop < MAX_FIBER_HOPS && isObject(node); hop++) {
@@ -399,8 +379,6 @@ function findBody(inst: Installation, self: unknown): void {
     // Without the body, later lists of open menus get no block.
   }
 }
-
-// ---------------------------------------------------------------- install
 
 function inputsOf(options: GameMenuEntriesOptions, onEvent: Sink): Inputs | null {
   const { menuClass, isGameMenuList, entriesFor, removeOwnEntries, makeSeparator } = options;

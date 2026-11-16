@@ -14,9 +14,7 @@ import { grayUninstalledTheme } from "./adapters/grayUninstalled";
 import { cleanCapsuleTheme } from "./adapters/cleanCapsule";
 import { noHomeTextTheme } from "./adapters/noHomeText";
 
-/* Every supported theme, in CSS cascade order (an adapter's rules are appended
-   to the shelf stylesheet in this order). Adding a theme = one adapter file +
-   one entry here; flags, cleanup, stylesheet and diagnostics follow. */
+// Order matters: adapter rules are appended to the stylesheet in this order.
 export const THEME_ADAPTERS: readonly ThemeAdapter[] = [
   slhTheme, centeredHomeTheme, obsidianTheme,
   focusRoundCompatTheme, tiltedHomeTheme,
@@ -56,7 +54,6 @@ function stampRoot(adapter: ThemeAdapter, root: HTMLElement, values: Record<stri
   }
 }
 
-/** Re-read every root-scoped theme and stamp its flags on the mounted root (and mirrors). */
 export function applyRootThemeFlags(root: HTMLElement): void {
   const doc = root.ownerDocument;
   for (const a of THEME_ADAPTERS) {
@@ -65,7 +62,6 @@ export function applyRootThemeFlags(root: HTMLElement): void {
   }
 }
 
-/** Remove every root-scoped theme flag (and its mirrors) — the owner is unmounting. */
 export function clearRootThemeFlags(root: HTMLElement): void {
   for (const a of THEME_ADAPTERS) {
     if (a.scope !== "root") continue;
@@ -73,7 +69,6 @@ export function clearRootThemeFlags(root: HTMLElement): void {
   }
 }
 
-/** Re-read every document-scoped theme and stamp <html> of the given document. */
 export function applyDocumentThemeFlags(doc: Document): void {
   for (const a of THEME_ADAPTERS) {
     if (a.scope !== "document") continue;
@@ -90,12 +85,10 @@ export function applyDocumentThemeFlags(doc: Document): void {
   }
 }
 
-/** The theme CSS blocks, concatenated in registry order. */
 export function themeStylesheet(ctx: ShelfStylesheetCtx): string {
   return THEME_ADAPTERS.map((a) => (a.css ? a.css(ctx) : "")).join("\n");
 }
 
-/** Labels of the themes currently detected, in registry order (diagnostics / bug reports). */
 export function activeThemeLabels(doc?: Document): string[] {
   let d: Document | null | undefined = doc;
   if (!d) { try { d = getPreferredSteamDocument(); } catch { d = null; } }

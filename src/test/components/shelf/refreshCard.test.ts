@@ -3,8 +3,6 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 vi.mock("../../../core/shelfRefresh", () => ({ triggerShelfRefresh: vi.fn() }));
 vi.mock("../../../core/shelfActions", () => ({ clearOnlineShelfCache: vi.fn() }));
 vi.mock("../../../steam/smartShelves", () => ({ invalidateSmartShelfCache: vi.fn() }));
-// The random-sort cache stays real so the reshuffle below is the real one;
-// the wrapper only records the calls.
 vi.mock("../../../steam", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../../../steam")>();
   return { ...actual, invalidateRandomSortCache: vi.fn(actual.invalidateRandomSortCache) };
@@ -17,7 +15,6 @@ import { clearOnlineShelfCache } from "../../../core/shelfActions";
 import { triggerShelfRefresh } from "../../../core/shelfRefresh";
 import type { Shelf } from "../../../types";
 
-// The random order lives in localStorage, which this environment lacks.
 const store = new Map<string, string>();
 vi.stubGlobal("localStorage", {
   getItem: (k: string) => store.get(k) ?? null,
@@ -36,7 +33,6 @@ function shelfOf(id: string, source: Record<string, unknown>): Shelf {
   return { id, title: id, enabled: true, source, sort: "random" } as unknown as Shelf;
 }
 
-// A fixed Math.random yields one deterministic permutation per value.
 function resolveWithRandom(shelfId: string, random: number): number[] {
   vi.spyOn(Math, "random").mockReturnValue(random);
   return applySortToIds(ids, "random", apps, shelfId);
@@ -54,7 +50,6 @@ describe("refresh card — manual refresh", () => {
     const shelf = shelfOf("s1", { type: "smart", mode: "random_pick" });
 
     const first = resolveWithRandom("s1", 0);
-    // Without a refresh the order comes from the cache, whatever Math.random says.
     expect(resolveWithRandom("s1", 0.999)).toEqual(first);
 
     activateRefresh(shelf, false);

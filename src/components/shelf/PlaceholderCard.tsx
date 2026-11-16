@@ -12,8 +12,6 @@ import { useCardQuickLaunchState } from "./gameCardHooks";
 
 type Handler = (() => void) | undefined;
 
-// Size off the per-shelf --ds-eff-* vars (mirrors GameCard) so a native-dims
-// change reflows through CSS with no re-render; the props are the fallback.
 function cardSizeVars(featured: boolean, cardW: number, cardH: number, artH: number | undefined) {
   const art = typeof artH === "number" ? artH : cardH;
   return {
@@ -28,8 +26,6 @@ function hideLabel(previewMode: boolean, hidden: boolean): string {
   return i18n.t(hidden ? 'card_show' : 'card_hide');
 }
 
-/* X → remove (for menu-added cards) or hide (otherwise). Same context-aware
-   shape as GameCard, including the short home-only labels. */
 function secondaryAction(args: {
   appid: number; previewMode: boolean;
   removableSet?: Set<number>; onRemoveCard?: (appid: number) => void;
@@ -45,20 +41,16 @@ function secondaryAction(args: {
   return { description: undefined, handler: undefined };
 }
 
-/* Y → highlight toggle. Same gating as GameCard: only outside previewMode
-   (the modal owns highlight via its picker) and only with a real appid. */
 function optionsAction(appid: number, previewMode: boolean, shelfId: string | undefined): { description: string | undefined; handler: Handler } {
   if (previewMode || !appid) return { description: undefined, handler: undefined };
   return { description: i18n.t('card_highlight_toggle'), handler: () => { try { toggleCardHighlight(shelfId, appid); } catch {} } };
 }
 
-// Discount wins over "New", as on the art card.
 function placeholderBadges(item: DeckRowItem): { showDiscountBadge: boolean; showNewBadge: boolean } {
   const showDiscountBadge = typeof item.discountPercent === 'number' && item.discountPercent > 0;
   return { showDiscountBadge, showNewBadge: item.isNew === true && !showDiscountBadge };
 }
 
-// `data-isnew` / `data-discount` feed the Home's focus badge overlay, as on the art card.
 function badgeDataAttrs(item: DeckRowItem): { "data-isnew"?: string; "data-discount"?: string; "data-price"?: string } {
   const badges = placeholderBadges(item);
   return {
@@ -68,7 +60,6 @@ function badgeDataAttrs(item: DeckRowItem): { "data-isnew"?: string; "data-disco
   };
 }
 
-// Class, activation, menu and data attributes — the item-driven part of the card.
 function placeholderFocusProps(item: DeckRowItem, previewMode: boolean, featured: boolean, nativeCardClass: string) {
   return {
     className: `ds-card ds-card--text${featured ? ' ds-card--featured' : ''}${nativeCardClass ? ` ${nativeCardClass}` : ''}`,
@@ -83,10 +74,7 @@ function placeholderFocusProps(item: DeckRowItem, previewMode: boolean, featured
   };
 }
 
-/* The badges render beside this block (CardBadgeHost), not inside it: the art
-   clips its overflow, so a band in here sat under the focus ring instead of
-   over it. The look matches Steam's own capsule when its art fails: a dark
-   tile with the name inset 10% from each edge, centred from the top. */
+// The art clips its overflow, so the badges render beside this block.
 function PlaceholderArt({ featured, name, radius }: { featured: boolean; name: string; radius: number | string }) {
   return (
     <div
@@ -95,9 +83,7 @@ function PlaceholderArt({ featured, name, radius }: { featured: boolean; name: s
         overflow: "hidden",
         background: "rgb(14, 20, 27)",
         boxSizing: "border-box",
-        // Same variable the art cards use (themes such as Round set it); the
-        // detected native radius is only the fallback — it can be cached as
-        // 0px before Steam's own cards render, which squared these cards.
+        // The detected radius is only a fallback; it can read 0px before Steam's cards render.
         borderRadius: `var(--ds-card-radius, ${radius})`,
       }}
     >
@@ -155,21 +141,12 @@ export function PlaceholderCard({
     }, [250, 500, 800, 1200]);
   }, []);
 
-  /* View (SELECT) binding — mirrors GameCard. Needed here because cards
-     without library art fall through to PlaceholderCard, and the user
-     still expects the "Atualizar / Retomar / Jogar / Instalar" hint +
-     action on the View button for owned-library items. */
   const isLibraryGame = useMemo(() => {
     if (previewMode || !appid) return false;
     try { return !!(globalThis as any).appStore?.GetAppOverviewByAppID?.(appid); }
     catch { return false; }
   }, [appid, previewMode]);
-  // The same per-state label/action GameCard shows, from the shared store.
   const cardState = useCardQuickLaunchState(appid, previewMode);
-  /* Mirror GameCard: open the native menu and click its first item —
-     same dispatch as the user picking that item manually. Avoids the
-     state-specific Steam APIs (RunGame / RaiseWindowForGame /
-     ResumeAppUpdate) which behave inconsistently on the Deck. */
   const quickLaunch = useCallback(() => {
     if (previewMode || !appid) return;
     if (typeof item.onMenuButton !== 'function') return;
@@ -224,9 +201,6 @@ export function PlaceholderCard({
         background: "transparent",
         cursor: "pointer",
         overflow: "visible",
-        // Pass artH through the same `--ds-card-art-h` variable GameCard uses,
-        // so the art region fills the right height in the modal preview (where
-        // cardH includes the label strip and artH is shorter).
         ["--ds-card-art-h" as string]: size.cssArtH,
       }}
     >

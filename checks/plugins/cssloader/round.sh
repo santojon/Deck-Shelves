@@ -7,10 +7,6 @@ run_checks() {
   local fail=0
   local src="$root/src"
 
-  # Round theme applies large border-radius to UI elements.
-  # Our cards must adapt to the theme's radius via detection or CSS variable.
-
-  # 1. Border-radius detection from native Steam cards
   if grep -rq 'detectNativeCardRadius' "$src" 2>/dev/null; then
     echo "  ✅ Runtime border-radius detection from native Steam cards"
     ((pass++))
@@ -19,7 +15,6 @@ run_checks() {
     ((fail++))
   fi
 
-  # 2. CSS variable --ds-card-radius for theme override
   if grep -rq '\-\-ds-card-radius' "$src" 2>/dev/null; then
     echo "  ✅ --ds-card-radius CSS variable allows theme override"
     ((pass++))
@@ -28,7 +23,6 @@ run_checks() {
     ((fail++))
   fi
 
-  # 3. Card art uses border-radius from variable (not hardcoded 0)
   if grep -rq 'border-radius.*var(--ds-card-radius' "$src" 2>/dev/null; then
     echo "  ✅ Card art border-radius reads from CSS variable"
     ((pass++))
@@ -37,9 +31,6 @@ run_checks() {
     ((fail++))
   fi
 
-  # 4. overflow:hidden on card containers (prevents content bleeding past radius).
-  # Card rendering moved out of DeckRow.tsx into the per-kind components under
-  # src/components/shelf/ (GameCard.tsx's .ds-card-art is the primary one).
   if grep -rq "overflow.*hidden" "$src/components/shelf/GameCard.tsx" 2>/dev/null; then
     echo "  ✅ Card containers use overflow:hidden (content clipped to border-radius)"
     ((pass++))
@@ -48,7 +39,6 @@ run_checks() {
     ((fail++))
   fi
 
-  # 5. No hardcoded borderRadius: 0 that would override theme
   local hardcoded_zero
   hardcoded_zero=$(grep -rn 'borderRadius.*:\s*0[^.]' "$src/components/shelf/GameCard.tsx" 2>/dev/null | grep -v 'var(' | grep -v '//' | head -3)
   if [[ -z "$hardcoded_zero" ]]; then
@@ -60,9 +50,6 @@ run_checks() {
     ((fail++))
   fi
 
-  # 6. Detection must query multiple selector patterns for theme compat.
-  # `detectNativeCardRadius` walks `.Panel.Focusable` excluding ds-card/ds-row.
-  # Count those tokens to confirm it still hits the native + DS selector families.
   local selector_count
   selector_count=$(grep -c 'Panel\.Focusable\|ds-card\|ds-row\|detectNativeCardRadius' "$src/components/shelf/shelfStyles.ts" 2>/dev/null || echo "0")
   if [[ "$selector_count" -ge 3 ]]; then
@@ -73,7 +60,6 @@ run_checks() {
     ((fail++))
   fi
 
-  # 7. Cached radius avoids repeated DOM queries
   if grep -rq 'cachedCardRadius' "$src" 2>/dev/null; then
     echo "  ✅ Detected radius is cached (no repeated DOM queries)"
     ((pass++))

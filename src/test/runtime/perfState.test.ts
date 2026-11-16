@@ -11,18 +11,18 @@ describe('perfState (on-demand, no timer)', () => {
   it('fails open before any snapshot is fetched', async () => {
     expect(evalPerfRule({ kind: 'highCpu', above: 80 })).toBe(true)
     expect(evalPerfRule({ kind: 'lowMemory', below: 15 })).toBe(true)
-    await settle() // let the on-demand refresh (rpc null) settle before the next test
+    await settle()
   })
 
   it('evaluates highCpu / lowMemory once a snapshot arrives', async () => {
     rpc.current = { cpuPercent: 90, memAvailablePercent: 10, supported: true }
-    evalPerfRule({ kind: 'highCpu' }) // reading kicks the on-demand refresh
+    evalPerfRule({ kind: 'highCpu' })
     await settle()
     expect(getPerfSnapshot()).toEqual({ cpuPercent: 90, memAvailablePercent: 10, supported: true })
-    expect(evalPerfRule({ kind: 'highCpu', above: 80 })).toBe(true) // 90 ≥ 80
-    expect(evalPerfRule({ kind: 'highCpu', above: 95 })).toBe(false) // 90 < 95
-    expect(evalPerfRule({ kind: 'lowMemory', below: 15 })).toBe(true) // 10 ≤ 15
-    expect(evalPerfRule({ kind: 'lowMemory', below: 5 })).toBe(false) // 10 > 5
+    expect(evalPerfRule({ kind: 'highCpu', above: 80 })).toBe(true)
+    expect(evalPerfRule({ kind: 'highCpu', above: 95 })).toBe(false)
+    expect(evalPerfRule({ kind: 'lowMemory', below: 15 })).toBe(true)
+    expect(evalPerfRule({ kind: 'lowMemory', below: 5 })).toBe(false)
   })
 
   it('lowFrameBudget fails open while warming up (no samples yet)', () => {

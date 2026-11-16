@@ -1,6 +1,4 @@
-/* Destructuring defaults for a large prop bag, applied in one place: only a
-   prop that is `undefined` takes its default (exactly like `= value` in a
-   destructuring pattern), without a decision point per parameter. */
+// Like destructuring defaults: only an undefined prop takes its default.
 export function withDefaults<P extends object, D extends Partial<P>>(props: P, defaults: D): P & Required<Pick<P, keyof D & keyof P>> {
   const out: any = { ...props };
   for (const key of Object.keys(defaults)) {

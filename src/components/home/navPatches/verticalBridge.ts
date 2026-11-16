@@ -16,12 +16,8 @@ function resolveVerticalBridgeContext(doc: Document): VBridgeCtx | null {
   return { mount, parent, before, beforeRect: before.getBoundingClientRect() };
 }
 
-// Bug A: last-shelf DOWN press must not wrap focus back into the shelf
-// itself — schedules a check that un-wraps if Steam's own nav looped.
 function guardLastShelfWrapAround(mount: HTMLElement, doc: Document, before: HTMLElement, beforeRect: DOMRect): void {
-  // `:last-child` misses the real last shelf when Steam re-injects a
-  // trailing empty-state div as .deck-shelves-root's final child (same
-  // issue already fixed this way in edgeNavigation.ts's DOWN guard).
+  // :last-child fails when Steam appends an empty-state div after the shelves.
   const shelves = mount.querySelectorAll<HTMLElement>(".ds-shelf");
   const lastShelf = shelves[shelves.length - 1] ?? null;
   if (!lastShelf?.contains(before)) return;
@@ -35,9 +31,6 @@ function guardLastShelfWrapAround(mount: HTMLElement, doc: Document, before: HTM
   });
 }
 
-// DOWN redirect target when focus is currently on a sibling ABOVE the mount
-// and has scrolled to that sibling's bottom row — null means "don't bridge"
-// (out of range, still mid-sibling, or no matching sibling at all).
 function computeDownRedirectTarget(mount: HTMLElement, parent: HTMLElement, before: HTMLElement, beforeRect: DOMRect): HTMLElement | null {
   const parentChildren = Array.from(parent.children);
   const mountIdx = parentChildren.indexOf(mount);
@@ -46,16 +39,11 @@ function computeDownRedirectTarget(mount: HTMLElement, parent: HTMLElement, befo
   ) as HTMLElement | undefined;
   if (!sibling) return null;
   if (parentChildren.indexOf(sibling) > mountIdx) return null;
-  // Only redirect from lower half of sibling (user has scrolled to bottom row).
   const sibRect = sibling.getBoundingClientRect();
   if (sibRect.height > 0 && beforeRect.bottom < sibRect.top + sibRect.height * 0.5) return null;
   return mount.querySelector<HTMLElement>(".ds-card");
 }
 
-/* Steam moved the focus from a sibling above the mount straight to a sibling
-   below it: the home tabs after the recents row, every shelf skipped. That is
-   what the fallback host gets (our root has no node in Steam's tree), so the
-   move is corrected onto the first card. */
 function skippedOverMount(mount: HTMLElement, parent: HTMLElement, before: HTMLElement, after: HTMLElement): boolean {
   if (mount.contains(before) || mount.contains(after)) return false;
   const kids = Array.from(parent.children);
@@ -87,9 +75,7 @@ export function installVerticalFocusBridge(mountEl: HTMLElement): void {
         }
         redirectTarget = computeDownRedirectTarget(mount, parent, before, beforeRect);
       } else if (btn === DIR_UP) {
-        // UP handled by Steam's native NavTree (native container is a Panel Focusable
-        // sibling). focusElement on BP-native cards from SJC uses the wrong
-        // NavController and causes flicker — don't bridge UP.
+        // Focusing BigPicture cards from SharedJSContext uses the wrong nav controller and flickers, so UP stays native.
         return;
       }
 
@@ -112,7 +98,6 @@ export function installVerticalFocusBridge(mountEl: HTMLElement): void {
     } catch (e) { logInfo("HOME", "vertical bridge failed", String(e)); }
   };
   doc.addEventListener("vgp_ondirection", handler, true);
-  // Removed with this instance (a hot-swap's next instance attaches its own).
   registerDisposer(() => {
     try { doc.removeEventListener("vgp_ondirection", handler, true); delete (doc as any)[DS_BRIDGE_ATTACHED]; } catch {}
   });

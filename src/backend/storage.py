@@ -13,9 +13,6 @@ import sys
 import time
 from typing import Any, Dict, List, Optional, Tuple
 
-# Host abstraction — `plugin_host` try-imports the loader module (when present)
-# and otherwise falls back to a stderr logger + env-based settings dir, so these
-# helpers run unchanged under the plugin loader and under a neutral runner.
 from plugin_host import logger, settings_dir, _loader
 
 
@@ -129,9 +126,7 @@ def _atomic_write_wrapped(path: str, wrapped: Dict[str, Any]) -> None:
     never block the primary save the caller actually needs to succeed."""
     try:
         os.makedirs(os.path.dirname(path), exist_ok=True)
-        # Per-process tmp name: on a dual-host install the other host's backend
-        # mirrors into this same directory, and a shared ".tmp" lets the two
-        # renames race (one of them finds its tmp already gone).
+        # Per-process tmp name: two hosts can mirror into this directory and race on a shared .tmp.
         tmp_path = f"{path}.{os.getpid()}.tmp"
         with open(tmp_path, "w", encoding="utf-8") as f:
             json.dump(wrapped, f, ensure_ascii=False, indent=2)
@@ -151,7 +146,6 @@ def _atomic_write_wrapped(path: str, wrapped: Dict[str, Any]) -> None:
             logger.error(f"Deck Shelves: mirror write failed for {path}: {e}")
         except Exception:
             pass
-        # Same as the primary writer: no leftover of a failed write.
         try:
             if os.path.exists(tmp_path):
                 os.remove(tmp_path)
@@ -169,7 +163,7 @@ def sync_mirror(state: Dict[str, Any], rev: int, updated_at: float) -> None:
         primary = _primary_file()
         other = loader if os.path.normpath(primary) == os.path.normpath(canonical) else canonical
         if os.path.normpath(other) == os.path.normpath(primary):
-            return  # dev fallback where both resolve to the same path
+            return
         if _loader_absent(loader):
             return
         existing = _read_wrapped(other)
@@ -180,8 +174,7 @@ def sync_mirror(state: Dict[str, Any], rev: int, updated_at: float) -> None:
         pass
 
 
-# Set when a reconcile replaced an unreadable copy with the other side's good
-# one; the RPC layer reads it once to tell the user settings were recovered.
+# Set when a reconcile replaced an unreadable copy; read once by the RPC layer.
 _reconcile_recovered = False
 
 
@@ -216,7 +209,7 @@ def reconcile_settings() -> Optional[Dict[str, Any]]:
         l = None if absent else _read_wrapped(loader)
         if c and l:
             if c["rev"] == l["rev"] and c["state"] == l["state"]:
-                return c  # already in step — no write, no `.bak` churn
+                return c
             winner_path, winner = (canonical, c) if c["rev"] >= l["rev"] else (loader, l)
             loser_path = loader if winner_path == canonical else canonical
             _adopt_into(loser_path, winner)
@@ -336,7 +329,7 @@ def _remove_quietly(path: str) -> bool:
 
 
 def _is_settings_tmp(name: str) -> bool:
-    # settings.json.tmp (older builds) and settings.json.<pid>.tmp (per writer).
+    # Both settings.json.tmp and the per-writer settings.json.<pid>.tmp.
     if name == "settings.json.tmp":
         return True
     middle = name[len("settings.json."):-len(".tmp")] if name.startswith("settings.json.") and name.endswith(".tmp") else ""
@@ -413,9 +406,7 @@ def count_quarantined() -> int:
     return total
 
 
-# The salt behind the per-account keys, kept in its own small file beside the settings
-# file, never inside it: snapshots, exports, imports and the mirrored settings copy never
-# carry it, and a reset leaves it. The frontend keeps a mirror of it in local storage.
+# The account salt lives in its own file so snapshots, exports, imports and the mirror never carry it.
 ACCOUNT_FILE = "account.json"
 _SALT_RE = re.compile(r"^[0-9a-f]{32}$")
 
@@ -470,21 +461,15 @@ def keep_account_salt(candidate: Any) -> str:
     return salt if kept else ""
 
 
-# Versioned settings backups: a rolling history under `<settings>/backups/` so a
-# bad edit or a destructive action can be rolled back. Automatic snapshots are
-# throttled, expire and go first when the total cap is reached; manual and
-# import ones are kept until the user deletes them. Every helper is best-effort
-# and never raises, so a backup problem can never block or corrupt a save.
-TOTAL_BACKUP_CAP = 10          # max snapshots kept in total (auto + manual + import)
-# Taken by the plugin on its own right before a profile switch or an account
-# change: automatic for pruning (they expire and go first), never for the daily throttle.
+# Backup helpers are best-effort and never raise, so a backup problem can't block a save.
+TOTAL_BACKUP_CAP = 10
+# Safety snapshots count as automatic for pruning but never for the daily throttle.
 AUTO_SAFETY_TAGS = ("pre-profile", "account-switch")
-# Unreadable settings copied aside, and write leftovers: separate quotas from snapshots.
 QUARANTINE_CAP = 3
 TMP_STALE_SECONDS = 600
-AUTO_MAX_AGE_SECONDS = 7 * 86400  # auto snapshots older than 7 days are dropped
-QUARANTINE_MAX_AGE_SECONDS = AUTO_MAX_AGE_SECONDS  # a broken copy lasts no longer than a good one
-AUTO_THROTTLE_SECONDS = 86400  # min gap between automatic snapshots (24 h)
+AUTO_MAX_AGE_SECONDS = 7 * 86400
+QUARANTINE_MAX_AGE_SECONDS = AUTO_MAX_AGE_SECONDS
+AUTO_THROTTLE_SECONDS = 86400
 
 
 def _backups_dir() -> str:
@@ -492,8 +477,7 @@ def _backups_dir() -> str:
 
 
 def _is_backup_file(name: str) -> bool:
-    # Quarantined unreadable files (`-corrupt`) are evidence, not restorable
-    # backups: never listed, counted, pruned or tried during recovery.
+    # Quarantined -corrupt files are never listed, counted, pruned or used for recovery.
     return name.startswith("settings-") and name.endswith(".json") and "-corrupt" not in name
 
 
@@ -506,8 +490,6 @@ def _backup_tag(name: str) -> str:
 
 
 def _is_auto_backup(name: str) -> bool:
-    # Automatic for pruning: the daily snapshot (no tag) and the ones the plugin
-    # takes before a profile switch or an account change.
     return _is_backup_file(name) and (_backup_tag(name) == "" or _backup_tag(name) in AUTO_SAFETY_TAGS)
 
 
@@ -541,19 +523,15 @@ def _prune_auto_backups(bdir: str, cap: int = TOTAL_BACKUP_CAP) -> None:
             return 0.0
     try:
         now = time.time()
-        # Stage 1: age out old automatic snapshots.
         for f in list(os.listdir(bdir)):
             if _is_auto_backup(f) and (now - _mtime(f)) > AUTO_MAX_AGE_SECONDS:
                 try:
                     os.remove(os.path.join(bdir, f))
                 except Exception:
                     pass
-        # Stage 2: enforce the total cap, deleting auto (then oldest) first.
         files = [f for f in os.listdir(bdir) if _is_backup_file(f)]
         excess = len(files) - cap
         if excess > 0:
-            # Sort so auto snapshots come before manual/imported, oldest first
-            # within each group — deleting from the front keeps manuals longest.
             ordered = sorted(files, key=lambda f: (0 if _is_auto_backup(f) else 1, _mtime(f)))
             for f in ordered[:excess]:
                 try:
@@ -598,9 +576,7 @@ def _write_versioned_backup(src_path: str, throttle_seconds: int = 0, tag: str =
         dest = os.path.join(bdir, "settings-" + stamp + suffix + ".json")
         if os.path.exists(dest):
             dest = os.path.join(bdir, "settings-" + stamp + suffix + "-" + str(int(time.time() * 1000) % 1000) + ".json")
-        # copy (not copy2): a fresh mtime = the snapshot's creation time, so the
-        # throttle measures real elapsed time. copy2 would preserve settings.json's
-        # mtime and let rapid saves each slip past the throttle.
+        # copy, not copy2: a fresh mtime keeps the throttle measuring real elapsed time.
         shutil.copy(src_path, dest)
         _prune_auto_backups(bdir)
     except Exception:

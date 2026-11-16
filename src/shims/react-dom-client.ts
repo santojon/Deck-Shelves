@@ -1,7 +1,6 @@
 const g = globalThis as any;
 const w = g.window as any;
-// See src/shims/react.ts — same sole-host fallback (lowest priority: loader
-// globals win when both are present).
+// Same sole-host fallback as the React shim; loader globals win when both are present.
 const shelvesHost = w?.__SHELVES_HOST__ ?? g.__SHELVES_HOST__ ?? null;
 
 const CANDIDATES = [

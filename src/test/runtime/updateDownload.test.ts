@@ -1,8 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { UpdateCheckResult } from "../../core/updateNotifier";
 
-// Every collaborator is replaced by a recorder so each test can assert the exact
-// order of modal, host and toast calls around a self-install.
 const events: string[] = [];
 let selfInstall = true;
 let applyUpdateImpl: () => Promise<void> = async () => {};

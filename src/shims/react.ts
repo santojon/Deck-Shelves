@@ -1,6 +1,4 @@
-// A neutral (non-loader) host injects its runtime as `__SHELVES_HOST__` on the
-// renderer global, exposing Steam's React stack directly for the sole-host case
-// (no loader present to publish `SP_REACT`/`window.React`).
+// Sole-host fallback: a neutral host exposes Steam's React stack as `__SHELVES_HOST__` when no loader publishes it.
 function getShelvesHost(): any {
   const g = globalThis as any;
   return g.window?.__SHELVES_HOST__ ?? g.__SHELVES_HOST__ ?? null;

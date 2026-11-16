@@ -26,8 +26,6 @@ export function ShelvesDetail({ controller, t }: ShelvesDetailProps) {
   const smarts: any[] = (settings as any).smartShelves ?? [];
   const unifiedOn = (settings as any).unifiedListEnabled === true;
 
-  // Always use the unified Create modal (Standard + Smart tabs) so
-  // users can create either type regardless of the unified-list flag.
   const handleAdd = () => openManagedModal((close) => (
     <CreateShelfModal closeModal={close} controller={controller} />
   ));

@@ -3,11 +3,6 @@ import { DialogButton, Focusable } from "../../runtime/host/decky";
 import i18n from "../../i18n";
 import { getLibraries, refreshLibraryLocations, type LibraryEntry } from "../../runtime/deviceState";
 
-/* Mirrors DeveloperFields.tsx's multi-select-from-live-data pattern.
-   One toggle per detected Steam library (SD card, USB drive, network share,
-   the internal drive, …) rather than the old single internal/external/network
-   category dropdown — a shelf can mix specific libraries together, e.g. "this
-   SD card" + "that USB drive" but not the internal drive. */
 const CATEGORY_ICON: Record<LibraryEntry["category"], string> = {
   internal: "\u{1F4BE}", external: "\u{1F4C0}", network: "\u{1F310}",
 };

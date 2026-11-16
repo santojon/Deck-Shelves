@@ -11,10 +11,7 @@ extend-exclude = [
 ]
 
 [tool.ruff.lint]
-# Bug-catching + complexity. Pyflakes (F) covers the real-bug surface
-# (undefined names, unused imports, unreachable code, redefinition);
-# C901 mirrors ESLint's `complexity` rule (cyclomatic complexity cap).
-# Stylistic rules (E / W / B) intentionally out of scope.
+# F catches real bugs and C901 mirrors the ESLint complexity cap; style rules are left out.
 select = ["F", "C901"]
 
 [tool.ruff.lint.mccabe]

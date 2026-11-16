@@ -6,7 +6,6 @@ import { SORT_OPTIONS, V3_SOURCE_OPTIONS } from '../../components/qam/modals/edi
 import { SMART_TEMPLATES } from '../../components/qam/modals/smartTemplates'
 import { RETIRED_SMART_MODES, resolveSmartShelf } from '../../steam/smartShelves'
 
-// The conditions beyond the base set that stay: each is a schema type, offered, and evaluated.
 const EXTRA_FILTERS = [
   'vrSupport', 'genres', 'categories', 'franchise', 'multiplayerType', 'playedOnce',
   'installedSizeRange', 'customTags', 'parserCategories', 'reviewScore', 'releaseDate', 'comingSoon',
@@ -14,10 +13,8 @@ const EXTRA_FILTERS = [
   'storeCategory', 'purchaseDate',
 ]
 
-// Evaluated with the group evaluator, since they hold conditions of any type.
 const COMPOSITE_FILTERS = ['weightedFilter', 'priorityFilter', 'exclusionGroup']
 
-// Read data the client never had, or matched names: not a schema type, not offered, not evaluated.
 const RETIRED_FILTERS = [
   'demo', 'installedNeverPlayed', 'recentlyAbandoned', 'compatDataQuality', 'hiddenLauncherShortcuts',
   'dlcOwned', 'soundtrackOwned', 'launchCount', 'avgSessionMinutes', 'storageDevice', 'executableType',

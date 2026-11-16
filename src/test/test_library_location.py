@@ -64,7 +64,7 @@ def test_get_library_locations_parses_libraries_and_app_map(tmp_path, monkeypatc
     vdf_path.parent.mkdir(parents=True)
     vdf_path.write_text(vdf_text)
     monkeypatch.setattr(ll, "_find_libraryfolders_vdf", lambda: str(vdf_path))
-    monkeypatch.setattr(ll, "_mount_fstype", lambda path: "")  # no network mounts in this test
+    monkeypatch.setattr(ll, "_mount_fstype", lambda path: "")
 
     result = ll.get_library_locations()
 
@@ -80,7 +80,7 @@ def test_get_library_locations_parses_libraries_and_app_map(tmp_path, monkeypatc
 def test_get_library_locations_marks_unmounted_libraries(tmp_path, monkeypatch):
     internal = tmp_path / "Steam"
     internal.mkdir()
-    missing = tmp_path / "gone"  # never created — simulates an unplugged drive
+    missing = tmp_path / "gone"
     vdf_text = SAMPLE_VDF.replace("__INTERNAL__", str(internal)).replace("__EXTERNAL__", str(missing))
     vdf_path = internal / "steamapps" / "libraryfolders.vdf"
     vdf_path.parent.mkdir(parents=True)
@@ -106,9 +106,6 @@ def test_mount_fstype_reads_proc_mounts_format(tmp_path):
         "nas:/games /mnt/nas nfs4 rw 0 0\n"
     )
     assert ll._mount_fstype("/mnt/nas/some/game", mounts_file=str(mounts)) == "nfs4"
-    # Falls back to the longest-matching mount that still contains the path —
-    # here that's "/" itself, same "root owns anything unclaimed" behaviour
-    # `findmnt` has.
     assert ll._mount_fstype("/unrelated/path", mounts_file=str(mounts)) == "ext4"
 
 

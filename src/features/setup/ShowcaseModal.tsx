@@ -27,16 +27,12 @@ const STEPS: Step[] = [
   { Icon: ToolsIcon, title: 'showcase_tools_title', body: 'showcase_tools_body' },
 ]
 
-/* The welcome screen, then the features two per screen (one card each, so
-   every screen fits the dialog without scrolling), then a closing screen with
-   the three ways to start — configure now (setup wizard), the default shelves,
-   or from scratch. */
 const SCREENS: Step[][] = [
   [STEPS[0]],
   [STEPS[1], STEPS[2]], [STEPS[3], STEPS[4]], [STEPS[5], STEPS[6]], [STEPS[7], STEPS[8]],
   [STEPS[9], STEPS[10]], [STEPS[11], STEPS[12]], [STEPS[13]],
 ]
-const FINAL = SCREENS.length // index of the closing choice screen
+const FINAL = SCREENS.length
 
 function StepBlock({ step, hero }: { step: Step; hero: boolean }) {
   const { t } = useTranslation()
@@ -52,11 +48,6 @@ function StepBlock({ step, hero }: { step: Step; hero: boolean }) {
   )
 }
 
-/* First-run guided tour. Shown once (marked via `onComplete`), replayable from
-   the AboutPage. Skip jumps to the closing choices (no Skip there; B ends the
-   tour); Finish ends it; Back is the dialog's middle button (a row inside the
-   body pushed the content past the dialog's top edge); Menu advances. The
-   closing choices are wired only when the caller can act on them (the QAM). */
 export function ShowcaseModal({ closeModal, onComplete, onConfigure, onDefault }: { closeModal?: () => void; onComplete?: () => void; onConfigure?: () => void; onDefault?: () => void }) {
   const { t } = useTranslation()
   const [screen, setScreen] = useState(0)
@@ -69,8 +60,6 @@ export function ShowcaseModal({ closeModal, onComplete, onConfigure, onDefault }
   const total = SCREENS.length + 1
   return (
     <ModalShell>
-      {/* No dialog title: each screen carries its own heading. The wrapper class
-          lets the modal stylesheet collapse the empty native header band. */}
       <div className='ds-tour-modal'>
       <ConfirmModal
         strOKButtonText={last ? t('showcase_finish') : t('showcase_next')}

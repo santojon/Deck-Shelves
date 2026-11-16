@@ -11,8 +11,8 @@ import os
 import sys
 
 try:
-    import decky as _loader  # present only under the plugin loader
-except ImportError:  # neutral runner — no loader module
+    import decky as _loader
+except ImportError:
     _loader = None
 
 
@@ -30,8 +30,6 @@ def _make_stderr_logger() -> logging.Logger:
     return log
 
 
-# The loader's logger when present, else a stderr logger. Both expose the
-# `.info` / `.error` / `.warning` methods the backend calls.
 logger = getattr(_loader, "logger", None) or _make_stderr_logger()
 
 
@@ -43,8 +41,8 @@ def settings_dir() -> str:
     then a conventional fallback for bare local-dev.
     """
     return (
-        os.environ.get("DECK_SHELVES_SETTINGS_DIR")        # neutral runner (canonical)
-        or os.environ.get("DECKY_PLUGIN_SETTINGS_DIR")     # loader env
+        os.environ.get("DECK_SHELVES_SETTINGS_DIR")
+        or os.environ.get("DECKY_PLUGIN_SETTINGS_DIR")
         or getattr(_loader, "DECKY_PLUGIN_SETTINGS_DIR", "")
         or os.path.expanduser("~/.config/decky-loader/settings/deck-shelves")
     )

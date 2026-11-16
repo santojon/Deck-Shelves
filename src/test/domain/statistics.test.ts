@@ -133,7 +133,7 @@ describe('computeShelfStatistics', () => {
     const s = computeShelfStatistics([
       shelf({ limit: 10 }),
       shelf({ limit: 30 }),
-      shelf({ limit: 50, hidden: true }), // excluded from totals
+      shelf({ limit: 50, hidden: true }),
     ])
     expect(valById(s, 'shelf_slots_total')).toBe(40)
     expect(valById(s, 'shelf_slots_avg')).toBe(20)
@@ -150,7 +150,7 @@ describe('computeShelfStatistics', () => {
     expect(valById(s, 'shelf_type_wishlist')).toBe(1)
     expect(valById(s, 'shelf_type_store')).toBe(1)
     expect(valById(s, 'shelf_type_smart')).toBe(1)
-    expect(valById(s, 'shelf_type_online')).toBeUndefined() // no longer merged
+    expect(valById(s, 'shelf_type_online')).toBeUndefined()
   })
 
   it('counts featured/full-page as shelves and decorative/gap/linked as cards', () => {
@@ -160,10 +160,9 @@ describe('computeShelfStatistics', () => {
     ])
     expect(valById(s, 'shelves_featured')).toBe(1)
     expect(valById(s, 'shelves_full_page')).toBe(1)
-    expect(valById(s, 'decorative_cards')).toBe(5) // 3 + 2
-    expect(valById(s, 'gap_cards')).toBe(3)        // 1 + 2
+    expect(valById(s, 'decorative_cards')).toBe(5)
+    expect(valById(s, 'gap_cards')).toBe(3)
     expect(valById(s, 'linked_cards')).toBe(2)
-    // these now live in the right categories
     expect(s.find((x) => x.id === 'shelves_featured')?.category).toBe('shelves')
     expect(s.find((x) => x.id === 'decorative_cards')?.category).toBe('card_types')
   })
@@ -172,7 +171,7 @@ describe('computeShelfStatistics', () => {
 describe('appendSnapshot + summarizeHistory', () => {
   it('replaces same-day entry and caps length', () => {
     let h = appendSnapshot([], { date: '2026-01-01', shelves: 2, games: 40 })
-    h = appendSnapshot(h, { date: '2026-01-01', shelves: 3, games: 60 }) // same day overwrites
+    h = appendSnapshot(h, { date: '2026-01-01', shelves: 3, games: 60 })
     expect(h.length).toBe(1)
     expect(h[0].shelves).toBe(3)
     for (let i = 0; i < 200; i++) h = appendSnapshot(h, { date: `d${i}`, shelves: i, games: i }, 90)
@@ -225,7 +224,6 @@ describe('deriveSuggestions', () => {
   })
 
   it('rotates the visible subset by seed (variety over time)', () => {
-    // 8 eligible regular candidates, capped at 3 → different seeds differ.
     const lib = computeLibraryStatistics(
       Array.from({ length: 30 }, (_, i) =>
         game({ appid: i + 1, playtimeMinutes: i < 20 ? 0 : 60, deckCompat: i % 2 ? 3 : 2, updatePending: i < 12, isNonSteam: i < 8, isFavorite: i < 5, lastPlayed: NOW_SEC - 2 * DAY })),
@@ -235,7 +233,6 @@ describe('deriveSuggestions', () => {
     const day0 = deriveSuggestions(lib, shelfStats, { seed: 0, max: 3 }).map((s) => s.id)
     const day3 = deriveSuggestions(lib, shelfStats, { seed: 3, max: 3 }).map((s) => s.id)
     expect(day0).not.toEqual(day3)
-    // stable for a given seed
     expect(deriveSuggestions(lib, shelfStats, { seed: 3, max: 3 }).map((s) => s.id)).toEqual(day3)
   })
 

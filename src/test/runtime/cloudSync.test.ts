@@ -30,7 +30,6 @@ function cloudDoc(settings: any): string {
   return JSON.stringify({ updatedAt: 1000, settings });
 }
 
-// Real time: the last-synced stamp lands behind a 200 ms verify delay.
 async function settle(): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, 300));
 }
@@ -71,7 +70,6 @@ describe("cloud sync on an empty device", () => {
 
   it("stamps the last-synced time when it adopts a cloud copy it did not need to rewrite", async () => {
     store.current = { cloudSyncEnabled: true, shelves: [], smartShelves: [], preferencesUpdatedAt: 0 };
-    // Every synced list present, as a real settings document always has them.
     cloud.raw = cloudDoc({ shelves: [SHELF], smartShelves: [], preferencesUpdatedAt: 900, syncTombstones: {}, savedFilters: [], savedSmartFilters: [], profiles: [] });
     const { installCloudSync } = await import("../../runtime/cloudSync");
     const dispose = installCloudSync();
@@ -100,7 +98,6 @@ describe("cloud sync while a profile is active", () => {
       cloudSyncEnabled: true, shelves: [SHELF], smartShelves: [], savedFilters: [], savedSmartFilters: [], profiles: [HANDHELD],
       activeProfileName: "Handheld", showBadges: false, preferencesUpdatedAt: 100, syncTombstones: {},
     };
-    // The other device runs the same profile: its look is adopted and folded into it.
     cloud.raw = cloudDoc({
       shelves: [SHELF, SHELF_B], smartShelves: [], savedFilters: [], savedSmartFilters: [], profiles: [HANDHELD],
       showBadges: true, preferencesUpdatedAt: 900, syncTombstones: {}, syncActiveProfile: "Handheld",
@@ -139,17 +136,17 @@ describe("cloud sync while a profile is active", () => {
     dispose();
     const adopted = saved[0];
     expect(adopted.activeProfileName).toBe("Handheld");
-    expect(adopted.showBadges).toBe(false); // the other device's look stays there
+    expect(adopted.showBadges).toBe(false);
     expect(adopted.preferencesUpdatedAt).toBe(100);
-    expect(adopted.shelves.map((s: any) => s.id).sort()).toEqual(["s1", "s2", "s3"]); // lists still merge
-    expect(adopted.profiles[0].snapshot.showBadges).toBe(false); // nothing folded into Handheld
+    expect(adopted.shelves.map((s: any) => s.id).sort()).toEqual(["s1", "s2", "s3"]);
+    expect(adopted.profiles[0].snapshot.showBadges).toBe(false);
     expect(adopted.profiles[0].updatedAt).toBe(10);
     expect(adopted.syncActiveProfile).toBeUndefined();
     expect(cloud.writes).toHaveLength(1);
     const pushed = JSON.parse(cloud.writes[0]).settings;
-    expect(pushed.showBadges).toBe(true); // the cloud keeps the Showcase look...
+    expect(pushed.showBadges).toBe(true);
     expect(pushed.preferencesUpdatedAt).toBe(900);
-    expect(pushed.syncActiveProfile).toBe("Showcase"); // ...under its own profile name
+    expect(pushed.syncActiveProfile).toBe("Showcase");
     expect(pushed.shelves.map((s: any) => s.id).sort()).toEqual(["s1", "s2", "s3"]);
     expect(pushed.activeProfileName).toBeUndefined();
   });
@@ -217,7 +214,6 @@ describe("cloud sync and a copy a QA build pushed", () => {
 
   it("never merges it and replaces it with this device's own settings", async () => {
     store.current = { cloudSyncEnabled: true, shelves: [SHELF_B], smartShelves: [], showBadges: false, preferencesUpdatedAt: 100, syncTombstones: {} };
-    // Newer clock and a shelf this device lacks: a plain copy would be adopted.
     cloud.raw = cloudDoc({ shelves: [SHELF], smartShelves: [], showBadges: true, preferencesUpdatedAt: 900, syncTombstones: {}, __dsQaOverride: true });
     const { installCloudSync } = await import("../../runtime/cloudSync");
     const dispose = installCloudSync();
@@ -247,7 +243,6 @@ describe("cloud sync in a QA session", () => {
   afterEach(() => { qa.active = false; });
 
   it("never reads, adopts or pushes the account's cloud copy", async () => {
-    // Fixture data that a merge would otherwise push into the account's copy.
     store.current = { cloudSyncEnabled: true, shelves: [SHELF_B], smartShelves: [], preferencesUpdatedAt: 900, __dsQaOverride: true };
     cloud.raw = cloudDoc({ shelves: [SHELF], smartShelves: [], preferencesUpdatedAt: 100 });
     const { installCloudSync } = await import("../../runtime/cloudSync");
@@ -287,7 +282,7 @@ describe("cloud sync after a Steam account switch", () => {
     await settle();
     dispose();
     expect(saved.length).toBeGreaterThan(0);
-    expect(account.synced).toBeGreaterThan(0); // the cloud copy now belongs to this account
+    expect(account.synced).toBeGreaterThan(0);
   });
 });
 

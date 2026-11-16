@@ -3,11 +3,6 @@ import type { Shelf } from "../../types";
 import { getCachedNativeDims } from "./shelfStyles";
 import { observeShelfNear } from "./shelfViewportGate";
 
-/* The shelf's frame (title + card-sized boxes) shown while the shelf resolves,
-   and the placeholder an off-screen shelf keeps until it comes within reach of
-   the viewport (`onNear`). Same classes/data attributes as the real DeckRow,
-   so it takes the same slot in the ordered reveal, theme layout and recents
-   promotion; no focusables (focus never lands on it); static, no animation. */
 const BOX_BG = "linear-gradient(313deg, rgba(51, 51, 51, 0.45), rgba(85, 85, 85, 0.45))";
 
 export function ShelfSkeleton({ shelf, count, hideTitle = false, onNear, heightHint }: { shelf: Shelf; count: number; hideTitle?: boolean; onNear?: () => void; heightHint?: number }) {

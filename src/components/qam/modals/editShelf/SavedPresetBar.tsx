@@ -15,9 +15,6 @@ const iconButtonStyle = {
   flexShrink: 0,
 }
 
-/* "Apply a saved preset" dropdown + "save the current one" row, shared by the
-   saved filters (regular shelves) and the saved smart filters. The caller
-   supplies the list, the labels and the two actions. */
 export function SavedPresetBar({ t, items, labels, onApply, onSave }: {
   t: (k: any) => string
   items: ReadonlyArray<{ id: string; name: string }>

@@ -9,7 +9,6 @@ import { computeEffectiveShelfDisplayProps } from '../../../components/Shelf'
 const smart = (over: Record<string, unknown> = {}) =>
   ({ id: 'smart-1', title: 'Roulette', mode: 'random_pick', enabled: true, hidden: false, limit: 10, ...over }) as any
 
-// Every global visual switch off / unset.
 const globalsOff = {
   hideStatusLine: false, hideNewBadge: false, hideDiscountBadge: false, hideCompatIcons: false, hideNonSteamBadge: false,
   hideShelfTitle: false, hideGameNames: false, hideInstallIndicator: false, enableLogo: false, enableIcon: false,

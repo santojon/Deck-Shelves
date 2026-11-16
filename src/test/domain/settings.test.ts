@@ -261,8 +261,6 @@ describe('filterGroupToFilter', () => {
   })
 
   it('omits sortReverse when every array entry is false', () => {
-    // Matches the single-key bool=false omission policy — saves storage
-    // and stays equivalent to "no reverse" for the resolver.
     const result = filterGroupToFilter({ mode: 'and', items: [] }, ['recent', 'alphabetical'] as any, [false, false])
     expect(result.sortReverse).toBeUndefined()
   })

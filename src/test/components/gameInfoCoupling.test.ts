@@ -1,7 +1,5 @@
 import { vi, describe, it, expect, beforeEach } from 'vitest'
 
-// The coupling helper shows a confirmation via confirmAction when a transition
-// needs it; mock that so we can assert the branch + run the onConfirm callback.
 vi.mock('../../components/qam/modals/ConfirmActionModal', () => ({
   confirmAction: vi.fn(),
 }))
@@ -32,7 +30,6 @@ describe('applyGameInfoAboveToggle', () => {
   it('turning ON while title visible confirms, then sets both on confirm', () => {
     const setGameInfoAbove = vi.fn(), setHideTitle = vi.fn()
     applyGameInfoAboveToggle({ next: true, hideTitle: false, t, setGameInfoAbove, setHideTitle })
-    // nothing applied until the user confirms
     expect(setGameInfoAbove).not.toHaveBeenCalled()
     expect(mockedConfirm).toHaveBeenCalledTimes(1)
     mockedConfirm.mock.calls[0][0].onConfirm()

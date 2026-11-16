@@ -15,7 +15,6 @@ function formatSort(sort: unknown): string {
   return Array.isArray(sort) ? sort.join(" → ") : String(sort ?? "default");
 }
 
-/** How many library apps each filter item matches on its own (read-only). */
 function countFilterSteps(items: FilterItem[], all: Parameters<typeof evaluateFilterGroup>[1]): StepCount[] {
   return items.map((item) => {
     let count: number | null = null;
@@ -44,10 +43,6 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-/** Advanced → Source resolver: pick a shelf and live-evaluate it. Reuses the
-    real resolver + filter engine read-only (resolveShelfAppIds returns ids and
-    never persists; per-filter counts run evaluateFilterGroup over the library).
-    Observes only — nothing here mutates shelves or Steam state. */
 export function SourceResolverInspector({ controller, t }: { controller: ReturnType<typeof useSettingsController>; t: (k: string) => string }) {
   const shelves: any[] = (controller.settings as any)?.shelves ?? [];
   const [selectedId, setSelectedId] = useState<string | null>(shelves[0]?.id ?? null);

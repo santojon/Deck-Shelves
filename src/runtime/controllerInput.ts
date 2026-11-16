@@ -1,8 +1,4 @@
-/* Shared bridge for Steam Deck controller buttons. The host page (BP)
-   does NOT receive DOM keydown for D-pad / face buttons — Steam routes
-   those through `SteamClient.Input.RegisterForControllerInputMessages`.
-   This helper exposes a single subscribe-based stream so multiple
-   features can listen without each one re-registering with Steam. */
+// D-pad and face buttons never arrive as DOM keydown; Steam routes them through controller input messages.
 
 import { getSessionState } from "./sessionState";
 import { devStamp, devTrace } from "./devStamps";
@@ -16,12 +12,6 @@ const BUTTON_A = 0;
 const BUTTON_B = 1;
 const BUTTON_X = 2;
 const BUTTON_Y = 3;
-// Steam Deck Big Picture raw button IDs verified live via the in-app raw-id
-/* surface in the bindings capture screen (SteamClient.Input.RegisterForControllerInputMessages).
-   Numbers below are the live deck values; the older 4-9 range was wrong
-   (those slots correspond to other internal events). Back-grip buttons
-   (L4/L5/R4/R5) and stick clicks (L3/R3) also surface here so users can
-   bind any physical button. */
 const L1 = 30;
 const R1 = 31;
 const L2 = 28;
@@ -53,8 +43,6 @@ const listeners = new Set<Listener>();
 let installed = false;
 let unregister: (() => void) | null = null;
 
-// Expose a debug bus for CDP probes. Tests can push a fake event and
-// observe what each subscriber does without needing a real controller.
 function publishToDebugBus(ev: ControllerEvent): void {
   devStamp("__ds_input_last", ev);
   devTrace("__ds_input_log", ev, 50);
@@ -68,8 +56,6 @@ const inputApiOf = (owner: any) => owner?.SteamClient?.Input;
 
 const homeView = (g: any) => g.document?.getElementById?.('deck-shelves-home-root')?.ownerDocument?.defaultView;
 
-/* Every place Steam may expose a `SteamClient.Input`, in priority order, as
-   lazy probes — each one evaluated (and guarded) on its own. */
 function inputProbes(g: any): Array<[string, () => any]> {
   const probes: Array<[string, () => any]> = [
     ['self', () => inputApiOf(g)],
@@ -103,11 +89,7 @@ function getAllInputApis(): any[] {
 }
 
 let unregisterAll: Array<() => void> = [];
-/* Steam exposes the same controller stream through several Input objects
-   (self, gamepadMain, BP injection) — registering on each yields the same
-   event N times within ~1 ms. Drop duplicate (slot, button, pressed)
-   triples seen within DEDUP_WINDOW_MS so subscribers see one event per
-   physical press. */
+// Steam delivers the same press once per Input object, so drop duplicates within DEDUP_WINDOW_MS.
 const DEDUP_WINDOW_MS = 40;
 let lastEvKey = "";
 let lastEvAt = 0;
@@ -125,14 +107,7 @@ function dispatch(ev: ControllerEvent): void {
 
 let pollTimer: number | null = null;
 
-// Injects a tiny registration script into the host (BP) document so
-/* `RegisterForControllerInputMessages` runs IN BP's JS context — that's
-   where Steam actually dispatches controller events. SharedJSContext
-   callbacks are silently dropped. The BP script writes events to
-   `view.__ds_bp_input_log`; we poll it and forward into the listeners
-   here. */
-// The BP-side windows that may own a `SteamClient.Input` (the first one
-// exposing `RegisterForControllerInputMessages` wins).
+// Registration has to run in Big Picture's context; callbacks registered from the shared context are dropped.
 function collectBrowserWindows(g: any): any[] {
   const candidates: any[] = [];
   const push = (get: () => any) => { try { candidates.push(get()); } catch {} };
@@ -165,10 +140,7 @@ function installBPInjection(): boolean {
   return installBPInputRegistration(view, g);
 }
 
-/* Also install a global keydown listener IN BP context to capture keyboard
-   typing on the home (matches Big Picture's native "type to filter" UX). BP
-   captures these even when no input has focus, but the events only fire in
-   BP's JS context. */
+// Keydown for type-to-filter only fires in Big Picture's context.
 function installBPKeydownLogger(view: any): void {
   try {
     const kbBody = [
@@ -243,10 +215,7 @@ function installBPInputRegistration(view: any, g: any): boolean {
   }
 }
 
-/* The injected logger records `{ src, args, t }`. Controller-input messages
-   carry (slot, button, pressed) and are forwarded only while no direct
-   registration has delivered (so one press never arrives twice); other messages
-   are forwarded as before, button-less, so idle detection still sees activity. */
+// Controller messages are forwarded only while no direct registration has delivered, so a press never arrives twice.
 let directInputSeen = false;
 function inputArgsOf(entry: any): any[] | null {
   const isInput = typeof entry?.src === "string" && entry.src.endsWith(".RegisterForControllerInputMessages");
@@ -258,14 +227,12 @@ function bpEntryToEvent(entry: any): ControllerEvent | null {
   return directInputSeen ? null : { slot: Number(args[0]), button: args[1], pressed: !!args[2] };
 }
 
-// Drain the logs (the injected side caps them with shift(), so a growing read
-// cursor would stall once a cap is reached).
+// The injected side caps the logs with shift(), so drain them instead of keeping a read cursor.
 function drain(log: unknown): any[] {
   return Array.isArray(log) && log.length ? log.splice(0, log.length) : [];
 }
 
-// Behind a running game nothing here needs these; drop them so no stale presses
-// fire once the game ends.
+// Dropped behind a running game so stale presses don't fire when it ends.
 function drainLogs(view: any, discard: boolean): void {
   for (const entry of drain(view?.__ds_bp_input_log)) {
     const ev = entry && !discard ? bpEntryToEvent(entry) : null;
@@ -286,13 +253,7 @@ function startPolling(): void {
 
 function ensureInstalled(): void {
   if (installed) return;
-  // Path A: inject into BP context (the only path Steam actually
-  // dispatches controller events to for our home tree). This is the
-  // primary mechanism — without it the rest is a no-op.
   const bpOk = installBPInjection();
-  // Path B: SharedJSContext-side registrations as a fallback. Helpful
-  // for desktop testing and for OS variants where SharedJSContext does
-  // see controller events.
   const apis = getAllInputApis();
   devStamp("__ds_input_api", apis.length);
   for (let i = 0; i < apis.length; i++) {
@@ -320,9 +281,7 @@ function ensureInstalled(): void {
   }
 }
 
-// Try to install on every browser tick until SteamClient.Input is
-// reachable. The bridge runs in BP where the Input API IS exposed, but
-// the global may not be ready when this module first loads.
+// The Input global may not be ready when this module loads.
 function pollUntilInstalled(): void {
   if (installed) return;
   ensureInstalled();
