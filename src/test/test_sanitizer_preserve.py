@@ -93,3 +93,18 @@ def test_smart_shelf_logo_offset_keeps_the_regular_range():
         {**smart, "id": "sm3", "logoTopOffset": 140},
     ]})
     assert [s["logoTopOffset"] for s in out["smartShelves"]] == [-30, -50, 100]
+
+
+def test_a_smart_shelf_keeps_its_sort_when_there_is_no_regular_shelf():
+    doc = {"enabled": True, "shelves": [], "smartShelves": [{"id": "sm1", "title": "Quick", "mode": "quick_play", "sort": "recent"}]}
+    out = sanitizer._sanitize_settings(doc)
+    assert [s["id"] for s in out["smartShelves"]] == ["sm1"]
+    assert out["smartShelves"][0]["sort"] == "recent"
+
+
+def test_a_smart_shelf_sort_is_the_same_with_or_without_regular_shelves():
+    smart = {"id": "sm1", "title": "Quick", "mode": "quick_play", "sort": "playtime", "sortReverse": True}
+    regular = {"id": "s1", "title": "A", "source": {"type": "filter", "filter": {"sort": "recent"}}}
+    alone = sanitizer._sanitize_settings({"enabled": True, "shelves": [], "smartShelves": [dict(smart)]})
+    beside = sanitizer._sanitize_settings({"enabled": True, "shelves": [regular], "smartShelves": [dict(smart)]})
+    assert alone["smartShelves"] == beside["smartShelves"]

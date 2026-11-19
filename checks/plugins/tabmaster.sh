@@ -24,8 +24,8 @@ run_checks() {
   fi
 
   local tab_files
-  # Comment lines, re-exports, the QA harness and tests are ignored; only runtime access counts.
-  tab_files=$(grep -rln "TabMasterStore\|TabMaster" "$src" 2>/dev/null | grep -v '\.d\.ts$' | grep -v '/qa/' | grep -v '/test/' | grep -v '\.test\.' | while IFS= read -r f; do
+  # Comment lines, re-exports, the QA harness, tests and the Python backend are ignored; only runtime access counts.
+  tab_files=$(grep -rln "TabMasterStore\|TabMaster" "$src" 2>/dev/null | grep -v '\.d\.ts$' | grep -v '\.py$' | grep -v '/qa/' | grep -v '/test/' | grep -v '\.test\.' | while IFS= read -r f; do
     if grep -v '^\s*[/*]' "$f" 2>/dev/null | grep -v '^\s*export .* from ' | grep -q "TabMasterStore\|TabMaster"; then echo "$f"; fi
   done)
   local all_guarded=true

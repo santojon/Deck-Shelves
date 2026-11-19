@@ -105,6 +105,10 @@ const PRICE_KEYS: ReadonlySet<string> = new Set(["price_low", "discount_high", "
 
 const ORDER_ONLY_KEYS: ReadonlySet<string> = new Set(["alphabetical", "manual", "random", "source_order"]);
 
+export function hasSortComparator(key: string): boolean {
+  return key in KEY_COMPARATOR_BUILDERS || !!v3Comparator(key);
+}
+
 export function isSupportedSortKey(key: string): boolean {
   if (ORDER_ONLY_KEYS.has(key) || PRICE_KEYS.has(key) || key in KEY_COMPARATOR_BUILDERS || v3Comparator(key)) return true;
   return hasExternalSortOption(key) && !isInternalSortOption(key);

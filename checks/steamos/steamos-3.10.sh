@@ -105,7 +105,11 @@ run_checks() {
 
   local unsafe_paths=0
   for pattern in '"/etc/' '"/var/' '"/usr/' '"/opt/'; do
-    if _unsafe_path_hit "$root/main.py" "$pattern"; then
+    local hit=0
+    for f in "$root"/main.py "$root"/src/backend/secure_http.py "$root"/src/backend/release_download.py "$root"/src/backend/user_files.py "$root"/src/backend/steam_session.py "$root"/src/backend/tabmaster.py; do
+      _unsafe_path_hit "$f" "$pattern" && hit=1
+    done
+    if [[ $hit -eq 1 ]]; then
       echo "  ❌ Accesses system path: $pattern"
       ((unsafe_paths++))
     fi

@@ -2,41 +2,12 @@ import asyncio
 import hashlib
 import json
 import os
-import re
 import sqlite3
-import ssl
 import time
-from subprocess import run as _sp_run
 import urllib.request
 import urllib.error
 import urllib.parse
 from typing import Any, Dict, List, Optional
-
-def _build_ssl_context() -> ssl.SSLContext:
-    """Verified TLS context for the Steam API calls this file makes.
-
-    SteamOS's default CA search can come up empty inside the plugin's
-    sandboxed process, which used to make cert verification for
-    steam.*/steamcommunity.* fail — that was previously "fixed" by
-    disabling verification outright (`check_hostname=False`,
-    `CERT_NONE`), which instead let ANY certificate through: a hostile
-    Wi-Fi network could MITM the connection and steal the Steam session
-    token or swap the downloaded update zip for a malicious one.
-    Supplementing (never replacing — `load_verify_locations` adds to the
-    existing trust store) with the distro's own CA bundle keeps
-    verification on."""
-    ctx = ssl.create_default_context()
-    for candidate in ("/etc/ssl/certs/ca-certificates.crt", "/etc/ssl/cert.pem"):
-        if os.path.exists(candidate):
-            try:
-                ctx.load_verify_locations(cafile=candidate)
-            except Exception:
-                pass
-            break
-    return ctx
-
-
-_SSL_CTX = _build_ssl_context()
 
 import sys
 _PLUGIN_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -46,8 +17,8 @@ for _p in (_PLUGIN_DIR, os.path.join(_PLUGIN_DIR, "py_modules"), os.path.join(_P
 
 from plugin_host import logger
 
-from paths import _steam_install_candidates, _normalize_path, _validate_json_export_path
-from storage import _settings_dir, _primary_file, _safe_read_json, _backups_dir, _write_versioned_backup, _list_backups, _is_safe_backup_name, _export_backup, _import_backup, _delete_backup, _clear_backups, AUTO_THROTTLE_SECONDS, _read_wrapped, sync_mirror, reconcile_settings, _canonical_settings_dir, _loader_settings_dir, _is_corrupt_json, _recover_wrapped, _quarantine_corrupt_primary, take_reconcile_recovery, sweep_leftovers, sweep_export_tmps, count_quarantined, keep_account_salt
+from paths import _steam_install_candidates, _normalize_path as _normalize_path, _validate_json_export_path
+from storage import _settings_dir, _primary_file, _safe_read_json, _backups_dir, _write_versioned_backup, _list_backups, _is_safe_backup_name, _export_backup, _import_backup, _delete_backup, _clear_backups, AUTO_THROTTLE_SECONDS, _read_wrapped, sync_mirror, reconcile_settings, _is_corrupt_json, _recover_wrapped, _quarantine_corrupt_primary, take_reconcile_recovery, sweep_leftovers, sweep_export_tmps, count_quarantined, keep_account_salt
 from sanitizer import _sanitize_settings, merge_hub_config
 from css_themes import read_css_loader_themes
 from display_state import read_display_state
@@ -58,6 +29,11 @@ from library_location import get_library_locations as _library_locations
 from peripherals import get_bluetooth_state as _bt_state, get_audio_state as _audio_state
 from shortcuts import shortcut_tags as _shortcut_tags
 from ttl_cache import TtlCache, wants_force
+from secure_http import _SSL_CTX, _fetch_json_page, _redact_secrets, _build_ssl_context as _build_ssl_context
+from release_download import _is_github_asset_url, _is_release_download_url, _safe_zip_name, _RELEASE_ASSET_HOSTS as _RELEASE_ASSET_HOSTS, _RELEASE_DOWNLOAD_PREFIX as _RELEASE_DOWNLOAD_PREFIX
+from tabmaster import get_tabmaster_tabs as _tabmaster_tabs
+from user_files import _json_export_roots, read_image_b64 as _read_image_b64, read_json_file as _read_json_file, write_json_file as _write_json_file
+from steam_session import _STEAM_ID64_BASE, _requested_steam_id64, aes_128_cbc, bcrypt_aes_gcm_decrypt, dpapi_unprotect, get_steam_id64, macos_safe_storage_password
 
 # Cached briefly: the visibility rules call these probes on every shelf evaluation.
 _PERF_CACHE = TtlCache(5.0, read_perf_snapshot)
@@ -65,79 +41,6 @@ _BLUETOOTH_CACHE = TtlCache(10.0, _bt_state)
 _AUDIO_CACHE = TtlCache(10.0, _audio_state)
 
 DEFAULT_SETTINGS: Dict[str, Any] = {"enabled": False, "hideRecents": False, "recentsReplaceSource": False, "hideHomeTabs": False, "shelfHeroBackground": False, "globalMatchNativeSize": False, "globalHighlightFirst": False, "globalHighlightAll": False, "globalHideStatusLine": False, "globalHideNewBadge": False, "globalHideDiscountBadge": False, "globalHideCompatIcons": False, "globalHideNonSteamBadge": False, "globalHideShelfTitle": False, "globalHideGameNames": False, "globalHideInstallIndicator": False, "globalHideSeeMore": False, "globalHideRefreshCard": False, "shelves": [], "smartShelvesEnabled": False, "smartShelvesAtBottom": False, "smartShelves": [], "smartSurpriseMe": False, "smartSurpriseMeCount": 0}
-
-
-def _json_export_roots() -> List[str]:
-    """Where the JSON-shaped read/write/backup RPCs are allowed to touch:
-    the plugin's own settings directory (every host variant, so mirroring
-    between a plugin loader and a standalone host keeps working) plus the
-    standard folders the export/import file picker actually offers —
-    never an arbitrary path like `~/.ssh` or `~/.config/autostart`."""
-    roots = []
-    try:
-        roots.append(_settings_dir())
-    except Exception:
-        pass
-    try:
-        roots.append(_canonical_settings_dir())
-    except Exception:
-        pass
-    try:
-        roots.append(_loader_settings_dir())
-    except Exception:
-        pass
-    roots += [
-        os.path.expanduser("~/Downloads"),
-        os.path.expanduser("~/Desktop"),
-        os.path.expanduser("~/Documents"),
-    ]
-    return roots
-
-
-def _redact_secrets(text: str) -> str:
-    """Strip auth tokens before a string is logged or returned to the frontend —
-    some urllib / SSL errors stringify the full request URL, which carries the
-    wishlist `access_token`; that must never reach the logs a bug report bundles."""
-    return re.sub(r"(access_token|token|jwt)=[^&\s\"'}]+", r"\1=REDACTED", text,
-                  flags=re.IGNORECASE)
-
-
-# Manual-update downloads only ever follow GitHub release-asset hosts.
-_RELEASE_ASSET_HOSTS = ("github.com", "objects.githubusercontent.com", "release-assets.githubusercontent.com")
-
-
-def _is_github_asset_url(url: str) -> bool:
-    try:
-        from urllib.parse import urlsplit
-        p = urlsplit(url)
-        host = (p.hostname or "").lower()
-        return p.scheme == "https" and (host in _RELEASE_ASSET_HOSTS or host.endswith(".githubusercontent.com"))
-    except Exception:
-        return False
-
-
-_RELEASE_DOWNLOAD_PREFIX = "/santojon/Deck-Shelves/releases/download/"
-
-
-def _is_release_download_url(url: str) -> bool:
-    """The URL the frontend may ask for: this project's own release assets on
-    github.com (redirects to GitHub's asset hosts are checked separately)."""
-    try:
-        from urllib.parse import urlsplit
-        p = urlsplit(url)
-        return p.scheme == "https" and (p.hostname or "").lower() == "github.com" and p.path.startswith(_RELEASE_DOWNLOAD_PREFIX)
-    except Exception:
-        return False
-
-
-def _safe_zip_name(name: str) -> str:
-    """Reduce a caller-supplied filename to a bare basename ending in .zip so it
-    can never escape the download dir (path traversal) or write an executable."""
-    base = os.path.basename((name or "").strip())
-    base = re.sub(r"[^A-Za-z0-9._-]", "", base)
-    if not base or not base.lower().endswith(".zip"):
-        return ""
-    return base
 
 
 _DOWNLOAD_MAX_BYTES = 200 * 1024 * 1024
@@ -174,25 +77,6 @@ def _download_to(url: str, dest: str) -> str:
             pass
         raise
     return dest
-
-
-def _fetch_json_page(req: "urllib.request.Request"):
-    """One HTTPS GET through the verified TLS context: (status, parsed JSON)."""
-    with urllib.request.urlopen(req, timeout=15, context=_SSL_CTX) as resp:
-        if resp.status != 200:
-            return resp.status, {}
-        return 200, json.loads(resp.read().decode("utf-8"))
-
-
-_STEAM_ID64_BASE = 76561197960265728
-
-
-def _requested_steam_id64(arg: Any) -> Optional[str]:
-    """The SteamID64 the frontend read from the running client, kept only when it is an individual account's."""
-    sid = arg.get("steamid") if isinstance(arg, dict) else None
-    if isinstance(sid, str) and re.fullmatch(r"7656119\d{10}", sid) and int(sid) > _STEAM_ID64_BASE:
-        return sid
-    return None
 
 
 class Plugin:
@@ -474,49 +358,7 @@ class Plugin:
         return await asyncio.to_thread(self._get_tabmaster_tabs_sync, *args, **kwargs)
 
     def _get_tabmaster_tabs_sync(self) -> Dict[str, Any]:  # noqa: C901
-        """
-        Reads TabMaster's settings.json and returns its tab list.
-        TabMaster does not expose tabs via React context or IPC — the only
-        reliable source is its settings file on disk.
-        Returns { tabs: [{ id, title, position, filters, filtersMode }] }
-        """
-        decky_home = os.environ.get("DECKY_HOME") or os.path.expanduser("~/homebrew")
-        settings_path = os.path.join(decky_home, "settings", "TabMaster", "settings.json")
-        try:
-            # TabMaster is optional; a missing settings file is normal, so return empty without logging.
-            if not os.path.exists(settings_path):
-                return {"tabs": [], "error": "file_not_found"}
-            data = _safe_read_json(settings_path)
-            users_dict = data.get("usersDict", {})
-            if not users_dict:
-                return {"tabs": [], "error": "no_users"}
-            user_data = next(iter(users_dict.values()))
-            raw_tabs = user_data.get("tabs", {})
-            tabs = []
-            for tab_id, tab in raw_tabs.items():
-                if not isinstance(tab, dict):
-                    continue
-                tabs.append({
-                    "id": str(tab.get("id", tab_id)),
-                    "title": str(tab.get("title", tab_id)),
-                    "position": int(tab.get("position", -1)),
-                    "filters": tab.get("filters", []),
-                    "filtersMode": str(tab.get("filtersMode", "and")),
-                })
-            # Visible tabs (position >= 0) first, then hidden ones (-1).
-            tabs.sort(key=lambda t: (t["position"] < 0, t["position"]))
-            try:
-                visible = sum(1 for t in tabs if t["position"] >= 0)
-                logger.info(f"get_tabmaster_tabs: returning {len(tabs)} tabs ({visible} visible)")
-            except Exception:
-                pass
-            return {"tabs": tabs}
-        except Exception as e:
-            try:
-                logger.error(f"get_tabmaster_tabs failed: {e}")
-            except Exception:
-                pass
-            return {"tabs": [], "error": str(e)}
+        return _tabmaster_tabs()
 
     async def get_user_home(self) -> str:
         return os.path.expanduser("~")
@@ -635,90 +477,19 @@ class Plugin:
         return await asyncio.to_thread(self._write_json_file_sync, *args, **kwargs)
 
     def _write_json_file_sync(self, path: str = "", content: str = "", *args, **kwargs) -> bool:
-        # Decky may bundle content inside the first positional dict; recover it so a 0-byte file is never written.
-        if isinstance(path, dict) and not content:
-            content = path.get("content", "")
-        if not content and isinstance(kwargs.get("content"), str):
-            content = kwargs.get("content")
-        path = _validate_json_export_path(path if path else (args[0] if args else kwargs.get("path")), _json_export_roots())
-        if not path or not isinstance(content, str):
-            return False
-        try:
-            json.loads(content)  # reject anything that isn't actually JSON, even with a .json path
-        except (json.JSONDecodeError, ValueError):
-            return False
-        try:
-            d = os.path.dirname(path)
-            if d:
-                os.makedirs(d, exist_ok=True)
-            sweep_export_tmps(path)
-            tmp = path + ".tmp"
-            with open(tmp, "w", encoding="utf-8") as f:
-                f.write(content)
-                f.flush()
-                os.fsync(f.fileno())
-            os.replace(tmp, path)
-            return True
-        except Exception as e:
-            try:
-                logger.error(f"Failed writing json to {path}: {e}")
-            except Exception:
-                pass
-            return False
+        return _write_json_file(path, content, *args, **kwargs)
 
     async def read_json_file(self, *args, **kwargs):
         return await asyncio.to_thread(self._read_json_file_sync, *args, **kwargs)
 
     def _read_json_file_sync(self, path: str = "", *args, **kwargs) -> Dict[str, Any]:
-        path = _validate_json_export_path(path if path else (args[0] if args else kwargs.get("path")), _json_export_roots())
-        if not path or not os.path.exists(path):
-            return {"ok": False}
-        try:
-            with open(path, "r", encoding="utf-8") as f:
-                return {"ok": True, "content": f.read()}
-        except Exception as e:
-            try:
-                logger.error(f"Failed reading json from {path}: {e}")
-            except Exception:
-                pass
-            return {"ok": False}
+        return _read_json_file(path, *args, **kwargs)
 
     async def read_image_b64(self, *args, **kwargs):
         return await asyncio.to_thread(self._read_image_b64_sync, *args, **kwargs)
 
     def _read_image_b64_sync(self, path: str = "", *args, **kwargs) -> Dict[str, Any]:
-        # CEF blocks bare file:// URLs on the home shelf, so images go to the frontend as data URLs.
-        import base64
-        # Symlinks are rejected so a planted link can't redirect the read; the extension/mime allowlist covers the rest.
-        path = _normalize_path(path if path else (args[0] if args else kwargs.get("path")), reject_symlinks=True)
-        if not path or not os.path.exists(path) or not os.path.isfile(path):
-            return {"ok": False}
-        try:
-            size = os.path.getsize(path)
-            if size > 8 * 1024 * 1024:
-                return {"ok": False}
-            ext = os.path.splitext(path)[1].lower().lstrip(".")
-            mime_by_ext = {
-                "png": "image/png",
-                "jpg": "image/jpeg",
-                "jpeg": "image/jpeg",
-                "webp": "image/webp",
-                "gif": "image/gif",
-                "bmp": "image/bmp",
-            }
-            mime = mime_by_ext.get(ext)
-            if not mime:
-                return {"ok": False}
-            with open(path, "rb") as f:
-                raw = f.read()
-            data_url = "data:" + mime + ";base64," + base64.b64encode(raw).decode("ascii")
-            return {"ok": True, "dataUrl": data_url}
-        except Exception as e:
-            try:
-                logger.error(f"Failed reading image from {path}: {e}")
-            except Exception:
-                pass
-            return {"ok": False}
+        return _read_image_b64(path, *args, **kwargs)
 
     def _get_steam_cookie(self, name: str) -> str:
         """Read and decrypt a named cookie from Steam's Chromium cookie store.
@@ -779,38 +550,11 @@ class Plugin:
 
     @staticmethod
     def _aes_128_cbc(key: bytes, body: bytes) -> str:
-        try:
-            iv = b" " * 16
-            # The loader's LD_LIBRARY_PATH points at its bundled libssl, which breaks the system openssl CLI.
-            env = {k: v for k, v in os.environ.items() if k != "LD_LIBRARY_PATH"}
-            result = _sp_run(
-                ["openssl", "enc", "-aes-128-cbc", "-d",
-                 "-K", key.hex(), "-iv", iv.hex(), "-nopad"],
-                input=body, capture_output=True, timeout=5, env=env,
-            )
-            if result.returncode != 0:
-                return ""
-            dec = result.stdout
-            pad = dec[-1] if dec else 0
-            if 0 < pad <= 16:
-                dec = dec[:-pad]
-            return dec.decode("utf-8", errors="replace")
-        except Exception:
-            return ""
+        return aes_128_cbc(key, body)
 
     @staticmethod
     def _macos_safe_storage_password() -> Optional[bytes]:
-        """The Chromium "Safe Storage" password from the login Keychain. The
-        service name varies by app, so try the likely ones fail-soft."""
-        for service in ("Steam Safe Storage", "Chromium Safe Storage", "Chrome Safe Storage"):
-            try:
-                r = _sp_run(["security", "find-generic-password", "-w", "-s", service],
-                            capture_output=True, timeout=4)
-                if r.returncode == 0 and r.stdout.strip():
-                    return r.stdout.strip()
-            except Exception:
-                pass
-        return None
+        return macos_safe_storage_password()
 
     @staticmethod
     def _decrypt_windows_gcm(body: bytes) -> str:
@@ -860,127 +604,14 @@ class Plugin:
 
     @staticmethod
     def _dpapi_unprotect(data: bytes) -> bytes:
-        """User-scoped DPAPI unwrap via crypt32 CryptUnprotectData. b'' on failure."""
-        try:
-            import ctypes
-            from ctypes import wintypes
-
-            class _BLOB(ctypes.Structure):
-                _fields_ = [("cbData", wintypes.DWORD),
-                            ("pbData", ctypes.POINTER(ctypes.c_char))]
-
-            src = ctypes.create_string_buffer(data, len(data))
-            blob_in = _BLOB(len(data), ctypes.cast(src, ctypes.POINTER(ctypes.c_char)))
-            blob_out = _BLOB()
-            ok = ctypes.windll.crypt32.CryptUnprotectData(
-                ctypes.byref(blob_in), None, None, None, None, 0, ctypes.byref(blob_out))
-            if not ok:
-                return b""
-            try:
-                return ctypes.string_at(blob_out.pbData, blob_out.cbData)
-            finally:
-                ctypes.windll.kernel32.LocalFree(blob_out.pbData)
-        except Exception:
-            return b""
+        return dpapi_unprotect(data)
 
     @staticmethod
     def _bcrypt_aes_gcm_decrypt(key: bytes, nonce: bytes, ciphertext: bytes, tag: bytes) -> bytes:
-        """AES-256-GCM decrypt via CNG/bcrypt (ctypes). b'' on any error / bad tag."""
-        try:
-            import ctypes
-            from ctypes import wintypes
-            bcrypt = ctypes.windll.bcrypt
-
-            class _AUTH_INFO(ctypes.Structure):
-                _fields_ = [
-                    ("cbSize", wintypes.ULONG), ("dwInfoVersion", wintypes.ULONG),
-                    ("pbNonce", ctypes.c_void_p), ("cbNonce", wintypes.ULONG),
-                    ("pbAuthData", ctypes.c_void_p), ("cbAuthData", wintypes.ULONG),
-                    ("pbTag", ctypes.c_void_p), ("cbTag", wintypes.ULONG),
-                    ("pbMacContext", ctypes.c_void_p), ("cbMacContext", wintypes.ULONG),
-                    ("cbAAD", wintypes.ULONG), ("cbData", ctypes.c_ulonglong),
-                    ("dwFlags", wintypes.ULONG),
-                ]
-
-            h_alg = ctypes.c_void_p()
-            h_key = ctypes.c_void_p()
-            if bcrypt.BCryptOpenAlgorithmProvider(
-                    ctypes.byref(h_alg), ctypes.c_wchar_p("AES"), None, 0) != 0:
-                return b""
-            try:
-                gcm = "ChainingModeGCM\0".encode("utf-16-le")
-                if bcrypt.BCryptSetProperty(
-                        h_alg, ctypes.c_wchar_p("ChainingMode"), gcm, len(gcm), 0) != 0:
-                    return b""
-                obj_len = wintypes.ULONG(0)
-                got = wintypes.ULONG(0)
-                if bcrypt.BCryptGetProperty(
-                        h_alg, ctypes.c_wchar_p("ObjectLength"),
-                        ctypes.byref(obj_len), ctypes.sizeof(obj_len), ctypes.byref(got), 0) != 0:
-                    return b""
-                key_obj = ctypes.create_string_buffer(obj_len.value)
-                if bcrypt.BCryptGenerateSymmetricKey(
-                        h_alg, ctypes.byref(h_key), key_obj, obj_len.value,
-                        key, len(key), 0) != 0:
-                    return b""
-                nonce_buf = ctypes.create_string_buffer(nonce, len(nonce))
-                tag_buf = ctypes.create_string_buffer(tag, len(tag))
-                ct_buf = ctypes.create_string_buffer(ciphertext, len(ciphertext))
-                info = _AUTH_INFO()
-                ctypes.memset(ctypes.byref(info), 0, ctypes.sizeof(info))
-                info.cbSize = ctypes.sizeof(info)
-                info.dwInfoVersion = 1  # BCRYPT_INIT_AUTH_MODE_INFO_VERSION
-                info.pbNonce = ctypes.cast(nonce_buf, ctypes.c_void_p)
-                info.cbNonce = len(nonce)
-                info.pbTag = ctypes.cast(tag_buf, ctypes.c_void_p)
-                info.cbTag = len(tag)
-                out = ctypes.create_string_buffer(len(ciphertext) or 1)
-                out_len = wintypes.ULONG(0)
-                status = bcrypt.BCryptDecrypt(
-                    h_key, ct_buf, len(ciphertext), ctypes.byref(info), None, 0,
-                    out, len(ciphertext), ctypes.byref(out_len), 0)
-                if status != 0:
-                    return b""
-                return out.raw[:out_len.value]
-            finally:
-                if h_key:
-                    bcrypt.BCryptDestroyKey(h_key)
-                bcrypt.BCryptCloseAlgorithmProvider(h_alg, 0)
-        except Exception:
-            return b""
+        return bcrypt_aes_gcm_decrypt(key, nonce, ciphertext, tag)
 
     def _get_steam_id64(self, requested: Optional[str] = None) -> Optional[str]:
-        """The account's SteamID64: the one the frontend read from the running client
-        (`_requested_steam_id64`), which tells accounts apart on a multi-account device;
-        without it, the most recently used userdata directory.
-
-        userdata/ dirs are named by SteamID3 (the lower 32 bits);
-        SteamID64 = SteamID3 + 76561197960265728.
-        """
-        if requested:
-            return requested
-        userdata_candidates = [
-            os.path.join(root, "userdata") for root in _steam_install_candidates()
-        ]
-        try:
-            userdata = next((p for p in userdata_candidates if os.path.isdir(p)), None)
-            if not userdata:
-                return None
-            candidates = [
-                d for d in os.listdir(userdata)
-                if d.isdigit() and d != "0" and os.path.isdir(os.path.join(userdata, d))
-            ]
-            if not candidates:
-                return None
-            # Most-recently-touched account dir wins over an arbitrary first one.
-            candidates.sort(
-                key=lambda d: os.path.getmtime(os.path.join(userdata, d)),
-                reverse=True,
-            )
-            steam_id3 = int(candidates[0])
-            return str(_STEAM_ID64_BASE + steam_id3)
-        except Exception:
-            return None
+        return get_steam_id64(requested)
 
     async def get_wishlist(self, community_url: str = "", *args, **kwargs) -> Dict[str, Any]:  # noqa: C901
         """Fetch the current user's Steam wishlist appids.

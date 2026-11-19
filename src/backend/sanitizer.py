@@ -9,13 +9,25 @@ Authoritative validators are in `src/types.ts` (Zod schemas); this
 mirror exists because the Python side writes directly to disk in the
 Decky lifecycle path and Zod can't run server-side.
 """
-import json
-import re
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
-# Caps for unknown newer-build fields so a hostile document can't bloat the settings file.
-_MAX_UNKNOWN_KEYS = 64
-_MAX_UNKNOWN_BYTES = 64 * 1024
+from sanitizer_preserve import (
+    _MAX_UNKNOWN_BYTES as _MAX_UNKNOWN_BYTES,
+    _MAX_UNKNOWN_KEYS as _MAX_UNKNOWN_KEYS,
+    _preserve_unknown,
+    _with_clock,
+)
+from sanitizer_records import (
+    _ACCOUNT_FIELDS as _ACCOUNT_FIELDS,
+    _ACCOUNT_KEY as _ACCOUNT_KEY,
+    _HUB_CONFIG_MAX_KEYS as _HUB_CONFIG_MAX_KEYS,
+    _MAX_ACCOUNT_BUCKETS as _MAX_ACCOUNT_BUCKETS,
+    _sanitize_account_settings,
+    _sanitize_hub_config,
+    _sanitize_setup_apply,
+    merge_hub_config as merge_hub_config,
+)
+from sanitizer_visibility import _sanitize_visibility
 
 # Sort keys the frontend offers; any other key is dropped on save.
 _VALID_SORTS = {
@@ -25,40 +37,6 @@ _VALID_SORTS = {
     "completion_percent", "closest_to_completion", "most_friends_owning", "trending_among_friends",
     "family_shared_games", "source_order",
 }
-
-
-def _preserve_unknown(raw: Dict[str, Any], known: Dict[str, Any], recognized: Optional[set] = None) -> Dict[str, Any]:
-    """Merge fields present in `raw` but not in the validated `known` dict back
-    in, so a version that doesn't recognise a field keeps rather than deletes it.
-    Bounded by key count, key length and JSON size; non-serialisable values are
-    skipped. Known-but-invalid fields are already in `known`, so never touched.
-
-    `recognized`, when given, is an additional set of field names to treat as
-    "known" even when absent from `known`'s own keys — needed by callers
-    (e.g. the per-shelf loop) that OMIT a recognized field's key entirely
-    when its sanitized value would be empty (`visibility`, `sortReverse`,
-    …), unlike the root settings dict where every known field is always
-    present as a key regardless of value. Without this, an omitted-because-
-    empty field would be mistaken for genuinely unknown and its raw,
-    unsanitized value spliced back in."""
-    if not isinstance(raw, dict):
-        return known
-    kept = 0
-    for key, value in raw.items():
-        if not isinstance(key, str) or key in known or (recognized and key in recognized) or len(key) > 64:
-            continue
-        if kept >= _MAX_UNKNOWN_KEYS:
-            break
-        try:
-            blob = json.dumps(value)
-        except (TypeError, ValueError):
-            continue
-        if len(blob) > _MAX_UNKNOWN_BYTES:
-            continue
-        known[key] = value
-        kept += 1
-    return known
-
 
 _DISCOUNT_BADGE_MODES = ("percent", "price", "both", "percent_price")
 
@@ -92,139 +70,6 @@ _RECOGNIZED_SMART_SHELF_FIELDS = {
 }
 
 
-def _sanitize_visibility(raw: Any) -> Optional[Dict[str, Any]]:  # noqa: C901
-    """Visibility Rules v2 tree: { mode: 'any'|'all', rules: [{ kind, ... }] }.
-    Whitelist-clean but forward-compatible — each rule keeps its `kind` plus
-    scalar / scalar-list params, so device-state kinds added later round-trip
-    without a backend change. Returns None when there are no usable rules
-    (absent == no visibility restriction), matching the legacy window fields.
-    """
-    if not isinstance(raw, dict):
-        return None
-    rules_in = raw.get("rules")
-    if not isinstance(rules_in, list):
-        return None
-    cleaned_rules: List[Dict[str, Any]] = []
-    for r in rules_in[:20]:
-        if not isinstance(r, dict):
-            continue
-        kind = r.get("kind")
-        if not isinstance(kind, str) or not kind:
-            continue
-        rule: Dict[str, Any] = {"kind": kind[:40]}
-        for k, v in r.items():
-            if k == "kind" or not isinstance(k, str):
-                continue
-            if isinstance(v, (bool, int, float, str)):
-                rule[k[:40]] = v
-            elif isinstance(v, list):
-                rule[k[:40]] = [x for x in v if isinstance(x, (bool, int, float, str))][:32]
-        cleaned_rules.append(rule)
-    if not cleaned_rules:
-        return None
-    mode = raw.get("mode")
-    return {"mode": mode if mode in ("any", "all") else "any", "rules": cleaned_rules}
-
-
-_ACCOUNT_KEY = re.compile(r"^[0-9a-f]{16}$")
-_ACCOUNT_FIELDS = ("shelves", "smartShelves", "allShelvesOrder", "savedFilters", "savedSmartFilters",
-                   "profiles", "activeProfileName", "syncTombstones", "showcaseShelfIds")
-_MAX_ACCOUNT_BUCKETS = 16
-
-
-def _sanitize_account_settings(raw: Any) -> Optional[Dict[str, Any]]:
-    """Settings per Steam account: the owner key, the shared mode flag and the other
-    accounts' own fields. Keys are the frontend's salted 16-hex hashes (or "legacy"),
-    never an account id; bucket values keep only the per-account fields."""
-    if not isinstance(raw, dict):
-        return None
-    out: Dict[str, Any] = {}
-    if raw.get("mode") == "shared":
-        out["mode"] = "shared"
-    owner = raw.get("owner")
-    if isinstance(owner, str) and _ACCOUNT_KEY.match(owner):
-        out["owner"] = owner
-    buckets = raw.get("buckets")
-    if isinstance(buckets, dict):
-        kept: Dict[str, Any] = {}
-        for key, value in buckets.items():
-            if len(kept) >= _MAX_ACCOUNT_BUCKETS:
-                break
-            if not isinstance(key, str) or not (key == "legacy" or _ACCOUNT_KEY.match(key)) or not isinstance(value, dict):
-                continue
-            kept[key] = {f: value[f] for f in _ACCOUNT_FIELDS if f in value}
-        out["buckets"] = kept
-    return out
-
-
-def _sanitize_setup_apply(raw: Any) -> Optional[Dict[str, Any]]:
-    """The setup wizard's last apply record (pack id, when, what it added and
-    the settings it changed) — kept so the wizard can revert exactly that."""
-    if not isinstance(raw, dict) or not isinstance(raw.get("packId"), str):
-        return None
-
-    def ids(v: Any) -> List[str]:
-        return [str(x)[:64] for x in v if isinstance(x, str)][:64] if isinstance(v, list) else []
-
-    prev_raw = raw.get("prevSettings")
-    prev = {str(k)[:64]: v for k, v in prev_raw.items() if isinstance(k, str)} if isinstance(prev_raw, dict) else {}
-    at = float(raw["at"]) if isinstance(raw.get("at"), (int, float)) else 0.0
-    return {"packId": raw["packId"][:64], "at": at, "addedShelfIds": ids(raw.get("addedShelfIds")), "addedSmartIds": ids(raw.get("addedSmartIds")), "prevSettings": prev}
-
-
-_HUB_CONFIG_MAX_KEYS = 64
-
-
-def _sanitize_hub_config(raw: Any) -> Optional[Dict[str, Any]]:
-    """A neutral host's own config entity, carried opaquely on the plugin's
-    sync: scalar values only, one `updatedAt` clock per key, bounded size."""
-    if not isinstance(raw, dict):
-        return None
-    values_raw = raw.get("values")
-    clocks_raw = raw.get("updatedAt")
-    if not isinstance(values_raw, dict):
-        return None
-    values: Dict[str, Any] = {}
-    for k, v in values_raw.items():
-        if not isinstance(k, str) or not isinstance(v, (bool, int, float, str)) or v is None:
-            continue
-        values[k[:64]] = v if not isinstance(v, str) else v[:256]
-        if len(values) >= _HUB_CONFIG_MAX_KEYS:
-            break
-    clocks = {str(k)[:64]: float(t) for k, t in clocks_raw.items() if isinstance(k, str) and isinstance(t, (int, float))} if isinstance(clocks_raw, dict) else {}
-    return {"values": values, "updatedAt": {k: t for k, t in clocks.items() if k in values}}
-
-
-def merge_hub_config(current: Any, incoming: Any) -> Optional[Dict[str, Any]]:
-    """Per-key last-writer-wins between the on-disk entity and an incoming
-    save, so a frontend write that carries a stale copy never rolls back a
-    key the host updated meanwhile (ties keep the current one). Either side
-    missing → the other; an empty incoming never erases the current."""
-    cur = _sanitize_hub_config(current)
-    new = _sanitize_hub_config(incoming)
-    if new is None or not new["values"]:
-        return cur
-    if cur is None:
-        return new
-    values = dict(cur["values"])
-    clocks = dict(cur["updatedAt"])
-    for k, v in new["values"].items():
-        t_new = new["updatedAt"].get(k, 0.0)
-        if k not in values or t_new > clocks.get(k, 0.0):
-            values[k] = v
-            clocks[k] = t_new
-    return {"values": values, "updatedAt": clocks}
-
-
-def _with_clock(entry: Dict[str, Any], raw: Dict[str, Any]) -> Dict[str, Any]:
-    """Carry the per-entity sync clock (`updatedAt`) over when it is a valid
-    non-negative integer; the cross-device merge picks the newer copy by it."""
-    clock = raw.get("updatedAt")
-    if isinstance(clock, (int, float)) and not isinstance(clock, bool) and clock >= 0:
-        entry["updatedAt"] = int(clock)
-    return entry
-
-
 def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:  # noqa: C901
     if not isinstance(settings, dict):
         settings = {}
@@ -233,6 +78,7 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:  # noqa: C90
     if not isinstance(shelves, list):
         shelves = []
     sanitized = []
+    valid_sorts = _VALID_SORTS
     for s in shelves:
         if not isinstance(s, dict):
             continue
@@ -298,7 +144,6 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:  # noqa: C90
         game_info_above = bool(s.get("gameInfoAbove", False))
         friends_playing_overlay = bool(s.get("friendsPlayingOverlay", False))
         friends_playing_overlay_recent = bool(s.get("friendsPlayingOverlayRecent", False))
-        valid_sorts = _VALID_SORTS
         # Sort is a single key or a list of keys (primary plus tiebreakers).
         raw_sort = s.get("sort")
         shelf_sort: Any = ""

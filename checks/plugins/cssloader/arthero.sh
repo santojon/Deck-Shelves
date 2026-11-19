@@ -33,7 +33,7 @@ run_checks() {
     ((fail++))
   fi
 
-  if grep -q 'data-ds-recents-slot' "$src/components/HomeInject.tsx" 2>/dev/null; then
+  if grep -q 'data-ds-recents-slot' "$src/components/home/ShelvesContainer.tsx" 2>/dev/null; then
     echo "  ✅ First ds-shelf promoted to recents slot when CSS Loader active"
     ((pass++))
   else
@@ -41,8 +41,8 @@ run_checks() {
     ((fail++))
   fi
 
-  if grep -q 'classList.add(' "$src/components/HomeInject.tsx" 2>/dev/null \
-     && ! grep -q "classList.remove\(.*'ds-" "$src/components/HomeInject.tsx" 2>/dev/null; then
+  if grep -q 'classList.add(' "$src/components/home/ShelvesContainer.tsx" 2>/dev/null \
+     && ! grep -q "classList.remove\(.*'ds-" "$src/components/home/ShelvesContainer.tsx" 2>/dev/null; then
     echo "  ✅ Class promotion is additive (does not strip ds-*)"
     ((pass++))
   else
@@ -50,7 +50,7 @@ run_checks() {
     ((fail++))
   fi
 
-  if grep -q 'getNativeRecentsClassName' "$src/components/HomeInject.tsx" 2>/dev/null; then
+  if grep -q 'getNativeRecentsClassName' "$src/components/home/ShelvesContainer.tsx" 2>/dev/null; then
     echo "  ✅ Native recents class read from runtime DOM (no hardcoded token)"
     ((pass++))
   else
@@ -75,7 +75,7 @@ run_checks() {
     ((fail++))
   fi
 
-  if grep -q 'if (!hideRecentsSetting && !forceCssLoaderThemes) return' "$src/components/HomeInject.tsx" 2>/dev/null; then
+  if grep -q 'if (!hideRecentsSetting && !forceCssLoaderThemes) return' "$src/components/home/ShelvesContainer.tsx" 2>/dev/null; then
     echo "  ✅ Invariant 1: promotion requires hideRecentsSetting"
     ((pass++))
   else
@@ -83,7 +83,7 @@ run_checks() {
     ((fail++))
   fi
 
-  if grep -q '.ds-shelf\[data-shelfid="\${CSS.escape(firstVisibleId)}' "$src/components/HomeInject.tsx" 2>/dev/null; then
+  if grep -q '.ds-shelf\[data-shelfid="\${CSS.escape(firstVisibleId)}' "$src/components/home/ShelvesContainer.tsx" 2>/dev/null; then
     echo "  ✅ Invariant 2: promotion targets only the first visible shelf"
     ((pass++))
   else
@@ -91,7 +91,7 @@ run_checks() {
     ((fail++))
   fi
 
-  if grep -q 'if (!isCssLoaderActive()) return' "$src/components/HomeInject.tsx" 2>/dev/null; then
+  if grep -q 'if (!isCssLoaderActive()) return' "$src/components/home/ShelvesContainer.tsx" 2>/dev/null; then
     echo "  ✅ Invariant 3: promotion requires CSS Loader active"
     ((pass++))
   else

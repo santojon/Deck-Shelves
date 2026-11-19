@@ -1,7 +1,5 @@
-import { devTrace } from "../runtime/devStamps";
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import {
-  ConfirmModal,
   Focusable,
   ToggleField,
 } from '../runtime/host/decky'
@@ -27,11 +25,8 @@ import { ImportMenuButton, type ImportEntry } from './qam/common/ImportMenuButto
 import { QamToolbar, ToolbarButton } from './qam/common/QamToolbar'
 import { openManagedModal } from './qam/common/openManagedModal'
 import { getExternalImportTypesForTarget, registerInternalImportType } from '../core/pluginApi'
-import { formatComboForDisplay, resolveBindings, parseRawCombo, matchEvent, createMatcherState, DEFAULT_BINDINGS } from '../runtime/buttonBindings'
-import { resolveKeyboardBindings, parseKeyCombo, matchKeyEvent, createKeyMatcherState, isEditableKeyTarget, heldModifiers, type KeyModifierFlags } from '../runtime/keyboardBindings'
-import { subscribeControllerInput } from '../runtime/controllerInput'
+import { formatComboForDisplay, resolveBindings } from '../runtime/buttonBindings'
 import { sidecarCancelHandler, mainCancelButtonDown } from './qam/sidecarCancel'
-import { getCurrentSettings } from '../store/settingsStore'
 import { ExportModal } from './qam/modals/ExportModal'
 import { ImportFromCustomFiltersModal } from './qam/modals/ImportFromCustomFiltersModal'
 import { ImportModal } from './qam/modals/ImportModal'
@@ -48,19 +43,21 @@ import { ResetAllModal } from './qam/modals/ResetAllModal'
 import { RegularShelfList } from './qam/list/RegularShelfList'
 import { SmartShelfList } from './qam/list/SmartShelfList'
 import { UnifiedShelfList } from './qam/list/UnifiedShelfList'
-import { SavedFilterRow } from './qam/list/SavedFilterRow'
-import { SavedSmartFilterRow } from './qam/list/SavedSmartFilterRow'
+import { SavedFiltersList, SavedSmartFiltersList } from './qam/list/SavedFiltersList'
 import { SmartShelvesFirstRunBanner } from '../features/setup/SmartShelvesFirstRunBanner'
 import { CollapsibleSection, DSSliderField, PositionField, VersionFooter, type HorizontalPosition } from './ui'
 import { SlidersIcon, StackIcon, SparkleIcon, BookmarkIcon, PlusCircleIcon, OnlineIcon, SearchIcon, WandIcon, CloudIcon, GearIcon, ChevronRightIcon } from './icons'
 import { UpdateBanner } from './qam/UpdateBanner'
-import { useQamExpanded, resetQamExpanded } from './qam/qamExpandedStore'
 import { confirmAction } from './qam/modals/ConfirmActionModal'
 import { ProfilesSection } from '../features/profiles/ProfilesSection'
 import { VisualGlobalSection } from './qam/sections/VisualGlobalSection'
-import { getQamWindow, useQamCompositorSync, useIsActiveQamTab, shouldRenderSidecar } from './qam/sidecarActiveTab'
-import { SidecarPanel, useDpadExpandBridge, fireQamExpand } from './qam/sidecar/SidecarPanel'
-import { useSidecarMenu } from './qam/sidecar/sidecarMenu'
+import { useSidecarOpenClose, useSidecarAutoCollapse } from './qam/sidecarOpenClose'
+import { useSidecarShortcuts } from './qam/sidecarShortcuts'
+import { SidecarPanel } from './qam/sidecar/SidecarPanel'
+import { isToggleHiddenWithAncestors } from './qam/hiddenToggles'
+import { OnlinePrivacyModal } from './qam/modals/OnlinePrivacyModal'
+
+export { OnlinePrivacyModal } from './qam/modals/OnlinePrivacyModal'
 
 if (__DEV__) {
   try {
@@ -70,74 +67,6 @@ if (__DEV__) {
     }
     try { document.documentElement.setAttribute('data-ds-module-loaded', 'yes@' + Date.now()); } catch {}
   } catch {}
-}
-
-function traceRawInput(button: number, pressed: boolean): void {
-  devTrace("__ds_input_trace", { t: Date.now(), button, pressed }, 40);
-}
-
-const TOGGLE_PARENTS: Record<string, string> = {
-  shelfHeroBackground: 'hideRecents',
-  recentsReplaceSource: 'hideRecents',
-  onlineWishlistEnabled: 'onlineFeaturesEnabled',
-  onlineMetadataEnabled: 'onlineFeaturesEnabled',
-  onlinePriceSortEnabled: 'onlineFeaturesEnabled',
-  onlineHideOwnedGames: 'onlineFeaturesEnabled',
-  onlineHideOwnedNonSteam: 'onlineHideOwnedGames',
-  onlineHideOwnedNonSteamCloud: 'onlineHideOwnedNonSteam',
-  smartShelvesAtBottom: 'smartShelvesEnabled',
-  smartSurpriseMe: 'smartShelvesEnabled',
-};
-
-function isToggleHiddenWithAncestors(key: string, hidden: ReadonlyArray<string>): boolean {
-  if (hidden.includes(key)) return true;
-  const parent = TOGGLE_PARENTS[key];
-  return parent ? isToggleHiddenWithAncestors(parent, hidden) : false;
-}
-
-export function OnlinePrivacyModal({ closeModal, t, onAccept }: { closeModal?: () => void; t: (k: string) => string; onAccept: () => void }) {
-  return (
-    <ConfirmModal
-      strTitle={t('online_privacy_title')}
-      strOKButtonText={t('online_privacy_accept')}
-      strCancelButtonText={t('close')}
-      onOK={() => { closeModal?.(); onAccept(); }}
-      onCancel={() => closeModal?.()}
-    >
-      <div style={{ fontSize: 13, lineHeight: 1.5, marginBottom: 12 }}>{t('online_privacy_body')}</div>
-      <div style={{ fontSize: 12, opacity: 0.75, lineHeight: 1.6, borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 10 }}>
-        <div style={{ marginBottom: 4 }}>📋 {t('online_privacy_item_wishlist')}</div>
-        <div style={{ marginBottom: 4 }}>💰 {t('online_privacy_item_price')}</div>
-        <div>🌐 {t('online_privacy_item_ping')}</div>
-      </div>
-    </ConfirmModal>
-  );
-}
-
-function SavedFiltersList({ controller }: { controller: SettingsController }) {
-  const { t, settings } = controller
-  const saved = settings?.savedFilters ?? []
-  if (saved.length === 0) {
-    return <div style={{ padding: '4px 16px', opacity: 0.7 }}>{t('saved_filter_empty')}</div>
-  }
-  return (
-    <div className='deck-shelves-shelf-list'>
-      {saved.map((f) => <SavedFilterRow key={f.id} controller={controller} savedFilter={f} />)}
-    </div>
-  )
-}
-
-function SavedSmartFiltersList({ controller }: { controller: SettingsController }) {
-  const { t, settings } = controller
-  const saved = settings?.savedSmartFilters ?? []
-  if (saved.length === 0) {
-    return <div style={{ padding: '4px 16px', opacity: 0.7 }}>{t('saved_smart_filter_empty' as any)}</div>
-  }
-  return (
-    <div className='deck-shelves-shelf-list'>
-      {saved.map((f) => <SavedSmartFilterRow key={f.id} controller={controller} savedSmartFilter={f} />)}
-    </div>
-  )
 }
 
 function cloudSyncStatusText(t: any, lastSyncedAt: unknown): string {
@@ -171,132 +100,10 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
   const platform = usePlatform();
   const lightMode = useLightMode();
   const [disableHideRecents, setDisableHideRecents] = useState(false);
-  const [qamExpanded, setQamExpanded] = useQamExpanded();
-  const dsScopeRef = useRef<HTMLDivElement>(null);
-  // Only the on-screen instance drives the sidecar, so two mounted panels never fight over it.
-  const isActiveTab = useIsActiveQamTab(dsScopeRef);
-  useQamCompositorSync(qamExpanded, isActiveTab);
-  useDpadExpandBridge(dsScopeRef, setQamExpanded, isActiveTab);
-  const closeSidecar = useCallback(() => {
-    // getQamWindow() can resolve a window whose opener doesn't post through to the compositor.
-    const win = dsScopeRef.current?.ownerDocument?.defaultView ?? getQamWindow();
-    fireQamExpand(win, false, setQamExpanded);
-  }, [setQamExpanded]);
-  const openSidecar = useCallback(() => {
-    fireQamExpand(dsScopeRef.current?.ownerDocument?.defaultView ?? getQamWindow(), true, setQamExpanded);
-  }, [setQamExpanded]);
-  const inlineSidecar = useSidecarMenu({ scopeRef: dsScopeRef, open: shouldRenderSidecar(isActiveTab, qamExpanded), controller, onCollapse: closeSidecar, onOpen: openSidecar });
-  const toggleSidecar = useCallback(() => {
-    const win = dsScopeRef.current?.ownerDocument?.defaultView ?? getQamWindow();
-    fireQamExpand(win, !qamExpanded, setQamExpanded);
-  }, [qamExpanded, setQamExpanded]);
-  useEffect(() => {
-    if (!isActiveTab) return;
-    resetQamExpanded();
-    // A host's own tab can remount while the compositor is still wide, so narrow it explicitly.
-    const win = dsScopeRef.current?.ownerDocument?.defaultView ?? getQamWindow();
-    fireQamExpand(win, false, setQamExpanded);
-    return () => setQamExpanded(false);
-  }, [setQamExpanded, isActiveTab]);
+  const { qamExpanded, setQamExpanded, dsScopeRef, isActiveTab, closeSidecar, inlineSidecar, toggleSidecar } = useSidecarOpenClose(controller);
   useFirstRunShowcase(settings, actions, controller);
-  const openMatcherRef = useRef(createMatcherState());
-  const closeMatcherRef = useRef(createMatcherState());
-  useEffect(() => {
-    if (!isActiveTab) return;
-    return subscribeControllerInput((e) => {
-      traceRawInput(e.button, e.pressed);
-      if (!e.pressed) return;
-      const s = getCurrentSettings();
-      const b = resolveBindings(s?.buttonBindings as any, (s as any)?.buttonBindingsDisabled);
-      if (b.navSidecarOpen && b.navSidecarOpen !== DEFAULT_BINDINGS.navSidecarOpen
-        && matchEvent({ button: e.button }, parseRawCombo(b.navSidecarOpen), openMatcherRef.current)) {
-        fireQamExpand(getQamWindow(), true, setQamExpanded); return;
-      }
-      if (b.navSidecarClose && b.navSidecarClose !== DEFAULT_BINDINGS.navSidecarClose
-        && matchEvent({ button: e.button }, parseRawCombo(b.navSidecarClose), closeMatcherRef.current)) {
-        fireQamExpand(getQamWindow(), false, setQamExpanded);
-      }
-    });
-  }, [setQamExpanded, isActiveTab]);
-  const openKeyMatcherRef = useRef(createKeyMatcherState());
-  const closeKeyMatcherRef = useRef(createKeyMatcherState());
-  useEffect(() => {
-    if (!isActiveTab) return;
-    const matchSidecarKey = (code: string | null, kb: ReturnType<typeof resolveKeyboardBindings>, held: KeyModifierFlags) => {
-      const now = Date.now();
-      const open = !!kb.navSidecarOpen && matchKeyEvent(code, parseKeyCombo(kb.navSidecarOpen), openKeyMatcherRef.current, now, held);
-      const close = !open && !!kb.navSidecarClose && matchKeyEvent(code, parseKeyCombo(kb.navSidecarClose), closeKeyMatcherRef.current, now, held);
-      return { open, close };
-    };
-    const resolveQamWin = () => dsScopeRef.current?.ownerDocument?.defaultView ?? getQamWindow();
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.repeat || isEditableKeyTarget((e.target as HTMLElement | null)?.tagName)) return;
-      const s = getCurrentSettings();
-      const kb = resolveKeyboardBindings(s?.keyboardBindings as any, (s as any)?.keyboardBindingsDisabled);
-      const { open, close } = matchSidecarKey(e.code, kb, heldModifiers(e));
-      if (!open && !close) return;
-      fireQamExpand(resolveQamWin(), open, setQamExpanded);
-    };
-    // Key events only reach the QAM's own document; never preventDefault or stopPropagation here.
-    const doc = dsScopeRef.current?.ownerDocument ?? document;
-    doc.addEventListener('keydown', onKeyDown, true);
-    return () => doc.removeEventListener('keydown', onKeyDown, true);
-  }, [setQamExpanded, isActiveTab]);
-  // The tab stays mounted across QAM open/close and no single signal covers every way Steam hides it.
-  useEffect(() => {
-    if (!isActiveTab) return;
-    const scope = dsScopeRef.current;
-    const doc = scope?.ownerDocument ?? document;
-    const win = doc.defaultView ?? window;
-    // Collapsing on visibilitychange feeds a compositor loop, so the return signal is focus while hidden.
-    const collapse = () => setQamExpanded(false);
-    const collapseOnReturn = () => { if (doc.hidden) fireQamExpand(win, false, setQamExpanded); };
-    const onVis = () => { if (doc.hidden) collapse(); };
-    doc.addEventListener("visibilitychange", onVis);
-    win.addEventListener("focus", collapseOnReturn);
-    win.addEventListener("pagehide", collapse);
-    doc.addEventListener("freeze", collapse);
-    doc.addEventListener("resume", collapseOnReturn);
-    return () => {
-      doc.removeEventListener("visibilitychange", onVis);
-      win.removeEventListener("focus", collapseOnReturn);
-      win.removeEventListener("pagehide", collapse);
-      doc.removeEventListener("freeze", collapse);
-      doc.removeEventListener("resume", collapseOnReturn);
-    };
-  }, [setQamExpanded, isActiveTab]);
-
-  // m_eOpenSideMenu changes when Steam opens an overlay over the QAM; polled only while expanded.
-  useEffect(() => {
-    if (!isActiveTab || !qamExpanded) return;
-    const doc = dsScopeRef.current?.ownerDocument ?? document;
-    const win = doc.defaultView ?? window;
-    const getMenuState = (): number | null => {
-      try {
-        const opener = (win as any).opener;
-        const ms = opener?.SteamUIStore?.WindowStore?.GamepadUIMainWindowInstance?.m_MenuStore;
-        return typeof ms?.m_eOpenSideMenu === "number" ? ms.m_eOpenSideMenu : null;
-      } catch { return null; }
-    };
-    const refValue = getMenuState();
-    let lastTick = Date.now();
-    const id = window.setInterval(() => {
-      try {
-        const now = Date.now();
-        const gap = now - lastTick;
-        lastTick = now;
-        const menuState = getMenuState();
-        const menuChanged = refValue !== null && menuState !== null && menuState !== refValue;
-        // doc.hasFocus() is useless here: the QAM document never holds DOM focus in GamepadUI.
-        const resumedFromBackground = gap > 1500 && doc.visibilityState !== "visible";
-        if (menuChanged || resumedFromBackground) {
-          setQamExpanded(false);
-          window.clearInterval(id);
-        }
-      } catch {}
-    }, 300);
-    return () => window.clearInterval(id);
-  }, [qamExpanded, setQamExpanded, isActiveTab]);
+  useSidecarShortcuts({ dsScopeRef, setQamExpanded, isActiveTab });
+  useSidecarAutoCollapse({ dsScopeRef, qamExpanded, setQamExpanded, isActiveTab });
   const hiddenToggles: string[] = (settings as any).qamHiddenToggles ?? []
   const hiddenSections: string[] = (settings as any).qamHiddenSections ?? []
   const isHid = (k: string) => isToggleHiddenWithAncestors(k, hiddenToggles)

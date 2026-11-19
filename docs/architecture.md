@@ -325,12 +325,14 @@ src/
 └── test/ Vitest suites (mirroring src/), fixtures, host stubs,
           and the backend's pytest suites (test_*.py)
 
-main.py Python entry: DEFAULT_SETTINGS, _SSL_CTX, Plugin class
+main.py Python entry: DEFAULT_SETTINGS, Plugin class
  (lifecycle + RPC). Re-exports helpers from below.
 src/backend/ Every sibling module main.py imports (paths, storage,
  sanitizer, shortcuts, css_themes, display_state,
  hardware_info, host_os, library_location,
- peripherals, perf_probe, plugin_host). Kept out of the plugin root — which
+ peripherals, perf_probe, plugin_host, secure_http,
+ release_download, tabmaster, user_files, steam_session).
+ Kept out of the plugin root — which
  Decky requires main.py itself to stay at — via a
  sys.path splice at the top of main.py.
 src/backend/paths.py _steam_install_candidates, _normalize_path
@@ -427,10 +429,10 @@ Pure aggregation in `domain/statistics.ts` (`computeLibraryStatistics`, `compute
 Locales are sliced into `i18n/<locale>/<area>.json` (home / qam / about / settings / integrations / common / setup). The loader merges every area file per locale via `import.meta.glob` — `en-US` eager, others lazy. External integrations add strings at runtime through `api.registerTranslations(locale, dict)`. `validate.mjs` enforces per-locale key-set parity + no cross-area collisions.
 
 ### Theme compatibility (`src/themes`)
-One adapter per supported look, under `themes/adapters/` (Switch Like Home, Centered Home, Obsidian, Focus Highlight Color's round patch, TiltedHome, ArtHero, No Hero Gradient, Hero Fullscreen, native Big Art, Gray Uninstalled, Clean Library Capsule, No Home Text). A `ThemeAdapter` (`themes/types.ts`) bundles everything a theme needs: `id` / `label` (diagnostics), `scope` (`root` adapters read the injected theme styles and stamp `.deck-shelves-root`; `document` adapters read computed variables and stamp `<html>`), the `data-ds-*` `flags` it owns (plus optional `<html>` mirrors and all-roots stamping), `read()` (detect → flag values), optional `vars()` (CSS custom properties on `<html>`) and optional `css(ctx)` (the rules that mirror the theme on the shelves). `themes/registry.ts` holds the ordered list and is the only place that iterates it: `applyRootThemeFlags` / `clearRootThemeFlags` (called from `HomeInject` on every Steam `<head>` mutation and on unmount), `applyDocumentThemeFlags` (called from the `shelfStyles` poll), `themeStylesheet(ctx)` (appended to the shelf stylesheet, in registry order) and `activeThemeLabels()` (diagnostics / bug reports). Adding a theme = one adapter file + one registry entry. Shared detection primitives (injected style text, token matching against live class names, the theme names read from disk) live in `themes/detect.ts`; `core/cssLoaderDetect.ts` re-exports the same names so older call sites keep working.
+One adapter per supported look, under `themes/adapters/` (Switch Like Home, Centered Home, Obsidian, Focus Highlight Color's round patch, TiltedHome, ArtHero, No Hero Gradient, Hero Fullscreen, native Big Art, Gray Uninstalled, Clean Library Capsule, No Home Text). A `ThemeAdapter` (`themes/types.ts`) bundles everything a theme needs: `id` / `label` (diagnostics), `scope` (`root` adapters read the injected theme styles and stamp `.deck-shelves-root`; `document` adapters read computed variables and stamp `<html>`), the `data-ds-*` `flags` it owns (plus optional `<html>` mirrors and all-roots stamping), `read()` (detect → flag values), optional `vars()` (CSS custom properties on `<html>`) and optional `css(ctx)` (the rules that mirror the theme on the shelves). `themes/registry.ts` holds the ordered list and is the only place that iterates it: `applyRootThemeFlags` / `clearRootThemeFlags` (called from `ShelvesContainer` on every Steam `<head>` mutation and on unmount), `applyDocumentThemeFlags` (called from the `shelfStyles` poll), `themeStylesheet(ctx)` (appended to the shelf stylesheet, in registry order) and `activeThemeLabels()` (diagnostics / bug reports). Adding a theme = one adapter file + one registry entry. Shared detection primitives (injected style text, token matching against live class names, the theme names read from disk) live in `themes/detect.ts`; `core/cssLoaderDetect.ts` re-exports the same names so older call sites keep working.
 - `isCssLoaderActive()` / `isArtHeroActive()` read `<style class="css-loader-style">` tags in the active document.
 - `getNativeRecentsClassName(mountEl)` reads the live native-recents wrapper class from `mountEl.previousElementSibling` — never hardcoded.
-- When `hideRecents=true` and a CSS Loader theme is active, `HomeInject` adds `data-ds-recents-slot="true"` plus the live wrapper class to the first DS shelf — additively (existing `ds-*` classes are preserved). Invariants enforced by the guard chain are documented inline in `HomeInject.tsx`.
+- When `hideRecents=true` and a CSS Loader theme is active, `HomeInject` adds `data-ds-recents-slot="true"` plus the live wrapper class to the first DS shelf — additively (existing `ds-*` classes are preserved). Invariants enforced by the guard chain are documented inline in `components/home/ShelvesContainer.tsx`.
 - ArtHero label overlay (in `PerShelfHero.tsx`, while `HomeInject` marks the root with `data-ds-hero-label`) clones the focused card's `.ds-card-label` as a `position: fixed` overlay above the row; tracks the focused card horizontally on row scroll; reactive to runtime CSS Loader toggles via `MutationObserver` on the Big Picture document's `<head>`.
 - TiltedHome compat applies `skew(var(--ren-tilt-angle))` to the entire `.ds-card` (image + label + glow + MoreCard + RefreshCard). Focus state composes `skew + scale + translateZ` with `!important` to win over Steam's higher-specificity `.BasicUI.NATIVE.Focusable:focus { transform: translateZ(15px) }` rule. The selector intentionally omits `.gpfocuswithin` (Steam applies that to every card when any descendant of the row has focus — including it would scale every card and erase the focus indicator).
 
@@ -459,9 +461,9 @@ User-replaced custom artwork (capsule, logo, hero, icon) lives at static `/custo
 
 Concurrent `saveSettings` calls coalesce: a save in flight latches the next payload into `pendingSave`, every caller waits for the same RPC outcome. The Python `set_settings` runs the whole sanitize + read + compare-and-skip + write under `asyncio.to_thread` so the asyncio event loop keeps draining other RPCs while the disk write fsyncs. The frontend tracks `lastSaveSucceeded` in `localStorage` so a failed save survives plugin reload — on next boot the cache stays as source of truth and the next user interaction retries the write. `refreshSettings` captures a `refreshAnchor` snapshot before the background `get_settings` so an in-flight user edit can't be silently reverted by a stale backend response.
 
-### Sidecar lifecycle (`components/qam/qamExpandedStore.ts` + `DeckQAMSettings.tsx`)
+### Sidecar lifecycle (`components/qam/qamExpandedStore.ts` + `components/qam/sidecarOpenClose.ts`)
 
-QAM-expanded state is per-session: a module value mirrored in `sessionStorage`, and the `DeckQAMSettings` mount effect calls `resetQamExpanded()` (only on the visible tab instance, `isActiveTab`) to wipe even the persisted flag every time the plugin tab mounts. While the sidecar is expanded, a 300 ms poll collapses it when `m_MenuStore.m_eOpenSideMenu` changes relative to the value captured at expand, or when a tick gap over 1.5 s while the document is not visible shows a resume from background. `document.hasFocus()` is not used: the QAM document never holds DOM focus, so it collapsed the sidecar within about 300 ms. Browser-lifecycle listeners add coverage: `visibilitychange` (hidden only), `pagehide` and `freeze` collapse; `focus` and `resume` collapse only while the document is hidden. `SidecarPanel` itself bails (`return null`) when `controller.settings` is unhydrated so a freshly-remounted tab never renders the "open but empty body" bug-state. A compact action row right under the master toggle (`toggleSidecar`, the sidecar's gear icon) opens or closes the sidecar through the same `fireQamExpand` path as the dpad-right chord and the B button, so the compositor widens or narrows together with the store flag.
+QAM-expanded state is per-session: a module value mirrored in `sessionStorage`, and the mount effect of `useSidecarOpenClose` (the hook `DeckQAMSettings` calls) calls `resetQamExpanded()` (only on the visible tab instance, `isActiveTab`) to wipe even the persisted flag every time the plugin tab mounts. While the sidecar is expanded, a 300 ms poll collapses it when `m_MenuStore.m_eOpenSideMenu` changes relative to the value captured at expand, or when a tick gap over 1.5 s while the document is not visible shows a resume from background. `document.hasFocus()` is not used: the QAM document never holds DOM focus, so it collapsed the sidecar within about 300 ms. Browser-lifecycle listeners add coverage: `visibilitychange` (hidden only), `pagehide` and `freeze` collapse; `focus` and `resume` collapse only while the document is hidden. `SidecarPanel` itself bails (`return null`) when `controller.settings` is unhydrated so a freshly-remounted tab never renders the "open but empty body" bug-state. A compact action row right under the master toggle (`toggleSidecar`, the sidecar's gear icon) opens or closes the sidecar through the same `fireQamExpand` path as the dpad-right chord and the B button, so the compositor widens or narrows together with the store flag.
 
 ### Own Quick Access tab (`runtime/ownQamTab.ts`)
 
@@ -487,11 +489,12 @@ Opt-in, off by default (`cloudSyncEnabled`). Mirrors settings across devices on 
 
 | File | Role |
 |---|---|
-| `runtime/homePatch.tsx` | Mounts `#deck-shelves-home-root` next to native recents; `HomeBoundary` ErrorBoundary; hide helpers for recents/tabs |
+| `runtime/homePatch.tsx` | Entry of the Home patch: bridge registration, fallback root, install and uninstall. Sibling modules: `homePatchWindow.ts` (which Steam window and document hold the Home), `homePatchAnchor.ts` (where the mount goes), `homePatchMount.tsx` (the `#deck-shelves-home-root` mount, crash state, `HomeBoundary`), `homePatchRecents.ts` and `homePatchTabs.ts` (hiding and restoring the native recents row and home tabs) |
 | `runtime/recentsReplace.tsx` | Optional: Steam's Recents row shows the first eligible shelf; shelf choice, its games, crash detection, kill switch |
 | `runtime/recentsRowPatch.ts` | The part of that feature that changes Steam's Recents row |
 | `runtime/ownQamTab.ts` | Optional: the plugin's own Quick Access tab under the plugin loader alone; also usable by a host for its own tab |
-| `components/HomeInject.tsx` | React side of the mount; `ShelvesContainer`; first-shelf promotion to recents slot |
+| `components/HomeInject.tsx` | React side of the mount |
+| `components/home/ShelvesContainer.tsx` | `ShelvesContainer`; first-shelf promotion to recents slot |
 | `components/Shelf.tsx` | Per-shelf appId resolve (memoized + generation-id cancel) |
 | `components/DeckRow.tsx` | Horizontal row: title + collapse + scroll center on focus |
 | `components/shelf/GameCard.tsx` | Game tile (image fallback chain, label, badges, compat) |

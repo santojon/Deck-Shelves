@@ -1,11 +1,18 @@
 import { call } from "../runtime/host/decky";
-import { isHomeOwner } from "../runtime/host/ownerGuard";
 import { SettingsSchema, type FilterGroup, type FilterItem, type Settings, type SmartShelf } from "../types";
 import { migrateRetiredIds } from "../domain/retired";
 import { createHiddenGamesExcludeItem, defaultSettings } from "../domain/defaults";
 import { logError, logInfo, logWarn, setVerboseLogging } from "../runtime/logger";
 import { applyQASettingsOverride, qaOverrideActive, qaSeedActive } from "../qa/harness";
-import { SYNC_LISTS, LOCAL_ONLY_FIELDS } from "../domain/settingsMerge";
+import { SYNC_LISTS } from "../domain/settingsMerge";
+import { withTimeout } from "./rpcTimeout";
+import { stampChanges } from "./syncStamps";
+import { skippedInQa } from "./settingsBackups";
+import { lastSaveSucceeded, queueSave } from "./settingsSaveQueue";
+export { stampChanges } from "./syncStamps";
+export { exportSettingsToFile, listBackups, countQuarantinedSettings, createSnapshot, createSafetySnapshot, createPreImportSnapshot, exportBackupToFile, deleteBackup, clearBackups, importBackupFromFile, writeJsonFile, readJsonFile, wasSettingsRecovered } from "./settingsBackups";
+export type { BackupEntry, SafetySnapshotKind } from "./settingsBackups";
+export { snapshotOnNextSave } from "./settingsSaveQueue";
 
 // Bumping the key invalidates every persisted cache entry at once.
 const CACHE_KEY = 'deck-shelves-settings-cache-v3';
@@ -72,17 +79,6 @@ setVerboseLogging((current as any)?.verboseLoggingEnabled === true);
 if (current) { writeCache(current); writeSharedState(current); }
 const listeners = new Set<(s: Settings) => void>();
 
-// While false, background refreshes don't override `current`, so unsaved changes survive reloads.
-const SAVE_OK_KEY = "deck-shelves-last-save-ok";
-let lastSaveSucceeded = (() => {
-  try { return globalThis.localStorage?.getItem(SAVE_OK_KEY) !== "0"; } catch { return true; }
-})();
-function markSaveResult(ok: boolean): void {
-  lastSaveSucceeded = ok;
-  try { globalThis.localStorage?.setItem(SAVE_OK_KEY, ok ? "1" : "0"); } catch {}
-  try { (globalThis as any).__ds_last_save_ok = ok; } catch {}
-}
-
 // Until the file is read, `current` is the local cache, which can be older than the file.
 // Early saves keep only the fields they changed and are laid over the file's document when it arrives;
 // after a failed save the cache is the newer copy and is written as is.
@@ -111,13 +107,6 @@ export function onSettingsFileRead(listener: () => void): () => void {
 function isSameSettings(a: Settings | null, b: Settings): boolean {
   if (!a) return false;
   return JSON.stringify(a) === JSON.stringify(b);
-}
-
-function withTimeout<T>(promise: Promise<T>, ms = 8000): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const id = setTimeout(() => reject(new Error(`timeout after ${ms}ms`)), ms);
-    promise.then((v) => { clearTimeout(id); resolve(v); }, (e) => { clearTimeout(id); reject(e); });
-  });
 }
 
 // The QA tag only means something in a QA build; a normal build never keeps or saves it.
@@ -171,21 +160,6 @@ function dedupeShelves(s: Settings): Settings {
   return changed ? ({ ...s, shelves, smartShelves: smart } as Settings) : s;
 }
 
-const TOMBSTONE_TTL_MS = 60 * 24 * 60 * 60 * 1000;
-
-function stripStamp(e: any): string {
-  const { updatedAt: _drop, ...rest } = e ?? {};
-  return JSON.stringify(rest);
-}
-
-// Sorted keys so key order never registers as a change.
-function scalarBag(s: any): string {
-  const skip = new Set<string>([...SYNC_LISTS, "syncTombstones", "preferencesUpdatedAt", ...LOCAL_ONLY_FIELDS]);
-  const out: any = {};
-  for (const k of Object.keys(s).sort()) if (!skip.has(k)) out[k] = s[k];
-  return JSON.stringify(out);
-}
-
 // Returns the same reference when nothing needed backfilling.
 function backfillSyncStamps(s: Settings): Settings {
   const out: any = { ...s };
@@ -204,41 +178,6 @@ function backfillSyncStamps(s: Settings): Settings {
   if (typeof st !== "object" || st === null) { out.syncTombstones = {}; changed = true; }
   if (typeof (s as any).preferencesUpdatedAt !== "number") { out.preferencesUpdatedAt = BACKFILL_EPOCH; changed = true; }
   return changed ? (out as Settings) : s;
-}
-
-function stampEntity(e: any, before: any, now: number): any {
-  if (before && stripStamp(before) === stripStamp(e)) {
-    return typeof e.updatedAt === "number" ? e : { ...e, updatedAt: before.updatedAt ?? now };
-  }
-  return { ...e, updatedAt: now };
-}
-
-function stampList(prevList: any[], nextList: any[], tombstones: Record<string, number>, now: number): any[] {
-  const prevById = new Map(prevList.map((e) => [e.id, e] as const));
-  const nextIds = new Set(nextList.map((e) => e.id));
-  const stamped = nextList.map((e) => stampEntity(e, prevById.get(e.id), now));
-  for (const e of prevList) if (!nextIds.has(e.id)) tombstones[e.id] = now;
-  for (const id of nextIds) if (id in tombstones) delete tombstones[id];
-  return stamped;
-}
-
-function pruneTombstones(tombstones: Record<string, number>, now: number): void {
-  for (const [id, t] of Object.entries(tombstones)) if (now - t > TOMBSTONE_TTL_MS) delete tombstones[id];
-}
-
-// Sync-applied saves skip this; they already carry authoritative stamps.
-export function stampChanges(prev: Settings | null, next: Settings): Settings {
-  const now = Date.now();
-  const out: any = { ...next };
-  const tombstones: Record<string, number> = { ...((next as any).syncTombstones ?? {}) };
-  for (const key of SYNC_LISTS) {
-    out[key] = stampList((prev as any)?.[key] ?? [], (next as any)[key] ?? [], tombstones, now);
-  }
-  const scalarChanged = !prev || scalarBag(prev) !== scalarBag(next);
-  out.preferencesUpdatedAt = scalarChanged ? now : ((prev as any).preferencesUpdatedAt ?? (next as any).preferencesUpdatedAt ?? now);
-  pruneTombstones(tombstones, now);
-  out.syncTombstones = tombstones;
-  return out as Settings;
 }
 
 function hasHiddenFilterItem(items: FilterItem[]): boolean {
@@ -343,16 +282,6 @@ function changedFields(before: Settings | null, next: Settings): Record<string, 
     if (JSON.stringify(a[k]) !== JSON.stringify(b[k])) out[k] = b[k];
   }
   return out;
-}
-
-function queueSave(next: Settings, resolvers: Array<(ok: boolean) => void>): void {
-  if (pendingSave) {
-    pendingSave.next = next;
-    pendingSave.resolvers.push(...resolvers);
-  } else {
-    pendingSave = { next, resolvers };
-  }
-  void flushPendingSave();
 }
 
 // The file's document arrived (or the wait ran out: `doc` null): lay the early edits over it and save once.
@@ -462,25 +391,6 @@ export async function refreshSettings(): Promise<Settings> {
   }
 }
 
-// Rapid saves coalesce: while a write is in flight only the latest payload is queued.
-let pendingSave: { next: Settings; resolvers: Array<(ok: boolean) => void> } | null = null;
-let saveInFlight = false;
-
-async function flushPendingSave(): Promise<void> {
-  if (saveInFlight) return;
-  const job = pendingSave;
-  if (!job) return;
-  pendingSave = null;
-  saveInFlight = true;
-  try {
-    const ok = await runSave(job.next);
-    for (const r of job.resolvers) r(ok);
-  } finally {
-    saveInFlight = false;
-    if (pendingSave) void flushPendingSave();
-  }
-}
-
 export function saveSettings(next: Settings, opts?: { fromSync?: boolean }): Promise<boolean> {
   // Sync-applied writes skip stamping, or the other device's clocks get clobbered.
   const stamped = withoutQaTag(opts?.fromSync ? next : stampChanges(current, next));
@@ -496,85 +406,6 @@ export function saveSettings(next: Settings, opts?: { fromSync?: boolean }): Pro
   return held ?? new Promise<boolean>((resolve) => { queueSave(stamped, [resolve]); });
 }
 
-// The backend snapshots the file it replaces in the same step, so nothing lands in between.
-let nextSaveSnapshot: SafetySnapshotKind | null = null;
-
-export function snapshotOnNextSave(kind: SafetySnapshotKind): void {
-  if (!qaOverrideActive) nextSaveSnapshot = kind;
-}
-
-async function runSave(next: Settings): Promise<boolean> {
-  const snapshot = nextSaveSnapshot;
-  nextSaveSnapshot = null;
-  // Single writer: a stood-down instance never writes settings.
-  if (!isHomeOwner()) {
-    logInfo("STORAGE", "saveSettings skipped — not the renderer owner (single-writer)");
-    return true;
-  }
-  logInfo("STORAGE", "saveSettings start", { enabled: next.enabled, shelfCount: next.shelves.length });
-
-  // One attempt; the cache and `lastSaveSucceeded` cover failures until the next save.
-  try {
-    const payload = snapshot ? { settings: next, snapshot } : { settings: next };
-    const ok = await withTimeout(call<[unknown], boolean>("set_settings", payload), 8000);
-    if (!ok) {
-      logWarn("STORAGE", "saveSettings backend returned false");
-      try { (globalThis as any).__ds_save_last_err = { kind: "backend-false", at: Date.now() }; } catch {}
-      markSaveResult(false);
-      return false;
-    }
-    logInfo("STORAGE", "saveSettings success");
-    markSaveResult(true);
-    return true;
-  } catch (error) {
-    logError("STORAGE", "saveSettings failed", String(error));
-    try { (globalThis as any).__ds_save_last_err = { kind: "call-throw", at: Date.now(), err: String(error) }; } catch {}
-    markSaveResult(false);
-    return false;
-  }
-}
-
-export async function exportSettingsToFile(destPath: string): Promise<boolean> {
-  try {
-    logInfo("STORAGE", "exportSettingsToFile start", { destPath });
-    return !!(await withTimeout(call<[unknown], boolean>("export_settings", { dest_path: destPath }), 15000));
-  } catch (error) {
-    logError("STORAGE", "exportSettingsToFile failed", String(error));
-    return false;
-  }
-}
-
-export interface BackupEntry {
-  name: string;
-  mtime: number;
-  size: number;
-  summary: { shelves: number; smartShelves: number; profiles: number; filters: number };
-}
-
-export async function listBackups(): Promise<BackupEntry[]> {
-  try {
-    const raw = await withTimeout(call<[], { backups?: BackupEntry[] }>("list_backups"), 8000);
-    return Array.isArray(raw?.backups) ? raw.backups : [];
-  } catch (error) {
-    logError("STORAGE", "listBackups failed", String(error));
-    return [];
-  }
-}
-
-// How many unreadable settings copies the backend keeps aside (never their content); 0 when unknown.
-export async function countQuarantinedSettings(): Promise<number> {
-  try {
-    const raw = await withTimeout(call<[], { quarantined?: number }>("list_backups"), 8000);
-    return typeof raw?.quarantined === "number" ? raw.quarantined : 0;
-  } catch { return 0; }
-}
-
-// The backup actions below write the real files on the backend: a QA build only lists them.
-function skippedInQa(action: string): boolean {
-  if (qaOverrideActive) logInfo("STORAGE", `${action} skipped (QA override active)`);
-  return qaOverrideActive;
-}
-
 export async function restoreBackup(name: string): Promise<Settings | null> {
   if (skippedInQa("restoreBackup")) return null;
   try {
@@ -588,106 +419,6 @@ export async function restoreBackup(name: string): Promise<Settings | null> {
   } catch (error) {
     logError("STORAGE", "restoreBackup failed", String(error));
     return null;
-  }
-}
-
-export async function createSnapshot(): Promise<BackupEntry[]> {
-  if (skippedInQa("createSnapshot")) return listBackups();
-  try {
-    const raw = await withTimeout(call<[], { backups?: BackupEntry[] }>("create_backup"), 8000);
-    return Array.isArray(raw?.backups) ? raw.backups : [];
-  } catch (error) {
-    logError("STORAGE", "createSnapshot failed", String(error));
-    return [];
-  }
-}
-
-// Best-effort snapshot before an import, a profile switch (at most one a minute) or an account change.
-export type SafetySnapshotKind = "import" | "profile" | "account";
-
-export async function createSafetySnapshot(kind: SafetySnapshotKind): Promise<void> {
-  if (skippedInQa("createSafetySnapshot")) return;
-  try {
-    await withTimeout(call<[unknown], unknown>("create_pre_import_backup", { kind }), 8000);
-  } catch (error) {
-    logError("STORAGE", "createSafetySnapshot failed", String(error));
-  }
-}
-
-export async function createPreImportSnapshot(): Promise<void> {
-  await createSafetySnapshot("import");
-}
-
-export async function exportBackupToFile(name: string, dest: string): Promise<boolean> {
-  try {
-    return !!(await withTimeout(call<[unknown], boolean>("export_backup", { name, dest }), 15000));
-  } catch (error) {
-    logError("STORAGE", "exportBackupToFile failed", String(error));
-    return false;
-  }
-}
-
-export async function deleteBackup(name: string): Promise<BackupEntry[] | null> {
-  if (skippedInQa("deleteBackup")) return null;
-  try {
-    const raw = await withTimeout(call<[unknown], { ok?: boolean; backups?: BackupEntry[] }>("delete_backup", { name }), 8000);
-    if (!raw?.ok) return null;
-    return Array.isArray(raw?.backups) ? raw.backups : [];
-  } catch (error) {
-    logError("STORAGE", "deleteBackup failed", String(error));
-    return null;
-  }
-}
-
-export async function clearBackups(): Promise<BackupEntry[]> {
-  if (skippedInQa("clearBackups")) return listBackups();
-  try {
-    const raw = await withTimeout(call<[], { backups?: BackupEntry[] }>("clear_backups"), 8000);
-    return Array.isArray(raw?.backups) ? raw.backups : [];
-  } catch (error) {
-    logError("STORAGE", "clearBackups failed", String(error));
-    return [];
-  }
-}
-
-export async function importBackupFromFile(srcPath: string): Promise<BackupEntry[] | null> {
-  if (skippedInQa("importBackupFromFile")) return null;
-  try {
-    const raw = await withTimeout(call<[unknown], { ok?: boolean; backups?: BackupEntry[] }>("import_backup", { src_path: srcPath }), 15000);
-    if (!raw?.ok) return null;
-    return Array.isArray(raw?.backups) ? raw.backups : [];
-  } catch (error) {
-    logError("STORAGE", "importBackupFromFile failed", String(error));
-    return null;
-  }
-}
-
-export async function writeJsonFile(path: string, content: string): Promise<boolean> {
-  try {
-    return !!(await withTimeout(call<[unknown], boolean>("write_json_file", { path, content }), 15000));
-  } catch (error) {
-    logError("STORAGE", "writeJsonFile failed", String(error));
-    return false;
-  }
-}
-
-export async function readJsonFile(path: string): Promise<string | null> {
-  try {
-    const r = await withTimeout(call<[unknown], { ok?: boolean; content?: string | null }>("read_json_file", { path }), 15000);
-    return (r?.ok && typeof r.content === "string") ? r.content : null;
-  } catch (error) {
-    logError("STORAGE", "readJsonFile failed", String(error));
-    return null;
-  }
-}
-
-// True once, after the backend restored settings from a backup; the backend clears its flag on read.
-export async function wasSettingsRecovered(): Promise<boolean> {
-  try {
-    return !!(await withTimeout(call<[], boolean>("was_settings_recovered"), 8000));
-  } catch (error) {
-    logError("STORAGE", "wasSettingsRecovered failed", String(error));
-    return false;
   }
 }
 

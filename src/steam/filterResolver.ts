@@ -2,7 +2,7 @@ import { type AppOverview, appIdOf, appNameOf, compareByAdded, isFavoriteOf, isH
 import { type FilterEvalContext, evaluateFilterGroup, isDeckCompatMatch } from "./filterEval";
 import type { FilterGroup, FilterItem } from "../types";
 import type { ResolverContext } from "./resolverContext";
-import { applySortToIds, hashIdSet, stableShuffleIds } from "./sorting";
+import { applySortToIds, hasSortComparator, hashIdSet, stableShuffleIds } from "./sorting";
 import { getCollectionApps } from "./collections";
 import { logInfo, logWarn } from "../runtime/logger";
 import { preloadDeveloperData, preloadPublisherData } from "./publisherDeveloper";
@@ -75,9 +75,17 @@ const FILTER_SORT_DISPATCH: Record<string, (apps: AppOverview[], shelfId?: strin
   },
 };
 
+// A key with no sorter of its own here would fall back to name order.
+function sortBySharedComparator(filtered: AppOverview[], key: string, shelfId?: string): AppOverview[] {
+  const byId = new Map(filtered.map((a) => [appIdOf(a), a] as const));
+  const ids = filtered.map((a) => appIdOf(a)).filter(Number.isFinite);
+  return applySortToIds(ids, key, filtered, shelfId).map((id) => byId.get(id)).filter((a): a is AppOverview => !!a);
+}
+
 function sortAppsByFilterKey(filtered: AppOverview[], fSort: string | undefined, shelfId?: string): AppOverview[] {
   const handler = fSort ? FILTER_SORT_DISPATCH[fSort] : undefined;
   if (handler) return handler(filtered, shelfId);
+  if (fSort && hasSortComparator(fSort)) return sortBySharedComparator(filtered, fSort, shelfId);
   return filtered.slice().sort((a, b) => String(a.sort_as ?? appNameOf(a)).localeCompare(String(b.sort_as ?? appNameOf(b))));
 }
 

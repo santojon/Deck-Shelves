@@ -10,20 +10,17 @@ import {
 } from '../../../runtime/host/decky'
 import type { SettingsController } from '../../../features/settings/controller'
 import type { FilterGroup, Shelf, ShelfFilter } from '../../../types'
-import { normalizeFilter } from '../../../domain/settings'
 import { SHELF_LIMIT_MAX } from '../../../domain/shelfLimits'
 import { consumePendingShelfModalTab } from '../../../core/shelfActions'
 import { ConditionEditor } from '../../conditions/ConditionEditor'
 import { FieldContainer, DSSliderField} from '../../ui'
-import { logInfo } from '../../../runtime/logger'
-import { notify } from '../../notify'
 import { invalidateRandomSortCache } from '../../../steam'
 import { invalidateSmartShelfCache } from '../../../steam/smartShelves'
 import { getExternalSources, contextAwareSourceRequiresFocus } from '../../../core/pluginApi'
 import { descriptorName } from '../../../core/descriptorName'
 import { isNonSteamBadgesAvailable } from '../../../integrations'
 import { usePlatform } from '../../../runtime/platformContext'
-import { BASE_SOURCE_TYPES, SORT_OPTIONS, V3_SOURCE_OPTIONS, type SourceType, type EditTab } from './editShelf/constants'
+import { SORT_OPTIONS, V3_SOURCE_OPTIONS, type SourceType, type EditTab } from './editShelf/constants'
 import type { EditableShelfState, SourceOrder } from './editShelf/types'
 import { optionData } from './editShelf/utils'
 import { SavedFiltersBar } from './editShelf/SavedFiltersBar'
@@ -39,18 +36,11 @@ import { TabLabel } from './editShelf/TabLabel'
 import { SortField } from './editShelf/SortField'
 import { EditShelfFrame } from './editShelf/EditShelfFrame'
 import {
-  sanitizeSyntheticCard,
-  buildSortPatchFields,
-  buildPrimarySource as buildPrimarySourceShared,
-  assembleFinalSource,
   patchSourceOrder,
-  discountBadgePatch,
-  shelfSortForPatch,
   primarySortKey,
-  isStateManualSort,
 } from './editShelf/saveHelpers'
 import { detectNativeTabKey, isUnsupportedTab } from './editShelf/tabUtils'
-import { usePreviewResolution } from './editShelf/usePreviewResolution'
+import { useShelfPreview } from './editShelf/useShelfPreview'
 import {
   buildChildTypeOptions,
   buildCollectionValueOpts as buildCollectionValueOptsShared,
@@ -75,6 +65,8 @@ import { buildInitialShelfState } from './editShelf/buildInitialState'
 import { SourceOrderFields } from './editShelf/SourceSortField'
 import { SourceOrderPreview, useSourceOrdering } from './editShelf/SourceOrderPreview'
 import { visualFlagsOf, applyVisualPatch, previewHideFlags, removableTail } from './editShelf/sharedEditProps'
+import { persistShelf } from './editShelf/buildSavePatch'
+import { computeSourceTypeState, hasAny, primarySortValue, isOnlineSourceType, onlineFeaturesEnabled, buildAllSourceTypes } from './editShelf/shelfFormState'
 
 // Fallback for when the controller's tab list comes back empty.
 const NATIVE_FALLBACK_TABS: import('../../../runtime/platform').PlatformTab[] = [
@@ -85,103 +77,10 @@ const NATIVE_FALLBACK_TABS: import('../../../runtime/platform').PlatformTab[] = 
   { id: 'nonsteam',   name: 'Non-Steam' },
 ]
 
-function gatedArray<T>(on: boolean, arr: T[]): T[] | undefined {
-  return on && arr.length ? arr : undefined
-}
-
-function buildSavePatch(
-  state: EditableShelfState,
-  ctx: { isManualSort: boolean; highlightPickerOpen: boolean; hiddenPickerOpen: boolean; title: string },
-): Partial<Shelf> {
-  const { baseSort, baseReverse } = buildSortPatchFields(state, ctx.isManualSort)
-  const cleanedSynth = state.syntheticCards.map(sanitizeSyntheticCard)
-  return {
-    title: ctx.title, limit: state.limit, matchNativeSize: state.matchNativeSize, highlightFirst: state.highlightFirst, highlightAll: state.highlightAll, highlightRandom: state.highlightRandom, enableLogo: state.enableLogo, enableIcon: state.enableIcon, enableDescription: state.enableDescription, descriptionBelowLogo: state.descriptionBelowLogo, logoPosition: state.logoPosition, descriptionPosition: state.descriptionPosition, logoSize: state.logoSize, logoTopOffset: state.logoTopOffset, iconVerticalAlign: state.iconVerticalAlign, ...discountBadgePatch(state), shelfTitlePosition: state.shelfTitlePosition, gameNamePosition: state.gameNamePosition, playtimePosition: state.playtimePosition, descriptionHeight: state.descriptionHeight, descriptionLogoGap: state.descriptionLogoGap, descriptionScale: state.descriptionScale !== 100 ? state.descriptionScale : undefined, fullPageShelf: state.fullPageShelf || undefined, highlightedAppIds: gatedArray(ctx.highlightPickerOpen, state.highlightedAppIds), manualOrder: gatedArray(ctx.isManualSort, state.manualOrder), manualBaseSort: baseSort as any, sortReverse: state.sortReverse || undefined, manualBaseSortReverse: baseReverse as any, hideStatusLine: state.hideStatusLine, hideNewBadge: state.hideNewBadge, hideDiscountBadge: state.hideDiscountBadge, hideCompatIcons: state.hideCompatIcons, hideNonSteamBadge: state.hideNonSteamBadge, hideShelfTitle: state.hideShelfTitle, hideGameNames: state.hideGameNames, hideInstallIndicator: state.hideInstallIndicator, hideSeeMore: state.hideSeeMore, hideRefreshCard: state.hideRefreshCard, heroEnabled: state.heroEnabled, gameInfoAbove: state.gameInfoAbove || undefined, friendsPlayingOverlay: state.friendsPlayingOverlay || undefined, friendsPlayingOverlayRecent: state.friendsPlayingOverlayRecent || undefined, dedupeByExactName: state.dedupeByExactName || undefined, hiddenAppIds: gatedArray(ctx.hiddenPickerOpen, state.hiddenAppIds), syntheticCards: cleanedSynth.length ? cleanedSynth : undefined,
-    ...behaviourPatch(state),
-  } as any
-}
-
-function behaviourPatch(state: EditableShelfState): Partial<Shelf> {
-  const hasRules = (v: any) => !!v && Array.isArray(v.rules) && v.rules.length > 0
-  return {
-    autoPin: hasRules(state.autoPin) ? state.autoPin : undefined,
-    autoCollapse: hasRules(state.autoCollapse) ? state.autoCollapse : undefined,
-    autoCollapseWhenEmpty: state.autoCollapseWhenEmpty ? true : undefined,
-  } as any
-}
-
-function firstOptParts(options: any[], fallbackTitle: string): { title: string; data: string } {
-  const first = options[0]
-  return { title: String(first?.title ?? first?.label ?? fallbackTitle), data: String(first?.data ?? '') }
-}
-
-function tabFirstParts(tabOptions: any[], tabTextLabels: Map<string, string>, t: (k: string) => string): { title: string; tab: string } {
-  const first = tabOptions[0]
-  const title = first ? (tabTextLabels.get(String(first.data)) ?? t('new_shelf')) : t('new_shelf')
-  return { title, tab: String(first?.data ?? 'all') }
-}
-
-function computeSourceTypeState(
-  prev: EditableShelfState,
-  type: SourceType,
-  deps: { collectionOptions: any[]; tabOptions: any[]; tabTextLabels: Map<string, string>; externalOptions: any[]; t: (k: string) => string },
-): EditableShelfState {
-  const { collectionOptions, tabOptions, tabTextLabels, externalOptions, t } = deps
-  const wipeExtras = {}
-  if (type === 'collection') {
-    const o = firstOptParts(collectionOptions, t('new_shelf'))
-    return { ...prev, sourceType: type, title: o.title, collectionId: o.data, filter: normalizeFilter({ type: 'filter', filter: prev.filter }), ...wipeExtras } as EditableShelfState
-  }
-  if (type === 'tab') {
-    const o = tabFirstParts(tabOptions, tabTextLabels, t)
-    return { ...prev, sourceType: type, title: o.title, tab: o.tab, ...wipeExtras } as EditableShelfState
-  }
-  if (type === 'external') {
-    const o = firstOptParts(externalOptions, t('new_shelf'))
-    return { ...prev, sourceType: type, title: o.title, externalSourceId: o.data, ...wipeExtras } as EditableShelfState
-  }
-  if (type === 'wishlist') {
-    return { ...prev, sourceType: type, childFilterGroup: { mode: 'and', items: [] }, ...wipeExtras } as EditableShelfState
-  }
-  if (type === 'store') {
-    return { ...prev, sourceType: type, ...wipeExtras } as EditableShelfState
-  }
-  if (type === 'builtin') {
-    const first = V3_SOURCE_OPTIONS[0]?.value ?? ''
-    return { ...prev, sourceType: type, builtinSourceId: prev.builtinSourceId || first, ...wipeExtras } as EditableShelfState
-  }
-  return { ...prev, sourceType: type, filter: normalizeFilter({ type: 'filter', filter: prev.filter }), ...wipeExtras } as EditableShelfState
-}
-
 function resolvePlatformTabs(controllerTabs: unknown): import('../../../runtime/platform').PlatformTab[] {
   return Array.isArray(controllerTabs) && controllerTabs.length > 0
     ? (controllerTabs as import('../../../runtime/platform').PlatformTab[])
     : NATIVE_FALLBACK_TABS
-}
-
-function hasAny(arr: unknown): boolean {
-  return ((arr as any[] | undefined)?.length ?? 0) > 0
-}
-
-function primarySortValue(state: EditableShelfState): Shelf['sort'] {
-  return state.sourceType === 'filter' ? (state.filter.sort ?? 'alphabetical') : state.sort
-}
-
-function isOnlineSourceType(sourceType: SourceType): boolean {
-  return sourceType === 'wishlist' || sourceType === 'store'
-}
-
-function onlineFeaturesEnabled(settings: unknown): boolean {
-  return (settings as { onlineFeaturesEnabled?: boolean } | null | undefined)?.onlineFeaturesEnabled === true
-}
-
-function buildAllSourceTypes(externalSources: unknown[], onlineEnabled: boolean): SourceType[] {
-  return [
-    ...BASE_SOURCE_TYPES,
-    ...(externalSources.length > 0 ? ['external' as SourceType] : []),
-    'builtin' as SourceType,
-    ...(onlineEnabled ? ['wishlist' as SourceType, 'store' as SourceType] : []),
-  ]
 }
 
 export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }: { closeModal?: () => void; controller: SettingsController; shelf: Shelf; mode?: 'create' | 'edit' }) {
@@ -217,60 +116,8 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
   const [alternatingMode, setAlternatingMode] = useState<'odd' | 'even' | null>(null)
   const prePatternHighlightsRef = useRef<number[] | null>(null)
   const isManualSort = primarySortKey(primarySortValue(state)) === 'manual'
-  // Synthetic cards ride in the manual order as negative ids: -(index + 1).
-  const SYNTH_SENTINEL = (i: number) => -(i + 1)
-  const synthIndexOfSentinel = (id: number) => (id < 0 ? -id - 1 : -1)
-
-  const previewSource = useMemo(() => {
-    const childFilter = state.childFilterGroup.items.length > 0 ? state.childFilterGroup : undefined
-    const primary = buildPrimarySourceShared({ state, childFilter })
-    return assembleFinalSource(primary, state)
-  }, [state.sourceType, state.collectionId, state.tab, state.externalSourceId, state.filterGroup, state.filter.sort, state.filter.sortReverse, state.manualBaseSort, state.childFilterGroup, state.excludeOwned, state.excludeOwnedNonSteam, state.hideOwnedNonSteamCloud, state.compositeCombine, state.additionalSources, state.builtinSourceId, state.primaryOrder])
-
-  const { previewCount, resolvedIds, resolvedMeta } = usePreviewResolution({
-    state, previewSource, previewShelfId, hiddenPickerOpen, previewRefreshNonce, platform,
-  })
-
-  const effectiveManualOrder = useMemo(() => {
-    if (!isManualSort) return resolvedIds
-    const idSet = new Set(resolvedIds)
-    // Menu-added entries go last so they stay visible; hidden cards stay in the preview, marked.
-    const gameOrder: number[] = []
-    const appendTail: number[] = []
-    const seen = new Set<number>()
-    for (const id of state.manualOrder) {
-      if (id < 0) continue
-      if (seen.has(id)) continue
-      seen.add(id)
-      if (idSet.has(id)) gameOrder.push(id)
-      else appendTail.push(id)
-    }
-    for (const id of resolvedIds) if (!seen.has(id)) gameOrder.push(id)
-    gameOrder.push(...appendTail)
-    if (!state.syntheticCards.length) return gameOrder
-    const synthEntries = state.syntheticCards
-      .map((c, i) => ({ pos: Math.max(0, Number(c.position) || 0), sentinel: SYNTH_SENTINEL(i) }))
-      .sort((a, b) => a.pos - b.pos)
-    const out = gameOrder.slice()
-    for (const { pos, sentinel } of synthEntries) {
-      out.splice(Math.min(pos, out.length), 0, sentinel)
-    }
-    return out
-  }, [isManualSort, resolvedIds, state.manualOrder, state.syntheticCards])
-
-  const reorderManual = (nextOrder: number[]) => setState((prev) => {
-    // Only game appids go in manualOrder; synthetic slots live on syntheticCards[].position.
-    const nextManualOrder: number[] = []
-    const nextSynth = prev.syntheticCards.slice()
-    for (let i = 0; i < nextOrder.length; i++) {
-      const id = nextOrder[i]
-      if (id >= 0) { nextManualOrder.push(id); continue }
-      const synthIdx = synthIndexOfSentinel(id)
-      if (synthIdx >= 0 && synthIdx < nextSynth.length) {
-        nextSynth[synthIdx] = { ...nextSynth[synthIdx], position: i }
-      }
-    }
-    return { ...prev, manualOrder: nextManualOrder, syntheticCards: nextSynth }
+  const { previewSource, previewCount, resolvedIds, resolvedMeta, effectiveManualOrder, reorderManual, SYNTH_SENTINEL } = useShelfPreview({
+    state, setState, isManualSort, previewShelfId, hiddenPickerOpen, previewRefreshNonce, platform,
   })
   const { settings } = controller
   const onlineOn = onlineFeaturesEnabled(settings)
@@ -420,24 +267,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
   }
   const handleSave = () => {
     closeModal?.();
-    void (async () => {
-      const title = state.title.trim() || t('new_shelf');
-      const isManualSort = isStateManualSort(state)
-      const childFilter = state.childFilterGroup.items.length > 0 ? state.childFilterGroup : undefined
-      const patch = buildSavePatch(state, { isManualSort, highlightPickerOpen, hiddenPickerOpen, title })
-      const primarySource = buildPrimarySourceShared({ state, childFilter, platformTabs })
-      patch.source = assembleFinalSource(primarySource, state) as any
-      patch.sort = shelfSortForPatch(state)
-      if (mode === 'create') {
-        const draft: Shelf = { ...shelf, ...(patch as Partial<Shelf>) } as Shelf;
-        const created = await actions.commitShelf(draft);
-        logInfo("SETTINGS", "shelf created", { shelfId: created?.id });
-      } else {
-        const ok = await actions.patchShelf(shelf.id, patch);
-        logInfo("SETTINGS", "shelf updated", { shelfId: shelf.id, success: ok });
-        notify("success", { body: t("toast_shelf_saved"), area: "shelves" });
-      }
-    })();
+    void persistShelf({ state, shelf, mode, highlightPickerOpen, hiddenPickerOpen, platformTabs, actions, t })
   }
 
   const renderPrimarySourcePicker = () => {

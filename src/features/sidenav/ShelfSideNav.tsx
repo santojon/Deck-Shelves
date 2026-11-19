@@ -1,11 +1,11 @@
 import { devStamp } from "../../runtime/devStamps";
-import { forwardRef, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Focusable, findModule } from "../../runtime/host/decky";
+import { Focusable } from "../../runtime/host/decky";
 import { getCurrentSettings, subscribeSettings } from "../../settingsStore";
 import { getExternalSideMenuProviders, type SideMenuContext, type SideMenuEntry, type SideMenuProviderDescriptor } from "../../core/pluginApi";
 import type { Settings, Shelf, SmartShelf } from "../../types";
-import { focusElement, focusElementAuto } from "../../core/focusRestore";
+import { focusElement } from "../../core/focusRestore";
 import { GamepadButton, dispatchHomeButtonDown, subscribeHomeButton, subscribeHomeKey } from "../../runtime/homeInputBus";
 import { createMatcherState, matchEvent, parseCombo, parseRawCombo, resolveBindings } from "../../runtime/buttonBindings";
 import { resolveKeyboardBindings, parseKeyCombo, matchKeyEvent, createKeyMatcherState, isEditableKeyTarget } from "../../runtime/keyboardBindings";
@@ -18,6 +18,9 @@ import { interleaveSmartShelves, pickFirstVisibleShelfId } from "../../domain/sh
 import { closeAmbientOverlays, lockOverlay, isOverlayLocked } from "../../runtime/closeOverlays";
 import { subscribeSessionState, getSessionState } from "../../runtime/sessionState";
 import { flowChildrenProps } from "../../core/steamOSVersion";
+import { ShelfButton, Header, Hint } from "./sideNavRows";
+import { NATIVE_RECENTS_ID, findNativeRecentsEl, focusNativeRecentsFirstCard } from "./nativeRecentsRow";
+export { findNativeRecentsEl, focusNativeRecentsFirstCard, nativeRecentsHoldsFocus } from "./nativeRecentsRow";
 
 type Anchor = {
   shelfId: string;
@@ -453,182 +456,10 @@ function SideNavShell({ anchor, settings, onClose }: { anchor: Anchor; settings:
   );
 }
 
-type PageListClasses = { item: string; scaled: string; title: string; icon: string };
-let pageListClasses: PageListClasses | null | undefined;
-
-// Steam's own Settings list classes: the client draws focus, hover and scale, and themes that restyle that list reach these rows.
-function steamPageListClasses(): PageListClasses | null {
-  if (pageListClasses !== undefined) return pageListClasses;
-  pageListClasses = null;
-  try {
-    const m: any = findModule((mod: any) => typeof mod?.PagedSettingsDialog_PageListItem === "string" && typeof mod?.ScaledChildren === "string" && "EnterActive" in mod);
-    if (m) pageListClasses = { item: m.PagedSettingsDialog_PageListItem, scaled: m.ScaledChildren, title: m.PageListItem_Title ?? "", icon: m.PageListItem_Icon ?? "" };
-  } catch {}
-  return pageListClasses;
-}
-
-// Without the client's classes, the same look inline: the accent fading from the left edge with a 2 px bar.
-function fallbackRowStyle(focused: boolean): React.CSSProperties {
-  return {
-    padding: "10px calc(12px + 1.4vw)",
-    color: focused ? "white" : "rgb(184, 188, 191)",
-    borderLeft: `2px solid ${focused ? "rgb(26, 159, 255)" : "transparent"}`,
-    background: focused ? "linear-gradient(90deg, rgba(26, 159, 255, 0.4) 0%, rgba(26, 159, 255, 0) 100%)" : "transparent",
-  };
-}
-
-function buttonRowStyle(focused: boolean, disabled: boolean, steamClasses: boolean): React.CSSProperties {
-  return {
-    ...(steamClasses ? {} : fallbackRowStyle(focused)),
-    opacity: disabled ? 0.45 : 1,
-    cursor: disabled ? "default" : "pointer",
-  };
-}
-
-function buttonContentStyle(focused: boolean, steamClasses: boolean): React.CSSProperties {
-  const scale = !steamClasses && focused ? { transform: "scale(1.1)", transformOrigin: "12% 50%" } : {};
-  return { display: "flex", alignItems: "center", gap: "0.5em", minWidth: 0, ...scale };
-}
-
-// The shelf on screen only reads brighter and heavier; the accent belongs to the focused row.
-function buttonLabelStyle(active: boolean): React.CSSProperties {
-  return {
-    fontWeight: active ? 700 : undefined,
-    color: active ? "white" : undefined,
-    whiteSpace: "nowrap",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-  };
-}
-
-const ShelfButton = forwardRef<HTMLDivElement, {
-  label: string;
-  active: boolean;
-  focused?: boolean;
-  preferredFocus?: boolean;
-  disabled?: boolean;
-  icon?: unknown;
-  onActivate: () => void;
-  onFocusChange?: (focused: boolean) => void;
-  hoverFocusTimeoutMs?: number;
-}>(function ShelfButton({ label, active, focused, preferredFocus, disabled, icon, onActivate, onFocusChange, hoverFocusTimeoutMs }, ref) {
-  const handle = disabled ? () => undefined : onActivate;
-  const timerRef = useRef<number | null>(null);
-  const steam = steamPageListClasses();
-  const armTimer = () => {
-    onFocusChange?.(true);
-    if (!hoverFocusTimeoutMs || disabled) return;
-    if (timerRef.current != null) window.clearTimeout(timerRef.current);
-    timerRef.current = window.setTimeout(() => { timerRef.current = null; handle(); }, hoverFocusTimeoutMs);
-  };
-  const clearTimer = () => {
-    onFocusChange?.(false);
-    if (timerRef.current != null) {
-      window.clearTimeout(timerRef.current);
-      timerRef.current = null;
-    }
-  };
-  // Inline because the QAM stylesheet isn't mounted on the Home.
-  return (
-    <Focusable
-      ref={ref}
-      noFocusRing
-      className={steam?.item}
-      preferredFocus={preferredFocus}
-      onClick={handle}
-      onOKButton={handle}
-      onActivate={handle}
-      onGamepadFocus={armTimer}
-      onGamepadBlur={clearTimer}
-      style={buttonRowStyle(!!focused, !!disabled, !!steam)}
-    >
-      <div className={steam?.scaled} style={buttonContentStyle(!!focused, !!steam)}>
-        {icon ? <span className={steam?.icon} style={{ display: "inline-flex" }}>{icon as React.ReactNode}</span> : null}
-        <span className={steam?.title} style={buttonLabelStyle(active)}>{label}</span>
-      </div>
-    </Focusable>
-  );
-});
-
-function Header({ children }: { children: React.ReactNode }) {
-  return (
-    <div style={{ opacity: 0.55, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, padding: "10px 14px 4px" }}>
-      {children}
-    </div>
-  );
-}
-
-function Hint({ text }: { text: string }) {
-  return <div style={{ opacity: 0.55, padding: "8px 14px", fontStyle: "italic" }}>{text}</div>;
-}
-
 function cssEscape(value: string): string {
   const g = globalThis as unknown as { CSS?: { escape?: (s: string) => string } };
   if (typeof g.CSS?.escape === "function") return g.CSS.escape(value);
   return value.replace(/["\\]/g, "\\$&");
-}
-
-const NATIVE_RECENTS_ID = "__ds_native_recents__";
-
-function getClassMap(): Record<string, string> {
-  try {
-    const g = globalThis as any;
-    if (g?.__DS_CLASS_MAP && typeof g.__DS_CLASS_MAP === "object") return g.__DS_CLASS_MAP;
-    if (globalThis.localStorage) {
-      const raw = globalThis.localStorage.getItem("ds_class_map");
-      if (raw) return JSON.parse(raw);
-    }
-  } catch {}
-  return {};
-}
-
-function nativeCardSelectorSN(map: Record<string, string>): string {
-  const cls = map.nativeCard;
-  return cls
-    ? `[class~="${cls}"]:not(.ds-card), a[href*="/library/app/"]:not(.ds-card), [data-appid]:not(.ds-card)`
-    : `a[href*="/library/app/"]:not(.ds-card), [data-appid]:not(.ds-card)`;
-}
-
-function collectNativeShelfCandidates(doc: Document, map: Record<string, string>): HTMLElement[] {
-  const candidates: HTMLElement[] = [];
-  const seen = new Set<HTMLElement>();
-  const push = (cls?: string) => {
-    if (!cls) return;
-    try {
-      doc.querySelectorAll<HTMLElement>(`[class~="${cls}"]`).forEach((el) => {
-        if (!seen.has(el)) { seen.add(el); candidates.push(el); }
-      });
-    } catch {}
-  };
-  push(map.nativeShelfContainer);
-  push(map.shelfSection);
-  return candidates;
-}
-
-function isNativeCandidateSN(el: HTMLElement, root: HTMLElement | null, homeRoot: HTMLElement | null, sel: string): boolean {
-  if (root && root.contains(el)) return false;
-  if (homeRoot && homeRoot.contains(el)) return false;
-  if (!el.isConnected || !el.querySelector(sel)) return false;
-  const r = el.getBoundingClientRect();
-  return r.height >= 40 && r.width >= 40;
-}
-
-export function findNativeRecentsEl(doc: Document): HTMLElement | null {
-  // Our wrappers reuse the native container class, so skip those inside our root.
-  const root = doc.querySelector<HTMLElement>(".deck-shelves-root");
-  const homeRoot = doc.getElementById("deck-shelves-home-root");
-  const map = getClassMap();
-  const sel = nativeCardSelectorSN(map);
-  const candidates = collectNativeShelfCandidates(doc, map);
-  let best: HTMLElement | null = null;
-  let bestTop = Infinity;
-  for (const el of candidates) {
-    if (!isNativeCandidateSN(el, root, homeRoot, sel)) continue;
-    const top = el.getBoundingClientRect().top;
-    if (top < bestTop) { best = el; bestTop = top; }
-  }
-  devStamp("__ds_native_probe", best ? { found: true, top: Math.round(best.getBoundingClientRect().top), candidates: candidates.length } : { found: false, candidates: candidates.length });
-  return best;
 }
 
 function readVisibleShelvesFromDom(): UnifiedShelf[] {
@@ -664,36 +495,4 @@ function readNativeRecentsEntry(doc: Document | null, fallbackLabel: string): Un
   // The hashed label classes hold the per-card label, so read the row heading.
   const text = el.querySelector<HTMLElement>('h1, h2, h3')?.textContent?.trim() ?? "";
   return { id: NATIVE_RECENTS_ID, title: text && text.length > 0 ? text : fallbackLabel };
-}
-
-function findFirstNativeCard(el: HTMLElement, map: Record<string, string>): HTMLElement | null {
-  const trySelectors = [
-    map.nativeCardFocusable ? `[class~="${map.nativeCardFocusable}"]:not(.ds-card)` : "",
-    map.nativeCard ? `[class~="${map.nativeCard}"]:not(.ds-card)` : "",
-    'a[href*="/library/app/"]:not(.ds-card)',
-    '[data-appid]:not(.ds-card)',
-  ].filter(Boolean);
-  for (const sel of trySelectors) {
-    const c = el.querySelector<HTMLElement>(sel);
-    if (c) return c;
-  }
-  return null;
-}
-
-// With `auto`, don't take over a Home owned by a game or another page.
-export function focusNativeRecentsFirstCard(doc: Document | null, auto = true): boolean {
-  if (!doc) return false;
-  const el = findNativeRecentsEl(doc);
-  if (!el) return false;
-  const card = findFirstNativeCard(el, getClassMap());
-  if (!card) return false;
-  try { card.scrollIntoView({ block: "center", inline: "center", behavior: "instant" as ScrollBehavior }); } catch {}
-  try { (auto ? focusElementAuto : focusElement)(card); } catch {}
-  return card.classList.contains("gpfocus") || card === card.ownerDocument?.activeElement;
-}
-
-export function nativeRecentsHoldsFocus(doc: Document): boolean {
-  const focused = doc.querySelector<HTMLElement>(".gpfocus") ?? (doc.activeElement as HTMLElement | null);
-  if (!focused || focused === doc.body) return false;
-  return !!findNativeRecentsEl(doc)?.contains(focused);
 }
