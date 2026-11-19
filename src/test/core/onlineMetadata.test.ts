@@ -75,6 +75,30 @@ describe('onlineMetadata', () => {
     expect((apps2[0] as any).metacritic_score).toBeUndefined()
   })
 
+  it('in Offline mode makes no request and remembers no miss, but still serves cached metadata', async () => {
+    const fetchMock = mockFetch((url) => {
+      if (url.includes('/api/appdetails')) return { '30': { data: { metacritic: { score: 70 } } } }
+      if (url.includes('/appreviews/')) return { query_summary: { total_reviews: 4, total_positive: 3 } }
+      return {}
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    await getGameMetadata(30, 'Cached', false)
+    const afterWarm = fetchMock.mock.calls.length
+
+    settings = { ...settings, offlineModeEnabled: true }
+    expect(await getGameMetadata(31, 'Uncached', false)).toEqual({})
+    expect(await getGameMetadata(0, 'Some shortcut', true)).toEqual({})
+    expect((await getGameMetadata(30, 'Cached', false)).metacritic).toBe(70)
+    expect(fetchMock.mock.calls.length).toBe(afterWarm)
+    const cachedIds = Object.keys(JSON.parse(lsStore.get('ds-metadata-cache-v1') ?? '{}'))
+    expect(cachedIds).toEqual(['app:30'])
+    expect(lsStore.has('ds-name-appid-v1')).toBe(false)
+
+    settings = { ...settings, offlineModeEnabled: false }
+    await getGameMetadata(31, 'Uncached', false)
+    expect(fetchMock.mock.calls.length).toBeGreaterThan(afterWarm)
+  })
+
   it('does not fetch when the app already carries all fields', async () => {
     const fetchMock = mockFetch(() => ({}))
     vi.stubGlobal('fetch', fetchMock)

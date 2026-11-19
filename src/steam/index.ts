@@ -2,7 +2,7 @@ import { type AppOverview, appIdOf, appNameOf, isFavoriteOf, isHiddenOf, isInsta
 import type { FilterGroup, FilterItem, ShelfSource } from "../types";
 import type { LooseSource, ResolverContext } from "./resolverContext";
 import { type SteamCollectionLike, steamCollectionStore } from "./internals";
-import { type TabMasterTab, findTabMasterContextValue, getTabAppIdsFromStore, listLibraryTabs, slugifyTab, tabIdFrom, tabNameFrom } from "./libraryTabs";
+import { type TabMasterTab, findTabMasterContextValue, getTabAppIdsFromStore, listLibraryTabs, queryTabStores, slugifyTab, tabIdFrom, tabNameFrom } from "./libraryTabs";
 import { applySortToIds, applySourceManualOrder, manualResolveLimit, sortPoolLookup } from "./sorting";
 import { dedupeAppIdsByName } from "./dedupe";
 import { evaluateFilterGroup } from "./filterEval";
@@ -247,7 +247,9 @@ async function resolveTabUuidViaTabMaster(rawTab: string, limit: number, shelfId
 }
 
 async function fetchTabStoreIds(rawTab: string, filterToInstalledNative: (ids: number[]) => number[]): Promise<number[]> {
-  let ids = await getTabAppIdsFromStore(rawTab);
+  const outcome = await queryTabStores(rawTab);
+  if (outcome.status === "unavailable") return [];
+  let ids = outcome.status === "ok" ? outcome.ids : [];
   if (ids.length) ids = filterToInstalledNative(ids);
   if (!ids.length && rawTab) ids = await findTabAppIdsByNameOrId(rawTab);
   return ids;

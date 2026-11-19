@@ -3,6 +3,7 @@ import { getCurrentSettings } from "../store/settingsStore";
 import { STEAM_STORE_BASE } from "../constants";
 import { logInfo } from "../runtime/logger";
 import { decodeHtmlEntities } from "../domain/sourceUtils";
+import { isOfflineModeOn } from "../components/ui/offlineMode";
 
 const META_KEY = "ds-metadata-cache-v1";
 const NAME_KEY = "ds-name-appid-v1";
@@ -116,6 +117,7 @@ export async function getGameMetadata(appid: number, name: string, isNonSteam: b
   const cacheId = isNonSteam ? `name:${name.trim().toLowerCase()}` : `app:${appid}`;
   const cached = cacheGet<GameMetadata>(META_KEY, cacheId, META_TTL);
   if (cached) return cached;
+  if (isOfflineModeOn()) return {};
   const storeId = isNonSteam ? await resolveNameToAppId(name) : appid;
   if (!storeId) { cacheSet(META_KEY, cacheId, {}); return {}; }
   const [details, reviewPct] = await Promise.all([fetchAppDetails(storeId), fetchReviewPct(storeId)]);

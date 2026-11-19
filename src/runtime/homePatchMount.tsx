@@ -57,7 +57,7 @@ function createMountElement(doc: Document, anchorParent: HTMLElement): HTMLEleme
 
 function reparentMountTo(mount: HTMLElement, anchor: Anchor): boolean {
   try {
-    if (mount.parentElement !== anchor.parent || (anchor.before && mount.nextSibling !== anchor.before)) {
+    if (mount.parentElement !== anchor.parent || (anchor.before && anchor.before !== mount && mount.nextSibling !== anchor.before)) {
       anchor.parent.insertBefore(mount, anchor.before);
     }
     return true;

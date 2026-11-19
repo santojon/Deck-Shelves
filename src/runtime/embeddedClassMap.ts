@@ -1,6 +1,6 @@
 import classMap from './classmap.json';
 
-// Only a hint: runtime discovery overrides it, and it can go stale after a Steam update.
+// Only a hint: it can go stale after a Steam update.
 try {
   const map = (classMap as Record<string, string> | null) ?? null;
   if (map && Object.keys(map).length) {

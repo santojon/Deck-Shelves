@@ -6,7 +6,8 @@ import { registerCardInput } from "../../runtime/cardInputRegistry";
 import { getPreferredSteamDocument } from "../../runtime/steamHost";
 import { buildSelectorFromToken, getRuntimeClassMap } from "../../core/webpackCompat";
 import { getPortraitUrls, getLandscapeUrls, getLogoUrls, getIconUrls } from "../../core/steamAssets";
-import { getHotCachedImageSrc, warmCacheBackground, firstCacheableUrl } from "../../core/imageCache";
+import { getHotCachedImageSrc, warmCacheBackground } from "../../core/imageCache";
+import { STEAM_CDN_AKAMAI, STEAM_CDN_CLOUDFLARE } from "../../constants";
 import { getAppDescriptions, preloadAppDescriptions } from "../../steam/appDescriptionsCache";
 import { trackCardLaunch, trackShelfView } from "../../steam/usageTracking";
 import { logInfo } from "../../runtime/logger";
@@ -421,13 +422,18 @@ export function useNativeCardClassInjection(
   return nativeCardClass;
 }
 
-function featuredUrls(appid: number, heroUrl: string | undefined): string[] {
-  const urls: string[] = appid > 0 ? [...getLandscapeUrls(appid)] : [];
+// Store CDN art exists only for Steam app ids.
+function withoutStoreCdn(urls: string[], nonSteam: boolean): string[] {
+  return nonSteam ? urls.filter((u) => !u.startsWith(STEAM_CDN_CLOUDFLARE) && !u.startsWith(STEAM_CDN_AKAMAI)) : urls;
+}
+
+function featuredUrls(appid: number, heroUrl: string | undefined, nonSteam: boolean): string[] {
+  const urls: string[] = appid > 0 ? [...withoutStoreCdn(getLandscapeUrls(appid), nonSteam)] : [];
   if (heroUrl && !urls.includes(heroUrl)) urls.push(heroUrl);
   return urls;
 }
 
-function portraitFallbackUrls(appid: number, portraitUrl: string | undefined, heroUrl: string | undefined, assetKey: string): string[] {
+function portraitFallbackUrls(appid: number, portraitUrl: string | undefined, heroUrl: string | undefined, assetKey: string, nonSteam: boolean): string[] {
   const urls: string[] = [];
   if (appid > 0) {
     const bust = `?c=${assetKey}`;
@@ -437,16 +443,16 @@ function portraitFallbackUrls(appid: number, portraitUrl: string | undefined, he
   if (portraitUrl && !urls.includes(portraitUrl)) urls.push(portraitUrl);
   if (heroUrl && !urls.includes(heroUrl)) urls.push(heroUrl);
   if (appid > 0) {
-    for (const u of getPortraitUrls(appid)) if (!urls.includes(u)) urls.push(u);
+    for (const u of withoutStoreCdn(getPortraitUrls(appid), nonSteam)) if (!urls.includes(u)) urls.push(u);
   }
   return urls;
 }
 
-function computeAllUrls(params: { appid: number; featured: boolean; portraitUrl?: string; heroUrl?: string; assetKey: string }): string[] {
-  const { appid, featured, portraitUrl, heroUrl, assetKey } = params;
+function computeAllUrls(params: { appid: number; featured: boolean; portraitUrl?: string; heroUrl?: string; assetKey: string; nonSteam: boolean }): string[] {
+  const { appid, featured, portraitUrl, heroUrl, assetKey, nonSteam } = params;
   return featured
-    ? featuredUrls(appid, heroUrl)
-    : portraitFallbackUrls(appid, portraitUrl, heroUrl, assetKey);
+    ? featuredUrls(appid, heroUrl, nonSteam)
+    : portraitFallbackUrls(appid, portraitUrl, heroUrl, assetKey, nonSteam);
 }
 
 function pickInitialCached(allUrls: string[]): { initialSrc: string; initialOriginal: string; startIdx: number } {
@@ -476,8 +482,8 @@ export function useCardImageFallback(params: {
   const currentOriginalUrl = useRef<string>("");
 
   const allUrls = useMemo(
-    () => computeAllUrls({ appid, featured, portraitUrl: item.portraitUrl, heroUrl: item.heroUrl, assetKey }),
-    [item.portraitUrl, item.heroUrl, appid, featured, assetKey],
+    () => computeAllUrls({ appid, featured, portraitUrl: item.portraitUrl, heroUrl: item.heroUrl, assetKey, nonSteam: item.isSteam === false }),
+    [item.portraitUrl, item.heroUrl, item.isSteam, appid, featured, assetKey],
   );
   const { initialSrc, initialOriginal, startIdx } = useMemo(() => pickInitialCached(allUrls), [allUrls]);
 
@@ -486,11 +492,6 @@ export function useCardImageFallback(params: {
     setImgFailed(false);
     setImgLoaded(false);
     currentOriginalUrl.current = initialOriginal;
-    // Warm the first cacheable URL; the local /customimages/ entry isn't cacheable.
-    if (isNearViewport && initialSrc === initialOriginal) {
-      const warmTarget = firstCacheableUrl(allUrls);
-      if (warmTarget) { try { warmCacheBackground(warmTarget); } catch {} }
-    }
   }, [allUrls, startIdx, initialSrc, initialOriginal, isNearViewport]);
 
   const onImgError = useCallback(() => {

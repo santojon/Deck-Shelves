@@ -152,32 +152,22 @@ export const staticClasses = frontendLib.staticClasses ?? {};
 
 export const gamepadDialogClasses =
   frontendLib.gamepadDialogClasses ??
-  frontendLib.staticClasses?.gamepadDialogClasses ??
-  frontendLib.staticClasses?.GamepadDialog ??
   classProxy;
 
 export const quickAccessControlsClasses =
   frontendLib.quickAccessControlsClasses ??
-  frontendLib.staticClasses?.quickAccessControlsClasses ??
-  frontendLib.staticClasses?.QuickAccessControls ??
   classProxy;
 
 export const scrollPanelClasses =
   frontendLib.scrollPanelClasses ??
-  frontendLib.staticClasses?.scrollPanelClasses ??
-  frontendLib.staticClasses?.ScrollPanel ??
   classProxy;
 
 export const gamepadContextMenuClasses =
   frontendLib.gamepadContextMenuClasses ??
-  frontendLib.staticClasses?.gamepadContextMenuClasses ??
-  frontendLib.staticClasses?.GamepadContextMenu ??
   classProxy;
 
 export const quickAccessMenuClasses =
   frontendLib.quickAccessMenuClasses ??
-  frontendLib.staticClasses?.quickAccessMenuClasses ??
-  frontendLib.staticClasses?.QuickAccessMenu ??
   classProxy;
 
 export type SingleDropdownOption = {

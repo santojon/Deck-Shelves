@@ -5,8 +5,8 @@ const FALLBACK_PANEL_SECTION = '_10BxjeNEe7t7ZWYcnl3-J6'
 const FALLBACK_PANEL_SECTION_ROW = 'JAewWdUpiV3X2NTJykahD'
 const FALLBACK_PANEL_SECTION_TITLE = '_321l150NTQBTsPZ9NnzZIz'
 
-function strOr(v: unknown, fallback: string): string {
-  return typeof v === 'string' && v ? v : fallback
+function strOr(v: unknown, fallback: string, key: string): string {
+  return typeof v === 'string' && v && v !== key ? v : fallback
 }
 
 function getPanelClasses(): { section: string; row: string; title: string } {
@@ -17,9 +17,9 @@ function getPanelClasses(): { section: string; row: string; title: string } {
     if (raw) {
       const parsed = JSON.parse(raw) ?? {}
       return {
-        section: strOr(parsed.PanelSection, FALLBACK_PANEL_SECTION),
-        row:     strOr(parsed.PanelSectionRow, FALLBACK_PANEL_SECTION_ROW),
-        title:   strOr(parsed.PanelSectionTitle, FALLBACK_PANEL_SECTION_TITLE),
+        section: strOr(parsed.PanelSection, FALLBACK_PANEL_SECTION, 'PanelSection'),
+        row:     strOr(parsed.PanelSectionRow, FALLBACK_PANEL_SECTION_ROW, 'PanelSectionRow'),
+        title:   strOr(parsed.PanelSectionTitle, FALLBACK_PANEL_SECTION_TITLE, 'PanelSectionTitle'),
       }
     }
   } catch {}

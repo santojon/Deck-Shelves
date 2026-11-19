@@ -2,6 +2,8 @@ import { getAllSteamDocuments } from "../../runtime/steamHost";
 import { getHeroUrls as getCentralHeroUrls } from "../../core/steamAssets";
 
 let _nativeAssetProto: any = null;
+let _nativeAssetMissAt = 0;
+const NATIVE_ASSET_MISS_TTL_MS = 500;
 
 function findAssetProtoInFiber(fiber: any): any {
   let f = fiber;
@@ -41,12 +43,15 @@ function findNativeAssetProto(): any {
     return _nativeAssetProto;
   }
   _nativeAssetProto = null;
+  const sinceMiss = Date.now() - _nativeAssetMissAt;
+  if (sinceMiss >= 0 && sinceMiss < NATIVE_ASSET_MISS_TTL_MS) return null;
   try {
     for (const doc of getAllSteamDocuments()) {
       const proto = findAssetProtoInDoc(doc);
       if (proto) { _nativeAssetProto = proto; return proto; }
     }
   } catch {}
+  _nativeAssetMissAt = Date.now();
   return null;
 }
 

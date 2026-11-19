@@ -4,7 +4,7 @@ import { gamepadDialogClasses, quickAccessControlsClasses } from '../../runtime/
 try {
   const w: any = (typeof window !== 'undefined') ? window : null
   const cls: any = quickAccessControlsClasses as any
-  if (w?.localStorage && cls?.PanelSection) {
+  if (w?.localStorage && cls?.PanelSection && cls.PanelSection !== 'PanelSection') {
     w.localStorage.setItem('ds_qam_panel_classes', JSON.stringify({
       PanelSection: cls.PanelSection,
       PanelSectionRow: cls.PanelSectionRow,

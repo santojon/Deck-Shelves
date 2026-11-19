@@ -328,6 +328,7 @@ function findPendingCard(): HTMLElement | null {
 }
 
 function clearPending(): void {
+  activeAbort?.abort();
   pendingAppid = null;
   pendingShelfId = null;
 }
@@ -418,6 +419,7 @@ export type NativeRowFocus = { holdsFocus: (doc: Document) => boolean; focusFirs
 // so focus is walked back once an earlier shelf has cards.
 export function beginColdBootFocusGuard(orderedShelfIds: string[], nativeRow?: NativeRowFocus): void {
   if (hasPendingFocus() || orderedShelfIds.length < 1) return;
+  armTeardown();
   coldBootAbort?.abort();
   const abort = new AbortController();
   coldBootAbort = abort;
@@ -438,7 +440,7 @@ export function beginColdBootFocusGuard(orderedShelfIds: string[], nativeRow?: N
   let start = armedAt;
   const expired = () => Date.now() - start >= COLD_BOOT_GUARD_MS || Date.now() - armedAt >= COLD_BOOT_GUARD_MAX_MS;
   // A boot-only helper: it also stands down while a game or another page holds the Home.
-  const standDown = () => abort.signal.aborted || userNavigated || getPowerState() !== 'active';
+  const standDown = () => abort.signal.aborted || userNavigated || getPowerState() !== 'active' || hasPendingFocus();
   const claim = () => {
     lastClaimAt = Date.now();
     if (!nativeRow?.focusFirst(doc)) claimFirstCardFocus(doc, orderedShelfIds);
@@ -463,12 +465,20 @@ export function beginColdBootFocusGuard(orderedShelfIds: string[], nativeRow?: N
 let activeAbort: AbortController | null = null;
 let activeTarget: number | null = null;
 let activeRetake: (() => void) | null = null;
+// One registration per plugin instance; the same module can boot again after a dispose.
+let teardownArmed = false;
+function armTeardown(): void {
+  if (teardownArmed) return;
+  teardownArmed = true;
+  registerDisposer(() => { teardownArmed = false; coldBootAbort?.abort(); activeAbort?.abort(); activeAbort = null; });
+}
 const RETAKE_WINDOW_MS = 3500;
 // How much longer a restore waits for a card that is not on the page yet.
 const LATE_SHELF_GRACE_MS = 24_000;
 
 export function beginFocusRestoreLoop(): void {
   if (!pendingAppid) return;
+  armTeardown();
   // The loop for this target is still alive (the Home came back while it waited): a fresh window, not a second loop.
   if (activeAbort && !activeAbort.signal.aborted && activeTarget === pendingAppid) { activeRetake?.(); return; }
 
@@ -595,7 +605,7 @@ export function beginFocusRestoreLoop(): void {
   const giveUp = () => {
     if (abort.signal.aborted) return;
     observer.disconnect();
-    if (getPowerState() === 'active') clearPending();
+    if (getPowerState() === 'active' && pendingAppid === targetAppid) clearPending();
     abort.abort();
   };
   setTimeout(() => {

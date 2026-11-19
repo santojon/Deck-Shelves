@@ -70,7 +70,7 @@ them, that code takes its fallback.
    window.__DS_CLASS_MAP = { ...JSON.parse(localStorage.getItem("ds_class_map")), viewport: "_newToken" };
    ```
 
-   Values may include or omit the leading dot. Remove the override with
+   Values are bare class names, without a leading dot. Remove the override with
    `delete window.__DS_CLASS_MAP`; the seed applies again on the next boot.
 4. Update `src/runtime/classmap.json`, deploy, and check the Home with a theme
    that depends on the classes (ArtHero, TiltedHome, Switch Like Home).

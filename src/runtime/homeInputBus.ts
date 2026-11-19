@@ -1,5 +1,5 @@
 import { devStamp } from "./devStamps";
-// Controller input only arrives through Decky's Focusable; Steam's own registration never fires here.
+// Button presses from the loader's focus handlers and keys typed in Big Picture fan out from here.
 
 import { GamepadButton } from "./host/decky";
 // Side-effect import: loads the keydown listener, which nothing else imports.

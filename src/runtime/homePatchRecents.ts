@@ -91,13 +91,9 @@ function setRecentsCollapsedStyle(el: HTMLElement, hidden: boolean): void {
   if (hidden) {
     // display:none is the only collapse GamepadUI's nav tree honours.
     const repurposed = !!el.querySelector('.ds-shelf, .deck-shelves-root, #' + ROOT_ID);
-    if (!repurposed && recentsHardCollapseArmed) {
-      s.setProperty("display", "none", "important");
-      el.setAttribute("data-ds-hidden-collapse", "1");
-    } else {
-      s.removeProperty("display");
-      el.removeAttribute("data-ds-hidden-collapse");
-    }
+    const hard = !repurposed && recentsHardCollapseArmed;
+    if (hard) s.setProperty("display", "none", "important"); else s.removeProperty("display");
+    el.setAttribute("data-ds-hidden-collapse", hard ? "1" : "0");
     s.setProperty("visibility", "hidden", "important");
     s.setProperty("height", "0px", "important");
     s.setProperty("min-height", "0px", "important");
@@ -118,7 +114,7 @@ function releaseWronglyCollapsedRecentsEl(el: HTMLElement): void {
 
 export function applyRecentsCollapse(hidden: boolean): void {
   // A collapse left by an earlier instance carries our marker; release it too.
-  if (!hidden) for (const d of getAllSteamDocuments()) d.querySelectorAll<HTMLElement>('[data-ds-hidden-collapse="1"]').forEach((el) => setRecentsCollapsedStyle(el, false));
+  if (!hidden) for (const d of getAllSteamDocuments()) d.querySelectorAll<HTMLElement>('[data-ds-hidden-collapse]').forEach((el) => setRecentsCollapsedStyle(el, false));
   if (!cachedRecentsEl) return;
   try {
     if (hidden) armRecentsHardCollapse();

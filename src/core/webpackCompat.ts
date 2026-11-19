@@ -9,6 +9,8 @@ export function getRuntimeClassMap(doc: Document): Record<string, string> | null
   try {
     const w = (doc as any).defaultView as Window | undefined;
     if (w && (w as any).__DS_CLASS_MAP) return (w as any).__DS_CLASS_MAP as Record<string, string>;
+    const own = (globalThis as any).__DS_CLASS_MAP;
+    if (own) return own as Record<string, string>;
     try {
       const raw = w && w.localStorage ? w.localStorage.getItem('ds_class_map') : null;
       if (raw) return JSON.parse(raw) as Record<string, string>;

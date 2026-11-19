@@ -8,7 +8,7 @@ vi.mock("../../runtime/powerGate", () => ({
   registerPeriodic: () => () => {},
 }));
 
-import { beginColdBootFocusGuard, clearFocusTarget } from "../../core/focusRestore";
+import { beginColdBootFocusGuard, clearFocusTarget, saveFocusTarget } from "../../core/focusRestore";
 
 function shelfCard(shelfId: string, focused = false) {
   const card = document.createElement("div");
@@ -45,6 +45,15 @@ describe("cold-boot focus guard", () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
+  it("a direction press stands the cold-boot guard down", async () => {
+    beginColdBootFocusGuard(["s1"]);
+    await vi.advanceTimersByTimeAsync(400);
+    expect(vi.getTimerCount()).toBe(1);
+    document.body.dispatchEvent(new Event("vgp_ondirection", { bubbles: true }));
+    await vi.advanceTimersByTimeAsync(200);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
   it("claims the first shelf's card when nothing has focus and Steam's row is hidden", async () => {
     const { node } = shelfCard("s1");
     beginColdBootFocusGuard(["s1"]);
@@ -76,6 +85,19 @@ describe("cold-boot focus guard", () => {
     beginColdBootFocusGuard(["s2"], row);
     await vi.advanceTimersByTimeAsync(400);
     expect(row.focusFirst).toHaveBeenCalled();
+  });
+
+  it("stops once a target is saved", async () => {
+    const { card } = shelfCard("s2");
+    card.setAttribute("data-appid", "620");
+    const row = nativeRow(false, true);
+    beginColdBootFocusGuard(["s2"], row);
+    await vi.advanceTimersByTimeAsync(400);
+    card.classList.add("gpfocus");
+    saveFocusTarget(620, "s2");
+    await vi.advanceTimersByTimeAsync(200);
+    expect(row.focusFirst).not.toHaveBeenCalled();
+    expect(vi.getTimerCount()).toBe(0);
   });
 
   it("falls back to the first shelf's card when Steam's row has no card", async () => {

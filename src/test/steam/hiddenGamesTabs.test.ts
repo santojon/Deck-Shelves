@@ -16,6 +16,7 @@ vi.mock("../../steam/library", async (importOriginal) => ({
 vi.mock("../../steam/libraryTabs", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../steam/libraryTabs")>()),
   getTabAppIdsFromStore: async () => stores.tabStoreIds,
+  queryTabStores: async () => (stores.tabStoreIds.length ? { status: "ok", ids: stores.tabStoreIds } : { status: "empty" }),
   listLibraryTabs: async () => [],
   findTabMasterContextValue: () => null,
 }));

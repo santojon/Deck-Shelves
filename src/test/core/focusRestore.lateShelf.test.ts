@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { saveFocusTarget, beginFocusRestoreLoop, clearFocusTarget, hasPendingFocus } from "../../core/focusRestore";
+import { saveFocusTarget, beginFocusRestoreLoop, clearFocusTarget, hasPendingFocus, getPendingFocusTarget } from "../../core/focusRestore";
 
 function cardWithNavNode(appid: number, shelfId: string) {
   const card = document.createElement("div");
@@ -87,6 +87,23 @@ describe("focus restore survives a shelf that mounts its cards late", () => {
     expect(hasPendingFocus()).toBe(false);
   });
 
+  it("a direction press after a restore landed stops the re-takes", async () => {
+    const { card, node } = mountRow(root, 620, "s3");
+    saveFocusTarget(620, "s3");
+    beginFocusRestoreLoop();
+    await flushObservers();
+    card.classList.add("gpfocus");
+    await flushObservers();
+    card.classList.remove("gpfocus");
+    const landed = node.BTakeFocus.mock.calls.length;
+    await vi.advanceTimersByTimeAsync(400);
+    const reTaken = node.BTakeFocus.mock.calls.length;
+    expect(reTaken).toBeGreaterThan(landed);
+    card.dispatchEvent(new Event("vgp_ondirection", { bubbles: true }));
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(node.BTakeFocus.mock.calls.length).toBe(reTaken);
+  });
+
   it("gives up for good once the late window runs out", async () => {
     saveFocusTarget(620, "s3");
     beginFocusRestoreLoop();
@@ -96,5 +113,29 @@ describe("focus restore survives a shelf that mounts its cards late", () => {
     await flushObservers();
     await vi.advanceTimersByTimeAsync(1000);
     expect(node.BTakeFocus).not.toHaveBeenCalled();
+  });
+
+  it("the final drop of an older loop leaves a newer target alone", async () => {
+    mountRow(root, 620, "s3");
+    saveFocusTarget(620, "s3");
+    beginFocusRestoreLoop();
+    await vi.advanceTimersByTimeAsync(1000);
+    saveFocusTarget(730, "s1");
+    await vi.advanceTimersByTimeAsync(5500);
+    expect(getPendingFocusTarget()).toEqual({ appid: 730, shelfId: "s1" });
+  });
+
+  it("a target saved again after a direction press gets a full window of its own", async () => {
+    root.id = "deck-shelves-home-root";
+    saveFocusTarget(620, "s3");
+    beginFocusRestoreLoop();
+    await vi.advanceTimersByTimeAsync(2000);
+    root.dispatchEvent(new Event("vgp_ondirection", { bubbles: true }));
+    expect(hasPendingFocus()).toBe(false);
+    await vi.advanceTimersByTimeAsync(1000);
+    saveFocusTarget(620, "s3");
+    beginFocusRestoreLoop();
+    await vi.advanceTimersByTimeAsync(28_000);
+    expect(hasPendingFocus()).toBe(true);
   });
 });

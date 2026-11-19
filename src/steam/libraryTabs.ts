@@ -145,9 +145,10 @@ function collectDynamicTabStores(): SteamObject[] {
   const dynamic: SteamObject[] = [];
   for (const hostWindow of hostWindows) {
     try {
-      for (const [key, value] of Object.entries(hostWindow ?? {})) {
+      for (const key of Object.keys(hostWindow ?? {})) {
         const lower = key.toLowerCase();
         if (!/(tab|library|unifi|unify|deck)/.test(lower)) continue;
+        const value = hostWindow[key];
         if (hasAnyMethod(value, methodNames)) dynamic.push(value);
       }
     } catch {}
@@ -170,29 +171,59 @@ function coerceStoreAppIds(arr: unknown): number[] {
     .filter((n: number) => Number.isFinite(n));
 }
 
-async function tryFetchTabAppIds(fn: Function, store: any, candidates: string[]): Promise<number[]> {
+function isEmptyStoreList(result: unknown): boolean {
+  if (Array.isArray(result)) return result.length === 0;
+  if (!result || typeof result !== "object") return false;
+  const r = result as Record<string, any>;
+  const list = r.apps ?? r.appids ?? r.items ?? r.list ?? r.entries;
+  return Array.isArray(list) && list.length === 0;
+}
+
+interface TabStoreTally { called: boolean; answered: boolean; emptyList: boolean }
+
+type TabStoreOutcome =
+  | { status: "ok"; ids: number[] }
+  | { status: "empty" | "unavailable" | "incompatible" | "error" };
+
+async function tryFetchTabAppIds(fn: Function, store: any, candidates: string[], tally: TabStoreTally): Promise<number[]> {
   for (const id of candidates) {
+    tally.called = true;
     try {
-      const ids = coerceStoreAppIds(unwrapStoreApps(await fn.call(store, id)));
+      const result = await fn.call(store, id);
+      tally.answered = true;
+      if (isEmptyStoreList(result)) tally.emptyList = true;
+      const ids = coerceStoreAppIds(unwrapStoreApps(result));
       if (ids.length) return ids;
     } catch {}
   }
   return [];
 }
 
-export async function getTabAppIdsFromStore(tab: string): Promise<number[]> {
+function outcomeFromTally(tally: TabStoreTally): TabStoreOutcome {
+  if (!tally.called) return { status: "unavailable" };
+  if (tally.emptyList) return { status: "empty" };
+  return { status: tally.answered ? "incompatible" : "error" };
+}
+
+export async function queryTabStores(tab: string): Promise<TabStoreOutcome> {
   const raw = String(tab ?? "").trim();
-  const candidates = [raw, normalizeTabId(raw), slugifyTab(raw)].filter(Boolean);
+  const candidates = Array.from(new Set([raw, normalizeTabId(raw), slugifyTab(raw)].filter(Boolean)));
   const methods = ["GetAppsForTab", "GetTabApps", "GetVisibleAppsForTab", "ResolveTabApps", "GetAppsByTab", "GetAppIDsForTab"];
+  const tally: TabStoreTally = { called: false, answered: false, emptyList: false };
   for (const store of collectDynamicTabStores()) {
     for (const method of methods) {
       const fn = store?.[method];
       if (typeof fn !== "function") continue;
-      const ids = await tryFetchTabAppIds(fn, store, candidates);
-      if (ids.length) return ids;
+      const ids = await tryFetchTabAppIds(fn, store, candidates, tally);
+      if (ids.length) return { status: "ok", ids };
     }
   }
-  return [];
+  return outcomeFromTally(tally);
+}
+
+export async function getTabAppIdsFromStore(tab: string): Promise<number[]> {
+  const outcome = await queryTabStores(tab);
+  return outcome.status === "ok" ? outcome.ids : [];
 }
 
 const NATIVE_LIBRARY_TAB_DEFAULTS: PlatformTab[] = [

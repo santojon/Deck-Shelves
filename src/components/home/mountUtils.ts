@@ -149,6 +149,7 @@ function findScrollableAnchorAfterRecents(doc: Document): { parent: HTMLElement;
   const body = doc.body;
   const candidates = Array.from(doc.querySelectorAll('[role="list"],[aria-label],[class*="ReactVirtualized__Grid"]'));
   for (const node of candidates) {
+    if (node.closest(`#${ROOT_ID}`)) continue;
     const txt = `${(node.getAttribute?.("aria-label") || "")} ${(node.textContent || "")}`;
     if (!matchesSteamText(txt, "recentGames", "contains")) continue;
     const start = node as HTMLElement;
@@ -274,7 +275,7 @@ function maybeRepositionMount(mount: HTMLElement, doc: Document): void {
     if (isRecentsAdjacent(mount)) return;
     const anchor = findScrollableAnchorAfterRecents(doc);
     if (!anchor || anchor.parent === doc.body) return;
-    if (mount.parentElement === anchor.parent && mount.nextSibling === anchor.before) return;
+    if (mount.parentElement === anchor.parent && (anchor.before === mount || mount.nextSibling === anchor.before)) return;
     anchor.parent.insertBefore(mount, anchor.before);
     logInfo("HOME", "mount repositioned to recents anchor", { parent: anchor.parent.tagName });
   } catch (e) { logInfo("HOME", "maybeRepositionMount failed", String(e)); }

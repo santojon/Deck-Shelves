@@ -111,6 +111,82 @@ describe("mountUtils — anchor next to recents, never inside it", () => {
   });
 });
 
+function buildHomeWithInnerLabelRow() {
+  document.body.innerHTML = "";
+  const panel = document.createElement("div");
+  panel.style.overflowY = "auto";
+  const row = document.createElement("div");
+  const inner = document.createElement("div");
+  inner.setAttribute("aria-label", "Jogos recentes");
+  row.appendChild(inner);
+  const other = document.createElement("div");
+  panel.append(row, other);
+  document.body.appendChild(panel);
+  return { panel, row, other };
+}
+
+describe("mountUtils — a mount already in its slot", () => {
+  beforeEach(() => { document.body.innerHTML = ""; stubSteamLocalizer(STEAM_PT_BR); });
+  afterEach(clearSteamLocalizer);
+
+  it("is not re-inserted when the recents row is known only by an inner label", () => {
+    const { panel, row } = buildHomeWithInnerLabelRow();
+    const mount = mountEl();
+    panel.insertBefore(mount, row.nextSibling);
+    const observer = new MutationObserver(() => {});
+    observer.observe(panel, { childList: true });
+    expect(findOrCreateMount()).toBe(mount);
+    expect(findOrCreateMount()).toBe(mount);
+    const records = observer.takeRecords();
+    observer.disconnect();
+    expect(records).toHaveLength(0);
+    expect(mount.previousElementSibling).toBe(row);
+  });
+
+  it("still moves next to that row when it sits elsewhere", () => {
+    const { panel, row, other } = buildHomeWithInnerLabelRow();
+    const mount = mountEl();
+    panel.appendChild(mount);
+    expect(findOrCreateMount()).toBe(mount);
+    expect(mount.previousElementSibling).toBe(row);
+    expect(mount.nextElementSibling).toBe(other);
+  });
+});
+
+function mountWithShelfNamedLikeRecents(): HTMLElement {
+  const mount = mountEl();
+  const shelf = document.createElement("div");
+  shelf.setAttribute("aria-label", "Jogos recentes");
+  mount.appendChild(shelf);
+  return mount;
+}
+
+describe("mountUtils — our own shelves are never the recents row", () => {
+  beforeEach(() => { document.body.innerHTML = ""; stubSteamLocalizer(STEAM_PT_BR); });
+  afterEach(clearSteamLocalizer);
+
+  it("does not take a shelf of ours named like the recents row for it", () => {
+    const panel = document.createElement("div");
+    panel.style.overflowY = "auto";
+    const tabs = document.createElement("div");
+    for (const label of ["Novidades", "Amigos", "Recomendados"]) { const b = document.createElement("button"); b.textContent = label; tabs.appendChild(b); }
+    panel.append(tabs, mountWithShelfNamedLikeRecents());
+    document.body.appendChild(panel);
+    const anchor = resolveAnchor(document);
+    expect(anchor?.parent).toBe(panel);
+    expect(anchor?.before).toBe(tabs);
+  });
+
+  it("moves a mount next to the real recents row even when one of our shelves carries the same label", () => {
+    const { panel, recents } = buildEarlyHome();
+    const mount = mountWithShelfNamedLikeRecents();
+    panel.insertBefore(mount, recents);
+    expect(findOrCreateMount()).toBe(mount);
+    expect(mount.parentElement).toBe(panel);
+    expect(mount.previousElementSibling).toBe(recents);
+  });
+});
+
 describe("mountUtils — Steam's own labels, in any Steam language", () => {
   const GERMAN: Record<string, string> = {
     "#LibraryHome_RecentGames": "Kürzlich gespielt",

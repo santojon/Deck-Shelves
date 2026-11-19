@@ -103,16 +103,17 @@ export function ShelvesContainer(props: ShelvesContainerProps) {
     else beginColdBootFocusGuard(shelves.map((s: any) => s.id), hideRecentsSetting ? undefined : NATIVE_ROW_FOCUS);
 
     let applyPending: number | null = null;
+    let reparentPending: number | null = null;
     const scheduleApplyPatches = () => {
       if (applyPending != null) return;
+      if (reparentPending != null) { cancelAnimationFrame(reparentPending); reparentPending = null; }
       applyPending = requestAnimationFrame(() => {
         applyPending = null;
         applyPatches();
       });
     };
-    let reparentPending: number | null = null;
     const scheduleReparentOnly = () => {
-      if (reparentPending != null) return;
+      if (reparentPending != null || applyPending != null) return;
       reparentPending = requestAnimationFrame(() => {
         reparentPending = null;
         reparentOnly();
