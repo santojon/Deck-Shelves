@@ -109,9 +109,14 @@ export function hasSortComparator(key: string): boolean {
   return key in KEY_COMPARATOR_BUILDERS || !!v3Comparator(key);
 }
 
+// A plugin's key: built-in entries sit in the same registry with a stub sort.
+export function isPluginSortKey(key: string): boolean {
+  return hasExternalSortOption(key) && !isInternalSortOption(key);
+}
+
 export function isSupportedSortKey(key: string): boolean {
   if (ORDER_ONLY_KEYS.has(key) || PRICE_KEYS.has(key) || key in KEY_COMPARATOR_BUILDERS || v3Comparator(key)) return true;
-  return hasExternalSortOption(key) && !isInternalSortOption(key);
+  return isPluginSortKey(key);
 }
 
 function priceComparator(key: string, priceMap: PriceMap): Cmp {
@@ -147,6 +152,15 @@ function buildKeyComparator(key: string, isReversed: boolean, priceMap?: PriceMa
   const base = buildBaseComparator(key, priceMap);
   if (!isReversed) return base;
   return (a, b) => -base(a, b);
+}
+
+// In a chain, a plugin key compares games by their place in the order the plugin returns.
+function pluginComparator(key: string, isReversed: boolean, ids: number[], apps: AppOverview[]): Cmp | null {
+  const order = applyExternalSort(key, ids, apps.map(toPublicAppMeta));
+  if (!order) return null;
+  const place = new Map(order.map((id, i) => [id, i] as const));
+  const sign = isReversed ? -1 : 1;
+  return (a, b) => sign * ((place.get(appIdOf(a)) ?? 1e9) - (place.get(appIdOf(b)) ?? 1e9));
 }
 
 function readAppOverviewFromWindow(win: SteamHostWindow, id: number): AppOverview | null {
@@ -192,13 +206,13 @@ function applyMultiKeySort(
     return applySortToIds(ids, keys[0], all, shelfId, r, priceMap);
   }
   const comparators: ((a: AppOverview, b: AppOverview) => number)[] = [];
+  const apps = hydrateAppsForSort(ids, buildSortByIdMap(all));
   keys.forEach((k, i) => {
     const r = Array.isArray(reverse) ? !!reverse[i] : !!reverse;
-    const cmp = buildKeyComparator(k, r, priceMap);
+    const cmp = (isPluginSortKey(k) ? pluginComparator(k, r, ids, apps) : null) ?? buildKeyComparator(k, r, priceMap);
     if (cmp) comparators.push(cmp);
   });
   if (comparators.length === 0) return ids.slice();
-  const apps = hydrateAppsForSort(ids, buildSortByIdMap(all));
   apps.sort((a, b) => {
     for (const cmp of comparators) {
       const r = cmp(a, b);

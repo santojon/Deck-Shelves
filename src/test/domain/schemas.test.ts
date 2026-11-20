@@ -132,3 +132,33 @@ describe('profile fields survive parsing', () => {
     expect(r.profiles[0].updatedAt).toBe(42)
   })
 })
+
+describe('a smart mode this build does not know', () => {
+  const smart = (over: Record<string, unknown> = {}) => ({ id: 'sm', title: 'Smart', mode: 'acme.mode', ...over })
+  const smartSource = (mode: string) => ({
+    id: 's', title: 'Shelf',
+    source: { type: 'composite', combine: 'union', sources: [{ type: 'tab', tab: 'all' }, { type: 'smart', mode }] },
+  })
+
+  it('is kept on a smart shelf, as a combined mode and as a smart extra source', () => {
+    expect(SmartShelfSchema.parse(smart()).mode).toBe('acme.mode')
+    expect(SmartShelfSchema.parse(smart({ mode: 'quick_play', compositeModes: ['acme.mode'] })).compositeModes).toEqual(['acme.mode'])
+    expect((ShelfSchema.parse(smartSource('acme.mode')).source as any).sources[1].mode).toBe('acme.mode')
+  })
+
+  it('leaves the whole settings document parseable', () => {
+    const r = SettingsSchema.safeParse({ smartShelves: [smart()], shelves: [smartSource('acme.mode')] })
+    expect(r.success).toBe(true)
+  })
+
+  it('is still refused when empty or longer than 64 characters', () => {
+    expect(SmartShelfSchema.safeParse(smart({ mode: '' })).success).toBe(false)
+    expect(SmartShelfSchema.safeParse(smart({ mode: 'x'.repeat(65) })).success).toBe(false)
+    expect(SmartShelfSchema.safeParse(smart({ mode: 'quick_play', compositeModes: [''] })).success).toBe(false)
+    expect(ShelfSchema.safeParse(smartSource('x'.repeat(65))).success).toBe(false)
+  })
+
+  it('does not stop a retired mode from parsing', () => {
+    expect(SmartShelfSchema.parse(smart({ mode: 'long_session_night' })).mode).toBe('long_session_night')
+  })
+})

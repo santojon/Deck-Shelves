@@ -253,15 +253,18 @@ src/
 │ ├── v3Extensions.ts The conditions, sorts and sources beyond the base
 │ │ set (catalog data, store tags, achievements, the
 │ │ friends' libraries, Family Sharing, the game lists,
-│ │ dynamic collections) + descriptive registry entries
-│ │ used by `internalRegistry.ts` for the Plugin API.
+│ │ dynamic collections).
 │ ├── achievements.ts Achievement counts per app from the client's own
 │ │ list, loaded before a query that reads them.
 │ ├── friendsOwned.ts Which friends own each app, one fetch per friend.
 │ └── smartShelves.ts Smart-shelf candidate resolution per mode
 │
 ├── store/
-│ └── settingsStore.ts Settings persistence: backend RPC + localStorage cache
+│ ├── settingsStore.ts Settings persistence: cache, migration, file read, subscribers
+│ ├── settingsSaveQueue.ts One backend write at a time; the latest payload wins
+│ ├── settingsBackups.ts Backup, snapshot and file calls to the backend
+│ ├── syncStamps.ts Per-entity clocks and tombstones for an edit
+│ └── rpcTimeout.ts Rejects a backend call that takes too long
 │
 ├── core/
 │ ├── focusRestore.ts Focus restoration after navigation
@@ -447,7 +450,7 @@ Filter groups are AND/OR predicates evaluated against a single source pool — n
 
 Asc/desc inversion is a separate boolean (`Shelf.sortReverse` / `SmartShelf.sortReverse`, plus `manualBaseSortReverse` for the manual case) toggled by a 40×40 icon button next to the sort dropdown in `EditShelfModal` / `EditSmartShelfModal`. The flag flows through `resolveShelfAppIds(source, limit, sort, shelfId, sortReverse)` to `applySortToIds`, which reverses the result post-sort. Skipped for `manual` (would invalidate user order) and `random` (re-reversing a shuffle adds no signal). When no explicit sort is persisted but reverse is on, `Shelf.tsx` substitutes `"alphabetical"` as the resolver sort so the reverse has somewhere to apply. The `"alphabetical"` branch in `applySortToIds` is **explicit** — without it, the internal sort registry's noop pass-through descriptor would intercept and skip sorting.
 
-Native Steam library tabs (`installed`, `great_on_deck`) post-filter the candidate set to `app_type === 1` (game) or `undefined` (unknown — allowed through) AND exclude non-Steam shortcuts, matching the native SteamOS Installed tab. Applied in both the TabMaster path (`getCustomFiltersAppsForContainer`) and the store-API path (`getTabAppIdsFromStore`); other tab ids are untouched.
+Native Steam library tabs (`installed`, `great_on_deck`) post-filter the candidate set to `app_type === 1` (game) or `undefined` (unknown — allowed through) AND exclude non-Steam shortcuts, matching the native SteamOS Installed tab. Applied in both the TabMaster path (`getCustomFiltersAppsForContainer`) and the store-API path (`queryTabStores`); other tab ids are untouched.
 
 ### Composite source (`steam/index.ts > _resolveComposite`)
 
@@ -457,7 +460,7 @@ Composite shelves declare `{ type: "composite", combine, sources: ShelfSource[] 
 
 User-replaced custom artwork (capsule, logo, hero, icon) lives at static `/customimages/<appid>.*` URLs that the browser caches by path. Without a buster, replacing the file off-screen leaves the old bitmap in the row when the user returns. `assetRevision` is a single counter `HomeInject` bumps on every popstate / pushState back to home; `getAppAssetCacheKey(appid)` returns that revision so memo dep arrays for `getLogoUrls` / `getIconUrls` / `getPortraitUrls` / `getLandscapeUrls` re-derive whenever the user comes back. Custom-image URLs append `?c=<revision>` so the browser fetches the fresh file. Steam-native loopback URLs keep their `?c=<local_cache_version>` buster from `appStore` — those are orthogonal and stable.
 
-### Settings save pipeline (`store/settingsStore.ts` + `main.py > _save_pipeline`)
+### Settings save pipeline (`store/settingsStore.ts`, `store/settingsSaveQueue.ts` + `main.py > _save_pipeline`)
 
 Concurrent `saveSettings` calls coalesce: a save in flight latches the next payload into `pendingSave`, every caller waits for the same RPC outcome. The Python `set_settings` runs the whole sanitize + read + compare-and-skip + write under `asyncio.to_thread` so the asyncio event loop keeps draining other RPCs while the disk write fsyncs. The frontend tracks `lastSaveSucceeded` in `localStorage` so a failed save survives plugin reload — on next boot the cache stays as source of truth and the next user interaction retries the write. `refreshSettings` captures a `refreshAnchor` snapshot before the background `get_settings` so an in-flight user edit can't be silently reverted by a stale backend response.
 

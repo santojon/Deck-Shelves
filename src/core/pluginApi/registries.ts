@@ -30,7 +30,9 @@ export const importHandlers = new Map<string, ImportHandlerDescriptor>();
 const RESERVED_ID_PREFIX = "deck-shelves.";
 export const NOOP_UNSUB: Unsubscribe = () => {};
 
-export function isReservedId(id: unknown, builtIns?: Set<string>): boolean {
+type ReservedIds = { has(id: string): boolean };
+
+export function isReservedId(id: unknown, builtIns?: ReservedIds): boolean {
   const s = String(id ?? "");
   if (!s.startsWith(RESERVED_ID_PREFIX) && !builtIns?.has(s)) return false;
   logWarn("RUNTIME", `plugin API: id "${s}" is reserved by Deck Shelves; registration ignored`);
@@ -38,7 +40,7 @@ export function isReservedId(id: unknown, builtIns?: Set<string>): boolean {
 }
 
 // Unregistering removes the entry only while it is still this registration's.
-export function addExternal<D extends { id: string }>(map: Map<string, D>, d: D, builtIns?: Set<string>): Unsubscribe {
+export function addExternal<D extends { id: string }>(map: Map<string, D>, d: D, builtIns?: ReservedIds): Unsubscribe {
   if (isReservedId(d?.id, builtIns)) return NOOP_UNSUB;
   map.set(d.id, d);
   return () => { if (map.get(d.id) === d) map.delete(d.id); };
@@ -295,4 +297,23 @@ export function isInternalFilterType(id: string): boolean {
 
 export function isInternalSortOption(id: string): boolean {
   return internalSortOptionIds.has(id);
+}
+
+// What a shelf can store: the schema and the backend keep a mode, condition type or sort key of 1 to 64 characters.
+const isStorableId = (id: unknown): boolean => typeof id === "string" && id.length > 0 && id.length <= 64;
+
+export function getThirdPartySources(): ExternalShelfSourceDescriptor[] {
+  return getExternalSources().filter((d) => !internalShelfSourceIds.has(d.id));
+}
+
+export function getThirdPartySmartSources(): SmartShelfSourceDescriptor[] {
+  return getExternalSmartSources().filter((d) => !internalSmartSourceIds.has(d.id) && isStorableId(d.id));
+}
+
+export function getThirdPartyFilterTypes(): ExternalFilterTypeDescriptor[] {
+  return getExternalFilterTypes().filter((d) => !internalFilterTypeIds.has(d.id) && isStorableId(d.id));
+}
+
+export function getThirdPartySortOptions(): ExternalSortOptionDescriptor[] {
+  return getExternalSortOptions().filter((d) => !internalSortOptionIds.has(d.id) && isStorableId(d.id));
 }

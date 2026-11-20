@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { migrateRetiredIds, migrateRetiredSource } from "../../domain/retired";
 import { defaultSettings } from "../../domain/defaults";
+import { mergeSettings } from "../../domain/settingsMerge";
+import { V3_SOURCE_OPTIONS } from "../../components/qam/modals/editShelf/constants";
 import type { Settings } from "../../types";
 
 function withShelf(shelf: any, extra: Partial<Settings> = {}): Settings {
@@ -111,5 +113,69 @@ describe("migrateRetiredSource", () => {
     expect(migrateRetiredSource({ type: "builtin", sourceId: "controller_specific_source" } as any)).toEqual({
       type: "filter", filter: { filterGroup: { mode: "and", items: [{ type: "controllerSupport", inverted: false, params: { min: 2 } }] } },
     });
+  });
+});
+
+describe("an external source naming a built-in list", () => {
+  const external = (sourceId: string, over: Record<string, unknown> = {}) =>
+    ({ id: "a", title: "A", enabled: true, limit: 12, sort: "recent", sortReverse: true, updatedAt: 500, source: { type: "external", sourceId }, ...over });
+
+  it("loads as that built-in list, its order kept and its clock one tick ahead", () => {
+    const out = migrateRetiredIds(withShelf(external("pinned_games"))).shelves[0] as any;
+    expect(out).toEqual({ ...external("pinned_games"), updatedAt: 501, source: { type: "builtin", sourceId: "pinned_games" } });
+  });
+
+  it("starts the clock at one tick for a shelf that never had one", () => {
+    const out = migrateRetiredIds(withShelf(external("history_source", { updatedAt: undefined }))).shelves[0] as any;
+    expect(out.updatedAt).toBe(1);
+    expect(out.source.type).toBe("builtin");
+  });
+
+  it("moves the list inside a multi-source shelf, keeping the source's own sort, limit and placed games", () => {
+    const child = { type: "external", sourceId: "session_queue_source", sort: "playtime", sortReverse: false, limit: 4, manualOrder: [7, 3] };
+    const shelf = { id: "m", title: "M", enabled: true, updatedAt: 9, source: { type: "composite", combine: "union", sources: [{ type: "tab", tab: "all" }, child] } };
+    const out = migrateRetiredIds(withShelf(shelf)).shelves[0] as any;
+    expect(out.source.sources[0]).toBe(shelf.source.sources[0]);
+    expect(out.source.sources[1]).toEqual({ ...child, type: "builtin" });
+    expect(out.updatedAt).toBe(10);
+  });
+
+  it("moves the list inside a profile snapshot", () => {
+    const s = { ...defaultSettings(), profiles: [{ id: "p", name: "P", snapshot: { shelves: [external("dynamic_collections")] } }] } as unknown as Settings;
+    const out = migrateRetiredIds(s) as any;
+    expect(out.profiles[0].snapshot.shelves[0].source).toEqual({ type: "builtin", sourceId: "dynamic_collections" });
+    expect(out.profiles[0].snapshot.shelves[0].updatedAt).toBe(501);
+  });
+
+  it("leaves an external source from a plugin alone, and a document with nothing to move as the same object", () => {
+    const s = withShelf(external("acme.source"));
+    expect(migrateRetiredIds(s)).toBe(s);
+  });
+
+  it("moves nothing more on a second load", () => {
+    const once = migrateRetiredIds(withShelf(external("temporary_queue_source")));
+    expect(migrateRetiredIds(once)).toBe(once);
+  });
+
+  it("covers every built-in list the editor offers", () => {
+    for (const { value } of V3_SOURCE_OPTIONS) {
+      const out = migrateRetiredIds(withShelf(external(value))).shelves[0] as any;
+      expect(out.source).toEqual({ type: "builtin", sourceId: value });
+    }
+  });
+
+  it("wins a sync merge against its unmoved copy, in both argument orders", () => {
+    const unmoved = withShelf(external("pinned_games"));
+    const moved = migrateRetiredIds(unmoved);
+    const pick = (s: Settings) => (s.shelves[0] as any).source.type;
+    expect(pick(mergeSettings(moved, unmoved))).toBe("builtin");
+    expect(pick(mergeSettings(unmoved, moved))).toBe("builtin");
+  });
+
+  it("loses a sync merge to a real edit made after the old clock", () => {
+    const unmoved = withShelf(external("pinned_games"));
+    const moved = migrateRetiredIds(unmoved);
+    const edited = withShelf({ ...external("pinned_games"), title: "Edited", updatedAt: 900 });
+    expect((mergeSettings(moved, edited).shelves[0] as any).title).toBe("Edited");
   });
 });

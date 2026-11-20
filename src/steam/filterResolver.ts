@@ -2,7 +2,7 @@ import { type AppOverview, appIdOf, appNameOf, compareByAdded, isFavoriteOf, isH
 import { type FilterEvalContext, evaluateFilterGroup, isDeckCompatMatch } from "./filterEval";
 import type { FilterGroup, FilterItem } from "../types";
 import type { ResolverContext } from "./resolverContext";
-import { applySortToIds, hasSortComparator, hashIdSet, stableShuffleIds } from "./sorting";
+import { applySortToIds, hasSortComparator, hashIdSet, isPluginSortKey, stableShuffleIds } from "./sorting";
 import { getCollectionApps } from "./collections";
 import { logInfo, logWarn } from "../runtime/logger";
 import { preloadDeveloperData, preloadPublisherData } from "./publisherDeveloper";
@@ -85,7 +85,7 @@ function sortBySharedComparator(filtered: AppOverview[], key: string, shelfId?: 
 function sortAppsByFilterKey(filtered: AppOverview[], fSort: string | undefined, shelfId?: string): AppOverview[] {
   const handler = fSort ? FILTER_SORT_DISPATCH[fSort] : undefined;
   if (handler) return handler(filtered, shelfId);
-  if (fSort && hasSortComparator(fSort)) return sortBySharedComparator(filtered, fSort, shelfId);
+  if (fSort && (hasSortComparator(fSort) || isPluginSortKey(fSort))) return sortBySharedComparator(filtered, fSort, shelfId);
   return filtered.slice().sort((a, b) => String(a.sort_as ?? appNameOf(a)).localeCompare(String(b.sort_as ?? appNameOf(b))));
 }
 

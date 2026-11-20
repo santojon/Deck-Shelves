@@ -2,6 +2,8 @@ import { DialogButton, type SingleDropdownOption } from '../../../../runtime/hos
 import i18n from '../../../../i18n'
 import { SHELF_LIMIT_MAX } from '../../../../domain/shelfLimits'
 import { DSSliderField } from '../../../ui'
+import { getThirdPartySortOptions } from '../../../../core/pluginApi'
+import { descriptorName } from '../../../../core/descriptorName'
 import { FOLLOW_SHELF_SORT, SORT_OPTIONS } from './constants'
 import { SortField } from './SortField'
 import type { SourceOrder } from './types'
@@ -13,11 +15,18 @@ export function nextSourceSort(next: string | string[], followsShelf: boolean): 
 
 const PRICE_SORTS: ReadonlySet<string> = new Set(['price_low', 'discount_high', 'original_price_high'])
 
+export function pluginSortChoices(): SingleDropdownOption[] {
+  return getThirdPartySortOptions().map((d) => ({ data: d.id, label: descriptorName((k) => String(i18n.t(k)), d) }))
+}
+
 export function sourceSortOptions(sourceType: string, onlineEnabled: boolean): SingleDropdownOption[] {
   const online = sourceType === 'wishlist' || sourceType === 'store'
-  return SORT_OPTIONS
-    .filter((o) => (PRICE_SORTS.has(o.value) ? online : onlineEnabled || !(o as { requiresOnline?: boolean }).requiresOnline))
-    .map((o) => ({ data: o.value, label: i18n.t(o.labelKey as any) }))
+  return [
+    ...SORT_OPTIONS
+      .filter((o) => (PRICE_SORTS.has(o.value) ? online : onlineEnabled || !(o as { requiresOnline?: boolean }).requiresOnline))
+      .map((o) => ({ data: o.value, label: i18n.t(o.labelKey as any) })),
+    ...pluginSortChoices(),
+  ]
 }
 
 export function SourceSortField({ sourceType, onlineEnabled, order, onChange, followsShelf = false }: {

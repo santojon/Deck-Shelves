@@ -9,6 +9,7 @@ import NestedConditionEditor from "./NestedConditionEditor";
 import CompositeFields from "./CompositeFields";
 import LibraryLocationFields from "./LibraryLocationFields";
 import { COMPAT_LEVELS, VR_LEVELS } from "./utils";
+import { PluginFields } from "./pluginTypes";
 import { STORE_CATEGORY_TOKENS, steamLabel } from "../../steam/steamText";
 import { APP_STATUS_GROUP_KEYS } from "../../steam/appDisplayStatus";
 import { DSSliderField } from '../ui'
@@ -346,6 +347,6 @@ export default function ConditionFields({ item, onChange, controller, allowOnlin
   const p = item.params ?? {};
   const patchParams = (patch: Record<string, any>) => onChange({ params: { ...p, ...patch } });
   const render = RENDERERS[item.type];
-  if (!render) return null;
+  if (!render) return <PluginFields type={item.type} params={p} onChange={(next) => onChange({ params: next })} />;
   return <>{render({ item, p, t, patchParams, onChange, controller, allowOnlineFilters, onlineFeaturesOn })}</>;
 }

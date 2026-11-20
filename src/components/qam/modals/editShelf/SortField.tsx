@@ -50,7 +50,7 @@ export function SortField({
 }) {
   const t = (k: any) => i18n.t(k)
 
-  const { sortArr, reverseArr, primary, primaryReverse, isMulti, secondaryOptions, canAddSecondary } =
+  const { sortArr, reverseArr, primary, primaryReverse, isMulti, offered, secondaryOptions, canAddSecondary } =
     deriveSortState(sort, reverse, options, allowMultiKey)
 
   const setPrimary = (next: string) => {
@@ -128,7 +128,7 @@ export function SortField({
       >
         <Focusable style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <Focusable style={{ minWidth: 0, maxWidth: 200, flex: '1 1 auto' }}>
-            <Dropdown rgOptions={options} selectedOption={primary} onChange={(opt: unknown) => setPrimary(String(optionData(opt) ?? ''))} focusable />
+            <Dropdown rgOptions={offered} selectedOption={primary} onChange={(opt: unknown) => setPrimary(String(optionData(opt) ?? ''))} focusable />
           </Focusable>
           <SortDirectionButton sort={primary} reverse={primaryReverse} onChange={setPrimaryReverse} />
         </Focusable>

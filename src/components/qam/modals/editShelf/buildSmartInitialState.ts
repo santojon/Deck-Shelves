@@ -1,14 +1,14 @@
-import type { FilterGroup, SmartShelf, SmartShelfMode } from '../../../../types'
-import { SMART_PARAM_DEFAULTS, DEFAULT_SORT_FOR_MODE } from '../../../../steam/smartParams'
+import type { FilterGroup, SmartShelf } from '../../../../types'
 import { SPARE_TIME_WINDOWS } from '../../../../steam/smartShelves'
+import { defaultSortForMode, smartModeDefaults } from './smartModes'
 
 // Must match DEFAULT_SMART_TTL_MS in the smart-shelf resolver.
 export const DEFAULT_REFRESH_MINUTES = 60
 
 export type EditState = {
   title: string
-  mode: SmartShelfMode
-  compositeModes: SmartShelfMode[]
+  mode: string
+  compositeModes: string[]
   compositeCombine: 'union' | 'intersection'
   limit: number
   sort: string | string[]
@@ -80,7 +80,7 @@ function initCoreA(shelf: SmartShelf): Partial<EditState> {
     compositeModes: Array.isArray(s.compositeModes) ? s.compositeModes : [],
     compositeCombine: s.compositeCombine === 'intersection' ? 'intersection' : 'union',
     limit: shelf.limit ?? 20,
-    sort: s.sort ?? DEFAULT_SORT_FOR_MODE[shelf.mode] ?? 'alphabetical',
+    sort: s.sort ?? defaultSortForMode(shelf.mode),
     sortReverse: s.sortReverse ?? false,
   }
 }
@@ -93,7 +93,7 @@ function initCoreB(shelf: SmartShelf): Partial<EditState> {
     manualOrder: s.manualOrder ?? [],
     filterGroup: s.filterGroup ?? { mode: 'and', items: [] },
     refreshIntervalMinutes: s.refreshIntervalMinutes ?? DEFAULT_REFRESH_MINUTES,
-    smartParams: { ...(SMART_PARAM_DEFAULTS[shelf.mode] ?? {}), ...(s.smartParams ?? {}) },
+    smartParams: { ...smartModeDefaults(shelf.mode), ...(s.smartParams ?? {}) },
     visibility: s.visibility,
     autoPin: s.autoPin,
     autoCollapse: s.autoCollapse,

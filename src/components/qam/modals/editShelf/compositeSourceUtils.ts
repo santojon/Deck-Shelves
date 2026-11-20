@@ -1,6 +1,7 @@
 import type { SingleDropdownOption } from '../../../../runtime/host/decky';
 import type { EditableShelfState } from './types';
-import { SMART_MODE_OPTIONS, V3_SOURCE_OPTIONS } from './constants';
+import { V3_SOURCE_OPTIONS } from './constants';
+import { smartModeIds } from './smartModes';
 
 type SourceUsage = {
   filterCount: number;
@@ -76,7 +77,7 @@ type Opts = {
 function listSourceOptions(u: SourceUsage, labels: LabelFns): SingleDropdownOption[] {
   const out: SingleDropdownOption[] = [];
   if (u.usedBuiltin.size < V3_SOURCE_OPTIONS.length) out.push({ data: 'builtin', label: labels.builtin });
-  if (u.usedSmart.size < SMART_MODE_OPTIONS.length) out.push({ data: 'smart', label: labels.smart });
+  if (u.usedSmart.size < smartModeIds().length) out.push({ data: 'smart', label: labels.smart });
   return out;
 }
 
@@ -119,7 +120,7 @@ export function builtinValueIds(state: EditableShelfState, excludeRow: number): 
 
 export function smartValueIds(state: EditableShelfState, excludeRow: number): string[] {
   const u = computeSourceUsage(state, excludeRow);
-  return SMART_MODE_OPTIONS.filter((m) => !u.usedSmart.has(m));
+  return smartModeIds().filter((m) => !u.usedSmart.has(m));
 }
 
 export function buildExternalValueOpts(state: EditableShelfState, externalOptions: SingleDropdownOption[], excludeRow: number): SingleDropdownOption[] {

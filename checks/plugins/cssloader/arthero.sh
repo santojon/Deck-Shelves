@@ -42,7 +42,7 @@ run_checks() {
   fi
 
   if grep -q 'classList.add(' "$src/components/home/ShelvesContainer.tsx" 2>/dev/null \
-     && ! grep -q "classList.remove\(.*'ds-" "$src/components/home/ShelvesContainer.tsx" 2>/dev/null; then
+     && ! grep -q "classList.remove(.*'ds-" "$src/components/home/ShelvesContainer.tsx" 2>/dev/null; then
     echo "  ✅ Class promotion is additive (does not strip ds-*)"
     ((pass++))
   else

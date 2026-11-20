@@ -17,7 +17,7 @@ The map is a JSON object of semantic name → token, shipped as a seed in
 `src/runtime/classmap.json`. At boot `src/runtime/embeddedClassMap.ts` writes
 it to `window.__DS_CLASS_MAP` and to `localStorage["ds_class_map"]` (shared
 between Steam's windows). `getRuntimeClassMap()` reads the target window's
-`__DS_CLASS_MAP` first, then `localStorage`.
+`__DS_CLASS_MAP` first, then the plugin's own copy, then `localStorage`.
 
 The plugin does not discover tokens while it runs. When a Steam update renames
 a class, the seed has to be refreshed and a new version shipped. Until then the
@@ -71,7 +71,7 @@ them, that code takes its fallback.
    ```
 
    Values are bare class names, without a leading dot. Remove the override with
-   `delete window.__DS_CLASS_MAP`; the seed applies again on the next boot.
+   `delete window.__DS_CLASS_MAP`; the seeded map applies again at once.
 4. Update `src/runtime/classmap.json`, deploy, and check the Home with a theme
    that depends on the classes (ArtHero, TiltedHome, Switch Like Home).
 

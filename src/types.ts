@@ -254,7 +254,8 @@ export const SmartShelfSchema = z.object({
   id: z.string().min(1).max(64),
   updatedAt: z.number().int().nonnegative().optional(),
   title: z.string().min(1).max(64),
-  mode: SmartShelfModeSchema,
+  // A plugin's mode is kept like an unknown condition type: the shelf is unavailable while nothing answers for it.
+  mode: z.string().min(1).max(64),
   enabled: legacyBool().default(true),
   hidden: legacyBool().default(false),
   limit: z.number().int().min(1).max(100).optional(),
@@ -275,7 +276,7 @@ export const SmartShelfSchema = z.object({
   refreshIntervalMinutes: z.number().int().min(1).max(43200).optional(),
   smartParams: z.record(z.string(), z.number()).optional(),
   // The primary `mode` counts as the first composite item, so older clients still get single-mode behaviour.
-  compositeModes: z.array(SmartShelfModeSchema).max(5).optional(),
+  compositeModes: z.array(z.string().min(1).max(64)).max(5).optional(),
   compositeCombine: z.enum(["union", "intersection"]).optional(),
   // The sanitizer also migrates a single `{ start, end }` object.
   visibleHours: z.array(z.object({
@@ -301,7 +302,7 @@ export type ShelfSource = SourceOrder & (
   | { type: "filter"; filter: ShelfFilter }
   | { type: "external"; sourceId: string }
   | { type: "builtin"; sourceId: string }
-  | { type: "smart"; mode: SmartShelfMode }
+  | { type: "smart"; mode: string }
   | { type: "wishlist"; childFilter?: FilterGroup; excludeOwned?: boolean; excludeOwnedNonSteam?: boolean; hideOwnedNonSteamCloud?: boolean }
   | { type: "store"; childFilter?: FilterGroup; excludeOwned?: boolean; excludeOwnedNonSteam?: boolean; hideOwnedNonSteamCloud?: boolean }
   | { type: "composite"; combine: "union" | "intersection"; sources: ShelfSource[]; childFilter?: FilterGroup });
@@ -319,7 +320,7 @@ export const ShelfSourceSchema: z.ZodType<ShelfSource> = z.lazy(() => z.union([
   z.object({ type: z.literal("filter"), filter: FilterSchema.default({}), ...sourceOrder }),
   z.object({ type: z.literal("external"), sourceId: z.string().min(1), ...sourceOrder }),
   z.object({ type: z.literal("builtin"), sourceId: z.string().min(1), ...sourceOrder }),
-  z.object({ type: z.literal("smart"), mode: SmartShelfModeSchema, ...sourceOrder }),
+  z.object({ type: z.literal("smart"), mode: z.string().min(1).max(64), ...sourceOrder }),
   z.object({ type: z.literal("wishlist"), childFilter: FilterGroupSchema.optional(), excludeOwned: legacyBool().optional(), excludeOwnedNonSteam: legacyBool().optional(), hideOwnedNonSteamCloud: legacyBool().optional(), ...sourceOrder }),
   z.object({ type: z.literal("store"), childFilter: FilterGroupSchema.optional(), excludeOwned: legacyBool().optional(), excludeOwnedNonSteam: legacyBool().optional(), hideOwnedNonSteamCloud: legacyBool().optional(), ...sourceOrder }),
   z.object({ type: z.literal("composite"), combine: z.enum(["union", "intersection"]), sources: z.array(ShelfSourceSchema), childFilter: FilterGroupSchema.optional(), ...sourceOrder }),

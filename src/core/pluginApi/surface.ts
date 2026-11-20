@@ -27,8 +27,13 @@ import pkg from "../../../package.json";
 import * as focusTracker from "../focusedCardTracker";
 import * as assets from "../steamAssets";
 import type { DeckShelvesPublicAPI, ExternalSavedFilterDescriptor, PublicShelfSource, PublicTriggerKind } from "@deck-shelves/api";
+import { SmartShelfModeSchema, isKnownFilterType } from "../../types";
 
 const SAVED_FILTER_PREFIX = "ext:";
+
+// Ids the plugin evaluates itself are reserved even where its own lists do not offer them.
+const reservedFilterTypes = { has: (id: string) => internalFilterTypeIds.has(id) || isKnownFilterType(id) };
+const reservedSmartModes = { has: (id: string) => internalSmartSourceIds.has(id) || SmartShelfModeSchema.safeParse(id).success };
 
 async function persistRegisteredSavedFilter(d: ExternalSavedFilterDescriptor): Promise<void> {
   const s = getCurrentSettings();
@@ -63,10 +68,10 @@ export function makeApi(): DeckShelvesPublicAPI {
     },
     getRegisteredContextAwareShelfSources() { return Array.from(contextAwareShelfSources.values()); },
 
-    registerSmartShelfSource(d) { return addExternal(smartSources, d, internalSmartSourceIds); },
+    registerSmartShelfSource(d) { return addExternal(smartSources, d, reservedSmartModes); },
     getRegisteredSmartSources() { return Array.from(smartSources.values()); },
 
-    registerFilterType(d) { return addExternal(filterTypes, d, internalFilterTypeIds); },
+    registerFilterType(d) { return addExternal(filterTypes, d, reservedFilterTypes); },
     getRegisteredFilterTypes() { return Array.from(filterTypes.values()); },
 
     registerSortOption(d) { return addExternal(sortOptions, d, internalSortOptionIds); },

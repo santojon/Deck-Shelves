@@ -1,10 +1,10 @@
 import type { SmartShelf } from '../../../../types'
 import type { SettingsController } from '../../../../features/settings/controller'
-import { SMART_PARAM_DEFAULTS } from '../../../../steam/smartParams'
 import { logInfo } from '../../../../runtime/logger'
 import { notify } from '../../../notify'
 import i18next from 'i18next'
 import { DEFAULT_REFRESH_MINUTES, type EditState } from './buildSmartInitialState'
+import { smartModeDefaults } from './smartModes'
 
 export type SaveArgs = {
   state: EditState
@@ -99,7 +99,7 @@ function patchSmart(state: EditState, paramKeys: string[]): Patch {
     ? state.refreshIntervalMinutes
     : undefined
   // Only non-default params are saved, so later default changes reach existing shelves.
-  const defaults = SMART_PARAM_DEFAULTS[state.mode] ?? {}
+  const defaults = smartModeDefaults(state.mode)
   const overrides: Record<string, number> = {}
   for (const k of paramKeys) {
     if (state.smartParams[k] !== defaults[k]) overrides[k] = state.smartParams[k]

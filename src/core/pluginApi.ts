@@ -115,4 +115,5 @@ export {
   registerInternalImportType, registerInternalSmartShelfSource, registerInternalShelfSource, isInternalShelfSource,
   registerInternalFilterType, registerInternalSortOption, registerInternalSearchProvider, isInternalSearchProvider,
   registerInternalStatisticsProvider, hasExternalIntegrations, isInternalSmartSource, isInternalFilterType, isInternalSortOption,
+  getThirdPartySources, getThirdPartySmartSources, getThirdPartyFilterTypes, getThirdPartySortOptions,
 } from "./pluginApi/registries";

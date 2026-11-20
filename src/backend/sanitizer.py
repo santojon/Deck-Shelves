@@ -29,14 +29,11 @@ from sanitizer_records import (
 )
 from sanitizer_visibility import _sanitize_visibility
 
-# Sort keys the frontend offers; any other key is dropped on save.
-_VALID_SORTS = {
-    "alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score",
-    "added", "random", "manual", "price_low", "discount_high", "original_price_high",
-    "app_status", "deck_compat", "controller_support", "friends_playing_now", "owned_games",
-    "completion_percent", "closest_to_completion", "most_friends_owning", "trending_among_friends",
-    "family_shared_games", "source_order",
-}
+
+def _is_stored_id(value: Any) -> bool:
+    # A mode or a sort key as the frontend schema stores it: text of 1 to 64 characters.
+    return isinstance(value, str) and 0 < len(value) <= 64
+
 
 _DISCOUNT_BADGE_MODES = ("percent", "price", "both", "percent_price")
 
@@ -78,7 +75,6 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:  # noqa: C90
     if not isinstance(shelves, list):
         shelves = []
     sanitized = []
-    valid_sorts = _VALID_SORTS
     for s in shelves:
         if not isinstance(s, dict):
             continue
@@ -258,7 +254,7 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:  # noqa: C90
         if isinstance(shelf_sort, list):
             # Unknown sort strings pass through so externally registered sort options survive.
             shelf_entry["sort"] = shelf_sort
-        elif shelf_sort and shelf_sort in valid_sorts:
+        elif _is_stored_id(raw_sort):
             shelf_entry["sort"] = shelf_sort
         if highlighted_ids:
             shelf_entry["highlightedAppIds"] = highlighted_ids
@@ -343,20 +339,6 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:  # noqa: C90
     if not isinstance(raw_smart, list):
         raw_smart = []
     sanitized_smart = []
-    # Retired modes stay listed: a mode missing here drops the shelf on save.
-    valid_modes = {
-        "quick_play", "not_started", "deck_picks", "rediscover", "best_unplayed",
-        "interrupted", "time_of_day", "daily_pick", "on_deck", "recently_played",
-        "long_session", "non_steam", "random_pick", "forgotten", "spare_time",
-        "soundtracks", "videos", "demos", "cloud_games",
-        "backlog_rescue", "forgotten_gems", "weekly_rotation",
-        "short_battery", "travel_mode", "recent_hidden_installs",
-        "low_battery_mode", "friends_playing", "almost_finished", "couch_gaming", "coop_ready",
-        "party_games", "custom",
-        # Duplicates of another mode, rewritten when the settings load; kept so a saved shelf survives.
-        "long_session_night", "hidden_gems", "never_touched_classics", "monthly_spotlight",
-        "seasonal_rotation",
-    }
     for ss in raw_smart:
         if not isinstance(ss, dict):
             continue
@@ -364,7 +346,7 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:  # noqa: C90
         ss_title = ss.get("title") if isinstance(ss.get("title"), str) else ""
         ss_title = ss_title.strip()[:64] if ss_title else ""
         ss_mode = str(ss.get("mode") or "")
-        if not ss_id or not ss_title or ss_mode not in valid_modes:
+        if not ss_id or not ss_title or not _is_stored_id(ss.get("mode")):
             continue
         ss_enabled = bool(ss.get("enabled", True))
         ss_hidden = bool(ss.get("hidden", False))
@@ -381,12 +363,10 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:  # noqa: C90
             cleaned_keys = [str(k) for k in raw_ss_sort if isinstance(k, str) and k]
             if cleaned_keys:
                 entry["sort"] = cleaned_keys
-        else:
-            ss_sort_str = str(raw_ss_sort or "")
-            if ss_sort_str and ss_sort_str in valid_sorts:
-                entry["sort"] = ss_sort_str
-        ss_base = str(ss.get("manualBaseSort") or "")
-        if ss_base and ss_base in valid_sorts and ss_base != "manual":
+        elif _is_stored_id(raw_ss_sort):
+            entry["sort"] = raw_ss_sort
+        ss_base = ss.get("manualBaseSort")
+        if _is_stored_id(ss_base) and ss_base != "manual":
             entry["manualBaseSort"] = ss_base
         raw_ss_rev = ss.get("sortReverse")
         if isinstance(raw_ss_rev, list):

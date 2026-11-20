@@ -29,6 +29,13 @@ describe("settings schemaVersion migration (§4B)", () => {
     expect((out.shelves[0].source as any).type).toBe("filter");
   });
 
+  it("loads a shelf saved as an external source naming a built-in list as that list", () => {
+    const old = { ...base(), shelves: [{ id: "a", title: "A", enabled: true, updatedAt: 40, source: { type: "external", sourceId: "pinned_games" } }] } as any;
+    const out = migrate(old);
+    expect(out.shelves[0].source).toEqual({ type: "builtin", sourceId: "pinned_games" });
+    expect(out.shelves[0].updatedAt).toBe(41);
+  });
+
   it("dedupes shelves and smart shelves by id, keeping the first", () => {
     const dup = {
       ...base(),

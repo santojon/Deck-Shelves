@@ -16,7 +16,7 @@ import { ConditionEditor } from '../../conditions/ConditionEditor'
 import { FieldContainer, DSSliderField} from '../../ui'
 import { invalidateRandomSortCache } from '../../../steam'
 import { invalidateSmartShelfCache } from '../../../steam/smartShelves'
-import { getExternalSources, contextAwareSourceRequiresFocus } from '../../../core/pluginApi'
+import { getThirdPartySources, contextAwareSourceRequiresFocus } from '../../../core/pluginApi'
 import { descriptorName } from '../../../core/descriptorName'
 import { isNonSteamBadgesAvailable } from '../../../integrations'
 import { usePlatform } from '../../../runtime/platformContext'
@@ -62,7 +62,8 @@ import {
   type ChildSourceType,
 } from './editShelf/compositeSourceUtils'
 import { buildInitialShelfState } from './editShelf/buildInitialState'
-import { SourceOrderFields } from './editShelf/SourceSortField'
+import { smartModeName } from './editShelf/smartModes'
+import { SourceOrderFields, pluginSortChoices } from './editShelf/SourceSortField'
 import { SourceOrderPreview, useSourceOrdering } from './editShelf/SourceOrderPreview'
 import { visualFlagsOf, applyVisualPatch, previewHideFlags, removableTail } from './editShelf/sharedEditProps'
 import { persistShelf } from './editShelf/buildSavePatch'
@@ -89,7 +90,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
   const collections = useModalCollections(controllerCollections)
   const platformTabs = resolvePlatformTabs(controllerTabs)
   const platform = usePlatform()
-  const externalSources = useMemo(() => getExternalSources(), [])
+  const externalSources = useMemo(() => getThirdPartySources(), [])
   const [state, setState] = useState<EditableShelfState>(() =>
     buildInitialShelfState({ shelf, mode, collections, platformTabs, externalSources }),
   )
@@ -121,7 +122,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
   })
   const { settings } = controller
   const onlineOn = onlineFeaturesEnabled(settings)
-  const allSourceTypes: SourceType[] = buildAllSourceTypes(externalSources, onlineOn)
+  const allSourceTypes: SourceType[] = buildAllSourceTypes(externalSources, onlineOn, state.sourceType)
   const sourceTypeOptions: SingleDropdownOption[] = allSourceTypes.map((value) => ({
     data: value,
     label: value === 'collection' ? t('source_collection') :
@@ -182,16 +183,22 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
   // Price sorts need the price cache, which only online sources fill.
   const isOnline = isOnlineSourceType(state.sourceType)
   const sortOptions = useMemo<SingleDropdownOption[]>(
-    () => SORT_OPTIONS
-      .filter((item) => isOnline || !(item as any).requiresOnline)
-      .map((item) => ({ data: item.value, label: sortLabel(item) })),
+    () => [
+      ...SORT_OPTIONS
+        .filter((item) => isOnline || !(item as any).requiresOnline)
+        .map((item) => ({ data: item.value, label: sortLabel(item) })),
+      ...pluginSortChoices(),
+    ],
     [t, isOnline]
   )
   // No random under manual sort: it would reshuffle the user's order on every render.
   const baseSortOptions = useMemo<SingleDropdownOption[]>(
-    () => SORT_OPTIONS
-      .filter((item) => item.value !== 'manual' && item.value !== 'random' && (isOnline || !(item as any).requiresOnline))
-      .map((item) => ({ data: item.value, label: sortLabel(item) })),
+    () => [
+      ...SORT_OPTIONS
+        .filter((item) => item.value !== 'manual' && item.value !== 'random' && (isOnline || !(item as any).requiresOnline))
+        .map((item) => ({ data: item.value, label: sortLabel(item) })),
+      ...pluginSortChoices(),
+    ],
     [t, isOnline]
   )
 
@@ -231,7 +238,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
     tab: buildTabValueOpts,
     external: buildExternalValueOpts,
     builtin: (excludeRow) => builtinValueIds(state, excludeRow).map((id) => ({ data: id, label: builtinLabel(id) })),
-    smart: (excludeRow) => smartValueIds(state, excludeRow).map((m) => ({ data: m, label: t(`smart_template_${m}` as any) })),
+    smart: (excludeRow) => smartValueIds(state, excludeRow).map((m) => ({ data: m, label: smartModeName((k, o) => String(t(k as any, o as any)), m) })),
   }
   const perSourceSort = state.additionalSources.length > 0
   const followsShelf = primarySortKey(primarySortValue(state)) !== 'source_order'

@@ -14,13 +14,13 @@ import { flowChildrenProps } from '../../../core/steamOSVersion'
 import { TIME_OF_DAY_WINDOWS, invalidateSmartShelfCache } from '../../../steam/smartShelves'
 import { SHELF_LIMIT_MAX } from '../../../domain/shelfLimits'
 import type { SettingsController } from '../../../features/settings/controller'
-import type { SmartShelf, SmartShelfMode } from '../../../types'
+import type { SmartShelf } from '../../../types'
 import { ConditionEditor } from '../../conditions/ConditionEditor'
 import { FieldContainer, DSSliderField} from '../../ui'
 import { resolveShelfAppIds, invalidateRandomSortCache, manualResolveLimit } from '../../../steam'
 import { isNonSteamBadgesAvailable } from '../../../integrations'
 import { usePlatform } from '../../../runtime/platformContext'
-import { SMART_MODE_OPTIONS, SORT_OPTIONS } from './editShelf/constants'
+import { SORT_OPTIONS } from './editShelf/constants'
 import { optionData } from './editShelf/utils'
 import { VisualTabContent } from './editShelf/VisualTabContent'
 import { DisplayTabContent } from './editShelf/DisplayTabContent'
@@ -34,9 +34,10 @@ import { SortField } from './editShelf/SortField'
 import { SavedFiltersBar } from './editShelf/SavedFiltersBar'
 import { SavedSmartFiltersBar } from './editShelf/SavedSmartFiltersBar'
 import { textFromDeckyChange } from './modalUtils'
-import { SMART_PARAM_DEFAULTS, SMART_PARAM_META, paramKeysForMode, DEFAULT_SORT_FOR_MODE } from '../../../steam/smartParams'
 import { buildInitialSmartState, DEFAULT_REFRESH_MINUTES, type EditState } from './editShelf/buildSmartInitialState'
 import { persistSmartShelf } from './editShelf/buildSmartSavePatch'
+import { pluginSortChoices } from './editShelf/SourceSortField'
+import { defaultSortForMode, smartModeChoices, smartModeDefaults, smartModeName, smartParamControl, smartParamKeys } from './editShelf/smartModes'
 import { visualFlagsOf, applyVisualPatch, previewHideFlags, removableTail } from './editShelf/sharedEditProps'
 
 
@@ -51,6 +52,7 @@ function firstOr<T>(v: T | T[] | undefined, fallback: T): T {
 
 export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edit' }: { closeModal?: () => void; controller: SettingsController; shelf: SmartShelf; mode?: 'create' | 'edit' }) {
   const { t, actions, settings } = controller
+  const tm = (key: string, options?: Record<string, unknown>) => String(t(key as any, options as any))
   const onlineOn = (settings as { onlineFeaturesEnabled?: boolean } | null | undefined)?.onlineFeaturesEnabled === true
   const platform = usePlatform()
   const hasNonSteamBadges = useMemo(() => isNonSteamBadgesAvailable(), [])
@@ -59,11 +61,11 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
   // Text buffer so the field can be cleared while typing; committed on blur.
   const [refreshDraft, setRefreshDraft] = useState<string>(String((shelf as any).refreshIntervalMinutes ?? DEFAULT_REFRESH_MINUTES))
 
-  const paramKeys = useMemo(() => paramKeysForMode(state.mode), [state.mode])
+  const paramKeys = useMemo(() => smartParamKeys(state.mode, (shelf as any).smartParams), [state.mode])
   const setSmartParam = (key: string, value: number) => setState((prev) => ({ ...prev, smartParams: { ...prev.smartParams, [key]: value } }))
-  const handleModeChange = (nextMode: SmartShelfMode) => {
+  const handleModeChange = (nextMode: string) => {
     if (nextMode === state.mode) return
-    const nextDefaults = SMART_PARAM_DEFAULTS[nextMode] ?? {}
+    const nextDefaults = smartModeDefaults(nextMode)
     const nextDrafts: Record<string, string> = {}
     for (const k of Object.keys(nextDefaults)) nextDrafts[k] = String((nextDefaults as any)[k] ?? 0)
     setParamDrafts(nextDrafts)
@@ -72,7 +74,7 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
       mode: nextMode,
       smartParams: { ...nextDefaults },
       // Only reset the sort if it was still the previous mode's default.
-      sort: prev.sort === DEFAULT_SORT_FOR_MODE[prev.mode] ? (DEFAULT_SORT_FOR_MODE[nextMode] ?? 'alphabetical') : prev.sort,
+      sort: prev.sort === defaultSortForMode(prev.mode) ? defaultSortForMode(nextMode) : prev.sort,
     }))
   }
   const [paramDrafts, setParamDrafts] = useState<Record<string, string>>(() => {
@@ -124,16 +126,22 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
   ) as any
   // Smart shelves read the local library, so price sorts never apply.
   const sortOptions = useMemo<SingleDropdownOption[]>(
-    () => SORT_OPTIONS
-      .filter((item) => !(item as any).requiresOnline)
-      .map((item) => ({ data: item.value, label: sortLabel(item) })),
+    () => [
+      ...SORT_OPTIONS
+        .filter((item) => !(item as any).requiresOnline)
+        .map((item) => ({ data: item.value, label: sortLabel(item) })),
+      ...pluginSortChoices(),
+    ],
     [t],
   )
   // No random under manual sort: it would reshuffle the user's order on every render.
   const baseSortOptions = useMemo<SingleDropdownOption[]>(
-    () => SORT_OPTIONS
-      .filter((item) => item.value !== 'manual' && item.value !== 'random' && !(item as any).requiresOnline)
-      .map((item) => ({ data: item.value, label: sortLabel(item) })),
+    () => [
+      ...SORT_OPTIONS
+        .filter((item) => item.value !== 'manual' && item.value !== 'random' && !(item as any).requiresOnline)
+        .map((item) => ({ data: item.value, label: sortLabel(item) })),
+      ...pluginSortChoices(),
+    ],
     [t],
   )
 
@@ -282,10 +290,10 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
                         <Focusable {...flowChildrenProps('horizontal')} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <Dropdown
-                              rgOptions={SMART_MODE_OPTIONS.map((opt) => ({ data: opt, label: t(`smart_template_${opt}` as any) }))}
+                              rgOptions={smartModeChoices(tm, state.mode)}
                               selectedOption={state.mode}
                               onChange={(opt: unknown) => {
-                                const next = String(optionData(opt) ?? state.mode) as SmartShelfMode
+                                const next = String(optionData(opt) ?? state.mode)
                                 handleModeChange(next)
                               }}
                             />
@@ -315,7 +323,7 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
                                   style={{ height: 32, minWidth: 0, padding: '0 10px', display: 'flex', alignItems: 'center', gap: 6 }}
                                   onClick={() => setState((prev) => ({ ...prev, compositeModes: prev.compositeModes.filter((x) => x !== m) }))}
                                   onOKActionDescription={t('smart_composite_remove' as any)}
-                                >{t(`smart_template_${m}` as any)} ✕</DialogButton>
+                                >{smartModeName(tm, m)} ✕</DialogButton>
                               ))}
                             </Focusable>
                           )}
@@ -323,15 +331,13 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
                             <Dropdown
                               rgOptions={[
                                 { data: '__add_placeholder__', label: t('smart_composite_add' as any) },
-                                ...SMART_MODE_OPTIONS
-                                  .filter((m) => m !== state.mode && !state.compositeModes.includes(m))
-                                  .map((m) => ({ data: m, label: t(`smart_template_${m}` as any) })),
+                                ...smartModeChoices(tm).filter((o) => o.data !== state.mode && !state.compositeModes.includes(String(o.data))),
                               ]}
                               selectedOption={'__add_placeholder__'}
                               onChange={(opt: unknown) => {
                                 const v = String(optionData(opt) ?? '__add_placeholder__')
                                 if (v === '__add_placeholder__') return
-                                setState((prev) => ({ ...prev, compositeModes: [...prev.compositeModes, v as SmartShelfMode] }))
+                                setState((prev) => ({ ...prev, compositeModes: [...prev.compositeModes, v] }))
                               }}
                             />
                           )}
@@ -342,7 +348,7 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
                         currentPayload={{
                           mode: state.mode,
                           smartParams: (() => {
-                            const defaults = SMART_PARAM_DEFAULTS[state.mode] ?? {}
+                            const defaults = smartModeDefaults(state.mode)
                             const out: Record<string, number> = {}
                             for (const k of paramKeys) {
                               if (state.smartParams[k] !== defaults[k]) out[k] = state.smartParams[k]
@@ -378,11 +384,11 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
                               }
                             }
                           }
-                          const nextMode = (filter.mode || state.mode) as SmartShelfMode
+                          const nextMode = filter.mode || state.mode
                           setState((prev) => ({
                             ...prev,
                             mode: nextMode,
-                            smartParams: { ...(SMART_PARAM_DEFAULTS[nextMode] ?? {}), ...(filter.smartParams ?? {}) },
+                            smartParams: { ...smartModeDefaults(nextMode), ...(filter.smartParams ?? {}) },
                             filterGroup: filter.filterGroup ?? { mode: 'and', items: [] },
                             sort: firstOr(filter.sort, prev.sort),
                             sortReverse: firstOr(filter.sortReverse, false),
@@ -467,16 +473,16 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
                         />
                       )}
                       {paramKeys.map((key) => {
-                        const meta = SMART_PARAM_META[key]
+                        const meta = smartParamControl(tm, state.mode, key)
                         if (!meta) return null
                         const value = state.smartParams[key] ?? 0
-                        const unit = meta.unitKey ? t(meta.unitKey as any) : ''
+                        const unit = meta.unit
                         if (meta.kind === 'dropdown' && meta.options) {
-                          const opts = meta.options.map((o) => ({ data: o.value, label: t(o.labelKey as any) }))
+                          const opts = meta.options
                           return (
                             <DropdownItem
                               key={key}
-                              label={t(meta.labelKey as any)}
+                              label={meta.label}
                               rgOptions={opts}
                               selectedOption={value}
                               onChange={(opt: unknown) => {
@@ -490,7 +496,7 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
                         if (meta.kind === 'text') {
                           const draft = paramDrafts[key] ?? String(value)
                           return (
-                            <Field key={key} label={t(meta.labelKey as any)} bottomSeparator='thick'>
+                            <Field key={key} label={meta.label} bottomSeparator='thick'>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 180 }}>
                                 <div style={{ flex: 1, minWidth: 140 }}>
                                   <TextField
@@ -519,7 +525,7 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
                         return (
                           <DSSliderField
                             key={key}
-                            label={t(meta.labelKey as any)}
+                            label={meta.label}
                             value={value}
                             unit={unit ? ` ${unit}` : ''}
                             min={meta.min}

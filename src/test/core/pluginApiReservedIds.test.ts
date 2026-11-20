@@ -21,6 +21,23 @@ describe('public API reserved ids', () => {
     expect(getExternalSearchProviders().some((p) => p.id === 'deck-shelves.mine')).toBe(false)
   })
 
+  it('refuses a condition type or smart mode the plugin evaluates even when no built-in entry lists it', () => {
+    const api = makeApi()
+    const condition = (id: string) => ({ id, displayName: id, evaluate: () => true })
+    api.registerFilterType(condition('isNew'))
+    api.registerSmartShelfSource(source('soundtracks'))
+    api.registerSmartShelfSource(source('long_session_night'))
+    expect(api.getRegisteredFilterTypes().map((d) => d.id)).not.toContain('isNew')
+    expect(api.getRegisteredSmartSources().map((d) => d.id)).not.toContain('soundtracks')
+    expect(api.getRegisteredSmartSources().map((d) => d.id)).not.toContain('long_session_night')
+    const unCondition = api.registerFilterType(condition('acme.thing'))
+    const unMode = api.registerSmartShelfSource(source('acme.thing'))
+    expect(api.getRegisteredFilterTypes().map((d) => d.id)).toContain('acme.thing')
+    expect(api.getRegisteredSmartSources().map((d) => d.id)).toContain('acme.thing')
+    unCondition()
+    unMode()
+  })
+
   it('an unregister never removes a newer registration under the same id', () => {
     const api = makeApi()
     const first = source('ext.source')

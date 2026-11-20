@@ -122,11 +122,29 @@ function migrateBuiltinSource(src: Loose): Loose {
   return group ? { type: "filter", filter: { filterGroup: group } } : src;
 }
 
+// The editor once offered the built-in lists under the external type, where they resolve nothing.
+const BUILTIN_LIST_IDS: ReadonlySet<string> = new Set([
+  "dynamic_collections", "pinned_games", "history_source", "session_queue_source", "temporary_queue_source",
+]);
+
+function isExternalList(src: Loose | undefined): boolean {
+  return src?.type === "external" && BUILTIN_LIST_IDS.has(String(src.sourceId));
+}
+
+function holdsExternalList(src: Loose | undefined): boolean {
+  return isExternalList(src) || (src?.type === "composite" && Array.isArray(src.sources) && src.sources.some(holdsExternalList));
+}
+
+function migrateExternalSource(src: Loose): Loose {
+  return isExternalList(src) ? { ...src, type: "builtin" } : src;
+}
+
 const SOURCE_REWRITES: Record<string, (src: Loose) => Loose> = {
   filter: migrateFilterSource,
   smart: migrateSmartSource,
   composite: migrateCompositeSource,
   builtin: migrateBuiltinSource,
+  external: migrateExternalSource,
 };
 
 function migrateSource(source: unknown): unknown {
@@ -143,7 +161,9 @@ function migrateShelf(shelf: Loose): Loose {
   const source = migrateSource(shelf.source) as Loose;
   if (source === shelf.source) return out;
   const carriesOrder = shelf.source?.type === "builtin" && source.type === "filter" && out.sort;
-  return { ...out, source: carriesOrder ? { ...source, filter: { ...source.filter, sort: out.sort, sortReverse: out.sortReverse } } : source };
+  // One tick above the old clock: the moved list wins a sync against the unmoved copy and loses to any real edit.
+  const clock = holdsExternalList(shelf.source) ? { updatedAt: (typeof shelf.updatedAt === "number" ? shelf.updatedAt : 0) + 1 } : {};
+  return { ...out, ...clock, source: carriesOrder ? { ...source, filter: { ...source.filter, sort: out.sort, sortReverse: out.sortReverse } } : source };
 }
 
 function migrateSmartShelf(shelf: Loose): Loose {

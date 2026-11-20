@@ -1,6 +1,8 @@
 """Tests for sanitizer forward-compat: known fields are validated, but
 UNKNOWN fields (written by a newer plugin version) are preserved, not dropped —
 so a mixed-version dual-host install never loses newer-only settings."""
+import pytest
+
 import sanitizer
 
 
@@ -108,3 +110,91 @@ def test_a_smart_shelf_sort_is_the_same_with_or_without_regular_shelves():
     alone = sanitizer._sanitize_settings({"enabled": True, "shelves": [], "smartShelves": [dict(smart)]})
     beside = sanitizer._sanitize_settings({"enabled": True, "shelves": [regular], "smartShelves": [dict(smart)]})
     assert alone["smartShelves"] == beside["smartShelves"]
+
+
+# The sort keys and smart modes the backend listed by name before it kept any text id.
+_BUILT_IN_SORTS = [
+    "alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score",
+    "added", "random", "manual", "price_low", "discount_high", "original_price_high",
+    "app_status", "deck_compat", "controller_support", "friends_playing_now", "owned_games",
+    "completion_percent", "closest_to_completion", "most_friends_owning", "trending_among_friends",
+    "family_shared_games", "source_order",
+]
+_BUILT_IN_MODES = [
+    "quick_play", "not_started", "deck_picks", "rediscover", "best_unplayed",
+    "interrupted", "time_of_day", "daily_pick", "on_deck", "recently_played",
+    "long_session", "non_steam", "random_pick", "forgotten", "spare_time",
+    "soundtracks", "videos", "demos", "cloud_games",
+    "backlog_rescue", "forgotten_gems", "weekly_rotation",
+    "short_battery", "travel_mode", "recent_hidden_installs",
+    "low_battery_mode", "friends_playing", "almost_finished", "couch_gaming", "coop_ready",
+    "party_games", "custom",
+    "long_session_night", "hidden_gems", "never_touched_classics", "monthly_spotlight",
+    "seasonal_rotation",
+]
+
+
+def _shelf(**fields):
+    return {"id": "s1", "title": "A", "source": {"type": "filter", "filter": {}}, **fields}
+
+
+def _smart(**fields):
+    return {"id": "sm1", "title": "Quick", "mode": "quick_play", **fields}
+
+
+def _sanitized_shelf(**fields):
+    return sanitizer._sanitize_settings({"enabled": True, "shelves": [_shelf(**fields)]})["shelves"][0]
+
+
+def _sanitized_smart(**fields):
+    return sanitizer._sanitize_settings({"enabled": True, "smartShelves": [_smart(**fields)]})["smartShelves"]
+
+
+def test_a_smart_shelf_in_a_mode_the_backend_does_not_know_is_kept():
+    out = _sanitized_smart(mode="acme.mode")
+    assert [s["mode"] for s in out] == ["acme.mode"]
+
+
+def test_a_single_unknown_sort_key_is_kept_on_both_shelf_kinds():
+    assert _sanitized_shelf(sort="acme.order")["sort"] == "acme.order"
+    assert _sanitized_smart(sort="acme.order")[0]["sort"] == "acme.order"
+
+
+def test_an_unknown_base_order_is_kept_on_a_smart_shelf():
+    assert _sanitized_smart(manualBaseSort="acme.order")[0]["manualBaseSort"] == "acme.order"
+
+
+def test_an_old_single_sort_key_is_kept():
+    assert _sanitized_shelf(sort="newest_purchased")["sort"] == "newest_purchased"
+
+
+@pytest.mark.parametrize("bad", ["", 3, True, {"k": 1}, "x" * 65])
+def test_a_sort_that_is_not_stored_text_is_dropped(bad):
+    assert "sort" not in _sanitized_shelf(sort=bad)
+    assert "sort" not in _sanitized_smart(sort=bad)[0]
+
+
+@pytest.mark.parametrize("bad", ["", 3, True, {"k": 1}, ["recent"], "x" * 65, "manual"])
+def test_a_smart_base_order_that_is_not_stored_text_or_is_manual_is_dropped(bad):
+    assert "manualBaseSort" not in _sanitized_smart(manualBaseSort=bad)[0]
+
+
+@pytest.mark.parametrize("bad", ["", 3, True, {"k": 1}, "x" * 65])
+def test_a_smart_shelf_whose_mode_is_not_stored_text_is_dropped(bad):
+    assert _sanitized_smart(mode=bad) == []
+
+
+@pytest.mark.parametrize("key", _BUILT_IN_SORTS)
+def test_every_built_in_sort_key_comes_back_as_it_went_in(key):
+    assert _sanitized_shelf(sort=key)["sort"] == key
+    assert _sanitized_smart(sort=key)[0]["sort"] == key
+    base = _sanitized_smart(manualBaseSort=key)[0]
+    if key == "manual":
+        assert "manualBaseSort" not in base
+    else:
+        assert base["manualBaseSort"] == key
+
+
+@pytest.mark.parametrize("mode", _BUILT_IN_MODES)
+def test_every_built_in_mode_comes_back_as_it_went_in(mode):
+    assert [s["mode"] for s in _sanitized_smart(mode=mode)] == [mode]

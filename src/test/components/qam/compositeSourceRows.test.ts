@@ -15,6 +15,8 @@ import { isManualSourceOrder, nextSourceSort, sourceSortOptions } from "../../..
 import { applySourceManualOrder } from "../../../steam/sorting";
 import { RETIRED_SMART_MODES } from "../../../steam/smartShelves";
 import { ShelfSourceSchema } from "../../../types";
+import { buildAllSourceTypes } from "../../../components/qam/modals/editShelf/shelfFormState";
+import { makeApi } from "../../../core/pluginApi";
 
 const labels = { collection: "c", tab: "t", filter: "f", external: "e", builtin: "b", smart: "s", wishlistLabel: "w", storeLabel: "st" };
 const state = (over: Record<string, unknown> = {}) => ({
@@ -79,11 +81,42 @@ describe("composite source rows", () => {
     expect(parsed.sources.map((s: any) => s.limit)).toEqual([5, 3]);
   });
 
+  it("offer a plugin smart source as an extra source and count it among the smart modes", () => {
+    const off = makeApi().registerSmartShelfSource({ id: "acme.mode", displayName: "Acme", resolve: async () => [] });
+    try {
+      expect(smartValueIds(state(), -1)).toEqual([...SMART_MODE_OPTIONS, "acme.mode"]);
+      const allBuiltIn = state({ additionalSources: SMART_MODE_OPTIONS.map((mode) => ({ type: "smart", mode })) });
+      expect(smartValueIds(allBuiltIn, -1)).toEqual(["acme.mode"]);
+      expect(buildChildTypeOptions(opts(allBuiltIn), -1).map((o) => o.data)).toContain("smart");
+    } finally {
+      off();
+    }
+  });
+
+  it("keep the External source type on offer for a shelf saved with a plugin source while the plugin is away", () => {
+    expect(buildAllSourceTypes([], false, "external")).toContain("external");
+    expect(buildAllSourceTypes([], false, "builtin")).not.toContain("external");
+    expect(buildAllSourceTypes([{ id: "acme.source" }], false, "builtin")).toContain("external");
+  });
+
   it("save no sort for the choice an unset source already makes: its own order under Source order, the shelf's under any other", () => {
     expect(nextSourceSort("source_order", false)).toBeUndefined();
     expect(nextSourceSort(FOLLOW_SHELF_SORT, true)).toBeUndefined();
     expect(nextSourceSort("source_order", true)).toBe("source_order");
     expect(nextSourceSort(["recent", "alphabetical"], true)).toEqual(["recent", "alphabetical"]);
+  });
+});
+
+describe("sort choices for a source of a multi-source shelf", () => {
+  it("offer a plugin sort, and without a plugin equal the built-in list", () => {
+    const builtIn = sourceSortOptions("collection", false);
+    const off = makeApi().registerSortOption({ id: "acme.order", displayName: "Acme order", sort: (ids) => ids.slice() });
+    try {
+      expect(sourceSortOptions("collection", false)).toEqual([...builtIn, { data: "acme.order", label: "Acme order" }]);
+    } finally {
+      off();
+    }
+    expect(sourceSortOptions("collection", false)).toEqual(builtIn);
   });
 });
 

@@ -11,7 +11,7 @@ import { CollapsibleSection } from '../ui'
 import { BTN_ICON_STYLE } from '../ui/buttonStyles'
 import ConditionFields from './ConditionFields'
 import { ConditionTypePicker } from './ConditionTypePicker'
-import { getTypeLabel, startingOptions, isConditionComplete } from './utils'
+import { canNegate, isComplete, negatable, startingParams, typeName } from './pluginTypes'
 
 const INNER_LIST: Partial<Record<string, 'items' | 'children'>> = {
   merge: 'items',
@@ -45,12 +45,12 @@ function innerConditions(item: FilterItem): FilterItem[] {
   return Array.isArray(list) ? list : []
 }
 
-function withType(item: FilterItem, type: FilterItemType): FilterItem {
-  const params = startingOptions(type)
+function withType(item: FilterItem, type: string): FilterItem {
+  const params = startingParams(type)
   const key = INNER_LIST[type]
   const inner = innerConditions(item)
   if (key && inner.length > 0) params[key] = inner
-  return { ...item, type, params }
+  return negatable(type) ? { ...item, type, params } : { ...item, type, params, inverted: false }
 }
 
 function shownValue(item: FilterItem, collections: readonly PlatformCollection[]): string {
@@ -62,7 +62,7 @@ function shownValue(item: FilterItem, collections: readonly PlatformCollection[]
 }
 
 export function describeCondition(item: FilterItem, collections: readonly PlatformCollection[] = []): string {
-  const name = getTypeLabel(item.type)
+  const name = typeName(item.type)
   const title = item.inverted ? i18n.t('filter_condition_negated', { type: name }) : name
   const value = shownValue(item, collections)
   return value ? `${title} · ${value}` : title
@@ -100,7 +100,7 @@ export function ConditionRow({ item, startOpen, nodeRef, onChange, onRemove, con
         title={describeCondition(item, controller?.collections)}
         count={0}
         initialOpen={startOpen}
-        status={<CompletenessMark complete={isConditionComplete(item)} />}
+        status={<CompletenessMark complete={isComplete(item)} />}
       >
         <ConditionTypePicker
           type={item.type}
@@ -118,14 +118,16 @@ export function ConditionRow({ item, startOpen, nodeRef, onChange, onRemove, con
           onlineFeaturesOn={onlineFeaturesOn}
         />
         <Focusable {...flowChildrenProps('horizontal')} style={ACTIONS_STYLE}>
-          <DialogButton
-            style={item.inverted ? NEGATED_STYLE : BTN_ICON_STYLE}
-            onClick={() => onChange({ ...item, inverted: !item.inverted })}
-            onOKActionDescription={negateLabel}
-            aria-label={negateLabel}
-          >
-            {icons.negate}
-          </DialogButton>
+          {canNegate(item) ? (
+            <DialogButton
+              style={item.inverted ? NEGATED_STYLE : BTN_ICON_STYLE}
+              onClick={() => onChange({ ...item, inverted: !item.inverted })}
+              onOKActionDescription={negateLabel}
+              aria-label={negateLabel}
+            >
+              {icons.negate}
+            </DialogButton>
+          ) : null}
           <DialogButton style={BTN_ICON_STYLE} onClick={onRemove} onOKActionDescription={removeLabel} aria-label={removeLabel}>
             {icons.trash}
           </DialogButton>

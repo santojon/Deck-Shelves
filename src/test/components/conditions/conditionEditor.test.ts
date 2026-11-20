@@ -25,6 +25,7 @@ import { initI18n } from '../../../i18n'
 import { ConditionEditor } from '../../../components/conditions/ConditionEditor'
 import { describeCondition } from '../../../components/conditions/ConditionRow'
 import { offeredTypes } from '../../../components/conditions/ConditionTypePicker'
+import { makeApi } from '../../../core/pluginApi'
 
 const win = document.defaultView as any
 let root: Root
@@ -255,5 +256,86 @@ describe('condition summary', () => {
     expect(describeCondition(cond('developer', { developers: ['Valve', 'Nintendo'] }))).toBe('Developer · Valve, Nintendo')
     expect(describeCondition(cond('collection', { collectionId: 'c1' }), [{ id: 'c1', name: 'RPGs' }])).toBe('Collection · RPGs')
     expect(describeCondition(cond('playedWithinDays', { days: 30 }))).toBe('Played within')
+  })
+})
+
+describe('plugin conditions', () => {
+  const api = makeApi()
+  const offs: Array<() => void> = []
+  const defaults = { minutes: 30 }
+  const register = (over: Record<string, unknown> = {}) => {
+    offs.push(api.registerFilterType({ id: 'acme.short', displayName: 'Acme short', defaultParams: defaults, evaluate: () => true, ...over } as any))
+  }
+  const negate = () => labelled('Negate') ?? labelled('Stop negating')
+
+  afterEach(() => { for (const off of offs.splice(0)) off() })
+
+  it('offers a plugin condition type under its own name, sorted with the others, and not while the condition holds others', () => {
+    register()
+    const offered = offeredTypes('installed', { allowOnlineFilters: false, onlineFeaturesOn: false }, 'en-US')
+    expect(offered.find((c) => c.type === 'acme.short')?.name).toBe('Acme short')
+    const names = offered.map((c) => c.name)
+    expect(names).toEqual([...names].sort(new Intl.Collator('en-US').compare))
+    const grouping = offeredTypes('merge', { allowOnlineFilters: false, onlineFeaturesOn: false, only: ['merge'] })
+    expect(grouping.map((c) => c.type)).toEqual(['merge'])
+  })
+
+  it('starts a new plugin condition from a copy of its default options', () => {
+    register()
+    show([cond('installed')])
+    click(headers()[0])
+    click(option('acme.short'))
+    expect(latest.items[0]).toEqual({ type: 'acme.short', params: { minutes: 30 }, inverted: false })
+    expect(latest.items[0].params).not.toBe(defaults)
+  })
+
+  it('shows the fields the plugin draws and saves what they send', () => {
+    register({
+      renderEditor: ({ params, onChange }: any) => h('button', { 'aria-label': 'Acme longer', onClick: () => onChange({ ...params, minutes: Number(params.minutes) + 10 }) }),
+    })
+    show([cond('acme.short' as FilterItem['type'], { minutes: 30 })])
+    click(headers()[0])
+    click(labelled('Acme longer'))
+    expect(latest.items[0]).toEqual({ type: 'acme.short', params: { minutes: 40 } })
+  })
+
+  it('offers Negate only when the plugin allows it, still lets a negated one be undone, and drops the negation on a switch to such a type', () => {
+    register()
+    show([cond('acme.short' as FilterItem['type'])])
+    click(headers()[0])
+    expect(negate()).toBeNull()
+    act(() => replaceGroup({ mode: 'and', items: [{ type: 'acme.short' as FilterItem['type'], params: {}, inverted: true }] }))
+    click(headers()[0])
+    click(labelled('Stop negating'))
+    expect(latest.items[0].inverted).toBe(false)
+    act(() => replaceGroup({ mode: 'and', items: [{ type: 'installed', params: {}, inverted: true }] }))
+    click(headers()[0])
+    click(option('acme.short'))
+    expect(latest.items[0]).toEqual({ type: 'acme.short', params: { minutes: 30 }, inverted: false })
+    register({ id: 'acme.flip', displayName: 'Acme flip', invertible: true })
+    act(() => replaceGroup({ mode: 'and', items: [cond('acme.flip' as FilterItem['type'])] }))
+    click(headers()[0])
+    expect(negate()).not.toBeNull()
+  })
+
+  it('marks a registered plugin condition complete, and one whose plugin is gone Unavailable and incomplete with its options kept', () => {
+    register()
+    show([cond('acme.short' as FilterItem['type'], { minutes: 5 })])
+    expect(mark(headers()[0])).toBe('Complete')
+    expect(title(headers()[0])).toBe('Acme short')
+    for (const off of offs.splice(0)) off()
+    show([cond('acme.short' as FilterItem['type'], { minutes: 5 })])
+    expect(mark(headers()[0])).toBe('Incomplete')
+    expect(title(headers()[0])).toContain('acme.short')
+    expect(latest.items[0]).toEqual({ type: 'acme.short', params: { minutes: 5 } })
+  })
+
+  it('leaves the rest of the row usable when the plugin fields throw', () => {
+    const quiet = vi.spyOn(console, 'error').mockImplementation(() => {})
+    register({ renderEditor: () => { throw new Error('broken fields') } })
+    show([cond('acme.short' as FilterItem['type']), cond('installed')])
+    removeAt(0)
+    expect(latest.items.map((item) => item.type)).toEqual(['installed'])
+    quiet.mockRestore()
   })
 })

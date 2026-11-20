@@ -62,10 +62,11 @@ export function onlineFeaturesEnabled(settings: unknown): boolean {
   return (settings as { onlineFeaturesEnabled?: boolean } | null | undefined)?.onlineFeaturesEnabled === true
 }
 
-export function buildAllSourceTypes(externalSources: unknown[], onlineEnabled: boolean): SourceType[] {
+// A shelf saved with a plugin source keeps the external type on offer while the plugin is away.
+export function buildAllSourceTypes(externalSources: unknown[], onlineEnabled: boolean, current?: SourceType): SourceType[] {
   return [
     ...BASE_SOURCE_TYPES,
-    ...(externalSources.length > 0 ? ['external' as SourceType] : []),
+    ...(externalSources.length > 0 || current === 'external' ? ['external' as SourceType] : []),
     'builtin' as SourceType,
     ...(onlineEnabled ? ['wishlist' as SourceType, 'store' as SourceType] : []),
   ]

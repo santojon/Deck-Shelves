@@ -7,92 +7,30 @@ import {
   registerInternalShelfSource,
   registerInternalStatisticsProvider,
   setInternalBootstrap,
-  type SmartShelfSourceDescriptor,
-  type ExternalFilterTypeDescriptor,
-  type ExternalSortOptionDescriptor,
-  type ExternalShelfSourceDescriptor,
 } from "./pluginApi";
+import i18n from "../i18n";
 import { BUILT_IN_SHELF_SEARCH } from "../features/search/builtInProvider";
 import { BUILT_IN_LIBRARY_STATISTICS, BUILT_IN_SHELF_STATISTICS } from "../steam/statistics";
-import {
-  V3_FILTER_DESCRIPTORS,
-  V3_SORT_DESCRIPTORS,
-  V3_SOURCE_DESCRIPTORS,
-} from "../steam/v3Extensions";
+import { ALL_FILTER_TYPES, getTypeLabel } from "../components/conditions/utils";
+import { SMART_MODE_OPTIONS, SORT_OPTIONS, V3_SOURCE_OPTIONS } from "../components/qam/modals/editShelf/constants";
 
-// Descriptive only: the real computation lives in the resolver, so resolve() returns [].
-const INTERNAL_SMART_DESCRIPTORS: SmartShelfSourceDescriptor[] = [
-  { id: "quick_play",      displayName: "Quick Play",      category: "time",     resolve: async () => [] },
-  { id: "not_started",     displayName: "Not started",     category: "status",   resolve: async () => [] },
-  { id: "deck_picks",      displayName: "Deck picks",      category: "compat",   resolve: async () => [] },
-  { id: "rediscover",      displayName: "Rediscover",      category: "time",     resolve: async () => [] },
-  { id: "best_unplayed",   displayName: "Best unplayed",   category: "status",   resolve: async () => [] },
-  { id: "interrupted",     displayName: "Interrupted",     category: "status",   resolve: async () => [] },
-  { id: "time_of_day",     displayName: "Time of day",     category: "time",     resolve: async () => [] },
-  { id: "daily_pick",      displayName: "Daily pick",      category: "time",     resolve: async () => [] },
-  { id: "on_deck",         displayName: "On Deck",         category: "status",   resolve: async () => [] },
-  { id: "recently_played", displayName: "Recently played", category: "time",     resolve: async () => [] },
-  { id: "long_session",    displayName: "Long session",    category: "other",    resolve: async () => [] },
-  { id: "non_steam",       displayName: "Non-Steam",       category: "platform", resolve: async () => [] },
-  { id: "random_pick",     displayName: "Roulette",        category: "other",    resolve: async () => [] },
-  { id: "forgotten",       displayName: "Forgotten",       category: "time",     resolve: async () => [] },
-  { id: "spare_time",      displayName: "Spare time",      category: "time",     resolve: async () => [] },
-  { id: "custom",          displayName: "Custom / Blank",  category: "other",    resolve: async () => [] },
-];
-
-// Descriptive only: the evaluator never consults the registry for these ids.
-const INTERNAL_FILTER_TYPES: ExternalFilterTypeDescriptor[] = [
-  "installed", "favorites", "nonSteam", "hidden", "updatePending", "isNew",
-  "deckCompatibility", "playedWithinDays", "playtimeRange", "nameIncludes",
-  "nameRegex", "friends", "storeTag", "achievements", "collection",
-  "developer", "publisher", "appIdList", "cloudAvailable",
-  "controllerSupport", "merge", "appStatus",
-].map<ExternalFilterTypeDescriptor>((id) => ({
-  id,
-  displayName: id,
-  evaluate: () => false,
-}));
-
-const INTERNAL_SORT_OPTIONS: ExternalSortOptionDescriptor[] = [
-  "alphabetical", "recent", "playtime", "release_date", "size_on_disk",
-  "metacritic", "review_score", "added", "random", "manual",
-].map<ExternalSortOptionDescriptor>((id) => ({
-  id,
-  displayName: id,
-  sort: (appIds) => appIds.slice(),
-}));
-
+// Listed, not run: the resolvers evaluate these ids. Each name is read when shown, in the current language.
 function installInternalRegistry(): () => void {
   const unsubs: Array<() => void> = [];
-  for (const d of INTERNAL_SMART_DESCRIPTORS) unsubs.push(registerInternalSmartShelfSource(d));
-  for (const d of INTERNAL_FILTER_TYPES) unsubs.push(registerInternalFilterType(d));
-  for (const d of INTERNAL_SORT_OPTIONS) unsubs.push(registerInternalSortOption(d));
+  for (const id of [...SMART_MODE_OPTIONS, "custom"]) {
+    unsubs.push(registerInternalSmartShelfSource({ id, get displayName() { return i18n.t(`smart_template_${id}`); }, resolve: async () => [] }));
+  }
+  for (const id of ALL_FILTER_TYPES) {
+    unsubs.push(registerInternalFilterType({ id, get displayName() { return getTypeLabel(id); }, evaluate: () => false }));
+  }
+  for (const o of SORT_OPTIONS) {
+    unsubs.push(registerInternalSortOption({ id: o.value, get displayName() { return i18n.t(o.labelKey); }, sort: (appIds) => appIds.slice() }));
+  }
   unsubs.push(registerInternalSearchProvider(BUILT_IN_SHELF_SEARCH));
   unsubs.push(registerInternalStatisticsProvider(BUILT_IN_LIBRARY_STATISTICS));
   unsubs.push(registerInternalStatisticsProvider(BUILT_IN_SHELF_STATISTICS));
-  for (const d of V3_FILTER_DESCRIPTORS) {
-    const desc: ExternalFilterTypeDescriptor = {
-      id: d.id,
-      displayName: d.displayName,
-      evaluate: () => false,
-    };
-    unsubs.push(registerInternalFilterType(desc));
-  }
-  for (const d of V3_SORT_DESCRIPTORS) {
-    const desc: ExternalSortOptionDescriptor = {
-      id: d.id,
-      displayName: d.displayName,
-      sort: (appIds) => appIds.slice(),
-    };
-    unsubs.push(registerInternalSortOption(desc));
-  }
-  for (const d of V3_SOURCE_DESCRIPTORS) {
-    const desc: ExternalShelfSourceDescriptor = {
-      id: d.id,
-      displayName: d.displayName,
-      resolve: () => Promise.resolve([]),
-    };
-    unsubs.push(registerInternalShelfSource(desc));
+  for (const o of V3_SOURCE_OPTIONS) {
+    unsubs.push(registerInternalShelfSource({ id: o.value, get displayName() { return o.label ?? i18n.t(o.labelKey as string); }, resolve: () => Promise.resolve([]) }));
   }
   return () => { for (const u of unsubs) { try { u(); } catch {} } };
 }
