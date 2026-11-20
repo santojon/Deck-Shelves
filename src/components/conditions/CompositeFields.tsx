@@ -1,4 +1,4 @@
-import type { FilterItem, FilterGroup } from "../../types";
+import type { FilterItem, FilterGroup, FilterItemType } from "../../types";
 import { ConditionEditor } from "./ConditionEditor";
 import type { SettingsController } from "../../features/settings/controller";
 import i18n from "../../i18n";
@@ -16,12 +16,14 @@ export default function CompositeFields({
   controller,
   allowOnlineFilters = false,
   onlineFeaturesOn = false,
+  onlyTypes,
 }: {
   item: FilterItem;
   onChange: (patch: Partial<FilterItem>) => void;
   controller?: SettingsController;
   allowOnlineFilters?: boolean;
   onlineFeaturesOn?: boolean;
+  onlyTypes?: readonly FilterItemType[];
 }) {
   const t = i18n.t.bind(i18n);
   const p = item.params ?? {};
@@ -48,7 +50,7 @@ export default function CompositeFields({
           onChange={(v: number) => onChange({ params: { ...p, threshold: v } })}
         />
       )}
-      <ConditionEditor group={group} onChange={setChildren} controller={controller} allowOnlineFilters={allowOnlineFilters} onlineFeaturesOn={onlineFeaturesOn} hideMode />
+      <ConditionEditor group={group} onChange={setChildren} controller={controller} allowOnlineFilters={allowOnlineFilters} onlineFeaturesOn={onlineFeaturesOn} onlyTypes={onlyTypes} hideMode />
     </div>
   );
 }

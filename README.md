@@ -12,9 +12,6 @@
 [![Platform](https://img.shields.io/badge/platform-SteamOS%20%C2%B7%20Linux%20%C2%B7%20Windows-purple?logo=steamdeck&logoColor=white)](https://github.com/ValveSoftware/SteamOS)
 [![Downloads](https://img.shields.io/github/downloads/santojon/Deck-Shelves/total.svg?label=downloads&color=blue)](https://github.com/santojon/Deck-Shelves/releases/latest)
 [![GitHub release](https://img.shields.io/github/v/release/santojon/Deck-Shelves?label=latest&color=blue)](https://github.com/santojon/Deck-Shelves/releases/latest)
-[![npm api](https://img.shields.io/npm/dt/@deck-shelves/api?label=api%20downloads&logo=npm&color=cb3837)](https://www.npmjs.com/package/@deck-shelves/api)
-[![npm host](https://img.shields.io/npm/dt/@deck-shelves/host?label=host%20downloads&logo=npm&color=cb3837)](https://www.npmjs.com/package/@deck-shelves/host)
-[![Forks](https://img.shields.io/github/forks/santojon/Deck-Shelves?style=flat&color=blue)](https://github.com/santojon/Deck-Shelves/network/members)
 
 [![Discord](https://img.shields.io/badge/chat-on%20discord-7289da.svg?logo=discord&logoColor=white)](https://discord.gg/EChuVEDakk)
 [![Reddit](https://img.shields.io/badge/community-r%2FDeckShelves-FF4500?logo=reddit&logoColor=white)](https://www.reddit.com/r/DeckShelves/)
@@ -23,11 +20,11 @@
 
 </div>
 
-Deck Shelves is a [Decky Loader](https://decky.xyz) plugin that adds your own
+Deck Shelves is a plugin that adds your own
 shelves to the Steam Deck Home screen, below (or instead of) Recently Played.
 A shelf can show a collection, a library tab, the result of a filter, your
 wishlist or a store list. Everything is set up from the Quick Access menu in
-Gaming Mode; you never need Desktop Mode or a config file.
+Gaming Mode.
 
 New to it? The [getting-started guide](https://github.com/santojon/Deck-Shelves/discussions/48)
 walks through the first shelves. Questions and ideas go to the
@@ -39,15 +36,29 @@ walks through the first shelves. Questions and ideas go to the
 
 ## Contents
 
-- [Features](#features)
-- [Installation](#installation)
-- [Limitations](#limitations)
-- [Privacy](#privacy)
-- [Documentation](#documentation)
-- [Compatibility](#compatibility)
-- [Contributing](#contributing)
-- [License](#license)
-- [About](#about)
+- [Deck Shelves](#deck-shelves)
+  - [Contents](#contents)
+  - [Features](#features)
+    - [Shelves](#shelves)
+    - [Filters and sorting](#filters-and-sorting)
+    - [Smart shelves](#smart-shelves)
+    - [When a shelf shows](#when-a-shelf-shows)
+    - [Look](#look)
+    - [Navigation and input](#navigation-and-input)
+    - [Profiles and backup](#profiles-and-backup)
+    - [Online (opt-in)](#online-opt-in)
+    - [Extras](#extras)
+  - [Installation](#installation)
+    - [From the Decky Store](#from-the-decky-store)
+    - [From a zip](#from-a-zip)
+    - [From a URL](#from-a-url)
+  - [Limitations](#limitations)
+  - [Privacy](#privacy)
+  - [Documentation](#documentation)
+  - [Compatibility](#compatibility)
+  - [Contributing](#contributing)
+  - [License](#license)
+  - [About](#about)
 
 ## Features
 

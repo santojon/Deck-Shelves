@@ -51,6 +51,7 @@ export type PreviewPanelProps = {
   onToggleSelection?: (appid: number) => void
   removableSet?: Set<number>
   onRemoveCard?: (appid: number) => void
+  note?: string
 }
 
 export function PreviewPanel(props: PreviewPanelProps) {
@@ -67,6 +68,7 @@ export function PreviewPanel(props: PreviewPanelProps) {
     syntheticCards,
     selectionMode, selectionSet, onToggleSelection,
     removableSet, onRemoveCard,
+    note,
   } = props
 
   const loading = (
@@ -119,6 +121,7 @@ export function PreviewPanel(props: PreviewPanelProps) {
         </div>
       )}
       {body}
+      {note ? <div style={{ padding: '4px 0 0', fontSize: 12, opacity: 0.6 }}>{note}</div> : null}
     </div>
   )
 }

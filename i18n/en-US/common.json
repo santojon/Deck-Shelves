@@ -45,6 +45,7 @@
   "preview_count": "{{count}} games found",
   "preview_empty": "No games match this configuration",
   "preview_loading": "Checking…",
+  "preview_missing_data": "Some games are left out until their store data is available.",
   "refresh": "Refresh",
   "refresh_cache": "Refresh cache",
   "remove": "Remove",

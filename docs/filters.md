@@ -412,6 +412,88 @@ listed by an earlier source is not repeated.
 - `union` — games that appear in **any** child source, without repeats. Under **Source order** each source comes after the one before it; otherwise the sources take turns, one game each, and the shelf sort then orders the whole list.
 - `intersection` — games that appear in **every** child source. Iteration order follows the first child, so users get a predictable primary ordering.
 
+### Filter levels
+
+A multi-source shelf can filter in three places. Each one is optional, they can
+all hold conditions at the same time, and none is ever copied into another:
+
+1. **Each source's own filter** — the per-source areas of the filter tab, stored
+   as `childFilter` on a collection, tab, wishlist or store source. It narrows
+   that source before the sources are combined.
+2. **Union or intersection** — the sources are combined as described above; a
+   game found in several sources is listed once.
+3. **Combined result filters** — the last area of the filter tab, after a
+   divider, shown whenever the shelf has more than one source, stored as
+   `postFilter` on the `composite` source. It narrows the combined list. The tab is
+   **Online filters** when a wishlist or store source is part of the shelf and
+   **Filters** otherwise; on a shelf whose first source is a Filter source, the area
+   follows that source's conditions in its Filters tab. Its saved-filters bar lists
+   only the saved filters whose conditions the combined result can read.
+
+The shelf sort then orders what is left and the shelf's **Game limit** cuts it:
+
+```text
+source filters → union or intersection → combined result filters → sort → limit
+```
+
+For example, every wishlisted game plus store games at 30 % off or more, keeping
+only the ones with shared or split screen play:
+
+```json
+{
+  "source": {
+    "type": "composite",
+    "combine": "union",
+    "sources": [
+      { "type": "wishlist" },
+      { "type": "store", "childFilter": { "mode": "and", "items": [{ "type": "discount", "params": { "minDiscount": 30 } }] } }
+    ],
+    "postFilter": {
+      "mode": "and",
+      "items": [{ "type": "categories", "params": { "categories": ["Shared/Split Screen", "Shared/Split Screen Co-op", "Shared/Split Screen PvP"] } }]
+    }
+  }
+}
+```
+
+The combined list can hold games you do not own, so the combined result filters
+offer the conditions whose data those games also have: `multiplayerType`,
+`categories`, `genres`, `vrSupport`, and `discount` and `priceRange` when a
+wishlist or store source is part of the shelf. With Online features off or
+Offline mode on, the combined result reads only the prices and catalog data
+already cached and fetches nothing. A game is kept only when its data for the
+conditions is known and matches:
+
+- A game whose price or store catalog data is not known yet is left out, even
+  under a negated condition. The catalog is fetched a few dozen games at a time,
+  so such games come in over the next refreshes once their data is cached. The
+  editor's preview says so when games were left out this way.
+- In the top-level OR group of the combined result filters, one condition that
+  matches is enough, even when another one has no data for that game. Inside a
+  nested group (`merge` and the other grouping conditions), every condition needs
+  its data for that game; otherwise the whole nested group counts as having no
+  data for it.
+- A condition the combined result cannot read (an unknown type, `franchise`, or
+  one about your own library such as `installed` written into the settings file
+  by hand) leaves the shelf empty and logged as unavailable, never unfiltered.
+
+With combined result filters, each source is read up to 600 games (plus the usual
+margin of a wishlist or store source) before the union or intersection, so
+matching games further down a source still reach the shelf; games past that are
+not read.
+
+Removing sources until only one is left removes the combined result filters, and
+the editor asks before it does.
+
+Shelves saved by earlier versions may carry a `childFilter` on the `composite`
+source itself. It keeps its earlier meaning: its conditions are added to the own
+filter of each wishlist and store source before the sources are combined. The
+filter tab shows one read-only line about it, and the editor saves it back
+unchanged while the shelf keeps more than one source. When sources are removed until only one is left, a remaining
+wishlist or store source takes those conditions into its own filter, so it lists
+the same games as before; any other remaining source never used them, and they
+are dropped.
+
 ### Per-shelf exhaustion rules
 
 A single shelf cannot stack two identical sources (e.g. *Collection A* + *Collection A*). The editor enforces this per-shelf via an exhaustion check:

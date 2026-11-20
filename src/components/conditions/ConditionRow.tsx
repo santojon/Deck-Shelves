@@ -3,7 +3,8 @@ import { DialogButton, Focusable } from '../../runtime/host/decky'
 import { flowChildrenProps } from '../../core/steamOSVersion'
 import type { SettingsController } from '../../features/settings/controller'
 import type { PlatformCollection } from '../../runtime/platform'
-import type { FilterItem, FilterItemType } from '../../types'
+import type { FilterGroup, FilterItem, FilterItemType } from '../../types'
+import { flattenItems } from '../../steam/filterEval'
 import i18n from '../../i18n'
 import { CheckIcon, XIcon } from '../icons'
 import { icons } from '../qam/icons'
@@ -43,6 +44,11 @@ function innerConditions(item: FilterItem): FilterItem[] {
   const key = INNER_LIST[item.type]
   const list = key ? item.params?.[key] : undefined
   return Array.isArray(list) ? list : []
+}
+
+// A grouping condition fits when everything inside it does.
+export function holdsOnlyTypes(group: FilterGroup, only: readonly FilterItemType[]): boolean {
+  return flattenItems(group.items).every((item) => only.includes(item.type as FilterItemType) || INNER_LIST[item.type] !== undefined)
 }
 
 function withType(item: FilterItem, type: string): FilterItem {
@@ -86,9 +92,10 @@ interface ConditionRowProps {
   controller?: SettingsController
   allowOnlineFilters: boolean
   onlineFeaturesOn: boolean
+  onlyTypes?: readonly FilterItemType[]
 }
 
-export function ConditionRow({ item, startOpen, nodeRef, onChange, onRemove, controller, allowOnlineFilters, onlineFeaturesOn }: ConditionRowProps) {
+export function ConditionRow({ item, startOpen, nodeRef, onChange, onRemove, controller, allowOnlineFilters, onlineFeaturesOn, onlyTypes }: ConditionRowProps) {
   const t = i18n.t.bind(i18n)
   // Changing the type would drop the conditions inside, so only the grouping types stay on offer.
   const holdsConditions = innerConditions(item).length > 0
@@ -107,7 +114,7 @@ export function ConditionRow({ item, startOpen, nodeRef, onChange, onRemove, con
           onChange={(type) => onChange(withType(item, type))}
           allowOnlineFilters={allowOnlineFilters}
           onlineFeaturesOn={onlineFeaturesOn}
-          only={holdsConditions ? GROUPING_TYPES : undefined}
+          only={holdsConditions ? GROUPING_TYPES : onlyTypes}
         />
         {holdsConditions ? <div style={HINT_STYLE}>{t('filter_condition_type_locked')}</div> : null}
         <ConditionFields
@@ -116,6 +123,7 @@ export function ConditionRow({ item, startOpen, nodeRef, onChange, onRemove, con
           controller={controller}
           allowOnlineFilters={allowOnlineFilters}
           onlineFeaturesOn={onlineFeaturesOn}
+          onlyTypes={onlyTypes}
         />
         <Focusable {...flowChildrenProps('horizontal')} style={ACTIONS_STYLE}>
           {canNegate(item) ? (

@@ -415,6 +415,13 @@ export async function getPriceMap(appids: number[]): Promise<Map<number, PriceDa
   return result;
 }
 
+// Cached prices only, for callers that must not go online.
+export function getCachedPriceMap(appids: number[]): Map<number, PriceData> {
+  const result = new Map<number, PriceData>();
+  collectCachedPrices(appids, result);
+  return result;
+}
+
 // The client only exposes these fields for owned apps, so store and wishlist items need them fetched.
 export interface CatalogMeta {
   genres: string[];

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { DropdownItem, Field, TextField, ToggleField } from "../../runtime/host/decky";
-import type { FilterItem } from "../../types";
+import type { FilterItem, FilterItemType } from "../../types";
 import type { SettingsController } from "../../features/settings/controller";
 import i18n from "../../i18n";
 import DeveloperFields from "./DeveloperFields";
@@ -25,6 +25,7 @@ interface OptCtx {
   controller?: SettingsController;
   allowOnlineFilters: boolean;
   onlineFeaturesOn: boolean;
+  onlyTypes?: readonly FilterItemType[];
 }
 
 // Mirrors Steam's EAppType.
@@ -135,8 +136,8 @@ function dateRows(t: Tfn, p: Record<string, any>, patchParams: (patch: Record<st
   );
 }
 
-const compositeFields = ({ item, onChange, controller, allowOnlineFilters, onlineFeaturesOn }: OptCtx) => (
-  <CompositeFields item={item} onChange={onChange} controller={controller} allowOnlineFilters={allowOnlineFilters} onlineFeaturesOn={onlineFeaturesOn} />
+const compositeFields = ({ item, onChange, controller, allowOnlineFilters, onlineFeaturesOn, onlyTypes }: OptCtx) => (
+  <CompositeFields item={item} onChange={onChange} controller={controller} allowOnlineFilters={allowOnlineFilters} onlineFeaturesOn={onlineFeaturesOn} onlyTypes={onlyTypes} />
 );
 
 function collectionOptions(ctx: OptCtx): ReactNode {
@@ -339,14 +340,14 @@ const RENDERERS: Record<string, (c: OptCtx) => ReactNode> = {
   weightedFilter: compositeFields,
   priorityFilter: compositeFields,
   exclusionGroup: compositeFields,
-  merge: ({ item, onChange, controller, allowOnlineFilters, onlineFeaturesOn }) => <NestedConditionEditor item={item} onChange={onChange} controller={controller} allowOnlineFilters={allowOnlineFilters} onlineFeaturesOn={onlineFeaturesOn} />,
+  merge: ({ item, onChange, controller, allowOnlineFilters, onlineFeaturesOn, onlyTypes }) => <NestedConditionEditor item={item} onChange={onChange} controller={controller} allowOnlineFilters={allowOnlineFilters} onlineFeaturesOn={onlineFeaturesOn} onlyTypes={onlyTypes} />,
 };
 
-export default function ConditionFields({ item, onChange, controller, allowOnlineFilters = false, onlineFeaturesOn = false }: { item: FilterItem; onChange: (patch: Partial<FilterItem>) => void; controller?: SettingsController; allowOnlineFilters?: boolean; onlineFeaturesOn?: boolean }) {
+export default function ConditionFields({ item, onChange, controller, allowOnlineFilters = false, onlineFeaturesOn = false, onlyTypes }: { item: FilterItem; onChange: (patch: Partial<FilterItem>) => void; controller?: SettingsController; allowOnlineFilters?: boolean; onlineFeaturesOn?: boolean; onlyTypes?: readonly FilterItemType[] }) {
   const t = i18n.t.bind(i18n) as Tfn;
   const p = item.params ?? {};
   const patchParams = (patch: Record<string, any>) => onChange({ params: { ...p, ...patch } });
   const render = RENDERERS[item.type];
   if (!render) return <PluginFields type={item.type} params={p} onChange={(next) => onChange({ params: next })} />;
-  return <>{render({ item, p, t, patchParams, onChange, controller, allowOnlineFilters, onlineFeaturesOn })}</>;
+  return <>{render({ item, p, t, patchParams, onChange, controller, allowOnlineFilters, onlineFeaturesOn, onlyTypes })}</>;
 }

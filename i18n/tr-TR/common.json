@@ -45,6 +45,7 @@
   "preview_count": "{{count}} oyun bulundu",
   "preview_empty": "Bu yapılandırmayla eşleşen oyun yok",
   "preview_loading": "Kontrol ediliyor…",
+  "preview_missing_data": "Bazı oyunlar, mağaza verileri kullanılabilir olana kadar gösterilmez.",
   "refresh": "Yenile",
   "refresh_cache": "Önbelleği güncelle",
   "remove": "Kaldır",

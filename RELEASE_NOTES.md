@@ -54,6 +54,26 @@ release, the Decky store update and the announcements. Technical detail is in
 
 - **The side navigation looks like Steam's own Settings list**: the row under the cursor gets Steam's highlight, and themes that restyle Steam's list apply to it too, while the shelf on screen reads in bold. The recent games row is listed again whenever it shows on the Home, also when a shelf fills it. The tab at the top of the Quick Access side panel looks like Steam's page tabs.
 
+- **Settings save with only smart shelves**: after every regular shelf was removed, a smart shelf with its own sort made every change fail to save.
+
+- **Filter shelves keep the order you chose**: sorted by Deck compatibility, controller support, app status, friends, achievements or Family Sharing, a filter shelf was listed by name.
+
+- **Focus stays on the card you came back to**: right after Steam starts, or after opening the same game twice in a row, the Home no longer moves the focus away from it.
+
+- **Turning off Hide recents always brings the Recent Games row back**, also after a plugin reload or update in the first seconds after hiding it.
+
+- **Shelves stay below the Recent Games row** when one of your shelves has "Recent Games" in its name.
+
+- **Offline mode stays offline**: Deck Shelves no longer looks up missing descriptions, ratings or platform data on the Steam store; what was fetched before is still shown.
+
+- **Clearing the theme class cache** in Advanced settings no longer drops the native card look from shelves until the next restart.
+
+- **Other plugins fit in**: filter types, sort options and smart-shelf modes added by other plugins appear in the shelf editors beside the built-in ones. A shelf that uses one shows "Unavailable" and stays empty while that plugin is not running, and keeps the setting for when it is back. The "External source" type appears only when a plugin provides a source, and shelves that picked a built-in list there now show that list.
+
+- **Non-Steam games in smart shelves**: Roulette, Daily Pick and Weekly Rotation now include your non-Steam games; Recently Played, Long Sessions, Backlog Rescue and Rediscover include them when Steam has tracked their play time; Couch Gaming, Party Games and Co-op Ready include them when Steam reports the matching store category; On Deck and Picks for this device include them when the minimum compatibility is set to Any. Shelves that depend on an empty play history, disk size, ratings or the purchase date still leave them out.
+
+- **Filter the combined result of a multi-source shelf**: besides each source's own filter, "Combined result filters" in the shelf editor's filter tab applies after the sources are joined or intersected, for example Wishlist + Store with the store at 30 % off or more, then only games with shared or split screen play. Your saved filters work there too. Games whose store data has not arrived yet are left out and show up over the next refreshes, and the preview tells you when that happens. With Online features off or Offline mode on, these filters use only data already on the device. A shelf that uses them loses them if an earlier version opens and saves it.
+
 - **Smaller fixes**: Move up and Move down in the unified shelf list keep the shelf within that list, as dragging does, and the profile row's button hint reads Actions instead of Apply.
 
 ## [3.4.1] - 2026-11-02

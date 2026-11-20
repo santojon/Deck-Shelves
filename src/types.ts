@@ -305,7 +305,8 @@ export type ShelfSource = SourceOrder & (
   | { type: "smart"; mode: string }
   | { type: "wishlist"; childFilter?: FilterGroup; excludeOwned?: boolean; excludeOwnedNonSteam?: boolean; hideOwnedNonSteamCloud?: boolean }
   | { type: "store"; childFilter?: FilterGroup; excludeOwned?: boolean; excludeOwnedNonSteam?: boolean; hideOwnedNonSteamCloud?: boolean }
-  | { type: "composite"; combine: "union" | "intersection"; sources: ShelfSource[]; childFilter?: FilterGroup });
+  // `childFilter` reaches each online source before the join; `postFilter` filters the joined result.
+  | { type: "composite"; combine: "union" | "intersection"; sources: ShelfSource[]; childFilter?: FilterGroup; postFilter?: FilterGroup });
 
 const sourceOrder = {
   sort: z.union([z.string(), z.array(z.string())]).optional(),
@@ -323,7 +324,7 @@ export const ShelfSourceSchema: z.ZodType<ShelfSource> = z.lazy(() => z.union([
   z.object({ type: z.literal("smart"), mode: z.string().min(1).max(64), ...sourceOrder }),
   z.object({ type: z.literal("wishlist"), childFilter: FilterGroupSchema.optional(), excludeOwned: legacyBool().optional(), excludeOwnedNonSteam: legacyBool().optional(), hideOwnedNonSteamCloud: legacyBool().optional(), ...sourceOrder }),
   z.object({ type: z.literal("store"), childFilter: FilterGroupSchema.optional(), excludeOwned: legacyBool().optional(), excludeOwnedNonSteam: legacyBool().optional(), hideOwnedNonSteamCloud: legacyBool().optional(), ...sourceOrder }),
-  z.object({ type: z.literal("composite"), combine: z.enum(["union", "intersection"]), sources: z.array(ShelfSourceSchema), childFilter: FilterGroupSchema.optional(), ...sourceOrder }),
+  z.object({ type: z.literal("composite"), combine: z.enum(["union", "intersection"]), sources: z.array(ShelfSourceSchema), childFilter: FilterGroupSchema.optional(), postFilter: FilterGroupSchema.optional(), ...sourceOrder }),
 ]) as unknown as z.ZodType<ShelfSource>);
 export type ShelfFilter = z.infer<typeof FilterSchema>;
 

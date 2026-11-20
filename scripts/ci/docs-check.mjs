@@ -95,7 +95,7 @@ const rectSet = (src) =>
     .map((m) => `${m[1]},${m[2]},${m[3]},${m[4]}`));
 const ICON_PAIRS = [
   { svg: "assets/icon.svg", tsx: "src/components/icons.tsx", marker: "translate(-340.6,-224.7) scale(0.76)", name: "DeckShelvesLogo", min: 10 },
-  { svg: "assets/tab-icon.svg", tsx: "src/index.tsx", marker: "rotate(-13 15.95 19)", name: "DeckShelvesIcon", min: 3 },
+  { svg: "assets/tab-icon.svg", tsx: "src/index.tsx", marker: "rotate(-6 18.6 18.5)", name: "DeckShelvesIcon", min: 3 },
 ];
 for (const { svg, tsx, marker, name, min } of ICON_PAIRS) {
   const svgSrc = read(svg);

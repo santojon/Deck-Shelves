@@ -45,6 +45,7 @@
   "preview_count": "{{count}} spellen gevonden",
   "preview_empty": "Geen spellen komen overeen met deze configuratie",
   "preview_loading": "Controleren…",
+  "preview_missing_data": "Sommige spellen ontbreken tot hun winkelgegevens beschikbaar zijn.",
   "refresh": "Vernieuwen",
   "refresh_cache": "Cache vernieuwen",
   "remove": "Verwijderen",

@@ -22,6 +22,7 @@ type Result = {
   previewCount: number | null;
   resolvedIds: number[];
   resolvedMeta: Map<number, PlatformAppMeta>;
+  missingData: number;
 };
 
 function pickPreviewReverse(state: EditableShelfState, isManualSort: boolean): boolean | boolean[] {
@@ -147,6 +148,7 @@ type ResolveArgs = {
   previewSource: any;
   previewShelfId: string;
   hiddenPickerOpen: boolean;
+  onMissingData: (n: number) => void;
 };
 
 function isEmptyTabSource(state: EditableShelfState): boolean {
@@ -156,11 +158,12 @@ function isEmptyTabSource(state: EditableShelfState): boolean {
 }
 
 async function resolveFilteredIds(args: ResolveArgs): Promise<number[]> {
-  const { state, previewSource, previewShelfId, hiddenPickerOpen } = args;
+  const { state, previewSource, previewShelfId, hiddenPickerOpen, onMissingData } = args;
   const { sort, reverse } = computePreviewSort(state);
   const rawIds = await resolveShelfAppIds(previewSource, Math.max(state.limit, 500), sort, previewShelfId, reverse, {
     hiddenAppIds: hiddenPickerOpen ? undefined : (state.hiddenAppIds.length ? state.hiddenAppIds : undefined),
     dedupeByName: state.dedupeByExactName || undefined,
+    onMissingData,
   });
   const isCompositeMode = state.additionalSources.length > 0 && state.sourceType !== 'filter';
   const isOnlineShelf = !isCompositeMode && (state.sourceType === 'wishlist' || state.sourceType === 'store');
@@ -172,6 +175,7 @@ export function usePreviewResolution(props: Props): Result {
   const [previewCount, setPreviewCount] = useState<number | null>(null);
   const [resolvedIds, setResolvedIds] = useState<number[]>([]);
   const [resolvedMeta, setResolvedMeta] = useState<Map<number, PlatformAppMeta>>(new Map());
+  const [missingData, setMissingData] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -180,15 +184,17 @@ export function usePreviewResolution(props: Props): Result {
       if (isEmptyTabSource(state)) {
         setPreviewCount(0); setResolvedIds([]); return;
       }
+      let missing = 0;
       try {
-        const filteredIds = await resolveFilteredIds({ state, previewSource, previewShelfId, hiddenPickerOpen });
+        const filteredIds = await resolveFilteredIds({ state, previewSource, previewShelfId, hiddenPickerOpen, onMissingData: (n) => { missing += n; } });
         if (cancelled) return;
+        setMissingData(missing);
         setPreviewCount(filteredIds.length);
         const isManualSort = state.sort === 'manual' || state.filter.sort === 'manual';
         setResolvedIds(filteredIds.slice(0, isManualSort ? manualResolveLimit(state.limit, state.manualOrder) : state.limit));
       } catch {
         if (cancelled) return;
-        setPreviewCount(0); setResolvedIds([]);
+        setMissingData(0); setPreviewCount(0); setResolvedIds([]);
       }
     };
     const timer = setTimeout(() => { void runResolve(); }, 500);
@@ -242,5 +248,5 @@ export function usePreviewResolution(props: Props): Result {
     return () => { cancelled = true; };
   }, [platform, resolvedIds.join(','), state.manualOrder.join(',')]);
 
-  return { previewCount, resolvedIds, resolvedMeta };
+  return { previewCount, resolvedIds, resolvedMeta, missingData };
 }

@@ -63,6 +63,9 @@ export type EditableShelfState = {
   autoCollapse?: any
   autoCollapseWhenEmpty?: boolean
   childFilterGroup: FilterGroup
+  postFilterGroup: FilterGroup
+  // Kept as saved: older multi-source shelves shared one filter among their online sources.
+  legacyCompositeChildFilter?: FilterGroup
   excludeOwned: boolean
   excludeOwnedNonSteam: boolean
   hideOwnedNonSteamCloud: boolean

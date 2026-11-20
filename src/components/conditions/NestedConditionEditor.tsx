@@ -1,5 +1,6 @@
-import type { FilterItem, FilterGroup } from "../../types";
+import type { FilterItem, FilterGroup, FilterItemType } from "../../types";
 import { ConditionEditor } from "./ConditionEditor";
+import { holdsOnlyTypes } from "./ConditionRow";
 import { SavedFiltersBar } from "../qam/modals/editShelf/SavedFiltersBar";
 import type { SettingsController } from "../../features/settings/controller";
 
@@ -9,12 +10,14 @@ export default function NestedConditionEditor({
   controller,
   allowOnlineFilters = false,
   onlineFeaturesOn = false,
+  onlyTypes,
 }: {
   item: FilterItem;
   onChange: (patch: Partial<FilterItem>) => void;
   controller?: SettingsController;
   allowOnlineFilters?: boolean;
   onlineFeaturesOn?: boolean;
+  onlyTypes?: readonly FilterItemType[];
 }) {
   const p = item.params ?? {};
   const items: FilterItem[] = Array.isArray(p.items) ? (p.items as FilterItem[]) : [];
@@ -35,9 +38,10 @@ export default function NestedConditionEditor({
           controller={controller}
           currentGroup={group}
           onApply={(applied) => setGroup({ mode: applied.mode, items: applied.items.slice() })}
+          accepts={onlyTypes ? (saved) => holdsOnlyTypes(saved, onlyTypes) : undefined}
         />
       )}
-      <ConditionEditor group={group} onChange={setGroup} controller={controller} allowOnlineFilters={allowOnlineFilters} onlineFeaturesOn={onlineFeaturesOn} />
+      <ConditionEditor group={group} onChange={setGroup} controller={controller} allowOnlineFilters={allowOnlineFilters} onlineFeaturesOn={onlineFeaturesOn} onlyTypes={onlyTypes} />
     </div>
   );
 }

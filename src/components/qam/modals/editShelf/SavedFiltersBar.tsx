@@ -2,9 +2,10 @@ import type { SettingsController } from '../../../../features/settings/controlle
 import type { FilterGroup } from '../../../../types'
 import { SavedPresetBar } from './SavedPresetBar'
 
-export function SavedFiltersBar({ controller, currentGroup, onApply }: { controller: SettingsController; currentGroup: FilterGroup; onApply: (g: FilterGroup) => void }) {
+export function SavedFiltersBar({ controller, currentGroup, onApply, accepts }: { controller: SettingsController; currentGroup: FilterGroup; onApply: (g: FilterGroup) => void; accepts?: (g: FilterGroup) => boolean }) {
   const { t, settings, actions } = controller
-  const saved = settings?.savedFilters ?? []
+  const all = settings?.savedFilters ?? []
+  const saved = accepts ? all.filter((f) => accepts(f.group)) : all
   return (
     <SavedPresetBar
       t={t}

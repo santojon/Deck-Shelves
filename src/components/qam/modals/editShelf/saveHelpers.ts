@@ -152,10 +152,14 @@ export function patchSourceOrder(source: any, patch: SourceOrderFields): any {
   return withSourceOrder(source, { sort: source?.sort, sortReverse: source?.sortReverse, limit: source?.limit, manualOrder: source?.manualOrder, ...patch });
 }
 
+const groupWithItems = (group: FilterGroup | undefined): FilterGroup | undefined => (group?.items?.length ? group : undefined);
+
 export function assembleFinalSource(primary: any, state: EditableShelfState): any {
   if (state.additionalSources.length === 0) return primary;
   const allChildren = [withSourceOrder(primary, state.primaryOrder), ...state.additionalSources].map(dropEmptyChildFilter).map(dropUnusedManualOrder);
-  return { type: 'composite', combine: state.compositeCombine, sources: allChildren };
+  const childFilter = groupWithItems(state.legacyCompositeChildFilter);
+  const postFilter = groupWithItems(state.postFilterGroup);
+  return { type: 'composite', combine: state.compositeCombine, sources: allChildren, ...(childFilter ? { childFilter } : {}), ...(postFilter ? { postFilter } : {}) };
 }
 
 export function shelfSortForPatch(state: EditableShelfState): Partial<Shelf>['sort'] {

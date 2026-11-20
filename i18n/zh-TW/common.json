@@ -45,6 +45,7 @@
   "preview_count": "找到 {{count}} 款遊戲",
   "preview_empty": "沒有遊戲符合此設定",
   "preview_loading": "檢查中…",
+  "preview_missing_data": "部分遊戲在其商店資料可用之前不會顯示。",
   "refresh": "重新整理",
   "refresh_cache": "重新整理快取",
   "remove": "移除",

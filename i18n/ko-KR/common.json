@@ -45,6 +45,7 @@
   "preview_count": "{{count}}개의 게임을 찾았습니다",
   "preview_empty": "이 설정에 맞는 게임이 없습니다",
   "preview_loading": "확인 중…",
+  "preview_missing_data": "스토어 데이터를 사용할 수 있을 때까지 일부 게임은 표시되지 않습니다.",
   "refresh": "새로고침",
   "refresh_cache": "캐시 새로고침",
   "remove": "제거",

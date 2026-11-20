@@ -200,6 +200,11 @@ export function onlineSourceLabel(type: unknown, t: (key: any) => string): strin
   return t(type === 'wishlist' ? 'source_wishlist' : 'source_store');
 }
 
+export function primaryFilterLabel(type: unknown, t: (key: any) => string): string {
+  if (type === 'wishlist' || type === 'store') return onlineSourceLabel(type, t);
+  return t(type === 'tab' ? 'source_tab' : 'source_collection');
+}
+
 export type ExclusionFlags = { excludeOwned: boolean; excludeOwnedNonSteam: boolean; hideOwnedNonSteamCloud: boolean };
 
 export function deriveExclusionFlags(src: any): ExclusionFlags {
@@ -220,9 +225,22 @@ export type FilterTabPlan = {
   primaryOnline: boolean;
   primaryOffline: boolean;
   allowOnline: boolean;
-  tabLabelKey: 'edit_tab_online_filters' | 'edit_tab_additional_filters';
+  tabLabelKey: 'edit_tab_online_filters' | 'edit_tab_additional_filters' | 'edit_tab_filters';
   onlineAdditionalIdx: number[];
+  showPostFilter: boolean;
+  postFilterInFilters: boolean;
 };
+
+// A local shelf with a Filter source already has a Filters tab, so the combined area goes there.
+function postFilterInFilterTab(state: EditableShelfState, allowOnline: boolean): boolean {
+  if (allowOnline || state.additionalSources.length === 0) return false;
+  return state.sourceType === 'filter' || state.additionalSources.some((s: any) => s?.type === 'filter');
+}
+
+function filterTabLabel(allowOnline: boolean, showPostFilter: boolean): FilterTabPlan['tabLabelKey'] {
+  if (allowOnline) return 'edit_tab_online_filters';
+  return showPostFilter ? 'edit_tab_filters' : 'edit_tab_additional_filters';
+}
 
 export function resolveFilterTabPlan(state: EditableShelfState): FilterTabPlan {
   const primaryOnline = state.sourceType === 'wishlist' || state.sourceType === 'store';
@@ -230,13 +248,17 @@ export function resolveFilterTabPlan(state: EditableShelfState): FilterTabPlan {
   const onlineAdditionalIdx = onlineAdditionalIndexes(state);
   const compositeOnlineChild = state.additionalSources.length > 0 && (primaryOnline || onlineAdditionalIdx.length > 0);
   const allowOnline = primaryOnline || compositeOnlineChild;
+  const postFilterInFilters = postFilterInFilterTab(state, allowOnline);
+  const showPostFilter = state.additionalSources.length > 0 && !postFilterInFilters;
   return {
-    showTab: primaryOffline || primaryOnline || compositeOnlineChild,
+    showTab: primaryOffline || primaryOnline || showPostFilter,
     primaryOnline,
     primaryOffline,
     allowOnline,
-    tabLabelKey: allowOnline ? 'edit_tab_online_filters' : 'edit_tab_additional_filters',
+    tabLabelKey: filterTabLabel(allowOnline, showPostFilter),
     onlineAdditionalIdx,
+    showPostFilter,
+    postFilterInFilters,
   };
 }
 

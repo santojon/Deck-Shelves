@@ -45,6 +45,7 @@
   "preview_count": "{{count}}件のゲームが見つかりました",
   "preview_empty": "この設定に一致するゲームはありません",
   "preview_loading": "確認中…",
+  "preview_missing_data": "ストアのデータが取得できるまで、一部のゲームは表示されません。",
   "refresh": "更新",
   "refresh_cache": "キャッシュ更新",
   "remove": "削除",

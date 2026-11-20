@@ -45,6 +45,7 @@
   "preview_count": "{{count}} jeux trouvés",
   "preview_empty": "Aucun jeu ne correspond à cette configuration",
   "preview_loading": "Vérification…",
+  "preview_missing_data": "Certains jeux sont exclus tant que leurs données de la boutique ne sont pas disponibles.",
   "refresh": "Actualiser",
   "refresh_cache": "Actualiser le cache",
   "remove": "Retirer",

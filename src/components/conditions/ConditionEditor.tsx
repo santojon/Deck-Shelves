@@ -18,6 +18,7 @@ export interface ConditionEditorProps {
   allowOnlineFilters?: boolean
   onlineFeaturesOn?: boolean
   hideMode?: boolean
+  onlyTypes?: readonly FilterItemType[]
 }
 
 type Mode = FilterGroup['mode']
@@ -73,7 +74,7 @@ function MatchChoice({ mode, onChange }: { mode: Mode; onChange: (mode: Mode) =>
   )
 }
 
-export function ConditionEditor({ group, onChange, controller, allowOnlineFilters = false, onlineFeaturesOn = false, hideMode = false }: ConditionEditorProps) {
+export function ConditionEditor({ group, onChange, controller, allowOnlineFilters = false, onlineFeaturesOn = false, hideMode = false, onlyTypes }: ConditionEditorProps) {
   const [keys] = useState(createConditionKeys)
   const [added, setAdded] = useState<string | null>(null)
   const rows = useRef(new Map<string, HTMLDivElement>())
@@ -97,7 +98,8 @@ export function ConditionEditor({ group, onChange, controller, allowOnlineFilter
     onChange({ mode, items: next })
   }
   const add = () => {
-    const item: FilterItem = { type: NEW_CONDITION_TYPE, params: startingOptions(NEW_CONDITION_TYPE) }
+    const type = onlyTypes?.[0] ?? NEW_CONDITION_TYPE
+    const item: FilterItem = { type, params: startingOptions(type) }
     const key = keys.of(item)
     setAdded(key)
     send([...items, item], key)
@@ -128,6 +130,7 @@ export function ConditionEditor({ group, onChange, controller, allowOnlineFilter
           controller={controller}
           allowOnlineFilters={allowOnlineFilters}
           onlineFeaturesOn={onlineFeaturesOn}
+          onlyTypes={onlyTypes}
         />
       ))}
       <div ref={addControl} style={{ marginTop: 8 }}>

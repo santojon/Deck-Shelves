@@ -12,20 +12,16 @@ type Ctx = {
   externalSources: ReadonlyArray<{ id: string }>;
 };
 
-// Older saves had one composite-level childFilter; copy it onto each online child.
+// A composite-level childFilter from older saves stays on the shelf as saved, never copied onto the sources.
 function hydrateCompositeChildren(shelf: Shelf): any[] {
   if (shelf.source.type !== 'composite') return [];
-  const compositeChildren: any[] = Array.isArray((shelf.source as any).sources)
-    ? (shelf.source as any).sources : [];
-  const legacyChildFilter = (shelf.source as any).childFilter;
-  const hasLegacy = legacyChildFilter && Array.isArray(legacyChildFilter.items) && legacyChildFilter.items.length > 0;
-  if (!hasLegacy) return compositeChildren;
-  return compositeChildren.map((c: any) => {
-    if (c?.type !== 'wishlist' && c?.type !== 'store') return c;
-    const existing = c.childFilter;
-    if (existing && Array.isArray(existing.items) && existing.items.length > 0) return c;
-    return { ...c, childFilter: legacyChildFilter };
-  });
+  return Array.isArray((shelf.source as any).sources) ? (shelf.source as any).sources : [];
+}
+
+function compositeGroup(shelf: Shelf, key: 'childFilter' | 'postFilter'): FilterGroup | undefined {
+  if (shelf.source.type !== 'composite') return undefined;
+  const group = (shelf.source as any)[key];
+  return group && Array.isArray(group.items) && group.items.length > 0 ? group : undefined;
 }
 
 function deriveInitialTab(_shelf: Shelf, mode: 'create' | 'edit', primarySource: any, platformTabs: ReadonlyArray<{ id: string }>): string {
@@ -219,6 +215,8 @@ export function buildInitialShelfState(ctx: Ctx): EditableShelfState {
     ...readHideFlags(shelf),
     ...readOwnedToggles(primarySource),
     childFilterGroup: deriveInitialChildFilterGroup(shelf, primarySource),
+    postFilterGroup: compositeGroup(shelf, 'postFilter') ?? { mode: 'and', items: [] },
+    legacyCompositeChildFilter: compositeGroup(shelf, 'childFilter'),
     compositeCombine: readCompositeCombine(shelf),
     additionalSources: hydratedCompositeChildren.slice(1) as any[],
     syntheticCards: readSyntheticCards(shelf),

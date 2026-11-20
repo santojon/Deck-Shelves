@@ -10,7 +10,7 @@ export type ResolverContext = {
   sort?: string | string[];
   shelfId?: string;
   sortReverse?: boolean | boolean[];
-  options?: { hiddenAppIds?: number[]; dedupeByName?: boolean; onResolveTotal?: (n: number) => void };
+  options?: { hiddenAppIds?: number[]; dedupeByName?: boolean; onResolveTotal?: (n: number) => void; onMissingData?: (n: number) => void };
   depth: number;
   all: AppOverview[];
   overShootLimit: number;

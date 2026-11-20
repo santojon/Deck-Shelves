@@ -24,6 +24,8 @@ function isSteamOsCompatMatch(cat: number | undefined, allowed: string[] | undef
 
 export type FilterEvalContext = {
   collectionAppIds: Map<string, Set<number>>;
+  // When set, prices come only from here and a game missing from it never matches.
+  prices?: ReadonlyMap<number, PriceCacheEntry>;
 };
 
 type FilterEvaluator = (item: FilterItem, app: AppOverview, ctx?: FilterEvalContext) => boolean;
@@ -239,10 +241,14 @@ function priceInBounds(entry: PriceCacheEntry, item: FilterItem): boolean {
   return true;
 }
 
-function evalPriceRange(item: FilterItem, app: AppOverview): boolean {
+function priceEntryOf(appid: number, ctx?: FilterEvalContext): PriceCacheEntry | null | "bootstrap" {
+  return ctx?.prices ? ctx.prices.get(appid) ?? null : readPriceCacheEntry(appid);
+}
+
+function evalPriceRange(item: FilterItem, app: AppOverview, ctx?: FilterEvalContext): boolean {
   const appid = appIdOf(app);
   if (!appid) return false;
-  const entry = readPriceCacheEntry(appid);
+  const entry = priceEntryOf(appid, ctx);
   if (entry === "bootstrap") return true;
   return !!entry && priceInBounds(entry, item);
 }
@@ -255,10 +261,10 @@ function discountInBounds(entry: { discount?: number; unpriced?: boolean }, item
   return disc >= min && disc <= max;
 }
 
-function evalDiscount(item: FilterItem, app: AppOverview): boolean {
+function evalDiscount(item: FilterItem, app: AppOverview, ctx?: FilterEvalContext): boolean {
   const appid = appIdOf(app);
   if (!appid) return false;
-  const entry = readPriceCacheEntry(appid);
+  const entry = priceEntryOf(appid, ctx);
   if (entry === "bootstrap") return true;
   return !!entry && discountInBounds(entry, item);
 }

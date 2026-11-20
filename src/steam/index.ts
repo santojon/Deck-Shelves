@@ -20,6 +20,7 @@ import { PRICE_SORT_KEYS, _resolveStore, _resolveWishlist } from "./onlineResolv
 import { _resolveSmart } from "./smartResolver";
 import { unavailableReason } from "./availability";
 import { SOURCE_V3_RESOLVERS } from "./v3Extensions";
+import { applyCompositePostFilter } from "./compositePostFilter";
 
 export { compareByAdded, normalizeAppOverview } from "./appOverview";
 export type { AppOverview } from "./appOverview";
@@ -345,9 +346,11 @@ function rebuildCompositeChildSources(rawChildSources: LooseSource[], compositeI
   });
 }
 
-// Each child truncates to its own limit before the merge, so give it room.
-function compositeChildLimit(overShootLimit: number): number {
-  return Math.min(Math.max(overShootLimit * 4, 200), 600);
+const COMPOSITE_CHILD_CAP = 600;
+
+// Each child truncates to its own limit before the merge, so give it room; a filter on the merged result reads up to the cap.
+function compositeChildLimit(overShootLimit: number, postFiltered: boolean): number {
+  return postFiltered ? COMPOSITE_CHILD_CAP : Math.min(Math.max(overShootLimit * 4, 200), COMPOSITE_CHILD_CAP);
 }
 
 // The source's own game limit, set in the editor.
@@ -384,7 +387,7 @@ function childOrderOf(child: LooseSource, ctx: ResolverContext): ChildOrder {
 
 async function resolveCompositeChildren(childSources: LooseSource[], ctx: ResolverContext): Promise<number[][]> {
   const { shelfId, options, depth: _depth, overShootLimit } = ctx;
-  const childLimit = compositeChildLimit(overShootLimit);
+  const childLimit = compositeChildLimit(overShootLimit, !!ctx.source.postFilter?.items?.length);
   // Per-child ceiling so one hung online source can't stall the composite.
   return Promise.all(
     childSources.map((child) => {
@@ -447,6 +450,7 @@ async function _resolveComposite(ctx: ResolverContext): Promise<number[]> {
   const childResults = await resolveCompositeChildren(childSources, ctx);
   const inSourceOrder = combine === "union" && primaryKeyOf(ctx.sort) === "source_order";
   let merged = inSourceOrder ? [...new Set(childResults.flat())] : mergeCompositeResults(childResults, combine);
+  merged = await applyCompositePostFilter(merged, source.postFilter, all, ctx.options?.onMissingData);
   merged = await resortCompositeMerged(merged, all, ctx, childSources.some(hasOwnPick));
   logInfo("STEAM", "resolveShelfAppIds(composite) resolved", { combine, children: childSources.length, count: merged.length, hasChildFilter: !!(source as any).childFilter });
   return finish(merged.slice(0, overShootLimit));
@@ -544,7 +548,7 @@ export async function resolveShelfAppIds(
   sort?: string | string[],
   shelfId?: string,
   sortReverse?: boolean | boolean[],
-  options?: { hiddenAppIds?: number[]; dedupeByName?: boolean; onResolveTotal?: (n: number) => void },
+  options?: { hiddenAppIds?: number[]; dedupeByName?: boolean; onResolveTotal?: (n: number) => void; onMissingData?: (n: number) => void },
   _depth: number = 0,
 ): Promise<number[]> {
   const { hiddenAppIds, dedupeByName, onResolveTotal } = options ?? {};

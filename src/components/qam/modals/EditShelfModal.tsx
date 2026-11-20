@@ -55,6 +55,7 @@ import {
   smartValueIds,
   childSourceTypeLabel,
   onlineSourceLabel,
+  primaryFilterLabel,
   deriveExclusionFlags,
   onlineAdditionalIndexes,
   resolveFilterTabPlan,
@@ -68,6 +69,8 @@ import { SourceOrderPreview, useSourceOrdering } from './editShelf/SourceOrderPr
 import { visualFlagsOf, applyVisualPatch, previewHideFlags, removableTail } from './editShelf/sharedEditProps'
 import { persistShelf } from './editShelf/buildSavePatch'
 import { computeSourceTypeState, hasAny, primarySortValue, isOnlineSourceType, onlineFeaturesEnabled, buildAllSourceTypes } from './editShelf/shelfFormState'
+import { removeSourceRow, withoutSourceRow } from './editShelf/removeSource'
+import { POST_FILTER_TYPES, unsupportedPostFilterType } from '../../../steam/compositePostFilter'
 
 // Fallback for when the controller's tab list comes back empty.
 const NATIVE_FALLBACK_TABS: import('../../../runtime/platform').PlatformTab[] = [
@@ -77,6 +80,10 @@ const NATIVE_FALLBACK_TABS: import('../../../runtime/platform').PlatformTab[] = 
   { id: 'hidden',     name: 'Hidden' },
   { id: 'nonsteam',   name: 'Non-Steam' },
 ]
+
+const readsOnCombinedResult = (group: FilterGroup) => unsupportedPostFilterType(group) === null
+
+const missingDataNote = (count: number, t: (key: any) => string) => (count > 0 ? t('preview_missing_data') : undefined)
 
 function resolvePlatformTabs(controllerTabs: unknown): import('../../../runtime/platform').PlatformTab[] {
   return Array.isArray(controllerTabs) && controllerTabs.length > 0
@@ -117,7 +124,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
   const [alternatingMode, setAlternatingMode] = useState<'odd' | 'even' | null>(null)
   const prePatternHighlightsRef = useRef<number[] | null>(null)
   const isManualSort = primarySortKey(primarySortValue(state)) === 'manual'
-  const { previewSource, previewCount, resolvedIds, resolvedMeta, effectiveManualOrder, reorderManual, SYNTH_SENTINEL } = useShelfPreview({
+  const { previewSource, previewCount, resolvedIds, resolvedMeta, missingData, effectiveManualOrder, reorderManual, SYNTH_SENTINEL } = useShelfPreview({
     state, setState, isManualSort, previewShelfId, hiddenPickerOpen, previewRefreshNonce, platform,
   })
   const { settings } = controller
@@ -277,6 +284,26 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
     void persistShelf({ state, shelf, mode, highlightPickerOpen, hiddenPickerOpen, platformTabs, actions, t })
   }
 
+  const setPostFilterGroup = (group: FilterGroup) => setState((prev) => ({ ...prev, postFilterGroup: group }))
+  const combineName = t(state.compositeCombine === 'intersection' ? 'composite_combine_intersection' : 'composite_combine_union')
+  const renderPostFilterArea = (allowOnline: boolean, divided: boolean) => (
+    <>
+      <div style={{ fontSize: 12, opacity: 0.75, padding: '4px 0', textAlign: 'center' }}>{t('composite_combine_summary', { mode: combineName })}</div>
+      <div style={divided ? { marginTop: 8, paddingTop: 8, borderTop: '1px solid rgba(255,255,255,0.08)' } : undefined}>
+        <div style={{ fontSize: 13, opacity: 0.85, padding: '4px 0', fontWeight: 600 }}>{t('composite_post_filter_title')}</div>
+        <div style={{ fontSize: 12, opacity: 0.75, lineHeight: 1.5, paddingBottom: 4 }}>{t('composite_post_filter_hint')}</div>
+        <SavedFiltersBar controller={controller} currentGroup={state.postFilterGroup} onApply={setPostFilterGroup} accepts={readsOnCombinedResult} />
+        <ConditionEditor group={state.postFilterGroup} onChange={setPostFilterGroup} controller={controller} allowOnlineFilters={allowOnline} onlineFeaturesOn={onlineOn} onlyTypes={POST_FILTER_TYPES} />
+      </div>
+    </>
+  )
+  const legacySharedFilterNote = (allowOnline: boolean) => (allowOnline && state.legacyCompositeChildFilter?.items.length
+    ? <div style={{ fontSize: 12, opacity: 0.75, lineHeight: 1.5, paddingBottom: 8 }}>{t('composite_legacy_shared_filter')}</div>
+    : null)
+  const noConditionsHint = (group: FilterGroup) => (state.additionalSources.length > 0 && group.items.length === 0
+    ? <div style={{ fontSize: 12, opacity: 0.75, paddingBottom: 4 }}>{t('composite_no_conditions')}</div>
+    : null)
+
   const renderPrimarySourcePicker = () => {
     switch (state.sourceType) {
       case 'collection':
@@ -358,7 +385,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
               return { ...prev, additionalSources: updated };
             });
           };
-          const onRemove = () => { setOrderingRow(null); setState((prev) => ({ ...prev, additionalSources: prev.additionalSources.filter((_: any, i: number) => i !== idx) })) };
+          const onRemove = () => removeSourceRow(state, t, () => { setOrderingRow(null); setState((prev) => withoutSourceRow(prev, idx)) });
           const onOrderChange = (patch: SourceOrder) => patchOrderAt(idx, patch);
           const childTypeLabel = childSourceTypeLabel(childType, t);
           return (
@@ -621,7 +648,8 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
                   })
                 })
                 if (fslots.length === 0) return []
-                const multi = fslots.length > 1
+                const withPostFilter = resolveFilterTabPlan(state).postFilterInFilters
+                const multi = fslots.length > 1 || withPostFilter
                 return [{
                   id: 'filters',
                   // Tab.title is typed string but renders any ReactNode.
@@ -633,10 +661,12 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
                           {multi && (
                             <div style={{ fontSize: 13, opacity: 0.85, padding: '4px 0', fontWeight: 600 }}>{`${t('source_filter')} ${i + 1}`}</div>
                           )}
+                          {noConditionsHint(slot.group)}
                           <SavedFiltersBar controller={controller} currentGroup={slot.group} onApply={slot.onChange} />
                           <ConditionEditor group={slot.group} onChange={slot.onChange} controller={controller} allowOnlineFilters={false} onlineFeaturesOn={onlineOn} />
                         </div>
                       ))}
+                      {withPostFilter && renderPostFilterArea(false, true)}
                     </FieldContainer>
                   ),
                 }]
@@ -647,7 +677,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
                 type Slot = { key: string; label?: string; group: FilterGroup; onChange: (g: FilterGroup) => void; allowOnline: boolean }
                 const primarySlot: Slot | null = !(plan.primaryOffline || plan.primaryOnline) ? null : {
                   key: 'primary',
-                  label: plan.primaryOnline ? onlineSourceLabel(state.sourceType, t) : undefined,
+                  label: primaryFilterLabel(state.sourceType, t),
                   group: state.childFilterGroup,
                   onChange: (group) => setState((prev) => ({ ...prev, childFilterGroup: group })),
                   allowOnline: plan.primaryOnline,
@@ -671,20 +701,22 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
                   }
                 })
                 const slots: Slot[] = primarySlot ? [primarySlot, ...additionalSlots] : additionalSlots
-                if (slots.length === 0) {
+                if (slots.length === 0 && !plan.showPostFilter) {
                   return []
                 }
-                const multi = slots.length > 1
+                const multi = slots.length > 1 || plan.showPostFilter
                 return [{
                   id: 'childFilters',
                   title: (<TabLabel icon={<FunnelIcon />} text={t(plan.tabLabelKey as any)} />) as unknown as string,
                   content: (
                     <FieldContainer>
+                      {legacySharedFilterNote(plan.allowOnline)}
                       {slots.map((slot) => (
                         <div key={slot.key} style={multi ? { marginBottom: 8 } : undefined}>
                           {multi && slot.label && (
                             <div style={{ fontSize: 13, opacity: 0.85, padding: '4px 0', fontWeight: 600 }}>{slot.label}</div>
                           )}
+                          {noConditionsHint(slot.group)}
                           <SavedFiltersBar
                             controller={controller}
                             currentGroup={slot.group}
@@ -693,6 +725,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
                           <ConditionEditor group={slot.group} onChange={slot.onChange} controller={controller} allowOnlineFilters={slot.allowOnline} onlineFeaturesOn={onlineOn} />
                         </div>
                       ))}
+                      {plan.showPostFilter && renderPostFilterArea(plan.allowOnline, slots.length > 0)}
                     </FieldContainer>
                   ),
                 }];
@@ -813,6 +846,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
             onToggleSelection={previewSelection.onToggle}
             removableSet={removableTail(state.manualOrder, resolvedIds)}
             onRemoveCard={(id) => setState((prev) => ({ ...prev, manualOrder: prev.manualOrder.filter((x) => x !== id) }))}
+            note={missingDataNote(missingData, t)}
           />
       )}
     />

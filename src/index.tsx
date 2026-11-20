@@ -69,10 +69,10 @@ const TAGS_ROUTE = "/deck-shelves/tags/:appid";
 function DeckShelvesIcon({ fixedSize = true }: { fixedSize?: boolean }) {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style={fixedSize ? { width: 18, height: 18 } : undefined}>
-      <rect x="3.8" y="7.5" width="3.9" height="11.5" rx="0.8" />
-      <rect x="8.7" y="5" width="3.9" height="14" rx="0.8" />
-      <rect x="14" y="8" width="3.9" height="11" rx="0.8" transform="rotate(-13 15.95 19)" />
-      <rect x="2.4" y="19" width="19.2" height="2.5" rx="0.9" />
+      <rect x="3.1" y="7.15" width="4.9" height="11.35" rx="0.8" />
+      <rect x="9.5" y="3.4" width="4.95" height="15.1" rx="0.8" />
+      <rect x="16.7" y="6.65" width="4.35" height="11.85" rx="0.77" transform="rotate(-6 18.6 18.5)" />
+      <rect x="2.2" y="19.75" width="19.6" height="2.65" rx="0.78" />
     </svg>
   );
 }

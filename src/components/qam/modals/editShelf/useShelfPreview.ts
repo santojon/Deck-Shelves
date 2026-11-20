@@ -21,9 +21,9 @@ export function useShelfPreview({ state, setState, isManualSort, previewShelfId,
     const childFilter = state.childFilterGroup.items.length > 0 ? state.childFilterGroup : undefined
     const primary = buildPrimarySourceShared({ state, childFilter })
     return assembleFinalSource(primary, state)
-  }, [state.sourceType, state.collectionId, state.tab, state.externalSourceId, state.filterGroup, state.filter.sort, state.filter.sortReverse, state.manualBaseSort, state.childFilterGroup, state.excludeOwned, state.excludeOwnedNonSteam, state.hideOwnedNonSteamCloud, state.compositeCombine, state.additionalSources, state.builtinSourceId, state.primaryOrder])
+  }, [state.sourceType, state.collectionId, state.tab, state.externalSourceId, state.filterGroup, state.filter.sort, state.filter.sortReverse, state.manualBaseSort, state.childFilterGroup, state.postFilterGroup, state.excludeOwned, state.excludeOwnedNonSteam, state.hideOwnedNonSteamCloud, state.compositeCombine, state.additionalSources, state.builtinSourceId, state.primaryOrder])
 
-  const { previewCount, resolvedIds, resolvedMeta } = usePreviewResolution({
+  const { previewCount, resolvedIds, resolvedMeta, missingData } = usePreviewResolution({
     state, previewSource, previewShelfId, hiddenPickerOpen, previewRefreshNonce, platform,
   })
 
@@ -68,5 +68,5 @@ export function useShelfPreview({ state, setState, isManualSort, previewShelfId,
     }
     return { ...prev, manualOrder: nextManualOrder, syntheticCards: nextSynth }
   })
-  return { previewSource, previewCount, resolvedIds, resolvedMeta, effectiveManualOrder, reorderManual, SYNTH_SENTINEL }
+  return { previewSource, previewCount, resolvedIds, resolvedMeta, missingData, effectiveManualOrder, reorderManual, SYNTH_SENTINEL }
 }

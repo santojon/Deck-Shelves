@@ -4,6 +4,7 @@ import { unsupportedFilterType } from "./filterEval";
 import { isSupportedSortKey } from "./sorting";
 import { RETIRED_SMART_MODES, INTERNAL_SMART_MODES } from "./smartShelves";
 import { SOURCE_V3_RESOLVERS } from "./v3Extensions";
+import { unsupportedPostFilterType } from "./compositePostFilter";
 
 // The whole query is refused rather than run without the missing piece, so a shelf never widens to the whole library.
 
@@ -20,6 +21,11 @@ function unsupportedCondition(group: unknown): string | null {
   return type ? `condition ${type}` : null;
 }
 
+function unsupportedPostFilter(group: unknown): string | null {
+  const type = unsupportedPostFilterType(group as FilterGroup | undefined);
+  return type ? `combined-result condition ${type}` : null;
+}
+
 function unsupportedSmartMode(mode: unknown): string | null {
   const id = String(mode ?? "");
   const live = !id || id === "custom" || (INTERNAL_SMART_MODES.has(id) && !RETIRED_SMART_MODES.has(id)) || hasExternalSmartSource(id);
@@ -33,7 +39,7 @@ const SOURCE_CHECKS: Record<string, (source: Loose) => string | null> = {
     const modes = [s.mode, ...(Array.isArray(s.compositeModes) ? s.compositeModes : [])];
     return modes.map(unsupportedSmartMode).find(Boolean) ?? unsupportedCondition(s.filterGroup);
   },
-  composite: (s) => (Array.isArray(s.sources) ? s.sources.map((sub: Loose) => unsupportedInSource(sub)).find(Boolean) ?? null : null),
+  composite: (s) => unsupportedPostFilter(s.postFilter) ?? (Array.isArray(s.sources) ? s.sources.map((sub: Loose) => unsupportedInSource(sub)).find(Boolean) ?? null : null),
 };
 
 function unsupportedInSource(source: Loose): string | null {
