@@ -178,7 +178,7 @@ const MP_CATEGORY_IDS: Record<string, number[]> = {
 export function hasStoreCategory(appid: number, ids: readonly number[]): boolean | null {
   const local = rawLocalOverview(appid);
   if (!local || typeof local.BHasStoreCategory !== "function") return null;
-  return ids.some((id) => local.BHasStoreCategory(id));
+  try { return ids.some((id) => local.BHasStoreCategory(id)); } catch { return null; }
 }
 
 function evalMultiplayerTypeLocal(app: AppOverview, want: string): boolean | null {

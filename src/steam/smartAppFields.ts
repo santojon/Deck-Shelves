@@ -1,4 +1,5 @@
 import type { AppOverview } from "./index";
+import { isNonSteamOf } from "./appOverview";
 import { getDeviceProfile } from "../runtime/deviceState";
 import { compatCategoryForFamily } from "../domain/deviceProfile";
 
@@ -21,4 +22,8 @@ export function deckCompat(app: AppOverview): number {
 
 export function rtAcquired(app: AppOverview): number {
   return Number(app.rt_purchased_time ?? app.user_added_ts ?? 0);
+}
+
+export function isGameCandidate(app: AppOverview): boolean {
+  return isNonSteamOf(app) || app.app_type === undefined || app.app_type === 1;
 }

@@ -6,7 +6,7 @@ import { getFriendsPlayingAppIds, getFriendsRecentlyPlayedAppIds } from "../runt
 import { getCurrentSettings } from "../store/settingsStore";
 import { achievementPercent, loadAchievements } from "./achievements";
 import { STORE_CATEGORY, hasStoreCategory } from "./v3Extensions";
-import { playtimeMinutes, lastPlayedSec, deckCompat } from "./smartAppFields";
+import { playtimeMinutes, lastPlayedSec, deckCompat, isGameCandidate } from "./smartAppFields";
 
 export function resolveLowBatteryMode(apps: AppOverview[], limit: number, params?: SmartParams): number[] {
   const threshold = getParam("low_battery_mode", params, "batteryThresholdPct") / 100;
@@ -105,7 +105,7 @@ export function resolveByCategory(mode: SmartShelfMode, apps: AppOverview[], lim
   const minDeck = getParam(mode, params, "minDeckLevel");
   const ids = CATEGORY_MODES[mode] ?? [];
   return apps
-    .filter((a) => !a.is_non_steam && (a.app_type === undefined || a.app_type === 1) && deckCompat(a) >= minDeck && hasStoreCategory(a.appid, ids) === true)
+    .filter((a) => isGameCandidate(a) && deckCompat(a) >= minDeck && hasStoreCategory(a.appid, ids) === true)
     .sort((a, b) => lastPlayedSec(b) - lastPlayedSec(a))
     .slice(0, limit)
     .map((a) => a.appid);

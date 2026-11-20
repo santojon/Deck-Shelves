@@ -1,7 +1,7 @@
 import type { AppOverview } from "./index";
 import type { SmartShelfMode } from "../types";
 import { getParam, type SmartParams } from "./smartParams";
-import { playtimeMinutes, lastPlayedSec, deckCompat, rtAcquired } from "./smartAppFields";
+import { playtimeMinutes, lastPlayedSec, deckCompat, rtAcquired, isGameCandidate } from "./smartAppFields";
 
 export function resolveQuickPlay(apps: AppOverview[], limit: number, params?: SmartParams): number[] {
   const maxPt = getParam("quick_play", params, "maxPlaytimeMinutes");
@@ -37,7 +37,7 @@ export function resolveNotStarted(apps: AppOverview[], limit: number, params?: S
 export function resolveDeckPicks(apps: AppOverview[], limit: number, params?: SmartParams): number[] {
   const minDeck = getParam("deck_picks", params, "minDeckLevel");
   return apps
-    .filter((a) => (a.app_type === undefined || a.app_type === 1) && deckCompat(a) >= minDeck)
+    .filter((a) => isGameCandidate(a) && deckCompat(a) >= minDeck)
     .sort((a, b) => lastPlayedSec(b) - lastPlayedSec(a))
     .slice(0, limit)
     .map((a) => a.appid);
@@ -51,7 +51,7 @@ export function resolveRediscover(apps: AppOverview[], limit: number, params?: S
   return apps
     .filter(
       (a) =>
-        (a.app_type === undefined || a.app_type === 1) &&
+        isGameCandidate(a) &&
         lastPlayedSec(a) > 0 &&
         lastPlayedSec(a) < monthsAgoSec &&
         playtimeMinutes(a) > minPt &&
@@ -103,8 +103,7 @@ export function resolveTimeOfDay(apps: AppOverview[], limit: number, params?: Sm
 export function resolveDailyPick(apps: AppOverview[], limit: number): number[] {
   const dayIndex = Math.floor(Date.now() / 86400000);
   const eligible = apps.filter((a) =>
-    !a.is_non_steam &&
-    (a.app_type === undefined || a.app_type === 1) &&
+    isGameCandidate(a) &&
     (a.installed || playtimeMinutes(a) > 0),
   );
   if (!eligible.length) return [];
@@ -119,7 +118,7 @@ export function resolveOnDeck(apps: AppOverview[], limit: number, params?: Smart
     .filter(
       (a) =>
         a.installed &&
-        (a.app_type === undefined || a.app_type === 1) &&
+        isGameCandidate(a) &&
         deckCompat(a) >= minDeck,
     )
     .sort((a, b) => deckCompat(b) - deckCompat(a) || lastPlayedSec(b) - lastPlayedSec(a))
@@ -132,8 +131,7 @@ export function resolveRecentlyPlayed(apps: AppOverview[], limit: number, params
   const cutoff = Math.floor(Date.now() / 1000) - days * 24 * 3600;
   return apps
     .filter((a) =>
-      !a.is_non_steam &&
-      (a.app_type === undefined || a.app_type === 1) &&
+      isGameCandidate(a) &&
       lastPlayedSec(a) > cutoff,
     )
     .sort((a, b) => lastPlayedSec(b) - lastPlayedSec(a))
@@ -146,8 +144,7 @@ export function resolveLongSession(apps: AppOverview[], limit: number, params?: 
   const minDeck = getParam("long_session", params, "minDeckLevel");
   return apps
     .filter((a) =>
-      !a.is_non_steam &&
-      (a.app_type === undefined || a.app_type === 1) &&
+      isGameCandidate(a) &&
       a.installed &&
       playtimeMinutes(a) > minPt &&
       deckCompat(a) >= minDeck,
@@ -211,8 +208,7 @@ export function resolveCloudGames(apps: AppOverview[], limit: number): number[] 
 
 export function resolveRandomPick(apps: AppOverview[], limit: number): number[] {
   const arr = apps.filter((a) =>
-    !a.is_non_steam &&
-    (a.app_type === undefined || a.app_type === 1),
+    isGameCandidate(a),
   );
   for (let i = arr.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));

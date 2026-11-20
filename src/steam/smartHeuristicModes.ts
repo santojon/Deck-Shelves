@@ -1,7 +1,7 @@
 import type { AppOverview } from "./index";
 import { getParam, type SmartParams } from "./smartParams";
 import { weightedRank, multiFactorRank, timeDecayScore, applyCooldown, rotateWindow } from "./heuristics";
-import { playtimeMinutes, lastPlayedSec, deckCompat, rtAcquired } from "./smartAppFields";
+import { playtimeMinutes, lastPlayedSec, deckCompat, rtAcquired, isGameCandidate } from "./smartAppFields";
 
 export function resolveBacklogRescue(apps: AppOverview[], limit: number, params?: SmartParams, shelfId?: string): number[] {
   const minPt = getParam("backlog_rescue", params, "minPlaytimeMinutes");
@@ -10,8 +10,7 @@ export function resolveBacklogRescue(apps: AppOverview[], limit: number, params?
   const minDeck = getParam("backlog_rescue", params, "minDeckLevel");
   const cutoff = Math.floor(Date.now() / 1000) - stalenessDays * 86400;
   const pool = apps.filter((a) =>
-    !a.is_non_steam &&
-    (a.app_type === undefined || a.app_type === 1) &&
+    isGameCandidate(a) &&
     a.installed &&
     playtimeMinutes(a) >= minPt &&
     lastPlayedSec(a) > 0 && lastPlayedSec(a) < cutoff &&
@@ -71,8 +70,7 @@ export function resolveWeeklyRotation(apps: AppOverview[], limit: number, params
   const rotateDays = getParam("weekly_rotation", params, "rotateEveryDays");
   const minDeck = getParam("weekly_rotation", params, "minDeckLevel");
   const pool = apps.filter((a) =>
-    !a.is_non_steam &&
-    (a.app_type === undefined || a.app_type === 1) &&
+    isGameCandidate(a) &&
     a.installed &&
     deckCompat(a) >= minDeck,
   );
