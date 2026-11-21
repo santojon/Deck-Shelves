@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { ConfirmModal, DialogButton, Focusable, Tabs } from "../../../runtime/host/decky";
 import { ModalShell } from "../../ui";
 import type { SettingsController } from "../../../features/settings/controller";
-import { SHELF_TEMPLATES, ONLINE_SHELF_TEMPLATES, coveredTemplateIds, type ShelfTemplateCategory } from "../../../domain/templates";
+import { SHELF_TEMPLATES, ONLINE_SHELF_TEMPLATES, coveredTemplateIds, templateSourceForOrigin, type ShelfTemplate, type ShelfTemplateCategory } from "../../../domain/templates";
+import { TemplateOriginModal } from "./TemplateOriginModal";
 import { resolveStatSuggestions } from "../../../core/statSuggestions";
 import { SMART_TEMPLATES } from "./smartTemplates";
 import { EditShelfModal } from "./EditShelfModal";
@@ -10,7 +11,7 @@ import { EditSmartShelfModal } from "./EditSmartShelfModal";
 import { SHELF_TPL_ICON, SMART_TPL_ICON } from "./templateIcons";
 import { SparkleIcon } from "../../icons";
 import { openManagedModal } from "../common/openManagedModal";
-import type { SmartShelfMode } from "../../../types";
+import type { ShelfSource, SmartShelfMode } from "../../../types";
 
 export interface CreateShelfModalProps {
   closeModal?: () => void;
@@ -18,11 +19,12 @@ export interface CreateShelfModalProps {
   initialTab?: "standard" | "smart";
 }
 
-const TPL_CATEGORY_ORDER: ShelfTemplateCategory[] = ["status", "time", "platform", "online"];
+const TPL_CATEGORY_ORDER: ShelfTemplateCategory[] = ["status", "time", "platform", "together", "online"];
 const TPL_CATEGORY_KEY: Record<ShelfTemplateCategory, string> = {
   status: "template_category_status",
   time: "template_category_time",
   platform: "template_category_platform",
+  together: "template_category_together",
   online: "template_category_online",
 };
 const SMART_CATEGORY_ORDER = ["time", "status", "compat", "platform", "other"] as const;
@@ -90,7 +92,7 @@ export function CreateShelfModal({ closeModal, controller, initialTab = "standar
 function StandardPanel({ controller, closeModal }: { controller: SettingsController; closeModal?: () => void }) {
   const { t, actions, settings } = controller;
   const [openCat, setOpenCat] = useState<Record<ShelfTemplateCategory, boolean>>({
-    status: true, time: true, platform: true, online: true,
+    status: true, time: true, platform: true, together: true, online: true,
   });
   const allTemplates = [
     ...SHELF_TEMPLATES,
@@ -111,15 +113,26 @@ function StandardPanel({ controller, closeModal }: { controller: SettingsControl
     return () => { cancelled = true; };
   }, [settings]);
   const suggested = suggestedIds.map((id) => allTemplates.find((x) => x.id === id)).filter((x): x is typeof SHELF_TEMPLATES[0] => !!x);
-  const handleTemplate = (tpl: typeof SHELF_TEMPLATES[0]) => {
-    closeModal?.();
+  const openTemplateDraft = (tpl: ShelfTemplate, source: ShelfSource) => {
     const draft = {
       ...actions.createDraftShelf(),
       title: t(tpl.titleKey as any),
-      source: tpl.source,
+      source,
       ...(tpl.defaultSort ? { sort: tpl.defaultSort } : {}),
     };
     openManagedModal((close) => <EditShelfModal closeModal={close} controller={controller} shelf={draft} mode="create" />);
+  };
+  const handleTemplate = (tpl: ShelfTemplate) => {
+    closeModal?.();
+    if (!tpl.chooseOrigin) { openTemplateDraft(tpl, tpl.source); return; }
+    openManagedModal((close) => (
+      <TemplateOriginModal
+        closeModal={close}
+        t={t}
+        onlineEnabled={settings?.onlineFeaturesEnabled === true}
+        onPick={(origin, borrowedOnly) => openTemplateDraft(tpl, templateSourceForOrigin(tpl, origin, borrowedOnly))}
+      />
+    ));
   };
   const handleBlank = () => {
     closeModal?.();

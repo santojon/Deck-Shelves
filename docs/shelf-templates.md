@@ -150,6 +150,27 @@ Pairs with *Verified on this device*, covering the *Playable* tier of the same p
 
 ---
 
+## Play together
+
+Templates for playing on the same screen and for games borrowed through Steam Families. Each creates a normal, editable shelf.
+
+| Template | Id | Source |
+|---|---|---|
+| Local multiplayer | `local_multiplayer` | Filter — `multiplayerType: local` (any shared or split screen mode) |
+| Local co-op | `local_coop` | Filter — `multiplayerType: local_coop` |
+| Local versus | `local_versus` | Filter — `multiplayerType: local_versus` |
+| Borrowed games | `borrowed_games` | Filter — `familySharing` |
+
+The three local templates first ask where the games come from:
+
+- **My library** — the filter above, on your own library.
+- **Steam Store** — a Store shelf with the same condition on the Store games. Store games come from the deals, free and popular lists the plugin already reads, not the whole Store. Needs online features.
+- **Library + Store** — both joined into one shelf; each game shows once and the Store part leaves out games you own.
+
+**In my library, only borrowed games** adds the `familySharing` condition to the library part only: Store games are never borrowed. *Borrowed games* opens the editor directly. It lists the games the Steam client flags as borrowed by this account; it cannot tell who in the family owns a game or whether a copy is free right now.
+
+---
+
 ## Online templates
 
 These appear in the picker only while online features are enabled, and resolve
@@ -168,7 +189,7 @@ over the network.
 
 > **Tip:** if none of the templates fit your use case, choose **Start blank** — it opens the edit modal directly so you can configure the source and filters from scratch without any preset defaults getting in the way.
 
-- The template picker shows **Start blank** first, followed by all templates in a 2-column grid grouped by category (status / time / platform). Starting blank opens the Edit modal immediately.
+- The template picker shows **Start blank** first, followed by all templates in a 2-column grid grouped by category (status / time / platform / play together). Starting blank opens the Edit modal immediately.
 - Tab-based templates (`favorites`, `installed`) take their order from Steam's own list; the sort option has no effect on them, only the limit applies.
 - Every other template is filter-based and uses the plugin's own resolver and support all per-shelf display options (highlight first, match native size, hide game names, etc.).
 - All templates produce fully editable shelves. Source type, sort order, limit, and display options can all be changed after creation.

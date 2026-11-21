@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { SHELF_TEMPLATES, DEFAULT_SHELF_TEMPLATES, shelfSourceSignature, coveredTemplateIds } from '../../domain/templates'
+import { SHELF_TEMPLATES, DEFAULT_SHELF_TEMPLATES, shelfSourceSignature, coveredTemplateIds, templateSourceForOrigin } from '../../domain/templates'
 
 describe('template exclusion', () => {
   it('signature ignores sort so a re-sorted shelf still matches its template', () => {
@@ -33,7 +33,7 @@ describe('SHELF_TEMPLATES', () => {
   })
 
   it('every template uses a known category', () => {
-    const categories = new Set(['status', 'time', 'platform'])
+    const categories = new Set(['status', 'time', 'platform', 'together'])
     for (const t of SHELF_TEMPLATES) {
       expect(categories.has(t.category)).toBe(true)
     }
@@ -108,5 +108,49 @@ describe('SHELF_TEMPLATES', () => {
   it('default templates include favorites, recent, and recently_added', () => {
     const ids = DEFAULT_SHELF_TEMPLATES.map((t) => t.id)
     expect(ids).toEqual(['favorites', 'recent', 'recently_added'])
+  })
+})
+
+describe('play-together templates', () => {
+  const tpl = (id: string) => SHELF_TEMPLATES.find((t) => t.id === id)!
+  const kindOf = (id: string) => (tpl(id).source as any).filter.filterGroup.items[0].params.kind
+  const BORROWED = { type: 'familySharing', inverted: false, params: {} }
+
+  it('each local template keys on its own same-screen choice and asks for an origin', () => {
+    expect(['local_multiplayer', 'local_coop', 'local_versus'].map(kindOf)).toEqual(['local', 'local_coop', 'local_versus'])
+    expect(['local_multiplayer', 'local_coop', 'local_versus'].every((id) => tpl(id).chooseOrigin === true)).toBe(true)
+  })
+
+  it('borrowed games reads the existing family sharing condition and opens directly', () => {
+    expect((tpl('borrowed_games').source as any).filter.filterGroup.items).toEqual([BORROWED])
+    expect(tpl('borrowed_games').chooseOrigin).toBeUndefined()
+  })
+
+  it('the library origin is the template itself, with borrowed games added only when asked', () => {
+    expect(templateSourceForOrigin(tpl('local_coop'), 'library')).toEqual(tpl('local_coop').source)
+    const borrowed = templateSourceForOrigin(tpl('local_coop'), 'library', true) as any
+    expect(borrowed.filter.filterGroup.items.map((i: any) => i.type)).toEqual(['multiplayerType', 'familySharing'])
+    expect((tpl('local_coop').source as any).filter.filterGroup.items).toHaveLength(1)
+  })
+
+  it('the store origin filters store games by the same condition and never by borrowed', () => {
+    const store = templateSourceForOrigin(tpl('local_versus'), 'store', true) as any
+    expect(store.type).toBe('store')
+    expect(store.childFilter.items).toEqual([{ type: 'multiplayerType', inverted: false, params: { kind: 'local_versus' } }])
+  })
+
+  it('both origins join the library and the store, with borrowed games narrowing the library part only', () => {
+    const both = templateSourceForOrigin(tpl('local_multiplayer'), 'both', true) as any
+    expect(both).toMatchObject({ type: 'composite', combine: 'union' })
+    expect(both.sources[0].filter.filterGroup.items.map((i: any) => i.type)).toEqual(['multiplayerType', 'familySharing'])
+    expect(both.sources[1]).toMatchObject({ type: 'store', excludeOwned: true })
+    expect(both.sources[1].childFilter.items.map((i: any) => i.type)).toEqual(['multiplayerType'])
+  })
+
+  it('the three local templates are told apart when checking which ones a user already has', () => {
+    const covered = coveredTemplateIds([{ source: tpl('local_coop').source }], [])
+    expect(covered).toContain('local_coop')
+    expect(covered).not.toContain('local_versus')
+    expect(covered).not.toContain('local_multiplayer')
   })
 })

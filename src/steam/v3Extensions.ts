@@ -173,7 +173,23 @@ const MP_CATEGORY_IDS: Record<string, number[]> = {
   coop: [C.coop, C.onlineCoop, C.sharedScreenCoop, C.lanCoop],
   online: [C.crossPlatformMultiplayer, C.onlinePvp, C.onlineCoop],
   any: [C.multiplayer, C.coop, C.crossPlatformMultiplayer, C.onlinePvp, C.onlineCoop, C.sharedScreenCoop, C.lanCoop, C.pvp],
+  local: [C.sharedScreen, C.sharedScreenPvp, C.sharedScreenCoop],
+  local_coop: [C.sharedScreenCoop],
+  local_versus: [C.sharedScreenPvp],
 };
+
+// Same screen only: LAN, online and Remote Play Together are not local play.
+const LOCAL_PLAY_KINDS: ReadonlySet<string> = new Set(["local", "local_coop", "local_versus"]);
+
+export function isLocalPlayKind(kind: unknown): boolean {
+  return LOCAL_PLAY_KINDS.has(String(kind ?? "").toLowerCase());
+}
+
+// Games outside the library are read by the category ids the Store gave, never by names.
+function evalLocalPlayFetched(app: AppOverview, want: string): boolean {
+  const ids = getCachedCatalogMeta(appIdOf(app))?.categoryIds;
+  return Array.isArray(ids) && MP_CATEGORY_IDS[want].some((id) => ids.includes(id));
+}
 
 export function hasStoreCategory(appid: number, ids: readonly number[]): boolean | null {
   const local = rawLocalOverview(appid);
@@ -201,7 +217,8 @@ function evalMultiplayerTypeFetched(app: AppOverview, want: string): boolean {
 function evalMultiplayerType(item: any, app: AppOverview): boolean {
   const want = String(item.params?.kind ?? "any").toLowerCase();
   const local = evalMultiplayerTypeLocal(app, want);
-  return local != null ? local : evalMultiplayerTypeFetched(app, want);
+  if (local != null) return local;
+  return LOCAL_PLAY_KINDS.has(want) ? evalLocalPlayFetched(app, want) : evalMultiplayerTypeFetched(app, want);
 }
 
 function evalPlayedOnce(item: any, app: AppOverview): boolean {

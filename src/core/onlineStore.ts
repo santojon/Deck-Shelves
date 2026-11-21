@@ -427,6 +427,8 @@ export interface CatalogMeta {
   genres: string[];
   categories: string[];
   vrSupported: boolean;
+  // Entries cached by older versions have no ids; they are read as they are and fetched again.
+  categoryIds?: number[];
 }
 
 const CATALOG_KEY = "ds-catalog-meta-cache-v1";
@@ -479,6 +481,7 @@ function parseCatalogEntry(entry: any): CatalogMeta {
   return {
     genres: rawGenres.map((g) => String(g?.description ?? "")).filter(Boolean),
     categories: rawCategories.map((c) => String(c?.description ?? "")).filter(Boolean),
+    categoryIds: rawCategories.map((c) => Number(c?.id)).filter((id) => Number.isInteger(id) && id > 0),
     vrSupported: rawCategories.some((c) => Number(c?.id) === 31 || /\bvr\b/i.test(String(c?.description ?? ""))),
   };
 }
@@ -519,11 +522,15 @@ export async function getCatalogMetaMap(appids: number[]): Promise<Map<number, C
   const result = new Map<number, CatalogMeta>();
   if (!appids.length) return result;
 
-  const toFetch: number[] = [];
+  const missing: number[] = [];
+  const withoutIds: number[] = [];
   for (const id of appids) {
     const c = readCatalogCache(id);
-    if (c) { result.set(id, c); } else { toFetch.push(id); }
+    if (c) result.set(id, c);
+    if (!c) missing.push(id);
+    else if (!Array.isArray(c.categoryIds)) withoutIds.push(id);
   }
+  const toFetch = [...missing, ...withoutIds];
   if (!toFetch.length || Date.now() < (backoffUntil[CATALOG_KEY] ?? 0)) return result;
 
   try {

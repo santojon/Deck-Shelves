@@ -1,6 +1,6 @@
-import type { ShelfSource } from "../types";
+import type { FilterGroup, FilterItem, ShelfSource } from "../types";
 
-export type ShelfTemplateCategory = "status" | "time" | "platform" | "online";
+export type ShelfTemplateCategory = "status" | "time" | "platform" | "together" | "online";
 
 export type ShelfTemplate = {
   id: string;
@@ -9,7 +9,27 @@ export type ShelfTemplate = {
   source: ShelfSource;
   requiresOnline?: boolean;
   defaultSort?: string;
+  // Its filter also reads Store games, so the picker asks where the games come from.
+  chooseOrigin?: boolean;
 };
+
+export type TemplateOrigin = "library" | "store" | "both";
+
+function playTogetherTemplate(id: string, kind: string): ShelfTemplate {
+  return {
+    id,
+    titleKey: `template_${id}`,
+    category: "together",
+    chooseOrigin: true,
+    source: {
+      type: "filter",
+      filter: {
+        filterGroup: { mode: "and", items: [{ type: "multiplayerType", inverted: false, params: { kind } }] },
+        sort: "alphabetical",
+      },
+    },
+  };
+}
 
 export const SHELF_TEMPLATES: ShelfTemplate[] = [
   {
@@ -134,7 +154,35 @@ export const SHELF_TEMPLATES: ShelfTemplate[] = [
       },
     },
   },
+  playTogetherTemplate("local_multiplayer", "local"),
+  playTogetherTemplate("local_coop", "local_coop"),
+  playTogetherTemplate("local_versus", "local_versus"),
+  {
+    id: "borrowed_games",
+    titleKey: "template_borrowed_games",
+    category: "together",
+    source: {
+      type: "filter",
+      filter: {
+        filterGroup: { mode: "and", items: [{ type: "familySharing", inverted: false, params: {} }] },
+        sort: "alphabetical",
+      },
+    },
+  },
 ];
+
+const BORROWED_ITEM: FilterItem = { type: "familySharing", inverted: false, params: {} };
+
+// "Only borrowed" narrows the library part alone: Store games are never borrowed.
+export function templateSourceForOrigin(tpl: ShelfTemplate, origin: TemplateOrigin, borrowedOnly = false): ShelfSource {
+  if (tpl.source.type !== "filter") return tpl.source;
+  const group: FilterGroup = tpl.source.filter.filterGroup ?? { mode: "and", items: [] };
+  const libraryGroup: FilterGroup = borrowedOnly ? { ...group, items: [...group.items, BORROWED_ITEM] } : group;
+  const library: ShelfSource = { ...tpl.source, filter: { ...tpl.source.filter, filterGroup: libraryGroup } };
+  if (origin === "library") return library;
+  if (origin === "store") return { type: "store", childFilter: group };
+  return { type: "composite", combine: "union", sources: [library, { type: "store", childFilter: group, excludeOwned: true }] };
+}
 
 export const ONLINE_SHELF_TEMPLATES: ShelfTemplate[] = [
   {
@@ -189,7 +237,8 @@ export const DEFAULT_SHELF_TEMPLATES: ShelfTemplate[] = [
 ];
 
 function levelsSuffix(it: any): string {
-  return it?.params?.levels ? `=${[...it.params.levels].sort().join(",")}` : "";
+  const kind = typeof it?.params?.kind === "string" ? `:${it.params.kind}` : "";
+  return (it?.params?.levels ? `=${[...it.params.levels].sort().join(",")}` : "") + kind;
 }
 
 function filterSignatureParts(f: any): string[] {

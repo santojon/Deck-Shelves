@@ -85,4 +85,39 @@ describe('getCatalogMetaMap', () => {
     expect(getCachedCatalogMeta(777)?.genres).toEqual(['RPG'])
     expect(getCachedCatalogMeta(888)).toBeNull()
   })
+
+  it('keeps the category ids next to the names', async () => {
+    ;(globalThis as any).fetch = vi.fn(async (url: string) => {
+      const appid = new URL(url).searchParams.get('appids')
+      const categories = [{ id: 2, description: 'Single-player' }, { id: 39, description: 'Shared/Split Screen Co-op' }, { description: 'No id' }]
+      return { ok: true, status: 200, headers: { get: () => 'application/json' }, json: async () => ({ [appid!]: { success: true, data: { genres: [], categories } } }) }
+    })
+    const { getCatalogMetaMap } = await import('../../core/onlineStore')
+    const result = await getCatalogMetaMap([321])
+    expect(result.get(321)?.categoryIds).toEqual([2, 39])
+    expect(result.get(321)?.categories).toEqual(['Single-player', 'Shared/Split Screen Co-op', 'No id'])
+  })
+
+  it('fetches an entry cached without ids again and keeps the old one when that fails', async () => {
+    const old = { genres: ['Action'], categories: ['Multi-player'], vrSupported: false }
+    localStorage.setItem('ds-catalog-meta-cache-v1', JSON.stringify({ 41: { ts: Date.now(), data: old } }))
+    let calls = 0
+    ;(globalThis as any).fetch = vi.fn(async () => { calls++; return { ok: false, status: 500, headers: { get: () => 'application/json' }, json: async () => null } })
+    const { getCatalogMetaMap } = await import('../../core/onlineStore')
+    const failed = await getCatalogMetaMap([41])
+    expect(calls).toBe(1)
+    expect(failed.get(41)).toEqual(old)
+
+    ;(globalThis as any).fetch = vi.fn(async (url: string) => {
+      const appid = new URL(url).searchParams.get('appids')
+      return { ok: true, status: 200, headers: { get: () => 'application/json' }, json: async () => ({ [appid!]: { success: true, data: { genres: [], categories: [{ id: 1, description: 'Multi-player' }] } } }) }
+    })
+    const upgraded = await getCatalogMetaMap([41])
+    expect(upgraded.get(41)?.categoryIds).toEqual([1])
+    const after = vi.fn()
+    ;(globalThis as any).fetch = after
+    const again = await getCatalogMetaMap([41])
+    expect(again.get(41)?.categoryIds).toEqual([1])
+    expect(after).not.toHaveBeenCalled()
+  })
 })

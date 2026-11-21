@@ -2,7 +2,7 @@ import { type AppOverview, appIdOf } from "./appOverview";
 import type { FilterGroup, FilterItem, FilterItemType } from "../types";
 import { type FilterEvalContext, evaluateFilterItem, flattenItems } from "./filterEval";
 import { isOnlineEnabledForSettings, prefetchCatalogFilterData } from "./resolveShared";
-import { hasStoreCategory } from "./v3Extensions";
+import { hasStoreCategory, isLocalPlayKind } from "./v3Extensions";
 import { getCachedCatalogMeta } from "../core/onlineStore";
 import { logInfo } from "../runtime/logger";
 
@@ -20,14 +20,17 @@ const NO_PRICES: Prices = new Map();
 const hasCatalog = (id: number) => getCachedCatalogMeta(id) !== null;
 const hasPrice = (id: number, prices: Prices | undefined) => prices?.has(id) === true;
 const hasStoreCategories = (id: number) => hasStoreCategory(id, []) !== null || hasCatalog(id);
+const hasCatalogIds = (id: number) => Array.isArray(getCachedCatalogMeta(id)?.categoryIds);
+const hasMultiplayerData = (id: number, _prices: Prices | undefined, item: FilterItem) =>
+  isLocalPlayKind(item.params?.kind) ? hasStoreCategory(id, []) !== null || hasCatalogIds(id) : hasStoreCategories(id);
 
-const HAS_DATA: Record<string, (id: number, prices: Prices | undefined) => boolean> = {
+const HAS_DATA: Record<string, (id: number, prices: Prices | undefined, item: FilterItem) => boolean> = {
   discount: hasPrice,
   priceRange: hasPrice,
   genres: hasCatalog,
   categories: hasCatalog,
   vrSupport: hasStoreCategories,
-  multiplayerType: hasStoreCategories,
+  multiplayerType: hasMultiplayerData,
 };
 
 export function unsupportedPostFilterType(group: FilterGroup | null | undefined): string | null {
@@ -37,7 +40,7 @@ export function unsupportedPostFilterType(group: FilterGroup | null | undefined)
 
 // Missing data is unknown, never a match, and never turned into one by a negation.
 function itemState(item: FilterItem, id: number, ctx: FilterEvalContext): boolean | null {
-  const known = flattenItems([item]).every((inner) => HAS_DATA[inner.type]?.(id, ctx.prices) ?? true);
+  const known = flattenItems([item]).every((inner) => HAS_DATA[inner.type]?.(id, ctx.prices, inner) ?? true);
   return known ? evaluateFilterItem(item, { appid: id } as AppOverview, ctx) : null;
 }
 

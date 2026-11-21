@@ -289,6 +289,9 @@ const RENDERERS: Record<string, (c: OptCtx) => ReactNode> = {
       { data: "multi", label: t("filter_mp_multi") },
       { data: "coop", label: t("filter_mp_coop") },
       { data: "online", label: t("filter_mp_online") },
+      { data: "local", label: t("filter_mp_local") },
+      { data: "local_coop", label: t("filter_mp_local_coop") },
+      { data: "local_versus", label: t("filter_mp_local_versus") },
     ],
     String(p.kind ?? "any"), (v) => patchParams({ kind: v })),
   playedOnce: ({ t, p, patchParams }) => (

@@ -105,12 +105,14 @@ share, say, or two specific SD cards but not a third.
 | `categories` | Any of the listed store categories | `categories`: string[] |
 | `franchise` | Franchise name contains | `franchise`: string |
 | `vrSupport` | VR support level: VR-only titles, titles that support VR, or titles with no VR at all | `levels`: `("only" \| "supported" \| "none")[]` (default `["only", "supported"]`, which matches the old yes/no behavior) |
-| `multiplayerType` | Multiplayer capability | `kind`: `"any"` \| `"single"` \| `"multi"` \| `"coop"` \| `"online"` |
+| `multiplayerType` | Multiplayer capability | `kind`: `"any"` \| `"single"` \| `"multi"` \| `"coop"` \| `"online"` \| `"local"` \| `"local_coop"` \| `"local_versus"` |
 | `reviewScore` | Review score meets a threshold | `value`: number (0–100), `op`: `">="` \| `"<="` (default `">="`), `source`: `"metacritic"` \| `"steam"` (default `"metacritic"`) |
 | `releaseDate` | Released on or after / on or before a date, or with no release date | `ts`: number (Unix seconds), `op`: `"after"` \| `"before"` \| `"unknown"` (default `"after"`) |
 | `purchaseDate` | Bought on or after / on or before a date, or with no purchase date | `ts`: number (Unix seconds), `op`: `"after"` \| `"before"` \| `"unknown"` (default `"after"`) |
 | `storeCategory` | Carries the Steam features (store categories) the client records for the game, by category id; the editor names the ones Steam names | `ids`: number[], `mode`: `"any"` \| `"all"` (default `"any"`) |
 | `comingSoon` | Not yet released (future release date) | — |
+
+> **Local play:** `local`, `local_coop` and `local_versus` mean the game supports playing on the same screen — `local` is any shared or split screen mode, `local_coop` is Shared/Split Screen Co-op and `local_versus` is Shared/Split Screen PvP. A game that also plays online still counts. LAN co-op, online co-op and Remote Play Together are not local play, so they never match these; the older `coop` choice keeps its wider meaning. Store and wishlist games are read by the Store's category ids, not by names, so the result does not change with the language; a game whose ids are not known yet does not match.
 
 > **Where each of these reads its data:** `multiplayerType` and `vrSupport` read the Steam client's own local data for games you own — instant, works offline, no Online features needed. `reviewScore` reads the Steam review percentage and the metacritic score the client holds for your library; `releaseDate` and `comingSoon` read the release date the client holds. `genres`, `categories` and `franchise` have no local data, even for games in your own library, so they fetch and cache it (from the Store for genres and categories, from the Steam client's details cache for franchise) the first time such a filter runs — this needs Online features enabled, and on a large library the first resolve only covers part of the games, filling in the rest over the next few refreshes. All of these also work on wishlist/store cards you don't own yet.
 
@@ -120,7 +122,7 @@ share, say, or two specific SD cards but not a third.
 |------|-------------|------------|
 | `achievementPercentRange` | Achievement completion in a range | `min`, `max`: number (0–100) |
 | `neverCompleted` | Has achievements, not all of them unlocked | — |
-| `familySharing` | Borrowed through Steam Family Sharing | — |
+| `familySharing` | Borrowed from another member of your Steam family (the client's own flag); never matches Store games or a game you own yourself | — |
 
 The achievement conditions read the client's own achievement list for the Steam
 games you have played; a game never played counts as having no progress.

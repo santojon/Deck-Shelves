@@ -74,6 +74,8 @@ release, the Decky store update and the announcements. Technical detail is in
 
 - **Filter the combined result of a multi-source shelf**: besides each source's own filter, "Combined result filters" in the shelf editor's filter tab applies after the sources are joined or intersected, for example Wishlist + Store with the store at 30 % off or more, then only games with shared or split screen play. Your saved filters work there too. Games whose store data has not arrived yet are left out and show up over the next refreshes, and the preview tells you when that happens. With Online features off or Offline mode on, these filters use only data already on the device. A shelf that uses them loses them if an earlier version opens and saves it.
 
+- **Play together**: new conditions for local multiplayer, local co-op and local versus on the same screen, which never count LAN, online-only or Remote Play Together games. They work on your library and on Store games, in any language. New templates build shelves from them: pick Local multiplayer, Local co-op or Local versus, then choose My library, Steam Store or both, and optionally keep only borrowed games in the library part. A Borrowed games template lists the games your Steam family lends you. Store games come from the deals, free and popular lists Deck Shelves already reads, not the whole Store.
+
 - **Smaller fixes**: Move up and Move down in the unified shelf list keep the shelf within that list, as dragging does, and the profile row's button hint reads Actions instead of Apply.
 
 ## [3.4.1] - 2026-11-02

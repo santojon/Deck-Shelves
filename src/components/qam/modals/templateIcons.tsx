@@ -36,7 +36,16 @@ const Tag = mk(<><path d="M2 2h6l6 6-6 6L2 8V2z" stroke="currentColor" strokeWid
 const Gift = mk(<><rect x="2" y="7" width="12" height="7" rx="1" stroke="currentColor" strokeWidth="1.5"/><path d="M14 10H2M8 7V14M8 7c0-2 2-4 3-2s-1 2-3 2M8 7c0-2-2-4-3-2s1 2 3 2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></>)
 const Fire = mk(<><path d="M8 14c-3 0-5-2-5-5 0-2 1-3.5 2.5-4.5 0 1.5 1 2.5 1 2.5 0-2 1-4 3-5 0 2 1 3 2 3.5C12 6.5 13 8 13 9c0 3-2 5-5 5z" fill="currentColor" opacity="0.8"/><path d="M8 12c-1.5 0-2.5-1-2.5-2 0-1 .5-1.5 1.5-2 0 .8.5 1.5 1 1.5 0-1 .5-2 1.5-2.5-.5 1 0 2 .5 2.5.5-.5 1-.5 1 .5C11 11 9.5 12 8 12z" fill="currentColor"/></>)
 
+const People = mk(<><circle cx="5.5" cy="5.5" r="2" stroke="currentColor" strokeWidth="1.4"/><circle cx="10.5" cy="5.5" r="2" stroke="currentColor" strokeWidth="1.4"/><path d="M2 13c0-2 1.6-3.5 3.5-3.5S9 11 9 13M7 13c0-2 1.6-3.5 3.5-3.5S14 11 14 13" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></>)
+const Hands = mk(<><path d="M2 9l3-3h2l2 2-2 2M14 9l-3-3H9" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/><path d="M5 11l2 2 4-4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></>)
+const Versus = mk(<path d="M3 3l10 10M13 3L3 13M3 3h3M3 3v3M13 3h-3M13 3v3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>)
+const Home = mk(<path d="M2.5 7.5L8 3l5.5 4.5V13a1 1 0 01-1 1h-9a1 1 0 01-1-1V7.5zM6.5 14v-3.5h3V14" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>)
+
 export const SHELF_TPL_ICON: Record<string, React.ReactElement> = {
+  local_multiplayer: People,
+  local_coop: Hands,
+  local_versus: Versus,
+  borrowed_games: Home,
   blank: Plus,
   favorites: Star,
   recent: Clock,

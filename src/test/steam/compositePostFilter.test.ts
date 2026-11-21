@@ -54,6 +54,7 @@ import { assembleFinalSource, buildPrimarySource } from "../../components/qam/mo
 import { withoutSourceRow } from "../../components/qam/modals/editShelf/removeSource";
 import { POST_FILTER_TYPES, applyCompositePostFilter, unsupportedPostFilterType } from "../../steam/compositePostFilter";
 import { unavailableReason } from "../../steam/availability";
+import { SHELF_TEMPLATES, templateSourceForOrigin } from "../../domain/templates";
 
 const LOCAL = "Shared/Split Screen";
 const meta = (categories: string[], genres: string[] = []): Meta => ({ categories, genres, vrSupported: false });
@@ -160,6 +161,15 @@ describe("a multi-source shelf with a filter on the combined result", () => {
     const vr: FilterItem = { type: "vrSupport", params: {} };
     expect(await resolve(composite({ postFilter: and(not(coop)) }))).toEqual([1, 3, 2, 4]);
     expect(await resolve(composite({ postFilter: and(not(vr)) }))).toEqual([1, 3, 2, 4]);
+  });
+
+  it("a local co-op condition reads Store games by category id and leaves out entries cached without ids", async () => {
+    data.catalog.set(3, { ...meta([]), categoryIds: [39] } as Meta);
+    data.catalog.set(4, { ...meta([]), categoryIds: [37] } as Meta);
+    data.catalog.set(5, { ...meta([]), categoryIds: [] } as Meta);
+    const localOnly: FilterItem = { type: "multiplayerType", params: { kind: "local_coop" } };
+    expect(await resolve(composite({ postFilter: and(localOnly) }))).toEqual([3]);
+    expect(await resolve(composite({ postFilter: and(not(localOnly)) }))).toEqual([4, 5]);
   });
 
   describe("with games in the library", () => {
@@ -421,5 +431,16 @@ describe("the combined-result filter step", () => {
     expect(unavailableReason(composite({ postFilter: and({ type: "merge", params: { items: [{ type: "favorites" }] } }) }))).toBe("combined-result condition favorites");
     expect(unavailableReason(composite({ postFilter: and(localCoop) }))).toBeNull();
     expect(unsupportedPostFilterType(and(...POST_FILTER_TYPES.map((type) => ({ type }))))).toBeNull();
+  });
+});
+
+describe("a Play together shelf from a template", () => {
+  const ctx = { mode: "create" as const, collections: [], platformTabs: [], externalSources: [] };
+  it.each([["library", false], ["store", false], ["both", true]] as const)("loads in the editor and saves back unchanged from %s", (origin, borrowed) => {
+    const tpl = SHELF_TEMPLATES.find((t) => t.id === "local_coop")!;
+    const source = templateSourceForOrigin(tpl, origin, borrowed);
+    const state = buildInitialShelfState({ ...ctx, shelf: { id: "s", title: "S", enabled: true, limit: 10, source } as any });
+    const childFilter = state.childFilterGroup.items.length > 0 ? state.childFilterGroup : undefined;
+    expect(assembleFinalSource(buildPrimarySource({ state, childFilter }), state)).toEqual(source);
   });
 });
