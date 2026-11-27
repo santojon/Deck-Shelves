@@ -77,7 +77,7 @@ export function PreviewPanel(props: PreviewPanelProps) {
   } = props
 
   const loading = (
-    <div style={{ padding: '6px 0', fontSize: 12, opacity: 0.6 }}>{t('preview_loading')}</div>
+    <div style={{ padding: '6px', fontSize: 12, opacity: 0.6 }}>{t('preview_loading')}</div>
   )
 
   let body: React.ReactNode
@@ -122,14 +122,14 @@ export function PreviewPanel(props: PreviewPanelProps) {
   }
 
   return (
-    <div style={{ flexShrink: 0, padding: '0 24px' }}>
+    <div style={{ flexShrink: 0, marginTop: 12 }}>
       {!hideShelfTitle && (
-        <div style={{ fontSize: 16, fontWeight: 600, padding: '4px 0 8px', opacity: 0.92, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        <div style={{ fontSize: 16, fontWeight: 600, padding: '4px 6px 8px', opacity: 0.92, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {title || t('new_shelf')}
         </div>
       )}
       {body}
-      {note ? <div style={{ padding: '4px 0 0', fontSize: 12, opacity: 0.6 }}>{note}</div> : null}
+      {note ? <div style={{ padding: '4px 6px 0', fontSize: 12, opacity: 0.6 }}>{note}</div> : null}
     </div>
   )
 }

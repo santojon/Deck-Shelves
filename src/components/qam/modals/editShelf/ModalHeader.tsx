@@ -7,11 +7,11 @@ export function ModalHeader({ t, title, onTitleChange, previewCount }: {
   previewCount: number | null;
 }) {
   return (
-    <>
+    <div className='ds-editor-header'>
       <TitleField label={t('title')} value={title} onChange={onTitleChange} />
-      <div style={{ padding: '0 16px 8px', fontSize: '12px', color: previewCount === 0 ? '#f59e0b' : '#8b949e' }}>
+      <div style={{ padding: '0 0 8px', fontSize: '12px', color: previewCount === 0 ? '#f59e0b' : '#8b949e' }}>
         {previewCount === null ? t('preview_loading') : previewCount === 0 ? `⚠️ ${t('preview_empty')}` : t('preview_count', { count: previewCount })}
       </div>
-    </>
+    </div>
   )
 }

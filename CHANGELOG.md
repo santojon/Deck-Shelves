@@ -151,6 +151,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Shorter editor tab names (19 locales):** `edit_tab_online_filters` and `edit_tab_additional_filters` now read "Online" and "Extra" (they only label the filter tab), and two tab-only keys, `edit_tab_auto` (both editors' Behavior tab; `section_behavior` stays for Quick Access) and `edit_tab_smart_short` (the smart editor's Smart filters tab; `edit_tab_smart_filters` stays for the help page), so the tab strip fits one line in the 608 px column.
 
+- **Editor tab strip:** `EditorTabs` centres the tabs between L1/R1 hints (each switches on press), and L1/R1 wrap from the last tab to the first and back. The preview panel drops its 24 px side padding so the row spans the field column, its title, loading text and note start at the cards' edge, and it sits 12 px below the tab content. The editors' dialog title, name field and result count drop their 16 px inset so they start at the fields' edge (`ModalHeader` as `.ds-editor-header`; other dialogs keep theirs).
+
 - **Library location names:** `get_library_locations` labels a library from `libraryfolders.vdf`, then, outside the internal library, the drive's volume label (`/dev/disk/by-label`, udev escapes decoded), then the folder name, and adds `named` and `sdCard` (the MMC block device) to each entry; the condition editor shows an unnamed SD card with Steam's `#ContentManagement_ExternalMicroSD` text through `STEAM_TEXT.sdCard` instead of its volume id ([`library_location.py`](src/backend/library_location.py), [`deviceState.ts`](src/runtime/deviceState.ts), [`LibraryLocationFields.tsx`](src/components/conditions/LibraryLocationFields.tsx)).
 
 ### Removed

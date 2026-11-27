@@ -106,7 +106,7 @@ release, the Decky store update and the announcements. Technical detail is in
 
 - **Daily Pick and Weekly Rotation change at your midnight**: they used to change at midnight UTC (for example 21:00 in Brazil).
 
-- **Both shelf editors are laid out the same way**: in the smart shelf editor, "Deduplicate by name" is in Source and auto-pin and auto-collapse are in the Auto tab, as in the regular editor; dialog buttons keep Steam's own size; and the editor tabs have shorter names (Online, Extra, Smart, Auto) so they fit on one line.
+- **Both shelf editors are laid out the same way**: in the smart shelf editor, "Deduplicate by name" is in Source and auto-pin and auto-collapse are in the Auto tab, as in the regular editor; dialog buttons keep Steam's own size; and the editor tabs have shorter names (Online, Extra, Smart, Auto) so they fit on one line. The tabs are centred with L1 and R1 hints at the ends, L1 and R1 cycle from the last tab back to the first, and the title, name field, result count and preview line up with the options.
 
 - **Readable drive names in the library location condition**: a drive shows its volume label, and an SD card with no name shows Steam's own "MicroSD Card" instead of a long id.
 

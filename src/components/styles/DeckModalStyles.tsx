@@ -70,6 +70,10 @@ export function DeckModalStyles() {
         width: auto;
         padding-inline: 0;
       }
+      .deck-shelves-dialog:has(.ds-editor-header) .DialogHeader,
+      .deck-shelves-dialog .ds-editor-header .deck-shelves-title-input {
+        padding-inline: 0;
+      }
 
       .deck-shelves-dialog .ds-collapsible-box {
         margin-top: var(--ds-gap-sm, 6px);
@@ -113,9 +117,35 @@ export function DeckModalStyles() {
         border-top: 1px solid var(--ds-border-strong, rgba(255, 255, 255, 0.1));
       }
 
+      .deck-shelves-dialog .ds-editor-tabbar {
+        display: flex;
+        align-items: flex-start;
+        gap: var(--ds-gap-md, 8px);
+      }
+      .deck-shelves-dialog .ds-editor-tab-hint {
+        flex-shrink: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 26px;
+        height: 20px;
+        margin-top: 11px;
+        padding: 0 5px;
+        border-radius: 4px;
+        box-sizing: border-box;
+        font-size: 11px;
+        font-weight: 700;
+        color: #dcdedf;
+        background: var(--gpSystemLighterStill, rgba(255, 255, 255, 0.18));
+        cursor: pointer;
+        user-select: none;
+      }
       .deck-shelves-dialog .ds-editor-tabs {
+        flex: 1;
+        min-width: 0;
         display: flex;
         flex-wrap: wrap;
+        justify-content: center;
         gap: var(--ds-gap-xs, 4px);
         padding: var(--ds-gap-xs, 4px) 0 var(--ds-gap-md, 8px);
       }

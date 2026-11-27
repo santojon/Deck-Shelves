@@ -97,18 +97,27 @@ describe('the editor tabs', () => {
     expect(panel()).toBe('third panel')
   })
 
-  it('switch with L1 and R1, stop at the ends, and move the focus to the new entry', () => {
+  it('switch with L1 and R1, wrap around at the ends, and move the focus to the new entry', () => {
     render(h(Switcher, { initial: 'two' }))
     press(106)
     expect(panel()).toBe('third panel')
     expect(document.activeElement).toBe(strip()[2])
     press(106)
-    expect(panel()).toBe('third panel')
-    press(105)
-    press(105)
-    press(105)
     expect(panel()).toBe('first panel')
+    expect(document.activeElement).toBe(strip()[0])
+    press(105)
+    expect(panel()).toBe('third panel')
     press(1)
+    expect(panel()).toBe('third panel')
+  })
+
+  it('show the L1 and R1 hints at the ends of the row, and switch when one is pressed', () => {
+    render(h(Switcher))
+    const hints = Array.from(document.querySelectorAll<HTMLElement>('.ds-editor-tab-hint'))
+    expect(hints.map((x) => x.textContent)).toEqual(['L1', 'R1'])
+    act(() => hints[0].click())
+    expect(panel()).toBe('third panel')
+    act(() => hints[1].click())
     expect(panel()).toBe('first panel')
   })
 })
