@@ -19,17 +19,11 @@
   "view_more": "라이브러리에서\n더 보기",
   "view_more_store": "스토어에서\n더 보기",
   "view_more_wishlist": "위시리스트\n더 보기",
-  "download_update": "업데이트 다운로드",
-  "update_install": "업데이트 설치",
-  "update_installing": "업데이트 {{version}} 설치 중…",
-  "update_installed": "{{version}}(으)로 업데이트됨.",
-  "update_install_failed": "설치 실패 — 다운로드로 전환합니다.",
-  "update_install_busy": "아직 업데이트를 확인하는 중입니다 — 잠시 후 다시 시도하세요.",
+  "download_update_short": "다운로드",
   "update_downloading": "업데이트 {{version}} 다운로드 중…",
   "update_downloaded": "{{path}}에 저장됨 — 수동으로 설치하세요.",
   "update_download_failed": "다운로드 실패 — 릴리스 페이지를 엽니다.",
+  "update_verify_failed": "업데이트를 릴리스와 대조해 확인할 수 없어 저장하지 않았습니다.",
   "shelf_type_normal": "일반",
-  "shelf_type_smart": "스마트",
-  "update_installing_title": "업데이트 설치 중",
-  "update_will_reload": "새 버전은 몇 초 후에 자동으로 적용됩니다."
+  "shelf_type_smart": "스마트"
 }

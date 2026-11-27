@@ -79,6 +79,7 @@ const SOURCE_BUILDERS: Record<string, SourceBuilder> = {
   },
   external: ({ state }) => ({ type: 'external', sourceId: state.externalSourceId }),
   builtin: ({ state }) => ({ type: 'builtin', sourceId: state.builtinSourceId }),
+  smart: ({ state }) => ({ type: 'smart', mode: state.smartMode }),
   wishlist: ({ state, childFilter }) => buildOnlineSource('wishlist', state, childFilter),
   store: ({ state, childFilter }) => buildOnlineSource('store', state, childFilter),
 };
@@ -166,7 +167,7 @@ export function shelfSortForPatch(state: EditableShelfState): Partial<Shelf>['so
   // In a composite the filter's sort moves to the shelf level, or the order is lost.
   if (state.sourceType === 'filter' && state.additionalSources.length === 0) return undefined;
   const eff = state.sourceType === 'filter' ? state.filter.sort : state.sort;
-  const ownOrder = state.sourceType === 'builtin' || state.additionalSources.length > 0;
+  const ownOrder = state.sourceType === 'builtin' || state.sourceType === 'smart' || state.additionalSources.length > 0;
   const hasUserSort = Array.isArray(eff) ? eff.length > 0 : (eff != null && (eff !== 'alphabetical' || ownOrder));
   if (!hasUserSort) return undefined;
   return normalizeManualSort(eff as ShelfFilter['sort']) as Partial<Shelf>['sort'];

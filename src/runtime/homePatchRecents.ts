@@ -46,24 +46,6 @@ export function reseedCachedRecentsEl(): void {
   } catch (e) { logInfo("HOME", "applyHideRecents: findRecentsEl failed", String(e)); }
 }
 
-function elMatchesRecentsLabel(el: HTMLElement, labels: string[]): boolean {
-  try {
-    const aria = (el.getAttribute && el.getAttribute('aria-label'))?.toLowerCase() ?? '';
-    const txt = (aria || (el.innerText || '')).toLowerCase().substring(0, 80);
-    return labels.some((l) => txt.includes(l));
-  } catch { return false; }
-}
-
-function restoreRecentsByLabelSearch(): void {
-  try {
-    const doc = getHostContext().doc, scope: ParentNode = (doc.getElementById(ROOT_ID) as HTMLElement | null)?.parentElement ?? doc, labels = steamText("recentGames");
-    for (const el of Array.from(scope.querySelectorAll<HTMLElement>('*'))) {
-      if (!elMatchesRecentsLabel(el, labels)) continue;
-      try { for (const p of ["visibility", "height", "min-height", "max-height", "overflow"]) el.style.removeProperty(p); } catch {}
-    }
-  } catch (e) { logInfo("HOME", "applyHideRecents: fallback restore failed", String(e)); }
-}
-
 // GamepadUI's nav tree ignores CSS visibility, so drop the hidden row's focusables too.
 export function applyRecentsFocusSuppression(hidden: boolean): void {
   if (!cachedRecentsEl) return;
@@ -136,7 +118,6 @@ function applyMountTopMargin(hidden: boolean): void {
 export function applyHideRecents(hidden: boolean): void {
   pendingHideRecents = hidden;
   reseedCachedRecentsEl();
-  if (!cachedRecentsEl && !hidden) restoreRecentsByLabelSearch();
   applyRecentsCollapse(hidden);
   applyMountTopMargin(hidden);
 }

@@ -14,7 +14,7 @@ sys.modules.setdefault("decky", decky_mock)
 
 import sanitizer  # noqa: E402
 import storage  # noqa: E402
-from main import Plugin  # noqa: E402
+from main import DEFAULT_SETTINGS, Plugin  # noqa: E402
 
 A = "aaaaaaaaaaaaaaaa"
 B = "bbbbbbbbbbbbbbbb"
@@ -104,7 +104,7 @@ def test_salt_never_in_settings_snapshots_or_export(monkeypatch, tmp_path):
     os.makedirs(downloads, exist_ok=True)
     monkeypatch.setattr("main._json_export_roots", lambda: [downloads])
     assert asyncio.run(p.export_settings({"dest_path": os.path.join(downloads, "deck-shelves.json")})) is True
-    asyncio.run(p.reset_settings())
+    p._write_state(DEFAULT_SETTINGS)
     for root, _dirs, files in os.walk(d):
         for name in files:
             if name == storage.ACCOUNT_FILE:

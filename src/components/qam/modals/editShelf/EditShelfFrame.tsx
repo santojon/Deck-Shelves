@@ -3,7 +3,7 @@ import { ConfirmModal, Focusable } from '../../../../runtime/host/decky'
 import { ModalShell } from '../../../ui'
 import { ModalHeader } from './ModalHeader'
 
-export function EditShelfFrame({ t, heading, title, onTitleChange, previewCount, onSave, onClose, tabsOverflow, tabs, preview }: {
+export function EditShelfFrame({ t, heading, title, onTitleChange, previewCount, onSave, onClose, tabs, preview }: {
   t: (...args: any[]) => any
   heading: string
   title: string
@@ -11,7 +11,6 @@ export function EditShelfFrame({ t, heading, title, onTitleChange, previewCount,
   previewCount: number | null
   onSave: () => void
   onClose?: () => void
-  tabsOverflow: 'auto' | 'hidden'
   tabs: ReactNode
   preview: ReactNode
 }) {
@@ -28,12 +27,8 @@ export function EditShelfFrame({ t, heading, title, onTitleChange, previewCount,
       >
         <Focusable style={{ paddingBottom: 8 }} onMenuButton={onSave} onMenuActionDescription={saveText}>
           <ModalHeader t={t} title={title} onTitleChange={onTitleChange} previewCount={previewCount} />
-          <div style={{ display: 'flex', flexDirection: 'column', height: 'min(calc(100vh - 130px), 540px)', minHeight: 400 }}>
-            <div style={{ flex: '1 1 0', minHeight: 0, position: 'relative', overflow: tabsOverflow }}>
-              {tabs}
-            </div>
-            {preview}
-          </div>
+          {tabs}
+          {preview}
         </Focusable>
       </ConfirmModal>
     </ModalShell>

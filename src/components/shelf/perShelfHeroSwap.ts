@@ -55,18 +55,6 @@ export function swapSynthHero(hero: HeroSwapState, setters: SlotSetters, synthHe
   });
 }
 
-function refineHeroLater(hero: HeroSwapState, setters: SlotSetters, appid: number, url0: string | null): void {
-  setTimeout(() => {
-    if (hero.currentKey !== appid) return;
-    const fresh = getHeroUrls(appid);
-    const newFirst = fresh[0] ?? null;
-    if (!newFirst || newFirst === url0) return;
-    hero.urls = fresh;
-    hero.fallbackIdx = 0;
-    setters.setSlot(hero.activeSlot, resolveHeroSrcFromCache(newFirst, fresh));
-  }, 700);
-}
-
 export function swapAppHero(hero: HeroSwapState, setters: SlotSetters, appid: number): void {
   debounceSwap(hero, () => {
     hero.swapTimer = null;
@@ -74,12 +62,10 @@ export function swapAppHero(hero: HeroSwapState, setters: SlotSetters, appid: nu
     prefetchNativeAppData(appid);
     const native = getNativeHeroUrls(appid);
     const urls = (native && native.length) ? native : getHeroUrls(appid);
-    const usedNative = urls === native;
     hero.urls = urls;
     hero.fallbackIdx = 0;
     const url0 = urls[0] ?? null;
     stageNextSlot(hero, setters, resolveHeroSrcFromCache(url0, urls));
-    if (!usedNative) refineHeroLater(hero, setters, appid, url0);
   });
 }
 

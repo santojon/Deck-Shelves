@@ -88,7 +88,7 @@ function readHideFlags(shelf: Shelf): Record<typeof HIDE_FLAG_KEYS[number], bool
 }
 
 function keepsSourceOrder(shelf: Shelf): boolean {
-  return shelf.source.type === 'builtin';
+  return shelf.source.type === 'builtin' || shelf.source.type === 'smart';
 }
 
 function readPrimaryOrder(shelf: Shelf, primarySource: any): SourceOrder | undefined {
@@ -182,6 +182,10 @@ function deriveBuiltinSourceId(primarySource: any): string {
   return fallback;
 }
 
+function deriveSmartMode(primarySource: any): string {
+  return primarySource?.type === 'smart' ? String(primarySource.mode ?? '') : '';
+}
+
 function readCompositeCombine(shelf: Shelf): 'union' | 'intersection' {
   if (shelf.source.type !== 'composite') return 'union';
   return (shelf.source as any).combine === 'intersection' ? 'intersection' : 'union';
@@ -206,6 +210,7 @@ export function buildInitialShelfState(ctx: Ctx): EditableShelfState {
     tab: deriveInitialTab(shelf, mode, primarySource, platformTabs),
     externalSourceId: deriveExternalSourceId(primarySource, externalSources),
     builtinSourceId: deriveBuiltinSourceId(primarySource),
+    smartMode: deriveSmartMode(primarySource),
     filter: initialFilter,
     filterGroup: getEffectiveFilterGroup(initialFilter),
     ...readSortFields(shelf),

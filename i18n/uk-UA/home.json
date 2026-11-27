@@ -19,17 +19,11 @@
   "view_more": "Більше\nу вашій\nбібліотеці",
   "view_more_store": "Більше\nу магазині",
   "view_more_wishlist": "Більше у\nсписку бажань",
-  "download_update": "Завантажити оновлення",
-  "update_install": "Встановити оновлення",
-  "update_installing": "Встановлення оновлення {{version}}…",
-  "update_installed": "Оновлено до {{version}}.",
-  "update_install_failed": "Помилка встановлення — перехід до завантаження.",
-  "update_install_busy": "Перевірка оновлень ще триває — спробуйте ще раз за мить.",
+  "download_update_short": "Завантажити",
   "update_downloading": "Завантаження оновлення {{version}}…",
   "update_downloaded": "Збережено в {{path}} — установіть вручну.",
   "update_download_failed": "Помилка завантаження — відкривається сторінка випуску.",
+  "update_verify_failed": "Не вдалося перевірити оновлення за даними випуску, тому його не збережено.",
   "shelf_type_normal": "Звичайна",
-  "shelf_type_smart": "Розумна",
-  "update_installing_title": "Встановлення оновлення",
-  "update_will_reload": "Нова версія набуде чинності сама за кілька секунд."
+  "shelf_type_smart": "Розумна"
 }

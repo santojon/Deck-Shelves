@@ -61,9 +61,8 @@ them, that code takes its fallback.
    ```
 
    For cards and labels, inspect a native Recents card in the Elements panel
-   and read the classes on each layer. `discoverClassMap()` in
-   `src/core/webpackCompat.ts` holds the full set of heuristics if you need to
-   see how each key is located.
+   and read the classes on each layer. The table above says what each key
+   marks.
 3. Try the new values before shipping them. In the Big Picture console:
 
    ```js

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { ConfirmModal, Focusable, DialogButton, openFilePicker } from '../../../runtime/host/decky'
 import { notify } from "../../notify";
 import { ModalShell, TitleField } from '../../ui'
-import { createPreImportSnapshot, getCurrentSettings, readJsonFile, saveSettings } from '../../../settingsStore'
+import { createPreImportSnapshot, getCurrentSettings, readJsonFile, saveSettings } from '../../../store/settingsStore'
 import { mergeCategoriesIntoSettings } from '../../../features/settings/settingsCategories'
 import { categoryIdsForScope } from '../../../features/settings/categoryScope'
 import { findAlternativeImport, readImportFile, type ImportScope } from '../../../features/settings/importFile'

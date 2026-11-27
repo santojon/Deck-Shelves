@@ -7,8 +7,7 @@
     "validate:ci": "node scripts/ci/validate-ci.mjs",
     "test": "NODE_NO_WARNINGS=1 vitest run",
     "typecheck": "tsc --noEmit",
-    "lint:js": "eslint --no-warn-ignored --pass-on-unpruned-suppressions 'src/**/*.{ts,tsx}'",
-    "lint:js:prune": "eslint --no-warn-ignored --prune-suppressions 'src/**/*.{ts,tsx}'",
+    "lint:js": "eslint --no-warn-ignored 'src/**/*.{ts,tsx}'",
     "lint:py": "node scripts/build/py.mjs -m ruff check main.py src/backend/ scripts/ && node scripts/build/py.mjs scripts/build/check-py-file-size.py",
     "docs:check": "node scripts/ci/docs-check.mjs",
     "lint": "pnpm run lint:js && pnpm run lint:py",
@@ -75,7 +74,6 @@
   "license": "BSD-3-Clause",
   "devDependencies": {
     "@deck-shelves/api": "4.1.1",
-    "@deck-shelves/host": "1.6.1",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "@typescript-eslint/eslint-plugin": "^8.73.0",
@@ -85,15 +83,16 @@
     "eslint": "^10.15.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "jsdom": "31.0.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
     "typescript": "npm:@typescript/typescript6@6.0.2",
     "typescript7": "npm:typescript@7.0.2",
     "vite": "^8.3.8",
     "vitest": "^5.1.0"
   },
   "dependencies": {
+    "@deck-shelves/host": "1.6.1",
     "i18next": "^27.2.2",
-    "react": "19.3.1",
-    "react-dom": "19.3.1",
     "react-i18next": "^18.0.3",
     "zod": "^4.6.7"
   },

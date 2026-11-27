@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { getCurrentSettings, refreshSettings, saveSettings, subscribeSettings } from "../../settingsStore";
+import { getCurrentSettings, refreshSettings, saveSettings, subscribeSettings } from "../../store/settingsStore";
 import type { Settings } from "../../types";
 import { usePlatform } from "../../runtime/platformContext";
 import type { PlatformCollection, PlatformTab } from "../../runtime/platform";

@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, it, expect } from 'vitest'
 import { clampCardGap } from '../../components/shelf/shelfStyles'
 
@@ -19,5 +20,20 @@ describe('clampCardGap', () => {
 
   it('scales the ceiling with card width (native-size matching uses a measured width)', () => {
     expect(clampCardGap(9999, 200)).toBe(100)
+  })
+})
+
+describe('removeGlobalStyles', () => {
+  it('takes the row stylesheet and the root variables out of the page', async () => {
+    const { removeGlobalStyles } = await import('../../components/shelf/shelfStyles')
+    const style = document.createElement('style')
+    style.id = 'deck-shelves-row-style'
+    document.head.appendChild(style)
+    document.documentElement.style.setProperty('--ds-card-radius', '4px')
+    document.documentElement.style.setProperty('--ds-native-card-w', '134px')
+    removeGlobalStyles()
+    expect(document.getElementById('deck-shelves-row-style')).toBeNull()
+    expect(document.documentElement.style.getPropertyValue('--ds-card-radius')).toBe('')
+    expect(document.documentElement.style.getPropertyValue('--ds-native-card-w')).toBe('')
   })
 })

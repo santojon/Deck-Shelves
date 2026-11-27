@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { mergeSettings } from "../../domain/settingsMerge";
+import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
+import { mergeSettings, TOMBSTONE_TTL_MS } from "../../domain/settingsMerge";
 import { defaultSettings } from "../../domain/defaults";
 import type { Settings } from "../../types";
 
@@ -13,6 +13,10 @@ const mk = (o: Record<string, unknown>): Settings => ({
   shelves: [], smartShelves: [], savedFilters: [], savedSmartFilters: [], profiles: [],
   syncTombstones: {}, preferencesUpdatedAt: 0, ...o,
 }) as unknown as Settings;
+
+// The clocks below are small numbers; the merge's "now" sits right after them.
+beforeAll(() => { vi.useFakeTimers({ toFake: ["Date"] }); vi.setSystemTime(100); });
+afterAll(() => { vi.useRealTimers(); });
 
 describe("mergeSettings — cross-device convergence", () => {
   it("is idempotent on synced fields: merge(x,x) equals x", () => {
@@ -31,6 +35,15 @@ describe("mergeSettings — cross-device convergence", () => {
     expect(ab.shelves).toEqual(ba.shelves);
     expect(ab.shelves.map((s) => s.id)).toEqual(["a", "only_a", "only_b"]);
     expect((ab.shelves.find((s) => s.id === "a") as any).updatedAt).toBe(9);
+  });
+
+  it("between same-clock copies that differ only in false or empty fields, the sanitized one wins either way", () => {
+    const sanitized = sh("s1", 5);
+    const explicit = sh("s1", 5, { heroEnabled: false, highlightRandom: false, sortReverse: [false, false] });
+    const a = mk({ shelves: [sanitized] });
+    const b = mk({ shelves: [explicit] });
+    expect((mergeSettings(a, b) as any).shelves[0]).toEqual(sanitized);
+    expect((mergeSettings(b, a) as any).shelves[0]).toEqual(sanitized);
   });
 
   it("preserves device-unique shelves via union", () => {
@@ -121,5 +134,36 @@ describe("mergeSettings — schema version", () => {
   it("adds no schemaVersion when neither side carries one", () => {
     const out = mergeSettings(mk({ preferencesUpdatedAt: 1 }), mk({ preferencesUpdatedAt: 2 }));
     expect("schemaVersion" in (out as any)).toBe(false);
+  });
+});
+
+describe("mergeSettings — expired tombstones", () => {
+  const DAY = 24 * 60 * 60 * 1000;
+  const NOW = 200 * DAY;
+
+  it("drops a mark older than the lifetime even when only the other copy still has it", () => {
+    vi.setSystemTime(NOW);
+    const local = mk({ syncTombstones: { fresh: NOW - DAY } });
+    const remote = mk({ syncTombstones: { old: NOW - TOMBSTONE_TTL_MS - 1, fresh: NOW - DAY } });
+    expect(mergeSettings(local, remote).syncTombstones).toEqual({ fresh: NOW - DAY });
+    expect(mergeSettings(remote, local).syncTombstones).toEqual({ fresh: NOW - DAY });
+  });
+
+  it("a copy merged with one that still carries expired marks equals the pruned copy, so a sync settles", () => {
+    vi.setSystemTime(NOW);
+    const local = mk({ shelves: [sh("a", NOW - 2 * DAY)], syncTombstones: {} });
+    const remote = mk({ shelves: [sh("a", NOW - 2 * DAY)], syncTombstones: { gone: NOW - TOMBSTONE_TTL_MS - 5 } });
+    const merged = mergeSettings(local, remote);
+    expect(merged.syncTombstones).toEqual(local.syncTombstones);
+    expect(mergeSettings(merged, remote).syncTombstones).toEqual({});
+  });
+
+  it("keeps a mark inside the lifetime and its deletion", () => {
+    vi.setSystemTime(NOW);
+    const local = mk({ shelves: [] , syncTombstones: { a: NOW - DAY } });
+    const remote = mk({ shelves: [sh("a", NOW - 3 * DAY)], syncTombstones: {} });
+    const merged = mergeSettings(local, remote);
+    expect(merged.syncTombstones).toEqual({ a: NOW - DAY });
+    expect(merged.shelves.map((s: any) => s.id)).toEqual([]);
   });
 });

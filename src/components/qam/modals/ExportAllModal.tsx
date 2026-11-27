@@ -9,7 +9,7 @@ import {
   pickCategoriesFromSettings,
   buildExportPayload,
 } from "../../../features/settings/settingsCategories";
-import { writeJsonFile, getCurrentSettings } from "../../../settingsStore";
+import { writeJsonFile, getCurrentSettings } from "../../../store/settingsStore";
 import pkg from "../../../../package.json";
 
 async function pickFolder(startPath: string) {

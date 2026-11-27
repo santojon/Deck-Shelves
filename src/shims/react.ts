@@ -1,15 +1,8 @@
-// Sole-host fallback: a neutral host exposes Steam's React stack as `__SHELVES_HOST__` when no loader publishes it.
-function getShelvesHost(): any {
-  const g = globalThis as any;
-  return g.window?.__SHELVES_HOST__ ?? g.__SHELVES_HOST__ ?? null;
-}
-
 const ReactGlobal =
   (globalThis as any).SP_REACT ||
   (globalThis as any).React ||
   (globalThis as any).window?.SP_REACT ||
-  (globalThis as any).window?.React ||
-  getShelvesHost()?.React;
+  (globalThis as any).window?.React;
 
 if (!ReactGlobal) {
   throw new Error("Deck Shelves: React global is not available in the Deck runtime.");

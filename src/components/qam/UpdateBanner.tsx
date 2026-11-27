@@ -2,14 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import { DialogButton, Focusable } from "../../runtime/host/decky";
 import type { SettingsController } from "../../features/settings/controller";
 import { checkForUpdate, __resetUpdateCheckCache, type UpdateCheckResult } from "../../core/updateNotifier";
-import { installOrDownloadUpdate, canSelfInstallUpdate } from "../../runtime/updateDownload";
+import { installOrDownloadUpdate } from "../../runtime/updateDownload";
 import { isOnline } from "../../core/connectivity";
 import { logInfo } from "../../runtime/logger";
-import { flowChildrenProps } from "../../core/steamOSVersion";
 
-function updateActionKey(): "update_install" | "download_update" {
-  return canSelfInstallUpdate() ? "update_install" : "download_update";
-}
+const BOX_STYLE = { margin: "8px 16px", padding: "12px 14px", background: "rgba(74,144,226,0.12)", border: "1px solid rgba(74,144,226,0.5)", borderRadius: 6 };
+const TITLE_STYLE = { fontWeight: 700, fontSize: 14, marginBottom: 12 };
+const UPDATE_BUTTON_STYLE = { flex: 1, minWidth: 0, padding: "10px 8px" };
 
 export function UpdateBanner({ controller }: { controller: SettingsController }) {
   const { t, settings, actions } = controller;
@@ -21,8 +20,6 @@ export function UpdateBanner({ controller }: { controller: SettingsController })
   const prevEnabledRef = useRef<boolean>(enabled);
   useEffect(() => {
     if (!enabled) { prevEnabledRef.current = false; return; }
-    // A self-install host already shows its own notice for this release feed.
-    if (canSelfInstallUpdate()) return;
     const wasOff = !prevEnabledRef.current;
     prevEnabledRef.current = true;
     let cancelled = false;
@@ -44,39 +41,13 @@ export function UpdateBanner({ controller }: { controller: SettingsController })
 
   const open = () => { void installOrDownloadUpdate(result); };
   const dismiss = () => { if (result.latestVersion) void actions.dismissUpdateNotice(result.latestVersion); };
-  const actionLabel = t(updateActionKey());
 
   return (
-    <div
-      data-ds-update-banner="1"
-      style={{
-        margin: "6px 8px 10px",
-        padding: "8px 10px",
-        boxSizing: "border-box",
-        borderRadius: 6,
-        background: "rgba(74, 144, 226, 0.12)",
-        border: "1px solid rgba(74, 144, 226, 0.5)",
-        display: "flex",
-        flexDirection: "column",
-        gap: 6,
-      }}
-    >
-      <div style={{ fontSize: 12, opacity: 0.92 }}>
-        {t("update_available", { version: result.latestVersion })}
-      </div>
-      <Focusable style={{ display: "flex", gap: 6 }} {...flowChildrenProps("horizontal")}>
-        <DialogButton
-          onClick={open}
-          style={{ flex: 1, padding: "4px 8px", fontSize: 12, minWidth: 0 }}
-        >
-          {actionLabel}
-        </DialogButton>
-        <DialogButton
-          onClick={dismiss}
-          style={{ flex: 1, padding: "4px 8px", fontSize: 12, minWidth: 0 }}
-        >
-          {t("dismiss")}
-        </DialogButton>
+    <div data-ds-update-banner="1" style={BOX_STYLE}>
+      <div style={TITLE_STYLE}>{t("update_available", { version: result.latestVersion })}</div>
+      <Focusable flow-children="row" style={{ display: "flex", gap: 8 }}>
+        <DialogButton onClick={open} style={UPDATE_BUTTON_STYLE}>{t("download_update_short")}</DialogButton>
+        <DialogButton onClick={dismiss} style={UPDATE_BUTTON_STYLE}>{t("dismiss")}</DialogButton>
       </Focusable>
     </div>
   );

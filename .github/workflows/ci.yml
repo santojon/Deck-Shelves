@@ -1,7 +1,9 @@
 name: "CI · Build & Test"
 
 on:
+  # Tags are validated by the release workflow only.
   push:
+    branches: ['**']
   pull_request:
     types: [opened, synchronize, reopened]
   workflow_dispatch:
@@ -13,8 +15,7 @@ jobs:
   validate:
     runs-on: ubuntu-latest
     # Skip the bump-only commit on main (the auto-commit from bump.yml).
-    if: |
-      github.ref_type == 'tag' || !startsWith(github.event.head_commit.message, 'chore: bump version')
+    if: "!startsWith(github.event.head_commit.message, 'chore: bump version')"
     steps:
       - uses: actions/checkout@v7
 
@@ -36,8 +37,7 @@ jobs:
 
   validate-arm64:
     runs-on: ubuntu-24.04-arm
-    if: |
-      github.ref_type == 'tag' || !startsWith(github.event.head_commit.message, 'chore: bump version')
+    if: "!startsWith(github.event.head_commit.message, 'chore: bump version')"
     steps:
       - uses: actions/checkout@v7
 

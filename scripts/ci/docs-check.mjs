@@ -108,10 +108,9 @@ for (const { svg, tsx, marker, name, min } of ICON_PAIRS) {
   else ok.push(`Icon: ${name} matches ${svg} (${svgRects.size} rects)`);
 }
 
-// shipped text
-// Patterns are assembled from pieces so this file never matches itself. The
-// sibling host's name is refused in doc prose (link targets, file names and code
-// spans are ignored) and in code comments (string literals are ignored).
+// shipped text: patterns are built from pieces so this file never matches itself.
+// The sibling host's name is refused in doc prose (link targets, file names and
+// code spans ignored) and in code comments (string literals ignored).
 {
   const w = (...parts) => parts.join("");
   const siblingName = new RegExp(w("shelves", "hub"), "i");

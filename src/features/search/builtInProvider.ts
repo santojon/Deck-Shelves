@@ -2,7 +2,7 @@ import { devStamp } from "../../runtime/devStamps";
 import type { SearchHit, SearchProviderDescriptor } from "../../core/pluginApi";
 import { focusElement, saveFocusTarget, beginFocusRestoreLoop } from "../../core/focusRestore";
 import { getPreferredSteamDocument } from "../../runtime/steamHost";
-import { getCurrentSettings } from "../../settingsStore";
+import { getCurrentSettings } from "../../store/settingsStore";
 import { readRegistry } from "./shelfRegistry";
 
 interface ShelfHit { appid: number; name: string; shelfId: string | null; shelfTitle: string }

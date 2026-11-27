@@ -20,8 +20,6 @@ export function DisplayTabContent({
   setDiscountBadgeMode,
   discountBadgeFocusMode,
   setDiscountBadgeFocusMode,
-  dedupeByExactName,
-  setDedupeByExactName,
   setHiddenAppIds,
   hiddenPickerOpen,
   setHiddenPickerOpen,
@@ -34,14 +32,12 @@ export function DisplayTabContent({
   setDiscountBadgeMode?: (v: DiscountBadgeMode) => void;
   discountBadgeFocusMode?: DiscountBadgeMode | null;
   setDiscountBadgeFocusMode?: (v: DiscountBadgeMode | null) => void;
-  dedupeByExactName: boolean;
-  setDedupeByExactName: (v: boolean) => void;
   setHiddenAppIds: (next: number[]) => void;
   hiddenPickerOpen: boolean;
   setHiddenPickerOpen: (v: boolean) => void;
 }) {
   return (
-    <FieldContainer scrollable>
+    <FieldContainer>
       <ToggleField label={t('hide_shelf_title')} checked={display.hideShelfTitle} onChange={(v: boolean) => setDisplay({ hideShelfTitle: v })} />
       <ToggleField label={t('hide_new_badge')} checked={display.hideNewBadge} onChange={(v: boolean) => setDisplay({ hideNewBadge: v })} />
       <ToggleField label={t('hide_discount_badge')} checked={display.hideDiscountBadge} onChange={(v: boolean) => setDisplay({ hideDiscountBadge: v })} />
@@ -67,7 +63,6 @@ export function DisplayTabContent({
       <ToggleField label={t('hide_see_more_card')} checked={display.hideSeeMore} onChange={(v: boolean) => setDisplay({ hideSeeMore: v })} />
       <ToggleField label={t('hide_install_indicator')} checked={display.hideInstallIndicator} onChange={(v: boolean) => setDisplay({ hideInstallIndicator: v })} />
       <ToggleField label={t('hide_refresh_card')} checked={display.hideRefreshCard} onChange={(v: boolean) => setDisplay({ hideRefreshCard: v })} />
-      <ToggleField label={t('edit_dedupe_by_name' as any)} checked={dedupeByExactName} onChange={setDedupeByExactName} />
       {hasNonSteamBadges && (
         <ToggleField label={t('hide_non_steam_badge')} checked={display.hideNonSteamBadge} onChange={(v: boolean) => setDisplay({ hideNonSteamBadge: v })} />
       )}

@@ -2,6 +2,7 @@
 release assets on GitHub's hosts, saved under a bare .zip name."""
 import os
 import re
+from typing import Any
 
 
 # Manual-update downloads only ever follow GitHub release-asset hosts.
@@ -40,3 +41,24 @@ def _safe_zip_name(name: str) -> str:
     if not base or not base.lower().endswith(".zip"):
         return ""
     return base
+
+
+_SHA256_HEX = re.compile(r"[0-9a-f]{64}")
+
+
+class DigestError(ValueError):
+    """A release digest that is missing, malformed, unsupported or does not match; the
+    message is a short code the frontend can tell apart from a network error."""
+
+
+def _expected_sha256(digest: Any) -> str:
+    """The lowercase hex from a release asset digest (`sha256:<hex>`, or the bare hex)."""
+    if not isinstance(digest, str) or not digest.strip():
+        raise DigestError("digest_missing")
+    algo, _, value = digest.strip().rpartition(":")
+    if algo and algo.lower() != "sha256":
+        raise DigestError("digest_unsupported")
+    value = value.lower()
+    if not _SHA256_HEX.fullmatch(value):
+        raise DigestError("digest_invalid")
+    return value

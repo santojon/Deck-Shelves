@@ -163,30 +163,22 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
-  glob: ^13.0.0
-  rimraf: ^6.0.1
-  globby: ^14.1.0
   postcss: ^8.5.23
   esbuild: ^0.28.1
   undici: ^7.29.0
-  brace-expansion@1: ^1.1.21
   brace-expansion@5: ^5.0.12
-  js-yaml: ^4.3.2
   vitest: ^5.1.0
 
 importers:
 
   .:
     dependencies:
+      '@deck-shelves/host':
+        specifier: 1.6.1
+        version: 1.6.1
       i18next:
         specifier: ^27.2.2
         version: 27.2.2(@typescript/typescript6@6.0.2)
-      react:
-        specifier: 19.3.1
-        version: 19.3.1
-      react-dom:
-        specifier: 19.3.1
-        version: 19.3.1(react@19.3.1)
       react-i18next:
         specifier: ^18.0.3
         version: 18.0.3(@types/react@19.3.0)(@typescript/typescript6@6.0.2)(i18next@27.2.2(@typescript/typescript6@6.0.2))(react@19.3.1)
@@ -197,9 +189,6 @@ importers:
       '@deck-shelves/api':
         specifier: 4.1.1
         version: 4.1.1
-      '@deck-shelves/host':
-        specifier: 1.6.1
-        version: 1.6.1
       '@types/react':
         specifier: 19.3.0
         version: 19.3.0
@@ -227,6 +216,12 @@ importers:
       jsdom:
         specifier: 31.0.0
         version: 31.0.0
+      react:
+        specifier: 19.3.1
+        version: 19.3.1
+      react-dom:
+        specifier: 19.3.1
+        version: 19.3.1(react@19.3.1)
       typescript:
         specifier: npm:@typescript/typescript6@6.0.2
         version: '@typescript/typescript6@6.0.2'

@@ -96,7 +96,6 @@ import { PlatformProvider } from '../../../runtime/platformContext'
 import { DeckQAMSettings } from '../../../components/DeckQAMSettings'
 import { GeneralTab } from '../../../components/qam/sidecar/GeneralTab'
 import { useSettingsController } from '../../../features/settings/controller'
-import { claimHomeOwnership } from '../../../runtime/host/ownerGuard'
 
 const LABEL = 'Own Quick Access tab (experimental)'
 const SHOWCASE_LABEL = 'Showcase mode'
@@ -109,10 +108,6 @@ const LATER = 'Later'
 type Panel = { name: string; component: ComponentType<{ controller: any }> }
 const PANEL: Panel = { name: 'panel', component: DeckQAMSettings as ComponentType<{ controller: any }> }
 const SIDE_PANEL: Panel = { name: 'side panel', component: GeneralTab as ComponentType<{ controller: any }> }
-const NEUTRAL_HOST_SIGNALS = [
-  { signal: 'bridge', name: '__SHELVES_QAM__', value: { registerPanel: () => {} } },
-  { signal: 'runtime', name: '__SHELVES_HOST__', value: {} },
-]
 
 const platform = { resolveShelfAppIds: async () => [], listCollections: async () => [], listLibraryTabs: async () => [] } as any
 let root: Root
@@ -203,45 +198,10 @@ function prompt(index: number) {
 
 for (const panel of [PANEL, SIDE_PANEL]) {
   describe(`own Quick Access tab option, ${panel.name}`, () => {
-    it('shows in the Experimental section, with its label, when no neutral host is present', () => {
+    it('shows in the Experimental section, with its label', () => {
       renderOpen(panel, makeController())
       expect(toggle()?.textContent).toBe(LABEL)
       expect(toggle()?.getAttribute('aria-pressed')).toBe('false')
-    })
-
-    for (const { signal, name, value } of NEUTRAL_HOST_SIGNALS) {
-      it(`hidden while the neutral host's ${signal} is present`, () => {
-        vi.stubGlobal(name, value)
-        renderOpen(panel, makeController())
-        expect(toggle(SHOWCASE_LABEL)).not.toBeNull()
-        expect(toggle()).toBeNull()
-      })
-
-      it(`hidden from the next render once the neutral host's ${signal} appears`, () => {
-        const controller = makeController()
-        renderOpen(panel, controller)
-        expect(toggle()).not.toBeNull()
-
-        vi.stubGlobal(name, value)
-        render(panel, controller)
-        expect(toggle(SHOWCASE_LABEL)).not.toBeNull()
-        expect(toggle()).toBeNull()
-      })
-    }
-
-    it('hidden in a copy that does not own the renderer', () => {
-      const scope = window as any
-      scope.__DECK_SHELVES_OWNER__ = 'shelveshub'
-      try {
-        expect(claimHomeOwnership('decky')).toBe(false)
-        renderOpen(panel, makeController())
-        expect(toggle(SHOWCASE_LABEL)).not.toBeNull()
-        expect(toggle()).toBeNull()
-      } finally {
-        scope.__DECK_SHELVES_OWNER__ = 'decky'
-        claimHomeOwnership('decky')
-        delete scope.__DECK_SHELVES_OWNER__
-      }
     })
 
     it('the Experimental count includes the option while it is on', () => {

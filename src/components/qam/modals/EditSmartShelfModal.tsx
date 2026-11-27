@@ -5,7 +5,6 @@ import {
   DropdownItem,
   Field,
   Focusable,
-  Tabs,
   TextField,
   ToggleField,
   type SingleDropdownOption,
@@ -28,6 +27,7 @@ import { VisibilityRulesEditor } from './editShelf/VisibilityRulesEditor'
 import type { PlatformAppMeta } from '../../../runtime/platform'
 import { PreviewPanel } from './editShelf/PreviewPanel'
 import { EditShelfFrame } from './editShelf/EditShelfFrame'
+import { EditorTabs } from './editShelf/EditorTabs'
 import { FunnelIcon, EyeIcon, SparkleIcon, OnlineIcon } from '../../icons'
 import { TabLabel } from './editShelf/TabLabel'
 import { SortField } from './editShelf/SortField'
@@ -42,7 +42,7 @@ import { visualFlagsOf, applyVisualPatch, previewHideFlags, removableTail } from
 
 
 
-type Tab = 'source' | 'smart_filters' | 'overrides' | 'filters' | 'visual' | 'display'
+type Tab = 'source' | 'smart_filters' | 'overrides' | 'filters' | 'visual' | 'display' | 'behavior'
 
 function firstOr<T>(v: T | T[] | undefined, fallback: T): T {
   return ((Array.isArray(v) ? v[0] : v) ?? fallback)
@@ -275,9 +275,8 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
       previewCount={previewCount}
       onSave={handleSave}
       onClose={closeModal}
-      tabsOverflow='hidden'
       tabs={(
-            <Tabs
+            <EditorTabs
               activeTab={activeTab}
               onShowTab={(id: string) => setActiveTab(id as Tab)}
               tabs={[
@@ -285,7 +284,7 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
                   id: 'source',
                   title: t('edit_tab_source'),
                   content: (() => (
-                    <FieldContainer scrollable>
+                    <FieldContainer>
                       <Field label={t('smart_mode')}>
                         <Focusable {...flowChildrenProps('horizontal')} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           <div style={{ flex: 1, minWidth: 0 }}>
@@ -401,6 +400,7 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
                           }))
                         }}
                       />
+                      <ToggleField label={t('edit_dedupe_by_name' as any)} checked={state.dedupeByExactName} onChange={(v: boolean) => setState((prev) => ({ ...prev, dedupeByExactName: v }))} />
                       <DSSliderField
                         label={t('limit')}
                         value={state.limit}
@@ -463,9 +463,9 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
                 },
                 {
                   id: 'smart_filters',
-                  title: (<TabLabel icon={<SparkleIcon />} text={t('edit_tab_smart_filters' as any)} />) as unknown as string,
+                  title: (<TabLabel icon={<SparkleIcon />} text={t('edit_tab_smart_short' as any)} />) as unknown as string,
                   content: (() => (
-                    <FieldContainer scrollable>
+                    <FieldContainer>
                       {shelf.mode === 'time_of_day' && (
                         <Field
                           label={t('smart_time_of_day_info_label' as any)}
@@ -594,25 +594,6 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
                         onChange={(v) => setState((prev) => ({ ...prev, visibility: v }))}
                         t={t as any}
                       />
-                      <Field label={t('visibility_autopin_label' as any)} description={t('visibility_autopin_desc' as any)} />
-                      <VisibilityRulesEditor
-                        value={(state as any).autoPin}
-                        onChange={(v) => setState((prev) => ({ ...prev, autoPin: v } as any))}
-                        t={t as any}
-                        idPrefix="pin"
-                      />
-                      <Field label={t('visibility_autocollapse_label' as any)} description={t('visibility_autocollapse_desc' as any)} />
-                      <ToggleField
-                        label={t('visibility_autocollapse_empty' as any)}
-                        checked={(state as any).autoCollapseWhenEmpty === true}
-                        onChange={(v: boolean) => setState((prev) => ({ ...prev, autoCollapseWhenEmpty: v } as any))}
-                      />
-                      <VisibilityRulesEditor
-                        value={(state as any).autoCollapse}
-                        onChange={(v) => setState((prev) => ({ ...prev, autoCollapse: v } as any))}
-                        t={t as any}
-                        idPrefix="col"
-                      />
                     </FieldContainer>
                   ))(),
                 },
@@ -626,7 +607,7 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
                     if (state.visibleHoursEnabled && state.defaultHours.length > 0)
                       infoLines.push(`${t('smart_schedule_default_hours' as any)}: ${state.defaultHours.map((r) => `${String(r.start).padStart(2, '0')}:00–${String(r.end).padStart(2, '0')}:00`).join(', ')}`)
                     return (
-                      <FieldContainer scrollable>
+                      <FieldContainer>
                         {infoLines.length > 0 && (
                           <Field label={t('smart_overrides_info_label' as any)} description={infoLines.join('  ·  ')} />
                         )}
@@ -680,7 +661,7 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
                   id: 'filters',
                   title: (<TabLabel icon={<FunnelIcon />} text={t('edit_tab_additional_filters' as any)} />) as unknown as string,
                   content: (
-                    <FieldContainer scrollable>
+                    <FieldContainer>
                       <SavedFiltersBar
                         controller={controller}
                         currentGroup={state.filterGroup}
@@ -718,12 +699,37 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
                       display={{ hideStatusLine: state.hideStatusLine, hideNewBadge: state.hideNewBadge, hideDiscountBadge: state.hideDiscountBadge, hideCompatIcons: state.hideCompatIcons, hideNonSteamBadge: state.hideNonSteamBadge, hideShelfTitle: state.hideShelfTitle, hideGameNames: state.hideGameNames === true, hideInstallIndicator: state.hideInstallIndicator === true, hideSeeMore: state.hideSeeMore === true, hideRefreshCard: state.hideRefreshCard === true }}
                       setDisplay={(patch: any) => setState((prev) => { const next = { ...prev, ...patch }; if (patch.hideShelfTitle === false && (prev as any).gameInfoAbove) next.gameInfoAbove = false; return next; })}
                       hasNonSteamBadges={hasNonSteamBadges}
-                      dedupeByExactName={state.dedupeByExactName}
-                      setDedupeByExactName={(v) => setState((prev) => ({ ...prev, dedupeByExactName: v }))}
                       setHiddenAppIds={(next) => setState((prev) => ({ ...prev, hiddenAppIds: next }))}
                       hiddenPickerOpen={hiddenPickerOpen}
                       setHiddenPickerOpen={setHiddenPickerOpen}
                     />
+                  ),
+                },
+                {
+                  id: 'behavior',
+                  title: t('edit_tab_auto' as any),
+                  content: (
+                    <FieldContainer>
+                      <Field label={t('visibility_autopin_label' as any)} description={t('visibility_autopin_desc' as any)} />
+                      <VisibilityRulesEditor
+                        value={(state as any).autoPin}
+                        onChange={(v) => setState((prev) => ({ ...prev, autoPin: v } as any))}
+                        t={t as any}
+                        idPrefix="pin"
+                      />
+                      <Field label={t('visibility_autocollapse_label' as any)} description={t('visibility_autocollapse_desc' as any)} />
+                      <ToggleField
+                        label={t('visibility_autocollapse_empty' as any)}
+                        checked={(state as any).autoCollapseWhenEmpty === true}
+                        onChange={(v: boolean) => setState((prev) => ({ ...prev, autoCollapseWhenEmpty: v } as any))}
+                      />
+                      <VisibilityRulesEditor
+                        value={(state as any).autoCollapse}
+                        onChange={(v) => setState((prev) => ({ ...prev, autoCollapse: v } as any))}
+                        t={t as any}
+                        idPrefix="col"
+                      />
+                    </FieldContainer>
                   ),
                 },
               ]}

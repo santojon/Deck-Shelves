@@ -178,4 +178,110 @@ describe("controller input from the Big Picture window", () => {
     expect(vi.getTimerCount()).toBe(0);
     expect(bp.input.unregister).toHaveBeenCalledTimes(1);
   });
+
+  it("drains every 30 ms outside a game", async () => {
+    const bp = fakeBigPictureWindow();
+    installSteam(bp.view);
+    const { subscribeControllerInput, Button } = await loadModules();
+    const seen = vi.fn();
+    subscribeControllerInput(seen);
+    vi.advanceTimersByTime(30);
+
+    bp.logPress(0, Button.A, true);
+    vi.advanceTimersByTime(29);
+    expect(seen).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
+    expect(seen).toHaveBeenCalledTimes(1);
+  });
+
+  it("drains every 250 ms while a game runs", async () => {
+    const bp = fakeBigPictureWindow();
+    installSteam(bp.view);
+    const { subscribeControllerInput, Button } = await loadModules();
+    subscribeControllerInput(vi.fn());
+    runningApps = [{ appid: 10 }];
+    vi.advanceTimersByTime(30);
+
+    bp.logPress(0, Button.A, true);
+    vi.advanceTimersByTime(249);
+    expect(bp.view.__ds_bp_input_log).toHaveLength(1);
+    vi.advanceTimersByTime(1);
+    expect(bp.view.__ds_bp_input_log).toHaveLength(0);
+  });
+
+  it("goes back to 30 ms after the game ends and to 250 ms when another starts", async () => {
+    const bp = fakeBigPictureWindow();
+    installSteam(bp.view);
+    const { subscribeControllerInput, Button } = await loadModules();
+    const seen = vi.fn();
+    subscribeControllerInput(seen);
+    runningApps = [{ appid: 10 }];
+    vi.advanceTimersByTime(30);
+
+    runningApps = [];
+    vi.advanceTimersByTime(250);
+    bp.logPress(0, Button.A, true);
+    vi.advanceTimersByTime(30);
+    expect(seen).toHaveBeenCalledTimes(1);
+
+    runningApps = [{ appid: 20 }];
+    vi.advanceTimersByTime(30);
+    bp.logPress(0, Button.B, true);
+    vi.advanceTimersByTime(249);
+    expect(bp.view.__ds_bp_input_log).toHaveLength(1);
+    vi.advanceTimersByTime(1);
+    expect(bp.view.__ds_bp_input_log).toHaveLength(0);
+    expect(seen).toHaveBeenCalledTimes(1);
+  });
+
+  it("stops the drain during a game when the last subscriber leaves", async () => {
+    const bp = fakeBigPictureWindow();
+    installSteam(bp.view);
+    const { subscribeControllerInput } = await loadModules();
+    const off = subscribeControllerInput(vi.fn());
+    runningApps = [{ appid: 10 }];
+    vi.advanceTimersByTime(30);
+    expect(vi.getTimerCount()).toBe(1);
+
+    off();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("does not drain again when the last subscriber leaves from inside a drain", async () => {
+    const bp = fakeBigPictureWindow();
+    installSteam(bp.view);
+    const { subscribeControllerInput, Button } = await loadModules();
+    let off: () => void = () => {};
+    const seen = vi.fn(() => off());
+    off = subscribeControllerInput(seen);
+
+    bp.logPress(0, Button.A, true);
+    vi.advanceTimersByTime(30);
+    expect(seen).toHaveBeenCalledTimes(1);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("keeps draining after a drain throws", async () => {
+    const bp = fakeBigPictureWindow();
+    installSteam(bp.view);
+    const { subscribeControllerInput, Button } = await loadModules();
+    const seen = vi.fn();
+    subscribeControllerInput(seen);
+    const log = bp.view.__ds_bp_input_log;
+    let failNext = true;
+    Object.defineProperty(bp.view, "__ds_bp_input_log", {
+      configurable: true,
+      get() {
+        if (!failNext) return log;
+        failNext = false;
+        throw new Error("log unavailable");
+      },
+    });
+
+    vi.advanceTimersByTime(30);
+    expect(failNext).toBe(false);
+    bp.logPress(0, Button.A, true);
+    vi.advanceTimersByTime(30);
+    expect(seen).toHaveBeenCalledTimes(1);
+  });
 });

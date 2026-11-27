@@ -61,7 +61,6 @@ const commentLengthPlugin = {
   },
 };
 
-// Older violations are baselined in eslint-suppressions.json; run lint:js:prune to drop stale entries.
 export default [
   {
     files: ['src/**/*.{ts,tsx}'],

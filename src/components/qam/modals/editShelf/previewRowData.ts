@@ -3,6 +3,7 @@ import type { PlatformAppMeta } from '../../../../runtime/platform'
 import { getAllAppOverviews } from '../../../../steam'
 import { normalizeTitleForMatch } from '../../../../steam/dedupe'
 import { getCurrentSettings } from '../../../../store/settingsStore'
+import { resolveDiscountBadgeModes, type DiscountBadgeMode, type DiscountBadgeModes } from '../../../shelf/discountBadge'
 
 const NEW_GAME_WINDOW_MS = 14 * 24 * 60 * 60 * 1000
 
@@ -200,4 +201,24 @@ export function spliceSyntheticCards(out: DeckRowItem[], syntheticCards: Synthet
       },
     })
   }
+}
+
+// The editor's unsaved modes, under the same rule as the Home: a global value wins.
+export function previewBadgeModes(shelf: { discountBadgeMode?: DiscountBadgeMode; discountBadgeFocusMode?: DiscountBadgeMode | null }): DiscountBadgeModes {
+  const settings = (() => { try { return getCurrentSettings() } catch { return null } })()
+  return resolveDiscountBadgeModes(settings, shelf)
+}
+
+// A null cache (not an online shelf) gives no badge.
+export function previewPriceFields(priceCache: any, id: number): Pick<DeckRowItem, 'discountPercent' | 'priceText'> {
+  const data = priceCache?.[id]?.data
+  const discount = data?.discount
+  if (typeof discount !== 'number' || discount <= 0) return {}
+  return { discountPercent: discount, priceText: typeof data.formatted === 'string' && data.formatted ? data.formatted : undefined }
+}
+
+// Only the selected card's item changes, so the other cards keep their render.
+export function withFocusedBadgeMode(items: DeckRowItem[], focusedAppid: number | null, modes: DiscountBadgeModes): DeckRowItem[] {
+  if (focusedAppid === null || modes.focused === modes.normal) return items
+  return items.map((it) => (it.appid === focusedAppid && it.discountPercent ? { ...it, discountBadgeMode: modes.focused } : it))
 }

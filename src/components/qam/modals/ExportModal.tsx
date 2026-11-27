@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { ConfirmModal } from '../../../runtime/host/decky'
 import { notify } from "../../notify";
 import { ModalShell } from '../../ui'
-import { getCurrentSettings, writeJsonFile } from '../../../settingsStore'
+import { getCurrentSettings, writeJsonFile } from '../../../store/settingsStore'
 import { pickCategoriesFromSettings } from '../../../features/settings/settingsCategories'
 import { categoryIdsForScope } from '../../../features/settings/categoryScope'
 import type { SettingsController } from '../../../features/settings/controller'

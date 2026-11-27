@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { TextField } from "../../runtime/host/decky";
 import { getExternalSearchProviders, type SearchHit } from "../../core/pluginApi";
 import { isHomeRoute } from "../../components/home/mountUtils";
-import { getCurrentSettings, subscribeSettings } from "../../settingsStore";
+import { getCurrentSettings, subscribeSettings } from "../../store/settingsStore";
 import { GamepadButton, subscribeHomeButton, subscribeHomeKey } from "../../runtime/homeInputBus";
 import { createMatcherState, matchEvent, parseCombo, parseRawCombo, resolveBindings } from "../../runtime/buttonBindings";
 import { resolveKeyboardBindings, parseKeyCombo, matchKeyEvent, createKeyMatcherState, isEditableKeyTarget } from "../../runtime/keyboardBindings";

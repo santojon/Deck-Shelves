@@ -5,7 +5,7 @@ import { homePlatform, ShelvesContainer } from "./home/ShelvesContainer";
 import { DebugOverlay } from "./DebugOverlay";
 import { isDebugOverlayEnabled } from "../runtime/debugOverlay";
 import type { Settings, Shelf } from "../types";
-import { refreshSettings, subscribeSettings } from "../settingsStore";
+import { refreshSettings, subscribeSettings } from "../store/settingsStore";
 import { PlatformProvider } from "../runtime/platformContext";
 import { logInfo, logWarn } from "../runtime/logger";
 import { getPreferredSteamDocument, getPreferredSteamWindow, getAllSteamDocuments } from "../runtime/steamHost";

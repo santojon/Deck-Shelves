@@ -1,3 +1,5 @@
+import type { DiscountBadgeMode } from '../../../shelf/discountBadge'
+
 export type VisualFlagSource = {
   matchNativeSize: boolean
   highlightFirst: boolean
@@ -69,6 +71,9 @@ export type PreviewHideSource = {
   hideInstallIndicator?: boolean
   hideSeeMore?: boolean
   hideRefreshCard?: boolean
+  hideDiscountBadge?: boolean
+  discountBadgeMode?: DiscountBadgeMode
+  discountBadgeFocusMode?: DiscountBadgeMode | null
 }
 
 export function previewHideFlags(state: PreviewHideSource) {
@@ -81,6 +86,9 @@ export function previewHideFlags(state: PreviewHideSource) {
     hideInstallIndicator: state.hideInstallIndicator === true,
     hideSeeMore: state.hideSeeMore === true,
     hideRefreshCard: state.hideRefreshCard === true,
+    hideDiscountBadge: state.hideDiscountBadge === true,
+    discountBadgeMode: state.discountBadgeMode,
+    discountBadgeFocusMode: state.discountBadgeFocusMode ?? null,
   }
 }
 

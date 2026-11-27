@@ -1,7 +1,5 @@
 import type { Settings } from "../types";
-import { SYNC_LISTS, LOCAL_ONLY_FIELDS } from "../domain/settingsMerge";
-
-const TOMBSTONE_TTL_MS = 60 * 24 * 60 * 60 * 1000;
+import { SYNC_LISTS, LOCAL_ONLY_FIELDS, TOMBSTONE_TTL_MS } from "../domain/settingsMerge";
 
 function stripStamp(e: any): string {
   const { updatedAt: _drop, ...rest } = e ?? {};

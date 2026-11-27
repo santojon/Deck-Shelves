@@ -24,7 +24,7 @@ release, the Decky store update and the announcements. Technical detail is in
 
 - **Sorting by size, release date, metacritic or review score works on the Deck** without the online enrichment, and the templates that pick small games or well-reviewed ones (Short battery, Travel mode, Low battery, Forgotten gems) find their games again.
 
-- **Conditions, sort keys and templates that read what the Steam client really has**: store tags (by name in your language or by id), friends who own a game, achievements (count, percentage, not completed), Family Sharing, the "at least N of", "any of" and "none of" groups, the Almost finished, Couch gaming, Co-op ready and Party games templates and the Dynamic collections source all work from the client's own records now, several of them for the first time. What read data the client never provides is gone (launch counts, session length, install date, storage device, executable type, DLC and soundtrack ownership, the launcher libraries), and the duplicates of other options are rewritten to them when your settings load. A shelf that still names something no longer evaluated stays empty and shows "Unavailable" in the editor until you change it; it never fills with the whole library by mistake.
+- **Conditions, sort keys and templates read what the Steam client really has**: store tags (by name in your language or by id), friends who own a game, achievements (count, percentage, not completed), Family Sharing, the "at least N of", "any of" and "none of" groups, the Almost finished, Couch gaming, Co-op ready and Party games templates and the Dynamic collections source. Options that read data the client never provides are gone (launch counts, session length, install date, storage device, executable type, DLC and soundtrack ownership, the launcher libraries); duplicates are rewritten to the option they repeat when your settings load. A shelf that still names a removed option stays empty and shows "Unavailable" in the editor.
 
 - **Dynamic collections are marked** with a bolt in the collection picker.
 
@@ -70,13 +70,47 @@ release, the Decky store update and the announcements. Technical detail is in
 
 - **Other plugins fit in**: filter types, sort options and smart-shelf modes added by other plugins appear in the shelf editors beside the built-in ones. A shelf that uses one shows "Unavailable" and stays empty while that plugin is not running, and keeps the setting for when it is back. The "External source" type appears only when a plugin provides a source, and shelves that picked a built-in list there now show that list.
 
-- **Non-Steam games in smart shelves**: Roulette, Daily Pick and Weekly Rotation now include your non-Steam games; Recently Played, Long Sessions, Backlog Rescue and Rediscover include them when Steam has tracked their play time; Couch Gaming, Party Games and Co-op Ready include them when Steam reports the matching store category; On Deck and Picks for this device include them when the minimum compatibility is set to Any. Shelves that depend on an empty play history, disk size, ratings or the purchase date still leave them out.
+- **Non-Steam games in smart shelves**: Roulette, Daily Pick and Weekly Rotation include them; Recently Played, Long Sessions, Backlog Rescue and Rediscover when Steam tracked their play time; Couch Gaming, Party Games and Co-op Ready when Steam reports the store category; On Deck and Picks for this device when the minimum compatibility is Any. Shelves that need an empty play history, disk size, ratings or the purchase date leave them out.
 
-- **Filter the combined result of a multi-source shelf**: besides each source's own filter, "Combined result filters" in the shelf editor's filter tab applies after the sources are joined or intersected, for example Wishlist + Store with the store at 30 % off or more, then only games with shared or split screen play. Your saved filters work there too. Games whose store data has not arrived yet are left out and show up over the next refreshes, and the preview tells you when that happens. With Online features off or Offline mode on, these filters use only data already on the device. A shelf that uses them loses them if an earlier version opens and saves it.
+- **Filter the combined result of a multi-source shelf**: "Combined result filters" in the editor's filter tab apply after the sources are joined or intersected (for example Wishlist + Store at 30 % off or more, then only shared or split screen games), and saved filters work there too. Games whose store data has not arrived yet are left out until a later refresh, and the preview says so. With Online features off or Offline mode on, only data already on the device is used. An earlier version that opens and saves the shelf drops these filters.
 
-- **Play together**: new conditions for local multiplayer, local co-op and local versus on the same screen, which never count LAN, online-only or Remote Play Together games. They work on your library and on Store games, in any language. New templates build shelves from them: pick Local multiplayer, Local co-op or Local versus, then choose My library, Steam Store or both, and optionally keep only borrowed games in the library part. A Borrowed games template lists the games your Steam family lends you. Store games come from the deals, free and popular lists Deck Shelves already reads, not the whole Store.
+- **Play together**: conditions for local multiplayer, local co-op and local versus on the same screen (LAN, online-only and Remote Play Together games never count), for your library and Store games. Templates build shelves from them for My library, Steam Store or both, optionally only borrowed games in the library part, and a Borrowed games template lists what your Steam family lends you. Store games come from the deals, free and popular lists Deck Shelves already reads.
+
+- **Store prices keep your currency**: discount and price shelves no longer switch a game's price back to US dollars after the store list is read again.
+
+- **Online shelves fill sooner after you connect**: a wishlist or store shelf that came up empty while offline or before sign-in tries again after about a minute instead of ten.
+
+- **Moving a shelf from a game's menu on the Home** follows the same list as Quick Access: with the unified list on, every shelf can move, and Move up or Move down steps past shelves that are hidden or have nothing to show, so the shelf really moves on screen. The focus stays on the same game.
+
+- **Big Art with a shelf logo**: the first shelf stays where it was and the logo sits in the art above the shelf title, instead of pushing the games under the button bar.
+
+- **Back on the same game with "Use shelf as Recents"**: coming back from a game's page to a shelf below the recent games row puts the focus on that game again instead of on the row.
+
+- **Store shelves cope with Steam's request limit**: when the Steam store stops answering game details for a while, Deck Shelves waits before asking again instead of asking on every refresh, and Refresh cache on an online shelf reloads the store list together with the game names.
+
+- **A shelf's menu from the Quick Access side panel** closes the side panel first, so the menu shows over the Home and Quick Access steps aside, as it does for Steam's own menus.
+
+- **One look for the Quick Access notices and the library location icons**: the update, safe mode and error notices share the welcome notice's layout (title, short text, Steam's buttons) and keep their own colors; the update notice has short Download and Dismiss buttons side by side, and the library location condition shows drive, SD card and network icons instead of emoji.
+
+- **Cloud sync no longer saves over and over**: on a device that synced a shelf or profile deletion more than 60 days ago, settings kept being saved several times a second; they now settle after one round.
+
+- **Safer updates**: an update download is checked against the published release and discarded if it doesn't match.
+
+- **A smart mode as a shelf's source**: a new regular shelf can take a smart mode, such as Recently played or Hidden gems, as its main source, with the shelf's own sort and look.
+
+- **The editor preview shows your discount badge choices** (price, discount or both, and the selected card's style) while you create or edit a shelf.
+
+- **A roomier shelf editor**: it uses the dialog's full width and scrolls to every option and to Save and Cancel with the controller. Options are grouped by what they change: Source for which games show (now with "Deduplicate by name"), Visual and Display for the look, and a new Auto tab for auto-pin and auto-collapse.
 
 - **Smaller fixes**: Move up and Move down in the unified shelf list keep the shelf within that list, as dragging does, and the profile row's button hint reads Actions instead of Apply.
+
+- **Daily Pick and Weekly Rotation change at your midnight**: they used to change at midnight UTC (for example 21:00 in Brazil).
+
+- **Both shelf editors are laid out the same way**: in the smart shelf editor, "Deduplicate by name" is in Source and auto-pin and auto-collapse are in the Auto tab, as in the regular editor; dialog buttons keep Steam's own size; and the editor tabs have shorter names (Online, Extra, Smart, Auto) so they fit on one line.
+
+- **Readable drive names in the library location condition**: a drive shows its volume label, and an SD card with no name shows Steam's own "MicroSD Card" instead of a long id.
+
+- **Fewer pointless prompts and toasts**: a clean install no longer asks whose settings to use when there is nothing to adopt, that question no longer stays on screen after the plugin reloads, and "Settings updated from another device" only shows when something you can see changed, and a profile switch toast only appears when the profile actually changes. After closing a question at startup, or when the shelf used as Recents fills in, focus stays at the start of the Home instead of jumping to the second shelf.
 
 ## [3.4.1] - 2026-11-02
 

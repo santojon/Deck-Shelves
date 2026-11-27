@@ -235,6 +235,23 @@ describe('libraryAvailable / library locations', () => {
     expect(getLibraries()).toHaveLength(1)
   })
 
+  it('library entries keep whether they are named and whether they are the SD card', async () => {
+    libraryRpc.current = {
+      supported: true,
+      libraries: [
+        { id: 'a', label: 'Steam', path: '/x', category: 'internal', mounted: true, named: true, sdCard: false },
+        { id: 'b', label: '842f2ed3', path: '/run/media/deck/842f2ed3', category: 'external', mounted: true, named: false, sdCard: true },
+        { id: 'c', label: 'Old', path: '/y', category: 'external', mounted: true },
+      ],
+      appLibrary: {},
+    }
+    await refreshLibraryLocations()
+    const byId = new Map(getLibraries().map((l) => [l.id, l]))
+    expect(byId.get('a')).toMatchObject({ named: true, sdCard: false })
+    expect(byId.get('b')).toMatchObject({ named: false, sdCard: true })
+    expect(byId.get('c')).toMatchObject({ named: true, sdCard: false })
+  })
+
   it('malformed backend entries are dropped, not thrown', async () => {
     libraryRpc.current = {
       supported: true,

@@ -13,7 +13,7 @@ the cards on screen. Each stage below is optional except the source:
 
 ```mermaid
 flowchart LR
-    source["Source<br/>collection · tab · filter ·<br/>built-in · wishlist · store"]
+    source["Source<br/>collection · tab · filter ·<br/>built-in · smart mode · wishlist · store"]
     extra["Additional sources<br/>combined as union or intersection"]
     child["Child filter<br/>optional, narrows the pool"]
     group["Filter group<br/>AND / OR over filter items"]
@@ -92,8 +92,10 @@ to the whole library because one of its parts is missing.
 `libraryLocation` reads Steam's own library records instead of guessing from the
 install path — it also distinguishes network libraries and has a matching
 "Library available" condition in Visibility Rules / profile triggers. The
-editor shows one toggle per detected library (labelled, e.g. "SD_CARD",
-"Steam", a NAS share's own label) rather than a category dropdown, so a
+editor shows one toggle per detected library (labelled by Steam's library name or
+a removable drive's volume label, e.g. "SD_CARD", "Steam", a NAS share's own label; an SD
+card with neither shows Steam's own "MicroSD Card" text instead of its volume id)
+rather than a category dropdown, so a
 shelf can mix any combination — every external drive but not the network
 share, say, or two specific SD cards but not a third.
 
@@ -427,7 +429,7 @@ all hold conditions at the same time, and none is ever copied into another:
 3. **Combined result filters** — the last area of the filter tab, after a
    divider, shown whenever the shelf has more than one source, stored as
    `postFilter` on the `composite` source. It narrows the combined list. The tab is
-   **Online filters** when a wishlist or store source is part of the shelf and
+   **Online** when a wishlist or store source is part of the shelf and
    **Filters** otherwise; on a shelf whose first source is a Filter source, the area
    follows that source's conditions in its Filters tab. Its saved-filters bar lists
    only the saved filters whose conditions the combined result can read.

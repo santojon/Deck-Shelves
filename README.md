@@ -66,8 +66,8 @@ walks through the first shelves. Questions and ideas go to the
 
 - **Sources**: a collection, a library tab (including tabs other plugins
   create), a filter, built-in lists (pinned games, play history, queues,
-  dynamic collections), or, with online features on, your wishlist or a Steam
-  store list.
+  dynamic collections), a smart mode (the same modes smart shelves use), or,
+  with online features on, your wishlist or a Steam store list.
 - **Several sources in one shelf**, combined as union (games in any source),
   intersection (games in every source) or source order (one source after the
   other, each with its own sort).

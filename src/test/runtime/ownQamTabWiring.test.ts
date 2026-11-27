@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { SettingsSchema } from '../../types'
 import { defaultSettings } from '../../domain/defaults'
 import { DEVICE_LOCAL_FIELDS, mergeSettings } from '../../domain/settingsMerge'
-import { hostProvidesNativeTab } from '../../runtime/host/resolve'
 import { createProfileActions, takeSnapshot } from '../../features/settings/controller/profiles'
 
 vi.mock('../../components/notify', () => ({ notify: vi.fn() }))
@@ -43,17 +42,6 @@ describe('own Quick Access tab wiring', () => {
     expect(await actions.applyProfile('p1')).toBe(true)
     await actions.applyFactoryProfile()
     expect(saved.map((next) => next.ownQamTabEnabled)).toEqual([true, true])
-  })
-
-  it('the option and the tab apply only with no neutral host present, and follow a host that appears later', () => {
-    expect(hostProvidesNativeTab()).toBe(false)
-    vi.stubGlobal('__SHELVES_HOST__', {})
-    expect(hostProvidesNativeTab()).toBe(true)
-    vi.unstubAllGlobals()
-    vi.stubGlobal('window', { __SHELVES_QAM__: { registerPanel: () => undefined } })
-    expect(hostProvidesNativeTab()).toBe(true)
-    vi.unstubAllGlobals()
-    expect(hostProvidesNativeTab()).toBe(false)
   })
 
   it('every shipped language has the label, the prompt title, both bodies and both buttons', () => {

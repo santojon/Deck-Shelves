@@ -10,7 +10,7 @@ vi.mock("../../runtime/friendsState", () => ({ installFriendsState: () => () => 
 vi.mock("../../runtime/shortcutTags", () => ({ installShortcutTagsPoll: () => () => {} }));
 vi.mock("../../runtime/gameLists", () => ({ installGameLists: () => () => {} }));
 vi.mock("../../core/updateNotifier", () => ({ checkForUpdate: async () => ({ hasUpdate: false }), __resetUpdateCheckCache: () => {} }));
-vi.mock("../../runtime/updateDownload", () => ({ installOrDownloadUpdate: async () => {}, canSelfInstallUpdate: () => true }));
+vi.mock("../../runtime/updateDownload", () => ({ installOrDownloadUpdate: async () => {} }));
 vi.mock("../../core/connectivity", () => ({ isOnline: async () => false }));
 vi.mock("../../components/notify", () => ({ notify: () => {} }));
 vi.mock("../../runtime/suggestionNotifier", () => ({ pickNewSuggestions: async () => [] }));

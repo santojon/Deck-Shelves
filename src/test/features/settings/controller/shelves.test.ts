@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 
 vi.mock('../../../../components/notify', () => ({ notify: vi.fn() }))
 vi.mock('../../../../steam/usageTracking', () => ({ trackFeature: vi.fn() }))
-vi.mock('../../../../settingsStore', () => ({ writeJsonFile: vi.fn(), readJsonFile: vi.fn() }))
+vi.mock('../../../../store/settingsStore', () => ({ writeJsonFile: vi.fn(), readJsonFile: vi.fn() }))
 
 const createSnapshot = vi.fn(async () => [])
 vi.mock('../../../../store/settingsStore', () => ({ createSnapshot: () => createSnapshot(), createPreImportSnapshot: async () => {} }))

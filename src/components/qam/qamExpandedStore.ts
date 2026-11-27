@@ -41,6 +41,13 @@ function setQamExpanded(next: boolean | ((prev: boolean) => boolean)): void {
   emitter.dispatchEvent(new Event(EVENT));
 }
 
+// Closes an open sidecar; true when there was one to close.
+export function collapseQamSidecar(): boolean {
+  if (!current) return false;
+  setQamExpanded(false);
+  return true;
+}
+
 export function resetQamExpanded(): void {
   current = false;
   writeSession(false);

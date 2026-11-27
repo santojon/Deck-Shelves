@@ -1,6 +1,5 @@
 import { mark, measure } from "./perf";
 import { registerDisposer } from "../runtime/runtimeDisposer";
-import { isHomeOwner } from "../runtime/host/ownerGuard";
 
 // The module ships in more than one chunk, so every copy counts into one record on globalThis.
 type State = {
@@ -56,7 +55,7 @@ function nowMs(): number {
 }
 
 // The record is shared by every copy in this JS context, so a boot lands in it
-// only at the end of the critical path and only from the copy that owns the renderer.
+// only at the end of the critical path.
 type StagedBoot = { startAt: number; prior: Record<string, boolean>; watchdog: string | null };
 let staged: StagedBoot | null = null;
 
@@ -69,8 +68,8 @@ export function recordBootCritical(): void {
   const boot = staged ?? { startAt: nowMs(), prior: {}, watchdog: null };
   staged = null;
   const kind = ownInstanceKind();
-  // The shared record is the owner's: a copy that stood down keeps its number to itself.
-  if (isHomeOwner()) { S.bootCriticalMs = critical; commitBoot(boot, kind); }
+  S.bootCriticalMs = critical;
+  commitBoot(boot, kind);
   trackInstance(kind);
   // From here on, so the long tasks of the Home's first mount are counted too.
   ensureLongTaskObserver();

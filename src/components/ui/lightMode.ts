@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getCurrentSettings, subscribeSettings } from "../../settingsStore";
+import { getCurrentSettings, subscribeSettings } from "../../store/settingsStore";
 
 function useSettingsBool(key: string): boolean {
   const [enabled, setEnabled] = useState<boolean>(() => (getCurrentSettings() as any)?.[key] === true);

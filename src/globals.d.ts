@@ -1,4 +1,3 @@
-declare const __DECK_SHELVES_ENABLE_HOME_PATCH__: boolean;
 declare const __DEV__: boolean;
 // Dev-only loaders guard `require` in try/catch; this avoids pulling in @types/node.
 declare const require: any;

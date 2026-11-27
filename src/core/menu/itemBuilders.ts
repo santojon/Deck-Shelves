@@ -4,6 +4,8 @@ import { getCurrentSettings, saveSettings } from "../../store/settingsStore";
 import {
   toggleShelfHiddenById,
   moveShelfById,
+  canMoveShelf,
+  shownByFlags,
   duplicateShelfById,
   setShelfCollapsed,
   dispatchShelfModal,
@@ -18,20 +20,27 @@ import { invalidateSmartShelfCache } from "../../steam/smartShelves";
 import { triggerShelfRefresh } from "../shelfRefresh";
 import { isOnlineSource } from "../../domain/sourceUtils";
 import { settingsMentionAny } from "../../runtime/featureDemand";
+import { readRegistry } from "../../features/search/shelfRegistry";
+import { getRecentsReplaceActiveShelfId } from "../../runtime/recentsReplace";
 import { customTagsFor, pinnedIds, sessionQueueIds, temporaryQueueIds, togglePinned, toggleSessionQueue, toggleTemporaryQueue } from "../../runtime/gameLists";
 
 function tLabel(key: string, fallback: string): string {
   try { const v = i18n.t(key as any); return (typeof v === "string" && v && v !== key) ? v : fallback; } catch { return fallback; }
 }
 
-function locateShelf(settings: any, shelfId: string): { shelf: any; idx: number; listLen: number; isSmart: boolean } | null {
-  const shelves = settings.shelves ?? [];
-  let idx = shelves.findIndex((sh: any) => sh.id === shelfId);
-  if (idx >= 0) return { shelf: shelves[idx], idx, listLen: shelves.length, isSmart: false };
-  const smartShelves = settings.smartShelves ?? [];
-  idx = smartShelves.findIndex((sh: any) => sh.id === shelfId);
-  if (idx >= 0) return { shelf: smartShelves[idx], idx, listLen: smartShelves.length, isSmart: true };
-  return null;
+// The shelves on the Home right now (an empty one is not drawn), the replaced recents row among them.
+function shownOnHome(settings: any): (id: string) => boolean {
+  const onScreen = new Set(readRegistry().map((r) => r.shelfId));
+  const replaced = getRecentsReplaceActiveShelfId();
+  if (replaced) onScreen.add(replaced);
+  return onScreen.size ? (id) => onScreen.has(id) : shownByFlags(settings);
+}
+
+function locateShelf(settings: any, shelfId: string): { shelf: any; isSmart: boolean } | null {
+  const regular = (settings.shelves ?? []).find((sh: any) => sh.id === shelfId);
+  if (regular) return { shelf: regular, isSmart: false };
+  const smart = (settings.smartShelves ?? []).find((sh: any) => sh.id === shelfId);
+  return smart ? { shelf: smart, isSmart: true } : null;
 }
 
 function readCollapsedFromStorage(shelfId: string): boolean {
@@ -132,8 +141,9 @@ type Ctx = {
   shelfId: string;
   shelf: any;
   isSmart: boolean;
-  idx: number;
-  listLen: number;
+  canMoveUp: boolean;
+  canMoveDown: boolean;
+  shown: (id: string) => boolean;
   focusedAppId: number;
   cardIndex: number;
   isCollapsed: boolean;
@@ -160,7 +170,7 @@ function runRefreshAction(ctx: Ctx): void {
 }
 
 function buildMgmt(ctx: Ctx, mk: Mk): any[] {
-  const { shelfId, idx, listLen, isCollapsed, isHidden, isRandomOrSmart, isOnline } = ctx;
+  const { shelfId, canMoveUp, canMoveDown, shown, isCollapsed, isHidden, isRandomOrSmart, isOnline } = ctx;
   const { item } = mk;
   const refreshLabel = isOnline ? tLabel("refresh_cache", "Refresh cache") : tLabel("refresh", "Refresh");
   return [
@@ -168,8 +178,8 @@ function buildMgmt(ctx: Ctx, mk: Mk): any[] {
     item("ds-duplicate", tLabel("duplicate_shelf", "Duplicate"), () => { void duplicateShelfById(shelfId, tLabel("copy_suffix", "(Copy)")); }),
     item("ds-collapse", isCollapsed ? tLabel("expand_shelf", "Expand shelf") : tLabel("collapse_shelf", "Collapse shelf"), () => setShelfCollapsed(shelfId, !isCollapsed)),
     item("ds-hide", isHidden ? tLabel("show_shelf", "Show shelf") : tLabel("hide_shelf", "Hide shelf"), () => { void toggleShelfHiddenById(shelfId); }),
-    item("ds-move-up", tLabel("move_up", "Move up"), () => { void moveShelfById(shelfId, -1); }, idx <= 0),
-    item("ds-move-down", tLabel("move_down", "Move down"), () => { void moveShelfById(shelfId, 1); }, idx >= listLen - 1),
+    item("ds-move-up", tLabel("move_up", "Move up"), () => { void moveShelfById(shelfId, -1, shown); }, !canMoveUp),
+    item("ds-move-down", tLabel("move_down", "Move down"), () => { void moveShelfById(shelfId, 1, shown); }, !canMoveDown),
     ...(isRandomOrSmart ? [item("ds-refresh", refreshLabel, () => runRefreshAction(ctx))] : []),
     item("ds-delete", tLabel("delete_shelf", "Delete"), () => dispatchShelfModal("delete", shelfId)),
   ];
@@ -368,8 +378,9 @@ export function buildDeckShelvesMenuItems(
   if (!settings) return [];
   const located = locateShelf(settings, shelfId);
   if (!located) return [];
+  const shown = shownOnHome(settings);
   const focusedAppId = appid ?? activeAppId;
-  const ctx = deriveCtx({ shelfId, shelf: located.shelf, isSmart: located.isSmart, idx: located.idx, listLen: located.listLen, focusedAppId, cardIndex, settings });
+  const ctx = deriveCtx({ shelfId, shelf: located.shelf, isSmart: located.isSmart, canMoveUp: canMoveShelf(settings, shelfId, -1, shown), canMoveDown: canMoveShelf(settings, shelfId, 1, shown), shown, focusedAppId, cardIndex, settings });
   const mk = buildMk(dfl, R, focusedAppId, shelfId);
 
   return [

@@ -113,6 +113,36 @@ export function DeckModalStyles() {
         border-top: 1px solid var(--ds-border-strong, rgba(255, 255, 255, 0.1));
       }
 
+      .deck-shelves-dialog .ds-editor-tabs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--ds-gap-xs, 4px);
+        padding: var(--ds-gap-xs, 4px) 0 var(--ds-gap-md, 8px);
+      }
+      .deck-shelves-dialog .ds-editor-tab {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        height: 34px;
+        padding: 0 12px;
+        border-radius: 17px;
+        box-sizing: border-box;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+        color: #dcdedf;
+        cursor: pointer;
+        user-select: none;
+      }
+      .deck-shelves-dialog .ds-editor-tab[data-active="1"] {
+        color: #ffffff;
+        background: rgba(255, 255, 255, 0.15);
+      }
+      .deck-shelves-dialog .ds-editor-tab:is(.gpfocus, :focus-visible) {
+        box-shadow: inset 0 0 0 2px var(--ds-accent, #4a9eff);
+      }
+
       .deck-shelves-dialog .deck-shelves-editor-fields .${_panelSection} {
         padding: 0;
       }
@@ -130,16 +160,6 @@ export function DeckModalStyles() {
         box-sizing: border-box;
       }
 
-      .deck-shelves-dialog .${gamepadDialogClasses.BottomButtons} {
-        padding-top: 4px;
-        padding-bottom: 4px;
-        gap: 6px;
-      }
-      .deck-shelves-dialog .${gamepadDialogClasses.BottomButtons} .${gamepadDialogClasses.Button} {
-        padding-top: 6px;
-        padding-bottom: 6px;
-        min-height: 0;
-      }
 
     `}</style>
   )

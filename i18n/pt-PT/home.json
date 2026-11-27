@@ -19,17 +19,11 @@
   "view_more": "Ver mais\nna sua\nbiblioteca",
   "view_more_store": "Ver mais\nna\nLoja",
   "view_more_wishlist": "Ver mais\nna Lista\nde Desejos",
-  "download_update": "Transferir atualização",
-  "update_install": "Instalar atualização",
-  "update_installing": "A instalar a atualização {{version}}…",
-  "update_installed": "Atualizado para {{version}}.",
-  "update_install_failed": "Falha na instalação — a recorrer à transferência.",
-  "update_install_busy": "Ainda a verificar atualizações — tente novamente daqui a pouco.",
+  "download_update_short": "Transferir",
   "update_downloading": "A transferir a atualização {{version}}…",
   "update_downloaded": "Guardado em {{path}} — instale manualmente.",
   "update_download_failed": "Falha na transferência — a abrir a página da versão.",
+  "update_verify_failed": "Não foi possível verificar a atualização com a versão publicada, por isso não foi guardada.",
   "shelf_type_normal": "Normal",
-  "shelf_type_smart": "Inteligente",
-  "update_installing_title": "A instalar atualização",
-  "update_will_reload": "A nova versão entra em vigor sozinha em alguns segundos."
+  "shelf_type_smart": "Inteligente"
 }

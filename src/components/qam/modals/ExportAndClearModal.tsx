@@ -3,7 +3,7 @@ import { ConfirmModal } from '../../../runtime/host/decky'
 import { notify } from "../../notify";
 import { ModalShell } from '../../ui'
 import type { SettingsController } from '../../../features/settings/controller'
-import { exportSettingsToFile } from '../../../settingsStore'
+import { exportSettingsToFile } from '../../../store/settingsStore'
 import { resetMountFailed } from '../../../runtime/homePatch'
 import { filenameWithJson } from './modalUtils'
 import { ExportFileFields } from './ExportFileFields'

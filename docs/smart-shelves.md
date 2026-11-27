@@ -56,7 +56,7 @@ this — both optional, both fully backwards-compatible:
 **Editor layout** (smart shelf modal):
 
 - The visibility-hours toggle, default hour ranges and weekday picker live in
-  the **Smart filters** tab.
+  the **Smart** tab.
 - An **Allow per-day schedule** toggle in the same tab gates a separate
   **Overrides** tab. When on, the Overrides tab shows the configured days/hours
   as an info summary, then per-weekday hour-range editors below — each weekday
@@ -91,8 +91,6 @@ By default, smart shelves appear **before** normal shelves. The `smartShelvesAtB
 
 **When it disappears:** when every installed Deck-compatible game has been played for 2 h or more, or when no Deck-compatible games are installed.
 
-**Use case:** games you own, can run well on the Deck, and have barely touched — perfect for a quick session.
-
 ---
 
 ### Not Started — `not_started`
@@ -107,8 +105,6 @@ By default, smart shelves appear **before** normal shelves. The `smartShelvesAtB
 **Sort:** Deck Verified first, then Playable, then others.
 
 **When it disappears:** when all games in the library have been started at least once.
-
-**Use case:** the ever-growing backlog of games you bought but never opened.
 
 ---
 
@@ -125,8 +121,6 @@ By default, smart shelves appear **before** normal shelves. The `smartShelvesAtB
 
 **Reliability:** high for most Steam Deck users; Valve certifies many popular titles.
 
-**Use case:** the curated shortlist of titles that work best on Deck hardware.
-
 ---
 
 ### Rediscover — `rediscover`
@@ -142,8 +136,6 @@ By default, smart shelves appear **before** normal shelves. The `smartShelvesAtB
 **Sort:** most played first (resurfaces the titles you spent the most time on).
 
 **When it disappears:** when no compatible game with >1 h playtime was last played more than 6 months ago (e.g. a new library, or an active player who revisits everything regularly).
-
-**Use case:** games you genuinely enjoyed but drifted away from — good for a nostalgia session.
 
 ---
 
@@ -162,8 +154,6 @@ By default, smart shelves appear **before** normal shelves. The `smartShelvesAtB
 
 **Difference from Not Started:** restricts to installed games only; Not Started includes all library games regardless of install state.
 
-**Use case:** games sitting on the SSD waiting to be tried.
-
 ---
 
 ### Interrupted — `interrupted`
@@ -176,8 +166,6 @@ By default, smart shelves appear **before** normal shelves. The `smartShelvesAtB
 **Sort:** most recently played first.
 
 **When it disappears:** when no game has playtime in that 30–180 min range (every game is either untouched or deeply played).
-
-**Use case:** games you started, played for an hour or two, then put down — good candidates for a second look.
 
 ---
 
@@ -197,11 +185,7 @@ By default, smart shelves appear **before** normal shelves. The `smartShelvesAtB
 
 **When it disappears:** when the delegate for the current time slot returns an empty list.
 
-**Note:** the time is evaluated at resolve time (no background timer). The shelf updates naturally on the next home render / refresh cycle when the hour crosses a boundary.
-
-> **Note:** `time_of_day` and `spare_time` do not run on a background timer — the transition between time slots happens on the next natural refresh, which may be a few minutes after the clock boundary.
-
-**Use case:** a single adaptive shelf that suggests different things depending on when you play.
+**Note:** the time slot is read when the shelf resolves; there is no timer, so the switch shows on the next refresh after the boundary.
 
 ---
 
@@ -218,8 +202,6 @@ By default, smart shelves appear **before** normal shelves. The `smartShelvesAtB
 
 **Reliability: very high.** This shelf will appear for virtually every user with any library content. If you don't want it to show unconditionally, use the **hide** option.
 
-**Use case:** a different curated suggestion every day, without any randomness or server dependency.
-
 ---
 
 ### On Deck — `on_deck`
@@ -234,8 +216,6 @@ By default, smart shelves appear **before** normal shelves. The `smartShelvesAtB
 
 **When it disappears:** when no compatible game is installed.
 
-**Use case:** your active Deck-ready rotation — installed and ready to go, with the best-supported titles first.
-
 ---
 
 ### Recently Played — `recently_played`
@@ -248,8 +228,6 @@ By default, smart shelves appear **before** normal shelves. The `smartShelvesAtB
 **Sort:** most recently played first.
 
 **When it disappears:** when no game has been played in the last 30 days (rare for active users).
-
-**Use case:** your current active rotation — what you've actually been playing this month.
 
 ---
 
@@ -265,8 +243,6 @@ By default, smart shelves appear **before** normal shelves. The `smartShelvesAtB
 
 **When it disappears:** when no installed game has more than 3 hours of playtime.
 
-**Use case:** the games you've committed to — good picks when you have time for a real session.
-
 ---
 
 ### Roulette — `random_pick`
@@ -281,8 +257,6 @@ By default, smart shelves appear **before** normal shelves. The `smartShelvesAtB
 
 **When it disappears:** only when the library is completely empty.
 
-**Use case:** pure serendipity — surfaces anything from the library, useful when you can't decide what to play.
-
 ---
 
 ### Non-Steam — `non_steam`
@@ -295,8 +269,6 @@ By default, smart shelves appear **before** normal shelves. The `smartShelvesAtB
 **Sort:** most recently played first.
 
 **When it disappears:** when there are no non-Steam entries.
-
-**Use case:** quick access to emulators and other launchers without browsing the full library.
 
 ---
 
@@ -314,8 +286,6 @@ By default, smart shelves appear **before** normal shelves. The `smartShelvesAtB
 **When it disappears:** outside the defined time windows (always empty), or when no installed game has ≤2 h of playtime.
 
 **Note:** the time is evaluated at resolve time. Outside the three windows the resolver returns an empty list immediately, so no shelf row is rendered.
-
-**Use case:** short-session suggestions during natural break points in the day — morning coffee, lunch, or after dinner.
 
 ---
 
@@ -335,8 +305,6 @@ By default, smart shelves appear **before** normal shelves. The `smartShelvesAtB
 **When it disappears:** when every game in the "never played" backlog was acquired less than 3 years ago, or when all games have been started at least once.
 
 **Reliability: Low.** Requires at least 3 years of library history with unplayed games. New accounts and active players will rarely see this shelf.
-
-**Use case:** surfaces the deepest backlog — games bought long ago and completely forgotten.
 
 ---
 
@@ -412,6 +380,8 @@ offline too.
 
 ---
 
+A regular shelf can also take a smart mode as its own source, with the shelf's sort, limit and display options.
+
 ## Composite smart shelves
 
 A smart shelf can combine multiple modes into a single result via the **Combine modes** picker in the Source tab. Same mental model as combining sources on regular shelves.
@@ -449,4 +419,3 @@ When **Surprise Me** is enabled (sub-toggle under Smart Shelves in the QAM), the
 
 **Reset time:** the seed is derived from the local calendar date (`YYYYMMDD`). The selection resets at **local midnight** — when the device clock rolls over to a new day.
 
-**Use case:** hands-off mode — let the plugin decide what to surface each day without any configuration.

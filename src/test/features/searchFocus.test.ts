@@ -8,7 +8,7 @@ vi.mock("../../core/focusRestore", () => ({
   beginFocusRestoreLoop: () => { fr.loops++; },
 }));
 vi.mock("../../runtime/steamHost", () => ({ getPreferredSteamDocument: () => document }));
-vi.mock("../../settingsStore", () => ({ getCurrentSettings: () => ({}) }));
+vi.mock("../../store/settingsStore", () => ({ getCurrentSettings: () => ({}) }));
 vi.mock("../../runtime/devStamps", () => ({ devStamp: () => {}, devCount: () => {} }));
 
 import { BUILT_IN_SHELF_SEARCH } from "../../features/search/builtInProvider";

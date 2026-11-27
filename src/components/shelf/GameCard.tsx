@@ -575,13 +575,14 @@ function GameCardImpl(props: GameCardProps) {
   const controllerSupport = numOr0(item.controllerSupport);
   const compatClass = resolveCompatClass({ suppressCompat, useControllerCompat, compat });
   const discount = item.discountPercent;
+  const badgeMode = item.discountBadgeMode ?? discountBadgeMode;
   const { showNewBadge, showDiscountBadge, hasBadge } = computeBadgeFlags({ hideNewBadge, isNew: item.isNew, hideDiscountBadge, discount });
 
   // Returned after every hook so the hook count stays stable.
   if (artUnavailable(imgFailed, firstUrl)) {
     return <PlaceholderCard
       item={item}
-      discountBadgeMode={discountBadgeMode}
+      discountBadgeMode={badgeMode}
       cardW={cardW}
       cardH={cardH}
       artH={artH}
@@ -641,7 +642,7 @@ function GameCardImpl(props: GameCardProps) {
         ["--ds-card-h-w-ratio" as string]: cardHWRatio,
       }}
     >
-      <CardBadgeHost hasBadge={hasBadge} showDiscountBadge={showDiscountBadge} showNewBadge={showNewBadge} discount={discount} priceText={item.priceText} mode={discountBadgeMode} t={t} />
+      <CardBadgeHost hasBadge={hasBadge} showDiscountBadge={showDiscountBadge} showNewBadge={showNewBadge} discount={discount} priceText={item.priceText} mode={badgeMode} t={t} />
       <CardArtImage
         cssArtH={cssArtH}
         imgRef={imgRef}

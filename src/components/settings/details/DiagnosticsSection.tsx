@@ -10,7 +10,7 @@ import { refreshCssLoaderThemes } from "../../../core/cssLoaderDetect";
 import { getPerfSnapshot } from "../../../core/perfMetrics";
 import { getSmartShelfCacheStats } from "../../../steam/smartShelves";
 import { DonutChart, DonutLegend } from "../../../features/statistics/UsageCharts";
-import { getCurrentSettings } from "../../../settingsStore";
+import { getCurrentSettings } from "../../../store/settingsStore";
 import {
   CheckIcon, CopyIcon, RefreshIcon, ToolsIcon, MonitorIcon, GearIcon, SlidersIcon,
   PuzzleIcon, WandIcon, SideNavIcon, StackIcon, BookmarkIcon, SparkleIcon, PersonIcon, FunnelIcon,

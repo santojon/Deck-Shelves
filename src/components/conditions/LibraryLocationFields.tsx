@@ -2,10 +2,22 @@ import { useEffect, useState } from "react";
 import { DialogButton, Focusable } from "../../runtime/host/decky";
 import i18n from "../../i18n";
 import { getLibraries, refreshLibraryLocations, type LibraryEntry } from "../../runtime/deviceState";
+import { InternalDriveIcon, NetworkDriveIcon, SdCardIcon } from "../icons";
+import { STEAM_TEXT, steamLabel } from "../../steam/steamText";
 
-const CATEGORY_ICON: Record<LibraryEntry["category"], string> = {
-  internal: "\u{1F4BE}", external: "\u{1F4C0}", network: "\u{1F310}",
+const CATEGORY_ICON: Record<LibraryEntry["category"], typeof InternalDriveIcon> = {
+  internal: InternalDriveIcon, external: SdCardIcon, network: NetworkDriveIcon,
 };
+
+// A card with no name of its own shows Steam's own text for it, not the volume id.
+export function libraryLabel(lib: LibraryEntry): string {
+  if (!lib.sdCard || lib.named) return lib.label;
+  for (const token of STEAM_TEXT.sdCard) {
+    const text = steamLabel(token);
+    if (text) return text;
+  }
+  return lib.label;
+}
 
 export default function LibraryLocationFields({ selected, onChange }: { selected: string[]; onChange: (ids: string[]) => void }) {
   const t = i18n.t.bind(i18n);
@@ -35,6 +47,7 @@ export default function LibraryLocationFields({ selected, onChange }: { selected
     <Focusable style={{ display: "flex", flexDirection: "column", gap: 6, padding: "4px 0", width: "100%" }}>
       {libraries.map((lib) => {
         const checked = selectedSet.has(lib.id);
+        const Icon = CATEGORY_ICON[lib.category];
         const toggle = () => {
           const next = new Set(selectedSet);
           if (checked) next.delete(lib.id); else next.add(lib.id);
@@ -51,8 +64,8 @@ export default function LibraryLocationFields({ selected, onChange }: { selected
               <span style={{ width: 14, textAlign: "center", flexShrink: 0, color: checked ? "#4caf50" : "rgba(255,255,255,0.3)" }}>
                 {checked ? "✓" : "·"}
               </span>
-              <span aria-hidden="true">{CATEGORY_ICON[lib.category]}</span>
-              <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{lib.label}</span>
+              <Icon size={18} style={{ opacity: 0.8 }} />
+              <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{libraryLabel(lib)}</span>
               {!lib.mounted && <span style={{ fontSize: 11, opacity: 0.6 }}>{t("filter_library_location_unmounted" as any)}</span>}
             </span>
           </DialogButton>

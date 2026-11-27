@@ -84,6 +84,12 @@ export function applyCooldown(
   return picked;
 }
 
+/** Days since the epoch counted at local midnight, so daily picks turn over when the Deck's day does. */
+export function localDayIndex(nowMs: number = Date.now()): number {
+  const offsetMs = new Date(nowMs).getTimezoneOffset() * 60_000;
+  return Math.floor((nowMs - offsetMs) / (SEC_PER_DAY * 1000));
+}
+
 export function rotateWindow(
   apps: AppOverview[],
   shelfKey: string,
@@ -92,7 +98,7 @@ export function rotateWindow(
 ): AppOverview[] {
   if (!apps.length || limit <= 0) return [];
   const windows = Math.max(1, rotateEveryDays);
-  const dayIndex = Math.floor(Date.now() / (SEC_PER_DAY * 1000) / windows);
+  const dayIndex = Math.floor(localDayIndex() / windows);
   // Seeded per shelf so two shelves with the same template differ on the same day.
   let h = 0;
   for (let i = 0; i < shelfKey.length; i++) h = (h * 31 + shelfKey.charCodeAt(i)) | 0;

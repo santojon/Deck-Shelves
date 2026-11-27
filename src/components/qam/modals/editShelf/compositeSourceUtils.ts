@@ -41,7 +41,7 @@ function computeSourceUsage(state: EditableShelfState, excludeRow?: number | 'pr
   const usedCollections = usedValues(state, 'collection', 'collectionId', state.collectionId, excludeRow);
   const usedExternal = usedValues(state, 'external', 'sourceId', String(state.externalSourceId ?? ''), excludeRow);
   const usedBuiltin = usedValues(state, 'builtin', 'sourceId', String(state.builtinSourceId ?? ''), excludeRow);
-  const usedSmart = new Set<string>(collectAdditionalKeys(state, 'smart', 'mode', excludeRow));
+  const usedSmart = usedValues(state, 'smart', 'mode', String(state.smartMode ?? ''), excludeRow);
   return {
     filterCount: primaryContributes(state, 'filter', excludeRow) + countAdditionalByType(state, 'filter', excludeRow),
     storeCount: primaryContributes(state, 'store', excludeRow) + countAdditionalByType(state, 'store', excludeRow),

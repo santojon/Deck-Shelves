@@ -85,6 +85,18 @@ describe("focus restore while a game or another page holds the Home", () => {
     stop();
   });
 
+  it("keeps the return hook when the first focus landed at once, as it does on a replaced recents row", async () => {
+    const tryFocus = vi.fn(() => true);
+    const stop = startFocusFirstPoll(tryFocus, () => true, true);
+    gate.task.start();
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(tryFocus).not.toHaveBeenCalled();
+    saveFocusTarget(620, "s2");
+    gate.task.onResume();
+    expect(tryFocus).toHaveBeenCalledTimes(1);
+    stop();
+  });
+
   it("leaving from Steam's row drops a target left over from an earlier trip", () => {
     mountCard(root, 620, "s2");
     saveFocusTarget(620, "s2");

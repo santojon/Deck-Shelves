@@ -34,6 +34,29 @@ export function revealableInOrder(orderedIds: readonly string[], renderedIds: Re
   return out;
 }
 
+type OrderSettings = { shelves?: { id: string }[]; smartShelves?: { id: string }[]; allShelvesOrder?: string[] | null };
+
+// The unified list's order: the saved ids first, then any shelf the saved order does not name yet.
+export function unifiedShelfIds(settings: OrderSettings): string[] {
+  const all = [...(settings.shelves ?? []), ...(settings.smartShelves ?? [])].map((s) => s.id);
+  const known = new Set(all);
+  const saved = (settings.allShelvesOrder ?? []).filter((id) => known.has(id));
+  const placed = new Set(saved);
+  return [...saved, ...all.filter((id) => !placed.has(id))];
+}
+
+// Moves `id` past the next id that `shown` accepts, leaving the others where they are; null when there is none.
+export function moveAmongShown(ids: readonly string[], id: string, direction: -1 | 1, shown: (id: string) => boolean): string[] | null {
+  const from = ids.indexOf(id);
+  if (from < 0) return null;
+  let to = from + direction;
+  while (to >= 0 && to < ids.length && !shown(ids[to])) to += direction;
+  if (to < 0 || to >= ids.length) return null;
+  const next = ids.filter((x) => x !== id);
+  next.splice(next.indexOf(ids[to]) + (direction > 0 ? 1 : 0), 0, id);
+  return next;
+}
+
 // Returns the same array when nothing is pinned.
 export function applyAutoPin<T>(shelves: readonly T[], isPinned: (s: T) => boolean): readonly T[] {
   const pinned: T[] = [];

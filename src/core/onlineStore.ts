@@ -39,6 +39,32 @@ export function getStoreCountryCode(): string {
 
 const backoffUntil: Record<string, number> = {};
 
+// Every appdetails call shares one limit per address, and Steam's 429 carries no CORS header, so in the
+// client it arrives as a failed fetch: either one stops all of them for a while.
+const STORE_API_KEY = "store-api";
+const STORE_API_429_BACKOFF_MS = 60 * 60 * 1000;
+const STORE_API_FAILURE_BACKOFF_MS = 15 * 60 * 1000;
+
+function storeApiBlocked(): boolean {
+  return Date.now() < (backoffUntil[STORE_API_KEY] ?? 0);
+}
+
+async function storeApiFetch(url: string, timeoutMs: number): Promise<Response | null> {
+  if (storeApiBlocked()) return null;
+  const ac = new AbortController();
+  const tid = setTimeout(() => ac.abort(), timeoutMs);
+  try {
+    const resp = await fetch(url, { credentials: "include", signal: ac.signal });
+    if (resp.status === 429) backoffUntil[STORE_API_KEY] = Date.now() + STORE_API_429_BACKOFF_MS;
+    return resp;
+  } catch {
+    if (!ac.signal.aborted) backoffUntil[STORE_API_KEY] = Date.now() + STORE_API_FAILURE_BACKOFF_MS;
+    return null;
+  } finally {
+    clearTimeout(tid);
+  }
+}
+
 function readCache<T>(key: string, ttl: number): T | null {
   try {
     const raw = localStorage.getItem(key);
@@ -175,19 +201,42 @@ type StoreCacheV2 = {
 
 let storeInFlight: Promise<number[] | null> | null = null;
 
-function replayOneHint(h: { id: number; original: number; final: number }): void {
-  if (!h || typeof h.id !== "number" || h.id <= 0) return;
+function hintPrice(h: { id: number; original: number; final: number }): PriceData | null {
+  if (!h || typeof h.id !== "number" || h.id <= 0) return null;
   const op = Number(h.original) || 0;
   const fp = Number(h.final) || 0;
-  if (op <= 0) return;
+  if (op <= 0) return null;
   const discount = Math.max(0, Math.min(100, Math.round(((op - fp) / op) * 100)));
-  const price: PriceData = { price: fp, originalPrice: op, discount, currency: "USD", isFree: false };
-  try { writePriceCacheEntry(h.id, price); } catch {}
+  return { price: fp, originalPrice: op, discount, currency: "USD", isFree: false };
 }
 
-function replayPriceHints(hints: Array<{ id: number; original: number; final: number }> | undefined): void {
+// A store price with its own currency or text says more than the USD hint.
+function isStorePrice(data: PriceData | undefined): boolean {
+  return !!data && !data.unpriced && (!!data.formatted || data.currency !== "USD");
+}
+
+// Warm replays only refresh entries past half the TTL, and leave a fresh store price alone.
+function keepOnWarmReplay(entry: PriceCache[number] | undefined, now: number): boolean {
+  if (!entry) return false;
+  const age = now - entry.ts;
+  return age < PRICE_TTL / 2 || (age < PRICE_TTL && isStorePrice(entry.data));
+}
+
+function replayPriceHints(hints: Array<{ id: number; original: number; final: number }> | undefined, warm = false): void {
   if (!Array.isArray(hints) || !hints.length) return;
-  for (const h of hints) replayOneHint(h);
+  try {
+    const now = Date.now();
+    const current = getPriceCache();
+    const next: PriceCache = { ...current };
+    let changed = false;
+    for (const h of hints) {
+      const price = hintPrice(h);
+      if (!price || (warm && keepOnWarmReplay(current[h.id], now))) continue;
+      next[h.id] = { ts: now, data: price };
+      changed = true;
+    }
+    if (changed) savePriceCache(next, now);
+  } catch {}
 }
 
 type StoreSearchItem = { name?: string; logo?: string; final_price?: number; original_price?: number; discounted?: boolean };
@@ -231,7 +280,7 @@ export async function getStoreGameIds(): Promise<number[] | null> {
   const cached = readCache<StoreCacheV2>(STORE_KEY, STORE_TTL);
   if (cached) {
     // Replay cached price hints so the discount filter sees them even on a warm cache.
-    replayPriceHints(cached.priceHints);
+    replayPriceHints(cached.priceHints, true);
     return cached.ids;
   }
 
@@ -320,15 +369,19 @@ function writePriceCacheEntry(appid: number, data: PriceData): void {
     const raw = localStorage.getItem(PRICE_KEY);
     const cache: PriceCache = raw ? JSON.parse(raw) : {};
     cache[appid] = { ts: Date.now(), data };
-    const cutoff = Date.now() - PRICE_TTL * 2;
-    for (const k of Object.keys(cache)) {
-      if ((cache[Number(k)]?.ts ?? 0) < cutoff) delete cache[Number(k)];
-    }
-    const next = JSON.stringify(cache);
-    localStorage.setItem(PRICE_KEY, next);
-    _priceCacheRaw = next;
-    _priceCacheParsed = cache;
+    savePriceCache(cache, Date.now());
   } catch {}
+}
+
+function savePriceCache(cache: PriceCache, now: number): void {
+  const cutoff = now - PRICE_TTL * 2;
+  for (const k of Object.keys(cache)) {
+    if ((cache[Number(k)]?.ts ?? 0) < cutoff) delete cache[Number(k)];
+  }
+  const next = JSON.stringify(cache);
+  localStorage.setItem(PRICE_KEY, next);
+  _priceCacheRaw = next;
+  _priceCacheParsed = cache;
 }
 
 // Fills `result` from the price cache; returns the ids still to fetch.
@@ -343,17 +396,8 @@ function collectCachedPrices(appids: number[], result: Map<number, PriceData>): 
 
 // null means stop fetching: rate-limited, a non-OK status or a non-JSON body.
 async function fetchPriceBatch(batch: number[]): Promise<any | null> {
-  const url = `${STEAM_STORE_BASE}/api/appdetails?appids=${batch.join(",")}&filters=price_overview`;
-  const ac = new AbortController();
-  const tid = setTimeout(() => ac.abort(), 5000);
-  let resp: Response;
-  try { resp = await fetch(url, { credentials: "include", signal: ac.signal }); }
-  finally { clearTimeout(tid); }
-  if (resp.status === 429) {
-    backoffUntil[PRICE_KEY] = Date.now() + 60 * 60 * 1000;
-    return null;
-  }
-  if (!resp.ok) return null;
+  const resp = await storeApiFetch(`${STEAM_STORE_BASE}/api/appdetails?appids=${batch.join(",")}&filters=price_overview`, 5000);
+  if (!resp?.ok) return null;
   const ct = resp.headers.get("content-type") ?? "";
   if (!ct.includes("json")) return null;
   return resp.json();
@@ -379,7 +423,7 @@ function priceDataFromEntry(entry: any): PriceData {
 }
 
 async function fetchAndCachePrices(toFetch: number[], result: Map<number, PriceData>): Promise<void> {
-  if (Date.now() < (backoffUntil[PRICE_KEY] ?? 0)) return;
+  if (storeApiBlocked()) return;
 
   // Bounded by the deadline below, so the cap can cover the full specials list.
   const limited = toFetch.slice(0, 800);
@@ -488,15 +532,8 @@ function parseCatalogEntry(entry: any): CatalogMeta {
 
 // false = fetch-level failure, never cached; anything else is a real answer and safe to cache.
 async function fetchCatalogEntry(appid: number): Promise<any | false> {
-  const url = `${STEAM_STORE_BASE}/api/appdetails?appids=${appid}&filters=genres,categories&l=english`;
-  const ac = new AbortController();
-  const tid = setTimeout(() => ac.abort(), 5000);
-  let resp: Response;
-  try { resp = await fetch(url, { credentials: "include", signal: ac.signal }); }
-  catch { return false; }
-  finally { clearTimeout(tid); }
-  if (resp.status === 429) { backoffUntil[CATALOG_KEY] = Date.now() + 60 * 60 * 1000; return false; }
-  if (!resp.ok) return false;
+  const resp = await storeApiFetch(`${STEAM_STORE_BASE}/api/appdetails?appids=${appid}&filters=genres,categories&l=english`, 5000);
+  if (!resp?.ok) return false;
   const ct = resp.headers.get("content-type") ?? "";
   if (!ct.includes("json")) return false;
   const json = await resp.json();
@@ -507,7 +544,7 @@ const CATALOG_CONCURRENCY = 4;
 
 async function fetchCatalogWorker(queue: number[], result: Map<number, CatalogMeta>, deadline: number): Promise<void> {
   while (queue.length) {
-    if (Date.now() > deadline || Date.now() < (backoffUntil[CATALOG_KEY] ?? 0)) return;
+    if (Date.now() > deadline || storeApiBlocked()) return;
     const appid = queue.shift();
     if (appid === undefined) return;
     const entry = await fetchCatalogEntry(appid);
@@ -531,7 +568,7 @@ export async function getCatalogMetaMap(appids: number[]): Promise<Map<number, C
     else if (!Array.isArray(c.categoryIds)) withoutIds.push(id);
   }
   const toFetch = [...missing, ...withoutIds];
-  if (!toFetch.length || Date.now() < (backoffUntil[CATALOG_KEY] ?? 0)) return result;
+  if (!toFetch.length || storeApiBlocked()) return result;
 
   try {
     const queue = toFetch.slice(0, 60);
@@ -545,26 +582,20 @@ export async function getCatalogMetaMap(appids: number[]): Promise<Map<number, C
   return result;
 }
 
-const NAME_BATCH = 10;
+const NAME_LIMIT = 60;
 const NAME_TIMEOUT_MS = 4000;
 const NAME_CONCURRENCY = 3;
+// Shelves ask again while a pass is still running; an id asked for once is not asked again meanwhile.
+const namesInFlight = new Set<number>();
 
-async function fetchBatch(batch: number[]): Promise<Map<number, string>> {
-  const out = new Map<number, string>();
-  const ac = new AbortController();
-  const tid = setTimeout(() => ac.abort(), NAME_TIMEOUT_MS);
+// One id per request: appdetails answers several ids only for the price filter.
+async function fetchName(appid: number): Promise<string | null> {
+  const resp = await storeApiFetch(`${STEAM_STORE_BASE}/api/appdetails?appids=${appid}&filters=basic&l=english`, NAME_TIMEOUT_MS);
+  if (!resp?.ok) return null;
   try {
-    const url = `${STEAM_STORE_BASE}/api/appdetails?appids=${batch.join(',')}&l=english`;
-    const resp = await fetch(url, { credentials: 'include', signal: ac.signal });
-    clearTimeout(tid);
-    if (!resp.ok) return out;
-    const json = await resp.json();
-    for (const id of batch) {
-      const n = json?.[id]?.data?.name;
-      if (typeof n === 'string' && n) out.set(id, n);
-    }
-  } catch { clearTimeout(tid); }
-  return out;
+    const name = (await resp.json())?.[appid]?.data?.name;
+    return typeof name === "string" && name ? name : null;
+  } catch { return null; }
 }
 
 const SCREENSHOT_KEY = "ds-screenshot-cache-v1";
@@ -624,19 +655,13 @@ function parseScreenshotRows(rows: any[]): string[] {
 
 async function fetchScreenshotEntry(batch: number[]): Promise<Map<number, string[]>> {
   const out = new Map<number, string[]>();
-  const url = `${STEAM_STORE_BASE}/api/appdetails?appids=${batch.join(",")}&filters=screenshots`;
-  const ac = new AbortController();
-  const tid = setTimeout(() => ac.abort(), 5000);
+  const resp = await storeApiFetch(`${STEAM_STORE_BASE}/api/appdetails?appids=${batch.join(",")}&filters=screenshots`, 5000);
+  if (!resp?.ok || !(resp.headers.get("content-type") || "").includes("json")) return out;
   try {
-    const resp = await fetch(url, { credentials: "include", signal: ac.signal });
-    if (resp.status === 429) { backoffUntil[SCREENSHOT_KEY] = Date.now() + 60 * 60 * 1000; return out; }
-    if (!resp.ok) return out;
-    if (!(resp.headers.get("content-type") || "").includes("json")) return out;
     const json = await resp.json();
     // no screenshots is a real answer
     for (const appid of batch) out.set(appid, parseScreenshotRows(extractScreenshotRows(json, appid)));
   } catch { /* leave uncached, retried on a later call */ }
-  finally { clearTimeout(tid); }
   return out;
 }
 
@@ -670,7 +695,7 @@ export async function getStoreScreenshots(appids: number[]): Promise<Map<number,
   if (!appids.length) return result;
 
   const toFetch = collectUncachedScreenshotIds(appids, result);
-  if (!toFetch.length || Date.now() < (backoffUntil[SCREENSHOT_KEY] ?? 0)) return result;
+  if (!toFetch.length || storeApiBlocked()) return result;
 
   try {
     await fetchScreenshotBatches(toFetch.slice(0, 60), result);
@@ -682,27 +707,21 @@ export async function getStoreScreenshots(appids: number[]): Promise<Map<number,
 }
 
 export async function fetchGameNames(ids: number[]): Promise<Map<number, string>> {
-  const limited = ids.slice(0, 60);
+  const queue = ids.filter((id) => !namesInFlight.has(id)).slice(0, NAME_LIMIT);
+  queue.forEach((id) => namesInFlight.add(id));
   const names = new Map<number, string>();
-  const batches: number[][] = [];
-  for (let i = 0; i < limited.length; i += NAME_BATCH) batches.push(limited.slice(i, i + NAME_BATCH));
-
-  const missed: number[] = [];
-  for (let i = 0; i < batches.length; i += NAME_CONCURRENCY) {
-    const results = await Promise.all(batches.slice(i, i + NAME_CONCURRENCY).map(fetchBatch));
-    for (const r of results) r.forEach((v, k) => names.set(k, v));
-    for (const batch of batches.slice(i, i + NAME_CONCURRENCY)) {
-      for (const id of batch) if (!names.has(id)) missed.push(id);
+  const worker = async () => {
+    while (queue.length && !storeApiBlocked()) {
+      const id = queue.shift() as number;
+      const name = await fetchName(id);
+      namesInFlight.delete(id);
+      if (name) names.set(id, name);
     }
+  };
+  try {
+    await Promise.all(Array.from({ length: NAME_CONCURRENCY }, worker));
+  } finally {
+    queue.forEach((id) => namesInFlight.delete(id));
   }
-
-  // Retry misses one by one: success:false in a batch can be transient.
-  if (missed.length) {
-    await Promise.all(missed.map(async (id) => {
-      const r = await fetchBatch([id]);
-      r.forEach((v, k) => names.set(k, v));
-    }));
-  }
-
   return names;
 }

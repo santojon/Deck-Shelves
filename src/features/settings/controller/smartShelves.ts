@@ -1,7 +1,6 @@
 import type { Settings, SmartShelf, SmartShelfMode } from "../../../types";
 import { createDefaultSmartShelf } from "../../../domain/defaults";
-import { writeJsonFile, readJsonFile } from "../../../settingsStore";
-import { createPreImportSnapshot } from "../../../store/settingsStore";
+import { writeJsonFile, readJsonFile, createPreImportSnapshot } from "../../../store/settingsStore";
 import { notify } from "../../../components/notify";
 
 export interface SmartShelfDeps {

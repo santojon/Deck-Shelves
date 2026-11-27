@@ -247,13 +247,22 @@ async function resolveTabUuidViaTabMaster(rawTab: string, limit: number, shelfId
   } catch { return null; }
 }
 
-async function fetchTabStoreIds(rawTab: string, filterToInstalledNative: (ids: number[]) => number[]): Promise<number[]> {
+// null: a store answered with an empty list, so the by-name search is skipped.
+async function fetchTabStoreIds(rawTab: string, filterToInstalledNative: (ids: number[]) => number[]): Promise<number[] | null> {
   const outcome = await queryTabStores(rawTab);
   if (outcome.status === "unavailable") return [];
+  if (outcome.status === "empty") return null;
   let ids = outcome.status === "ok" ? outcome.ids : [];
   if (ids.length) ids = filterToInstalledNative(ids);
   if (!ids.length && rawTab) ids = await findTabAppIdsByNameOrId(rawTab);
   return ids;
+}
+
+function finishFromTabStore(ctx: ResolverContext, rawTab: string, fromTabStore: number[], applyChildFilterTab: (ids: number[]) => number[]): number[] {
+  const { all, sort, shelfId, sortReverse, finish, overShootLimit } = ctx;
+  try { logInfo("STEAM", "resolveShelfAppIds(tab): using store", { tab: rawTab, count: fromTabStore.length }); } catch {}
+  const tabStoreIds = deduplicateNonSteam(sort ? applySortToIds(fromTabStore, sort, all, shelfId, sortReverse) : fromTabStore, all);
+  return finish(applyChildFilterTab(tabStoreIds).slice(0, overShootLimit));
 }
 
 async function resolveFromDynamicTab(ctx: ResolverContext, rawTab: string): Promise<number[]> {
@@ -279,11 +288,7 @@ async function _resolveTab(ctx: ResolverContext): Promise<number[]> {
   }
 
   const fromTabStore = await fetchTabStoreIds(rawTab, filterToInstalledNative);
-  if (fromTabStore.length) {
-    try { logInfo("STEAM", "resolveShelfAppIds(tab): using store", { tab: rawTab, count: fromTabStore.length }); } catch {}
-    const tabStoreIds = deduplicateNonSteam(sort ? applySortToIds(fromTabStore, sort, all, shelfId, sortReverse) : fromTabStore, all);
-    return finish(applyChildFilterTab(tabStoreIds).slice(0, overShootLimit));
-  }
+  if (fromTabStore?.length) return finishFromTabStore(ctx, rawTab, fromTabStore, applyChildFilterTab);
 
   const ids = await resolveFromDynamicTab(ctx, rawTab);
   if (!ids.length) {
@@ -291,9 +296,15 @@ async function _resolveTab(ctx: ResolverContext): Promise<number[]> {
     if (viaTabMaster) return viaTabMaster;
     const fallback = await tryBuiltInTabFallback(ctx, rawTab);
     if (fallback) return fallback;
-    logWarn("STEAM", "resolveShelfAppIds(tab) empty", { tab: rawTab, allCount: all.length });
+    logEmptyTab(rawTab, all.length, fromTabStore === null);
   }
   return finish(applyChildFilterTab(ids.slice(0, overShootLimit)));
+}
+
+// A tab its store reports as empty is an answer, not a failure.
+function logEmptyTab(tab: string, allCount: number, storeEmpty: boolean): void {
+  if (storeEmpty) logInfo("STEAM", "resolveShelfAppIds(tab) empty: the tab store answered with an empty list", { tab, allCount });
+  else logWarn("STEAM", "resolveShelfAppIds(tab) empty", { tab, allCount });
 }
 
 // Steam's tab store can be empty at boot, so these tabs go through the filter resolver.

@@ -1,13 +1,12 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useNativeHeroClasses, heroThemeGate } from "./perShelfHeroTheme";
-import { getLandscapeUrls, getPortraitUrls, getLogoUrls, getAppAssetCacheKey } from "../../core/steamAssets";
-import { getHotCachedImageSrc, warmCacheBackground, firstCacheableUrl } from "../../core/imageCache";
+import { getLogoUrls, getAppAssetCacheKey } from "../../core/steamAssets";
+import { getHotCachedImageSrc, warmCacheBackground } from "../../core/imageCache";
 import { getAppDescriptions, preloadAppDescriptions } from "../../steam/appDescriptionsCache";
 import { computeHeroVisualGeometry, type HorizontalPosition } from "./perShelfHeroHelpers";
 import { withDefaults } from "../withDefaults";
 import { subscribeSessionState, getSessionState } from "../../runtime/sessionState";
 import { reuseHeroLabel, isHeroLabelOutputMutation, heroLabelAlign, heroLabelLeft } from "./perShelfHeroLabel";
-import { getHeroUrls } from "./perShelfHeroAssets";
 import { sanitizeHeroUrl, hashStringFastForHero } from "./perShelfHeroSynthetic";
 import { freshHeroState, swapSynthHero, swapAppHero, resolveFocusedCard, type Slot, type HeroSwapState, type SlotSetters } from "./perShelfHeroSwap";
 import { slotLoaded, resolveLogoSrc, overlayFlags, visibleLayers, HeroSlot, HeroArt, PromotedLabel, HeroOverlay } from "./perShelfHeroLayers";
@@ -230,61 +229,6 @@ function PerShelfHero(props: PerShelfHeroProps) {
       if (hero.swapTimer) { clearTimeout(hero.swapTimer); hero.swapTimer = null; }
     };
   }, [containerRef, showArt, gameRunning, hero, setters]);
-
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    let cancelled = false;
-    let idleHandle: any = null;
-    let backoffHandle: any = null;
-    const cancelScheduled = () => {
-      if (backoffHandle) { clearTimeout(backoffHandle); backoffHandle = null; }
-      if (idleHandle && typeof (window as any).cancelIdleCallback === 'function') {
-        try { (window as any).cancelIdleCallback(idleHandle); } catch {}
-        idleHandle = null;
-      }
-    };
-    const schedule = (fn: () => void) => {
-      if (cancelled) return;
-      const ric: any = (window as any).requestIdleCallback;
-      if (typeof ric === 'function') {
-        idleHandle = ric(fn, { timeout: 3000 });
-      } else {
-        backoffHandle = setTimeout(fn, 250);
-      }
-    };
-    const start = setTimeout(() => {
-      if (cancelled) return;
-      const allCards = Array.from(el.querySelectorAll<HTMLElement>('.ds-card[data-appid]'));
-      let idx = 0;
-      const PER_TICK = 4;
-      const warmOneCard = (aid: number) => {
-        try {
-          const p = firstCacheableUrl(getPortraitUrls(aid));
-          if (p) warmCacheBackground(p);
-          if (!showArt) return;
-          const h = firstCacheableUrl(getHeroUrls(aid));
-          if (h) warmCacheBackground(h);
-          const l = firstCacheableUrl(getLandscapeUrls(aid));
-          if (l) warmCacheBackground(l);
-        } catch {}
-      };
-      const tick = () => {
-        if (cancelled) return;
-        for (let warmed = 0; warmed < PER_TICK && idx < allCards.length; warmed++) {
-          const aid = Number(allCards[idx++].getAttribute('data-appid')) || 0;
-          if (aid > 0) warmOneCard(aid);
-        }
-        if (idx < allCards.length) schedule(tick);
-      };
-      schedule(tick);
-    }, 500 + Math.random() * 2000);
-    return () => {
-      cancelled = true;
-      clearTimeout(start);
-      cancelScheduled();
-    };
-  }, [containerRef, showArt]);
 
   const logoAssetKey = getAppAssetCacheKey(focusedAppid);
   const logoUrls = useMemo(() => (enableLogo && focusedAppid > 0 ? getLogoUrls(focusedAppid) : []), [enableLogo, focusedAppid, logoAssetKey]);

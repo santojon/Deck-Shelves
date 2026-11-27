@@ -1,3 +1,5 @@
+import type { DiscountBadgeMode } from "./discountBadge";
+
 export type DeckRowItem = {
   id: string | number;
   name: string;
@@ -19,6 +21,8 @@ export type DeckRowItem = {
   isNew?: boolean;
   discountPercent?: number;
   priceText?: string;
+  // Replaces the row's badge mode on this card only.
+  discountBadgeMode?: DiscountBadgeMode;
   selectionMark?: 'highlight' | 'hidden' | 'grabbed' | 'added';
   onToggleSelection?: () => void;
   synthetic?: {

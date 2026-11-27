@@ -53,6 +53,17 @@ describe("recents collapse marker", () => {
     expectReleased(recents);
   });
 
+  it("turning the hide off with no row found still restores a marked row", async () => {
+    const recents = buildHome();
+    (await loadRecents()).applyHideRecents(true);
+    document.getElementById("deck-shelves-home-root")!.remove();
+    vi.resetModules();
+    const fresh = await loadRecents();
+    fresh.applyHideRecents(false);
+    expect(fresh.cachedRecentsEl).toBeNull();
+    expectReleased(recents);
+  });
+
   it("the soft collapse is marked apart from the hard collapse the game menu looks for", async () => {
     const recents = buildHome();
     (await loadRecents()).applyHideRecents(true);

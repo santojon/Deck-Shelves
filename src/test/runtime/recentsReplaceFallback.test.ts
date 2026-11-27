@@ -11,7 +11,7 @@ const live = vi.hoisted(() => ({
 vi.mock("../../runtime/recentsRowPatch", () => ({
   installRecentsRowPatch: (_router: unknown, hooks: unknown) => { live.hooks = hooks; return { uninstall() {}, requestRender: () => true }; },
 }));
-vi.mock("../../settingsStore", () => ({ getCurrentSettings: () => live.settings, subscribeSettings: () => () => {} }));
+vi.mock("../../store/settingsStore", () => ({ getCurrentSettings: () => live.settings, subscribeSettings: () => () => {} }));
 vi.mock("../../steam/smartShelves", () => ({ evalVisibility: () => true }));
 vi.mock("../../steam", () => ({ applyManualOrder: (ids: number[]) => ids, manualResolveLimit: (limit: number) => limit }));
 vi.mock("../../runtime/platformContext", () => ({

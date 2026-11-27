@@ -19,17 +19,11 @@
   "view_more": "Zobacz więcej\nw swojej\nbibliotece",
   "view_more_store": "Więcej\nw sklepie",
   "view_more_wishlist": "Więcej na\nliście życzeń",
-  "download_update": "Pobierz aktualizację",
-  "update_install": "Zainstaluj aktualizację",
-  "update_installing": "Instalowanie aktualizacji {{version}}…",
-  "update_installed": "Zaktualizowano do wersji {{version}}.",
-  "update_install_failed": "Instalacja nie powiodła się — powrót do pobierania.",
-  "update_install_busy": "Wciąż trwa sprawdzanie aktualizacji — spróbuj ponownie za chwilę.",
+  "download_update_short": "Pobierz",
   "update_downloading": "Pobieranie aktualizacji {{version}}…",
   "update_downloaded": "Zapisano w {{path}} — zainstaluj ręcznie.",
   "update_download_failed": "Pobieranie nie powiodło się — otwieranie strony wydania.",
+  "update_verify_failed": "Nie udało się zweryfikować aktualizacji z wydaniem, więc nie została zapisana.",
   "shelf_type_normal": "Normalna",
-  "shelf_type_smart": "Inteligentna",
-  "update_installing_title": "Instalowanie aktualizacji",
-  "update_will_reload": "Nowa wersja zacznie działać sama w ciągu kilku sekund."
+  "shelf_type_smart": "Inteligentna"
 }

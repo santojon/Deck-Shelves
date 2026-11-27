@@ -47,6 +47,32 @@ describe('installProfileTriggers', () => {
     un()
   })
 
+  it('a boot with the profile already active rolls back no sync marks and shows no toast', () => {
+    const snapshot = { enabled: true, syncTombstones: { old: 1 }, preferencesUpdatedAt: 10, cloudSyncLastSyncedAt: 10 }
+    const active = { id: 'p2', name: 'Handheld', snapshot }
+    store.current = {
+      profileTriggersEnabled: true, profiles: [active], activeProfileName: 'Handheld', enabled: true,
+      syncTombstones: { old: 1, newer: 2 }, preferencesUpdatedAt: 99, cloudSyncLastSyncedAt: 99,
+    }
+    toasts.list = []
+    resolved.current = 'Handheld'
+    const un = installProfileTriggers()
+    expect(saved.list).toEqual([])
+    expect(toasts.list).toEqual([])
+    un()
+  })
+
+  it('re-applying the already active profile at start may save but never announces a switch', () => {
+    const active = { id: 'p3', name: 'Handheld', snapshot: { enabled: false } }
+    store.current = { profileTriggersEnabled: true, profiles: [active], activeProfileName: 'Handheld', enabled: true }
+    toasts.list = []
+    resolved.current = 'Handheld'
+    const un = installProfileTriggers()
+    expect(saved.list.length).toBe(1)
+    expect(toasts.list).toEqual([])
+    un()
+  })
+
   it('does nothing when profileTriggersEnabled is off', () => {
     store.current = { profileTriggersEnabled: false, profiles: [profile], activeProfileName: null }
     resolved.current = 'Docked'

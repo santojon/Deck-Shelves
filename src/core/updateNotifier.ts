@@ -29,6 +29,8 @@ export interface UpdateCheckResult {
   releaseUrl: string | null;
   assetUrl: string | null;
   assetName: string | null;
+  // The asset's `digest` from the release ("sha256:<hex>"); the download is refused without it.
+  assetDigest: string | null;
   checkedAt: number;
 }
 
@@ -38,6 +40,7 @@ interface CachedPayload {
   releaseUrl: string | null;
   assetUrl: string | null;
   assetName: string | null;
+  assetDigest: string | null;
 }
 
 interface ReleaseInfo {
@@ -45,6 +48,7 @@ interface ReleaseInfo {
   url: string | null;
   assetUrl: string | null;
   assetName: string | null;
+  assetDigest: string | null;
 }
 
 let inFlight: Promise<UpdateCheckResult> | null = null;
@@ -61,6 +65,7 @@ function readCache(key: string): CachedPayload | null {
       releaseUrl: typeof parsed.releaseUrl === "string" ? parsed.releaseUrl : null,
       assetUrl: typeof parsed.assetUrl === "string" ? parsed.assetUrl : null,
       assetName: typeof parsed.assetName === "string" ? parsed.assetName : null,
+      assetDigest: typeof parsed.assetDigest === "string" ? parsed.assetDigest : null,
     };
   } catch {
     return null;
@@ -115,13 +120,13 @@ function comparePreRelease(a: string, b: string): number {
   return 0;
 }
 
-const EMPTY_INFO: ReleaseInfo = { version: null, url: null, assetUrl: null, assetName: null };
+const EMPTY_INFO: ReleaseInfo = { version: null, url: null, assetUrl: null, assetName: null, assetDigest: null };
 
 function cachedInfo(c: CachedPayload): ReleaseInfo {
-  return { version: c.latestVersion, url: c.releaseUrl, assetUrl: c.assetUrl, assetName: c.assetName };
+  return { version: c.latestVersion, url: c.releaseUrl, assetUrl: c.assetUrl, assetName: c.assetName, assetDigest: c.assetDigest };
 }
 
-function buildResult(info: Pick<ReleaseInfo, "version" | "url" | "assetUrl" | "assetName">, ts: number): UpdateCheckResult {
+function buildResult(info: ReleaseInfo, ts: number): UpdateCheckResult {
   const current = (pkg as any).version ?? "0.0.0";
   const hasUpdate = !!(info.version && compareSemver(info.version, current) > 0);
   return {
@@ -131,19 +136,24 @@ function buildResult(info: Pick<ReleaseInfo, "version" | "url" | "assetUrl" | "a
     releaseUrl: info.url,
     assetUrl: info.assetUrl,
     assetName: info.assetName,
+    assetDigest: info.assetDigest,
     checkedAt: ts,
   };
 }
 
-function pickZipAsset(release: any): { assetUrl: string | null; assetName: string | null } {
+function digestOf(asset: any): string | null {
+  return typeof asset?.digest === "string" && asset.digest ? asset.digest : null;
+}
+
+function pickZipAsset(release: any): Pick<ReleaseInfo, "assetUrl" | "assetName" | "assetDigest"> {
   const assets = Array.isArray(release?.assets) ? release.assets : [];
   for (const a of assets) {
     const name = typeof a?.name === "string" ? a.name : "";
     if (!name.toLowerCase().endsWith(".zip")) continue;
     const url = typeof a?.browser_download_url === "string" ? a.browser_download_url : "";
-    if (url) return { assetUrl: url, assetName: name };
+    if (url) return { assetUrl: url, assetName: name, assetDigest: digestOf(a) };
   }
-  return { assetUrl: null, assetName: null };
+  return { assetUrl: null, assetName: null, assetDigest: null };
 }
 
 function releaseInfoOf(r: any): ReleaseInfo | null {
@@ -190,7 +200,7 @@ export async function checkForUpdate(): Promise<UpdateCheckResult> {
     try {
       const { qaForcedUpdateResult } = require("../qa/harness");
       const forced = typeof qaForcedUpdateResult === "function" ? qaForcedUpdateResult() : null;
-      if (forced) return buildResult({ version: forced.latestVersion, url: forced.releaseUrl, assetUrl: forced.assetUrl ?? null, assetName: forced.assetName ?? null }, now);
+      if (forced) return buildResult({ version: forced.latestVersion, url: forced.releaseUrl, assetUrl: forced.assetUrl ?? null, assetName: forced.assetName ?? null, assetDigest: forced.assetDigest ?? null }, now);
     } catch {}
   }
   const beta = readBetaChannel();
@@ -207,7 +217,7 @@ export async function checkForUpdate(): Promise<UpdateCheckResult> {
       }
       const info = await fetchLatest(beta);
       if (info.version) {
-        writeCache(ck, { ts: Date.now(), latestVersion: info.version, releaseUrl: info.url, assetUrl: info.assetUrl, assetName: info.assetName });
+        writeCache(ck, { ts: Date.now(), latestVersion: info.version, releaseUrl: info.url, assetUrl: info.assetUrl, assetName: info.assetName, assetDigest: info.assetDigest });
         return buildResult(info, Date.now());
       }
       if (cached) return buildResult(cachedInfo(cached), cached.ts);

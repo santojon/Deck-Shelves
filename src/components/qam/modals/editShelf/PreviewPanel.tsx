@@ -1,5 +1,6 @@
 import { ShelfPreview } from './ShelfPreview'
 import type { PlatformAppMeta } from '../../../../runtime/platform'
+import type { DiscountBadgeMode } from '../../../shelf/discountBadge'
 
 export type PreviewPanelProps = {
   t: (...args: any[]) => any
@@ -29,6 +30,9 @@ export type PreviewPanelProps = {
   hideInstallIndicator: boolean
   hideSeeMore: boolean
   hideRefreshCard: boolean
+  hideDiscountBadge?: boolean
+  discountBadgeMode?: DiscountBadgeMode
+  discountBadgeFocusMode?: DiscountBadgeMode | null
 
   limit?: number
   shelfSource?: any
@@ -64,6 +68,7 @@ export function PreviewPanel(props: PreviewPanelProps) {
     hiddenAppIds,
     hideStatusLine, hideNewBadge, hideCompatIcons, hideNonSteamBadge,
     hideGameNames, hideInstallIndicator, hideSeeMore, hideRefreshCard,
+    hideDiscountBadge, discountBadgeMode, discountBadgeFocusMode,
     limit, shelfSource, shelfSort, onRefresh, onFocusedIndexChange,
     syntheticCards,
     selectionMode, selectionSet, onToggleSelection,
@@ -97,6 +102,9 @@ export function PreviewPanel(props: PreviewPanelProps) {
         hideInstallIndicator={hideInstallIndicator}
         hideSeeMore={hideSeeMore}
         hideRefreshCard={hideRefreshCard}
+        hideDiscountBadge={hideDiscountBadge}
+        discountBadgeMode={discountBadgeMode}
+        discountBadgeFocusMode={discountBadgeFocusMode}
         highlightFirst={highlightFirst}
         highlightAll={highlightAll}
         highlightedAppIds={highlightedAppIds}

@@ -19,17 +19,11 @@
   "view_more": "到收藏庫\n查看更多",
   "view_more_store": "查看更多\n在商店",
   "view_more_wishlist": "查看更多\n在願望清單",
-  "download_update": "下載更新",
-  "update_install": "安裝更新",
-  "update_installing": "正在安裝更新 {{version}}…",
-  "update_installed": "已更新到 {{version}}。",
-  "update_install_failed": "安裝失敗 — 正在改為下載。",
-  "update_install_busy": "仍在檢查更新 — 請稍後再試。",
+  "download_update_short": "下載",
   "update_downloading": "正在下載更新 {{version}}…",
   "update_downloaded": "已儲存至 {{path}} — 請手動安裝。",
   "update_download_failed": "下載失敗 — 改為開啟發佈頁面。",
+  "update_verify_failed": "無法依發佈資訊驗證此更新，因此未儲存。",
   "shelf_type_normal": "一般",
-  "shelf_type_smart": "智慧",
-  "update_installing_title": "正在安裝更新",
-  "update_will_reload": "新版本將在幾秒鐘後自動生效。"
+  "shelf_type_smart": "智慧"
 }

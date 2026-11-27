@@ -52,7 +52,7 @@ describe("SettingsSchema — Python sanitizer compatibility", () => {
   });
 });
 
-describe("Collection filter — Bazzite #55 fix", () => {
+describe("Collection filter — membership lookup", () => {
   const apps: AppOverview[] = [
     { appid: 100, display_name: "Game A" } as any,
     { appid: 200, display_name: "Game B" } as any,
@@ -95,7 +95,7 @@ describe("Collection filter — Bazzite #55 fix", () => {
     expect(result).toHaveLength(3);
   });
 
-  it("inverted: true returns the complement (Bazzite #56 — negate collection)", () => {
+  it("inverted: true returns the complement (negated collection)", () => {
     const result = evaluateFilterGroup(
       { mode: "and", items: [{ type: "collection", inverted: true, params: { collectionId: "uc-rpg" } }] },
       apps,

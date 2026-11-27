@@ -75,12 +75,14 @@ describe('hero native asset discovery', () => {
     expect(imgScans).toBe(2)
   })
 
-  it('still rescans once when the hero refines its list later', () => {
+  it('keeps the shown hero after a miss without scanning again later', () => {
     const hero = swap.freshHeroState()
     focusApp(hero, 10)
     expect(imgScans).toBe(1)
-    vi.advanceTimersByTime(700)
-    expect(imgScans).toBe(2)
+    vi.advanceTimersByTime(5000)
+    expect(imgScans).toBe(1)
+    expect(slots).toHaveLength(1)
+    expect(vi.getTimerCount()).toBe(0)
   })
 
   it('keeps a found native asset without scanning again', () => {

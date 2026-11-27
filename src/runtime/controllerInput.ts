@@ -241,14 +241,36 @@ function drainLogs(view: any, discard: boolean): void {
   for (const entry of drain(view?.__ds_bp_keydown_log)) if (entry && !discard) dispatchHomeKey(entry);
 }
 
+const DRAIN_MS = 30;
+// What is drained during a game is discarded, so it can wait longer.
+const DRAIN_IN_GAME_MS = 250;
+let pollChain: { cancelled: boolean } | null = null;
+
 function startPolling(): void {
-  if (pollTimer != null) return;
+  if (pollChain) return;
   const g = globalThis as any;
-  pollTimer = g.setInterval?.(() => {
+  const chain = { cancelled: false };
+  pollChain = chain;
+  const arm = (delay: number): void => {
+    if (!chain.cancelled) pollTimer = g.setTimeout?.(tick, delay) ?? null;
+  };
+  const tick = (): void => {
+    let inGame = false;
     try {
-      drainLogs(g.__ds_input_bp_view, getSessionState().gameRunning);
-    } catch {}
-  }, 30);
+      inGame = getSessionState().gameRunning;
+      drainLogs(g.__ds_input_bp_view, inGame);
+    } catch {} finally {
+      arm(inGame ? DRAIN_IN_GAME_MS : DRAIN_MS);
+    }
+  };
+  arm(DRAIN_MS);
+}
+
+function stopPolling(): void {
+  if (pollChain) pollChain.cancelled = true;
+  pollChain = null;
+  try { if (pollTimer != null) (globalThis as any).clearTimeout?.(pollTimer); } catch {}
+  pollTimer = null;
 }
 
 function ensureInstalled(): void {
@@ -273,8 +295,7 @@ function ensureInstalled(): void {
     unregister = () => {
       for (const fn of unregisterAll) try { fn(); } catch {}
       unregisterAll = [];
-      try { if (pollTimer != null) (globalThis as any).clearInterval?.(pollTimer); } catch {}
-      pollTimer = null;
+      stopPolling();
     };
     installed = true;
     devStamp("__ds_input_installed", { sharedJs: unregisterAll.length, bp: bpOk });

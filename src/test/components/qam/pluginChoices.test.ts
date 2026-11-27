@@ -8,14 +8,18 @@ const seen = vi.hoisted(() => ({
 }))
 
 vi.mock('../../../runtime/host/decky', async (importOriginal) => {
-  const { createElement: el } = await import('react')
   return {
     ...(await importOriginal<Record<string, unknown>>()),
-    Tabs: ({ tabs, activeTab }: any) => el('div', null, seen.allTabs
-      ? tabs.map((tab: any) => el('section', { key: tab.id }, tab.content))
-      : tabs.find((tab: any) => tab.id === activeTab)?.content),
     DropdownItem: ({ label, rgOptions }: any) => { seen.dropdowns.set(String(label), rgOptions); seen.lists.push(rgOptions); return null },
     Dropdown: (props: any) => { seen.lists.push(props.rgOptions); seen.pickers.push(props); return null },
+  }
+})
+vi.mock('../../../components/qam/modals/editShelf/EditorTabs', async () => {
+  const { createElement: el } = await import('react')
+  return {
+    EditorTabs: ({ tabs, activeTab }: any) => el('div', null, seen.allTabs
+      ? tabs.map((tab: any) => el('section', { key: tab.id }, tab.content))
+      : tabs.find((tab: any) => tab.id === activeTab)?.content),
   }
 })
 vi.mock('../../../components/qam/modals/editShelf/useShelfPreview', () => ({
@@ -124,6 +128,13 @@ describe('plugin entries in the shelf editor', () => {
   it('keeps the External source type on offer for a shelf of that type while its plugin is away', () => {
     showShelf({ type: 'external', sourceId: 'acme.gone' })
     expect(optionIds('source')).toContain('external')
+  })
+
+  it('offers every smart mode, plugin ones last, as the source of a regular shelf', () => {
+    offs.push(api.registerSmartShelfSource(acmeMode))
+    showShelf({ type: 'smart', mode: 'quick_play' })
+    expect(optionIds('source')).toContain('smart')
+    expect(optionIds('source_smart')).toEqual([...SMART_MODE_OPTIONS, 'acme.mode'])
   })
 
   it('names a plugin smart source offered on a multi-source shelf with its own name', () => {

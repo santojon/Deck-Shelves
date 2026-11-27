@@ -9,15 +9,19 @@ const seen = vi.hoisted(() => ({
 }))
 
 vi.mock('../../../runtime/host/decky', async (importOriginal) => {
-  const { createElement: el } = await import('react')
   return {
     ...(await importOriginal<Record<string, unknown>>()),
-    Tabs: ({ tabs }: any) => {
+    DropdownItem: (props: any) => { seen.pickers.push(props); return null },
+    Dropdown: (props: any) => { seen.pickers.push(props); return null },
+  }
+})
+vi.mock('../../../components/qam/modals/editShelf/EditorTabs', async () => {
+  const { createElement: el } = await import('react')
+  return {
+    EditorTabs: ({ tabs }: any) => {
       seen.tabs = tabs
       return el('div', null, tabs.map((tab: any) => el('section', { key: tab.id, 'data-tab': tab.id }, el('header', null, tab.title), tab.content)))
     },
-    DropdownItem: (props: any) => { seen.pickers.push(props); return null },
-    Dropdown: (props: any) => { seen.pickers.push(props); return null },
   }
 })
 vi.mock('../../../components/qam/modals/editShelf/useShelfPreview', () => ({

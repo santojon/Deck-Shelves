@@ -6,7 +6,7 @@ import { settingsNeedFriends, settingsNeedShortcutTags } from "./featureDemand";
 import { installShortcutTagsPoll } from "./shortcutTags";
 import { installGameLists } from "./gameLists";
 import { checkForUpdate, __resetUpdateCheckCache } from "../core/updateNotifier";
-import { installOrDownloadUpdate, canSelfInstallUpdate } from "./updateDownload";
+import { installOrDownloadUpdate } from "./updateDownload";
 import { isOnline } from "../core/connectivity";
 import { notify } from "../components/notify";
 import { pickNewSuggestions } from "./suggestionNotifier";
@@ -151,11 +151,11 @@ export function installUpdateProbes(): Uninstall {
       if (!probed) scheduleBootProbe();
     }, delay);
   };
-  if (!canSelfInstallUpdate()) scheduleBootProbe();
+  scheduleBootProbe();
   let lastToggle = getCurrentSettings()?.updateNotifyEnabled !== false;
   const unsubscribe = subscribeSettings((s) => {
     const now = s?.updateNotifyEnabled !== false;
-    if (!lastToggle && now && !canSelfInstallUpdate()) void runUpdateProbe('toggle-on');
+    if (!lastToggle && now) void runUpdateProbe('toggle-on');
     lastToggle = now;
   });
   return () => {

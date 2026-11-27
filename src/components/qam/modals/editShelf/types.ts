@@ -11,6 +11,7 @@ export type EditableShelfState = {
   tab: string
   externalSourceId: string
   builtinSourceId: string
+  smartMode: string
   filter: ShelfFilter
   filterGroup: FilterGroup
   sort: string | string[]

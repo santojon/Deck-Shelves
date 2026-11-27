@@ -1,7 +1,5 @@
 import { useRef, type ReactNode } from 'react'
 import { Field, Focusable, ToggleField } from '../../../runtime/host/decky'
-import { hostProvidesNativeTab } from '../../../runtime/host/resolve'
-import { isHomeOwner } from '../../../runtime/host/ownerGuard'
 import { restartSteam } from '../../../runtime/ownQamTab'
 import { takeNavTreeFocus } from '../../../runtime/navFocus'
 import type { SettingsController } from '../../../features/settings/controller'
@@ -346,8 +344,6 @@ function screensaverLogoPlacementGroup(c: GCtx): ReactNode {
 
 function ownQamTabGroup(c: GCtx): ReactNode {
   const { t, settings, actions, row } = c
-  // Hidden under a neutral host (it has its own tab) and in a copy that doesn't own the renderer.
-  if (hostProvidesNativeTab() || !isHomeOwner()) return null
   return (
     row('ownQamTabEnabled', (
       <ToggleField label={t('own_qam_tab_enabled' as any)} checked={settings.ownQamTabEnabled === true} onChange={(v: boolean) => {

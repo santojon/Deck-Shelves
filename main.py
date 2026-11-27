@@ -1,5 +1,6 @@
 import asyncio
 import hashlib
+import hmac
 import json
 import os
 import sqlite3
@@ -30,7 +31,7 @@ from peripherals import get_bluetooth_state as _bt_state, get_audio_state as _au
 from shortcuts import shortcut_tags as _shortcut_tags
 from ttl_cache import TtlCache, wants_force
 from secure_http import _SSL_CTX, _fetch_json_page, _redact_secrets, _build_ssl_context as _build_ssl_context
-from release_download import _is_github_asset_url, _is_release_download_url, _safe_zip_name, _RELEASE_ASSET_HOSTS as _RELEASE_ASSET_HOSTS, _RELEASE_DOWNLOAD_PREFIX as _RELEASE_DOWNLOAD_PREFIX
+from release_download import _is_github_asset_url, _is_release_download_url, _safe_zip_name, _expected_sha256, DigestError, _RELEASE_ASSET_HOSTS as _RELEASE_ASSET_HOSTS, _RELEASE_DOWNLOAD_PREFIX as _RELEASE_DOWNLOAD_PREFIX
 from tabmaster import get_tabmaster_tabs as _tabmaster_tabs
 from user_files import _json_export_roots, read_image_b64 as _read_image_b64, read_json_file as _read_json_file, write_json_file as _write_json_file
 from steam_session import _STEAM_ID64_BASE, _requested_steam_id64, aes_128_cbc, bcrypt_aes_gcm_decrypt, dpapi_unprotect, get_steam_id64, macos_safe_storage_password
@@ -46,7 +47,7 @@ DEFAULT_SETTINGS: Dict[str, Any] = {"enabled": False, "hideRecents": False, "rec
 _DOWNLOAD_MAX_BYTES = 200 * 1024 * 1024
 
 
-def _stream_to(resp, f) -> None:
+def _stream_to(resp, f, digest=None) -> None:
     total = 0
     while True:
         chunk = resp.read(65536)
@@ -55,20 +56,27 @@ def _stream_to(resp, f) -> None:
         total += len(chunk)
         if total > _DOWNLOAD_MAX_BYTES:
             raise ValueError("download exceeds the size cap")
+        if digest is not None:
+            digest.update(chunk)
         f.write(chunk)
 
 
-def _download_to(url: str, dest: str) -> str:
+def _download_to(url: str, dest: str, sha256: str = "") -> str:
     """Blocking download (run off the asyncio loop). Streams to a .part file then
     atomically renames, so a partial download never looks complete; the final
-    URL after redirects must still be a release host, and the size is capped."""
+    URL after redirects must still be a release host, the size is capped, and the
+    SHA-256 must match the release digest before the rename."""
+    expected = _expected_sha256(sha256)
     req = urllib.request.Request(url, headers={"Accept": "application/octet-stream", "User-Agent": "Deck-Shelves"})
     tmp = dest + ".part"
     try:
+        digest = hashlib.sha256()
         with urllib.request.urlopen(req, timeout=60, context=_SSL_CTX) as resp, open(tmp, "wb") as f:
             if not _is_github_asset_url(resp.geturl()):
                 raise ValueError("download redirected off the release hosts")
-            _stream_to(resp, f)
+            _stream_to(resp, f, digest)
+        if not hmac.compare_digest(digest.hexdigest(), expected):
+            raise DigestError("digest_mismatch")
         os.replace(tmp, dest)
     except Exception:
         try:
@@ -263,10 +271,6 @@ class Plugin:
                 return kind if isinstance(kind, str) else ""
         return ""
 
-    async def reset_settings(self) -> Dict[str, Any]:
-        self._write_state(DEFAULT_SETTINGS)
-        return dict(DEFAULT_SETTINGS)
-
     async def list_backups(self, *args, **kwargs) -> Dict[str, Any]:
         return await asyncio.to_thread(lambda: {"backups": _list_backups(), "quarantined": count_quarantined()})
 
@@ -360,9 +364,6 @@ class Plugin:
     def _get_tabmaster_tabs_sync(self) -> Dict[str, Any]:  # noqa: C901
         return _tabmaster_tabs()
 
-    async def get_user_home(self) -> str:
-        return os.path.expanduser("~")
-
     async def get_user_desktop(self) -> str:
         for candidate in [os.path.expanduser("~/Downloads"), os.path.expanduser("~/Desktop"), os.path.expanduser("~")]:
             if os.path.exists(candidate):
@@ -375,11 +376,13 @@ class Plugin:
                 return candidate
         return os.path.expanduser("~")
 
-    async def download_release(self, url: str = "", filename: str = "", *args, **kwargs) -> Dict[str, Any]:
+    async def download_release(self, url: str = "", filename: str = "", sha256: str = "", *args, **kwargs) -> Dict[str, Any]:
         # Only this project's GitHub release assets are accepted, and the name is reduced to a safe basename.
+        # The release digest is required: without a matching SHA-256 nothing is saved.
         _ = (args, kwargs)
         if isinstance(url, dict):
             filename = filename or str(url.get("filename") or "")
+            sha256 = sha256 or url.get("sha256") or ""
             url = str(url.get("url") or "")
         if not filename and isinstance(kwargs.get("filename"), str):
             filename = kwargs.get("filename")
@@ -388,10 +391,14 @@ class Plugin:
         safe_name = _safe_zip_name(filename)
         if not safe_name:
             return {"ok": False, "error": "bad filename"}
+        try:
+            _expected_sha256(sha256)
+        except DigestError as e:
+            return {"ok": False, "error": str(e)}
         dest = os.path.join(await self.get_user_desktop(), safe_name)
         try:
             loop = asyncio.get_event_loop()
-            saved = await loop.run_in_executor(None, _download_to, url, dest)
+            saved = await loop.run_in_executor(None, _download_to, url, dest, sha256)
             try:
                 logger.info(f"download_release saved: {saved}")
             except Exception:

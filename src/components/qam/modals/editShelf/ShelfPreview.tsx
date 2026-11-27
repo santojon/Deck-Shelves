@@ -6,9 +6,10 @@ import { shouldShowMoreCard, shouldShowRefreshCard } from '../../../shelf/traili
 import type { PlatformAppMeta } from '../../../../runtime/platform'
 import { computeCenteredScrollLeft } from '../../../../core/scrollUtils'
 import { getLocalLibraryAppIds } from '../../../../steam'
-import { computeOwnedHideState, namesFromOwnedSet, mergeAppOverviewNames, buildHiddenSet, shouldHideOwnedCard, resolveCardFlags, makeToggleHandler, spliceSyntheticCards } from './previewRowData'
+import { computeOwnedHideState, namesFromOwnedSet, mergeAppOverviewNames, buildHiddenSet, shouldHideOwnedCard, resolveCardFlags, makeToggleHandler, spliceSyntheticCards, previewBadgeModes, previewPriceFields, withFocusedBadgeMode } from './previewRowData'
 import { DIR_LEFT, DIR_RIGHT, HOLD_MS } from './constants'
 import { findCardIndexAtX, reorderIds, readPriceCache } from './dragReorder'
+import type { DiscountBadgeMode } from '../../../shelf/discountBadge'
 
 // Featured cards are 3.21× wider, the ratio the home shelf uses for hero art.
 const PREVIEW_CARD_W = 78
@@ -104,6 +105,9 @@ export interface ShelfPreviewProps {
   hideInstallIndicator: boolean
   hideSeeMore: boolean
   hideRefreshCard: boolean
+  hideDiscountBadge?: boolean
+  discountBadgeMode?: DiscountBadgeMode
+  discountBadgeFocusMode?: DiscountBadgeMode | null
   highlightFirst: boolean
   highlightAll: boolean
   highlightedAppIds: number[]
@@ -134,6 +138,7 @@ export function ShelfPreview({
   t, ids, meta, limit, shelfSource, shelfSort,
   hideStatusLine, hideNewBadge, hideCompatIcons, hideNonSteamBadge,
   hideGameNames, hideInstallIndicator, hideSeeMore, hideRefreshCard,
+  hideDiscountBadge = false, discountBadgeMode, discountBadgeFocusMode,
   highlightFirst, highlightAll, highlightedAppIds, hiddenAppIds, onRefresh, onFocusedIndexChange,
   syntheticCards, selectionMode, selectionSet, onToggleSelection,
   removableSet, onRemoveCard,
@@ -192,11 +197,6 @@ export function ShelfPreview({
   }, [ownedHideState])
   const rowItems = useMemo<DeckRowItem[]>(() => {
     const priceCache = readPriceCache(isOnlineShelfSource)
-    const readDiscount = (id: number): number | undefined => {
-      if (!isOnlineShelfSource) return undefined
-      const d = priceCache?.[id]?.data?.discount
-      return typeof d === 'number' && d > 0 ? d : undefined
-    }
     const hiddenSet = buildHiddenSet(hiddenAppIds)
     const out: DeckRowItem[] = []
     let cardIdx = -1
@@ -223,7 +223,7 @@ export function ShelfPreview({
         playtimeMinutes: m.playtimeMinutes,
         updatePending: m.updatePending,
         isNew,
-        discountPercent: readDiscount(id),
+        ...previewPriceFields(priceCache, id),
         selectionMark: mark,
         onToggleSelection: makeToggleHandler(id, manualSortMode, selectionMode, setGrabbedAppid, onToggleSelection),
       })
@@ -234,6 +234,10 @@ export function ShelfPreview({
     return out
   }, [cappedIds.join(','), meta, showRefresh, showMore, onRefresh, t, JSON.stringify(syntheticCards ?? null), selectionMode, selectionSet, onToggleSelection, isOnlineShelfSource, manualSortMode, grabbedAppid, hiddenAppIds?.join(','), removableSet, highlightedSet, highlightAll, highlightFirst, ownedHideState, ownedAppIds, ownedNames])
 
+  const badgeModes = previewBadgeModes({ discountBadgeMode, discountBadgeFocusMode })
+  const [focusedAppid, setFocusedAppid] = useState<number | null>(null)
+  const shownItems = useMemo(() => withFocusedBadgeMode(rowItems, focusedAppid, badgeModes), [rowItems, focusedAppid, badgeModes.normal, badgeModes.focused])
+
   // Instant scroll keeps the focused card in view; fast L/R input loses it otherwise.
   useEffect(() => {
     const row = rowRef.current
@@ -243,6 +247,7 @@ export function ShelfPreview({
       const target = e.target as HTMLElement | null
       const card = target?.closest('.ds-card') as HTMLElement | null
       if (!card || !row.contains(card)) return
+      setFocusedAppid(Number(card.getAttribute('data-appid')) || null)
       try {
         const cards = Array.from(row.querySelectorAll('.ds-card'))
         const idx = cards.indexOf(card)
@@ -258,9 +263,15 @@ export function ShelfPreview({
         }
       })
     }
+    const onFocusOut = (e: FocusEvent) => {
+      const next = e.relatedTarget as Node | null
+      if (!next || !row.contains(next)) setFocusedAppid(null)
+    }
     row.addEventListener('focusin', onFocusIn)
+    row.addEventListener('focusout', onFocusOut)
     return () => {
       row.removeEventListener('focusin', onFocusIn)
+      row.removeEventListener('focusout', onFocusOut)
       if (raf !== null) cancelAnimationFrame(raf)
     }
   }, [onFocusedIndexChange])
@@ -438,7 +449,7 @@ export function ShelfPreview({
         }}
       >
         <ShelfRow
-          items={rowItems}
+          items={shownItems}
           cardW={PREVIEW_CARD_W}
           cardH={PREVIEW_ART_H}
           featuredW={FEATURED_CARD_W}
@@ -448,6 +459,8 @@ export function ShelfPreview({
           highlightedSet={highlightedSet}
           hideStatusLine={hideStatusLine}
           hideNewBadge={hideNewBadge}
+          hideDiscountBadge={hideDiscountBadge}
+          discountBadgeMode={badgeModes.normal}
           hideCompatIcons={hideCompatIcons}
           hideNonSteamBadge={hideNonSteamBadge}
           hideGameName={hideGameNames}

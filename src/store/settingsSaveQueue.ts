@@ -1,5 +1,4 @@
 import { call } from "../runtime/host/decky";
-import { isHomeOwner } from "../runtime/host/ownerGuard";
 import type { Settings } from "../types";
 import { logError, logInfo, logWarn } from "../runtime/logger";
 import { qaOverrideActive } from "../qa/harness";
@@ -56,11 +55,6 @@ export function snapshotOnNextSave(kind: SafetySnapshotKind): void {
 async function runSave(next: Settings): Promise<boolean> {
   const snapshot = nextSaveSnapshot;
   nextSaveSnapshot = null;
-  // Single writer: a stood-down instance never writes settings.
-  if (!isHomeOwner()) {
-    logInfo("STORAGE", "saveSettings skipped — not the renderer owner (single-writer)");
-    return true;
-  }
   logInfo("STORAGE", "saveSettings start", { enabled: next.enabled, shelfCount: next.shelves.length });
 
   // One attempt; the cache and `lastSaveSucceeded` cover failures until the next save.

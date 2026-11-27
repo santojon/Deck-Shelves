@@ -45,7 +45,7 @@ export function VisualTabContent({
     </Field>
   )
   return (
-    <FieldContainer scrollable>
+    <FieldContainer>
       <ToggleField label={t('match_native_size')} checked={flags.matchNativeSize} onChange={(v: boolean) => setFlags({ matchNativeSize: v })} />
       <ToggleField label={t('highlight_first')} checked={flags.highlightFirst} onChange={(v: boolean) => setFlags({ highlightFirst: v })} />
       <ToggleField label={t('highlight_all')} checked={flags.highlightAll} onChange={(v: boolean) => setFlags({ highlightAll: v })} />

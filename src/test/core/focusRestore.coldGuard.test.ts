@@ -9,6 +9,7 @@ vi.mock("../../runtime/powerGate", () => ({
 }));
 
 import { beginColdBootFocusGuard, clearFocusTarget, saveFocusTarget } from "../../core/focusRestore";
+import { modalOpened } from "../../runtime/openModals";
 
 function shelfCard(shelfId: string, focused = false) {
   const card = document.createElement("div");
@@ -52,6 +53,21 @@ describe("cold-boot focus guard", () => {
     document.body.dispatchEvent(new Event("vgp_ondirection", { bubbles: true }));
     await vi.advanceTimersByTimeAsync(200);
     expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("waits out our own modal at boot, ignores presses inside it, then puts focus back on the first shelf", async () => {
+    const second = shelfCard("s2", true);
+    const first = shelfCard("s1");
+    const closeModal = modalOpened();
+    beginColdBootFocusGuard(["s1", "s2"]);
+    await vi.advanceTimersByTimeAsync(400);
+    document.body.dispatchEvent(new Event("vgp_ondirection", { bubbles: true }));
+    await vi.advanceTimersByTimeAsync(40000);
+    expect(first.node.BTakeFocus).not.toHaveBeenCalled();
+    closeModal();
+    await vi.advanceTimersByTimeAsync(400);
+    expect(first.node.BTakeFocus).toHaveBeenCalled();
+    expect(second.node.BTakeFocus).not.toHaveBeenCalled();
   });
 
   it("claims the first shelf's card when nothing has focus and Steam's row is hidden", async () => {

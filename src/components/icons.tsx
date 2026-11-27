@@ -524,6 +524,39 @@ export function CloudIcon({ size = 14, style }: IconProps) {
   );
 }
 
+export function InternalDriveIcon({ size = 14, style }: IconProps) {
+  return (
+    <svg {...baseProps(size, style)}>
+      <rect x="3" y="6" width="18" height="12" rx="2" />
+      <line x1="7" y1="14" x2="7.01" y2="14" />
+      <line x1="11" y1="14" x2="17" y2="14" />
+    </svg>
+  );
+}
+
+export function SdCardIcon({ size = 14, style }: IconProps) {
+  return (
+    <svg {...baseProps(size, style)}>
+      <path d="M9 3h8a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V7z" />
+      <line x1="10" y1="7" x2="10" y2="9" />
+      <line x1="13" y1="7" x2="13" y2="9" />
+      <line x1="16" y1="7" x2="16" y2="9" />
+    </svg>
+  );
+}
+
+export function NetworkDriveIcon({ size = 14, style }: IconProps) {
+  return (
+    <svg {...baseProps(size, style)}>
+      <rect x="3" y="3" width="18" height="8" rx="2" />
+      <line x1="7" y1="7" x2="7.01" y2="7" />
+      <line x1="12" y1="11" x2="12" y2="17" />
+      <line x1="3" y1="20" x2="21" y2="20" />
+      <circle cx="12" cy="19" r="1.5" />
+    </svg>
+  );
+}
+
 export function DeckShelvesLogo({ size = 40 }: { size?: number }) {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 512 512" aria-hidden="true" style={{ flexShrink: 0 }}>

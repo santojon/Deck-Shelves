@@ -40,3 +40,10 @@ def test_saving_twice_changes_nothing():
     source = {"type": "composite", "combine": "union", "sources": [{"type": "wishlist"}, {"type": "store"}], "postFilter": LOCAL_COOP}
     once = _saved_source(source)
     assert _saved_source(once) == once == source
+
+
+def test_a_smart_mode_as_the_shelf_source_survives_alone_and_first_of_several():
+    alone = {"type": "smart", "mode": "hidden_gems"}
+    first = {"type": "composite", "combine": "union", "sources": [{"type": "smart", "mode": "acme.mode", "sort": "recent", "limit": 5}, {"type": "wishlist"}]}
+    assert _saved_source(alone) == alone
+    assert _saved_source(first) == first

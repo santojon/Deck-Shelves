@@ -32,8 +32,19 @@ export function AccountChoiceModal({ closeModal, question }: { closeModal?: () =
   );
 }
 
+let closeOpenChoice: (() => void) | null = null;
+
 export function openAccountChoice(question: AccountQuestion): void {
-  openManagedModal((close) => <AccountChoiceModal closeModal={close} question={question} />);
+  closeAccountChoice();
+  const close = openManagedModal((done) => <AccountChoiceModal closeModal={() => { closeOpenChoice = null; done(); }} question={question} />);
+  closeOpenChoice = close;
+}
+
+// The modal lives in Steam's modal stack, so a plugin reload would leave it open without this.
+export function closeAccountChoice(): void {
+  const close = closeOpenChoice;
+  closeOpenChoice = null;
+  close?.();
 }
 
 export function notifyAccountRestored(): void {

@@ -4,8 +4,6 @@ import {
   ToggleField,
 } from '../runtime/host/decky'
 import { getMountFailed, getMountError, subscribeMountFailed } from '../runtime/homePatch'
-import { hostProvidesNativeTab } from '../runtime/host/resolve'
-import { isHomeOwner } from '../runtime/host/ownerGuard'
 import { restartSteam } from '../runtime/ownQamTab'
 import type { SettingsController } from '../features/settings/controller'
 import { usePlatform } from '../runtime/platformContext'
@@ -446,7 +444,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
         )
         ))()}
         {(() => (
-        !isHid('ownQamTabEnabled') && !hostProvidesNativeTab() && isHomeOwner() && (
+        !isHid('ownQamTabEnabled') && (
           <ToggleField label={t('own_qam_tab_enabled' as any)} checked={(settings as any).ownQamTabEnabled === true} onChange={(value: boolean) => {
             const saved = (actions as any).setOwnQamTabEnabled(value);
             confirmAction({

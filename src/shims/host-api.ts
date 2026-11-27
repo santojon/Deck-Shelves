@@ -59,11 +59,6 @@ function unwrapResult<T>(response: any): T {
   return response as T;
 }
 
-function getShelvesHost(): any {
-  const g = globalThis as any;
-  return g.window?.__SHELVES_HOST__ ?? g.__SHELVES_HOST__ ?? null;
-}
-
 // No args → {}, one arg → as-is (kwargs-shaped), many → wrapped.
 function toPayload(args: unknown[]): unknown {
   if (args.length === 0) return {};
@@ -85,9 +80,6 @@ export async function call<TArgs extends unknown[], TResult>(method: string, ...
   if (api?.call) {
     return await api.call<TResult>(method, ...args);
   }
-
-  const sh = getShelvesHost();
-  if (sh?.rpc?.call) return await sh.rpc.call(method, payload) as TResult;
 
   throw new Error(`Deck Shelves: backend not ready for ${method}`);
 }
@@ -128,16 +120,6 @@ function tryToast(target: any, input: any): { done: boolean; result?: any } {
   return { done: true, result: toaster.toast(input) };
 }
 
-// A conforming host exposes toast(opts); older ones only send().
-function tryShelvesHubToast(input: { title?: string; body?: string; duration?: number; logo?: unknown; icon?: unknown }): { done: boolean; result?: any } {
-  const notifs = getShelvesHost()?.notifications;
-  if (notifs?.toast) {
-    return { done: true, result: notifs.toast({ title: input.title ?? "", body: input.body, durationMs: input.duration, logo: input.logo, icon: input.icon }) };
-  }
-  if (notifs?.send) return { done: true, result: notifs.send(input.title ?? "", input.body ?? "", input.duration, { logo: input.logo, icon: input.icon }) };
-  return { done: false };
-}
-
 export const toaster = {
   toast(input: { title?: string; body?: string; duration?: number }) {
     try {
@@ -147,8 +129,6 @@ export const toaster = {
       if (b.done) return b.result;
       const c = tryToast(getDeckyGlobal(), input);
       if (c.done) return c.result;
-      const d = tryShelvesHubToast(input);
-      if (d.done) return d.result;
     } catch (error) {
       logWarn("RUNTIME", "toast failed", { error: String(error), input });
     }

@@ -1,16 +1,9 @@
-function getShelvesHost(): any {
-  const g = globalThis as any;
-  return g.window?.__SHELVES_HOST__ ?? g.__SHELVES_HOST__ ?? null;
-}
-
-// Lazy so a UI lib injected late by a neutral host still resolves.
 export function getFrontendLib(): any {
   const g = globalThis as any;
   return g.DFL
     ?? g.deckyFrontendLib
     ?? g.window?.DFL
     ?? g.window?.deckyFrontendLib
-    ?? getShelvesHost()?.ui
     ?? null;
 }
 

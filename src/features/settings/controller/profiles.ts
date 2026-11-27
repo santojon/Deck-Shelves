@@ -1,6 +1,5 @@
 import type { Settings } from "../../../types";
-import { writeJsonFile, readJsonFile } from "../../../settingsStore";
-import { createPreImportSnapshot, snapshotOnNextSave } from "../../../store/settingsStore";
+import { writeJsonFile, readJsonFile, createPreImportSnapshot, snapshotOnNextSave } from "../../../store/settingsStore";
 import { isPerAccount, setPerAccount } from "../../../domain/accountBuckets";
 import { currentAccountKey } from "../../../runtime/steamAccount";
 import { trackFeature } from "../../../steam/usageTracking";
@@ -32,8 +31,12 @@ export function keepShelfFields(next: Settings, from: Settings): void {
   for (const f of SHELF_LINK_FIELDS) (next as any)[f] = (from as any)[f];
 }
 
+// Sync bookkeeping belongs to the live settings: an old copy in a profile would roll the cloud state back.
+export const SYNC_BOOKKEEPING_FIELDS = ["syncTombstones", "preferencesUpdatedAt", "cloudSyncLastSyncedAt"] as const;
+
 export function keepDeviceLocalFields(next: Settings, from: Settings): void {
   for (const f of DEVICE_LOCAL_FIELDS) (next as any)[f] = (from as any)[f];
+  for (const f of SYNC_BOOKKEEPING_FIELDS) (next as any)[f] = (from as any)[f];
 }
 
 function randomProfileId(): string {
@@ -44,6 +47,7 @@ function randomProfileId(): string {
 export function takeSnapshot(s: Settings): Record<string, unknown> {
   const { profiles: _p, activeProfileName: _n, showcaseSeen: _s, ...rest } = s as any;
   for (const f of DEVICE_LOCAL_FIELDS) delete (rest as any)[f];
+  for (const f of SYNC_BOOKKEEPING_FIELDS) delete (rest as any)[f];
   return rest as Record<string, unknown>;
 }
 

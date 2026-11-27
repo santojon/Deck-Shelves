@@ -13,7 +13,7 @@ vi.mock('../../../components/home/navPatches', () => ({
 }))
 vi.mock('../../../runtime/devStamps', () => ({ devStamp: noop }))
 vi.mock('../../../components/Shelf', () => ({ ShelfView: () => null }))
-vi.mock('../../../settingsStore', () => ({ saveSettings: async () => true, getCurrentSettings: () => null }))
+vi.mock('../../../store/settingsStore', () => ({ saveSettings: async () => true, getCurrentSettings: () => null }))
 vi.mock('../../../core/reorder', () => ({ useContainerDragReorder: noop }))
 vi.mock('../../../runtime/deckyPlatform', () => ({ createDeckyPlatform: () => ({}) }))
 vi.mock('../../../runtime/logger', () => ({ logInfo: noop }))

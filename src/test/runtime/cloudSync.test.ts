@@ -11,8 +11,8 @@ vi.mock("../../store/settingsStore", () => ({
   saveSettings: (n: any) => { saved.push(n); store.current = n; return Promise.resolve(true); },
   subscribeSettings: () => () => {},
 }));
-vi.mock("../../runtime/host/ownerGuard", () => ({ isHomeOwner: () => true }));
-vi.mock("../../runtime/notify", () => ({ notifyUser: () => {} }));
+const toasts: string[] = [];
+vi.mock("../../runtime/notify", () => ({ notifyUser: (_t: string, body: string) => { toasts.push(body); } }));
 vi.mock("../../i18n", () => ({ default: { t: (k: string) => k } }));
 vi.mock("../../qa/harness", () => ({ get qaOverrideActive() { return qa.active; } }));
 vi.mock("../../runtime/steamAccount", () => ({
@@ -57,6 +57,39 @@ describe("cloud sync on an empty device", () => {
     expect(saved[0].shelves.map((s: any) => s.id)).toEqual(["s1"]);
   });
 
+  it("tells the user when it adopts something they can see, and stays quiet when only the clocks moved", async () => {
+    toasts.length = 0;
+    store.current = { cloudSyncEnabled: true, shelves: [], smartShelves: [], preferencesUpdatedAt: 0 };
+    cloud.raw = cloudDoc({ shelves: [SHELF], smartShelves: [], preferencesUpdatedAt: 900 });
+    let mod = await import("../../runtime/cloudSync");
+    let dispose = mod.installCloudSync();
+    await settle();
+    dispose();
+    expect(toasts).toEqual(["cloud_sync_applied"]);
+
+    toasts.length = 0; saved.length = 0; vi.resetModules();
+    store.current = { cloudSyncEnabled: true, shelves: [{ ...SHELF, updatedAt: 400 }], smartShelves: [], preferencesUpdatedAt: 0 };
+    cloud.raw = cloudDoc({ shelves: [SHELF], smartShelves: [], preferencesUpdatedAt: 900 });
+    mod = await import("../../runtime/cloudSync");
+    dispose = mod.installCloudSync();
+    await settle();
+    dispose();
+    expect(saved.length).toBeGreaterThan(0);
+    expect(toasts).toEqual([]);
+  });
+
+  it("stays quiet when the cloud holds false fields the local copy leaves out", async () => {
+    toasts.length = 0;
+    store.current = { cloudSyncEnabled: true, shelves: [SHELF], smartShelves: [], preferencesUpdatedAt: 900 };
+    cloud.raw = cloudDoc({ shelves: [{ ...SHELF, heroEnabled: false, sortReverse: [false] }], smartShelves: [], preferencesUpdatedAt: 900 });
+    const { installCloudSync } = await import("../../runtime/cloudSync");
+    const dispose = installCloudSync();
+    await settle();
+    dispose();
+    expect(toasts).toEqual([]);
+    expect(store.current.shelves[0]).toEqual(SHELF);
+  });
+
   it("never pushes an empty snapshot when the cloud is empty too", async () => {
     store.current = { cloudSyncEnabled: true, shelves: [], smartShelves: [], preferencesUpdatedAt: 0 };
     cloud.raw = null;
@@ -78,6 +111,33 @@ describe("cloud sync on an empty device", () => {
     expect(cloud.writes).toEqual([]);
     expect(saved[0].shelves.map((s: any) => s.id)).toEqual(["s1"]);
     expect(saved[saved.length - 1].cloudSyncLastSyncedAt).toBe(1000);
+  });
+});
+
+describe("cloud sync with a deletion mark past its lifetime", () => {
+  beforeEach(() => {
+    saved.length = 0; cloud.writes.length = 0;
+    (globalThis as any).SteamClient = {
+      RoamingStorage: {
+        GetString: async () => cloud.raw ?? "",
+        SetString: async (_k: string, v: string) => { cloud.writes.push(v); cloud.raw = v; },
+      },
+    };
+    vi.resetModules();
+  });
+
+  it("neither brings the expired mark back locally nor keeps it in the cloud, so the next round has nothing to do", async () => {
+    const old = Date.now() - 61 * 24 * 60 * 60 * 1000;
+    const base = { shelves: [SHELF], smartShelves: [], savedFilters: [], savedSmartFilters: [], profiles: [], preferencesUpdatedAt: 900 };
+    store.current = { cloudSyncEnabled: true, ...base, syncTombstones: {} };
+    cloud.raw = cloudDoc({ ...base, syncTombstones: { gone: old } });
+    const { installCloudSync } = await import("../../runtime/cloudSync");
+    const dispose = installCloudSync();
+    await settle();
+    dispose();
+    expect(saved.some((s) => s.syncTombstones && "gone" in s.syncTombstones)).toBe(false);
+    expect(store.current.syncTombstones).toEqual({});
+    expect(JSON.parse(cloud.raw as string).settings.syncTombstones).toEqual({});
   });
 });
 

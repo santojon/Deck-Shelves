@@ -1,12 +1,6 @@
-function getShelvesHost(): any {
-  const g = globalThis as any;
-  return g.window?.__SHELVES_HOST__ ?? g.__SHELVES_HOST__ ?? null;
-}
-
 const JSXGlobal =
   (globalThis as any).SP_JSX ||
-  (globalThis as any).window?.SP_JSX ||
-  getShelvesHost()?.jsx;
+  (globalThis as any).window?.SP_JSX;
 
 if (!JSXGlobal) {
   throw new Error("Deck Shelves: JSX runtime global is not available in the Deck runtime.");

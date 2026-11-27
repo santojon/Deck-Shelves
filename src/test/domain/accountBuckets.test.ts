@@ -27,6 +27,12 @@ describe("whose settings a signed-in account gets", () => {
     expect(decideAccount(doc(), A, B)).toBe("ask-legacy");
   });
 
+  it("a clean install with nothing to adopt is taken without asking", () => {
+    expect(decideAccount(defaultSettings() as any, A, undefined)).toBe("assign");
+    expect(decideAccount({ ...defaultSettings(), theme: "dark" } as any, A, B)).toBe("assign");
+    expect(decideAccount(doc({ shelves: [], profiles: [], smartShelves: [{ id: "s" }] }), A, undefined)).toBe("ask-legacy");
+  });
+
   it("another account: its own settings come back, or it is asked when it has none", () => {
     expect(decideAccount(doc({ accountSettings: { owner: A, buckets: { [B]: {} } } }), B, A)).toBe("restore");
     expect(decideAccount(doc({ accountSettings: { owner: A } }), B, A)).toBe("ask-new");

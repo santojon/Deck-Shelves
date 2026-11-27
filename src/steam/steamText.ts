@@ -6,6 +6,7 @@ export const STEAM_TEXT = {
   recentGames: ["#LibraryHome_RecentGames", "#Showcase_RecentGames", "#Showcase_CurrentGame"],
   homeTabs: ["#HomeTab_WhatsNew", "#HomeTab_Friends", "#HomeTab_Recommended"],
   closeButton: ["#Button_Close", "#Generic_Close", "#Button_Cancel"],
+  sdCard: ["#ContentManagement_ExternalMicroSD", "#Settings_System_SDCard"],
 } as const;
 
 export type SteamTextName = keyof typeof STEAM_TEXT;

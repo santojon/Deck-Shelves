@@ -1,6 +1,6 @@
 import type { SmartShelfMode } from '../../../../types'
 
-export type SourceType = 'collection' | 'tab' | 'filter' | 'external' | 'wishlist' | 'store' | 'builtin'
+export type SourceType = 'collection' | 'tab' | 'filter' | 'external' | 'wishlist' | 'store' | 'builtin' | 'smart'
 
 export const V3_SOURCE_OPTIONS: { value: string; labelKey?: string; label?: string }[] = [
   { value: 'dynamic_collections', labelKey: 'source_v3_dynamic_collections' },

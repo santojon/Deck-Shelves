@@ -8,7 +8,6 @@ export default defineConfig(({ mode }) => {
     plugins: [react({ jsxRuntime: "automatic" })],
     define: {
       "process.env.NODE_ENV": JSON.stringify(isProd ? "production" : "development"),
-      __DECK_SHELVES_ENABLE_HOME_PATCH__: JSON.stringify(true),
       __DEV__: JSON.stringify(!isProd),
       __QA_FIRST_RUN__: JSON.stringify(!isProd && process.env.DS_QA_FORCE_FIRST_RUN === "1"),
       __QA_QAM_ERROR__: JSON.stringify(!isProd && process.env.DS_QA_FORCE_QAM_ERROR === "1"),
@@ -39,7 +38,6 @@ export default defineConfig(({ mode }) => {
         { find: /^@host\/api$/, replacement: path.resolve(import.meta.dirname, "src/shims/host-api.ts") },
         { find: /^@host\/ui$/, replacement: path.resolve(import.meta.dirname, "src/shims/host-ui.ts") },
         { find: /^@host\/manifest$/, replacement: path.resolve(import.meta.dirname, "src/shims/host-manifest.ts") },
-        { find: /^@$/, replacement: path.resolve(import.meta.dirname, "src") },
       ],
     },
     build: {
@@ -62,15 +60,9 @@ export default defineConfig(({ mode }) => {
             entryFileNames: "index.js",
             chunkFileNames: "chunks/[name]-[hash].js",
             assetFileNames: "assets/[name]-[hash][extname]",
-            // Force `onlineStore` into its own chunk. Without this, Rollup
-            // co-locates it with the steam chunk (because the resolver does
-            // `await import("../core/onlineStore")`) but rewrites the dynamic
-            // import target to `../index.js` (the main bundle), which has no
-            // onlineStore exports — so `getWishlistIds`, `getPriceMap`,
-            // `getStoreGameIds` all come back undefined at runtime and the
-            // wishlist / store branches throw "X is not a function". A
-            // dedicated chunk makes the dynamic import resolve to its real
-            // location.
+            // Keep `onlineStore` in its own chunk: otherwise Rollup points its dynamic
+            // import at index.js, which lacks those exports, and the wishlist/store
+            // calls fail at runtime with "X is not a function".
             manualChunks(id: string) {
               if (id.includes("/src/core/onlineStore")) return "onlineStore";
               return undefined;

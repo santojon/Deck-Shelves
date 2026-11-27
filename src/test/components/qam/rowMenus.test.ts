@@ -150,6 +150,26 @@ describe('shelf row menu', () => {
     expect(host.opened).toHaveLength(1)
     expect(host.opened[0].anchor).toBe(button)
   })
+
+  it('closes an open sidecar first and opens the menu once the panel can step aside', async () => {
+    vi.useFakeTimers()
+    try {
+      const { useQamExpanded } = await import('../../../components/qam/qamExpandedStore')
+      let setExpanded: (v: boolean) => void = () => {}
+      let expanded = false
+      const Probe = () => { const [v, set] = useQamExpanded(); expanded = v; setExpanded = set; return null }
+      const { controller } = controllerOf({ shelves: [shelf('a')] })
+      const view = show(h('div', null, h(Probe), h(ShelfRowMenuButton, { controller, shelf: controller.shelves[0], index: 0, count: 1, onMove: vi.fn() })))
+      act(() => setExpanded(true))
+      act(() => (view.querySelector('.row-button') as HTMLButtonElement).click())
+      expect(expanded).toBe(false)
+      expect(host.opened).toHaveLength(0)
+      act(() => { vi.advanceTimersByTime(250) })
+      expect(host.opened).toHaveLength(1)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
 })
 
 describe('smart shelf row menu', () => {

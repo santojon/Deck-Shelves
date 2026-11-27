@@ -3,7 +3,7 @@ import { describe, it, expect, vi } from 'vitest'
 vi.mock('i18next', () => ({ default: { t: (k: string) => k } }))
 vi.mock('../../../../components/notify', () => ({ notify: vi.fn() }))
 vi.mock('../../../../steam/usageTracking', () => ({ trackFeature: vi.fn() }))
-vi.mock('../../../../settingsStore', () => ({ writeJsonFile: vi.fn(), readJsonFile: vi.fn() }))
+vi.mock('../../../../store/settingsStore', () => ({ writeJsonFile: vi.fn(), readJsonFile: vi.fn() }))
 const snapshots = vi.hoisted(() => ({ kinds: [] as string[] }))
 vi.mock('../../../../store/settingsStore', () => ({ snapshotOnNextSave: (kind: string) => { snapshots.kinds.push(kind) }, createPreImportSnapshot: async () => { snapshots.kinds.push('import') } }))
 vi.mock('../../../../domain/defaults', () => ({

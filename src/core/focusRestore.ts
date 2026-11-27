@@ -3,6 +3,7 @@ import { getSessionState } from "../runtime/sessionState";
 import { registerDisposer } from "../runtime/runtimeDisposer";
 import { getPowerState, homeRouteCovered, registerPeriodic } from "../runtime/powerGate";
 import { steamUIStore } from "../steam/internals";
+import { isPluginModalOpen } from "../runtime/openModals";
 
 /* The document the Home lives in: the one holding our root, else Steam's main
    window, else the preferred one. Read live — the preferred window can point
@@ -294,13 +295,19 @@ const FOCUS_FIRST_POLL_MS = 600;
 const FOCUS_FIRST_WINDOW_MS = 25_000;
 
 // Retries landing on the first shelf while the Home is active, and once more on each return.
-export function startFocusFirstPoll(tryFocus: () => boolean, aRealCardHasFocus: () => boolean): () => void {
+// The resume hook stays even when the first focus already landed: with Steam's row on screen it lands at
+// once, and the Home comes back from a game or page without a mount.
+export function startFocusFirstPoll(tryFocus: () => boolean, aRealCardHasFocus: () => boolean, landed = false): () => void {
   const started = Date.now();
   let timer: ReturnType<typeof setInterval> | null = null;
+  let done = landed;
   const stop = () => { if (timer !== null) { clearInterval(timer); timer = null; } };
   const start = () => {
-    if (timer !== null || Date.now() - started > FOCUS_FIRST_WINDOW_MS) return;
-    timer = setInterval(() => { if (tryFocus() || Date.now() - started > FOCUS_FIRST_WINDOW_MS) stop(); }, FOCUS_FIRST_POLL_MS);
+    if (done || timer !== null || Date.now() - started > FOCUS_FIRST_WINDOW_MS) return;
+    timer = setInterval(() => {
+      if (tryFocus()) done = true;
+      if (done || Date.now() - started > FOCUS_FIRST_WINDOW_MS) stop();
+    }, FOCUS_FIRST_POLL_MS);
   };
   const unregister = registerPeriodic("homeFocusFirst", {
     runIn: ["active"], start, stop,
@@ -376,6 +383,9 @@ const COLD_BOOT_GUARD_MS = 6000;
 // The window counts from the first rendered card; this caps the wait for it.
 const COLD_BOOT_GUARD_MAX_MS = 30000;
 
+// A modal open at boot (the account question) pauses the guard; past this it gives up waiting.
+const COLD_BOOT_MODAL_WAIT_MAX_MS = 5 * 60 * 1000;
+
 // Steam's boot reflex can land outside our cards; give it a head start, then claim the first card.
 const COLD_BOOT_FALLBACK_GRACE_MS = 2000;
 
@@ -429,14 +439,16 @@ export function beginColdBootFocusGuard(orderedShelfIds: string[], nativeRow?: N
 
   // A real directional press means the user is in control; stand down for good.
   let userNavigated = false;
-  const onDirection = () => { userNavigated = true; };
+  // Presses inside our own modal are not the user taking over the Home.
+  const onDirection = () => { if (!isPluginModalOpen()) userNavigated = true; };
   doc.addEventListener("vgp_ondirection", onDirection, true);
   const cleanup = () => doc.removeEventListener("vgp_ondirection", onDirection, true);
   abort.signal.addEventListener("abort", cleanup, { once: true });
 
   // BTakeFocus reports success even when the node isn't reachable, so keep claiming until a card holds focus.
   let lastClaimAt = 0;
-  const armedAt = Date.now();
+  const firstArmedAt = Date.now();
+  let armedAt = firstArmedAt;
   let start = armedAt;
   const expired = () => Date.now() - start >= COLD_BOOT_GUARD_MS || Date.now() - armedAt >= COLD_BOOT_GUARD_MAX_MS;
   // A boot-only helper: it also stands down while a game or another page holds the Home.
@@ -452,8 +464,11 @@ export function beginColdBootFocusGuard(orderedShelfIds: string[], nativeRow?: N
     if (focusedIdx > 0) walkBackToEarlierShelf(doc, orderedShelfIds, focusedIdx);
     else if (!gp && shouldReclaim(doc, start, lastClaimAt)) claim();
   };
+  const waitingOnModal = () => isPluginModalOpen() && Date.now() - firstArmedAt < COLD_BOOT_MODAL_WAIT_MAX_MS;
   const tick = () => {
     if (standDown()) { cleanup(); return; }
+    // The windows count again from when the modal closes, and Steam's focus there is never fought.
+    if (waitingOnModal()) { armedAt = Date.now(); start = armedAt; setTimeout(tick, 200); return; }
     if (!doc.querySelector(".ds-card")) start = Date.now();
     if (!nativeRow?.holdsFocus(doc)) correctFocus();
     if (!expired()) { setTimeout(tick, 200); return; }

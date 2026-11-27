@@ -2,6 +2,7 @@ import type { AppOverview } from "./index";
 import type { SmartShelfMode } from "../types";
 import { getParam, type SmartParams } from "./smartParams";
 import { playtimeMinutes, lastPlayedSec, deckCompat, rtAcquired, isGameCandidate } from "./smartAppFields";
+import { localDayIndex } from "./heuristics";
 
 export function resolveQuickPlay(apps: AppOverview[], limit: number, params?: SmartParams): number[] {
   const maxPt = getParam("quick_play", params, "maxPlaytimeMinutes");
@@ -101,7 +102,7 @@ export function resolveTimeOfDay(apps: AppOverview[], limit: number, params?: Sm
 }
 
 export function resolveDailyPick(apps: AppOverview[], limit: number): number[] {
-  const dayIndex = Math.floor(Date.now() / 86400000);
+  const dayIndex = localDayIndex();
   const eligible = apps.filter((a) =>
     isGameCandidate(a) &&
     (a.installed || playtimeMinutes(a) > 0),

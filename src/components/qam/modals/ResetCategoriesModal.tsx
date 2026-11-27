@@ -5,7 +5,7 @@ import {
   SETTINGS_CATEGORIES,
   resetCategoriesInSettings,
 } from "../../../features/settings/settingsCategories";
-import { saveSettings, getCurrentSettings } from "../../../settingsStore";
+import { saveSettings, getCurrentSettings } from "../../../store/settingsStore";
 import { defaultSettings } from "../../../domain/defaults";
 import { resetMountFailed } from "../../../runtime/homePatch";
 

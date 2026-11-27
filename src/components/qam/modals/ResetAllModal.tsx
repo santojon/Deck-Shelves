@@ -2,7 +2,7 @@ import { ConfirmModal } from '../../../runtime/host/decky'
 import { notify } from "../../notify";
 import type { SettingsController } from '../../../features/settings/controller'
 import { resetMountFailed } from '../../../runtime/homePatch'
-import { getCurrentSettings, saveSettings } from '../../../settingsStore'
+import { getCurrentSettings, saveSettings } from '../../../store/settingsStore'
 import { resetCategoriesInSettings } from '../../../features/settings/settingsCategories'
 import { categoryIdsForScope } from '../../../features/settings/categoryScope'
 import { defaultSettings } from '../../../domain/defaults'

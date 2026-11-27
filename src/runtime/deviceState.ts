@@ -88,6 +88,9 @@ export type LibraryEntry = {
   path: string;
   category: 'internal' | 'external' | 'network';
   mounted: boolean;
+  /** The label came from Steam or the volume, not from the folder name. */
+  named: boolean;
+  sdCard: boolean;
 };
 
 let _libraries: LibraryEntry[] = [];
@@ -98,12 +101,16 @@ function normalizeLibraryCategory(raw: unknown): LibraryEntry['category'] {
   return raw === 'internal' || raw === 'network' ? raw : 'external';
 }
 
+function libraryFlags(l: any): Pick<LibraryEntry, 'mounted' | 'named' | 'sdCard'> {
+  return { mounted: l?.mounted === true, named: l?.named !== false, sdCard: l?.sdCard === true };
+}
+
 function parseLibraryEntry(l: any): LibraryEntry | null {
   const id = String(l?.id ?? '');
   if (!id) return null;
   const label = String(l?.label ?? id);
   const path = String(l?.path ?? '');
-  return { id, label, path, category: normalizeLibraryCategory(l?.category), mounted: l?.mounted === true };
+  return { id, label, path, category: normalizeLibraryCategory(l?.category), ...libraryFlags(l) };
 }
 
 function parseLibraryEntries(raw: unknown): LibraryEntry[] {

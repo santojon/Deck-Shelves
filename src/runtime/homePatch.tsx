@@ -443,7 +443,7 @@ export function installHomePatch(_routerHook?: any) {
       if (fallbackShouldYield(doc)) return;
       const mount = ensureFallbackMount();
       if (!mount) return;
-      // Any HomeShelves sets the "react" marker, even the empty bridge, so it can't gate us.
+      // Any React mount sets the "react" marker, even the empty bridge, so it can't gate us.
       if (fallbackRoot && fallbackMountEl === mount && mount.isConnected && fallbackHostEl?.isConnected) return;
       mountFallbackTo(win, mount); recordRemountTry();
     } catch (err) {

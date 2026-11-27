@@ -19,17 +19,11 @@
   "view_more": "Ещё\nв вашей\nбиблиотеке",
   "view_more_store": "Ещё в\nмагазине",
   "view_more_wishlist": "Ещё в\nсписке желаний",
-  "download_update": "Скачать обновление",
-  "update_install": "Установить обновление",
-  "update_installing": "Установка обновления {{version}}…",
-  "update_installed": "Обновлено до версии {{version}}.",
-  "update_install_failed": "Ошибка установки — переход к загрузке.",
-  "update_install_busy": "Проверка обновлений ещё идёт — повторите попытку чуть позже.",
+  "download_update_short": "Скачать",
   "update_downloading": "Загрузка обновления {{version}}…",
   "update_downloaded": "Сохранено в {{path}} — установите вручную.",
   "update_download_failed": "Ошибка загрузки — открывается страница выпуска.",
+  "update_verify_failed": "Не удалось проверить обновление по данным выпуска, поэтому оно не сохранено.",
   "shelf_type_normal": "Обычная",
-  "shelf_type_smart": "Умная",
-  "update_installing_title": "Установка обновления",
-  "update_will_reload": "Новая версия вступит в силу сама через несколько секунд."
+  "shelf_type_smart": "Умная"
 }

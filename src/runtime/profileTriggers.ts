@@ -7,7 +7,7 @@ import { resolveTriggeredProfile, nextProfileTriggerFlip } from '../steam/smartS
 import { notifyUser } from './notify';
 import { qaOverrideActive } from '../qa/harness';
 import { defaultSettings } from '../domain/defaults';
-import { keepShelfFields, keepDeviceLocalFields, stickyShowcaseSeen, FACTORY_PROFILE_ID, FACTORY_PROFILE_NAME } from '../features/settings/controller/profiles';
+import { keepShelfFields, keepDeviceLocalFields, SYNC_BOOKKEEPING_FIELDS, stickyShowcaseSeen, FACTORY_PROFILE_ID, FACTORY_PROFILE_NAME } from '../features/settings/controller/profiles';
 import i18n from '../i18n';
 import type { Settings } from '../types';
 
@@ -129,7 +129,9 @@ function applyByName(name: string): void {
     if (!target.linkShelves) keepShelfFields(next, s);
     keepDeviceLocalFields(next, s);
     keepTriggerFields(next, s);
-    saveIfChanged(next, () => triggerToast(name), true);
+    // Re-applying the profile that is already active (every plugin start) is not a switch worth announcing.
+    const switched = s?.activeProfileName !== target.name;
+    saveIfChanged(next, () => { if (switched) triggerToast(name); }, true);
     rememberApplied(name, next);
   }
 }
@@ -179,7 +181,8 @@ function revertToBaseline(deactivated: string): void {
   clearTriggerState();
   if (!baseline) return;
   const live = getCurrentSettings() as any;
-  const keep = { profiles: live?.profiles ?? (baseline as any).profiles, profileTriggersEnabled: live?.profileTriggersEnabled, factoryProfileTrigger: live?.factoryProfileTrigger };
+  const keep: Record<string, unknown> = { profiles: live?.profiles ?? (baseline as any).profiles, profileTriggersEnabled: live?.profileTriggersEnabled, factoryProfileTrigger: live?.factoryProfileTrigger };
+  for (const f of SYNC_BOOKKEEPING_FIELDS) keep[f] = live?.[f];
   saveIfChanged({ ...baseline, ...keep } as Settings, () => {
     const msg = i18n.t('profile_trigger_deactivated', { name: deactivated });
     notifyUser(i18n.t('plugin_name'), (msg && msg !== 'profile_trigger_deactivated') ? msg : `Profile deactivated: ${deactivated}`, 'profile', 'triggers');

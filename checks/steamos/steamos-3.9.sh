@@ -55,7 +55,7 @@ run_checks() {
     echo "  ✅ FocusNavController/GamepadUI pattern referenced"
     ((pass++))
   else
-    echo "  ⚠️  No FocusNavController reference (check navPatches.ts if applicable)"
+    echo "  ⚠️  No FocusNavController reference (check components/home/navPatches/ if applicable)"
     ((pass++))
   fi
 

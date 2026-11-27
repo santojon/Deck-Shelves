@@ -2,7 +2,7 @@ import { devStamp } from "../../runtime/devStamps";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Focusable } from "../../runtime/host/decky";
-import { getCurrentSettings, subscribeSettings } from "../../settingsStore";
+import { getCurrentSettings, subscribeSettings } from "../../store/settingsStore";
 import { getExternalSideMenuProviders, type SideMenuContext, type SideMenuEntry, type SideMenuProviderDescriptor } from "../../core/pluginApi";
 import type { Settings, Shelf, SmartShelf } from "../../types";
 import { focusElement } from "../../core/focusRestore";

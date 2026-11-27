@@ -4,8 +4,7 @@ import { addShelfToSettings, deleteShelfFromSettings, moveShelf, normalizeFilter
 import { createDefaultShelf, createDefaultSource, randomShelfId } from "../../../domain/defaults";
 import { DEFAULT_SHELF_TEMPLATES } from "../../../domain/templates";
 import { setupPackById, applySetupPack, revertSetupApply } from "../../../domain/setupPacks";
-import { writeJsonFile, readJsonFile } from "../../../settingsStore";
-import { createPreImportSnapshot, createSnapshot } from "../../../store/settingsStore";
+import { writeJsonFile, readJsonFile, createPreImportSnapshot, createSnapshot } from "../../../store/settingsStore";
 import { notify } from "../../../components/notify";
 import { trackFeature } from "../../../steam/usageTracking";
 import { buildSnapshot, applySnapshot, type SnapshotConcept } from "../../../domain/snapshot";

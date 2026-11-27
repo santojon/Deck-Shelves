@@ -1,7 +1,7 @@
 import { devStamp } from "../../runtime/devStamps";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ShelfView } from "../Shelf";
-import { saveSettings, getCurrentSettings } from "../../settingsStore";
+import { saveSettings, getCurrentSettings } from "../../store/settingsStore";
 import { useContainerDragReorder } from "../../core/reorder";
 import { createDeckyPlatform } from "../../runtime/deckyPlatform";
 import { logInfo } from "../../runtime/logger";
@@ -232,8 +232,8 @@ export function ShelvesContainer(props: ShelvesContainerProps) {
       } catch (e) { logInfo("HOME", "focus first shelf failed", String(e)); return false; }
     };
 
-    if (tryFocus()) return () => { cancelled = true; };
-    const stopPoll = startFocusFirstPoll(tryFocus, aRealCardHasFocus);
+    const landed = tryFocus();
+    const stopPoll = startFocusFirstPoll(tryFocus, aRealCardHasFocus, landed);
     return () => { cancelled = true; stopPoll(); };
   }, [hideRecentsSetting, mountEl, shelves?.length, shelvesRevealed]);
 

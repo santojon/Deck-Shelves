@@ -4,7 +4,6 @@ import {
   beginBootPhase, endBootPhase, recordBootWatchdog, getPerfSnapshot, __resetPerfMetricsForTest,
 } from "../../core/perfMetrics";
 import { disposeAll } from "../../runtime/runtimeDisposer";
-import { claimHomeOwnership } from "../../runtime/host/ownerGuard";
 
 const perf = vi.hoisted(() => ({ critical: 0 }));
 vi.mock("../../core/perf", async (importOriginal) => ({
@@ -13,7 +12,6 @@ vi.mock("../../core/perf", async (importOriginal) => ({
 }));
 
 const g = globalThis as any;
-const ownerScope = (): any => g.window ?? g;
 
 function stash(kind: string): void {
   const entry = { kind, dispose: () => {} };
@@ -21,12 +19,10 @@ function stash(kind: string): void {
   (g.__DECK_SHELVES_INSTANCES__ ??= {})[kind] = entry;
 }
 
-function bootInstance(kind: "decky" | "shelveshub"): boolean {
+function bootInstance(kind: string): void {
   markBootStart();
-  const owner = claimHomeOwnership(kind);
   stash(kind);
   recordBootCritical();
-  return owner;
 }
 
 function mountAndWatch(): void {
@@ -48,11 +44,6 @@ describe("perfMetrics boot diagnostics", () => {
     __resetPerfMetricsForTest();
     delete g.__DECK_SHELVES_INSTANCE__;
     delete g.__DECK_SHELVES_INSTANCES__;
-    const w = ownerScope();
-    delete w.__DECK_SHELVES_OWNER__;
-    delete w.__DECK_SHELVES_OWNER_META__;
-    delete w.__SHELVES_FORCE_OWNER__;
-    claimHomeOwnership("decky");
     disposeAll();
   });
   afterEach(() => { vi.unstubAllGlobals(); disposeAll(); });
@@ -141,64 +132,9 @@ describe("perfMetrics boot diagnostics", () => {
       expect(getPerfSnapshot().bootOrigin).toBe("hot-swap");
     });
 
-    it("is cold for the owner of another kind, whatever its sibling did before", () => {
-      ownerScope().__SHELVES_FORCE_OWNER__ = "shelveshub";
-      expect(bootInstance("decky")).toBe(false);
-      expect(bootInstance("shelveshub")).toBe(true);
-      expect(getPerfSnapshot().bootOrigin).toBe("cold");
-    });
-
     it("stays null until the critical path ends (a deferred boot never gets there)", () => {
       markBootStart();
       expect(getPerfSnapshot().bootOrigin).toBeNull();
-    });
-  });
-
-  describe("dual-host install", () => {
-    it("keeps the owner's record when a sibling kind boots and defers to the host", () => {
-      expect(bootInstance("decky")).toBe(true);
-      mountAndWatch();
-      expect(claimHomeOwnership("shelveshub")).toBe(false);
-      markBootStart();
-      const snap = getPerfSnapshot();
-      expect(snap.bootOrigin).toBe("cold");
-      expect(snap.bootPhases.map((p) => p.name)).toEqual(["critical", "mount"]);
-      expect(snap.bootWatchdog).toBe("ok");
-    });
-
-    it("keeps the owner's record when a stood-down sibling runs its whole critical path", () => {
-      bootInstance("decky");
-      mountAndWatch();
-      const before = getPerfSnapshot();
-      markBootStart();
-      expect(claimHomeOwnership("shelveshub")).toBe(false);
-      recordBootWatchdog("off: no Home patch");
-      stash("shelveshub");
-      recordBootCritical();
-      const after = getPerfSnapshot();
-      expect(after.bootOrigin).toBe("cold");
-      expect(after.bootPhases).toEqual(before.bootPhases);
-      expect(after.bootWatchdog).toBe("ok");
-    });
-
-    it("keeps the owner's boot-critical number when a stood-down sibling measures its own", () => {
-      perf.critical = 96;
-      bootInstance("decky");
-      expect(getPerfSnapshot().bootCriticalMs).toBe(96);
-      perf.critical = 7;
-      markBootStart();
-      expect(claimHomeOwnership("shelveshub")).toBe(false);
-      stash("shelveshub");
-      recordBootCritical();
-      expect(getPerfSnapshot().bootCriticalMs).toBe(96);
-    });
-
-    it("still tells the owner kind's own reload apart from its sibling's", () => {
-      bootInstance("decky");
-      bootInstance("shelveshub");
-      disposeAll();
-      expect(bootInstance("decky")).toBe(true);
-      expect(getPerfSnapshot().bootOrigin).toBe("warm");
     });
   });
 

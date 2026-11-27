@@ -2,8 +2,7 @@ import { useEffect, useRef } from 'react';
 import { openManagedModal } from '../../components/qam/common/openManagedModal';
 import { ShowcaseModal } from './ShowcaseModal';
 import { openSetupWizard } from './SetupWizardEntry';
-import { getCurrentSettings } from '../../settingsStore';
-import { isHomeOwner } from '../../runtime/host/ownerGuard';
+import { getCurrentSettings } from '../../store/settingsStore';
 
 // A panel remount while the tour is open must not stack another.
 let tourOpen = false;
@@ -14,8 +13,6 @@ export function useFirstRunShowcase(settings: any, actions: any, controller?: an
     // Gate on loaded settings: the initial default has no `showcaseSeen` and would reopen the tour.
     const loaded = getCurrentSettings();
     if (opened.current || tourOpen || !loaded || (loaded as any).showcaseSeen === true) return;
-    // A stood-down instance can't persist "seen", so only the owner opens the tour.
-    if (!isHomeOwner()) return;
     opened.current = true;
     tourOpen = true;
     openManagedModal((close) => (

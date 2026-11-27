@@ -9,7 +9,7 @@ import {
   detectCategoriesInPayload,
   mergeCategoriesIntoSettings,
 } from "../../../features/settings/settingsCategories";
-import { saveSettings, getCurrentSettings, migrate, createPreImportSnapshot } from "../../../settingsStore";
+import { saveSettings, getCurrentSettings, migrate, createPreImportSnapshot } from "../../../store/settingsStore";
 import { ImportFileStatus, useImportRead } from "./ImportFileStatus";
 import type { ImportRead } from "../../../features/settings/importFile";
 

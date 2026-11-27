@@ -111,7 +111,7 @@ to be checked by hand.
 | 7.6 | `smartShelvesAtBottom=true` → smart shelves appear below standard shelves | Order respected |
 | 7.7 | `smartSurpriseMe=true` → manual list hidden, system picks templates | No manual list in QAM |
 | 7.8 | `smartSurpriseMe=true` + count=0 → system decides count | Variable shelf count |
-| 7.9 | Daily Pick shelf → same result throughout the day | Stable within UTC day |
+| 7.9 | Daily Pick shelf → same result throughout the day | Stable within the local day; changes at local midnight |
 | 7.10 | Edit smart shelf → sort override + filterGroup + smartParams + refreshIntervalMinutes round-trip after save/reload | Persisted; applied on next render |
 | 7.11 | Refreshable smart shelf (`random_pick`, `time_of_day`, `spare_time`, `recently_played`) shows Refresh card at end | Trailing card with refresh icon |
 | 7.12 | Click Refresh card → spin animation runs once + shelf re-resolves | New game order on `random_pick` / `recently_played` |

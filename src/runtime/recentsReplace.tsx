@@ -1,6 +1,6 @@
 import { findInReactTree } from "./host/decky";
 import { installRecentsRowPatch, type RecentsRowContent, type RecentsRowHooks, type RecentsRowPatch, type RecentsRowReport } from "./recentsRowPatch";
-import { getCurrentSettings, subscribeSettings } from "../settingsStore";
+import { getCurrentSettings, subscribeSettings } from "../store/settingsStore";
 import { evalVisibility } from "../steam/smartShelves";
 import { applyManualOrder, manualResolveLimit } from "../steam";
 import { isOnlineSource } from "../domain/sourceUtils";
@@ -8,6 +8,8 @@ import { getPlatform } from "./platformContext";
 import { subscribeShelfRefresh } from "../core/shelfRefresh";
 import { logError, logInfo, logWarn } from "./logger";
 import { notify } from "../components/notify";
+import { focusNativeRecentsFirstCard, nativeRecentsHoldsFocus } from "../features/sidenav/nativeRecentsRow";
+import { getPreferredSteamDocument } from "./steamHost";
 import i18next from "i18next";
 
 type PatchHandle = { uninstall?: () => void } | null;
@@ -310,9 +312,20 @@ function scheduleResolve(shelf: any, origin: any = shelf) {
     .finally(() => { resolvePromise = null; });
 }
 
+// New content replaces the row's tiles; a focused tile that goes away would hand focus to the next shelf.
+const REFOCUS_AFTER_RENDER_MS = 300;
+function renderKeepingRowFocus(): void {
+  let doc: Document | null = null;
+  try { doc = getPreferredSteamDocument(); } catch {}
+  const held = !!doc && nativeRecentsHoldsFocus(doc);
+  safeCall(() => rowPatch?.requestRender());
+  if (!held) return;
+  setTimeout(() => { try { if (!nativeRecentsHoldsFocus(doc as Document)) focusNativeRecentsFirstCard(doc); } catch {} }, REFOCUS_AFTER_RENDER_MS);
+}
+
 // Never re-render while the user is moving through the row, so focus doesn't jump.
 function requestRemount() {
-  if (Date.now() - lastItemFocusAt > FOCUS_GUARD_MS) { safeCall(() => rowPatch?.requestRender()); return; }
+  if (Date.now() - lastItemFocusAt > FOCUS_GUARD_MS) { renderKeepingRowFocus(); return; }
   if (remountTimer) return;
   remountTimer = setTimeout(() => { remountTimer = null; requestRemount(); }, FOCUS_GUARD_MS);
 }

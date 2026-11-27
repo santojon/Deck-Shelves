@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { readJsonFile } from '../../../settingsStore'
+import { readJsonFile } from '../../../store/settingsStore'
 import { readImportFile, type ImportRead, type ImportScope } from '../../../features/settings/importFile'
 
 export function useImportRead(path: string, scope: ImportScope): ImportRead | null {

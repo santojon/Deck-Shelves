@@ -33,12 +33,18 @@ export function otherAccountCount(s: Settings | null): number {
   return Object.keys(acc.buckets ?? {}).filter((k) => k !== acc.owner).length;
 }
 
+const CONTENT_FIELDS = ["shelves", "smartShelves", "savedFilters", "savedSmartFilters", "profiles"] as const;
+
+function holdsAccountContent(s: Settings): boolean {
+  return CONTENT_FIELDS.some((f) => { const v = (s as any)[f]; return Array.isArray(v) && v.length > 0; });
+}
+
 export function decideAccount(s: Settings | null, key: string, previous: string | undefined): AccountDecision {
   if (!s || !isPerAccount(s)) return "none";
   const acc = accountSettingsOf(s);
   if (acc.owner === key) return "none";
   // Older settings may belong to someone else; take them only if this account used the device last.
-  if (!acc.owner) return previous === key ? "assign" : "ask-legacy";
+  if (!acc.owner) return previous === key || !holdsAccountContent(s) ? "assign" : "ask-legacy";
   return acc.buckets?.[key] ? "restore" : "ask-new";
 }
 

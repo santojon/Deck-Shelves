@@ -5,7 +5,7 @@ import i18next from 'i18next'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defaultSettings } from '../../domain/defaults'
 
-type Install = { options: Record<string, any>; uninstall: ReturnType<typeof vi.fn>; ownerAtInstall: unknown }
+type Install = { options: Record<string, any>; uninstall: ReturnType<typeof vi.fn> }
 
 const edge = vi.hoisted(() => {
   const installs: Install[] = []
@@ -26,8 +26,7 @@ const edge = vi.hoisted(() => {
     requestSettingsFileRead: vi.fn(),
     installOwnQamTab: vi.fn((options: Record<string, any>) => {
       const uninstall = vi.fn()
-      const scope = globalThis as any
-      installs.push({ options, uninstall, ownerAtInstall: (scope.window ?? scope).__DECK_SHELVES_OWNER__ })
+      installs.push({ options, uninstall })
       return uninstall
     }),
     off: () => () => {},
@@ -75,24 +74,12 @@ vi.mock('../../components/Settings', async (importOriginal) => {
 
 type LoaderEntry = { name: string; title: ReactNode; titleView: ReactNode; content: ReactNode; icon: ReactNode; onDismount: () => void }
 
-const GLOBALS_SET_BY_START = [
-  '__DECK_SHELVES_INSTANCES__', '__DECK_SHELVES_INSTANCE__', '__DECK_SHELVES_OWNER__', '__DECK_SHELVES_OWNER_META__',
-  '__SHELVES_QAM_PENDING__', '__DECK_SHELVES_DEFER_TO_HOST__', '__DECK_SHELVES_HOST_BUNDLE_BOOTED__',
-]
+const GLOBALS_SET_BY_START = ['__DECK_SHELVES_INSTANCES__', '__DECK_SHELVES_INSTANCE__']
 const scope = () => { const g = globalThis as any; return g.window ?? g }
 const markup = (node: ReactNode) => renderToStaticMarkup(node as any)
 
 function loaderServerApi() {
   return { routerHook: { addRoute: vi.fn(), removeRoute: vi.fn() } }
-}
-
-function neutralHostRuntime() {
-  return {
-    notifications: { toast: () => {} },
-    lifecycle: { register: () => ({ dispose: () => {} }), onMount: () => {}, onUnmount: () => {} },
-    routerHook: { addRoute: () => {}, removeRoute: () => {} },
-    handshake: () => null,
-  }
 }
 
 async function loadPlugin(): Promise<(serverAPI?: unknown) => unknown> {
@@ -133,16 +120,15 @@ afterEach(() => {
 })
 
 describe('own Quick Access tab, installed by the plugin entry', () => {
-  it('a start under the loader alone installs it once, after the renderer is claimed, with the plugin\'s title and icon, the reader and the subscription, and no role option', async () => {
+  it('a start under the loader installs it once, with the plugin\'s title and icon, the reader and the subscription, and no role option', async () => {
     const entry = await startUnderLoader()
     expect(edge.installOwnQamTab).toHaveBeenCalledTimes(1)
-    const { options, ownerAtInstall } = edge.installs[0]
+    const { options } = edge.installs[0]
     expect(Object.keys(options).sort()).toEqual(['icon', 'isEnabled', 'renderPanel', 'subscribe', 'title'])
     expect(options.title).toBe(i18next.t('menu_deck_shelves'))
     expect(options.title).toBe('Deck Shelves')
     expect(markup(entry.icon)).toContain(' style="width:18px;height:18px"')
     expect(markup(options.icon)).toBe(markup(entry.icon).replace(' style="width:18px;height:18px"', ''))
-    expect(ownerAtInstall).toBe('decky')
   })
 
   it('the subscription waits for the settings file, then reports every change', async () => {
@@ -234,10 +220,9 @@ describe('own Quick Access tab, installed by the plugin entry', () => {
     expect(isEnabled()).toBe(true)
   })
 
-  it('the panel factory is the one the neutral host\'s tab gets: the title row, then the settings editor', async () => {
+  it('the panel factory gives the title row, then the settings editor', async () => {
     const entry = await startUnderLoader()
     const { renderPanel } = edge.installs[0].options
-    expect(scope().__SHELVES_QAM_PENDING__.map((panel: any) => panel.content)).toEqual([renderPanel])
     const titleRow = markup(entry.titleView)
     const editor = markup(entry.content)
     expect(titleRow).toContain('Deck Shelves')
@@ -319,49 +304,17 @@ describe('own Quick Access tab, installed by the plugin entry', () => {
 
 describe('own Quick Access tab, where the start installs it', () => {
   const expectBooted = (entry: LoaderEntry) => expect(entry.titleView).toBeDefined()
-  const withNeutralHost = () => {
-    const bridge = { registerPanel: vi.fn() }
-    vi.stubGlobal('__SHELVES_HOST__', neutralHostRuntime())
-    vi.stubGlobal('__SHELVES_QAM__', bridge)
-    return bridge
-  }
 
   it('the loader alone: installed', async () => {
     expectBooted(await startUnderLoader())
     expect(edge.installOwnQamTab).toHaveBeenCalledTimes(1)
   })
 
-  it('the neutral host alone: not installed', async () => {
-    const bridge = withNeutralHost()
-    await loadPlugin()
-    expect(scope().__DECK_SHELVES_INSTANCES__?.shelveshub).toBeDefined()
-    expect(bridge.registerPanel).toHaveBeenCalledTimes(1)
-    expect(edge.installOwnQamTab).not.toHaveBeenCalled()
-  })
-
-  it('both hosts: not installed', async () => {
-    vi.stubGlobal('DFL', {})
-    const bridge = withNeutralHost()
+  it('a leftover global from another host changes nothing: the loader boots and installs it', async () => {
+    vi.stubGlobal('__SHELVES_HOST__', { notifications: { toast: () => {} } })
+    vi.stubGlobal('__SHELVES_QAM__', { registerPanel: vi.fn() })
     expectBooted(await startUnderLoader())
-    expect(scope().__DECK_SHELVES_OWNER__).toBe('decky')
-    expect(bridge.registerPanel).toHaveBeenCalledTimes(1)
-    expect(edge.installOwnQamTab).not.toHaveBeenCalled()
-  })
-
-  it('cooperative ownership: not installed', async () => {
-    vi.stubGlobal('DFL', {})
-    vi.stubGlobal('__SHELVES_FORCE_OWNER__', 'shelveshub')
-    const bridge = withNeutralHost()
-    expectBooted(await startUnderLoader())
-    expect(scope().__DECK_SHELVES_OWNER__).toBe('shelveshub')
-    expect(bridge.registerPanel).toHaveBeenCalledTimes(1)
-    expect(edge.installOwnQamTab).not.toHaveBeenCalled()
-  })
-
-  it('a copy that does not own the renderer: not installed', async () => {
-    vi.stubGlobal('__DECK_SHELVES_OWNER__', 'shelveshub')
-    expectBooted(await startUnderLoader())
-    expect(scope().__DECK_SHELVES_OWNER__).toBe('shelveshub')
-    expect(edge.installOwnQamTab).not.toHaveBeenCalled()
+    expect(scope().__DECK_SHELVES_INSTANCES__?.decky).toBeDefined()
+    expect(edge.installOwnQamTab).toHaveBeenCalledTimes(1)
   })
 })

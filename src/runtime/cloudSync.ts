@@ -3,7 +3,6 @@
 import { getCurrentSettings, saveSettings, subscribeSettings } from "../store/settingsStore";
 import { mergeSettings, LOCAL_ONLY_FIELDS } from "../domain/settingsMerge";
 import { takeSnapshot } from "../features/settings/controller/profiles";
-import { isHomeOwner } from "./host/ownerGuard";
 import { notifyUser } from "./notify";
 import { qaOverrideActive } from "../qa/harness";
 import { accountReady, isCloudSyncHeldForAccount, markCloudSyncedAccount, onCloudSyncResumed } from "./steamAccount";
@@ -61,6 +60,32 @@ function preparePayload(settings: Settings, active: string | null): Record<strin
 
 function payloadJson(settings: Settings, active: string | null): string {
   return JSON.stringify(preparePayload(settings, active));
+}
+
+const CLOCK_KEYS = new Set(["rev", "updatedAt", "preferencesUpdatedAt", "syncTombstones"]);
+
+// False and empty values read the same as an absent field (the backend sanitizer drops them).
+function isEmpty(v: unknown): boolean {
+  if (v === false) return true;
+  if (Array.isArray(v)) return v.every((x) => x === false);
+  return !!v && typeof v === "object" && Object.keys(v).length === 0;
+}
+
+// Sorted keys, no clocks and no false or empty values: the same content always gives the same text.
+function withoutClocks(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(withoutClocks);
+  if (!value || typeof value !== "object") return value;
+  const out: Record<string, unknown> = {};
+  for (const k of Object.keys(value).sort()) {
+    const v = (value as Record<string, unknown>)[k];
+    if (!CLOCK_KEYS.has(k) && !isEmpty(v)) out[k] = withoutClocks(v);
+  }
+  return out;
+}
+
+// Clocks and key order move on every merge; only a change the user can see is worth a toast.
+function visibleChange(before: Settings, after: Settings, active: string | null): boolean {
+  return JSON.stringify(withoutClocks(preparePayload(before, active))) !== JSON.stringify(withoutClocks(preparePayload(after, active)));
 }
 
 function remoteOf(cloud: CloudPayload | null): Remote {
@@ -164,7 +189,7 @@ export function installCloudSync(): () => void {
   }
 
   function canSync(): boolean {
-    return !disposed && isHomeOwner() && hasCloudSyncSupport() && !isCloudSyncHeldForAccount();
+    return !disposed && hasCloudSyncSupport() && !isCloudSyncHeldForAccount();
   }
 
   async function publish(toPublish: Settings, active: string | null, cloud: CloudPayload | null, remote: Remote): Promise<number | null> {
@@ -184,7 +209,7 @@ export function installCloudSync(): () => void {
     if (adopted) {
       lastKnownJson = mergedPayload; // suppress the re-entrant push from the adopt save
       await saveSettings(merged, { fromSync: true });
-      notifyUser(i18n.t("plugin_name"), i18n.t("cloud_sync_applied"), "import", "cloudSync");
+      if (visibleChange(local, merged, plan.localActive)) notifyUser(i18n.t("plugin_name"), i18n.t("cloud_sync_applied"), "import", "cloudSync");
     }
     const at = await publish(plan.toPublish, plan.publishActive, cloud, remote);
     if (!at) return;
@@ -196,7 +221,7 @@ export function installCloudSync(): () => void {
   }
 
   function schedulePush(s: Settings): void {
-    if (disposed || !hasCloudSyncSupport() || !isHomeOwner()) return;
+    if (disposed || !hasCloudSyncSupport()) return;
     const json = payloadJson(s, activeNameOf(s));
     if (json === lastKnownJson) return;
     if (debounceTimer) clearTimeout(debounceTimer);

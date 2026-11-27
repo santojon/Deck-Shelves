@@ -25,16 +25,34 @@ export const LOCAL_ONLY_FIELDS = [
 
 function clk(e: Entity): number { return typeof e.updatedAt === "number" ? e.updatedAt : 0; }
 
-// Order-independent tiebreak so merge(a, b) === merge(b, a).
+// The backend sanitizer drops false and empty fields, so a copy holding them explicitly says the same thing.
+function isBlank(v: unknown): boolean {
+  if (v === false || v === null || v === undefined) return true;
+  if (Array.isArray(v)) return v.every((x) => x === false);
+  return typeof v === "object" && Object.keys(v as object).length === 0;
+}
+
+function canonicalJson(e: object): string {
+  const rec = e as Record<string, unknown>;
+  return JSON.stringify(Object.keys(rec).sort().filter((k) => !isBlank(rec[k])).map((k) => [k, rec[k]]));
+}
+
+// Order-independent tiebreak so merge(a, b) === merge(b, a); between equal copies the sanitized (shorter) one wins.
 function pickNewer<T extends Entity>(a: T, b: T): T {
   const ca = clk(a), cb = clk(b);
   if (ca !== cb) return ca > cb ? a : b;
-  return JSON.stringify(a) >= JSON.stringify(b) ? a : b;
+  const ja = JSON.stringify(a), jb = JSON.stringify(b);
+  if (ja.length !== jb.length && canonicalJson(a) === canonicalJson(b)) return ja.length < jb.length ? a : b;
+  return ja >= jb ? a : b;
 }
 
-function mergeTombstones(a: Tombstones, b: Tombstones): Tombstones {
+export const TOMBSTONE_TTL_MS = 60 * 24 * 60 * 60 * 1000;
+
+// Expired marks are dropped here as well as on a local save, or the two copies never agree.
+function mergeTombstones(a: Tombstones, b: Tombstones, now: number): Tombstones {
   const out: Tombstones = { ...a };
   for (const [id, t] of Object.entries(b)) out[id] = Math.max(out[id] ?? 0, t);
+  for (const [id, t] of Object.entries(out)) if (now - t > TOMBSTONE_TTL_MS) delete out[id];
   return out;
 }
 
@@ -103,7 +121,7 @@ export function mergeSettings(local: Settings, remote: Settings, opts?: { scalar
   const out: any = { ...base };
   keepHigherSchemaVersion(out, la, rb);
 
-  const tombstones = mergeTombstones(la.syncTombstones ?? {}, rb.syncTombstones ?? {});
+  const tombstones = mergeTombstones(la.syncTombstones ?? {}, rb.syncTombstones ?? {}, Date.now());
   out.syncTombstones = tombstones;
   out.preferencesUpdatedAt = clock;
 

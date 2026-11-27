@@ -3,7 +3,7 @@ import { BTN_COMPACT_STYLE } from '../../ui/buttonStyles'
 import { confirmAction } from '../modals/ConfirmActionModal'
 import { notify } from '../../notify'
 import { resetCategoriesInSettings } from '../../../features/settings/settingsCategories'
-import { saveSettings, getCurrentSettings } from '../../../settingsStore'
+import { saveSettings, getCurrentSettings } from '../../../store/settingsStore'
 import { defaultSettings } from '../../../domain/defaults'
 
 type T = (k: string) => string

@@ -54,22 +54,51 @@ def _find_libraryfolders_vdf() -> Optional[str]:
     return None
 
 
-def _mount_fstype(path: str, mounts_file: str = "/proc/mounts") -> str:
+def _mount_entry(path: str, mounts_file: str = "/proc/mounts") -> tuple:
     # The longest /proc/mounts mount point containing the path owns it, as findmnt decides.
     try:
         with open(mounts_file, encoding="utf-8", errors="ignore") as fh:
             lines = fh.readlines()
     except OSError:
-        return ""
-    best_mount, best_fstype = "", ""
+        return "", ""
+    best_mount, best_source, best_fstype = "", "", ""
     for line in lines:
         parts = line.split()
         if len(parts) < 3:
             continue
-        mount_point, fstype = parts[1], parts[2]
+        source, mount_point, fstype = parts[0], parts[1], parts[2]
         if (path == mount_point or path.startswith(mount_point.rstrip("/") + "/")) and len(mount_point) >= len(best_mount):
-            best_mount, best_fstype = mount_point, fstype
-    return best_fstype.lower()
+            best_mount, best_source, best_fstype = mount_point, source, fstype
+    return best_source, best_fstype.lower()
+
+
+def _mount_fstype(path: str, mounts_file: str = "/proc/mounts") -> str:
+    return _mount_entry(path, mounts_file)[1]
+
+
+def _is_sd_card(source: str) -> bool:
+    # The Deck's card slot is the MMC block device.
+    return os.path.basename(source).startswith("mmcblk")
+
+
+def _unescape_udev(name: str) -> str:
+    # udev writes unsafe bytes in by-label names as \xNN.
+    raw = re.sub(rb"\\x([0-9a-fA-F]{2})", lambda m: bytes([int(m.group(1), 16)]), name.encode("utf-8", "surrogateescape"))
+    return raw.decode("utf-8", "replace")
+
+
+def _volume_label(source: str, labels_dir: str = "/dev/disk/by-label") -> str:
+    if not source.startswith("/dev/"):
+        return ""
+    try:
+        names = os.listdir(labels_dir)
+        target = os.path.realpath(source)
+        for name in names:
+            if os.path.realpath(os.path.join(labels_dir, name)) == target:
+                return _unescape_udev(name).strip()
+    except OSError:
+        return ""
+    return ""
 
 
 def _categorize(path: str, default_root: Optional[str]) -> str:
@@ -81,7 +110,7 @@ def _categorize(path: str, default_root: Optional[str]) -> str:
 
 
 def get_library_locations() -> Dict[str, Any]:
-    """`{ libraries: [{id, label, path, category, mounted}], appLibrary:
+    """`{ libraries: [{id, label, named, sdCard, path, category, mounted}], appLibrary:
     {"<appid>": libraryId} }`. Never raises — `supported: False` (and both
     lists empty) when `libraryfolders.vdf` can't be found or read."""
     vdf_path = _find_libraryfolders_vdf()
@@ -107,11 +136,17 @@ def get_library_locations() -> Dict[str, Any]:
         if not isinstance(path, str) or not path:
             continue
         library_id = entry.get("contentid") or key
+        source = _mount_entry(path)[0]
+        category = _categorize(path, default_root)
+        # The internal library's volume is the system's own partition, so its folder name reads better.
+        named = entry.get("label") or ("" if category == "internal" else _volume_label(source))
         libraries.append({
             "id": library_id,
-            "label": entry.get("label") or os.path.basename(path.rstrip("/\\")) or path,
+            "label": named or os.path.basename(path.rstrip("/\\")) or path,
+            "named": bool(named),
+            "sdCard": _is_sd_card(source),
             "path": path,
-            "category": _categorize(path, default_root),
+            "category": category,
             "mounted": os.path.isdir(path),
         })
         apps = entry.get("apps")

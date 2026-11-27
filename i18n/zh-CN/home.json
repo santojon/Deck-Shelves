@@ -19,17 +19,11 @@
   "view_more": "在库中\n查看更多",
   "view_more_store": "查看更多\n在商店",
   "view_more_wishlist": "查看更多\n在愿望单",
-  "download_update": "下载更新",
-  "update_install": "安装更新",
-  "update_installing": "正在安装更新 {{version}}…",
-  "update_installed": "已更新到 {{version}}。",
-  "update_install_failed": "安装失败 — 正在改为下载。",
-  "update_install_busy": "仍在检查更新 — 请稍后重试。",
+  "download_update_short": "下载",
   "update_downloading": "正在下载更新 {{version}}…",
   "update_downloaded": "已保存到 {{path}} — 请手动安装。",
   "update_download_failed": "下载失败 — 改为打开发布页面。",
+  "update_verify_failed": "无法根据发布信息校验此更新，因此未保存。",
   "shelf_type_normal": "普通",
-  "shelf_type_smart": "智能",
-  "update_installing_title": "正在安装更新",
-  "update_will_reload": "新版本将在几秒钟后自动生效。"
+  "shelf_type_smart": "智能"
 }

@@ -1,8 +1,9 @@
 import { getCurrentSettings, saveSettings } from "../store/settingsStore";
-import { addShelfToSettings, moveShelf as moveShelfInSettings, patchShelfInSettings } from "../domain/settings";
+import { addShelfToSettings, patchShelfInSettings } from "../domain/settings";
 import { randomShelfId } from "../domain/defaults";
+import { moveAmongShown, unifiedShelfIds } from "../domain/shelfOrder";
 import { getFrontendLib } from "../runtime/host/decky";
-import type { Shelf, SmartShelf } from "../types";
+import type { Settings, Shelf, SmartShelf } from "../types";
 
 function isSmartShelfId(id: string): boolean {
   const s = getCurrentSettings();
@@ -12,7 +13,7 @@ function isSmartShelfId(id: string): boolean {
 
 export function clearOnlineShelfCache(): void {
   const keys = [
-    "ds-store-cache-v1",
+    "ds-store-cache-v3",
     "ds-wishlist-cache-v1",
     "ds-price-cache-v1",
     "ds-game-name-cache-v1",
@@ -36,20 +37,37 @@ export async function toggleShelfHiddenById(id: string): Promise<void> {
   await saveSettings(patchShelfInSettings(s, id, { hidden: !shelf.hidden }));
 }
 
-export async function moveShelfById(id: string, direction: -1 | 1): Promise<void> {
+// The Home's menu moves a shelf past the next one the Home shows, in the list the QAM shows.
+type ShownCheck = (id: string) => boolean;
+
+export function shownByFlags(s: Settings): ShownCheck {
+  const all = [...(s.shelves ?? []), ...(s.smartShelves ?? [])];
+  const shown = new Set(all.filter((sh: any) => sh.enabled !== false && sh.hidden !== true).map((sh) => sh.id));
+  return (id) => shown.has(id);
+}
+
+function reorderById<T extends { id: string }>(list: T[], ids: string[]): T[] {
+  const byId = new Map(list.map((item) => [item.id, item] as const));
+  return ids.map((id) => byId.get(id)).filter((item): item is T => !!item);
+}
+
+function shelfMoveList(s: Settings, id: string): string[] {
+  if (s.unifiedListEnabled === true) return unifiedShelfIds(s);
+  return (isSmartShelfId(id) ? s.smartShelves ?? [] : s.shelves).map((sh) => sh.id);
+}
+
+export async function moveShelfById(id: string, direction: -1 | 1, shown?: ShownCheck): Promise<void> {
   const s = getCurrentSettings();
   if (!s) return;
-  if (isSmartShelfId(id)) {
-    const list = [...(s.smartShelves ?? [])];
-    const idx = list.findIndex((sh) => sh.id === id);
-    if (idx < 0) return;
-    const target = idx + direction;
-    if (target < 0 || target >= list.length) return;
-    [list[idx], list[target]] = [list[target], list[idx]];
-    await saveSettings({ ...s, smartShelves: list });
-    return;
-  }
-  await saveSettings(moveShelfInSettings(s, id, direction));
+  const ids = moveAmongShown(shelfMoveList(s, id), id, direction, shown ?? shownByFlags(s));
+  if (!ids) return;
+  if (s.unifiedListEnabled === true) await saveSettings({ ...s, allShelvesOrder: ids });
+  else if (isSmartShelfId(id)) await saveSettings({ ...s, smartShelves: reorderById(s.smartShelves ?? [], ids) });
+  else await saveSettings({ ...s, shelves: reorderById(s.shelves, ids) });
+}
+
+export function canMoveShelf(s: Settings, id: string, direction: -1 | 1, shown?: ShownCheck): boolean {
+  return moveAmongShown(shelfMoveList(s, id), id, direction, shown ?? shownByFlags(s)) !== null;
 }
 
 export async function duplicateShelfById(id: string, copySuffix: string): Promise<void> {

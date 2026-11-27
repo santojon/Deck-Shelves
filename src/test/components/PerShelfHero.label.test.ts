@@ -9,6 +9,16 @@ vi.mock('../../runtime/sessionState', () => ({
   subscribeSessionState: () => () => {},
 }))
 
+const artLookups = vi.hoisted(() => ({ portrait: vi.fn(), landscape: vi.fn() }))
+vi.mock('../../core/steamAssets', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../core/steamAssets')>()
+  return {
+    ...actual,
+    getPortraitUrls: (appid: number) => { artLookups.portrait(appid); return actual.getPortraitUrls(appid) },
+    getLandscapeUrls: (appid: number) => { artLookups.landscape(appid); return actual.getLandscapeUrls(appid) },
+  }
+})
+
 let root: Root
 let shelf: HTMLDivElement
 let card: HTMLDivElement
@@ -37,6 +47,8 @@ beforeEach(() => {
   document.body.append(shelf)
   containerRef = { current: shelf }
   root = createRoot(mount)
+  artLookups.portrait.mockClear()
+  artLookups.landscape.mockClear()
 })
 
 afterEach(async () => {
@@ -161,5 +173,14 @@ describe('PerShelfHero label observer', () => {
     source.textContent = 'Changed after unmount'
     await frames()
     expect(raf).not.toHaveBeenCalled()
+  })
+})
+
+describe('PerShelfHero art loading', () => {
+  it('does not look up the cards\' art in the background after mounting', async () => {
+    await render()
+    await act(async () => { await vi.advanceTimersByTimeAsync(5000) })
+    expect(artLookups.portrait).not.toHaveBeenCalled()
+    expect(artLookups.landscape).not.toHaveBeenCalled()
   })
 })

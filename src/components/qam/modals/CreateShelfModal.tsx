@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ConfirmModal, DialogButton, Focusable, Tabs } from "../../../runtime/host/decky";
+import { ConfirmModal, DialogButton, Focusable } from "../../../runtime/host/decky";
 import { ModalShell } from "../../ui";
 import type { SettingsController } from "../../../features/settings/controller";
 import { SHELF_TEMPLATES, ONLINE_SHELF_TEMPLATES, coveredTemplateIds, templateSourceForOrigin, type ShelfTemplate, type ShelfTemplateCategory } from "../../../domain/templates";
@@ -8,6 +8,7 @@ import { resolveStatSuggestions } from "../../../core/statSuggestions";
 import { SMART_TEMPLATES } from "./smartTemplates";
 import { EditShelfModal } from "./EditShelfModal";
 import { EditSmartShelfModal } from "./EditSmartShelfModal";
+import { EditorTabs } from "./editShelf/EditorTabs";
 import { SHELF_TPL_ICON, SMART_TPL_ICON } from "./templateIcons";
 import { SparkleIcon } from "../../icons";
 import { openManagedModal } from "../common/openManagedModal";
@@ -66,24 +67,22 @@ export function CreateShelfModal({ closeModal, controller, initialTab = "standar
         onOK={() => closeModal?.()}
         onCancel={() => closeModal?.()}
       >
-        <div style={{ height: "min(560px, 65vh)", display: "flex", flexDirection: "column" }}>
-          <Tabs
-            activeTab={tab}
-            onShowTab={(id: string) => setTab(id as "standard" | "smart")}
-            tabs={[
-              {
-                id: "standard",
-                title: t("create_shelf_tab_standard" as any) || "Standard",
-                content: <StandardPanel controller={controller} closeModal={closeModal} />,
-              },
-              {
-                id: "smart",
-                title: t("create_shelf_tab_smart" as any) || "Smart",
-                content: <SmartPanel controller={controller} closeModal={closeModal} />,
-              },
-            ]}
-          />
-        </div>
+        <EditorTabs
+          activeTab={tab}
+          onShowTab={(id: string) => setTab(id as "standard" | "smart")}
+          tabs={[
+            {
+              id: "standard",
+              title: t("create_shelf_tab_standard" as any) || "Standard",
+              content: <StandardPanel controller={controller} closeModal={closeModal} />,
+            },
+            {
+              id: "smart",
+              title: t("create_shelf_tab_smart" as any) || "Smart",
+              content: <SmartPanel controller={controller} closeModal={closeModal} />,
+            },
+          ]}
+        />
       </ConfirmModal>
     </ModalShell>
   );
@@ -140,7 +139,7 @@ function StandardPanel({ controller, closeModal }: { controller: SettingsControl
     openManagedModal((close) => <EditShelfModal closeModal={close} controller={controller} shelf={draft} mode="create" />);
   };
   return (
-    <Focusable style={{ padding: 8, maxHeight: "calc(min(560px, 65vh) - 60px)", overflowY: "auto" }}>
+    <Focusable style={{ padding: 8 }}>
       <div style={{ marginBottom: 12, paddingBottom: 8, borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
         <DialogButton
           style={btnStyle}
@@ -238,7 +237,7 @@ function SmartPanel({ controller, closeModal }: { controller: SettingsController
     openManagedModal((close) => <EditSmartShelfModal closeModal={close} controller={controller} shelf={draft} mode="create" />);
   };
   return (
-    <Focusable style={{ padding: 8, maxHeight: "calc(min(560px, 65vh) - 60px)", overflowY: "auto" }}>
+    <Focusable style={{ padding: 8 }}>
       <div style={{ marginBottom: 12, paddingBottom: 8, borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
         <DialogButton
           style={btnStyle}

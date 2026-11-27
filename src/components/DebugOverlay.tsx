@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { getCurrentSettings } from "../settingsStore";
+import { getCurrentSettings } from "../store/settingsStore";
 import { getAllSteamDocuments } from "../runtime/steamHost";
 import { getDeviceState } from "../runtime/deviceState";
 import { getSessionState } from "../runtime/sessionState";

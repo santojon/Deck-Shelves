@@ -4,7 +4,6 @@ import {
   DropdownItem,
   Field,
   Focusable,
-  Tabs,
   ToggleField,
   type SingleDropdownOption,
 } from '../../../runtime/host/decky'
@@ -35,6 +34,7 @@ import { useModalCollections } from './editShelf/useModalCollections'
 import { TabLabel } from './editShelf/TabLabel'
 import { SortField } from './editShelf/SortField'
 import { EditShelfFrame } from './editShelf/EditShelfFrame'
+import { EditorTabs } from './editShelf/EditorTabs'
 import {
   patchSourceOrder,
   primarySortKey,
@@ -63,7 +63,7 @@ import {
   type ChildSourceType,
 } from './editShelf/compositeSourceUtils'
 import { buildInitialShelfState } from './editShelf/buildInitialState'
-import { smartModeName } from './editShelf/smartModes'
+import { smartModeChoices, smartModeName } from './editShelf/smartModes'
 import { SourceOrderFields, pluginSortChoices } from './editShelf/SourceSortField'
 import { SourceOrderPreview, useSourceOrdering } from './editShelf/SourceOrderPreview'
 import { visualFlagsOf, applyVisualPatch, previewHideFlags, removableTail } from './editShelf/sharedEditProps'
@@ -85,6 +85,9 @@ const readsOnCombinedResult = (group: FilterGroup) => unsupportedPostFilterType(
 
 const missingDataNote = (count: number, t: (key: any) => string) => (count > 0 ? t('preview_missing_data') : undefined)
 
+type ModalTab = EditTab | 'behavior'
+const MODAL_TABS: ModalTab[] = ['source', 'filters', 'childFilters', 'visual', 'display', 'decoration', 'behavior']
+
 function resolvePlatformTabs(controllerTabs: unknown): import('../../../runtime/platform').PlatformTab[] {
   return Array.isArray(controllerTabs) && controllerTabs.length > 0
     ? (controllerTabs as import('../../../runtime/platform').PlatformTab[])
@@ -102,10 +105,9 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
     buildInitialShelfState({ shelf, mode, collections, platformTabs, externalSources }),
   )
   const hasNonSteamBadges = useMemo(() => isNonSteamBadgesAvailable(), [])
-  const [activeTab, setActiveTab] = useState<EditTab>(() => {
+  const [activeTab, setActiveTab] = useState<ModalTab>(() => {
     const t = consumePendingShelfModalTab()
-    const valid = ['source', 'filters', 'childFilters', 'visual', 'display', 'decoration']
-    if (t && valid.includes(t)) return t as EditTab
+    if (t && (MODAL_TABS as string[]).includes(t)) return t as ModalTab
     return 'source'
   })
   const [previewFocusedIndex, setPreviewFocusedIndex] = useState<number>(0)
@@ -138,6 +140,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
            value === 'wishlist' ? <span style={{ display:'inline-flex',alignItems:'center',gap:4 }}><OnlineIcon size={14} style={{ opacity:0.7 }} />{t('source_wishlist')}</span> as any :
            value === 'store' ? <span style={{ display:'inline-flex',alignItems:'center',gap:4 }}><OnlineIcon size={14} style={{ opacity:0.7 }} />{t('source_store')}</span> as any :
            value === 'builtin' ? t('source_builtin') :
+           value === 'smart' ? t('source_smart') :
            t('source_filter'),
   }))
   const tabOptions: SingleDropdownOption[] = platformTabs
@@ -327,6 +330,8 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
             bottomSeparator='thick'
           />
         )
+      case 'smart':
+        return <DropdownItem label={t('source_smart')} rgOptions={smartModeChoices((k, o) => String(t(k as any, o as any)), state.smartMode)} selectedOption={state.smartMode} onChange={(opt: unknown) => setState((prev) => ({ ...prev, smartMode: String(optionData(opt)) }))} bottomSeparator='thick' />
       case 'wishlist':
         return <div style={{ padding: '8px 2px 4px', fontSize: 12, opacity: 0.75, lineHeight: 1.5 }}>{t('source_wishlist_hint')}</div>
       case 'store':
@@ -501,17 +506,16 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
       previewCount={previewCount}
       onSave={handleSave}
       onClose={closeModal}
-      tabsOverflow='auto'
       tabs={(
-          <Tabs
+          <EditorTabs
             activeTab={activeTab}
-            onShowTab={(id: string) => setActiveTab(id as EditTab)}
+            onShowTab={(id: string) => setActiveTab(id as ModalTab)}
             tabs={[
               {
                 id: 'source',
                 title: t('edit_tab_source'),
                 content: (
-                  <FieldContainer scrollable>
+                  <FieldContainer>
                     <DropdownItem label={t('source')} rgOptions={sourceTypeOptions} selectedOption={state.sourceType} onChange={(opt: unknown) => changeSourceType(String(optionData(opt)) as SourceType)} bottomSeparator='thick' />
                     {renderPrimarySourcePicker()}
                     {perSourceSort && (
@@ -613,6 +617,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
                         </>
                       )
                     })()}
+                    <ToggleField label={t('edit_dedupe_by_name' as any)} checked={state.dedupeByExactName} onChange={(v: boolean) => setState((prev) => ({ ...prev, dedupeByExactName: v }))} />
                     {renderSortControls()}
                     <DSSliderField
                       label={t('limit')}
@@ -750,6 +755,25 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
                 ),
               },
               {
+                id: 'display',
+                title: (<TabLabel icon={<EyeIcon />} text={t('edit_tab_display')} />) as unknown as string,
+                content: (
+                  <DisplayTabContent
+                    t={t}
+                    display={{ hideStatusLine: state.hideStatusLine, hideNewBadge: state.hideNewBadge, hideDiscountBadge: state.hideDiscountBadge, hideCompatIcons: state.hideCompatIcons, hideNonSteamBadge: state.hideNonSteamBadge, hideShelfTitle: state.hideShelfTitle, hideGameNames: state.hideGameNames === true, hideInstallIndicator: state.hideInstallIndicator === true, hideSeeMore: state.hideSeeMore === true, hideRefreshCard: state.hideRefreshCard === true }}
+                    setDisplay={(patch: any) => setState((prev) => { const next = { ...prev, ...patch }; if (patch.hideShelfTitle === false && (prev as any).gameInfoAbove) next.gameInfoAbove = false; return next; })}
+                    hasNonSteamBadges={hasNonSteamBadges}
+                    discountBadgeMode={state.discountBadgeMode}
+                    setDiscountBadgeMode={(v) => setState((prev) => ({ ...prev, discountBadgeMode: v }))}
+                    discountBadgeFocusMode={state.discountBadgeFocusMode}
+                    setDiscountBadgeFocusMode={(v) => setState((prev) => ({ ...prev, discountBadgeFocusMode: v }))}
+                    setHiddenAppIds={(next) => setState((prev) => ({ ...prev, hiddenAppIds: next }))}
+                    hiddenPickerOpen={hiddenPickerOpen}
+                    setHiddenPickerOpen={setHiddenPickerOpen}
+                  />
+                ),
+              },
+              {
                 id: 'decoration',
                 title: t('edit_tab_decoration'),
                 content: (
@@ -775,31 +799,16 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
                 ),
               },
               {
-                id: 'display',
-                title: (<TabLabel icon={<EyeIcon />} text={t('edit_tab_display')} />) as unknown as string,
+                id: 'behavior',
+                title: t('edit_tab_auto' as any),
                 content: (
-                  <>
-                  <DisplayTabContent
-                    t={t}
-                    display={{ hideStatusLine: state.hideStatusLine, hideNewBadge: state.hideNewBadge, hideDiscountBadge: state.hideDiscountBadge, hideCompatIcons: state.hideCompatIcons, hideNonSteamBadge: state.hideNonSteamBadge, hideShelfTitle: state.hideShelfTitle, hideGameNames: state.hideGameNames === true, hideInstallIndicator: state.hideInstallIndicator === true, hideSeeMore: state.hideSeeMore === true, hideRefreshCard: state.hideRefreshCard === true }}
-                    setDisplay={(patch: any) => setState((prev) => { const next = { ...prev, ...patch }; if (patch.hideShelfTitle === false && (prev as any).gameInfoAbove) next.gameInfoAbove = false; return next; })}
-                    hasNonSteamBadges={hasNonSteamBadges}
-                    discountBadgeMode={state.discountBadgeMode}
-                    setDiscountBadgeMode={(v) => setState((prev) => ({ ...prev, discountBadgeMode: v }))}
-                    discountBadgeFocusMode={state.discountBadgeFocusMode}
-                    setDiscountBadgeFocusMode={(v) => setState((prev) => ({ ...prev, discountBadgeFocusMode: v }))}
-                    dedupeByExactName={state.dedupeByExactName}
-                    setDedupeByExactName={(v) => setState((prev) => ({ ...prev, dedupeByExactName: v }))}
-                    setHiddenAppIds={(next) => setState((prev) => ({ ...prev, hiddenAppIds: next }))}
-                    hiddenPickerOpen={hiddenPickerOpen}
-                    setHiddenPickerOpen={setHiddenPickerOpen}
-                  />
-                  <Field label={t('visibility_autopin_label' as any)} description={t('visibility_autopin_desc' as any)} />
-                  <VisibilityRulesEditor value={state.autoPin} onChange={(v) => setState((prev) => ({ ...prev, autoPin: v }))} t={t as any} idPrefix="pin" />
-                  <Field label={t('visibility_autocollapse_label' as any)} description={t('visibility_autocollapse_desc' as any)} />
-                  <ToggleField label={t('visibility_autocollapse_empty' as any)} checked={state.autoCollapseWhenEmpty === true} onChange={(v: boolean) => setState((prev) => ({ ...prev, autoCollapseWhenEmpty: v }))} />
-                  <VisibilityRulesEditor value={state.autoCollapse} onChange={(v) => setState((prev) => ({ ...prev, autoCollapse: v }))} t={t as any} idPrefix="col" />
-                  </>
+                  <FieldContainer>
+                    <Field label={t('visibility_autopin_label' as any)} description={t('visibility_autopin_desc' as any)} />
+                    <VisibilityRulesEditor value={state.autoPin} onChange={(v) => setState((prev) => ({ ...prev, autoPin: v }))} t={t as any} idPrefix="pin" />
+                    <Field label={t('visibility_autocollapse_label' as any)} description={t('visibility_autocollapse_desc' as any)} />
+                    <ToggleField label={t('visibility_autocollapse_empty' as any)} checked={state.autoCollapseWhenEmpty === true} onChange={(v: boolean) => setState((prev) => ({ ...prev, autoCollapseWhenEmpty: v }))} />
+                    <VisibilityRulesEditor value={state.autoCollapse} onChange={(v) => setState((prev) => ({ ...prev, autoCollapse: v }))} t={t as any} idPrefix="col" />
+                  </FieldContainer>
                 ),
               },
             ]}

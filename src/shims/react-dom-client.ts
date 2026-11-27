@@ -1,7 +1,5 @@
 const g = globalThis as any;
 const w = g.window as any;
-// Same sole-host fallback as the React shim; loader globals win when both are present.
-const shelvesHost = w?.__SHELVES_HOST__ ?? g.__SHELVES_HOST__ ?? null;
 
 const CANDIDATES = [
   g.SP_REACTDOM_CLIENT,
@@ -16,7 +14,6 @@ const CANDIDATES = [
   g.ReactDOM,
   w?.SP_REACTDOM,
   w?.ReactDOM,
-  shelvesHost?.ReactDOM,
 ].filter(Boolean);
 
 const RENDERER_FNS = ["createRoot", "hydrateRoot", "render"] as const;

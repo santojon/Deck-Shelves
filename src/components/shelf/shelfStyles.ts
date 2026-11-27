@@ -625,6 +625,19 @@ export function globalStylesStop() {
   }
 }
 
+const ROOT_VARS = ["--ds-card-radius", "--ds-new-badge-radius", "--ds-page-bg", "--ds-native-heading-color"];
+
+// The stylesheet and root variables outlive the Home's mounts, so only the plugin teardown takes them out.
+export function removeGlobalStyles(): void {
+  const docs = collectStyleDocs();
+  const vars = [...ROOT_VARS, ...nativeDimVarEntries().map(([k]) => k)];
+  for (const doc of docs) {
+    try { doc.getElementById(STYLE_ID)?.remove(); } catch {}
+    try { for (const k of vars) doc.documentElement.style.removeProperty(k); } catch {}
+  }
+  try { removeFocusRingStyle(docs); } catch {}
+}
+
 export function formatPlaytime(minutes: number | undefined): string | null {
   if (!minutes || minutes <= 0) return null;
   if (minutes < 60) return `${minutes}min`;
